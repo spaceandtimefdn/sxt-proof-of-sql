@@ -35,6 +35,12 @@ pub(crate) use group_by_exec::GroupByExec;
 #[cfg(all(test, feature = "blitzar"))]
 mod group_by_exec_test;
 
+mod aggregate_exec;
+pub(crate) use aggregate_exec::AggregateExec;
+
+#[cfg(all(test, feature = "blitzar"))]
+mod aggregate_exec_test;
+
 mod slice_exec;
 pub(crate) use slice_exec::SliceExec;
 #[cfg(all(test, feature = "blitzar"))]
