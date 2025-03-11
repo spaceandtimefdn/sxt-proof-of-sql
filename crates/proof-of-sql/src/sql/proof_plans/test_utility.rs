@@ -1,11 +1,12 @@
 use super::{
-    DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec,
-    TableExec, UnionExec,
+    AggregateExec, DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec,
+    SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::database::{ColumnField, ColumnType, TableRef},
     sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
 };
+use alloc::boxed::Box;
 use sqlparser::ast::Ident;
 
 pub fn column_field(name: &str, column_type: ColumnType) -> ColumnField {
@@ -48,6 +49,27 @@ pub fn group_by(
         count_alias.into(),
         table,
         where_clause,
+    ))
+}
+
+/// # Panics
+///
+/// Will panic if `count_alias` cannot be parsed as a valid identifier.
+pub fn aggregate(
+    group_by_exprs: Vec<AliasedDynProofExpr>,
+    sum_exprs: Vec<AliasedDynProofExpr>,
+    count_alias: &str,
+    input: Box<DynProofPlan>,
+    where_clause: DynProofExpr,
+    is_top_level: bool,
+) -> DynProofPlan {
+    DynProofPlan::Aggregate(AggregateExec::new(
+        group_by_exprs,
+        sum_exprs,
+        input,
+        where_clause,
+        count_alias.into(),
+        is_top_level,
     ))
 }
 
