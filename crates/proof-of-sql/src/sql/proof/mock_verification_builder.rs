@@ -80,6 +80,12 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
         Ok(res)
     }
 
+    fn try_consume_byte_distribution(
+        &mut self,
+    ) -> Result<crate::base::byte::ByteDistribution, ProofSizeMismatch> {
+        unimplemented!("No tests currently use this function")
+    }
+
     fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
         let length = self
             .rho_evaluation_length_queue
@@ -357,6 +363,23 @@ mod tests {
             .try_consume_first_round_mle_evaluation()
             .unwrap();
         assert_eq!(negative_two, -TestScalar::TWO);
+    }
+
+    #[should_panic(expected = "No tests currently use this function")]
+    #[test]
+    fn we_can_get_unimplemented_error_for_try_consume_byte_distribution() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        verification_builder
+            .try_consume_byte_distribution()
+            .unwrap();
     }
 
     #[test]

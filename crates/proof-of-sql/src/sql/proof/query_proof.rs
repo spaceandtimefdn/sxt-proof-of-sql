@@ -6,6 +6,7 @@ use super::{
 use crate::{
     base::{
         bit::BitDistribution,
+        byte::ByteDistribution,
         commitment::{Commitment, CommitmentEvaluationProof, CommittableColumn},
         database::{
             ColumnRef, CommitmentAccessor, DataAccessor, LiteralValue, MetadataAccessor,
@@ -63,6 +64,8 @@ pub struct FirstRoundMessage<C> {
     pub rho_evaluation_lengths: Vec<usize>,
     /// First Round Commitments
     pub round_commitments: Vec<C>,
+    /// First Round byte distribution
+    pub round_byte_distributions: Vec<ByteDistribution>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -185,6 +188,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             rho_evaluation_lengths: rho_evaluation_lengths.to_vec(),
             post_result_challenge_count,
             round_commitments: first_round_commitments,
+            round_byte_distributions: first_round_builder.byte_distributions().to_vec(),
         };
         transcript.extend_serialize_as_le(&first_round_message);
 
@@ -453,6 +457,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let mut builder = VerificationBuilderImpl::new(
             sumcheck_evaluations,
             &self.final_round_message.bit_distributions,
+            &self.first_round_message.round_byte_distributions,
             sumcheck_random_scalars.subpolynomial_multipliers,
             post_result_challenges,
             self.first_round_message.chi_evaluation_lengths.clone(),
