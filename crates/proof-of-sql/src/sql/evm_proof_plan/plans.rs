@@ -314,10 +314,10 @@ impl EVMSliceExec {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMGroupByExec {
     table_number: usize,
+    where_clause: EVMDynProofExpr,
     group_by_exprs: Vec<usize>,
     sum_expr: Vec<EVMDynProofExpr>,
     count_alias_name: String,
-    where_clause: EVMDynProofExpr,
 }
 
 impl EVMGroupByExec {

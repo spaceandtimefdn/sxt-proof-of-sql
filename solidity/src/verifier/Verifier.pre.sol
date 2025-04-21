@@ -315,6 +315,21 @@ library Verifier {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function compute_groupby_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+                plan_ptr_out,
+                g_in_fold,
+                g_out_fold,
+                sum_in_fold,
+                sum_out_fold,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
