@@ -54,9 +54,9 @@ pub(crate) use not_expr::NotExpr;
 mod not_expr_test;
 
 mod numerical_util;
-pub(crate) use numerical_util::{add_subtract_columns, multiply_columns};
-#[cfg(test)]
-pub(crate) use numerical_util::{divide_columns, modulo_columns};
+pub(crate) use numerical_util::{
+    add_subtract_columns, divide_columns, modulo_columns, multiply_columns,
+};
 
 mod equals_expr;
 pub(crate) use equals_expr::EqualsExpr;
