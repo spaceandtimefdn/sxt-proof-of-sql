@@ -66,6 +66,7 @@ zerocopy = { workspace = true }
 arrow-csv = { workspace = true }
 hex = { workspace = true }
 merlin = { workspace = true }
+mockall = "0.13.1"
 rand = { workspace = true, default-features = false, features = ["std"] }
 rand_core = { workspace = true, default-features = false }
 serde_json = { workspace = true }

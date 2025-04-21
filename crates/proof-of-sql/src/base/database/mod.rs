@@ -16,8 +16,9 @@ mod column_type_operation;
 pub use column_type_operation::{
     can_and_or_types, can_not_type, try_add_subtract_column_types,
     try_add_subtract_column_types_with_scaling, try_cast_types, try_divide_column_types,
-    try_equals_types, try_equals_types_with_scaling, try_inequality_types,
-    try_inequality_types_with_scaling, try_multiply_column_types, try_scale_cast_types,
+    try_divide_modulo_column_types, try_equals_types, try_equals_types_with_scaling,
+    try_inequality_types, try_inequality_types_with_scaling, try_multiply_column_types,
+    try_scale_cast_types,
 };
 
 mod column_arithmetic_operation;
