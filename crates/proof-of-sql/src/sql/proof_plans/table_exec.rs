@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct TableExec {
     /// Table reference
-    pub table_ref: TableRef,
+    table_ref: TableRef,
     /// Schema of the table
     pub schema: Vec<ColumnField>,
 }
@@ -32,6 +32,11 @@ impl TableExec {
     #[must_use]
     pub fn new(table_ref: TableRef, schema: Vec<ColumnField>) -> Self {
         Self { table_ref, schema }
+    }
+    
+    /// Returns a reference to the table reference
+    pub fn table_ref(&self) -> &TableRef {
+        &self.table_ref
     }
 }
 

@@ -9,14 +9,14 @@ mod aliased_dyn_proof_expr;
 pub use aliased_dyn_proof_expr::AliasedDynProofExpr;
 
 mod add_expr;
-pub(crate) use add_expr::AddExpr;
+pub use add_expr::AddExpr;
 mod subtract_expr;
-pub(crate) use subtract_expr::SubtractExpr;
+pub use subtract_expr::SubtractExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod add_subtract_expr_test;
 
 mod multiply_expr;
-pub(crate) use multiply_expr::MultiplyExpr;
+pub use multiply_expr::MultiplyExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod multiply_expr_test;
 
@@ -24,7 +24,7 @@ mod dyn_proof_expr;
 pub use dyn_proof_expr::DynProofExpr;
 
 mod literal_expr;
-pub(crate) use literal_expr::LiteralExpr;
+pub use literal_expr::LiteralExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod literal_expr_test;
 
@@ -34,7 +34,7 @@ pub(crate) use placeholder_expr::PlaceholderExpr;
 mod placeholder_expr_test;
 
 mod and_expr;
-pub(crate) use and_expr::AndExpr;
+pub use and_expr::AndExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod and_expr_test;
 
@@ -44,12 +44,12 @@ use inequality_expr::InequalityExpr;
 mod inequality_expr_test;
 
 mod or_expr;
-pub(crate) use or_expr::OrExpr;
+pub use or_expr::OrExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod or_expr_test;
 
 mod not_expr;
-pub(crate) use not_expr::NotExpr;
+pub use not_expr::NotExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod not_expr_test;
 
@@ -59,7 +59,7 @@ pub(crate) use numerical_util::{add_subtract_columns, multiply_columns};
 pub(crate) use numerical_util::{divide_columns, modulo_columns};
 
 mod equals_expr;
-pub(crate) use equals_expr::EqualsExpr;
+pub use equals_expr::EqualsExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod equals_expr_test;
 

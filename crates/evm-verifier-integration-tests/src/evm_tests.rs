@@ -1,13 +1,13 @@
-use crate::{
+use crate::EVMProofPlan;
+use proof_of_sql::{
     base::database::{
         owned_table_utility::{bigint, owned_table},
         CommitmentAccessor, OwnedTableTestAccessor,
     },
     proof_primitive::hyperkzg::{self, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof},
     sql::{
-        evm_proof_plan::EVMProofPlan,
         parse::QueryExpr,
-        proof::{ProofPlan, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_plans::DynProofPlan,
     },
 };

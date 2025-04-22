@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 /// Provable AST expression for an equals expression
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EqualsExpr {
-    pub(crate) lhs: Box<DynProofExpr>,
-    pub(crate) rhs: Box<DynProofExpr>,
+    lhs: Box<DynProofExpr>,
+    rhs: Box<DynProofExpr>,
 }
 
 impl EqualsExpr {
@@ -35,6 +35,16 @@ impl EqualsExpr {
                 left_type: left_datatype.to_string(),
                 right_type: right_datatype.to_string(),
             })
+    }
+    
+    /// Get the left-hand side expression
+    pub fn lhs(&self) -> &DynProofExpr {
+        &self.lhs
+    }
+
+    /// Get the right-hand side expression
+    pub fn rhs(&self) -> &DynProofExpr {
+        &self.rhs
     }
 }
 

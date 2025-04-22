@@ -1,7 +1,7 @@
-use crate::{
+use crate::EVMProofPlan;
+use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
     sql::{
-        evm_proof_plan::EVMProofPlan,
         proof_exprs::{
             AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr, TableExpr,
         },

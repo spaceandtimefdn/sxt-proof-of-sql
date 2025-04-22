@@ -1,12 +1,18 @@
 use super::{EVMProofPlanError, EVMProofPlanResult};
-use crate::{
-    base::{
-        database::{ColumnRef, LiteralValue},
-        map::IndexSet,
-    },
+use indexmap::IndexSet;
+use proof_of_sql::{
+    base::database::{ColumnRef, LiteralValue},
     sql::proof_exprs::{
-        AddExpr, AndExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr, MultiplyExpr, NotExpr,
-        OrExpr, SubtractExpr,
+        AddExpr, 
+        AndExpr, 
+        ColumnExpr, 
+        DynProofExpr, 
+        EqualsExpr, 
+        LiteralExpr, 
+        MultiplyExpr, 
+        NotExpr,
+        OrExpr, 
+        SubtractExpr,
     },
 };
 use alloc::boxed::Box;
@@ -14,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents an expression that can be serialized for EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) enum EVMDynProofExpr {
+pub enum EVMDynProofExpr {
     Column(EVMColumnExpr),
     Literal(EVMLiteralExpr),
     Equals(EVMEqualsExpr),
@@ -27,7 +33,7 @@ pub(crate) enum EVMDynProofExpr {
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &DynProofExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
@@ -63,7 +69,7 @@ impl EVMDynProofExpr {
         }
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<DynProofExpr> {
@@ -101,29 +107,29 @@ impl EVMDynProofExpr {
 
 /// Represents a column expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMColumnExpr {
+pub struct EVMColumnExpr {
     column_number: usize,
 }
 
 impl EVMColumnExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(column_number: usize) -> Self {
+    pub fn new(column_number: usize) -> Self {
         Self { column_number }
     }
 
     /// Try to create a `EVMColumnExpr` from a `ColumnExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &ColumnExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             column_number: column_refs
-                .get_index_of(&expr.column_ref)
+                .get_index_of(expr.column_ref())
                 .ok_or(EVMProofPlanError::ColumnNotFound)?,
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<ColumnExpr> {
@@ -138,24 +144,24 @@ impl EVMColumnExpr {
 
 /// Represents a literal expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) enum EVMLiteralExpr {
+pub enum EVMLiteralExpr {
     BigInt(i64),
 }
 impl EVMLiteralExpr {
     #[expect(dead_code)]
-    pub(crate) fn new(value: i64) -> Self {
+    pub fn new(value: i64) -> Self {
         Self::BigInt(value)
     }
 
     /// Try to create a `EVMLiteralExpr` from a `LiteralExpr`.
-    pub(crate) fn try_from_proof_expr(expr: &LiteralExpr) -> EVMProofPlanResult<Self> {
-        match expr.value {
+    pub fn try_from_proof_expr(expr: &LiteralExpr) -> EVMProofPlanResult<Self> {
+        match expr.value() {
             LiteralValue::BigInt(value) => Ok(EVMLiteralExpr::BigInt(value)),
             _ => Err(EVMProofPlanError::NotSupported),
         }
     }
 
-    pub(crate) fn to_proof_expr(&self) -> LiteralExpr {
+    pub fn to_proof_expr(&self) -> LiteralExpr {
         match self {
             EVMLiteralExpr::BigInt(value) => LiteralExpr::new(LiteralValue::BigInt(*value)),
         }
@@ -164,14 +170,14 @@ impl EVMLiteralExpr {
 
 /// Represents an equals expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMEqualsExpr {
+pub struct EVMEqualsExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMEqualsExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -179,23 +185,23 @@ impl EVMEqualsExpr {
     }
 
     /// Try to create an `EVMEqualsExpr` from a `EqualsExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &EqualsExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMEqualsExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<EqualsExpr> {
@@ -208,14 +214,14 @@ impl EVMEqualsExpr {
 
 /// Represents an addition expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMAddExpr {
+pub struct EVMAddExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMAddExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -223,23 +229,23 @@ impl EVMAddExpr {
     }
 
     /// Try to create an `EVMAddExpr` from a `AddExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &AddExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMAddExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<AddExpr> {
@@ -252,14 +258,14 @@ impl EVMAddExpr {
 
 /// Represents a subtraction expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMSubtractExpr {
+pub struct EVMSubtractExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMSubtractExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -267,23 +273,23 @@ impl EVMSubtractExpr {
     }
 
     /// Try to create an `EVMSubtractExpr` from a `SubtractExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &SubtractExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMSubtractExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<SubtractExpr> {
@@ -296,14 +302,14 @@ impl EVMSubtractExpr {
 
 /// Represents a multiplication expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMMultiplyExpr {
+pub struct EVMMultiplyExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMMultiplyExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -311,7 +317,7 @@ impl EVMMultiplyExpr {
     }
 
     /// Try to create an `EVMMultiplyExpr` from a `MultiplyExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &MultiplyExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
@@ -327,7 +333,7 @@ impl EVMMultiplyExpr {
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<MultiplyExpr> {
@@ -340,14 +346,14 @@ impl EVMMultiplyExpr {
 
 /// Represents an AND expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMAndExpr {
+pub struct EVMAndExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMAndExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -355,7 +361,7 @@ impl EVMAndExpr {
     }
 
     /// Try to create an `EVMAndExpr` from a `AndExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &AndExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
@@ -371,7 +377,7 @@ impl EVMAndExpr {
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<AndExpr> {
@@ -384,14 +390,14 @@ impl EVMAndExpr {
 
 /// Represents an OR expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMOrExpr {
+pub struct EVMOrExpr {
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
 }
 
 impl EVMOrExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
+    pub fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
         Self {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -399,7 +405,7 @@ impl EVMOrExpr {
     }
 
     /// Try to create an `EVMOrExpr` from a `OrExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &OrExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
@@ -415,7 +421,7 @@ impl EVMOrExpr {
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<OrExpr> {
@@ -428,20 +434,20 @@ impl EVMOrExpr {
 
 /// Represents a NOT expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMNotExpr {
+pub struct EVMNotExpr {
     expr: Box<EVMDynProofExpr>,
 }
 
 impl EVMNotExpr {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(expr: EVMDynProofExpr) -> Self {
+    pub fn new(expr: EVMDynProofExpr) -> Self {
         Self {
             expr: Box::new(expr),
         }
     }
 
     /// Try to create an `EVMNotExpr` from a `NotExpr`.
-    pub(crate) fn try_from_proof_expr(
+    pub fn try_from_proof_expr(
         expr: &NotExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
@@ -453,7 +459,7 @@ impl EVMNotExpr {
         })
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub fn try_into_proof_expr(
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<NotExpr> {
@@ -466,7 +472,7 @@ impl EVMNotExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
+    use proof_of_sql::{
         base::{
             database::{ColumnType, TableRef},
             map::indexset,

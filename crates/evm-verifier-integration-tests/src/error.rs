@@ -1,9 +1,9 @@
-use crate::sql::AnalyzeError;
+use proof_of_sql::sql::AnalyzeError;
 use snafu::Snafu;
 
 /// Represents errors that can occur in the EVM proof plan module.
 #[derive(Snafu, Debug, PartialEq)]
-pub(crate) enum EVMProofPlanError {
+pub enum EVMProofPlanError {
     /// Error indicating that the plan is not supported.
     #[snafu(display("plan not yet supported"))]
     NotSupported,
@@ -25,4 +25,4 @@ pub(crate) enum EVMProofPlanError {
 }
 
 /// Result type for EVM proof plan operations.
-pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+pub type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;

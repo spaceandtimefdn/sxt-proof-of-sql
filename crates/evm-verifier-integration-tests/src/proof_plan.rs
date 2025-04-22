@@ -1,28 +1,20 @@
 use super::{plans::EVMDynProofPlan, EVMProofPlanError, EVMProofPlanResult};
-use crate::{
-    base::{
-        database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableRef,
-        },
-        map::{IndexMap, IndexSet},
-        proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
-    },
-    sql::{
-        proof::{
-            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
-        },
-        proof_plans::DynProofPlan,
-    },
-};
 use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bumpalo::Bump;
 use core::str::FromStr;
 use itertools::Itertools;
+use indexmap::{IndexMap, IndexSet};
+use proof_of_sql::{
+    base::database::{
+        ColumnField, ColumnRef, ColumnType, TableRef,
+    },
+    sql::{
+        proof::ProofPlan,
+        proof_plans::DynProofPlan,
+    },
+};
 use serde::{Deserialize, Serialize, Serializer};
 use sqlparser::ast::Ident;
 
@@ -65,9 +57,10 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
     type Error = EVMProofPlanError;
 
     fn try_from(value: &EVMProofPlan) -> Result<Self, Self::Error> {
-        let table_refs = value.get_table_references();
-        let column_refs = value.get_column_references();
+        let table_refs = value.inner.get_table_references();
+        let column_refs = value.inner.get_column_references();
         let output_column_names = value
+            .inner
             .get_column_result_fields()
             .iter()
             .map(|field| field.name().to_string())
@@ -146,50 +139,5 @@ impl<'de> Deserialize<'de> for EVMProofPlan {
         CompactPlan::deserialize(deserializer)?
             .try_into()
             .map_err(serde::de::Error::custom)
-    }
-}
-
-impl ProofPlan for EVMProofPlan {
-    fn verifier_evaluate<S: Scalar>(
-        &self,
-        builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
-        result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
-        params: &[LiteralValue],
-    ) -> Result<TableEvaluation<S>, ProofError> {
-        self.inner()
-            .verifier_evaluate(builder, accessor, result, chi_eval_map, params)
-    }
-    fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.inner().get_column_result_fields()
-    }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        self.inner().get_column_references()
-    }
-    fn get_table_references(&self) -> IndexSet<TableRef> {
-        self.inner().get_table_references()
-    }
-}
-impl ProverEvaluate for EVMProofPlan {
-    fn first_round_evaluate<'a, S: Scalar>(
-        &self,
-        builder: &mut FirstRoundBuilder<'a, S>,
-        alloc: &'a Bump,
-        table_map: &IndexMap<TableRef, Table<'a, S>>,
-        params: &[LiteralValue],
-    ) -> PlaceholderResult<Table<'a, S>> {
-        self.inner()
-            .first_round_evaluate(builder, alloc, table_map, params)
-    }
-    fn final_round_evaluate<'a, S: Scalar>(
-        &self,
-        builder: &mut FinalRoundBuilder<'a, S>,
-        alloc: &'a Bump,
-        table_map: &IndexMap<TableRef, Table<'a, S>>,
-        params: &[LiteralValue],
-    ) -> PlaceholderResult<Table<'a, S>> {
-        self.inner()
-            .final_round_evaluate(builder, alloc, table_map, params)
     }
 }

@@ -16,7 +16,7 @@ use sqlparser::ast::Ident;
 /// Note: this is currently limited to named column expressions.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct ColumnExpr {
-    pub(crate) column_ref: ColumnRef,
+    column_ref: ColumnRef,
 }
 
 impl ColumnExpr {
@@ -30,6 +30,11 @@ impl ColumnExpr {
     #[must_use]
     pub fn get_column_reference(&self) -> ColumnRef {
         self.column_ref.clone()
+    }
+    
+    /// Returns a reference to the column ref
+    pub fn column_ref(&self) -> &ColumnRef {
+        &self.column_ref
     }
 
     /// Wrap the column output name and its type within the [`ColumnField`]

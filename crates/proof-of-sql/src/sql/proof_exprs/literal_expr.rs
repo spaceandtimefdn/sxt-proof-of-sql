@@ -25,13 +25,18 @@ use serde::{Deserialize, Serialize};
 /// changes, and the performance is sufficient for present.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LiteralExpr {
-    pub(crate) value: LiteralValue,
+    value: LiteralValue,
 }
 
 impl LiteralExpr {
     /// Create literal expression
     pub fn new(value: LiteralValue) -> Self {
         Self { value }
+    }
+    
+    /// Returns a reference to the contained value
+    pub fn value(&self) -> &LiteralValue {
+        &self.value
     }
 }
 

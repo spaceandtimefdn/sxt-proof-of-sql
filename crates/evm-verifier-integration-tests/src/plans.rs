@@ -1,12 +1,17 @@
 use super::{EVMDynProofExpr, EVMProofPlanError, EVMProofPlanResult};
-use crate::{
-    base::{
-        database::{ColumnField, ColumnRef, TableRef},
-        map::IndexSet,
-    },
+use indexmap::IndexSet;
+use proof_of_sql::{
+    base::database::{ColumnField, ColumnRef, TableRef},
     sql::{
         proof_exprs::{AliasedDynProofExpr, TableExpr},
-        proof_plans::{DynProofPlan, EmptyExec, FilterExec, ProjectionExec, SliceExec, TableExec},
+        proof_plans::{
+            DynProofPlan, 
+            EmptyExec,
+            FilterExec, 
+            ProjectionExec, 
+            SliceExec, 
+            TableExec
+        },
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -15,7 +20,7 @@ use sqlparser::ast::Ident;
 
 /// Represents a plan that can be serialized for EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) enum EVMDynProofPlan {
+pub enum EVMDynProofPlan {
     Filter(EVMFilterExec),
     Empty(EVMEmptyExec),
     Table(EVMTableExec),
@@ -25,11 +30,15 @@ pub(crate) enum EVMDynProofPlan {
 
 impl EVMDynProofPlan {
     /// Try to create a `EVMDynProofPlan` from a `DynProofPlan`.
-    pub(crate) fn try_from_proof_plan(
+    pub fn try_from_proof_plan<S1, S2>(
         plan: &DynProofPlan,
-        table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
-    ) -> EVMProofPlanResult<Self> {
+        table_refs: &IndexSet<TableRef, S1>,
+        column_refs: &IndexSet<ColumnRef, S2>,
+    ) -> EVMProofPlanResult<Self> 
+    where
+        S1: std::hash::BuildHasher,
+        S2: std::hash::BuildHasher,
+    {
         match plan {
             DynProofPlan::Empty(empty_exec) => {
                 Ok(Self::Empty(EVMEmptyExec::try_from_proof_plan(empty_exec)))
@@ -53,12 +62,17 @@ impl EVMDynProofPlan {
         }
     }
 
-    pub(crate) fn try_into_proof_plan(
+    pub fn try_into_proof_plan<S1, S2, S3>(
         &self,
-        table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<DynProofPlan> {
+        table_refs: &IndexSet<TableRef, S1>,
+        column_refs: &IndexSet<ColumnRef, S2>,
+        output_column_names: &IndexSet<String, S3>,
+    ) -> EVMProofPlanResult<DynProofPlan> 
+    where
+        S1: std::hash::BuildHasher,
+        S2: std::hash::BuildHasher,
+        S3: std::hash::BuildHasher,
+    {
         match self {
             EVMDynProofPlan::Empty(_empty_exec) => {
                 Ok(DynProofPlan::Empty(EVMEmptyExec::try_into_proof_plan()))
@@ -85,44 +99,51 @@ impl EVMDynProofPlan {
 
 /// Represents a empty execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMEmptyExec {}
+pub struct EVMEmptyExec {}
 
 impl EVMEmptyExec {
     /// Create a `EVMEmptyExec` from a `EmptyExec`.
-    pub(crate) fn try_from_proof_plan(_plan: &EmptyExec) -> Self {
+    pub fn try_from_proof_plan(_plan: &EmptyExec) -> Self {
         Self {}
     }
 
     /// Convert into a proof plan
-    pub(crate) fn try_into_proof_plan() -> EmptyExec {
+    pub fn try_into_proof_plan() -> EmptyExec {
         EmptyExec::new()
     }
 }
 
 /// Represents a table execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMTableExec {
+pub struct EVMTableExec {
     table_number: usize,
 }
 
 impl EVMTableExec {
     /// Try to create a `EVMTableExec` from a `TableExec`.
-    pub(crate) fn try_from_proof_plan(
+    pub fn try_from_proof_plan<S>(
         plan: &TableExec,
-        table_refs: &IndexSet<TableRef>,
-    ) -> EVMProofPlanResult<Self> {
+        table_refs: &IndexSet<TableRef, S>,
+    ) -> EVMProofPlanResult<Self>
+    where
+        S: std::hash::BuildHasher,
+    {
         Ok(Self {
             table_number: table_refs
-                .get_index_of(&plan.table_ref)
+                .get_index_of(&plan.table_ref())
                 .ok_or(EVMProofPlanError::TableNotFound)?,
         })
     }
 
-    pub(crate) fn try_into_proof_plan(
+    pub fn try_into_proof_plan<S1, S2>(
         &self,
-        table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
-    ) -> EVMProofPlanResult<TableExec> {
+        table_refs: &IndexSet<TableRef, S1>,
+        column_refs: &IndexSet<ColumnRef, S2>,
+    ) -> EVMProofPlanResult<TableExec>
+    where
+        S1: std::hash::BuildHasher,
+        S2: std::hash::BuildHasher,
+    {
         let table_ref = table_refs
             .get_index(self.table_number)
             .cloned()
@@ -141,7 +162,7 @@ impl EVMTableExec {
 
 /// Represents a filter execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMFilterExec {
+pub struct EVMFilterExec {
     table_number: usize,
     where_clause: EVMDynProofExpr,
     results: Vec<EVMDynProofExpr>,
@@ -149,30 +170,39 @@ pub(crate) struct EVMFilterExec {
 
 impl EVMFilterExec {
     /// Try to create a `FilterExec` from a `proof_plans::FilterExec`.
-    pub(crate) fn try_from_proof_plan(
+    pub fn try_from_proof_plan<S1, S2>(
         plan: &FilterExec,
-        table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
-    ) -> EVMProofPlanResult<Self> {
+        table_refs: &IndexSet<TableRef, S1>,
+        column_refs: &IndexSet<ColumnRef, S2>,
+    ) -> EVMProofPlanResult<Self>
+    where
+        S1: std::hash::BuildHasher,
+        S2: std::hash::BuildHasher,
+    {
         Ok(Self {
             table_number: table_refs
-                .get_index_of(&plan.table.table_ref)
+                .get_index_of(&plan.table_ref())
                 .ok_or(EVMProofPlanError::TableNotFound)?,
             results: plan
-                .aliased_results
+                .aliased_results()
                 .iter()
                 .map(|result| EVMDynProofExpr::try_from_proof_expr(&result.expr, column_refs))
                 .collect::<Result<_, _>>()?,
-            where_clause: EVMDynProofExpr::try_from_proof_expr(&plan.where_clause, column_refs)?,
+            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
         })
     }
 
-    pub(crate) fn try_into_proof_plan(
+    pub fn try_into_proof_plan<S1, S2, S3>(
         &self,
-        table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<FilterExec> {
+        table_refs: &IndexSet<TableRef, S1>,
+        column_refs: &IndexSet<ColumnRef, S2>,
+        output_column_names: &IndexSet<String, S3>,
+    ) -> EVMProofPlanResult<FilterExec>
+    where
+        S1: std::hash::BuildHasher,
+        S2: std::hash::BuildHasher,
+        S3: std::hash::BuildHasher,
+    {
         Ok(FilterExec::new(
             self.results
                 .iter()
@@ -197,14 +227,14 @@ impl EVMFilterExec {
 
 /// Represents a projection execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMProjectionExec {
+pub struct EVMProjectionExec {
     input_plan: Box<EVMDynProofPlan>,
     results: Vec<EVMDynProofExpr>,
 }
 
 impl EVMProjectionExec {
     /// Try to create a `EVMProjectionExec` from a `ProjectionExec`.
-    pub(crate) fn try_from_proof_plan(
+    pub fn try_from_proof_plan(
         plan: &ProjectionExec,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
@@ -223,7 +253,7 @@ impl EVMProjectionExec {
         })
     }
 
-    pub(crate) fn try_into_proof_plan(
+    pub fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
@@ -251,7 +281,7 @@ impl EVMProjectionExec {
 
 /// Represents a slice execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EVMSliceExec {
+pub struct EVMSliceExec {
     input_plan: Box<EVMDynProofPlan>,
     skip: usize,
     fetch: Option<usize>,
@@ -259,7 +289,7 @@ pub(crate) struct EVMSliceExec {
 
 impl EVMSliceExec {
     /// Try to create a `EVMSliceExec` from a `SliceExec`.
-    pub(crate) fn try_from_proof_plan(
+    pub fn try_from_proof_plan(
         plan: &SliceExec,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
@@ -275,7 +305,7 @@ impl EVMSliceExec {
         })
     }
 
-    pub(crate) fn try_into_proof_plan(
+    pub fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
@@ -295,16 +325,14 @@ impl EVMSliceExec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
+    use crate::exprs::{EVMColumnExpr, EVMEqualsExpr, EVMLiteralExpr};
+    use proof_of_sql::{
         base::{
             database::{ColumnType, LiteralValue},
             map::indexset,
         },
-        sql::{
-            evm_proof_plan::exprs::{EVMColumnExpr, EVMEqualsExpr, EVMLiteralExpr},
-            proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr},
-            proof_plans::DynProofPlan,
-        },
+        sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr},
+        sql::proof_plans::DynProofPlan,
     };
 
     #[test]

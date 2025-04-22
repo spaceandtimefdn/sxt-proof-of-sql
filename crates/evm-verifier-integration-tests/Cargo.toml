@@ -1,0 +1,36 @@
+[package]
+publish = false
+name = "evm-verifier-integration-tests"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+description = "Integration tests for EVM verification of Proof of SQL queries."
+exclude = { workspace = true }
+license-file = { workspace = true }
+
+[dependencies]
+ahash = { workspace = true }
+ark-bls12-381 = { workspace = true }
+ark-bn254 = { workspace = true }
+ark-curve25519 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-poly = { workspace = true }
+ark-serialize = { workspace = true }
+ark-std = { workspace = true }
+bincode = { workspace = true, features = ["serde", "alloc"] }
+bumpalo = { workspace = true, features = ["collections"] }
+derive_more = { workspace = true }
+enum_dispatch = { workspace = true }
+hex = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
+itertools = { workspace = true }
+proof-of-sql = { workspace = true, features = ["hyperkzg_proof"] }
+proof-of-sql-parser = { workspace = true }
+serde = { workspace = true, features = ["serde_derive"] }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+sqlparser = { workspace = true, features = ["serde"] }
+
+[lints]
+workspace = true
