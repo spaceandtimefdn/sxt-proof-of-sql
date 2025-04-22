@@ -1,5 +1,5 @@
 use crate::{
-    base::database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
     sql::{
         evm_proof_plan::EVMProofPlan,
         proof_exprs::{
@@ -12,7 +12,19 @@ use core::iter;
 
 #[test]
 fn we_cannot_generate_serialized_proof_plan_for_unsupported_plan() {
-    let plan = DynProofPlan::Empty(EmptyExec::new());
+    // Create a Union of two empty execs which is not supported in EVM
+    let empty_exec1 = EmptyExec::new();
+    let empty_exec2 = EmptyExec::new();
+    let schema: Vec<ColumnField> = Vec::new();
+
+    // Create a union plan with two empty execs
+    let plan = DynProofPlan::new_union(
+        vec![
+            DynProofPlan::Empty(empty_exec1),
+            DynProofPlan::Empty(empty_exec2),
+        ],
+        schema,
+    );
 
     bincode::serde::encode_to_vec(
         EVMProofPlan::new(plan),

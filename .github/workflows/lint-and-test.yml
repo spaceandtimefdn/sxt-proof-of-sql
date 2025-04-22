@@ -185,7 +185,7 @@ jobs:
       #- name: Run Tests to Generate Coverage Data (std only)
       #  run: cargo llvm-cov --no-report --no-default-features --features="std"
       - name: Generate Final LCOV Report (Merged Coverage)
-        run: cargo llvm-cov report --lcov --output-path lcov.info
+        run: cargo llvm-cov report --lcov --ignore-filename-regex '[/\\]evm_tests\.rs$' --output-path lcov.info
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5
         env:

@@ -25,7 +25,7 @@ library PlanUtil {
     /// @dev     * length of output column name (uint64)
     /// @dev     * output column name (variable length)
     /// @param __plan The calldata pointer to the plan.
-    /// @return __planOut The updated pointer after skipping names.
+    /// @return __planOut The updated pointer after skipping names which points to the actual plan itself. i.e., the AST without any names.
     function __skipPlanNames(bytes calldata __plan) external pure returns (bytes calldata __planOut) {
         assembly {
             function skip_plan_names(plan_ptr) -> plan_ptr_out {

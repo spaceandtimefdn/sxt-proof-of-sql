@@ -1,4 +1,6 @@
 use super::{BNScalar, HyperKZGPublicSetup};
+#[cfg(any(not(feature = "blitzar"), test))]
+use crate::base::if_rayon;
 use crate::base::{
     commitment::{Commitment, CommittableColumn},
     scalar::Scalar,
@@ -9,6 +11,8 @@ use ark_bn254::{G1Affine, G1Projective};
 use ark_ec::AffineRepr;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use core::ops::{AddAssign, Mul, Neg, Sub, SubAssign};
+#[cfg(all(feature = "rayon", any(not(feature = "blitzar"), test)))]
+use rayon::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// This is the commitment type used in the hyperkzg proof system.
@@ -110,14 +114,13 @@ impl Sub for HyperKZGCommitment {
     level = "debug",
     skip_all
 )]
-fn compute_commitment_generic_impl<T: Into<BNScalar> + Clone>(
+fn compute_commitment_generic_impl<T: Into<BNScalar> + Clone + Sync>(
     setup: HyperKZGPublicSetup<'_>,
     offset: usize,
     scalars: &[T],
 ) -> HyperKZGCommitment {
     assert!(offset + scalars.len() <= setup.len());
-    let product: G1Projective = scalars
-        .iter()
+    let product: G1Projective = if_rayon!(scalars.par_iter(), scalars.iter())
         .zip(&setup[offset..offset + scalars.len()])
         .map(|(t, s)| *s * Into::<BNScalar>::into(t).0)
         .sum();
@@ -133,8 +136,7 @@ fn compute_commitments_impl(
     offset: usize,
     setup: &<HyperKZGCommitment as Commitment>::PublicSetup<'_>,
 ) -> Vec<HyperKZGCommitment> {
-    committable_columns
-        .iter()
+    if_rayon!(committable_columns.par_iter(), committable_columns.iter())
         .map(|column| match column {
             CommittableColumn::Boolean(vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)

@@ -14,7 +14,11 @@ library ProofExpr {
         Literal,
         Equals,
         Add,
-        Subtract
+        Subtract,
+        Multiply,
+        And,
+        Or,
+        Not
     }
 
     /// @notice Evaluates a proof expression
@@ -31,7 +35,7 @@ library ProofExpr {
     ///   length equal to the columns in the expression
     /// ##### Return Values
     /// * `expr_ptr_out` - pointer to the remaining expression after consuming the proof expression
-    /// * `eval` - the evaluation of the result of this expression. Cirically, this resulting evaluation must be guarenteed to be
+    /// * `eval` - the evaluation of the result of this expression. Critically, this resulting evaluation must be guarenteed to be
     ///   the correct evaluation of a column with the same length as the columns in the expression. Every column has implicit infinite length
     ///   but is padded with zeros. This is guarenteed to match the length of the chi column, and varients must be designed to handle this.
     /// ##### Proof Plan Encoding
@@ -100,6 +104,22 @@ library ProofExpr {
             function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL MultiplyExpr.pre.sol
+            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL AndExpr.pre.sol
+            function and_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL OrExpr.pre.sol
+            function or_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL NotExpr.pre.sol
+            function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
 
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 let proof_expr_variant := shr(UINT32_PADDING_BITS, calldataload(expr_ptr))
@@ -125,6 +145,22 @@ library ProofExpr {
                 case 4 {
                     case_const(4, SUBTRACT_EXPR_VARIANT)
                     expr_ptr_out, eval := subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 5 {
+                    case_const(5, MULTIPLY_EXPR_VARIANT)
+                    expr_ptr_out, eval := multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 6 {
+                    case_const(6, AND_EXPR_VARIANT)
+                    expr_ptr_out, eval := and_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 7 {
+                    case_const(7, OR_EXPR_VARIANT)
+                    expr_ptr_out, eval := or_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 8 {
+                    case_const(8, NOT_EXPR_VARIANT)
+                    expr_ptr_out, eval := not_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }

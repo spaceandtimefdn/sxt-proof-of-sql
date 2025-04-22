@@ -278,6 +278,22 @@ library Verifier {
             function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_exprs/MultiplyExpr.pre.sol
+            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/AndExpr.pre.sol
+            function and_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/OrExpr.pre.sol
+            function or_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/NotExpr.pre.sol
+            function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
@@ -454,7 +470,7 @@ library Verifier {
                 append_array(transcript_ptr, table_lengths_ptr)
 
                 let commitment_len := mload(commitments_ptr)
-                mstore(commitments_ptr, mulmod(commitment_len, 2, MODULUS))
+                mstore(commitments_ptr, mul(commitment_len, 2))
                 append_array(transcript_ptr, commitments_ptr)
                 mstore(commitments_ptr, commitment_len)
 
@@ -519,7 +535,10 @@ library Verifier {
                 verify_result_evaluations(result_ptr, evaluation_point_ptr, evaluations_ptr)
             }
 
-            mstore(__commitments, div(mload(__commitments), 2))
+            // Revert if the commitments array has an odd length
+            let commitments_len := mload(__commitments)
+            if mod(commitments_len, 2) { err(ERR_COMMITMENT_ARRAY_ODD_LENGTH) }
+            mstore(__commitments, div(commitments_len, 2))
             verify_query(__result.offset, __plan.offset, __proof.offset, __tableLengths, __commitments)
         }
     }

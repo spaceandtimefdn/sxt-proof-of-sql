@@ -8,6 +8,9 @@ uint32 constant ERR_INVALID_EC_ADD_INPUTS = 0x765bcba0;
 uint32 constant ERR_INVALID_EC_MUL_INPUTS = 0xe32c7472;
 /// @dev Error code for when ECPAIRING inputs are invalid.
 uint32 constant ERR_INVALID_EC_PAIRING_INPUTS = 0x4385b511;
+/// @dev Error code for commitment array having odd length which is impossible
+/// since each commitment is 2 elements.
+uint32 constant ERR_COMMITMENT_ARRAY_ODD_LENGTH = 0x88acadef;
 /// @dev Error code for when the size of a sumcheck proof is incorrect.
 uint32 constant ERR_INVALID_SUMCHECK_PROOF_SIZE = 0x3f889a17;
 /// @dev Error code for when the evaluation of a round in a sumcheck proof does not match the expected value.
@@ -58,6 +61,9 @@ library Errors {
     error InvalidECMulInputs();
     /// @notice Error thrown when the inputs to the ECPAIRING precompile are invalid.
     error InvalidECPairingInputs();
+    /// @notice Error code for commitment array having odd length which is impossible
+    /// since each commitment is 2 elements.
+    error CommitmentArrayOddLength();
     /// @notice Error thrown when the size of a sumcheck proof is incorrect.
     error InvalidSumcheckProofSize();
     /// @notice Error thrown when the evaluation of a round in a sumcheck proof does not match the expected value.

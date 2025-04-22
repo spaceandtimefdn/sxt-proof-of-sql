@@ -48,6 +48,21 @@ impl SliceExec {
     pub fn new(input: Box<DynProofPlan>, skip: usize, fetch: Option<usize>) -> Self {
         Self { input, skip, fetch }
     }
+
+    /// Get a reference to the input plan
+    pub fn input(&self) -> &DynProofPlan {
+        &self.input
+    }
+
+    /// Get the skip value
+    pub fn skip(&self) -> usize {
+        self.skip
+    }
+
+    /// Get the fetch value
+    pub fn fetch(&self) -> Option<usize> {
+        self.fetch
+    }
 }
 
 impl ProofPlan for SliceExec

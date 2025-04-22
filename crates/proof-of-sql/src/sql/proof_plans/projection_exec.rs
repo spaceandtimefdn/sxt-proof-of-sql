@@ -40,6 +40,16 @@ impl ProjectionExec {
             input,
         }
     }
+
+    /// Get a reference to the input plan
+    pub fn input(&self) -> &DynProofPlan {
+        &self.input
+    }
+
+    /// Get a reference to the aliased results
+    pub fn aliased_results(&self) -> &[AliasedDynProofExpr] {
+        &self.aliased_results
+    }
 }
 
 impl ProofPlan for ProjectionExec {
