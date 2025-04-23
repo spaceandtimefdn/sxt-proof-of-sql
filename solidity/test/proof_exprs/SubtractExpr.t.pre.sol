@@ -11,8 +11,8 @@ import {F} from "../base/FieldUtil.sol";
 contract SubtractExprTest is Test {
     function testSimpleSubtractExpr() public pure {
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(7)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(5)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(7)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(5)),
             hex"abcdef"
         );
         VerificationBuilder.Builder memory builder;
@@ -37,8 +37,8 @@ contract SubtractExprTest is Test {
         bytes memory trailingExpr
     ) public pure {
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, lhsValue),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, rhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, lhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, rhsValue),
             trailingExpr
         );
 

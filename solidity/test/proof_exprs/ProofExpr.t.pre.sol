@@ -32,7 +32,7 @@ contract ProofExprTest is Test {
 
     function testLiteralExprVariant() public pure {
         VerificationBuilder.Builder memory builder;
-        bytes memory expr = abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2), hex"abcdef");
+        bytes memory expr = abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
 
         uint256 eval;
@@ -57,8 +57,8 @@ contract ProofExprTest is Test {
 
         bytes memory expr = abi.encodePacked(
             EQUALS_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -79,8 +79,8 @@ contract ProofExprTest is Test {
         VerificationBuilder.Builder memory builder;
         bytes memory expr = abi.encodePacked(
             ADD_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -100,8 +100,8 @@ contract ProofExprTest is Test {
         VerificationBuilder.Builder memory builder;
         bytes memory expr = abi.encodePacked(
             SUBTRACT_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(3)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(3)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -128,8 +128,8 @@ contract ProofExprTest is Test {
 
         bytes memory expr = abi.encodePacked(
             MULTIPLY_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -157,8 +157,8 @@ contract ProofExprTest is Test {
 
         bytes memory expr = abi.encodePacked(
             AND_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -186,8 +186,8 @@ contract ProofExprTest is Test {
 
         bytes memory expr = abi.encodePacked(
             OR_EXPR_VARIANT,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)),
             hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
@@ -207,7 +207,7 @@ contract ProofExprTest is Test {
     function testNotExprVariant() public pure {
         VerificationBuilder.Builder memory builder;
         bytes memory expr = abi.encodePacked(
-            NOT_EXPR_VARIANT, abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(0)), hex"abcdef"
+            NOT_EXPR_VARIANT, abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(0)), hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
 

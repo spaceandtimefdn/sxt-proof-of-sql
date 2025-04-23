@@ -11,8 +11,8 @@ import {FF, F} from "../base/FieldUtil.sol";
 contract OrExprTest is Test {
     function testSimpleOrExpr() public pure {
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(0)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(0)),
             hex"abcdef"
         );
         VerificationBuilder.Builder memory builder;
@@ -81,8 +81,8 @@ contract OrExprTest is Test {
         );
 
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, lhsValue),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, rhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, lhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, rhsValue),
             trailingExpr
         );
 

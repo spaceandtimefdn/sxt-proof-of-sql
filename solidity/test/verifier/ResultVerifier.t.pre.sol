@@ -70,7 +70,7 @@ contract ResultVerifierTest is Test {
         table[1][1] = 5;
         table[1][2] = -6;
 
-        bytes memory result = generateResult(table, columnNames, 0, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 0, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -101,7 +101,7 @@ contract ResultVerifierTest is Test {
         table[1][1] = 5;
         table[1][2] = -6;
 
-        bytes memory result = generateResult(table, columnNames, 0, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 0, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -134,7 +134,7 @@ contract ResultVerifierTest is Test {
         table[1][1] = 5;
         table[1][2] = -6;
 
-        bytes memory result = generateResult(table, columnNames, 0, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 0, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -168,7 +168,7 @@ contract ResultVerifierTest is Test {
         table[1][1] = 5;
         table[1][2] = -6;
 
-        bytes memory result = generateResult(table, columnNames, 1, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 1, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -200,7 +200,7 @@ contract ResultVerifierTest is Test {
         table[1][1] = 5;
         table[1][2] = -6;
 
-        bytes memory result = generateResult(table, columnNames, 0, 1);
+        bytes memory result = generateResult(table, columnNames, 0, INVALID_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -232,7 +232,7 @@ contract ResultVerifierTest is Test {
         table[1][0] = -4;
         table[1][1] = 5;
 
-        bytes memory result = generateResult(table, columnNames, 0, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 0, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluationPoint = new uint256[](2);
         evaluationPoint[0] = 101;
@@ -266,7 +266,7 @@ contract ResultVerifierTest is Test {
             }
         }
 
-        bytes memory result = generateResult(table, columnNames, 0, COLUMN_BIGINT_VARIANT);
+        bytes memory result = generateResult(table, columnNames, 0, COLUMN_TYPE_BIGINT_VARIANT);
 
         uint256[] memory evaluations = evaluateTable(table, evaluationPoint);
 

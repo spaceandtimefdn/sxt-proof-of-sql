@@ -12,12 +12,12 @@ contract EqualsExprTest is Test {
     function testSimpleFilterExec() public pure {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(101)), // where clause
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(101)), // where clause
             abi.encodePacked( // select clause
                 uint64(3),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(102)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(103)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(104))
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(102)),
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(103)),
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(104))
             ),
             hex"abcdef"
         );
@@ -146,10 +146,10 @@ contract EqualsExprTest is Test {
     ) public pure {
         uint64 inputsLength = uint64(inputs.length);
         bytes memory plan = abi.encodePacked(
-            tableNumber, abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, where), inputsLength
+            tableNumber, abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, where), inputsLength
         );
         for (uint256 i = 0; i < inputsLength; ++i) {
-            plan = abi.encodePacked(plan, abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, inputs[i]));
+            plan = abi.encodePacked(plan, abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, inputs[i]));
         }
         plan = abi.encodePacked(plan, hex"abcdef");
 

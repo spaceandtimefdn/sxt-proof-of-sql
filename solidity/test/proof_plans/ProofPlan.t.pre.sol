@@ -14,12 +14,12 @@ contract ProofPlanTest is Test {
         bytes memory plan = abi.encodePacked(
             FILTER_EXEC_VARIANT,
             uint64(0), // table_number
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(101)), // where clause
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(101)), // where clause
             abi.encodePacked( // select clause
                 uint64(3),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(102)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(103)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(104))
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(102)),
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(103)),
+                abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(104))
             ),
             hex"abcdef"
         );

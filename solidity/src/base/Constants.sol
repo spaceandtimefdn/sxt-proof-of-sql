@@ -51,6 +51,9 @@ uint256 constant INT64_PADDING_BITS = 0xC0;
 /// @dev Size of int64 minus one byte
 uint256 constant INT64_SIZE_MINUS_ONE = 0x07;
 
+/// @dev Invalid variant constant in the repo
+uint32 constant INVALID_VARIANT = 0xFFFFFFFF;
+
 /// @dev Column variant constant for proof expressions
 uint32 constant COLUMN_EXPR_VARIANT = 0;
 /// @dev Literal variant constant for proof expressions
@@ -73,10 +76,8 @@ uint32 constant NOT_EXPR_VARIANT = 8;
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
 
-/// @dev BigInt variant constant for literal expressions
-uint32 constant LITERAL_BIGINT_VARIANT = 0;
-/// @dev BigInt variant constant for result columns
-uint32 constant COLUMN_BIGINT_VARIANT = 0;
+/// @dev BigInt variant constant for column types
+uint32 constant COLUMN_TYPE_BIGINT_VARIANT = 5;
 
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;

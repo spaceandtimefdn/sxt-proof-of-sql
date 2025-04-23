@@ -71,7 +71,7 @@ library ResultVerifier {
                     result_ptr := add(result_ptr, UINT64_SIZE)
 
                     switch column_variant
-                    case 0 { case_const(0, COLUMN_BIGINT_VARIANT) }
+                    case 0 { case_const(0, COLUMN_TYPE_BIGINT_VARIANT) }
                     default { err(ERR_UNSUPPORTED_LITERAL_VARIANT) }
 
                     if first {
@@ -86,7 +86,7 @@ library ResultVerifier {
                         let entry
                         switch column_variant
                         case 0 {
-                            case_const(0, COLUMN_BIGINT_VARIANT)
+                            case_const(0, COLUMN_TYPE_BIGINT_VARIANT)
                             entry :=
                                 add(
                                     MODULUS,

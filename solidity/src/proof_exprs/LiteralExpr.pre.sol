@@ -58,7 +58,7 @@ library LiteralExpr {
 
                 switch literal_variant
                 case 0 {
-                    case_const(0, LITERAL_BIGINT_VARIANT)
+                    case_const(0, COLUMN_TYPE_BIGINT_VARIANT)
                     eval :=
                         add(signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(expr_ptr))), MODULUS)
                     expr_ptr := add(expr_ptr, INT64_SIZE)

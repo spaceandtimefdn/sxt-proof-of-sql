@@ -11,8 +11,8 @@ import {FF, F} from "../base/FieldUtil.sol";
 contract MultiplyExprTest is Test {
     function testSimpleMultiplyExpr() public pure {
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(5)),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(2)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(5)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(2)),
             hex"abcdef"
         );
         VerificationBuilder.Builder memory builder;
@@ -79,8 +79,8 @@ contract MultiplyExprTest is Test {
         FF expectedEval = computeMultiplyExprResultEvaluation(builder);
 
         bytes memory expr = abi.encodePacked(
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, lhsValue),
-            abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, rhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, lhsValue),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, rhsValue),
             trailingExpr
         );
 

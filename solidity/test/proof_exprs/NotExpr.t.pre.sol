@@ -11,7 +11,7 @@ import {F} from "../base/FieldUtil.sol";
 contract NotExprTest is Test {
     function testSimpleNotExpr() public pure {
         bytes memory expr =
-            abi.encodePacked(abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, int64(1)), hex"abcdef");
+            abi.encodePacked(abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, int64(1)), hex"abcdef");
         VerificationBuilder.Builder memory builder;
 
         uint256 eval;
@@ -33,7 +33,7 @@ contract NotExprTest is Test {
         bytes memory trailingExpr
     ) public pure {
         bytes memory expr =
-            abi.encodePacked(abi.encodePacked(LITERAL_EXPR_VARIANT, LITERAL_BIGINT_VARIANT, inputValue), trailingExpr);
+            abi.encodePacked(abi.encodePacked(LITERAL_EXPR_VARIANT, COLUMN_TYPE_BIGINT_VARIANT, inputValue), trailingExpr);
 
         uint256 eval;
         (expr, builder, eval) = NotExpr.__notExprEvaluate(expr, builder, chiEvaluation);
