@@ -21,7 +21,7 @@ jobs:
     runs-on: large-8-core-32gb-22-04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
       - name: Setup Rust cache
@@ -100,7 +100,7 @@ jobs:
     runs-on: large-8-core-32gb-22-04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
       - name: Setup Rust cache
@@ -128,7 +128,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout sources
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         - name: Install stable toolchain
           run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
         - name: Run hello_world example (With Blitzar)
@@ -153,7 +153,7 @@ jobs:
     runs-on: large-8-core-32gb-22-04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         run: |
           curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
@@ -170,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y clang lld
       - uses: taiki-e/install-action@cargo-llvm-cov
@@ -202,7 +202,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         run: |
           curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
@@ -215,7 +215,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install nightly toolchain
         run: |
           curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install nightly
@@ -228,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
