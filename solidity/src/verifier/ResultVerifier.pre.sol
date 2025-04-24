@@ -46,6 +46,10 @@ library ResultVerifier {
             function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/TableExec.pre.sol
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+                revert(0, 0)
+            }
 
             function verify_result_evaluations(result_ptr, evaluation_point_ptr, evaluations_ptr) {
                 let num_columns := shr(UINT64_PADDING_BITS, calldataload(result_ptr))
