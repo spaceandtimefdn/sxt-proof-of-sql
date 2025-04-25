@@ -38,6 +38,13 @@ pub fn lt(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
 /// # Panics
 /// Panics if:
 /// - `DynProofExpr::try_new_inequality()` returns an error.
+pub fn gt(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
+    DynProofExpr::try_new_inequality(left, right, false).unwrap()
+}
+
+/// # Panics
+/// Panics if:
+/// - `DynProofExpr::try_new_inequality()` returns an error.
 pub fn lte(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
     not(DynProofExpr::try_new_inequality(left, right, false).unwrap())
 }
