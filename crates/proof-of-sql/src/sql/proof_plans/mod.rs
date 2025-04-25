@@ -41,6 +41,12 @@ pub(crate) use aggregate_exec::AggregateExec;
 #[cfg(all(test, feature = "blitzar"))]
 mod aggregate_exec_test;
 
+mod generalized_filter_exec;
+pub(crate) use generalized_filter_exec::GeneralizedFilterExec;
+
+#[cfg(all(test, feature = "blitzar"))]
+mod generalized_filter_exec_test;
+
 mod slice_exec;
 pub(crate) use slice_exec::SliceExec;
 #[cfg(all(test, feature = "blitzar"))]

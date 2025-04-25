@@ -1,6 +1,6 @@
 use super::{
-    AggregateExec, DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec,
-    SortMergeJoinExec, TableExec, UnionExec,
+    AggregateExec, DynProofPlan, EmptyExec, FilterExec, GeneralizedFilterExec, GroupByExec,
+    ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::database::{ColumnField, ColumnType, TableRef},
@@ -31,6 +31,18 @@ pub fn filter(
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
     DynProofPlan::Filter(FilterExec::new(results, table, where_clause))
+}
+
+pub fn generalized_filter(
+    results: Vec<AliasedDynProofExpr>,
+    input: DynProofPlan,
+    where_clause: DynProofExpr,
+) -> DynProofPlan {
+    DynProofPlan::GeneralizedFilter(GeneralizedFilterExec::new(
+        results,
+        Box::new(input),
+        where_clause,
+    ))
 }
 
 /// # Panics
