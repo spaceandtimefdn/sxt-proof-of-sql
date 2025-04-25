@@ -1,5 +1,5 @@
 use super::{
-    subquery_exec::SubqueryExec, DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec,
+    DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec,
     SliceExec, SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
@@ -22,10 +22,6 @@ pub fn table_exec(table_ref: TableRef, schema: Vec<ColumnField>) -> DynProofPlan
 
 pub fn projection(results: Vec<AliasedDynProofExpr>, input: DynProofPlan) -> DynProofPlan {
     DynProofPlan::Projection(ProjectionExec::new(results, Box::new(input)))
-}
-
-pub fn subquery(alias: TableRef, input: DynProofPlan) -> DynProofPlan {
-    DynProofPlan::Subquery(SubqueryExec::new(alias, Box::new(input)))
 }
 
 pub fn filter(

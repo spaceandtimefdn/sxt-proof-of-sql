@@ -14,7 +14,7 @@ use crate::{
         },
         proof_plans::{
             subquery_exec::SubqueryExec,
-            test_utility::{group_by, projection, sort_merge_join, subquery, table_exec},
+            test_utility::{group_by, projection, sort_merge_join, table_exec},
             DynProofPlan, TableExec,
         },
     },
@@ -95,41 +95,30 @@ fn we_can_join_to_a_group_by() {
         tinyint(count_ident, [1, 2]),
         decimal75(weight_ident, 2, 1, [10, 5]),
     ]);
-    let rater_rating_sum_table = owned_table([
-        bigint(rating_id_ident, [1]),
-        decimal75(stars_sum, 2, 0, [1]),
-        bigint(count_ident, [10]),
-    ]);
     let rating_table_ref = TableRef::new("sxt", "rating");
     let weight_table_ref = TableRef::new("", "weight_lookup");
     let rater_rating_sum_ref = TableRef::new("", "rater_rating_sum");
     let mut data_accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     data_accessor.add_table(rating_table_ref.clone(), rating_table, 0);
     data_accessor.add_table(weight_table_ref.clone(), weight_table, 0);
-    // We clone because we don't want the subqueries result data to be in the data accessor.
-    let mut schema_accessor = data_accessor.clone();
-    schema_accessor.add_table(rater_rating_sum_ref.clone(), rater_rating_sum_table, 0);
     let expr = projection(
         vec![aliased_plan(
             multiply(
-                column(&weight_table_ref, weight_ident, &schema_accessor),
-                column(&rater_rating_sum_ref, stars_sum, &schema_accessor),
+                column(&weight_table_ref, weight_ident, &data_accessor),
+                column(&rater_rating_sum_ref, stars_sum, &data_accessor),
             ),
             stars_average,
         )],
         sort_merge_join(
-            subquery(
-                rater_rating_sum_ref,
-                group_by(
-                    cols_expr(&rating_table_ref, &[rating_id_ident], &schema_accessor),
-                    vec![sum_expr(
-                        column(&rating_table_ref, stars_ident, &schema_accessor),
-                        stars_sum,
-                    )],
-                    count_ident,
-                    tab(&rating_table_ref),
-                    const_bool(true),
-                ),
+            group_by(
+                cols_expr(&rating_table_ref, &[rating_id_ident], &data_accessor),
+                vec![sum_expr(
+                    column(&rating_table_ref, stars_ident, &data_accessor),
+                    stars_sum,
+                )],
+                count_ident,
+                tab(&rating_table_ref),
+                const_bool(true),
             ),
             table_exec(
                 weight_table_ref,
