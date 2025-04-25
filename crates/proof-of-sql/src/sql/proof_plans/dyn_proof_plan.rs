@@ -1,6 +1,6 @@
 use super::{
-    EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec, TableExec,
-    UnionExec,
+    EmptyExec, FilterExec, GeneralizedFilterExec, GroupByExec, ProjectionExec, SliceExec,
+    SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::{
@@ -52,6 +52,12 @@ pub enum DynProofPlan {
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
     /// ```
     Filter(FilterExec),
+    /// Provable expressions for queries of the form, where the result is sent in a dense form
+    /// ```ignore
+    ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
+    /// ```
+    /// Similar to Filter but accepts a DynProofPlan as input
+    GeneralizedFilter(GeneralizedFilterExec),
     /// `ProofPlan` for queries of the form
     /// ```ignore
     ///     <ProofPlan> LIMIT <fetch> [OFFSET <skip>]
@@ -131,5 +137,19 @@ impl DynProofPlan {
     /// Creates a new union plan.
     pub fn try_new_union(inputs: Vec<DynProofPlan>) -> AnalyzeResult<Self> {
         UnionExec::try_new(inputs).map(Self::Union)
+    }
+
+    /// Creates a new generalized filter plan.
+    #[must_use]
+    pub fn new_generalized_filter(
+        aliased_results: Vec<AliasedDynProofExpr>,
+        input: DynProofPlan,
+        filter_expr: DynProofExpr,
+    ) -> Self {
+        Self::GeneralizedFilter(GeneralizedFilterExec::new(
+            aliased_results,
+            Box::new(input),
+            filter_expr,
+        ))
     }
 }
