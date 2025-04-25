@@ -694,6 +694,16 @@ impl ColumnField {
     pub fn data_type(&self) -> ColumnType {
         self.data_type
     }
+
+    /// Returns a `ColumnRef` from a `ColumnField`
+    #[must_use]
+    pub fn into_ref(&self, table_ref: TableRef) -> ColumnRef {
+        ColumnRef {
+            column_id: self.name(),
+            table_ref,
+            column_type: self.data_type(),
+        }
+    }
 }
 
 #[cfg(test)]

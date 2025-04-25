@@ -1,5 +1,8 @@
 //! This module proves provable execution plans.
 mod empty_exec;
+mod subquery_exec;
+#[cfg(all(test, feature = "blitzar"))]
+mod subquery_exec_test;
 pub use empty_exec::EmptyExec;
 
 mod table_exec;

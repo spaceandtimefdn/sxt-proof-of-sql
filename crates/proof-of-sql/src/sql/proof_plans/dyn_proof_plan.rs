@@ -1,6 +1,6 @@
 use super::{
-    EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec, TableExec,
-    UnionExec,
+    subquery_exec::SubqueryExec, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec,
+    SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::{
@@ -72,6 +72,11 @@ pub enum DynProofPlan {
     ///     ON col1 = col2
     /// ```
     SortMergeJoin(SortMergeJoinExec),
+    /// `ProofPlan` for queries of the form
+    /// ```ignore
+    ///     (<ProofPlan>) As <Alias>
+    /// ```
+    Subquery(SubqueryExec),
 }
 
 impl DynProofPlan {

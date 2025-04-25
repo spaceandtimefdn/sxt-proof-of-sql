@@ -66,6 +66,8 @@ impl SortMergeJoinExec {
         right_join_column_indexes: Vec<usize>,
         result_idents: Vec<Ident>,
     ) -> Self {
+        dbg!(&left.get_column_result_fields());
+        dbg!(&right.get_column_result_fields());
         let num_columns_left = left.get_column_result_fields().len();
         let num_columns_right = right.get_column_result_fields().len();
         let max_left_join_column_index = left_join_column_indexes.iter().max().unwrap_or(&0);
