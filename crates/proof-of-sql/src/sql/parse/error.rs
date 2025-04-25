@@ -76,7 +76,7 @@ pub enum ConversionError {
     },
 
     #[snafu(display(
-        "A WHERE clause must has boolean type. It is currently of type '{datatype}'."
+        "A WHERE clause must have boolean type. It is currently of type '{datatype}'."
     ))]
     /// WHERE clause is not boolean
     NonbooleanWhereClause {

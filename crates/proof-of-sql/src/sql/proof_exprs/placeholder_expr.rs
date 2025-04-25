@@ -11,6 +11,7 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// Provable placeholder expression, that is, a placeholder in a SQL query
 ///
@@ -120,7 +121,7 @@ impl ProofExpr for PlaceholderExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<ColumnRef, S>,
+        _accessor: &IndexMap<Ident, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {

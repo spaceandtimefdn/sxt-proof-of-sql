@@ -10,6 +10,7 @@ use crate::{
 };
 use bumpalo::Bump;
 use core::fmt::Debug;
+use sqlparser::ast::Ident;
 
 /// Provable AST column expression that evaluates to a `Column`
 #[enum_dispatch::enum_dispatch(DynProofExpr)]
@@ -43,7 +44,7 @@ pub trait ProofExpr: Debug + Send + Sync {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<Ident, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError>;

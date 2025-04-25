@@ -16,7 +16,7 @@ use sqlparser::ast::Ident;
 /// Note: this is currently limited to named column expressions.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct ColumnExpr {
-    pub(crate) column_ref: ColumnRef,
+    column_ref: ColumnRef,
 }
 
 impl ColumnExpr {
@@ -30,6 +30,12 @@ impl ColumnExpr {
     #[must_use]
     pub fn get_column_reference(&self) -> ColumnRef {
         self.column_ref.clone()
+    }
+
+    /// Get the column reference
+    #[must_use]
+    pub fn column_ref(&self) -> &ColumnRef {
+        &self.column_ref
     }
 
     /// Wrap the column output name and its type within the [`ColumnField`]
@@ -92,12 +98,12 @@ impl ProofExpr for ColumnExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<Ident, S>,
         _chi_eval: S,
         _params: &[LiteralValue],
     ) -> Result<S, ProofError> {
         Ok(*accessor
-            .get(&self.column_ref)
+            .get(&self.column_ref.column_id())
             .ok_or(ProofError::VerificationError {
                 error: "Column Not Found",
             })?)

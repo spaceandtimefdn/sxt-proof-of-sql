@@ -9,7 +9,7 @@ import {Sumcheck} from "../../src/sumcheck/Sumcheck.pre.sol";
 import {F, FF} from "../base/FieldUtil.sol";
 
 contract SumcheckTest is Test {
-    function testValidSumcheckProof() public {
+    function testValidSumcheckProof() public pure {
         (bytes memory proofOut, uint256[] memory evaluationPoint, uint256 expectedEvaluation, uint256 degree) = Sumcheck
             .__verifySumcheckProof(
             [0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF],
@@ -101,7 +101,7 @@ contract SumcheckTest is Test {
         uint256[] memory rand,
         uint8 _numVars,
         bytes memory trailingProof
-    ) public {
+    ) public pure {
         uint256 numVars = _numVars;
         vm.assume(numVars > 0);
         vm.assume(rand.length >= numVars); // solhint-disable-line gas-strict-inequalities

@@ -20,6 +20,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bumpalo::Bump;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// `ProofPlan` for queries of the form
 /// ```ignore
@@ -51,7 +52,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],

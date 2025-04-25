@@ -118,7 +118,7 @@ impl EVMColumnExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             column_number: column_refs
-                .get_index_of(&expr.column_ref)
+                .get_index_of(expr.column_ref())
                 .ok_or(EVMProofPlanError::ColumnNotFound)?,
         })
     }
@@ -149,8 +149,8 @@ impl EVMLiteralExpr {
 
     /// Try to create a `EVMLiteralExpr` from a `LiteralExpr`.
     pub(crate) fn try_from_proof_expr(expr: &LiteralExpr) -> EVMProofPlanResult<Self> {
-        match expr.value {
-            LiteralValue::BigInt(value) => Ok(EVMLiteralExpr::BigInt(value)),
+        match expr.value() {
+            LiteralValue::BigInt(value) => Ok(EVMLiteralExpr::BigInt(*value)),
             _ => Err(EVMProofPlanError::NotSupported),
         }
     }
@@ -185,11 +185,11 @@ impl EVMEqualsExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMEqualsExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
@@ -199,10 +199,10 @@ impl EVMEqualsExpr {
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<EqualsExpr> {
-        Ok(EqualsExpr {
-            lhs: Box::new(self.lhs.try_into_proof_expr(column_refs)?),
-            rhs: Box::new(self.rhs.try_into_proof_expr(column_refs)?),
-        })
+        Ok(EqualsExpr::try_new(
+            Box::new(self.lhs.try_into_proof_expr(column_refs)?),
+            Box::new(self.rhs.try_into_proof_expr(column_refs)?),
+        )?)
     }
 }
 
@@ -229,11 +229,11 @@ impl EVMAddExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMAddExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
@@ -243,10 +243,10 @@ impl EVMAddExpr {
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<AddExpr> {
-        Ok(AddExpr {
-            lhs: Box::new(self.lhs.try_into_proof_expr(column_refs)?),
-            rhs: Box::new(self.rhs.try_into_proof_expr(column_refs)?),
-        })
+        Ok(AddExpr::try_new(
+            Box::new(self.lhs.try_into_proof_expr(column_refs)?),
+            Box::new(self.rhs.try_into_proof_expr(column_refs)?),
+        )?)
     }
 }
 
@@ -273,11 +273,11 @@ impl EVMSubtractExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMSubtractExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.lhs,
+                expr.lhs(),
                 column_refs,
             )?),
             rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
-                &expr.rhs,
+                expr.rhs(),
                 column_refs,
             )?),
         })
@@ -287,10 +287,10 @@ impl EVMSubtractExpr {
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<SubtractExpr> {
-        Ok(SubtractExpr {
-            lhs: Box::new(self.lhs.try_into_proof_expr(column_refs)?),
-            rhs: Box::new(self.rhs.try_into_proof_expr(column_refs)?),
-        })
+        Ok(SubtractExpr::try_new(
+            Box::new(self.lhs.try_into_proof_expr(column_refs)?),
+            Box::new(self.rhs.try_into_proof_expr(column_refs)?),
+        )?)
     }
 }
 
@@ -492,7 +492,7 @@ mod tests {
         let roundtripped_column_expr = evm_column_expr
             .try_into_proof_expr(&indexset! {column_ref.clone()})
             .unwrap();
-        assert_eq!(roundtripped_column_expr.column_ref, column_ref);
+        assert_eq!(*roundtripped_column_expr.column_ref(), column_ref);
     }
 
     #[test]
@@ -529,7 +529,7 @@ mod tests {
 
         // Roundtrip
         let roundtripped_literal_expr = evm_literal_expr.to_proof_expr();
-        assert_eq!(roundtripped_literal_expr.value, LiteralValue::BigInt(5));
+        assert_eq!(*roundtripped_literal_expr.value(), LiteralValue::BigInt(5));
     }
 
     #[test]

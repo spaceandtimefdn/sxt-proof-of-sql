@@ -468,6 +468,12 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let evaluation_accessor: IndexMap<_, _> = column_references
             .into_iter()
             .zip(self.pcs_proof_evaluations.column_ref.iter().copied())
+            .chunk_by(|(r, _)| r.table_ref())
+            .into_iter()
+            .map(|(tr, g)| {
+                let im: IndexMap<_, _> = g.map(|(cr, eval)| (cr.column_id(), eval)).collect();
+                (tr, im)
+            })
             .collect();
 
         let verifier_evaluations = expr.verifier_evaluate(

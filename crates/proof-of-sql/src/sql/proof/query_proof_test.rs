@@ -88,7 +88,7 @@ impl ProofPlan for TrivialTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<ColumnRef, S>,
+        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
@@ -305,18 +305,16 @@ impl ProofPlan for SquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = S::from(self.anchored_commit_multiplier)
             * *accessor
-                .get(&ColumnRef::new(
-                    TableRef::new("sxt", "test"),
-                    "x".into(),
-                    ColumnType::BigInt,
-                ))
+                .get(&TableRef::new("sxt", "test"))
+                .unwrap()
+                .get(&Ident::new("x"))
                 .unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -500,17 +498,15 @@ impl ProofPlan for DoubleSquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = *accessor
-            .get(&ColumnRef::new(
-                TableRef::new("sxt", "test"),
-                "x".into(),
-                ColumnType::BigInt,
-            ))
+            .get(&TableRef::new("sxt", "test"))
+            .unwrap()
+            .get(&Ident::new("x"))
             .unwrap();
         let z_eval = builder.try_consume_final_round_mle_evaluation()?;
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
@@ -705,7 +701,7 @@ impl ProofPlan for ChallengeTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
@@ -713,11 +709,9 @@ impl ProofPlan for ChallengeTestProofPlan {
         let alpha = builder.try_consume_post_result_challenge()?;
         let _beta = builder.try_consume_post_result_challenge()?;
         let x_eval = *accessor
-            .get(&ColumnRef::new(
-                TableRef::new("sxt", "test"),
-                "x".into(),
-                ColumnType::BigInt,
-            ))
+            .get(&TableRef::new("sxt", "test"))
+            .unwrap()
+            .get(&Ident::new("x"))
             .unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -848,18 +842,16 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = S::from(self.anchored_commit_multiplier)
             * *accessor
-                .get(&ColumnRef::new(
-                    TableRef::new("sxt", "test"),
-                    "x".into(),
-                    ColumnType::BigInt,
-                ))
+                .get(&TableRef::new("sxt", "test"))
+                .unwrap()
+                .get(&Ident::new("x"))
                 .unwrap();
         let first_round_res_eval = builder.try_consume_first_round_mle_evaluation()?;
         let final_round_res_eval = builder.try_consume_final_round_mle_evaluation()?;

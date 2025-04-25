@@ -463,5 +463,5 @@ We are using a node semantic-release tool to automatically trigger our release p
 | feat     | feat: add graphiteWidth option<br><br><body> The default graphite width of 10mm is always used for performance reasons.<br><br>BREAKING CHANGE: The graphiteWidth option has been added. | Breaking Release (Major)<br><br>(Note that the BREAKING CHANGE:<br>token must be in the footer of the commit) |
 | perf     | perf: remove graphiteWidth option<br><br><body> The default graphite width of 10mm is always used for performance reasons.<br><br>BREAKING CHANGE: The graphiteWidth option has been removed. | Breaking Release (Major)<br><br>(Note that the BREAKING CHANGE:<br>token must be in the footer of the commit) |
 
-Check the [Semantic-Release](https://github.com/semantic-release/semantic-release) link for more info. Ps: to update the above rules, check the [package.json](package.json) file, in the `release -> plugins -> @semantic-release/commit-analyzer -> releaseRules` section.
+Check the [Semantic-Release](https://github.com/semantic-release/semantic-release) link for more info. P.S.: to update the above rules, check the [package.json](package.json) file, in the `release -> plugins -> @semantic-release/commit-analyzer -> releaseRules` section.
 

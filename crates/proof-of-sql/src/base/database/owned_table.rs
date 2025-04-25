@@ -121,7 +121,7 @@ impl<S: Scalar> OwnedTable<S> {
     pub fn into_inner(self) -> IndexMap<Ident, OwnedColumn<S>> {
         self.table
     }
-    /// Returns the columns of this table as an `IndexMap`
+    /// Returns a reference to the columns of this table as an `IndexMap`
     #[must_use]
     pub fn inner_table(&self) -> &IndexMap<Ident, OwnedColumn<S>> {
         &self.table

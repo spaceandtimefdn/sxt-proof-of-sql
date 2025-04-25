@@ -25,7 +25,7 @@ All the options are outlined in the help and `main.rs` module.
 To run a benchmark on the `HyperKZG` commitment scheme using the `Single Column Filter` query with a table size of `1_000_000` for `3` iterations, your command would be the following.
 
 ```bash
-cargo run --release --bin proof-of-sql-benches -- --s hyper-kzg -i 3 -t 1000000 -q single-column-filter
+cargo run --release --bin proof-of-sql-benches -- -s hyper-kzg -i 3 -t 1000000 -q single-column-filter
 ```
 
 ### Memory logging (optional)

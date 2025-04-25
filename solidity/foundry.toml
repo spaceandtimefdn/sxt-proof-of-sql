@@ -3,6 +3,7 @@ src = "src"
 out = "out"
 solc = "0.8.28"
 libs = ["dependencies"]
+deny-warnings = true
 no-match-path = "**/*.pre.sol"
 no-match-coverage = "pre.sol"
 

@@ -10,6 +10,7 @@ use crate::base::{
 use alloc::vec::Vec;
 use bumpalo::Bump;
 use core::fmt::Debug;
+use sqlparser::ast::Ident;
 
 /// Provable nodes in the provable AST.
 #[enum_dispatch::enum_dispatch(DynProofPlan)]
@@ -18,7 +19,7 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],

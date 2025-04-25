@@ -229,8 +229,8 @@ fn we_can_verify_a_simple_proof() {
         3,
         |verification_builder, chi_eval, evaluation_point| {
             let accessor = indexmap! {
-                a.clone() => lhs.inner_product(evaluation_point),
-                b.clone() => rhs.inner_product(evaluation_point)
+                a.clone().column_id() => lhs.inner_product(evaluation_point),
+                b.clone().column_id() => rhs.inner_product(evaluation_point)
             };
             and_expr
                 .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
@@ -284,8 +284,8 @@ fn we_can_reject_a_simple_tampered_proof() {
     for evaluation_point in evaluation_points {
         let chi_eval = (&[1, 1, 1, 1]).inner_product(evaluation_point);
         let accessor = indexmap! {
-            a.clone() => lhs.inner_product(evaluation_point),
-            b.clone() => rhs.inner_product(evaluation_point)
+            a.clone().column_id() => lhs.inner_product(evaluation_point),
+            b.clone().column_id() => rhs.inner_product(evaluation_point)
         };
         and_expr
             .verifier_evaluate(&mut verification_builder, &accessor, chi_eval, &[])

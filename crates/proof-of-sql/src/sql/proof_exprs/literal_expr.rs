@@ -11,6 +11,7 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// Provable CONST expression
 ///
@@ -25,13 +26,18 @@ use serde::{Deserialize, Serialize};
 /// changes, and the performance is sufficient for present.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LiteralExpr {
-    pub(crate) value: LiteralValue,
+    value: LiteralValue,
 }
 
 impl LiteralExpr {
     /// Create literal expression
     pub fn new(value: LiteralValue) -> Self {
         Self { value }
+    }
+
+    /// Get the literal value
+    pub fn value(&self) -> &LiteralValue {
+        &self.value
     }
 }
 
@@ -77,7 +83,7 @@ impl ProofExpr for LiteralExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<ColumnRef, S>,
+        _accessor: &IndexMap<Ident, S>,
         chi_eval: S,
         _params: &[LiteralValue],
     ) -> Result<S, ProofError> {

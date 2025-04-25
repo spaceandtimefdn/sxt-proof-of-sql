@@ -17,6 +17,7 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
+use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub struct ShiftTestPlan {
@@ -112,7 +113,7 @@ impl ProofPlan for ShiftTestPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<ColumnRef, S>,
+        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],

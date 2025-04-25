@@ -7,7 +7,7 @@ use proof_of_sql::base::{
     },
 };
 use sqlparser::ast::Ident;
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct BenchmarkAccessor<'a, C: Commitment> {
     columns: IndexMap<(TableRef, Ident), Column<'a, C::Scalar>>,
     lengths: IndexMap<TableRef, usize>,

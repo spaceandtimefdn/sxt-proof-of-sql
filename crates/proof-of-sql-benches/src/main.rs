@@ -32,7 +32,7 @@ use ark_std::{rand, test_rng};
 use blitzar::{compute::init_backend, proof::InnerProductProof};
 use bumpalo::Bump;
 use clap::{ArgAction, Parser, ValueEnum};
-use curve25519_dalek::RistrettoPoint;
+use datafusion::config::ConfigOptions;
 use halo2curves::bn256::G2Affine;
 use nova_snark::{
     provider::{
@@ -42,26 +42,25 @@ use nova_snark::{
     traits::{commitment::CommitmentEngineTrait, evaluation::EvaluationEngineTrait},
 };
 use proof_of_sql::{
-    base::{
-        commitment::{Commitment, CommitmentEvaluationProof},
-        database::LiteralValue,
-    },
+    base::{commitment::CommitmentEvaluationProof, database::TableRef},
     proof_primitive::{
         dory::{
-            DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, DoryVerifierPublicSetup,
-            DynamicDoryCommitment, DynamicDoryEvaluationProof, ProverSetup, PublicParameters,
-            VerifierSetup,
+            DoryEvaluationProof, DoryProverPublicSetup, DoryVerifierPublicSetup,
+            DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
         },
         hyperkzg::{
             deserialize_flat_compressed_hyperkzg_public_setup_from_reader,
-            nova_commitment_key_to_hyperkzg_public_setup, HyperKZGCommitment,
-            HyperKZGCommitmentEvaluationProof, HyperKZGEngine,
+            nova_commitment_key_to_hyperkzg_public_setup, HyperKZGCommitmentEvaluationProof,
+            HyperKZGEngine,
         },
     },
-    sql::{parse::QueryExpr, proof::VerifiableQueryResult},
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::dialect::GenericDialect;
 use std::{path::PathBuf, time::Instant};
+use tracing::{span, Level};
 mod utils;
 use utils::{
     benchmark_accessor::BenchmarkAccessor,
@@ -107,6 +106,10 @@ enum Query {
     LargeColumnSet,
     /// Complex condition query
     ComplexCondition,
+    /// Sum count query
+    SumCount,
+    /// Coin query
+    Coin,
 }
 
 impl Query {
@@ -122,6 +125,8 @@ impl Query {
             Query::BooleanFilter => "Boolean Filter",
             Query::LargeColumnSet => "Large Column Set",
             Query::ComplexCondition => "Complex Condition",
+            Query::SumCount => "Sum Count",
+            Query::Coin => "Coin",
         }
     }
 }
@@ -199,76 +204,82 @@ fn get_rng(cli: &Cli) -> StdRng {
 /// * The query string cannot be parsed into a `QueryExpr`.
 /// * The creation of the `VerifiableQueryResult` fails due to invalid proof expressions.
 /// * If the verification of the `VerifiableQueryResult` fails.
-fn bench_by_schema<'a, C, CP>(
+fn bench_by_schema<CP: CommitmentEvaluationProof>(
     schema: &str,
     cli: &Cli,
     queries: &[QueryEntry],
-    public_setup: &'a C::PublicSetup<'a>,
-    prover_setup: CP::ProverPublicSetup<'a>,
+    prover_setup: CP::ProverPublicSetup<'_>,
     verifier_setup: CP::VerifierPublicSetup<'_>,
-    params: &[LiteralValue],
-) where
-    C: Commitment,
-    CP: CommitmentEvaluationProof<Commitment = C, Scalar = C::Scalar>,
-{
-    let mut accessor: BenchmarkAccessor<'_, C> = BenchmarkAccessor::default();
-    let mut rng = get_rng(cli);
+) {
     let alloc = Bump::new();
+    let mut accessor: BenchmarkAccessor<'_, CP::Commitment> = BenchmarkAccessor::default();
+    let mut rng = get_rng(cli);
 
-    for (title, query, columns) in queries {
+    for (query, sql, columns, params) in queries {
+        // Get accessor
         accessor.insert_table(
-            "bench.table".parse().unwrap(),
+            TableRef::from_names(None, "bench_table"),
             &generate_random_columns(&alloc, &mut rng, columns, cli.table_size),
-            public_setup,
+            &prover_setup,
         );
-        let query_expr =
-            QueryExpr::try_new(query.parse().unwrap(), "bench".into(), &accessor).unwrap();
 
-        for i in 0..cli.iterations {
-            // Generate the proof
-            let time = Instant::now();
-            let result: VerifiableQueryResult<CP> = VerifiableQueryResult::new(
-                query_expr.proof_expr(),
-                &accessor,
-                &prover_setup,
-                params,
-            )
-            .unwrap();
-            let generate_proof_elapsed = time.elapsed().as_millis();
+        let config = ConfigOptions::default();
+        let statements = sqlparser::parser::Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+        let plans = sql_to_proof_plans(&statements, &accessor, &config).unwrap();
 
-            let num_query_results = result.result.num_rows();
+        // Prove and verify the plans
+        for plan in plans {
+            for i in 0..cli.iterations {
+                let span = span!(
+                    Level::DEBUG,
+                    "prove and verify",
+                    schema = schema,
+                    query = query,
+                    table_size = cli.table_size
+                )
+                .entered();
 
-            // Verify the proof
-            let time = Instant::now();
-            result
-                .verify(query_expr.proof_expr(), &accessor, &verifier_setup, params)
-                .unwrap();
-            let verify_elapsed = time.elapsed().as_millis();
+                // Generate the proof
+                let time = Instant::now();
+                let res = VerifiableQueryResult::<CP>::new(&plan, &accessor, &prover_setup, params)
+                    .unwrap();
+                let generate_proof_elapsed = time.elapsed().as_millis();
 
-            // Append results to CSV file
-            if let Some(csv_path) = &cli.csv_path {
-                append_to_csv(
-                    csv_path,
-                    &[
-                        schema.to_string(),
-                        (*title).to_string(),
-                        cli.table_size.to_string(),
-                        generate_proof_elapsed.to_string(),
-                        verify_elapsed.to_string(),
-                        i.to_string(),
-                    ],
-                );
-            }
+                let num_query_results = res.result.num_rows();
 
-            // Print results to console
-            if !cli.silence {
-                eprintln!("Number of query results: {num_query_results}");
-                eprintln!("{schema} - generate proof: {generate_proof_elapsed} ms");
-                eprintln!("{schema} - verify proof: {verify_elapsed} ms");
-                println!(
-                    "{schema},{title},{},{generate_proof_elapsed},{verify_elapsed},{i}",
-                    cli.table_size
-                );
+                // Verify the proof
+                let time = Instant::now();
+                res.verify(&plan, &accessor, &verifier_setup, params)
+                    .unwrap();
+                let verify_elapsed = time.elapsed().as_millis();
+
+                span.exit();
+
+                // Append results to CSV file
+                if let Some(csv_path) = &cli.csv_path {
+                    append_to_csv(
+                        csv_path,
+                        &[
+                            schema.to_string(),
+                            (*query).to_string(),
+                            cli.table_size.to_string(),
+                            generate_proof_elapsed.to_string(),
+                            verify_elapsed.to_string(),
+                            i.to_string(),
+                        ],
+                    );
+                }
+
+                // Print results to console
+                if !cli.silence {
+                    eprintln!("Number of query results: {num_query_results}");
+                    eprintln!("{schema} - generate proof: {generate_proof_elapsed} ms");
+                    eprintln!("{schema} - verify proof: {verify_elapsed} ms");
+                    println!(
+                        "{schema},{query},{},{generate_proof_elapsed},{verify_elapsed},{i}",
+                        cli.table_size
+                    );
+                }
             }
         }
     }
@@ -279,16 +290,9 @@ fn bench_by_schema<'a, C, CP>(
 /// # Arguments
 /// * `cli` - A reference to the command line interface arguments.
 /// * `queries` - A slice of query entries to benchmark.
+#[tracing::instrument(name = "Inner Product Proof", level = "debug", skip_all)]
 fn bench_inner_product_proof(cli: &Cli, queries: &[QueryEntry]) {
-    bench_by_schema::<RistrettoPoint, InnerProductProof>(
-        "Inner Product Proof",
-        cli,
-        queries,
-        &(),
-        (),
-        (),
-        &[],
-    );
+    bench_by_schema::<InnerProductProof>("Inner Product Proof", cli, queries, (), ());
 }
 
 /// Loads the Dory public parameters.
@@ -342,21 +346,22 @@ fn load_dory_setup<'a>(
 /// # Arguments
 /// * `cli` - A reference to the command line interface arguments.
 /// * `queries` - A slice of query entries to benchmark.
+#[tracing::instrument(name = "Dory", level = "debug", skip_all)]
 fn bench_dory(cli: &Cli, queries: &[QueryEntry]) {
+    let span = span!(Level::DEBUG, "setup", sigma = cli.nu_sigma).entered();
     let public_parameters = load_dory_public_parameters(cli);
     let (prover_setup, verifier_setup) = load_dory_setup(&public_parameters, cli);
 
     let prover_public_setup = DoryProverPublicSetup::new(&prover_setup, cli.nu_sigma);
     let verifier_public_setup = DoryVerifierPublicSetup::new(&verifier_setup, cli.nu_sigma);
+    span.exit();
 
-    bench_by_schema::<DoryCommitment, DoryEvaluationProof>(
+    bench_by_schema::<DoryEvaluationProof>(
         "Dory",
         cli,
         queries,
-        &prover_public_setup,
         prover_public_setup,
         verifier_public_setup,
-        &[],
     );
 }
 
@@ -365,18 +370,19 @@ fn bench_dory(cli: &Cli, queries: &[QueryEntry]) {
 /// # Arguments
 /// * `cli` - A reference to the command line interface arguments.
 /// * `queries` - A slice of query entries to benchmark.
+#[tracing::instrument(name = "Dynamic Dory", level = "debug", skip_all)]
 fn bench_dynamic_dory(cli: &Cli, queries: &[QueryEntry]) {
+    let span = span!(Level::DEBUG, "setup", nu = cli.nu_sigma).entered();
     let public_parameters = load_dory_public_parameters(cli);
     let (prover_setup, verifier_setup) = load_dory_setup(&public_parameters, cli);
+    span.exit();
 
-    bench_by_schema::<DynamicDoryCommitment, DynamicDoryEvaluationProof>(
+    bench_by_schema::<DynamicDoryEvaluationProof>(
         "Dynamic Dory",
         cli,
         queries,
-        &&prover_setup,
         &prover_setup,
         &verifier_setup,
-        &[],
     );
 }
 
@@ -388,7 +394,9 @@ fn bench_dynamic_dory(cli: &Cli, queries: &[QueryEntry]) {
 ///
 /// # Panics
 /// * The optional file cannot be loaded.
+#[tracing::instrument(name = "HyperKZG", level = "debug", skip_all)]
 fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
+    let span = span!(Level::DEBUG, "setup",).entered();
     // Load the prover setup and verification key
     let (prover_setup, vk) = if let Some(ppot_file_path) = &cli.ppot_path {
         let file = std::fs::File::open(ppot_file_path).unwrap();
@@ -413,15 +421,14 @@ fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
         let prover_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         (prover_setup, vk)
     };
+    span.exit();
 
-    bench_by_schema::<HyperKZGCommitment, HyperKZGCommitmentEvaluationProof>(
+    bench_by_schema::<HyperKZGCommitmentEvaluationProof>(
         "HyperKZG",
         cli,
         queries,
-        &prover_setup.as_slice(),
-        prover_setup.as_slice(),
+        &prover_setup,
         &vk,
-        &[],
     );
 }
 

@@ -16,6 +16,7 @@ use crate::{
 use alloc::vec::Vec;
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// Source [`ProofPlan`] for (sub)queries without table source such as `SELECT "No table here" as msg;`
 /// Inspired by [`DataFusion EmptyExec`](https://docs.rs/datafusion/latest/datafusion/physical_plan/empty/struct.EmptyExec.html)
@@ -40,7 +41,7 @@ impl ProofPlan for EmptyExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<ColumnRef, S>,
+        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],

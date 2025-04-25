@@ -111,7 +111,7 @@ For detailed usage instructions and examples of how to create, append to, prove,
 
 Proof of SQL is optimized for speed and efficiency. Here's how it's so fast:
 
-1. We use **native, precomputed commitments** to the data. In other words, when adding data to the database, we compute a "digest" of the data, which effectively "locks in" the data. Instead of using a merkle tree based commitment, like those use in most blockchains, we use the commitment scheme that is inherent to Proof of SQL itself.
+1. We use **native, precomputed commitments** to the data. In other words, when adding data to the database, we compute a "digest" of the data, which effectively "locks in" the data. Instead of using a merkle tree based commitment, like those used in most blockchains, we use the commitment scheme that is inherent to Proof of SQL itself.
 2. SQL is conducive to a **natural arithmetization**, meaning that there is very little overhead compared with other proof systems that are designed around instructions/sequential compute. Instead, Proof of SQL is designed from the ground up with data processing and parallelism in mind.
 3. We use **GPU acceleration** on the most expensive cryptography in the prover. We use [Blitzar](https://github.com/spaceandtimelabs/blitzar) as our acceleration framework.
 
@@ -149,7 +149,7 @@ An example result for the 3rd query looks like this:
 `b` | `sum_a` | `c`
 ---|---|---
 1 | -45585 | 301
-2 | -137574, | 300
+2 | -137574 | 300
 3 | -107073 | 282
 
 </p>
@@ -190,11 +190,11 @@ We are also currently undergoing robust security audits. Keep this in mind as yo
 
 ## Protocol Overview
 
-See the [Space and Time Whitepaper](https://assets-global.website-files.com/642d91209f1e772d3740afa0/658edf3cf26933c4878ec965_whitepaper.pdf) for a more in depth explanation. We will also be adding more technical documentation to this repo soon.
+See the [Space and Time Whitepaper](https://assets-global.website-files.com/642d91209f1e772d3740afa0/658edf3cf26933c4878ec965_whitepaper.pdf) for a more in-depth explanation. We will also be adding more technical documentation to this repo soon.
 
 We created this protocol with a few key goals. First, it needs to be super fast for data processing, both for verification and round-trip execution. This requires a design that is built from the ground up, as opposed to using arbitrary zkVMs. Second, we made it very developer-friendly. Using SQL, the most popular data query language, ensures a familiar experience for anyone building data-focused applications, or sophisticated data-driven contracts. Finally, our protocol is designed to handle complex data processing, not just simple serial compute or data retrieval.
 
-In this protocol, there are two main roles: the client sending the query (Verifier) and the database service returning the result (Prover). Of course, the Verifier doesn't always have to send the query; it can be any client, such as a smart contract, a dapp frontend, or a laptop . This setup is crucial for applications with limited compute or storage but still requires a security guarantee that data analytics are correctly executed and the data remains unaltered. The Prover handles heavy computations, while the Verifier is lightweight, suitable for client devices or smart contracts with limited resources.
+In this protocol, there are two main roles: the client sending the query (Verifier) and the database service returning the result (Prover). Of course, the Verifier doesn't always have to send the query; it can be any client, such as a smart contract, a dapp frontend, or a laptop. This setup is crucial for applications with limited compute or storage but still requires a security guarantee that data analytics are correctly executed and the data remains unaltered. The Prover handles heavy computations, while the Verifier is lightweight, suitable for client devices or smart contracts with limited resources.
 
 A key architectural feature is the concept of a commitment, or digest. To ensure data integrity, the Verifier maintains this commitment to detect any tampering. Think of it as a digital fingerprint—a lightweight digest representing the data in the table.
 

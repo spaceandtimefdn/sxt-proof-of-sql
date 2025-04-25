@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{Column, ColumnRef, LiteralValue, Table},
+        database::{Column, LiteralValue, Table},
         map::IndexMap,
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -14,6 +14,7 @@ use crate::{
 use alloc::boxed::Box;
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// TODO: This struct is only partially complete. This should not be used yet. Several constraints still need to be added.
 /// A gadget for proving divide and modulo expressions in tandem.
@@ -118,7 +119,7 @@ impl DivideAndModuloExpr {
     fn verifier_evaluate<S: Scalar, B: VerificationBuilder<S>>(
         &self,
         builder: &mut B,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<Ident, S>,
         one_eval: S,
         params: &[LiteralValue],
     ) -> Result<(S, S), ProofError> {
@@ -190,8 +191,8 @@ mod tests {
             4,
             |verification_builder, chi_eval, evaluation_point| {
                 let accessor = indexmap! {
-                    lhs_ref.clone() => lhs.inner_product(evaluation_point),
-                    rhs_ref.clone() => rhs.inner_product(evaluation_point)
+                    lhs_ref.clone().column_id() => lhs.inner_product(evaluation_point),
+                    rhs_ref.clone().column_id() => rhs.inner_product(evaluation_point)
                 };
                 divide_and_modulo_expr
                     .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])

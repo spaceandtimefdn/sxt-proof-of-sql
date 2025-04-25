@@ -45,11 +45,11 @@ impl ProverEvaluate for DishonestFilterExec {
         log::log_memory_usage("Start");
 
         let table = table_map
-            .get(&self.table.table_ref)
+            .get(&self.table().table_ref)
             .expect("Table not found");
         // 1. selection
         let selection_column: Column<'a, S> = self
-            .where_clause
+            .where_clause()
             .first_round_evaluate(alloc, table, params)?;
         let selection = selection_column
             .as_boolean()
@@ -57,7 +57,7 @@ impl ProverEvaluate for DishonestFilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
         // 2. columns
         let columns: Vec<_> = self
-            .aliased_results
+            .aliased_results()
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr.expr.first_round_evaluate(alloc, table, params)
@@ -67,7 +67,7 @@ impl ProverEvaluate for DishonestFilterExec {
         let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
         let filtered_columns = tamper_column(alloc, filtered_columns);
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            self.aliased_results()
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
@@ -97,11 +97,11 @@ impl ProverEvaluate for DishonestFilterExec {
         log::log_memory_usage("Start");
 
         let table = table_map
-            .get(&self.table.table_ref)
+            .get(&self.table().table_ref)
             .expect("Table not found");
         // 1. selection
         let selection_column: Column<'a, S> = self
-            .where_clause
+            .where_clause()
             .final_round_evaluate(builder, alloc, table, params)?;
         let selection = selection_column
             .as_boolean()
@@ -109,7 +109,7 @@ impl ProverEvaluate for DishonestFilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
         // 2. columns
         let columns: Vec<_> = self
-            .aliased_results
+            .aliased_results()
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
@@ -140,7 +140,7 @@ impl ProverEvaluate for DishonestFilterExec {
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            self.aliased_results()
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),

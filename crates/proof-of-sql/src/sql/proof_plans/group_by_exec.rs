@@ -65,13 +65,38 @@ impl GroupByExec {
             where_clause,
         }
     }
+
+    /// Get a reference to the table expression
+    pub fn table(&self) -> &TableExpr {
+        &self.table
+    }
+
+    /// Get a reference to the where clause
+    pub fn where_clause(&self) -> &DynProofExpr {
+        &self.where_clause
+    }
+
+    /// Get a reference to the group by expressions
+    pub fn group_by_exprs(&self) -> &[ColumnExpr] {
+        &self.group_by_exprs
+    }
+
+    /// Get a reference to the sum expressions
+    pub fn sum_expr(&self) -> &[AliasedDynProofExpr] {
+        &self.sum_expr
+    }
+
+    /// Get a reference to the count alias
+    pub fn count_alias(&self) -> &Ident {
+        &self.count_alias
+    }
 }
 
 impl ProofPlan for GroupByExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
@@ -79,15 +104,19 @@ impl ProofPlan for GroupByExec {
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
+        let accessor = accessor
+            .get(&self.table.table_ref)
+            .cloned()
+            .unwrap_or_else(|| [].into_iter().collect());
         // 1. selection
         let where_eval =
             self.where_clause
-                .verifier_evaluate(builder, accessor, input_chi_eval, params)?;
+                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
         // 2. columns
         let group_by_evals = self
             .group_by_exprs
             .iter()
-            .map(|expr| expr.verifier_evaluate(builder, accessor, input_chi_eval, params))
+            .map(|expr| expr.verifier_evaluate(builder, &accessor, input_chi_eval, params))
             .collect::<Result<Vec<_>, _>>()?;
         let aggregate_evals = self
             .sum_expr
@@ -95,7 +124,7 @@ impl ProofPlan for GroupByExec {
             .map(|aliased_expr| {
                 aliased_expr
                     .expr
-                    .verifier_evaluate(builder, accessor, input_chi_eval, params)
+                    .verifier_evaluate(builder, &accessor, input_chi_eval, params)
             })
             .collect::<Result<Vec<_>, _>>()?;
         // 3. filtered_columns

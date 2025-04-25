@@ -16,7 +16,7 @@
     ```bash
     pipx install slither-analyzer
     ```
-4. `aderyn` (Recommended)
+5. `aderyn` (Recommended)
     ```bash
     npm install -g @cyfrin/aderyn
     ```

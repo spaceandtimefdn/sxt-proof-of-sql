@@ -56,7 +56,7 @@ impl ProofPlan for ProjectionExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
@@ -70,31 +70,10 @@ impl ProofPlan for ProjectionExec {
         // TODO: Make this work with inputs with multiple tables such as join
         // and union results
         let input_schema = self.input.get_column_result_fields();
-        let input_table_refs = self.input.get_table_references();
-        if input_table_refs.len() > 1 {
-            return Err(ProofError::UnsupportedQueryPlan {
-                error: "Projections with multiple tables are not supported yet",
-            });
-        }
-        // Covers the case of tablelessness
-        let input_table_ref = if let Some(table_ref) = input_table_refs.first() {
-            table_ref.clone()
-        } else {
-            TableRef::from_names(None, "empty")
-        };
         let current_accessor = input_schema
             .iter()
             .zip(input_eval.column_evals())
-            .map(|(field, eval)| {
-                (
-                    ColumnRef::new(
-                        input_table_ref.clone(),
-                        field.name().clone(),
-                        field.data_type(),
-                    ),
-                    *eval,
-                )
-            })
+            .map(|(field, eval)| (field.name().clone(), *eval))
             .collect::<IndexMap<_, _>>();
         let output_column_evals = self
             .aliased_results

@@ -17,12 +17,13 @@ use crate::{
 use alloc::{boxed::Box, string::ToString};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// Provable numerical `-` expression
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SubtractExpr {
-    pub(crate) lhs: Box<DynProofExpr>,
-    pub(crate) rhs: Box<DynProofExpr>,
+    lhs: Box<DynProofExpr>,
+    rhs: Box<DynProofExpr>,
 }
 
 impl SubtractExpr {
@@ -36,6 +37,16 @@ impl SubtractExpr {
                 left_type: left_datatype.to_string(),
                 right_type: right_datatype.to_string(),
             })
+    }
+
+    /// Get the left-hand side expression
+    pub fn lhs(&self) -> &DynProofExpr {
+        &self.lhs
+    }
+
+    /// Get the right-hand side expression
+    pub fn rhs(&self) -> &DynProofExpr {
+        &self.rhs
     }
 }
 
@@ -87,7 +98,7 @@ impl ProofExpr for SubtractExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<Ident, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {

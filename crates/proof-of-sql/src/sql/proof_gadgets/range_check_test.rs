@@ -18,6 +18,7 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
+use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 // A test plan for performing range checks on a specified column.
@@ -163,18 +164,18 @@ impl ProofPlan for RangeCheckTestPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let input_column_eval = accessor[&self.column];
+        let input_column_eval = accessor[&self.column.table_ref()][&self.column.column_id()];
         let chi_n_eval = chi_eval_map[&self.column.table_ref()];
 
         verifier_evaluate_range_check(builder, input_column_eval, chi_n_eval)?;
 
         Ok(TableEvaluation::new(
-            vec![accessor[&self.column]],
+            vec![accessor[&self.column.table_ref()][&self.column.column_id()]],
             chi_eval_map[&self.column.table_ref()],
         ))
     }

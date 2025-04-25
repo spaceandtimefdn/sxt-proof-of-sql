@@ -24,6 +24,7 @@ use bumpalo::Bump;
 use core::marker::PhantomData;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
+use sqlparser::ast::Ident;
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -33,10 +34,10 @@ use serde::{Deserialize, Serialize};
 /// This differs from the [`FilterExec`] in that the result is not a sparse table.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct OstensibleFilterExec<H: ProverHonestyMarker> {
-    pub(crate) aliased_results: Vec<AliasedDynProofExpr>,
-    pub(crate) table: TableExpr,
+    aliased_results: Vec<AliasedDynProofExpr>,
+    table: TableExpr,
     /// TODO: add docs
-    pub(crate) where_clause: DynProofExpr,
+    where_clause: DynProofExpr,
     phantom: PhantomData<H>,
 }
 
@@ -54,6 +55,21 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
             phantom: PhantomData,
         }
     }
+
+    /// Get the aliased results
+    pub fn aliased_results(&self) -> &[AliasedDynProofExpr] {
+        &self.aliased_results
+    }
+
+    /// Get the table expression
+    pub fn table(&self) -> &TableExpr {
+        &self.table
+    }
+
+    /// Get the where clause expression
+    pub fn where_clause(&self) -> &DynProofExpr {
+        &self.where_clause
+    }
 }
 
 impl<H: ProverHonestyMarker> ProofPlan for OstensibleFilterExec<H>
@@ -63,7 +79,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<ColumnRef, S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
@@ -71,10 +87,14 @@ where
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
+        let accessor = accessor
+            .get(&self.table.table_ref)
+            .cloned()
+            .unwrap_or_else(|| [].into_iter().collect());
         // 1. selection
         let selection_eval =
             self.where_clause
-                .verifier_evaluate(builder, accessor, input_chi_eval, params)?;
+                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
         // 2. columns
         let columns_evals = Vec::from_iter(
             self.aliased_results
@@ -82,7 +102,7 @@ where
                 .map(|aliased_expr| {
                     aliased_expr
                         .expr
-                        .verifier_evaluate(builder, accessor, input_chi_eval, params)
+                        .verifier_evaluate(builder, &accessor, input_chi_eval, params)
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );

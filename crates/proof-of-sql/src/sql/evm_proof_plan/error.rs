@@ -16,6 +16,9 @@ pub(crate) enum EVMProofPlanError {
     /// Error indicating that table name can not be parsed into `TableRef`.
     #[snafu(display("table name can not be parsed into TableRef"))]
     InvalidTableName,
+    /// Error indicating that the output column name is invalid or missing.
+    #[snafu(display("invalid or missing output column name"))]
+    InvalidOutputColumnName,
     /// Analyze error
     #[snafu(transparent)]
     AnalyzeError {
