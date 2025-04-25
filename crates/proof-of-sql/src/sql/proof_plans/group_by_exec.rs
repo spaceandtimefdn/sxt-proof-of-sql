@@ -151,27 +151,20 @@ impl ProofPlan for GroupByExec {
                 count_column_eval,
             ),
         )?;
-        match result {
-            Some(table) => {
-                let cols = self
-                    .group_by_exprs
-                    .iter()
-                    .map(|col| table.inner_table().get(&col.column_id()))
-                    .collect::<Option<Vec<_>>>()
-                    .ok_or(ProofError::VerificationError {
-                        error: "Result does not all correct group by columns.",
-                    })?;
-                if (0..table.num_rows() - 1)
-                    .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
-                {
-                    Err(ProofError::VerificationError {
-                        error: "Result of group by not ordered as expected.",
-                    })?;
-                }
-            }
-            None => {
-                Err(ProofError::UnsupportedQueryPlan {
-                    error: "GroupByExec currently only supported at top level of query plan.",
+        if let Some(table) = result {
+            let cols = self
+                .group_by_exprs
+                .iter()
+                .map(|col| table.inner_table().get(&col.column_id()))
+                .collect::<Option<Vec<_>>>()
+                .ok_or(ProofError::VerificationError {
+                    error: "Result does not all correct group by columns.",
+                })?;
+            if (0..table.num_rows() - 1)
+                .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
+            {
+                return Err(ProofError::VerificationError {
+                    error: "Result of group by not ordered as expected.",
                 })?;
             }
         }

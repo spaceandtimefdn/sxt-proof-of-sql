@@ -1,6 +1,6 @@
 use super::{
-    DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec,
-    SliceExec, SortMergeJoinExec, TableExec, UnionExec,
+    DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec,
+    TableExec, UnionExec,
 };
 use crate::{
     base::database::{ColumnField, ColumnType, TableRef},

@@ -92,7 +92,7 @@ fn we_can_join_to_a_group_by() {
         decimal75(stars_ident, 2, 0, [9, 5, 7, 8, 5, 6, 7, 8, 6]),
     ]);
     let weight_table = owned_table([
-        tinyint(count_ident, [1, 2]),
+        bigint(count_ident, [1, 2]),
         decimal75(weight_ident, 2, 1, [10, 5]),
     ]);
     let rating_table_ref = TableRef::new("sxt", "rating");
@@ -105,7 +105,11 @@ fn we_can_join_to_a_group_by() {
         vec![aliased_plan(
             multiply(
                 column(&weight_table_ref, weight_ident, &data_accessor),
-                column(&rater_rating_sum_ref, stars_sum, &data_accessor),
+                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    rater_rating_sum_ref,
+                    stars_sum.into(),
+                    ColumnType::Decimal75(Precision::new(3).unwrap(), 1),
+                ))),
             ),
             stars_average,
         )],
@@ -130,12 +134,12 @@ fn we_can_join_to_a_group_by() {
                     ),
                 ],
             ),
-            vec![0],
+            vec![2],
             vec![0],
             vec![
+                count_ident.into(),
                 rating_id_ident.into(),
                 stars_sum.into(),
-                count_ident.into(),
                 weight_ident.into(),
             ],
         ),
@@ -143,6 +147,6 @@ fn we_can_join_to_a_group_by() {
     let res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&expr, &data_accessor, &(), &[]).unwrap();
     let result_table = res.verify(&expr, &data_accessor, &(), &[]).unwrap().table;
-    let expected = owned_table([decimal75(stars_average, 3, 1, [90, 80, 55])]);
+    let expected = owned_table([decimal75(stars_average, 6, 2, [90, 55, 80])]);
     assert_eq!(result_table, expected);
 }
