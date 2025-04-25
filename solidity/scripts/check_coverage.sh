@@ -10,6 +10,11 @@ gawk -i inplace '
     e==0 { if(p) print p; p=$0 }
     END { if(p) print p }
     ' lcov.info
+
+cat lcov.info
+
+genhtml lcov.info -o coverage-report --branch-coverage
+
 percentage=$(genhtml lcov.info -o coverage-report --branch-coverage | grep -o "[0-9\.]*%" | uniq | tr -d '\n')
 if [ $percentage != "100.0%" ]; then
     >&2 echo "missing test coverage!"
