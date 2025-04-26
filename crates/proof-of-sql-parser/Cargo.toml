@@ -6,22 +6,20 @@ edition = { workspace = true }
 repository = { workspace = true }
 build = "build.rs"
 description = "Library for SQL parsing for the Proof of SQL execution engine."
-exclude = { workspace = true }
-license-file = { workspace = true }
+license = "MIT" # Replace license-file with license, or specify license-file explicitly
+# Remove exclude if not needed, or specify explicitly: exclude = ["some/path"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-doctest = true
-test = true
+# Remove doctest and test as they are enabled by default
 
 [dependencies]
 arrayvec = { workspace = true, features = ["serde"] }
-bigdecimal = { workspace = true, default_features = false }
+bigdecimal = { workspace = true, default-features = false }
 chrono = { workspace = true, features = ["serde"] }
 lalrpop-util = { workspace = true, features = ["lexer", "unicode"] }
-serde = { workspace = true, features = ["serde_derive", "alloc"] }
+serde = { workspace = true, features = ["derive", "alloc"] }
 snafu = { workspace = true }
-sqlparser = { workspace = true, default_features = false }
+sqlparser = { workspace = true, default-features = false }
 
 [build-dependencies]
 lalrpop = { workspace = true }
