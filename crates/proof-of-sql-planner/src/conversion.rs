@@ -97,14 +97,6 @@ pub fn wasm_friendly_sql_to_proof_plans<A: SchemaAccessor + Clone>(
     let context_provider = PoSqlContextProvider::new(schemas.clone());
     // 1. Parse the SQL query into AST using sqlparser
     let raw_logical_plan = SqlToRel::new(&context_provider).sql_statement_to_plan(statement)?;
-    // 3. Analyze the `LogicalPlan` using `Analyzer`
-    let analyzer = Analyzer::new();
-    let analyzed_logical_plan = analyzer.execute_and_check(raw_logical_plan, config, |_, _| {})?;
-    // 4. Optimize the `LogicalPlan` using `Optimizer`
-    let optimizer = optimizer();
-    let optimizer_context = OptimizerContext::default();
-    let optimized_logical_plan =
-        optimizer.optimize(analyzed_logical_plan, &optimizer_context, |_, _| {})?;
     Ok(())
 }
 
