@@ -96,6 +96,8 @@ enum Query {
     ComplexFilter,
     /// Group by query
     GroupBy,
+    /// Join query
+    Join,
 }
 
 impl Query {
@@ -106,6 +108,7 @@ impl Query {
             Query::Filter => "Filter",
             Query::ComplexFilter => "Complex Filter",
             Query::GroupBy => "Group By",
+            Query::Join => "Join",
         }
     }
 }
@@ -195,10 +198,19 @@ fn bench_by_schema<CP: CommitmentEvaluationProof>(
     let mut rng = get_rng(cli);
 
     for (query, sql, columns, params) in queries {
+        let a = columns[0];
+
+        //let c = columns[2];
         // Get accessor
         accessor.insert_table(
             TableRef::from_names(None, "bench_table"),
-            &generate_random_columns(&alloc, &mut rng, columns, cli.table_size),
+            &generate_random_columns(&alloc, &mut rng, &[a], cli.table_size),
+            &prover_setup,
+        );
+
+        accessor.insert_table(
+            TableRef::from_names(None, "bench_table_2"),
+            &generate_random_columns(&alloc, &mut rng, &[a], cli.table_size),
             &prover_setup,
         );
 
@@ -395,7 +407,8 @@ fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
 
         (prover_setup, vk)
     } else {
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", cli.table_size);
+        let ck: CommitmentKey<HyperKZGEngine> =
+            CommitmentEngine::setup(b"bench", cli.table_size * 2);
         let (_, vk) = EvaluationEngine::setup(&ck);
         let prover_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         (prover_setup, vk)
