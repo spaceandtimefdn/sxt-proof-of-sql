@@ -105,8 +105,6 @@ pub fn wasm_friendly_sql_to_proof_plans<A: SchemaAccessor + Clone>(
     let optimizer_context = OptimizerContext::default();
     let optimized_logical_plan =
         optimizer.optimize(analyzed_logical_plan, &optimizer_context, |_, _| {})?;
-    // 5. Convert the optimized `LogicalPlan` into a Proof of SQL plan
-    let test = logical_plan_to_proof_plan(&optimized_logical_plan, schemas)?;
     Ok(())
 }
 
