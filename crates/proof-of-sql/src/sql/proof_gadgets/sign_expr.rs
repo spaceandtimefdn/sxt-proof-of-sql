@@ -46,6 +46,7 @@ pub fn first_round_evaluate_sign<'a, S: Scalar>(
 ///
 /// Note: We can only prove the sign bit for non-zero scalars, and we restict
 /// the range of non-zero scalar so that there is a unique sign representation.
+#[tracing::instrument(level = "debug", skip_all)]
 pub fn final_round_evaluate_sign<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,

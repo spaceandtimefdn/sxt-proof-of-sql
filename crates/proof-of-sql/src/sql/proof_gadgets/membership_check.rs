@@ -47,6 +47,7 @@ pub(crate) fn first_round_evaluate_membership_check<'a, S: Scalar>(
 /// Panics if the number of source and candidate columns are not equal
 /// or if the number of columns is zero.
 #[expect(clippy::too_many_arguments)]
+#[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn final_round_evaluate_membership_check<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,

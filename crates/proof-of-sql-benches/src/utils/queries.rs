@@ -143,13 +143,11 @@ impl BaseEntry for Join {
     }
 
     fn columns(&self) -> Vec<ColumnDefinition> {
-        vec![
-            (
-                "a",
-                ColumnType::BigInt,
-                Some(|size| (size / 10 * size).max(10) as i64),
-            ),
-        ]
+        vec![(
+            "a",
+            ColumnType::BigInt,
+            Some(|size| (size / 10 * size).max(10) as i64),
+        )]
     }
 
     fn params(&self) -> Vec<LiteralValue> {

@@ -26,6 +26,7 @@ pub(crate) fn first_round_evaluate_shift<S: Scalar>(
 ///
 /// # Panics
 /// Panics if `column.len() != shifted_column.len() - 1` which should always hold for shifts.
+#[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
