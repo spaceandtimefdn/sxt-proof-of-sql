@@ -10,7 +10,7 @@ pub(crate) use context::PoSqlTableSource;
 mod conversion;
 pub use conversion::{
     get_table_refs_from_statement, sql_to_proof_plans, sql_to_proof_plans_with_postprocessing,
-    wasm_friendly_sql_to_proof_plans,
+    wasm_friendly_sql_to_proof_plans, optimizer
 };
 #[cfg(test)]
 mod df_util;

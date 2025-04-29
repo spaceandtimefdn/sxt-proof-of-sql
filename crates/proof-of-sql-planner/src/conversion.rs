@@ -102,7 +102,6 @@ pub fn wasm_friendly_sql_to_proof_plans<A: SchemaAccessor + Clone>(
     let analyzed_logical_plan = analyzer.execute_and_check(raw_logical_plan, config, |_, _| {})?;
     // 4. Optimize the `LogicalPlan` using `Optimizer`
     let optimizer = optimizer();
-    let optimizer_context = OptimizerContext::default();
     Ok(())
 }
 
