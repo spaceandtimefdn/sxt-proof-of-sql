@@ -9,7 +9,8 @@ pub use context::PoSqlContextProvider;
 pub(crate) use context::PoSqlTableSource;
 mod conversion;
 pub use conversion::{
-    get_table_refs_from_statement, sql_to_proof_plans, sql_to_proof_plans_with_postprocessing, wasm_friendly_sql_to_proof_plans
+    get_table_refs_from_statement, sql_to_proof_plans, sql_to_proof_plans_with_postprocessing,
+    wasm_friendly_sql_to_proof_plans,
 };
 #[cfg(test)]
 mod df_util;
