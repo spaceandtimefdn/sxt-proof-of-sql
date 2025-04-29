@@ -90,26 +90,12 @@ enum CommitmentScheme {
 enum Query {
     /// All queries
     All,
-    /// Single column filter query
-    SingleColumnFilter,
-    /// Multi column filter query
-    MultiColumnFilter,
-    /// Arithmetic query
-    Arithmetic,
+    /// Filter query
+    Filter,
+    /// Complex filter query
+    ComplexFilter,
     /// Group by query
     GroupBy,
-    /// Aggregate query
-    Aggregate,
-    /// Boolean filter query
-    BooleanFilter,
-    /// Large column set query
-    LargeColumnSet,
-    /// Complex condition query
-    ComplexCondition,
-    /// Sum count query
-    SumCount,
-    /// Coin query
-    Coin,
 }
 
 impl Query {
@@ -117,16 +103,9 @@ impl Query {
     pub fn to_string(&self) -> &'static str {
         match self {
             Query::All => "All",
-            Query::SingleColumnFilter => "Single Column Filter",
-            Query::MultiColumnFilter => "Multi Column Filter",
-            Query::Arithmetic => "Arithmetic",
+            Query::Filter => "Filter",
+            Query::ComplexFilter => "Complex Filter",
             Query::GroupBy => "Group By",
-            Query::Aggregate => "Aggregate",
-            Query::BooleanFilter => "Boolean Filter",
-            Query::LargeColumnSet => "Large Column Set",
-            Query::ComplexCondition => "Complex Condition",
-            Query::SumCount => "Sum Count",
-            Query::Coin => "Coin",
         }
     }
 }
