@@ -88,6 +88,14 @@ pub fn sql_to_proof_plans<A: SchemaAccessor + Clone>(
     sql_to_posql_plans(statements, schemas, config, logical_plan_to_proof_plan)
 }
 
+pub fn wasm_friendly_sql_to_proof_plans<A: SchemaAccessor + Clone>(
+    statements: &[Statement],
+    schemas: &A,
+    config: &ConfigOptions,
+) -> PlannerResult<()>{
+    Ok(())
+}
+
 /// Convert a SQL query to a `ProofPlanWithPostprocessing` using schema from provided tables
 ///
 /// See `sql_to_posql_plans` for more details
