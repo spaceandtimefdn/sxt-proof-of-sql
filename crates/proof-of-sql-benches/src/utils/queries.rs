@@ -37,11 +37,11 @@ pub trait BaseEntry {
     }
 }
 
-/// Single column filter query.
-pub struct SingleColumnFilter;
-impl BaseEntry for SingleColumnFilter {
+/// Filter query.
+pub struct Filter;
+impl BaseEntry for Filter {
     fn title(&self) -> &'static str {
-        "Single Column Filter"
+        "Filter"
     }
 
     fn sql(&self) -> &'static str {
