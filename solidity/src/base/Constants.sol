@@ -72,6 +72,8 @@ uint32 constant NOT_EXPR_VARIANT = 8;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
+/// @dev Table variant constant for proof plans 
+uint32 constant TABLE_EXEC_VARIANT = 1;
 
 /// @dev BigInt variant constant for literal expressions
 uint32 constant LITERAL_BIGINT_VARIANT = 0;
