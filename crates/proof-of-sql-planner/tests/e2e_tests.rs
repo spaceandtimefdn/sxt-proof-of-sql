@@ -547,3 +547,37 @@ fn test_join() {
         &[],
     );
 }
+
+#[test]
+fn test_rating() {
+    let alloc = Bump::new();
+    let sql = "SELECT 
+    SUM(rating_value) AS rating_sum,
+    COUNT(*) AS num_ratings FROM rating;";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "rating") => table(
+            vec![
+                borrowed_int("rater_id", [1, 3, 6, 6, 3], &alloc),
+                borrowed_decimal75("rating_value", 1, 0, [1, 3, 7, 6, 4], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([
+        decimal75("rating_sum", 1, 0, [21]),
+        bigint("num_ratings", [5]),
+    ])];
+
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
