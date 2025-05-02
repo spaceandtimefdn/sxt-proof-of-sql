@@ -1,5 +1,5 @@
 use super::{
-    test_utility::{aliased_plan, cast, column, tab},
+    test_utility::{aliased_plan, cast, column},
     LiteralExpr,
 };
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{CastExpr, DynProofExpr},
-        proof_plans::test_utility::filter,
+        proof_plans::test_utility::{filter, table_exec_from_accessor},
         AnalyzeError,
     },
 };
@@ -67,7 +67,7 @@ fn we_can_prove_a_simple_cast_expr() {
                 "f_cast",
             ),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -141,7 +141,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
                 "g_cast",
             ),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

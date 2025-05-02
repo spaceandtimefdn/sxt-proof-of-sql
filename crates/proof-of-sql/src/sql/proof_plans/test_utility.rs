@@ -3,7 +3,7 @@ use super::{
     TableExec, UnionExec,
 };
 use crate::{
-    base::database::{ColumnField, ColumnType, TableRef},
+    base::database::{ColumnField, ColumnType, SchemaAccessor, TableRef},
     sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
 };
 use sqlparser::ast::Ident;
@@ -26,10 +26,10 @@ pub fn projection(results: Vec<AliasedDynProofExpr>, input: DynProofPlan) -> Dyn
 
 pub fn filter(
     results: Vec<AliasedDynProofExpr>,
-    table: TableExpr,
+    input: DynProofPlan,
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
-    DynProofPlan::Filter(FilterExec::new(results, table, where_clause))
+    DynProofPlan::Filter(FilterExec::new(results, Box::new(input), where_clause))
 }
 
 /// # Panics
@@ -73,4 +73,18 @@ pub fn sort_merge_join(
         right_join_column_indexes,
         result_idents,
     ))
+}
+
+pub fn table_exec_from_accessor(
+    table_ref: &TableRef,
+    accessor: &impl SchemaAccessor,
+) -> DynProofPlan {
+    DynProofPlan::new_table(
+        table_ref.clone(),
+        accessor
+            .lookup_schema(table_ref)
+            .into_iter()
+            .map(|(ident, column_type)| ColumnField::new(ident, column_type))
+            .collect(),
+    )
 }

@@ -1,4 +1,4 @@
-use super::{fold_columns, fold_vals};
+use super::{fold_columns, fold_vals, DynProofPlan};
 use crate::{
     base::{
         database::{
@@ -15,7 +15,7 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, HonestProver, ProofPlan, ProverEvaluate,
             ProverHonestyMarker, SumcheckSubpolynomialType, VerificationBuilder,
         },
-        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
     },
     utils::log,
 };
@@ -35,7 +35,7 @@ use sqlparser::ast::Ident;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct OstensibleFilterExec<H: ProverHonestyMarker> {
     aliased_results: Vec<AliasedDynProofExpr>,
-    table: TableExpr,
+    input: Box<DynProofPlan>,
     /// TODO: add docs
     where_clause: DynProofExpr,
     phantom: PhantomData<H>,
@@ -45,12 +45,12 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
     /// Creates a new filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
-        table: TableExpr,
+        input: Box<DynProofPlan>,
         where_clause: DynProofExpr,
     ) -> Self {
         Self {
             aliased_results,
-            table,
+            input,
             where_clause,
             phantom: PhantomData,
         }
@@ -61,9 +61,9 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
         &self.aliased_results
     }
 
-    /// Get the table expression
-    pub fn table(&self) -> &TableExpr {
-        &self.table
+    /// Get a reference to the input plan
+    pub fn input(&self) -> &DynProofPlan {
+        &self.input
     }
 
     /// Get the where clause expression
@@ -84,25 +84,31 @@ where
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let input_chi_eval = *chi_eval_map
-            .get(&self.table.table_ref)
-            .expect("Chi eval not found");
-        let accessor = accessor
-            .get(&self.table.table_ref)
-            .cloned()
-            .unwrap_or_else(|| [].into_iter().collect());
+        let input_eval =
+            self.input
+                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+        let chi_eval = input_eval.chi_eval();
+        let input_schema = self.input.get_column_result_fields();
+        let current_accessor = input_schema
+            .iter()
+            .zip(input_eval.column_evals())
+            .map(|(field, eval)| (field.name().clone(), *eval))
+            .collect::<IndexMap<_, _>>();
         // 1. selection
         let selection_eval =
             self.where_clause
-                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
+                .verifier_evaluate(builder, &current_accessor, chi_eval, params)?;
         // 2. columns
         let columns_evals = Vec::from_iter(
             self.aliased_results
                 .iter()
                 .map(|aliased_expr| {
-                    aliased_expr
-                        .expr
-                        .verifier_evaluate(builder, &accessor, input_chi_eval, params)
+                    aliased_expr.expr.verifier_evaluate(
+                        builder,
+                        &current_accessor,
+                        chi_eval,
+                        params,
+                    )
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
@@ -120,7 +126,7 @@ where
             builder,
             alpha,
             beta,
-            input_chi_eval,
+            chi_eval,
             output_chi_eval,
             &columns_evals,
             selection_eval,
@@ -154,7 +160,7 @@ where
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
-        IndexSet::from_iter([self.table.table_ref.clone()])
+        self.input.get_table_references()
     }
 }
 
@@ -172,13 +178,13 @@ impl ProverEvaluate for FilterExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
-        let table = table_map
-            .get(&self.table.table_ref)
-            .expect("Table not found");
+        let table = self
+            .input
+            .first_round_evaluate(builder, alloc, table_map, params)?;
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
-            .first_round_evaluate(alloc, table, params)?;
+            .first_round_evaluate(alloc, &table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -189,7 +195,9 @@ impl ProverEvaluate for FilterExec {
             .aliased_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr.expr.first_round_evaluate(alloc, table, params)
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, &table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
 
@@ -221,13 +229,13 @@ impl ProverEvaluate for FilterExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
-        let table = table_map
-            .get(&self.table.table_ref)
-            .expect("Table not found");
+        let table = self
+            .input
+            .final_round_evaluate(builder, alloc, table_map, params)?;
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
-            .final_round_evaluate(builder, alloc, table, params)?;
+            .final_round_evaluate(builder, alloc, &table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -240,7 +248,7 @@ impl ProverEvaluate for FilterExec {
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
                     .expr
-                    .final_round_evaluate(builder, alloc, table, params)
+                    .final_round_evaluate(builder, alloc, &table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns

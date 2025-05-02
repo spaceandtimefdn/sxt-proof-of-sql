@@ -2,13 +2,12 @@ use crate::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
     sql::{
         evm_proof_plan::EVMProofPlan,
-        proof_exprs::{
-            AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr, TableExpr,
-        },
+        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr},
         proof_plans::{DynProofPlan, EmptyExec, FilterExec},
     },
 };
 use core::iter;
+use sqlparser::ast::Ident;
 
 #[test]
 fn we_cannot_generate_serialized_proof_plan_for_unsupported_plan() {
@@ -38,19 +37,25 @@ fn we_cannot_generate_serialized_proof_plan_for_unsupported_plan() {
 #[test]
 fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let table_ref: TableRef = "namespace.table".parse().unwrap();
-    let identifier_a = "a".into();
-    let identifier_b = "b".into();
+    let identifier_a: Ident = "a".into();
+    let identifier_b: Ident = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a.clone(), ColumnType::BigInt);
+    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b.clone(), ColumnType::BigInt);
 
     let plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
             alias: identifier_alias,
         }],
-        TableExpr { table_ref },
+        Box::new(DynProofPlan::new_table(
+            table_ref.clone(),
+            vec![
+                ColumnField::new(identifier_a, ColumnType::BigInt),
+                ColumnField::new(identifier_b, ColumnType::BigInt),
+            ],
+        )),
         DynProofExpr::Equals(
             EqualsExpr::try_new(
                 Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),
@@ -106,19 +111,25 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
 #[test]
 fn we_can_deserialize_proof_plan_for_simple_filter() {
     let table_ref: TableRef = "namespace.table".parse().unwrap();
-    let identifier_a = "a".into();
-    let identifier_b = "b".into();
+    let identifier_a: Ident = "a".into();
+    let identifier_b: Ident = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a.clone(), ColumnType::BigInt);
+    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b.clone(), ColumnType::BigInt);
 
     let expected_plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
             alias: identifier_alias,
         }],
-        TableExpr { table_ref },
+        Box::new(DynProofPlan::new_table(
+            table_ref.clone(),
+            vec![
+                ColumnField::new(identifier_a, ColumnType::BigInt),
+                ColumnField::new(identifier_b, ColumnType::BigInt),
+            ],
+        )),
         DynProofExpr::Equals(
             EqualsExpr::try_new(
                 Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),

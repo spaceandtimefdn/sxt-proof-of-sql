@@ -2,8 +2,8 @@ use super::{filter_exec::prove_filter, OstensibleFilterExec};
 use crate::{
     base::{
         database::{
-            filter_util::*, owned_table_utility::*, Column, LiteralValue, OwnedTableTestAccessor,
-            Table, TableOptions, TableRef, TestAccessor,
+            filter_util::*, owned_table_utility::*, Column, ColumnField, ColumnType, LiteralValue,
+            OwnedTableTestAccessor, Table, TableOptions, TableRef, TestAccessor,
         },
         map::IndexMap,
         proof::{PlaceholderResult, ProofError},
@@ -15,9 +15,10 @@ use crate::{
             VerifiableQueryResult,
         },
         proof_exprs::{
-            test_utility::{cols_expr_plan, column, const_int128, equal, tab},
+            test_utility::{cols_expr_plan, column, const_int128, equal},
             ProofExpr,
         },
+        proof_plans::test_utility::table_exec,
     },
     utils::log,
 };
@@ -44,13 +45,13 @@ impl ProverEvaluate for DishonestFilterExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
-        let table = table_map
-            .get(&self.table().table_ref)
-            .expect("Table not found");
+        let table = self
+            .input()
+            .first_round_evaluate(builder, alloc, table_map, params)?;
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause()
-            .first_round_evaluate(alloc, table, params)?;
+            .first_round_evaluate(alloc, &table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -60,7 +61,9 @@ impl ProverEvaluate for DishonestFilterExec {
             .aliased_results()
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr.expr.first_round_evaluate(alloc, table, params)
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, &table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns
@@ -96,13 +99,13 @@ impl ProverEvaluate for DishonestFilterExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
-        let table = table_map
-            .get(&self.table().table_ref)
-            .expect("Table not found");
+        let table = self
+            .input()
+            .final_round_evaluate(builder, alloc, table_map, params)?;
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause()
-            .final_round_evaluate(builder, alloc, table, params)?;
+            .final_round_evaluate(builder, alloc, &table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -114,7 +117,7 @@ impl ProverEvaluate for DishonestFilterExec {
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
                     .expr
-                    .final_round_evaluate(builder, alloc, table, params)
+                    .final_round_evaluate(builder, alloc, &table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns
@@ -187,7 +190,16 @@ fn we_fail_to_verify_a_basic_filter_with_a_dishonest_prover() {
     accessor.add_table(t.clone(), data, 0);
     let expr = DishonestFilterExec::new(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        Box::new(table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::BigInt),
+                ColumnField::new("c".into(), ColumnType::Int128),
+                ColumnField::new("d".into(), ColumnType::VarChar),
+                ColumnField::new("e".into(), ColumnType::Scalar),
+            ],
+        )),
         equal(column(&t, "a", &accessor), const_int128(105_i128)),
     );
     let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();

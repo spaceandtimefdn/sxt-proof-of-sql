@@ -12,10 +12,10 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{
-            test_utility::{aliased_plan, column, scaling_cast, tab},
+            test_utility::{aliased_plan, column, scaling_cast},
             LiteralExpr,
         },
-        proof_plans::test_utility::filter,
+        proof_plans::test_utility::{filter, table_exec_from_accessor},
     },
 };
 use blitzar::proof::InnerProductProof;
@@ -78,7 +78,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
                 "f_cast",
             ),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -132,7 +132,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
                 "c_cast",
             ),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -168,7 +168,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
             ),
             "a_cast",
         )],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

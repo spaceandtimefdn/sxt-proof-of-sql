@@ -13,7 +13,7 @@ use datafusion::{
 };
 use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
-    base::database::{ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
+    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
@@ -93,7 +93,6 @@ fn table_scan_to_filter(
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
-    let table_expr = TableExpr { table_ref };
     // Filter
     let consolidated_filter_proof_expr = filters
         .iter()
@@ -102,7 +101,13 @@ fn table_scan_to_filter(
         .expect("At least one filter expression is required")?;
     Ok(DynProofPlan::new_filter(
         aliased_dyn_proof_exprs,
-        table_expr,
+        DynProofPlan::new_table(
+            table_ref,
+            input_schema
+                .into_iter()
+                .map(|(ident, column_type)| ColumnField::new(ident, column_type))
+                .collect(),
+        ),
         consolidated_filter_proof_expr,
     ))
 }
@@ -1332,9 +1337,14 @@ mod tests {
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
         let expected = DynProofPlan::new_filter(
             vec![ALIASED_A(), ALIASED_C()],
-            TableExpr {
-                table_ref: TABLE_REF_TABLE(),
-            },
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("a".into(), ColumnType::BigInt),
+                    ColumnField::new("b".into(), ColumnType::Int),
+                    ColumnField::new("d".into(), ColumnType::Boolean),
+                ],
+            ),
             DynProofExpr::try_new_and(
                 DynProofExpr::try_new_equals(
                     DynProofExpr::new_column(ColumnRef::new(
@@ -1436,9 +1446,14 @@ mod tests {
         let expected = DynProofPlan::new_slice(
             DynProofPlan::new_filter(
                 vec![ALIASED_A(), ALIASED_D()],
-                TableExpr {
-                    table_ref: TABLE_REF_TABLE(),
-                },
+                DynProofPlan::new_table(
+                    TABLE_REF_TABLE(),
+                    vec![
+                        ColumnField::new("a".into(), ColumnType::BigInt),
+                        ColumnField::new("b".into(), ColumnType::Int),
+                        ColumnField::new("d".into(), ColumnType::Boolean),
+                    ],
+                ),
                 DynProofExpr::try_new_and(
                     DynProofExpr::try_new_inequality(
                         DynProofExpr::new_column(ColumnRef::new(

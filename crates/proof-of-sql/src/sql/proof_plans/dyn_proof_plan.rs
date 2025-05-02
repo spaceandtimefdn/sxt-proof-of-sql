@@ -97,10 +97,14 @@ impl DynProofPlan {
     #[must_use]
     pub fn new_filter(
         aliased_results: Vec<AliasedDynProofExpr>,
-        input: TableExpr,
+        input: DynProofPlan,
         filter_expr: DynProofExpr,
     ) -> Self {
-        Self::Filter(FilterExec::new(aliased_results, input, filter_expr))
+        Self::Filter(FilterExec::new(
+            aliased_results,
+            Box::new(input),
+            filter_expr,
+        ))
     }
 
     /// Creates a new group by plan.

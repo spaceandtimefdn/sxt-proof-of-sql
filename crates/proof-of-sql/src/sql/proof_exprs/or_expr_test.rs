@@ -33,7 +33,7 @@ fn we_can_prove_a_simple_or_query() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -61,7 +61,7 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -90,7 +90,7 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -139,7 +139,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             or(
                 equal(
                     column(&t, "b", &accessor),

@@ -36,7 +36,7 @@ fn we_can_prove_an_equality_query_with_no_rows() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res =
@@ -62,7 +62,7 @@ fn we_can_prove_another_equality_query_with_no_rows() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res =
@@ -89,7 +89,7 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b", "c", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             column(&t, "bool", &accessor),
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
@@ -122,7 +122,7 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -148,7 +148,7 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -174,7 +174,7 @@ fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -214,7 +214,7 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -255,7 +255,7 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             column(&t, "bool", &accessor),
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
@@ -299,7 +299,7 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_bigint(123_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -341,7 +341,7 @@ fn we_can_prove_an_equality_query_with_a_string_comparison() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "b", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "c", &accessor), const_varchar("ghi")),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -390,7 +390,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(
                 column(&t, "b", &accessor),
                 const_varchar(filter_val.as_str()),
@@ -484,7 +484,7 @@ fn we_can_query_with_varbinary_equality() {
     // Build query plan: SELECT a, b FROM table WHERE b = [4,5,6,7]
     let ast = filter(
         cols_expr_plan(&t, &["a", "b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "b", &accessor), const_varbinary(&[4, 5, 6, 7])),
     );
 

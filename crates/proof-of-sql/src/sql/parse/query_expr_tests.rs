@@ -71,7 +71,7 @@ fn we_can_convert_an_ast_with_one_column() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3)),
         ),
         vec![],
@@ -92,7 +92,7 @@ fn we_can_convert_an_ast_with_one_column_and_i128_data() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3_i64)),
         ),
         vec![],
@@ -113,7 +113,7 @@ fn we_can_convert_an_ast_with_one_column_and_a_filter_by_a_string_literal() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_varchar("abc")),
         ),
         vec![],
@@ -162,7 +162,7 @@ fn we_dont_have_duplicate_filter_result_expressions() {
     let expected_ast = QueryExpr::new(
         filter(
             aliased_cols_expr_plan(&t, &[("a", "b"), ("a", "c")], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3)),
         ),
         vec![],
@@ -185,7 +185,7 @@ fn we_can_convert_an_ast_with_two_columns() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "c", &accessor), const_bigint(123)),
         ),
         vec![],
@@ -212,7 +212,7 @@ fn we_can_convert_an_ast_with_two_columns_and_arithmetic() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(
                 column(&t, "c", &accessor),
                 subtract(
@@ -240,7 +240,7 @@ fn we_can_parse_all_result_columns_with_select_star() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["b", "a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3)),
         ),
         vec![],
@@ -262,7 +262,7 @@ fn we_can_convert_an_ast_with_one_positive_cond() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "b", &accessor), const_bigint(4)),
         ),
         vec![],
@@ -284,7 +284,7 @@ fn we_can_convert_an_ast_with_one_not_equals_cond() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             not(equal(column(&t, "b", &accessor), const_bigint(4))),
         ),
         vec![],
@@ -306,7 +306,7 @@ fn we_can_convert_an_ast_with_one_negative_cond() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             lte(column(&t, "b", &accessor), const_bigint(-4)),
         ),
         vec![],
@@ -333,7 +333,7 @@ fn we_can_convert_an_ast_with_cond_and() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             and(
                 equal(column(&t, "b", &accessor), const_bigint(3)),
                 lte(column(&t, "c", &accessor), const_bigint(-2)),
@@ -363,7 +363,7 @@ fn we_can_convert_an_ast_with_cond_or() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             or(
                 equal(
                     multiply(column(&t, "b", &accessor), const_bigint(3)),
@@ -396,7 +396,7 @@ fn we_can_convert_an_ast_with_conds_or_not() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             or(
                 lte(column(&t, "b", &accessor), const_bigint(3)),
                 not(gte(column(&t, "c", &accessor), const_bigint(-2))),
@@ -436,7 +436,7 @@ fn we_can_convert_an_ast_with_conds_not_and_or() {
                     "boolean",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             not(and(
                 or(
                     gte(column(&t, "f", &accessor), const_bigint(45)),
@@ -470,7 +470,7 @@ fn we_can_convert_an_ast_with_the_min_i128_filter_value_and_const() {
                 col_expr_plan(&t, "a", &accessor),
                 aliased_plan(const_int128(i128::MIN), "b"),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_int128(i128::MIN)),
         ),
         vec![],
@@ -498,7 +498,7 @@ fn we_can_convert_an_ast_with_the_max_i128_filter_value_and_const() {
                 col_expr_plan(&t, "a", &accessor),
                 aliased_plan(const_int128(i128::MAX), "ma"),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_int128(i128::MAX)),
         ),
         vec![],
@@ -530,7 +530,7 @@ fn we_can_convert_an_ast_using_an_aliased_column() {
                     "boolean",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             gte(column(&t, "b", &accessor), const_bigint(4)),
         ),
         vec![],
@@ -575,7 +575,7 @@ fn we_can_convert_an_ast_with_a_schema() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3)),
         ),
         vec![],
@@ -598,7 +598,7 @@ fn we_can_convert_an_ast_without_any_filter() {
                 col_expr_plan(&t, "a", &accessor),
                 aliased_plan(const_bigint(3), "b"),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![],
@@ -634,7 +634,7 @@ fn we_can_parse_order_by_with_a_single_column() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["b", "a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(3)),
         ),
         vec![orders(&[0_usize], &[true])],
@@ -660,7 +660,7 @@ fn we_can_parse_order_by_with_multiple_columns() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(
                 column(&t, "a", &accessor),
                 add(column(&t, "b", &accessor), const_bigint(3)),
@@ -693,7 +693,7 @@ fn we_can_parse_order_by_referencing_an_alias_associated_with_column_b_but_with_
                 aliased_col_expr_plan(&t, "salary", "s", &accessor),
                 aliased_col_expr_plan(&t, "name", "salary", &accessor),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "salary", &accessor), const_bigint(5)),
         ),
         vec![orders(&[1_usize], &[false])],
@@ -796,7 +796,7 @@ fn we_can_parse_order_by_queries_with_the_same_column_name_appearing_more_than_o
                     col_expr_plan(&t, "name", &accessor),
                     aliased_col_expr_plan(&t, "salary", "d", &accessor),
                 ],
-                tab(&t),
+                table_exec_from_accessor(&t, &accessor),
                 const_bool(true),
             ),
             vec![orders(&[index], &[true])],
@@ -822,7 +822,7 @@ fn we_can_parse_a_query_having_a_simple_limit_clause() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![slice(Some(3), Some(0))],
@@ -843,7 +843,7 @@ fn slice_is_still_applied_when_limit_is_u64_max_and_offset_is_zero() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![slice(Some(u64::MAX), Some(0))],
@@ -864,7 +864,7 @@ fn we_can_parse_a_query_having_a_simple_positive_offset_clause() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![slice(Some(u64::MAX), Some(7))],
@@ -885,7 +885,7 @@ fn we_can_parse_a_query_having_a_negative_offset_clause() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![slice(Some(u64::MAX), Some(-7))],
@@ -906,7 +906,7 @@ fn we_can_parse_a_query_having_a_simple_limit_and_offset_clause() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["a"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![slice(Some(55), Some(3))],
@@ -945,7 +945,7 @@ fn we_can_parse_a_query_having_a_simple_limit_and_offset_clause_preceded_by_wher
                     "res",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_bigint(-3)),
         ),
         vec![orders(&[0_usize], &[false]), slice(Some(55), Some(3))],
@@ -1094,7 +1094,7 @@ fn we_can_group_by_without_using_aggregate_functions() {
     let expected_ast = QueryExpr::new(
         filter(
             vec![col_expr_plan(&t, "department", &accessor)],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![
@@ -1140,7 +1140,7 @@ fn group_by_expressions_are_parsed_before_an_order_by_referencing_an_aggregate_a
                 col_expr_plan(&t, "salary", &accessor),
                 col_expr_plan(&t, "tax", &accessor),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![
@@ -1277,7 +1277,7 @@ fn we_can_parse_a_query_having_group_by_with_the_same_name_as_the_aggregation_ex
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["bonus", "department"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1307,7 +1307,7 @@ fn count_aggregate_functions_can_be_used_with_non_numeric_columns() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["bonus", "department"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1341,7 +1341,7 @@ fn count_all_uses_the_first_group_by_identifier_as_default_result_column() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["department", "salary"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "salary", &accessor), const_bigint(4)),
         ),
         vec![group_by_postprocessing(
@@ -1389,7 +1389,7 @@ fn we_can_use_the_same_result_columns_with_different_aliases_and_associate_it_wi
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["department"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1424,7 +1424,7 @@ fn we_can_use_multiple_group_by_clauses_with_multiple_agg_and_non_agg_exprs() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["bonus", "name", "salary", "tax"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1477,7 +1477,7 @@ fn we_can_parse_a_simple_add_mul_sub_div_arithmetic_expressions_in_the_result_ex
                     "af",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![],
@@ -1536,7 +1536,7 @@ fn we_can_parse_multiple_arithmetic_expression_where_multiplication_has_preceden
                     "d",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![],
@@ -1564,7 +1564,7 @@ fn we_can_parse_arithmetic_expression_within_aggregations_in_the_result_expr() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["c", "f"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1758,7 +1758,7 @@ fn group_by_with_bigint_column_is_valid() {
     let expected_query = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["salary"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1787,7 +1787,7 @@ fn group_by_with_decimal_column_is_valid() {
     let expected_query = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["salary"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1816,7 +1816,7 @@ fn group_by_with_varchar_column_is_valid() {
     let expected_query = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["name"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(
@@ -1847,7 +1847,7 @@ fn we_can_use_arithmetic_outside_agg_expressions_while_using_group_by() {
     let expected_query = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["salary", "tax"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![
@@ -1892,7 +1892,7 @@ fn we_can_use_arithmetic_outside_agg_expressions_without_using_group_by() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["bonus", "salary"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![
@@ -1939,7 +1939,7 @@ fn count_aggregation_always_have_integer_type() {
     let expected_ast = QueryExpr::new(
         filter(
             cols_expr_plan(&t, &["name", "salary", "tax"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![
@@ -2011,7 +2011,7 @@ fn select_wildcard_is_valid_with_group_by_exprs() {
                 .iter()
                 .map(|c| col_expr_plan(&t, c, &accessor))
                 .collect(),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(true),
         ),
         vec![group_by_postprocessing(&columns, &aliased_exprs)],
@@ -2112,7 +2112,11 @@ fn select_group_and_order_by_preserve_the_column_order_reference() {
                 .unwrap();
 
         let expected_query = QueryExpr::new(
-            filter(perm_col_plans, tab(&t), const_bool(true)),
+            filter(
+                perm_col_plans,
+                table_exec_from_accessor(&t, &accessor),
+                const_bool(true),
+            ),
             vec![
                 group_by_postprocessing(&group_cols_vec, &aliased_perm_cols),
                 orders(&[2_usize, 3, 0, 1], &ordering_vec),

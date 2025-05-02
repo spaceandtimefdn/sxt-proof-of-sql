@@ -34,7 +34,7 @@ fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         not(equal(column(&t, "b", &accessor), const_bigint(1))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -75,7 +75,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             not(and(
                 equal(column(&t, "a", &accessor), const_bigint(filter_val_a)),
                 equal(

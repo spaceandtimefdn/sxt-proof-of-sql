@@ -1,12 +1,12 @@
 use super::{where_expr_builder::WhereExprBuilder, ConversionError, EnrichedExpr};
 use crate::{
     base::{
-        database::{ColumnRef, LiteralValue, TableRef},
+        database::{ColumnField, ColumnRef, LiteralValue, TableRef},
         map::IndexMap,
     },
     sql::{
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, TableExpr},
-        proof_plans::FilterExec,
+        proof_plans::{DynProofPlan, FilterExec},
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -80,7 +80,13 @@ impl FilterExecBuilder {
     pub fn build(self) -> FilterExec {
         FilterExec::new(
             self.filter_result_expr_list,
-            self.table_expr.expect("Table expr is required"),
+            Box::new(DynProofPlan::new_table(
+                self.table_expr.expect("Table expr is required").table_ref,
+                self.column_mapping
+                    .into_iter()
+                    .map(|(ident, col_ref)| ColumnField::new(ident, *col_ref.column_type()))
+                    .collect(),
+            )),
             self.where_expr
                 .unwrap_or_else(|| DynProofExpr::new_literal(LiteralValue::Boolean(true))),
         )

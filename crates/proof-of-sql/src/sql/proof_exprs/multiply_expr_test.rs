@@ -53,7 +53,7 @@ fn we_can_prove_a_typical_multiply_query() {
             ),
             col_expr_plan(&t, "e", &accessor),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             multiply(column(&t, "d", &accessor), const_decimal75(2, 1, 39)),
             const_decimal75(3, 2, 819),
@@ -100,7 +100,7 @@ fn where_clause_can_wrap_around() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast: DynProofPlan = filter(
         cols_expr_plan(&t, &["a", "b", "c", "d", "e", "res"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             multiply(
                 multiply(
@@ -181,7 +181,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                     "f",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             and(
                 equal(
                     column(&t, "b", &accessor),

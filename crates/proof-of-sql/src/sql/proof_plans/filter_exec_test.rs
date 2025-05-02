@@ -15,7 +15,7 @@ use crate::{
             exercise_verification, FirstRoundBuilder, ProofPlan, ProvableQueryResult,
             ProverEvaluate, VerifiableQueryResult,
         },
-        proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, LiteralExpr, TableExpr},
+        proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, LiteralExpr},
     },
 };
 use blitzar::proof::InnerProductProof;
@@ -48,9 +48,13 @@ fn we_can_correctly_fetch_the_query_result_schema() {
                 "b",
             ),
         ],
-        TableExpr {
-            table_ref: table_ref.clone(),
-        },
+        Box::new(table_exec(
+            table_ref.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::BigInt),
+            ],
+        )),
         DynProofExpr::try_new_equals(
             DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
                 table_ref.clone(),
@@ -99,9 +103,13 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 "f",
             ),
         ],
-        TableExpr {
-            table_ref: table_ref.clone(),
-        },
+        Box::new(table_exec(
+            table_ref.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("f".into(), ColumnType::BigInt),
+            ],
+        )),
         not(and(
             or(
                 DynProofExpr::try_new_equals(
@@ -162,7 +170,11 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_filter() {
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
-    let ast = filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
+    let ast = filter(
+        cols_expr_plan(&t, &["b"], &accessor),
+        table_exec_from_accessor(&t, &accessor),
+        where_clause,
+    );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
@@ -193,7 +205,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_on_an_empty_table_using_first_
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let expr = filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         where_clause,
     );
     let fields = &[
@@ -242,7 +254,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_using_first_round_evaluate() {
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let expr = filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         where_clause,
     );
     let fields = &[
@@ -289,7 +301,11 @@ fn we_can_get_no_columns_from_a_basic_filter_with_no_selected_columns_using_firs
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
-    let expr = filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause);
+    let expr = filter(
+        cols_expr_plan(&t, &[], &accessor),
+        table_exec_from_accessor(&t, &accessor),
+        where_clause,
+    );
     let fields = &[];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
     let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
@@ -322,7 +338,7 @@ fn we_can_get_the_correct_result_from_a_basic_filter_using_first_round_evaluate(
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
     let expr = filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         where_clause,
     );
     let fields = &[
@@ -364,7 +380,7 @@ fn we_can_prove_a_filter_on_an_empty_table() {
     accessor.add_table(t.clone(), data, 0);
     let expr = filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
     let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
@@ -392,7 +408,7 @@ fn we_can_prove_a_filter_with_empty_results() {
     accessor.add_table(t.clone(), data, 0);
     let expr = filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
@@ -431,7 +447,7 @@ fn we_can_prove_a_filter() {
                 "bool",
             ),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(column(&t, "a", &accessor), const_int128(105)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();

@@ -38,7 +38,7 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         gte(
             DynProofExpr::try_new_scaling_cast(
                 column(&t, "a", &accessor),
@@ -81,7 +81,7 @@ fn we_can_compare_columns_with_small_timestamp_values_lte() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(
             scaling_cast(
                 column(&t, "a", &accessor),
@@ -118,7 +118,7 @@ fn we_can_compare_a_constant_column() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -139,7 +139,7 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -166,7 +166,7 @@ fn we_can_compare_columns_with_extreme_values() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["bigint_b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(
             lte(
                 lte(
@@ -206,7 +206,7 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "e", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -239,7 +239,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(
             column(&t, "f", &accessor),
             DynProofExpr::try_new_scaling_cast(
@@ -280,7 +280,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         gte(
             column(&t, "f", &accessor),
             DynProofExpr::try_new_scaling_cast(
@@ -324,7 +324,7 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -376,7 +376,7 @@ fn we_can_compare_two_columns() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -400,7 +400,7 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -424,7 +424,7 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -448,7 +448,7 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -469,7 +469,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -490,7 +490,7 @@ fn we_can_compare_column_with_greater_than_or_equal() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         gte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -515,7 +515,7 @@ fn we_can_run_nested_comparison() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             gte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
             column(&t, "boolean", &accessor),
@@ -539,7 +539,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -560,7 +560,7 @@ fn we_can_compare_a_constant_column_of_zeros() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -581,7 +581,7 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -621,7 +621,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             lte(column(&t, "a", &accessor), const_bigint(filter_val)),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

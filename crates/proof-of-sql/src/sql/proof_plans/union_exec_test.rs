@@ -51,7 +51,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_with_one_table() {
     let ast = union_exec(
         vec![filter(
             cols_expr_plan(&t, &["a0"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             gte(column(&t, "a0", &accessor), const_int128(2_i128)),
         )],
         vec![column_field("a", ColumnType::BigInt)],
@@ -227,7 +227,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
                         slice_exec(
                             filter(
                                 cols_expr_plan(&t2, &["a2", "b2"], &accessor),
-                                tab(&t2),
+                                table_exec_from_accessor(&t2, &accessor),
                                 gte(column(&t2, "a2", &accessor), const_smallint(5_i16)),
                             ),
                             2,
@@ -238,7 +238,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
                                 aliased_plan(const_bigint(105_i64), "const"),
                                 col_expr_plan(&t3, "b3", &accessor),
                             ],
-                            tab(&t3),
+                            table_exec_from_accessor(&t3, &accessor),
                             equal(column(&t3, "a3", &accessor), const_int128(6_i128)),
                         ),
                         projection(

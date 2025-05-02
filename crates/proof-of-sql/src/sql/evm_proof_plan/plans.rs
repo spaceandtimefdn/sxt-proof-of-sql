@@ -152,7 +152,7 @@ impl EVMTableExec {
 /// Represents a filter execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMFilterExec {
-    table_number: usize,
+    input_plan: Box<EVMDynProofPlan>,
     where_clause: EVMDynProofExpr,
     results: Vec<EVMDynProofExpr>,
 }
@@ -165,9 +165,11 @@ impl EVMFilterExec {
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
-            table_number: table_refs
-                .get_index_of(&plan.table().table_ref)
-                .ok_or(EVMProofPlanError::TableNotFound)?,
+            input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
+                plan.input(),
+                table_refs,
+                column_refs,
+            )?),
             results: plan
                 .aliased_results()
                 .iter()
@@ -194,12 +196,11 @@ impl EVMFilterExec {
                     })
                 })
                 .collect::<EVMProofPlanResult<Vec<_>>>()?,
-            TableExpr {
-                table_ref: table_refs
-                    .get_index(self.table_number)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::TableNotFound)?,
-            },
+            Box::new(self.input_plan.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
             self.where_clause.try_into_proof_expr(column_refs)?,
         ))
     }
@@ -622,21 +623,25 @@ mod tests {
     #[test]
     fn we_can_put_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
-        let ident_a = "a".into();
-        let ident_b = "b".into();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
                 alias: Ident::new(alias.clone()),
             }],
-            TableExpr {
-                table_ref: table_ref.clone(),
-            },
+            Box::new(DynProofPlan::new_table(
+                table_ref.clone(),
+                vec![
+                    ColumnField::new(ident_a, ColumnType::BigInt),
+                    ColumnField::new(ident_b, ColumnType::BigInt),
+                ],
+            )),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
                     Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
@@ -656,7 +661,7 @@ mod tests {
         .unwrap();
 
         let expected_evm_filter_exec = EVMFilterExec {
-            table_number: 0,
+            input_plan: Box::new(EVMDynProofPlan::Table(EVMTableExec { table_number: 0 })),
             where_clause: EVMDynProofExpr::Equals(EVMEqualsExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr::new(0)),
                 EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)),

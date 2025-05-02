@@ -218,7 +218,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_composed_projection() {
                     "a",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             equal(column(&t, "a", &accessor), const_int128(5)),
         ),
     );

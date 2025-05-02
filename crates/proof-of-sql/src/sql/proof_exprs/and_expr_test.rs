@@ -43,7 +43,7 @@ fn we_can_prove_a_simple_and_query() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         and(
             equal(column(&t, "b", &accessor), const_scalar::<TestScalar, _>(1)),
             equal(
@@ -75,7 +75,7 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         and(
             equal(column(&t, "b", &accessor), const_scalar::<TestScalar, _>(1)),
             equal(
@@ -127,7 +127,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             and(
                 equal(
                     column(&t, "b", &accessor),

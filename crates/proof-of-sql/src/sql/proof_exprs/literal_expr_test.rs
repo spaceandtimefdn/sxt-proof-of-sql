@@ -49,7 +49,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let ast = filter(
             cols_expr_plan(&t, &["a", "b", "c"], &accessor),
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             const_bool(lit),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -98,7 +98,7 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         const_bool(true),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -118,7 +118,7 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         const_bool(false),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

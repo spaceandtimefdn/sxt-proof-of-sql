@@ -43,7 +43,7 @@ fn we_can_prove_a_typical_add_subtract_query() {
             aliased_plan(add(column(&t, "b", &accessor), const_bigint(4)), "res"),
             col_expr_plan(&t, "d", &accessor),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             subtract(column(&t, "a", &accessor), column(&t, "b", &accessor)),
             const_bigint(3),
@@ -100,7 +100,7 @@ fn we_can_prove_a_typical_add_subtract_query_with_decimals() {
             ),
             col_expr_plan(&t, "d", &accessor),
         ],
-        tab(&t),
+        table_exec_from_accessor(&t, &accessor),
         equal(
             subtract(
                 scaling_cast(
@@ -168,7 +168,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                     "f",
                 ),
             ],
-            tab(&t),
+            table_exec_from_accessor(&t, &accessor),
             and(
                 equal(
                     column(&t, "b", &accessor),
