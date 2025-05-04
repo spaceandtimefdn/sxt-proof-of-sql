@@ -180,4 +180,11 @@ contract ErrorsTest is Test {
         vm.expectRevert(Errors.UnsupportedDataTypeVariant.selector);
         Errors.__err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT);
     }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testErrorEvaluationLengthTooLarge() public {
+        assert(Errors.EvaluationLengthTooLarge.selector == bytes4(ERR_EVALUATION_LENGTH_TOO_LARGE));
+        vm.expectRevert(Errors.EvaluationLengthTooLarge.selector);
+        Errors.__err(ERR_EVALUATION_LENGTH_TOO_LARGE);
+    }
 }

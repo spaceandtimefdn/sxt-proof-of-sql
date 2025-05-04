@@ -80,7 +80,25 @@ contract ConstantsTest is Test {
         }
     }
 
-    function testInitialTranscriptStateIsHashOfNothing() public pure {
-        assert(INITIAL_TRANSCRIPT_STATE == uint256(keccak256(hex"")));
+    bytes32 private constant _PUBLIC_PARAMETERS_HASH =
+        hex"c65198b7006b08652900d3dc4d282e2ad0bc71a04afffdbafa8fba7d956e478f";
+    bytes32 private constant _SETUP_HASH = hex"e8840d8a41ce9d4e14e7ba0e1b023224751361577378291fcd3f0f05f0f7e875";
+
+    function testInitialTranscriptStateIsHashPublicSetup() public pure {
+        assert(
+            _SETUP_HASH
+                == keccak256(
+                    // solhint-disable-next-line func-named-parameters
+                    bytes.concat(
+                        _PUBLIC_PARAMETERS_HASH,
+                        bytes32(VK_TAU_HX_REAL),
+                        bytes32(VK_TAU_HX_IMAG),
+                        bytes32(VK_TAU_HY_REAL),
+                        bytes32(VK_TAU_HY_IMAG)
+                    )
+                )
+        );
+
+        assert(INITIAL_TRANSCRIPT_STATE == uint256(keccak256(bytes.concat(_SETUP_HASH))));
     }
 }

@@ -6,7 +6,7 @@ use super::{
     TableOperationError, TableOperationResult, TableOptions,
 };
 use crate::base::scalar::Scalar;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use bumpalo::Bump;
 use core::cmp::Ordering;
 use itertools::Itertools;
@@ -73,17 +73,67 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
     if data.is_empty() {
         return alloc.alloc_slice_fill_copy(num_unique_rows, 0_i128);
     }
+
+    let span = span!(
+        Level::DEBUG,
+        "join_util::get_multiplicities::find_multiplicities"
+    )
+    .entered();
+
+    // Sort the indexes of the unique and data tables
+    let mut unique_indices: Vec<usize> = (0..unique[0].len()).collect();
+    unique_indices.sort_by(|&i, &j| {
+        compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
+    });
+
     let num_rows = data[0].len();
-    let multiplicities = (0..num_unique_rows)
-        .map(|unique_index| {
-            (0..num_rows)
-                .filter(|&data_index| {
-                    compare_single_row_of_tables(data, unique, data_index, unique_index)
-                        == Ok(Ordering::Equal)
-                })
-                .count() as i128
-        })
-        .collect::<Vec<_>>();
+
+    let mut data_indices: Vec<usize> = (0..num_rows).collect();
+    data_indices.sort_by(|&i, &j| {
+        compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
+    });
+
+    let mut multiplicities = vec![0i128; num_unique_rows];
+    let mut i = 0;
+    let mut j = 0;
+
+    // Step through the unique and data indices finding matches
+    // each match adds to the unique_indices' multiplicity.
+    while i < num_unique_rows && j < num_rows {
+        let cmp = compare_single_row_of_tables(unique, data, unique_indices[i], data_indices[j])
+            .unwrap_or(Ordering::Equal);
+
+        match cmp {
+            Ordering::Less => {
+                multiplicities[unique_indices[i]] = 0;
+                i += 1;
+            }
+            Ordering::Greater => {
+                j += 1;
+            }
+            Ordering::Equal => {
+                let mut count = 0;
+                while j < num_rows {
+                    let eq = compare_single_row_of_tables(
+                        unique,
+                        data,
+                        unique_indices[i],
+                        data_indices[j],
+                    )
+                    .unwrap_or(Ordering::Less);
+                    if eq != Ordering::Equal {
+                        break;
+                    }
+                    count += 1;
+                    j += 1;
+                }
+                multiplicities[unique_indices[i]] = count;
+                i += 1;
+            }
+        }
+    }
+    span.exit();
+
     alloc.alloc_slice_copy(multiplicities.as_slice())
 }
 

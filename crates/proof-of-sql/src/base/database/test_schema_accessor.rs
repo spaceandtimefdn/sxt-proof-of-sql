@@ -3,6 +3,7 @@ use crate::base::map::IndexMap;
 use alloc::vec::Vec;
 use sqlparser::ast::Ident;
 /// A simple in-memory `SchemaAccessor` for testing intermediate AST -> Provable AST conversion.
+#[derive(Clone)]
 pub struct TestSchemaAccessor {
     schemas: IndexMap<TableRef, IndexMap<Ident, ColumnType>>,
 }

@@ -59,6 +59,7 @@ impl SortMergeJoinExec {
     /// - The join column index is out of bounds
     /// - The number of join columns is different
     /// - The number of result idents is different from the expected number of columns
+    #[must_use]
     pub fn new(
         left: Box<DynProofPlan>,
         right: Box<DynProofPlan>,

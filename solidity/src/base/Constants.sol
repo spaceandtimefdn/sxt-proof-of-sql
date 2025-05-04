@@ -157,4 +157,4 @@ uint256 constant BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET = 0x20 * 11;
 uint256 constant BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET = 0x20 * 12;
 
 /// @dev The initial transcript state. This is the hash of the empty string.
-uint256 constant INITIAL_TRANSCRIPT_STATE = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+uint256 constant INITIAL_TRANSCRIPT_STATE = 0x7c26f909f37b2c61df0bb3b19f76296469cb4d07b582a215c4e2b1f7a05527c3;

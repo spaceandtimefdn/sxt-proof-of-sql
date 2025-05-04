@@ -37,6 +37,7 @@ library FilterExec {
     /// C^\star \cdot S - D^\star &\overset{\sum}{=} 0\\\\
     /// (1 + \alpha\cdot \bar{C})\cdot C^\star - \chi_{[0,n)} &\equiv 0\\\\
     /// (1 + \alpha\cdot \bar{D})\cdot D^\star - \chi_{[0,m)} &\equiv 0\\\\
+    /// \alpha\cdot\bar{D}\cdot(\chi_{[0,m)}-1) &\equiv 0\\\\
     /// \end{aligned}\\]
     /// Note: the notation \\(A\overset{\sum}{=}B\\) is used to indicate the zero-sum constratin.
     /// That is, that the sum of the elements of \\(A\\) equals the sum of the elements in \\(B\\).
@@ -237,6 +238,11 @@ library FilterExec {
                         mulmod(MODULUS_MINUS_ONE, output_chi_eval, MODULUS),
                         MODULUS
                     ),
+                    2
+                )
+                builder_produce_identity_constraint(
+                    builder_ptr,
+                    mulmod(mulmod(alpha, d_fold, MODULUS), addmod(output_chi_eval, MODULUS_MINUS_ONE, MODULUS), MODULUS),
                     2
                 )
                 plan_ptr_out := plan_ptr

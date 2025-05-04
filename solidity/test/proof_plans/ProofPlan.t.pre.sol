@@ -31,10 +31,11 @@ contract ProofPlanTest is Test {
         builder.finalRoundMLEs[2] = 204;
         builder.finalRoundMLEs[3] = 301;
         builder.finalRoundMLEs[4] = 302;
-        builder.constraintMultipliers = new uint256[](3);
+        builder.constraintMultipliers = new uint256[](4);
         builder.constraintMultipliers[0] = 401;
         builder.constraintMultipliers[1] = 402;
         builder.constraintMultipliers[2] = 403;
+        builder.constraintMultipliers[3] = 404;
         builder.challenges = new uint256[](2);
         builder.challenges[0] = 501;
         builder.challenges[1] = 502;
@@ -54,9 +55,10 @@ contract ProofPlanTest is Test {
         FF zeroSumConstraint0 = FF.wrap(301) * FF.wrap(101 * 801) - FF.wrap(302);
         FF identityConstraint1 = (F.ONE + FF.wrap(501) * cFold) * FF.wrap(301) - FF.wrap(801);
         FF identityConstraint2 = (F.ONE + FF.wrap(501) * dFold) * FF.wrap(302) - FF.wrap(701);
+        FF identityConstraint3 = FF.wrap(501) * dFold * (FF.wrap(701) - F.ONE);
 
         FF expectedAggregateEvaluation = zeroSumConstraint0 * FF.wrap(401) + identityConstraint1 * FF.wrap(402 * 601)
-            + identityConstraint2 * FF.wrap(403 * 601);
+            + identityConstraint2 * FF.wrap(403 * 601) + identityConstraint3 * FF.wrap(404 * 601);
 
         assert(evals.length == 3);
         assert(evals[0] == 202);

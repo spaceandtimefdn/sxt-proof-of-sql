@@ -316,6 +316,13 @@ pub(super) fn verify_filter<S: Scalar>(
         2,
     )?;
 
+    // d_fold * chi_m - d_fold = 0
+    builder.try_produce_sumcheck_subpolynomial_evaluation(
+        SumcheckSubpolynomialType::Identity,
+        d_fold_eval * (chi_m_eval - S::ONE),
+        2,
+    )?;
+
     Ok(())
 }
 
@@ -382,6 +389,18 @@ pub(super) fn prove_filter<'a, S: Scalar + 'a>(
                 vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
             ),
             (-S::one(), vec![Box::new(chi_m as &[_])]),
+        ],
+    );
+
+    // d_fold * chi_m - d_fold = 0
+    builder.produce_sumcheck_subpolynomial(
+        SumcheckSubpolynomialType::Identity,
+        vec![
+            (
+                S::one(),
+                vec![Box::new(d_fold as &[_]), Box::new(chi_m as &[_])],
+            ),
+            (-S::one(), vec![Box::new(d_fold as &[_])]),
         ],
     );
 }

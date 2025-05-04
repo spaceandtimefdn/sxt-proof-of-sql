@@ -255,6 +255,9 @@ contract ResultVerifierTest is Test {
         vm.assume(nameData.length >= numberOfColumns);
         // solhint-disable-next-line gas-strict-inequalities
         vm.assume(data.length >= uint256(numberOfColumns) * uint256(numberOfRows));
+        vm.assume(evaluationPoint.length < 256);
+        // solhint-disable-next-line gas-strict-inequalities
+        vm.assume(1 << evaluationPoint.length >= numberOfRows);
 
         bytes[] memory columnNames = new bytes[](numberOfColumns);
         int64[][] memory table = new int64[][](numberOfColumns);

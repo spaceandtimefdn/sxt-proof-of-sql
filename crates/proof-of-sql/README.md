@@ -117,7 +117,7 @@ Proof of SQL is optimized for speed and efficiency. Here's how it's so fast:
 
 ### Setup
 
-We run benchmarks using both a machine with multiple NVIDIA A100 GPUs (NC A100 v4-series Azure VM) and a machine with a single NVIDIA T4 GPU (NCasT4_v3-series Azure VM).
+We run benchmarks using NVIDIA A100 GPUs (NC A100 v4-series Azure VM).
 
 To run these benchmarks we first generate a large, randomly-filled table of data such as the following:
 <p align="center">
@@ -137,32 +137,17 @@ a (BIGINT) | b (BIGINT) | c (VARCHAR)
 
 </p>
 
-Then, we run the following 3 queries against these data, prove, and verify the results:
-* Query #1 - `SELECT b FROM table WHERE a = 0`
-* Query #2 - `SELECT * FROM table WHERE ((a = 0) or (b = 1)) and (not (c = 'a'))`
-* Query #3 - `SELECT b, SUM(a) as sum_a, COUNT(*) as c FROM table WHERE (c = 'a' OR c = 'b') AND b > 0 GROUP BY b`
-
-An example result for the 3rd query looks like this:
-
-<p align="center">
-
-`b` | `sum_a` | `c`
----|---|---
-1 | -45585 | 301
-2 | -137574 | 300
-3 | -107073 | 282
-
-</p>
+Then, we run the following 4 queries against these data, prove, and verify the results:
+* Filter - `SELECT b FROM bench_table WHERE a = 0`
+* Complex Filter - `SELECT * FROM bench_table WHERE (((a = 0) AND (b = 1)) OR ((c = 'a') AND (d = 'b')))`
+* Group By - `SELECT SUM(a), COUNT(*) FROM bench_table WHERE a = 0 GROUP BY b`
+* Join - `SELECT table_a.column, table_b.column FROM table_a JOIN table_b on table_a.column=table_b.column`
 
 ### Results
 
-The results are shown in the graphs below for the T4 machine and the A100 machine on all three of the queries listed above. Broadly the results are:
+The results for the `HyperKZG` commitment scheme are shown in the graphs below for a single and multiple A100 machine.
 
-* A query against 200 thousand rows of data can be proven in sub-second time.
-* A query against 100 million rows of data can be proven in roughly a minute.
-* Verification time is roughly 20ms across the board.
-
-<p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/ProofOfSQLBenchmarks200kT4.svg" alt="Proof Of SQL Benchmarks (200k - T4)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/ProofOfSQLBenchmarks200kA100.svg" alt="Proof Of SQL Benchmarks (200k - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/ProofOfSQLBenchmarks10mT4.svg" alt="Proof Of SQL Benchmarks (10m - T4)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/ProofOfSQLBenchmarks10mA100.svg" alt="Proof Of SQL Benchmarks (10m - A100)" width="50%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_200k_2025.04.29.png" alt="Proof Of SQL Benchmarks (200k - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_200k_2025.04.29.png" alt="Proof Of SQL Benchmarks (200k - Multi-A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_2025.04.29.png" alt="Proof Of SQL Benchmarks (10m - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_2025.04.29.png" alt="Proof Of SQL Benchmarks (10m - Multi-A100)" width="50%"/></p>
 
 ## Supported SQL Syntax
 

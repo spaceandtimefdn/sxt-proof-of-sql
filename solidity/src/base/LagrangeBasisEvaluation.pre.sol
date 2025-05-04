@@ -3,6 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "./Constants.sol";
+import "./Errors.sol";
 
 /// @title Lagrange Basis Evaluation Library
 /// @notice A library for efficiently computing sums over Lagrange basis polynomials evaluated at points.
@@ -73,11 +74,16 @@ library LagrangeBasisEvaluation {
         returns (uint256[] memory __evaluations)
     {
         assembly {
+            // IMPORT-YUL Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
             function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(evaluations_ptr, mul(length, WORD_SIZE)))
                 mstore(evaluations_ptr, 1)
                 let num_vars := mload(evaluation_point_ptr)
+                if gt(length, shl(num_vars, 1)) { err(ERR_EVALUATION_LENGTH_TOO_LARGE) }
                 for { let len := 1 } num_vars { num_vars := sub(num_vars, 1) } {
                     let x := mod(mload(add(evaluation_point_ptr, mul(num_vars, WORD_SIZE))), MODULUS)
                     let one_minus_x := sub(MODULUS_PLUS_ONE, x)

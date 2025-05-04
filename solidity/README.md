@@ -20,3 +20,19 @@
     ```bash
     npm install -g @cyfrin/aderyn
     ```
+
+# Build and Test
+To generate the solidity library artifact,
+
+```bash
+./scripts/preprocess_yul_imports.sh src
+```
+
+The final artifact is `./src/verifier/Verifier.t.post.sol`.
+
+
+To run all tests and lints:
+
+```bash
+./scripts/lint-and-test.sh
+```

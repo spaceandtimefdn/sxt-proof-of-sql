@@ -5,18 +5,19 @@ use super::{
 };
 use alloc::vec::Vec;
 use datafusion::{
-    common::DFSchema,
+    common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::Alias, Aggregate, Expr, Limit, LogicalPlan, Projection, TableScan, Union,
+        expr::Alias, Aggregate, Expr, Join, Limit, LogicalPlan, Projection, TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
     base::database::{ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
+        proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
-        proof_plans::DynProofPlan,
+        proof_plans::{DynProofPlan, SortMergeJoinExec},
     },
 };
 
@@ -269,10 +270,76 @@ fn aggregate_to_proof_plan(
     }
 }
 
+fn join_to_proof_plan(
+    join: &Join,
+    schema_accessor: &impl SchemaAccessor,
+    plan: &LogicalPlan,
+) -> PlannerResult<DynProofPlan> {
+    if join.join_type != JoinType::Inner || join.join_constraint != JoinConstraint::On {
+        return Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() });
+    }
+    let left_plan = Box::new(logical_plan_to_proof_plan(&join.left, schema_accessor)?);
+    let right_plan = Box::new(logical_plan_to_proof_plan(&join.right, schema_accessor)?);
+    let left_column_result_fields = left_plan
+        .get_column_result_fields()
+        .into_iter()
+        .map(|c| c.name())
+        .collect::<IndexSet<_>>();
+    let right_column_result_fields = right_plan
+        .get_column_result_fields()
+        .into_iter()
+        .map(|c| c.name())
+        .collect::<IndexSet<_>>();
+    let on_indices_and_idents = join
+        .on
+        .iter()
+        .filter_map(|(left_expr, right_expr)| {
+            Some(match (left_expr, right_expr) {
+                (Expr::Column(col_a), Expr::Column(col_b)) if col_a.name == col_b.name => {
+                    let column_id = Ident::new(col_a.name.clone());
+                    Ok((
+                        (
+                            left_column_result_fields.get_index_of(&column_id)?,
+                            right_column_result_fields.get_index_of(&column_id)?,
+                        ),
+                        column_id,
+                    ))
+                }
+                _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let (on_indices, join_idents): (Vec<(usize, usize)>, Vec<Ident>) =
+        on_indices_and_idents.into_iter().unzip();
+    let (left_indices, right_indices): (Vec<usize>, Vec<usize>) = on_indices.into_iter().unzip();
+    let (left_indices_cloned, right_indices_cloned) = (left_indices.clone(), right_indices.clone());
+    let left_other_column_idents = left_column_result_fields
+        .clone()
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, col_ident)| (!left_indices.contains(&i)).then_some(col_ident));
+    let right_other_column_idents = right_column_result_fields
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, col_ident)| (!right_indices.contains(&i)).then_some(col_ident));
+    Ok(DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+        left_plan,
+        right_plan,
+        left_indices_cloned,
+        right_indices_cloned,
+        join_idents
+            .into_iter()
+            .chain(left_other_column_idents)
+            .chain(right_other_column_idents)
+            .collect(),
+    )))
+}
+
 /// Visit a [`datafusion::logical_plan::LogicalPlan`] and return a [`DynProofPlan`]
+#[expect(clippy::too_many_lines)]
 pub fn logical_plan_to_proof_plan(
     plan: &LogicalPlan,
-    schemas: &impl SchemaAccessor,
+    schema_accessor: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     match plan {
         LogicalPlan::EmptyRelation { .. } => Ok(DynProofPlan::new_empty()),
@@ -286,9 +353,15 @@ pub fn logical_plan_to_proof_plan(
             ..
         }) => {
             let base_plan = if filters.is_empty() {
-                table_scan_to_projection(table_name, schemas, projection, projected_schema)
+                table_scan_to_projection(table_name, schema_accessor, projection, projected_schema)
             } else {
-                table_scan_to_filter(table_name, schemas, projection, projected_schema, filters)
+                table_scan_to_filter(
+                    table_name,
+                    schema_accessor,
+                    projection,
+                    projected_schema,
+                    filters,
+                )
             }?;
             if let Some(fetch) = fetch {
                 Ok(DynProofPlan::new_slice(base_plan, 0, Some(*fetch)))
@@ -318,7 +391,7 @@ pub fn logical_plan_to_proof_plan(
                     Ok((name, alias))
                 })
                 .collect::<PlannerResult<IndexMap<_, _>>>()?;
-            aggregate_to_proof_plan(input, group_expr, aggr_expr, schemas, &alias_map)
+            aggregate_to_proof_plan(input, group_expr, aggr_expr, schema_accessor, &alias_map)
         }
         // Projection
         LogicalPlan::Projection(Projection {
@@ -349,26 +422,33 @@ pub fn logical_plan_to_proof_plan(
                             _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
                         })
                         .collect::<PlannerResult<IndexMap<_, _>>>()?;
-                    aggregate_to_proof_plan(agg_input, group_expr, aggr_expr, schemas, &alias_map)
+                    aggregate_to_proof_plan(
+                        agg_input,
+                        group_expr,
+                        aggr_expr,
+                        schema_accessor,
+                        &alias_map,
+                    )
                 }
-                _ => projection_to_proof_plan(expr, input, schema, schemas),
+                _ => projection_to_proof_plan(expr, input, schema, schema_accessor),
             }
         }
         // Limit
         LogicalPlan::Limit(Limit { input, fetch, skip }) => {
-            let input_plan = logical_plan_to_proof_plan(input, schemas)?;
+            let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
             Ok(DynProofPlan::new_slice(input_plan, *skip, *fetch))
         }
         // Union
         LogicalPlan::Union(Union { inputs, schema }) => {
             let input_plans = inputs
                 .iter()
-                .map(|input| logical_plan_to_proof_plan(input, schemas))
+                .map(|input| logical_plan_to_proof_plan(input, schema_accessor))
                 .collect::<PlannerResult<Vec<_>>>()?;
             let column_fields =
                 schema_to_column_fields(try_get_schema_as_vec_from_df_schema(schema)?);
             Ok(DynProofPlan::new_union(input_plans, column_fields))
         }
+        LogicalPlan::Join(join) => join_to_proof_plan(join, schema_accessor, plan),
         _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
     }
 }
@@ -1909,5 +1989,37 @@ mod tests {
             logical_plan_to_proof_plan(&plan, &schemas),
             Err(PlannerError::UnsupportedLogicalPlan { .. })
         ));
+    }
+
+    #[test]
+    fn we_can_error_if_not_inner_join() {
+        // Most of the arguments here are bogus. The only thing that really matters is the join type.
+        let plan = LogicalPlan::Prepare(Prepare {
+            name: "not_a_real_plan".to_string(),
+            data_types: vec![],
+            input: Arc::new(LogicalPlan::EmptyRelation(EmptyRelation {
+                produce_one_row: false,
+                schema: Arc::new(DFSchema::empty()),
+            })),
+        });
+        let schemas = SCHEMAS();
+        let join_err = join_to_proof_plan(
+            &Join {
+                left: Arc::new(plan.clone()),
+                right: Arc::new(plan.clone()),
+                on: Vec::new(),
+                filter: None,
+                join_type: JoinType::Left,
+                join_constraint: JoinConstraint::On,
+                schema: Arc::new(DFSchema::empty()),
+                null_equals_null: false,
+            },
+            &schemas,
+            &plan,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if logical_plan == plan )
+        );
     }
 }

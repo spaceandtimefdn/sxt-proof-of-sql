@@ -27,6 +27,11 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
+const SETUP_HASH: [u8; 32] = [
+    0xe8, 0x84, 0x0d, 0x8a, 0x41, 0xce, 0x9d, 0x4e, 0x14, 0xe7, 0xba, 0x0e, 0x1b, 0x02, 0x32, 0x24,
+    0x75, 0x13, 0x61, 0x57, 0x73, 0x78, 0x29, 0x1f, 0xcd, 0x3f, 0x0f, 0x05, 0xf0, 0xf7, 0xe8, 0x75,
+]; // TODO: make this different for each setup
+
 /// Return the row number range of tables referenced in the Query
 ///
 /// Basically we are looking for the smallest offset and the largest offset + length
@@ -143,6 +148,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         // construct a transcript for the proof
         let mut transcript: Keccak256Transcript = Transcript::new();
+        transcript.extend_as_le([SETUP_HASH]);
         transcript.challenge_as_le();
         transcript.extend_serialize_as_le(expr);
         transcript.challenge_as_le();
@@ -340,6 +346,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         // construct a transcript for the proof
         let mut transcript: Keccak256Transcript = Transcript::new();
+        transcript.extend_as_le([SETUP_HASH]);
         transcript.challenge_as_le();
         transcript.extend_serialize_as_le(expr);
         transcript.challenge_as_le();

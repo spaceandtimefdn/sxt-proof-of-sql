@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
+import {Errors} from "../../src/base/Errors.sol";
 import {LagrangeBasisEvaluation} from "./../../src/base/LagrangeBasisEvaluation.pre.sol";
 import {F, FF} from "./FieldUtil.sol";
 
@@ -152,7 +153,8 @@ contract LagrangeBasisEvaluationTest is Test {
         }
     }
 
-    function testSimpleComputeEvaluationVec() public pure {
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testSimpleComputeEvaluationVec() public {
         uint256[] memory point = new uint256[](3);
         point[0] = 2;
         point[1] = 3;
@@ -177,9 +179,13 @@ contract LagrangeBasisEvaluationTest is Test {
                 assert(evaluations[i] == expectedEvaluations[i]);
             }
         }
+        // Test revert for too large length
+        vm.expectRevert(Errors.EvaluationLengthTooLarge.selector);
+        LagrangeBasisEvaluation.__computeEvaluationVec(9, point);
     }
 
-    function testFuzzComputeEvaluationVec(uint256[] memory point) public pure {
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testFuzzComputeEvaluationVec(uint256[] memory point) public {
         uint256 numVars = point.length;
         // If the point is too long, we will run out of memory
         vm.assume(numVars < 10);
@@ -204,6 +210,9 @@ contract LagrangeBasisEvaluationTest is Test {
                 assert(evaluations[i] == expectedEvaluations[i]);
             }
         }
+        // Test revert for too large length
+        vm.expectRevert(Errors.EvaluationLengthTooLarge.selector);
+        LagrangeBasisEvaluation.__computeEvaluationVec(maxLength + 1, point);
     }
 
     function testSimpleComputeEvaluations() public pure {

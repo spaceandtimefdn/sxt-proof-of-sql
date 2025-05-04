@@ -53,6 +53,8 @@ uint32 constant ERR_UNSUPPORTED_PROOF = 0x6f1c50d9;
 uint32 constant ERR_UNSUPPORTED_PROOF_PLAN_VARIANT = 0xe5503cfa;
 /// @dev Error code for when a data type variant is unsupported.
 uint32 constant ERR_UNSUPPORTED_DATA_TYPE_VARIANT = 0xbd12560e;
+/// @dev Error code for when the evaluation length is too large.
+uint32 constant ERR_EVALUATION_LENGTH_TOO_LARGE = 0xb65e7142;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -106,6 +108,8 @@ library Errors {
     error UnsupportedProofPlanVariant();
     /// @notice Error thrown when a data type variant is unsupported.
     error UnsupportedDataTypeVariant();
+    /// @notice Error thrown when the evaluation length is too large.
+    error EvaluationLengthTooLarge();
 
     function __err(uint32 __code) internal pure {
         assembly {
