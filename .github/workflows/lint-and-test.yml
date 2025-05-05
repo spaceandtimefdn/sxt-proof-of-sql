@@ -83,7 +83,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo test --all-features
+      - run: cargo install nextest --locked
+      - run: cargo nextest run --all-features
 
   testnorayon:
     name: Test Suite (without rayon)
@@ -93,7 +94,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo test --no-default-features --features="arrow blitzar"
+      - run: cargo install nextest --locked
+      - run: cargo nextest run --no-default-features --features="arrow blitzar"
 
   testother:
     name: Test Suite (other)
@@ -110,18 +112,20 @@ jobs:
           export DEBIAN_FRONTEND=non-interactive
           sudo apt-get update
           sudo apt-get install -y clang lld
+      - name: Install nextest
+        run: cargo install nextest --locked
       - name: Dry run cargo test (proof-of-sql) (test feature only)
-        run: cargo test -p proof-of-sql --no-run --no-default-features --features="test"
+        run: cargo nextest run -p proof-of-sql --no-run --no-default-features --features="test"
       - name: Dry run cargo test (proof-of-sql) (arrow feature only)
-        run: cargo test -p proof-of-sql --no-run --no-default-features --features="arrow"
+        run: cargo nextest run  -p proof-of-sql --no-run --no-default-features --features="arrow"
       - name: Dry run cargo test (proof-of-sql) (blitzar feature only)
-        run: cargo test -p proof-of-sql --no-run --no-default-features --features="blitzar"
+        run: cargo nextest run -p proof-of-sql --no-run --no-default-features --features="blitzar"
       - name: Dry run cargo test (proof-of-sql) (std feature only)
-        run: cargo test -p proof-of-sql --no-run --no-default-features --features="std"
+        run: cargo nextest run  -p proof-of-sql --no-run --no-default-features --features="std"
       - name: Run cargo test (proof primitives - Dory) (std feature only - i.e. not using blitzar)
         run: |
-            cargo test proof_primitive::dory::dory_compute_commitments_test --no-default-features --features="std" && \
-            cargo test proof_primitive::dory::dynamic_dory_compute_commitments_test --no-default-features --features="std"
+            cargo nextest run  proof_primitive::dory::dory_compute_commitments_test --no-default-features --features="std" && \
+            cargo nextest run  proof_primitive::dory::dynamic_dory_compute_commitments_test --no-default-features --features="std"
 
   examples:
       name: Run Examples (Heavy)
