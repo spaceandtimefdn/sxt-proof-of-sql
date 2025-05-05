@@ -84,7 +84,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --all-features --jobs=8
+      - run: cargo nextest run --all-features --jobs=$(nproc)
 
   testnorayon:
     name: Test Suite (without rayon)
@@ -95,7 +95,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --no-default-features --features="arrow blitzar" --jobs=8
+      - run: cargo nextest run --no-default-features --features="arrow blitzar" --jobs=$(nproc)
 
   testother:
     name: Test Suite (other)
