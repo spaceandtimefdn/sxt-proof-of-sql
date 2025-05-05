@@ -83,8 +83,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo install cargo-nextest --locked
-      - run: cargo nextest run --all-features
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --all-features --jobs=8
 
   testnorayon:
     name: Test Suite (without rayon)
@@ -94,8 +94,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo install cargo-nextest --locked
-      - run: cargo nextest run --no-default-features --features="arrow blitzar"
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --no-default-features --features="arrow blitzar" --jobs=8
 
   testother:
     name: Test Suite (other)
@@ -112,8 +112,7 @@ jobs:
           export DEBIAN_FRONTEND=non-interactive
           sudo apt-get update
           sudo apt-get install -y clang lld
-      - name: Install nextest
-        run: cargo install cargo-nextest --locked
+      - uses: taiki-e/install-action@nextest
       - name: Dry run cargo test (proof-of-sql) (test feature only)
         run: cargo nextest run -p proof-of-sql --no-run --no-default-features --features="test"
       - name: Dry run cargo test (proof-of-sql) (arrow feature only)
