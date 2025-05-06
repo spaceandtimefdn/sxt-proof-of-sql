@@ -43,15 +43,9 @@ pub(crate) fn first_round_evaluate_range_check<'a, S>(
     builder.update_range_length(256);
     builder.produce_chi_evaluation_length(256);
 
-    // Create 31 columns, each will collect the corresponding byte from all scalars.
-    // 31 because a scalar will only ever have 248 bits set.
-    let mut word_columns: Vec<&mut [u8]> = (0..31)
-        .map(|_| alloc.alloc_slice_fill_copy(column_data.len(), 0))
-        .collect();
-
     // Decompose scalars to bytes
     let span = span!(Level::DEBUG, "decompose scalars in first round").entered();
-    decompose_scalars_to_words(column_data, &mut word_columns);
+    let word_columns = decompose_scalars_to_words(column_data, alloc);
     span.exit();
 
     // For each column, allocate `words` using the lookup table
@@ -71,28 +65,15 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     column_data: &[impl Copy + Into<S>],
     alloc: &'a Bump,
 ) {
-    let num_rows = column_data.len();
-
-    // Create 31 columns, each will collect the corresponding word from all scalars.
-    // 31 because a scalar will only ever have 248 bits of data set.
-    let mut word_columns: Vec<&mut [u8]> = repeat_with(|| alloc.alloc_slice_fill_copy(num_rows, 0))
-        .take(31)
-        .collect();
-
     let span = span!(Level::DEBUG, "decompose scalars in final round").entered();
-    decompose_scalars_to_words(column_data, &mut word_columns);
+    let word_columns = decompose_scalars_to_words(column_data, alloc);
     span.exit();
-
-    let word_columns_immut: Vec<&[u8]> = word_columns
-        .into_iter()
-        .map(|column| &column[..]) // convert &mut [u8] -> &[u8]
-        .collect();
 
     let span = span!(Level::DEBUG, "count_word_occurrences in final round").entered();
     // Initialize a vector to count occurrences of each byte (0-255).
     // The vector has 256 elements padded with zeros to match the length of the word columns
     // The size is the larger of 256 or the number of scalars.
-    let word_counts = count_word_occurrences(&word_columns_immut, alloc);
+    let word_counts = count_word_occurrences(&word_columns, alloc);
     span.exit();
 
     // Retrieve verifier challenge here, *after* Phase 1
@@ -110,7 +91,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     let inverted_word_columns = get_logarithmic_derivative(
         builder,
         alloc,
-        &word_columns_immut,
+        &word_columns,
         alpha,
         inv_word_vals_plus_alpha_table,
     );
@@ -155,20 +136,29 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
 )]
 fn decompose_scalars_to_words<'a, T, S: Scalar + 'a>(
     column_data: &[T],
-    word_columns: &mut [&mut [u8]],
-) where
+    alloc: &'a Bump,
+) -> Vec<&'a [u8]>
+where
     T: Copy + Into<S>,
 {
+    let mut word_columns: Vec<&mut [u8]> =
+        repeat_with(|| alloc.alloc_slice_fill_copy(column_data.len(), 0))
+            .take(31)
+            .collect();
     for (i, scalar) in column_data.iter().enumerate() {
         let scalar_array: [u64; 4] = (*scalar).into().into();
         // Convert the [u64; 4] into a slice of bytes
         let scalar_bytes = &cast_slice::<u64, u8>(&scalar_array)[..31];
 
         // Zip the "columns" and the scalar bytes so we can write them directly
-        for (column, &byte) in word_columns[..31].iter_mut().zip(scalar_bytes) {
+        for (column, &byte) in word_columns.iter_mut().zip(scalar_bytes) {
             column[i] = byte;
         }
     }
+    word_columns
+        .into_iter()
+        .map(|column| &column[..]) // convert &mut [u8] -> &[u8]
+        .collect()
 }
 
 // Count the individual word occurrences in the decomposed columns.
@@ -481,25 +471,14 @@ mod tests {
 
     #[test]
     fn we_can_decompose_small_scalars_to_words() {
+        let alloc = Bump::new();
         let scalars: Vec<S> = [1, 2, 3, 255, 256, 257].iter().map(S::from).collect();
 
-        let mut word_columns = vec![vec![0; scalars.len()]; 31];
-        let mut word_slices: Vec<&mut [u8]> = word_columns
-            .iter_mut()
-            .map(|column| &mut column[..])
-            .collect();
-
         // Call the decomposer first
-        decompose_scalars_to_words::<S, S>(&scalars, &mut word_slices);
-
-        let word_columns_immut: Vec<&[u8]> = word_slices
-            .iter()
-            .map(|column| &column[..]) // convert &mut [u8] -> &[u8]
-            .collect();
+        let word_columns = decompose_scalars_to_words::<S, S>(&scalars, &alloc);
 
         // Then do the counting
-        let alloc = Bump::new();
-        let byte_counts = count_word_occurrences(&word_columns_immut, &alloc);
+        let byte_counts = count_word_occurrences(&word_columns, &alloc);
 
         let mut expected_word_columns = vec![vec![0; scalars.len()]; 31];
         expected_word_columns[0] = vec![1, 2, 3, 255, 0, 1];
@@ -519,23 +498,14 @@ mod tests {
 
     #[test]
     fn we_can_decompose_large_scalars_to_words() {
+        let alloc = Bump::new();
         let scalars: Vec<S> = [S::MAX_SIGNED, S::from(u64::MAX), S::from(-1)]
             .iter()
             .map(S::from)
             .collect();
 
-        let mut word_columns = vec![vec![0; scalars.len()]; 31];
-        let mut word_slices: Vec<&mut [u8]> = word_columns
-            .iter_mut()
-            .map(|column| &mut column[..])
-            .collect();
-
-        decompose_scalars_to_words::<S, S>(&scalars, &mut word_slices);
-
-        let word_columns_immut: Vec<&[u8]> = word_slices.iter().map(|column| &column[..]).collect();
-
-        let alloc = Bump::new();
-        let byte_counts = count_word_occurrences(&word_columns_immut, &alloc);
+        let word_columns = decompose_scalars_to_words::<S, S>(&scalars, &alloc);
+        let byte_counts = count_word_occurrences(&word_columns, &alloc);
 
         let expected_word_columns = [
             [246, 255, 236],
