@@ -54,7 +54,9 @@ pub(crate) use not_expr::NotExpr;
 mod not_expr_test;
 
 mod numerical_util;
-pub(crate) use numerical_util::{add_subtract_columns, multiply_columns};
+pub(crate) use numerical_util::{
+    add_subtract_columns, get_logarithmic_derivative, multiply_columns,
+};
 #[cfg(test)]
 pub(crate) use numerical_util::{divide_columns, modulo_columns};
 

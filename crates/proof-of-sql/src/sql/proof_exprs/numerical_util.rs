@@ -2,6 +2,7 @@ use crate::base::{
     database::{try_cast_types, try_scale_cast_types, Column, ColumnOperationResult, ColumnType},
     math::decimal::Precision,
     scalar::{Scalar, ScalarExt},
+    slice_ops,
 };
 use alloc::format;
 use bnum::types::U256;
@@ -628,6 +629,17 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
     }
 }
 
+pub fn get_logarithmic_derivative<T, S: Scalar + From<T>>(
+    alloc: &Bump,
+    column: Vec<T>,
+    alpha: S,
+) -> &[S] {
+    let inverse_column = alloc.alloc_slice_fill_iter(column.into_iter().map(S::from));
+    slice_ops::add_const::<S, S>(inverse_column, alpha);
+    slice_ops::batch_inversion(inverse_column);
+    inverse_column
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -641,14 +653,18 @@ mod tests {
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
             scalar::{test_scalar::TestScalar, Scalar},
         },
-        sql::proof_exprs::numerical_util::{
-            cast_column_with_scaling, modulo_columns, modulo_integer_columns,
-            try_get_scaling_factor_with_precision_and_scale,
+        sql::proof_exprs::{
+            get_logarithmic_derivative,
+            numerical_util::{
+                cast_column_with_scaling, modulo_columns, modulo_integer_columns,
+                try_get_scaling_factor_with_precision_and_scale,
+            },
         },
     };
     use bnum::types::U256;
     use bumpalo::Bump;
     use itertools::{iproduct, Itertools};
+    use num_traits::Inv;
 
     fn verify_tinyint_division(
         lhs: &[i8],
@@ -1276,6 +1292,20 @@ mod tests {
         assert_eq!(
             cast_column_with_scaling(&alloc, decimal_column, ColumnType::Decimal75(prec, scale)),
             Column::<TestScalar>::Decimal75(prec, scale, &scalar_slice)
+        );
+    }
+
+    #[test]
+    fn we_can_obtain_logarithmic_derivative_from_byte_columns() {
+        let alloc = Bump::new();
+        let scalars: Vec<_> = vec![1u8, 2, 3, 255, 0, 1];
+        let alpha = TestScalar::from(5);
+        let inverse_columns = get_logarithmic_derivative::<_, TestScalar>(&alloc, scalars, alpha);
+
+        // Perform assertion for all columns at once
+        assert_eq!(
+            inverse_columns,
+            [6, 7, 8, 260, 5, 6].map(|i| TestScalar::from(i).inv().unwrap())
         );
     }
 }

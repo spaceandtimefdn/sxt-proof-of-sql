@@ -1,6 +1,7 @@
 use super::{FinalRoundBuilder, FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder};
 use crate::base::{
     bit::BitDistribution,
+    byte::ByteDistribution,
     polynomial::MultilinearExtension,
     proof::ProofSizeMismatch,
     scalar::{test_scalar::TestScalar, Scalar},
@@ -12,11 +13,14 @@ use itertools::Itertools;
 /// Track components used to verify a query's proof
 pub struct MockVerificationBuilder<S: Scalar> {
     bit_distributions: Vec<BitDistribution>,
+    byte_distributions: Vec<ByteDistribution>,
     bit_distribution_offset: usize,
+    byte_distribution_offset: usize,
     consumed_first_round_pcs_proof_mles: usize,
     consumed_final_round_pcs_proof_mles: usize,
     consumed_chi_evaluations: usize,
     consumed_rho_evaluations: usize,
+    consumed_post_result_challenges: usize,
     subpolynomial_max_multiplicands: usize,
 
     evaluation_row_index: usize,
@@ -24,6 +28,7 @@ pub struct MockVerificationBuilder<S: Scalar> {
     final_round_mles: Vec<Vec<S>>,
     chi_evaluation_length_queue: Vec<usize>,
     rho_evaluation_length_queue: Vec<usize>,
+    post_result_challenges: Vec<S>,
     pub(crate) identity_subpolynomial_evaluations: Vec<Vec<S>>,
     pub(crate) zerosum_subpolynomial_evaluations: Vec<Vec<S>>,
 }
@@ -80,10 +85,14 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
         Ok(res)
     }
 
-    fn try_consume_byte_distribution(
-        &mut self,
-    ) -> Result<crate::base::byte::ByteDistribution, ProofSizeMismatch> {
-        unimplemented!("No tests currently use this function")
+    fn try_consume_byte_distribution(&mut self) -> Result<ByteDistribution, ProofSizeMismatch> {
+        let res = self
+            .byte_distributions
+            .get(self.byte_distribution_offset)
+            .cloned()
+            .ok_or(ProofSizeMismatch::TooFewByteDistributions)?;
+        self.byte_distribution_offset += 1;
+        Ok(res)
     }
 
     fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
@@ -139,7 +148,21 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
     }
 
     fn try_consume_post_result_challenge(&mut self) -> Result<S, ProofSizeMismatch> {
-        unimplemented!("No tests currently use this function")
+        let challenge = self
+            .post_result_challenges
+            .get(self.consumed_post_result_challenges)
+            .ok_or(ProofSizeMismatch::PostResultCountMismatch)?;
+        self.consumed_post_result_challenges += 1;
+        Ok(*challenge)
+    }
+
+    fn try_consume_first_round_mle_evaluations(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<S>, ProofSizeMismatch> {
+        iter::repeat_with(|| self.try_consume_first_round_mle_evaluation())
+            .take(count)
+            .collect()
     }
 
     fn try_consume_final_round_mle_evaluations(
@@ -153,27 +176,34 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
 }
 
 impl<S: Scalar> MockVerificationBuilder<S> {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         bit_distributions: Vec<BitDistribution>,
+        byte_distributions: Vec<ByteDistribution>,
         subpolynomial_max_multiplicands: usize,
         first_round_mles: Vec<Vec<S>>,
         final_round_mles: Vec<Vec<S>>,
+        post_result_challenges: Vec<S>,
         chi_evaluation_length_queue: Vec<usize>,
         rho_evaluation_length_queue: Vec<usize>,
     ) -> Self {
         Self {
             bit_distributions,
             bit_distribution_offset: 0,
+            byte_distributions,
+            byte_distribution_offset: 0,
             consumed_first_round_pcs_proof_mles: 0,
             consumed_final_round_pcs_proof_mles: 0,
             consumed_chi_evaluations: 0,
             consumed_rho_evaluations: 0,
+            consumed_post_result_challenges: 0,
             subpolynomial_max_multiplicands,
             evaluation_row_index: 0,
             first_round_mles,
             final_round_mles,
             chi_evaluation_length_queue,
             rho_evaluation_length_queue,
+            post_result_challenges,
             identity_subpolynomial_evaluations: Vec::new(),
             zerosum_subpolynomial_evaluations: Vec::new(),
         }
@@ -181,10 +211,12 @@ impl<S: Scalar> MockVerificationBuilder<S> {
 
     pub fn increment_row_index(&mut self) {
         self.bit_distribution_offset = 0;
+        self.byte_distribution_offset = 0;
         self.consumed_final_round_pcs_proof_mles = 0;
         self.consumed_chi_evaluations = 0;
         self.consumed_first_round_pcs_proof_mles = 0;
         self.consumed_rho_evaluations = 0;
+        self.consumed_post_result_challenges = 0;
         self.evaluation_row_index += 1;
     }
 
@@ -234,6 +266,7 @@ impl<S: Scalar> MockVerificationBuilder<S> {
 pub fn run_verify_for_each_row(
     table_length: usize,
     first_round_builder: &FirstRoundBuilder<'_, TestScalar>,
+    post_result_challenges: Vec<TestScalar>,
     final_round_builder: &FinalRoundBuilder<'_, TestScalar>,
     subpolynomial_max_multiplicands: usize,
     row_verification: impl Fn(&mut MockVerificationBuilder<TestScalar>, TestScalar, &[TestScalar]),
@@ -261,9 +294,11 @@ pub fn run_verify_for_each_row(
         .collect();
     let mut verification_builder = MockVerificationBuilder::new(
         final_round_builder.bit_distributions().to_vec(),
+        first_round_builder.byte_distributions().to_vec(),
         subpolynomial_max_multiplicands,
         first_round_mles,
         final_round_mles,
+        post_result_challenges,
         first_round_builder.chi_evaluation_lengths().to_vec(),
         first_round_builder.rho_evaluation_lengths().to_vec(),
     );
@@ -283,6 +318,7 @@ mod tests {
     use crate::{
         base::{
             bit::BitDistribution,
+            byte::ByteDistribution,
             proof::ProofSizeMismatch,
             scalar::{test_scalar::TestScalar, Scalar},
         },
@@ -294,7 +330,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -318,7 +356,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -337,11 +377,13 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
                 vec![
                     vec![TestScalar::ONE, TestScalar::TWO],
                     vec![-TestScalar::ONE, -TestScalar::TWO],
                 ],
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -371,7 +413,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -387,8 +431,10 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
                 vec![vec![TestScalar::ONE]],
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -409,7 +455,9 @@ mod tests {
         let verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -423,7 +471,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 vec![2],
@@ -444,7 +494,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 vec![3],
@@ -463,7 +515,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -484,7 +538,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -500,7 +556,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -521,7 +579,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -542,12 +602,14 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
                 Vec::new(),
                 vec![
                     vec![TestScalar::ONE, TestScalar::TWO],
                     vec![-TestScalar::ONE, -TestScalar::TWO],
                 ],
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
             );
@@ -562,9 +624,11 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
                 Vec::new(),
                 vec![vec![TestScalar::ONE]],
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
             );
@@ -581,7 +645,9 @@ mod tests {
                 vec![BitDistribution::new::<TestScalar, TestScalar>(&[
                     TestScalar::ONE,
                 ])],
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -599,7 +665,9 @@ mod tests {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
+                Vec::new(),
                 2,
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
@@ -609,5 +677,48 @@ mod tests {
             .try_consume_bit_distribution()
             .unwrap_err();
         assert!(matches!(error, ProofSizeMismatch::TooFewBitDistributions));
+    }
+
+    #[test]
+    fn we_can_try_consume_byte_distribution() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                vec![ByteDistribution::new::<TestScalar, TestScalar>(&[
+                    TestScalar::ONE,
+                ])],
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        let result = verification_builder
+            .try_consume_byte_distribution()
+            .unwrap();
+        assert_eq!(
+            result,
+            ByteDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ONE])
+        );
+    }
+
+    #[test]
+    fn we_can_get_error_when_not_enough_byte_distributions() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        let error = verification_builder
+            .try_consume_byte_distribution()
+            .unwrap_err();
+        assert!(matches!(error, ProofSizeMismatch::TooFewByteDistributions));
     }
 }
