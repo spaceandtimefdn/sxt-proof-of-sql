@@ -110,6 +110,8 @@ enum Query {
     SumCount,
     /// Coin query
     Coin,
+    /// Join query
+    Join,
 }
 
 impl Query {
@@ -127,6 +129,7 @@ impl Query {
             Query::ComplexCondition => "Complex Condition",
             Query::SumCount => "Sum Count",
             Query::Coin => "Coin",
+            Query::Join => "Join",
         }
     }
 }
@@ -423,7 +426,16 @@ fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
 
         (prover_setup, vk)
     } else {
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", cli.table_size);
+        let table_size = if queries
+            .iter()
+            .any(|query| query.0 == Query::Join.to_string())
+        {
+            cli.table_size * 2
+        } else {
+            cli.table_size
+        };
+
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", table_size);
         let (_, vk) = EvaluationEngine::setup(&ck);
         let prover_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         (prover_setup, vk)

@@ -441,6 +441,45 @@ impl BaseEntry for Coin {
     }
 }
 
+/// Join query.
+pub struct Join;
+impl BaseEntry for Join {
+    fn title(&self) -> &'static str {
+        "Join"
+    }
+
+    fn sql(&self) -> &'static str {
+        "SELECT bench_table.a, bench_table_2.a
+         FROM bench_table
+         JOIN bench_table_2 on bench_table.a=bench_table_2.a"
+    }
+
+    fn tables(&self) -> Vec<TableDefinition> {
+        vec![
+            TableDefinition {
+                name: "bench_table",
+                columns: vec![(
+                    "a",
+                    ColumnType::BigInt,
+                    Some(|size| (size / 10 * size).max(10) as i64),
+                )],
+            },
+            TableDefinition {
+                name: "bench_table_2",
+                columns: vec![(
+                    "a",
+                    ColumnType::BigInt,
+                    Some(|size| (size / 10 * size).max(10) as i64),
+                )],
+            },
+        ]
+    }
+
+    fn params(&self) -> Vec<LiteralValue> {
+        vec![LiteralValue::BigInt(0)]
+    }
+}
+
 /// Retrieves all available queries.
 pub fn all_queries() -> Vec<QueryEntry> {
     vec![
@@ -454,6 +493,7 @@ pub fn all_queries() -> Vec<QueryEntry> {
         ComplexCondition.entry(),
         SumCount.entry(),
         Coin.entry(),
+        Join.entry(),
     ]
 }
 
