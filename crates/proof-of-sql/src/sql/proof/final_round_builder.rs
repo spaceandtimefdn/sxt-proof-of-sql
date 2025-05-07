@@ -76,7 +76,7 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         self.produce_anchored_mle(data);
     }
 
-    /// Produce a subpolynomial to be aggegated into sumcheck where the sum across binary
+    /// Produce a subpolynomial to be aggregated into sumcheck where the sum across binary
     /// values of the variables is zero.
     pub fn produce_sumcheck_subpolynomial(
         &mut self,
@@ -111,7 +111,7 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         res
     }
 
-    /// Produce a subpolynomial to be aggegated into sumcheck where the sum across binary
+    /// Produce a subpolynomial to be aggregated into sumcheck where the sum across binary
     /// values of the variables is zero.
     pub fn sumcheck_subpolynomials(&self) -> &[SumcheckSubpolynomial<'a, S>] {
         &self.sumcheck_subpolynomials
