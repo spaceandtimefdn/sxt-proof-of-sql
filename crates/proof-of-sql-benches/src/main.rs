@@ -67,7 +67,7 @@ use utils::{
     jaeger_setup::{setup_jaeger_tracing, stop_jaeger_tracing},
     queries::{all_queries, get_query, QueryEntry},
     random_util::generate_random_columns,
-    results_io::append_to_csv,
+    results_io::{append_to_csv, draw_chart_from_csv},
 };
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -181,6 +181,10 @@ struct Cli {
     /// Optional path to the CSV file for storing results
     #[arg(short, long, env)]
     csv_path: Option<PathBuf>,
+
+    /// Optional path to drawing a chart from the CSV file
+    #[arg(long, env)]
+    chart_path: Option<PathBuf>,
 
     /// Optional path to the Blitzar handle used for the `Dory` and `DynamicDory` commitment schemes
     #[arg(short, long, env)]
@@ -513,4 +517,13 @@ fn main() {
     }
 
     stop_jaeger_tracing();
+
+    // Draw charts if CSV and chart paths are provided.
+    if let Some(csv_path) = &cli.csv_path {
+        if let Some(chart_path) = &cli.chart_path {
+            if let Err(e) = draw_chart_from_csv(csv_path, chart_path, true, true) {
+                eprintln!("Error drawing chart: {e}");
+            }
+        }
+    }
 }
