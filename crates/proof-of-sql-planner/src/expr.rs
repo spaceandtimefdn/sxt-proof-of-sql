@@ -123,7 +123,12 @@ pub fn expr_to_proof_expr(
                             data_type: cast.data_type.clone(),
                         }
                     })?;
-                    Ok(DynProofExpr::try_new_cast(from_expr, to_type)?)
+                    Ok(
+                        DynProofExpr::try_new_cast(from_expr.clone(), to_type).map_or_else(
+                            |_| DynProofExpr::try_new_scaling_cast(from_expr, to_type),
+                            Ok,
+                        )?,
+                    )
                 }
             }
         }
