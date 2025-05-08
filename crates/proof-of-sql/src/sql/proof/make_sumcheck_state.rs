@@ -9,6 +9,8 @@ use crate::{
 use alloc::vec::Vec;
 use core::ffi::c_void;
 use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::Level;
 
 #[tracing::instrument(
@@ -95,15 +97,41 @@ impl<'a, S: Scalar> FlattenedMLEBuilder<'a, S> {
         skip_all
     )]
     fn flattened_ml_extensions(self) -> Vec<Vec<S>> {
-        self.entrywise_multipliers
-            .into_iter()
-            .map(|mle| (&mle).to_sumcheck_term(self.num_vars))
-            .chain(
-                self.all_ml_extensions
-                    .iter()
-                    .map(|mle| mle.to_sumcheck_term(self.num_vars)),
-            )
-            .collect()
+        #[cfg(feature = "rayon")]
+        {
+            let (entrywise_results, all_ml_results): (Vec<Vec<S>>, Vec<Vec<S>>) = rayon::join(
+                || {
+                    self.entrywise_multipliers
+                        .into_iter()
+                        .map(|mle| (&mle).to_sumcheck_term(self.num_vars))
+                        .collect()
+                },
+                || {
+                    self.all_ml_extensions
+                        .par_iter() // Parallelize processing of `all_ml_extensions`
+                        .map(|mle| mle.to_sumcheck_term(self.num_vars))
+                        .collect()
+                },
+            );
+
+            // Combine the results
+            entrywise_results
+                .into_iter()
+                .chain(all_ml_results)
+                .collect()
+        }
+        #[cfg(not(feature = "rayon"))]
+        {
+            self.entrywise_multipliers
+                .into_iter()
+                .map(|mle| (&mle).to_sumcheck_term(self.num_vars))
+                .chain(
+                    self.all_ml_extensions
+                        .iter()
+                        .map(|mle| mle.to_sumcheck_term(self.num_vars)),
+                )
+                .collect()
+        }
     }
 }
 
