@@ -80,12 +80,12 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     let alpha = builder.consume_post_result_challenge();
 
     // avoids usize to u8 cast
-    let word_val_table = alloc.alloc_slice_fill_iter(0u8..=255);
-    let inv_word_vals_plus_alpha_table: &mut [S] =
+    let rho_256 = alloc.alloc_slice_fill_iter(0u8..=255);
+    let rho_256_logarithmic_derivative: &mut [S] =
         alloc.alloc_slice_fill_iter((0..256).map(S::from));
     // Add alpha, batch invert, etc.
-    slice_ops::add_const::<S, S>(inv_word_vals_plus_alpha_table, alpha);
-    slice_ops::batch_inversion(inv_word_vals_plus_alpha_table);
+    slice_ops::add_const::<S, S>(rho_256_logarithmic_derivative, alpha);
+    slice_ops::batch_inversion(rho_256_logarithmic_derivative);
 
     let span = span!(Level::DEBUG, "get_logarithmic_derivative in final round").entered();
     let inverted_word_columns = get_logarithmic_derivative(
@@ -93,7 +93,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         alloc,
         &word_columns,
         alpha,
-        inv_word_vals_plus_alpha_table,
+        rho_256_logarithmic_derivative,
     );
     span.exit();
 
@@ -102,8 +102,8 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         alloc,
         alpha,
         builder,
-        word_val_table, // give this an explicit lifetime for MLE commitment
-        inv_word_vals_plus_alpha_table,
+        rho_256, // give this an explicit lifetime for MLE commitment
+        rho_256_logarithmic_derivative,
     );
 
     // Argue that the sum of all words in each row, minus the count of each
@@ -114,7 +114,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         alloc,
         column_data,
         inverted_word_columns,
-        inv_word_vals_plus_alpha_table,
+        rho_256_logarithmic_derivative,
     );
 }
 
@@ -212,7 +212,7 @@ fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
     word_columns: &[&'a [u8]],
     alpha: S,
-    inv_word_vals_plus_alpha_table: &[S],
+    rho_256_logarithmic_derivative: &[S],
 ) -> Vec<&'a [S]> {
     let span = span!(Level::DEBUG, "get_logarithmic_derivative total loop time").entered();
 
@@ -222,7 +222,7 @@ fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
             let column_length = byte_column.len();
 
             let words_inv = alloc.alloc_slice_fill_with(column_length, |row_index| {
-                inv_word_vals_plus_alpha_table[byte_column[row_index] as usize]
+                rho_256_logarithmic_derivative[byte_column[row_index] as usize]
             });
             let words_inv = words_inv as &[_];
             builder.produce_intermediate_mle(words_inv);
@@ -284,12 +284,12 @@ fn prove_word_values<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
     alpha: S,
     builder: &mut FinalRoundBuilder<'a, S>,
-    word_val_table: &'a [u8],
-    inv_word_vals_plus_alpha_table: &'a [S],
+    rho_256: &'a [u8],
+    rho_256_logarithmic_derivative: &'a [S],
 ) {
-    builder.produce_intermediate_mle(inv_word_vals_plus_alpha_table as &[_]);
+    builder.produce_intermediate_mle(rho_256_logarithmic_derivative as &[_]);
 
-    let chi_n = alloc.alloc_slice_fill_copy(256, true);
+    let chi_256 = alloc.alloc_slice_fill_copy(256, true);
 
     // Argument:
     // (word_values + α)⁻¹ * (word_values + α) - 1 = 0
@@ -298,16 +298,16 @@ fn prove_word_values<'a, S: Scalar + 'a>(
         vec![
             (
                 alpha,
-                vec![Box::new(inv_word_vals_plus_alpha_table as &[_])],
+                vec![Box::new(rho_256_logarithmic_derivative as &[_])],
             ),
             (
                 S::one(),
                 vec![
-                    Box::new(inv_word_vals_plus_alpha_table as &[_]),
-                    Box::new(word_val_table as &[_]),
+                    Box::new(rho_256_logarithmic_derivative as &[_]),
+                    Box::new(rho_256 as &[_]),
                 ],
             ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
+            (-S::one(), vec![Box::new(chi_256 as &[_])]),
         ],
     );
 }
@@ -329,7 +329,7 @@ fn prove_row_zero_sum<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
     column_data: &[impl Into<S>],
     inverted_word_columns: Vec<&[S]>,
-    word_vals_plus_alpha_inv: &'a [S],
+    rho_256_logarithmic_derivative: &'a [S],
 ) {
     // Produce an MLE over the counts of each word value
     builder.produce_intermediate_mle(word_counts as &[_]);
@@ -350,7 +350,7 @@ fn prove_row_zero_sum<'a, S: Scalar + 'a>(
                 -S::one(),
                 vec![
                     Box::new(word_counts as &[_]),
-                    Box::new(word_vals_plus_alpha_inv as &[_]),
+                    Box::new(rho_256_logarithmic_derivative as &[_]),
                 ],
             ),
         ],
@@ -369,13 +369,13 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
 ) -> Result<(), ProofSizeMismatch> {
     // Retrieve the post-result challenge α
     let alpha = builder.try_consume_post_result_challenge()?;
-    let chi_ones_256_eval = builder.try_consume_chi_evaluation()?;
+    let chi_256_eval = builder.try_consume_chi_evaluation()?;
 
     // We will accumulate ∑(wᵢ * 256ⁱ) in `sum`.
     // Additionally, we'll collect all (wᵢ + α)⁻¹ evaluations in `w_plus_alpha_inv_evals`
     // to use later for the ZeroSum argument.
-    let mut sum = S::ZERO;
-    let mut row_sum_eval = S::ZERO;
+    let mut word_eval_weighted_sum = S::ZERO;
+    let mut word_logarithmic_derivative_eval_sum = S::ZERO;
 
     // Process 31 columns (one per byte in a 248-bit decomposition).
     // Each iteration handles:
@@ -384,12 +384,8 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
     //  - Accumulating wᵢ * 256ⁱ into `sum`
     for i in 0..31 {
         // Consume the next MLE evaluations: one for wᵢ, one for (wᵢ + α)⁻¹
-        let w_eval = builder.try_consume_first_round_mle_evaluation()?;
-        let words_inv = builder.try_consume_final_round_mle_evaluation()?;
-
-        // Compute word_eval = (wᵢ + α) * (wᵢ + α)⁻¹
-        // This is used in the subpolynomial check below.
-        let word_eval = words_inv * (w_eval + alpha);
+        let word_eval = builder.try_consume_first_round_mle_evaluation()?;
+        let word_logarithmic_derivative_eval = builder.try_consume_final_round_mle_evaluation()?;
 
         // Compute 256ⁱ via a small loop (instead of a fold or pow)
         let mut power = S::from(1);
@@ -400,38 +396,36 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
         // Argue that ( (wᵢ + α)⁻¹ * (wᵢ + α) ) - 1 = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
-            word_eval - chi_n_eval,
+            word_logarithmic_derivative_eval * (word_eval + alpha) - chi_n_eval,
             2,
         )?;
 
         // Add wᵢ * 256ⁱ to our running sum to ensure the entire column is in range
-        sum += w_eval * power;
+        word_eval_weighted_sum += word_eval * power;
 
         // Sum over all (wᵢ + α)⁻¹ evaluations to get row_sum_eval
-        row_sum_eval += words_inv;
+        word_logarithmic_derivative_eval_sum += word_logarithmic_derivative_eval;
     }
 
     // Ensure the sum of the scalars (interpreted in base 256) matches
     // the claimed input_column_eval. If not, the column is out of range.
     assert_eq!(
-        sum, input_column_eval,
+        word_eval_weighted_sum, input_column_eval,
         "Range check failed, column contains values outside of the selected range"
     );
 
-    // Retrieve word_vals_eval (evaluation for w-values)
-    // from the builder’s MLE evaluations
-    let word_vals_eval = builder
+    // Retrieve eval of (0..256)
+    let rho_256_eval = builder
         .rho_256_evaluation()
         .ok_or(ProofSizeMismatch::TooFewSumcheckVariables)?;
 
-    // Retrieve the final-round MLE evaluation for (word_vals + α)⁻¹
-    let word_vals_plus_alpha_inv = builder.try_consume_final_round_mle_evaluation()?;
+    // Retrieve the final-round MLE evaluation for (rho_256 + α)⁻¹
+    let rho_256_logarithmic_derivative_eval = builder.try_consume_final_round_mle_evaluation()?;
 
-    // Argue that (word_vals + α)⁻¹ * (word_vals + α) - 1 = 0
-    let word_value_constraint = word_vals_plus_alpha_inv * (word_vals_eval + alpha);
+    // Argue that (rho_256 + α)⁻¹ * (rho_256 + α) - 1 = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
-        word_value_constraint - chi_ones_256_eval,
+        rho_256_logarithmic_derivative_eval * (rho_256_eval + alpha) - chi_256_eval,
         2,
     )?;
 
@@ -439,13 +433,13 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
     let count_eval = builder.try_consume_final_round_mle_evaluation()?;
 
     // Compute count_eval * (word_vals + α)⁻¹
-    let count_value_product_eval = count_eval * word_vals_plus_alpha_inv;
+    let count_value_product_eval = count_eval * rho_256_logarithmic_derivative_eval;
 
     // Argue that row_sum_eval - (count_eval * (word_vals + α)⁻¹) = 0
     // This ensures consistency of counts vs. actual row sums.
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::ZeroSum,
-        row_sum_eval - count_value_product_eval,
+        word_logarithmic_derivative_eval_sum - count_value_product_eval,
         2,
     )?;
 
