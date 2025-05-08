@@ -161,8 +161,10 @@ impl ProofPlan for GroupByExec {
                     .ok_or(ProofError::VerificationError {
                         error: "Result does not all correct group by columns.",
                     })?;
-                if (0..table.num_rows() - 1)
-                    .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
+                let num_rows = table.num_rows();
+                if num_rows > 0
+                    && (0..num_rows - 1)
+                        .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
                 {
                     Err(ProofError::VerificationError {
                         error: "Result of group by not ordered as expected.",
