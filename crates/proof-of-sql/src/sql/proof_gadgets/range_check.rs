@@ -375,7 +375,7 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
     // Additionally, we'll collect all (wᵢ + α)⁻¹ evaluations in `w_plus_alpha_inv_evals`
     // to use later for the ZeroSum argument.
     let mut sum = S::ZERO;
-    let mut w_plus_alpha_inv_evals = Vec::with_capacity(31);
+    let mut row_sum_eval = S::ZERO;
 
     // Process 31 columns (one per byte in a 248-bit decomposition).
     // Each iteration handles:
@@ -407,8 +407,8 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
         // Add wᵢ * 256ⁱ to our running sum to ensure the entire column is in range
         sum += w_eval * power;
 
-        // Collect the inverse factor for the final ZeroSum argument
-        w_plus_alpha_inv_evals.push(words_inv);
+        // Sum over all (wᵢ + α)⁻¹ evaluations to get row_sum_eval
+        row_sum_eval += words_inv;
     }
 
     // Ensure the sum of the scalars (interpreted in base 256) matches
@@ -437,12 +437,6 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
 
     // The final-round MLE evaluation for word count
     let count_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    // Sum over all (wᵢ + α)⁻¹ evaluations to get row_sum_eval
-    let mut row_sum_eval = S::ZERO;
-    for inv_eval in &w_plus_alpha_inv_evals {
-        row_sum_eval += *inv_eval;
-    }
 
     // Compute count_eval * (word_vals + α)⁻¹
     let count_value_product_eval = count_eval * word_vals_plus_alpha_inv;
