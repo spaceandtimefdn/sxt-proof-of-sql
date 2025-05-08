@@ -9,6 +9,8 @@ use crate::{
     utils::log,
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 /// Track components used to form a query's proof
 pub struct FinalRoundBuilder<'a, S: Scalar> {
@@ -127,10 +129,21 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
     pub fn evaluate_pcs_proof_mles(&self, evaluation_vec: &[S]) -> Vec<S> {
         log::log_memory_usage("Start");
 
-        let mut res = Vec::with_capacity(self.pcs_proof_mles.len());
-        for evaluator in &self.pcs_proof_mles {
-            res.push(evaluator.inner_product(evaluation_vec));
-        }
+        #[cfg(feature = "rayon")]
+        let res: Vec<S> = self
+            .pcs_proof_mles
+            .par_iter()
+            .map(|evaluator| evaluator.inner_product(evaluation_vec))
+            .collect();
+
+        #[cfg(not(feature = "rayon"))]
+        let res: Vec<S> = {
+            let mut res = Vec::with_capacity(self.pcs_proof_mles.len());
+            for evaluator in &self.pcs_proof_mles {
+                res.push(evaluator.inner_product(evaluation_vec));
+            }
+            res
+        };
 
         log::log_memory_usage("End");
 
