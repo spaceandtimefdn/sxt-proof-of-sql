@@ -219,15 +219,14 @@ fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
     let res: Vec<_> = word_columns
         .iter()
         .map(|byte_column| {
-            let column_length = byte_column.len();
-
-            let words_inv = alloc.alloc_slice_fill_with(column_length, |row_index| {
-                rho_256_logarithmic_derivative[byte_column[row_index] as usize]
-            });
-            let words_inv = words_inv as &[_];
+            let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+                alloc,
+                byte_column,
+                rho_256_logarithmic_derivative,
+            );
             builder.produce_intermediate_mle(words_inv);
 
-            let chi_n = alloc.alloc_slice_fill_copy(column_length, true) as &[_];
+            let chi_n = alloc.alloc_slice_fill_copy(byte_column.len(), true) as &[_];
             builder.produce_sumcheck_subpolynomial(
                 SumcheckSubpolynomialType::Identity,
                 vec![
@@ -357,6 +356,16 @@ fn prove_row_zero_sum<'a, S: Scalar + 'a>(
     );
 }
 
+fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
+    alloc: &'a Bump,
+    word_column: &[u8],
+    rho_256_logarithmic_derivative: &[S],
+) -> &'a [S] {
+    alloc.alloc_slice_fill_with(word_column.len(), |row_index| {
+        rho_256_logarithmic_derivative[word_column[row_index] as usize]
+    })
+}
+
 /// Verify that the prover claim is correct.
 ///
 /// # Panics
@@ -452,9 +461,7 @@ mod tests {
     use crate::{
         base::scalar::Scalar,
         proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar as S,
-        sql::proof::FinalRoundBuilder,
     };
-    use alloc::collections::VecDeque;
     use num_traits::Inv;
 
     #[test]
@@ -566,26 +573,26 @@ mod tests {
         let alpha = S::from(5);
 
         let alloc = Bump::new();
-        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
 
-        let mut table = [0u8; 256];
         let mut table_plus_alpha = [S::ZERO; 256];
 
         for i in 0u8..=255 {
-            table[i as usize] = i;
             table_plus_alpha[i as usize] = S::from(&i);
         }
 
         slice_ops::add_const::<S, S>(&mut table_plus_alpha, alpha);
         slice_ops::batch_inversion(&mut table_plus_alpha);
 
-        let word_columns_from_log_deriv = get_logarithmic_derivative(
-            &mut builder,
-            &alloc,
-            &word_columns.iter().map(|col| &col[..]).collect::<Vec<_>>(),
-            alpha,
-            &table_plus_alpha,
-        );
+        let word_columns_from_log_deriv: Vec<_> = word_columns
+            .iter()
+            .map(|word_column| {
+                get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+                    &alloc,
+                    word_column,
+                    &table_plus_alpha,
+                )
+            })
+            .collect();
 
         let expected_data: [[u8; 6]; 31] = [
             [1, 2, 3, 255, 0, 1],
@@ -667,7 +674,6 @@ mod tests {
         let alpha = S::from(5);
 
         let alloc = Bump::new();
-        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
 
         let mut table = [0u8; 256];
         let mut table_plus_alpha = [S::ZERO; 256];
@@ -680,13 +686,16 @@ mod tests {
         slice_ops::batch_inversion(&mut table_plus_alpha);
 
         // Convert Vec<Vec<S>> into Vec<&mut [S]> for use in get_logarithmic_derivative
-        let word_columns_from_log_deriv = get_logarithmic_derivative(
-            &mut builder,
-            &alloc,
-            &word_columns.iter().map(|col| &col[..]).collect::<Vec<_>>(),
-            alpha,
-            &table_plus_alpha,
-        );
+        let word_columns_from_log_deriv: Vec<_> = word_columns
+            .iter()
+            .map(|word_column| {
+                get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+                    &alloc,
+                    word_column,
+                    &table_plus_alpha,
+                )
+            })
+            .collect();
 
         let expected_data: [[u8; 2]; 31] = [
             [0xFF, 0xFF],
