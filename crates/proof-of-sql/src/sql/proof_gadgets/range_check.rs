@@ -118,60 +118,6 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     );
 }
 
-/// Decomposes a scalar to requisite words, additionally tracks the total
-/// number of occurrences of each word for later use in the argument.
-///
-/// ```text
-/// | Column 0   | Column 1   | Column 2   | ... | Column 31   |
-/// |------------|------------|------------|-----|-------------|
-/// |  w₀,₀      |  w₀,₁      |  w₀,₂      | ... |  w₀,₃₁      |
-/// |  w₁,₀      |  w₁,₁      |  w₁,₂      | ... |  w₁,₃₁      |
-/// |  w₂,₀      |  w₂,₁      |  w₂,₂      | ... |  w₂,₃₁      |
-/// ------------------------------------------------------------
-/// ```
-#[tracing::instrument(
-    name = "range check decompose_scalars_to_words",
-    level = "debug",
-    skip_all
-)]
-fn decompose_scalars_to_words<'a, T, S: Scalar + 'a>(
-    column_data: &[T],
-    alloc: &'a Bump,
-) -> Vec<&'a [u8]>
-where
-    T: Copy + Into<S>,
-{
-    let mut word_columns: Vec<&mut [u8]> =
-        repeat_with(|| alloc.alloc_slice_fill_copy(column_data.len(), 0))
-            .take(31)
-            .collect();
-    for (i, scalar) in column_data.iter().enumerate() {
-        let scalar_array: [u64; 4] = (*scalar).into().into();
-        // Convert the [u64; 4] into a slice of bytes
-        let scalar_bytes = &cast_slice::<u64, u8>(&scalar_array)[..31];
-
-        // Zip the "columns" and the scalar bytes so we can write them directly
-        for (column, &byte) in word_columns.iter_mut().zip(scalar_bytes) {
-            column[i] = byte;
-        }
-    }
-    word_columns
-        .into_iter()
-        .map(|column| &column[..]) // convert &mut [u8] -> &[u8]
-        .collect()
-}
-
-// Count the individual word occurrences in the decomposed columns.
-fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
-    let word_counts = alloc.alloc_slice_fill_copy(256, 0);
-    for column in word_columns {
-        for &byte in *column {
-            word_counts[byte as usize] += 1;
-        }
-    }
-    word_counts
-}
-
 /// For a word w and a verifier challenge α, compute
 /// wᵢⱼ , and produce an Int. MLE over this column:
 ///
@@ -354,6 +300,60 @@ fn prove_row_zero_sum<'a, S: Scalar + 'a>(
             ),
         ],
     );
+}
+
+/// Decomposes a scalar to requisite words, additionally tracks the total
+/// number of occurrences of each word for later use in the argument.
+///
+/// ```text
+/// | Column 0   | Column 1   | Column 2   | ... | Column 31   |
+/// |------------|------------|------------|-----|-------------|
+/// |  w₀,₀      |  w₀,₁      |  w₀,₂      | ... |  w₀,₃₁      |
+/// |  w₁,₀      |  w₁,₁      |  w₁,₂      | ... |  w₁,₃₁      |
+/// |  w₂,₀      |  w₂,₁      |  w₂,₂      | ... |  w₂,₃₁      |
+/// ------------------------------------------------------------
+/// ```
+#[tracing::instrument(
+    name = "range check decompose_scalars_to_words",
+    level = "debug",
+    skip_all
+)]
+fn decompose_scalars_to_words<'a, T, S: Scalar + 'a>(
+    column_data: &[T],
+    alloc: &'a Bump,
+) -> Vec<&'a [u8]>
+where
+    T: Copy + Into<S>,
+{
+    let mut word_columns: Vec<&mut [u8]> =
+        repeat_with(|| alloc.alloc_slice_fill_copy(column_data.len(), 0))
+            .take(31)
+            .collect();
+    for (i, scalar) in column_data.iter().enumerate() {
+        let scalar_array: [u64; 4] = (*scalar).into().into();
+        // Convert the [u64; 4] into a slice of bytes
+        let scalar_bytes = &cast_slice::<u64, u8>(&scalar_array)[..31];
+
+        // Zip the "columns" and the scalar bytes so we can write them directly
+        for (column, &byte) in word_columns.iter_mut().zip(scalar_bytes) {
+            column[i] = byte;
+        }
+    }
+    word_columns
+        .into_iter()
+        .map(|column| &column[..]) // convert &mut [u8] -> &[u8]
+        .collect()
+}
+
+// Count the individual word occurrences in the decomposed columns.
+fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
+    let word_counts = alloc.alloc_slice_fill_copy(256, 0);
+    for column in word_columns {
+        for &byte in *column {
+            word_counts[byte as usize] += 1;
+        }
+    }
+    word_counts
 }
 
 fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
