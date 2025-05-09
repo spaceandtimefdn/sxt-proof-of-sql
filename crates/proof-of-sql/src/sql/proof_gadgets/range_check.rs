@@ -87,82 +87,9 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     slice_ops::add_const::<S, S>(rho_256_logarithmic_derivative, alpha);
     slice_ops::batch_inversion(rho_256_logarithmic_derivative);
 
-    let span = span!(Level::DEBUG, "get_logarithmic_derivative in final round").entered();
-    let inverted_word_columns = get_logarithmic_derivative(
-        builder,
-        alloc,
-        &word_columns,
-        alpha,
-        rho_256_logarithmic_derivative,
-    );
-    span.exit();
-
-    // Produce an MLE over the word values
-    prove_word_values(
-        alloc,
-        alpha,
-        builder,
-        rho_256, // give this an explicit lifetime for MLE commitment
-        rho_256_logarithmic_derivative,
-    );
-
-    // Argue that the sum of all words in each row, minus the count of each
-    // word multiplied by the inverted word value, is zero.
-    prove_row_zero_sum(
-        builder,
-        word_counts,
-        alloc,
-        column_data,
-        inverted_word_columns,
-        rho_256_logarithmic_derivative,
-    );
-}
-
-/// For a word w and a verifier challenge α, compute
-/// wᵢⱼ , and produce an Int. MLE over this column:
-///
-/// ```text
-/// R | Column 0     | Column 1     | Column 2     | ... | Column 31    |
-///   |--------------|--------------|--------------|-----|--------------|
-/// 1 | w₀,₀         | w₀,₁         | w₀,₂         | ... | w₀,₃₁        |
-/// 2 | w₁,₀         | w₁,₁         | w₁,₂         | ... | w₁,₃₁        |
-/// 3 | w₂,₀         | w₂,₁         | w₂,₂         | ... | w₂,₃₁        |
-///   -------------------------------------------------------------------
-///       |               |              |                   |            
-///       v               v              v                   v          
-///    Int. MLE        Int. MLE       Int. MLE            Int. MLE     
-/// ```
-///
-/// Then, invert each column, producing the modular multiplicative
-/// inverse of (wᵢⱼ + α), which is the logarithmic derivative
-/// of wᵢⱼ + α:
-///
-/// ```text
-/// R | Column 0     | Column 1     | Column 2     | ... | Column 31     |
-///   |--------------|--------------|--------------|-----|---------------|
-/// 1 | (w₀,₀ + α)⁻¹ | (w₀,₁ + α)⁻¹ | (w₀,₂ + α)⁻¹ | ... | (w₀,₃₁ + α)⁻¹ |
-/// 2 | (w₁,₀ + α)⁻¹ | (w₁,₁ + α)⁻¹ | (w₁,₂ + α)⁻¹ | ... | (w₁,₃₁ + α)⁻¹ |
-/// 3 | (w₂,₀ + α)⁻¹ | (w₂,₁ + α)⁻¹ | (w₂,₂ + α)⁻¹ | ... | (w₂,₃₁ + α)⁻¹ |
-///   --------------------------------------------------------------------
-///       |              |              |                    |            
-///       v              v              v                    v          
-///    Int. MLE      Int. MLE      Int. MLE             Int. MLE     
-/// ```
-#[tracing::instrument(
-    name = "get_logarithmic_derivative in final round",
-    level = "debug",
-    skip_all
-)]
-fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    alloc: &'a Bump,
-    word_columns: &[&'a [u8]],
-    alpha: S,
-    rho_256_logarithmic_derivative: &[S],
-) -> Vec<&'a [S]> {
     let span = span!(Level::DEBUG, "get_logarithmic_derivative total loop time").entered();
 
-    let res: Vec<_> = word_columns
+    let inverted_word_columns: Vec<_> = word_columns
         .iter()
         .map(|byte_column| {
             let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
@@ -188,50 +115,7 @@ fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
         })
         .collect();
     span.exit();
-    res
-}
 
-/// Produce the range of possible values that a word can take on,
-/// based on the word's bit size, along with an intermediate MLE:
-///
-/// ```text
-/// | Column 0           |
-/// |--------------------|
-/// |  0                 |
-/// |  1                 |
-/// |  ...               |
-/// |  2ⁿ - 1            |
-/// ----------------------
-///       |       
-///       v  
-///    Int. MLE
-/// ```
-/// Here, `n` represents the bit size of the word (e.g., for an 8-bit word, `2⁸ - 1 = 255`).
-///
-/// Then, add the verifier challenge α, invert, and produce an
-/// intermediate MLE:
-///
-/// ```text
-/// | Column 0
-/// |--------------------|
-/// | (0 + α)⁻¹          |
-/// | (1 + α)⁻¹          |
-/// | ...                |
-/// | (2ⁿ - 1 + α)⁻¹     |
-/// ----------------------
-///       |      
-///       v        
-///    Int. MLE  
-/// ```
-/// Finally, argue that (`word_values` + α)⁻¹ * (`word_values` + α) - 1 = 0
-///
-fn prove_word_values<'a, S: Scalar + 'a>(
-    alloc: &'a Bump,
-    alpha: S,
-    builder: &mut FinalRoundBuilder<'a, S>,
-    rho_256: &'a [u8],
-    rho_256_logarithmic_derivative: &'a [S],
-) {
     builder.produce_intermediate_mle(rho_256_logarithmic_derivative as &[_]);
 
     let chi_256 = alloc.alloc_slice_fill_copy(256, true);
@@ -255,27 +139,7 @@ fn prove_word_values<'a, S: Scalar + 'a>(
             (-S::one(), vec![Box::new(chi_256 as &[_])]),
         ],
     );
-}
 
-/// Argue that the sum of all words in each row, minus the count of each word
-/// multiplied by the inverted word value, is zero.
-///
-/// ```text
-/// ∑ (I₀ + I₁ + I₂ ... Iₙ - (C * IN)) = 0
-/// ```
-///
-/// Where:
-/// - `I₀ + I₁ + I₂ ... Iₙ` are the inverted word columns.
-/// - `C` is the count of each word.
-/// - `IN` is the inverted word values column.
-fn prove_row_zero_sum<'a, S: Scalar + 'a>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    word_counts: &'a mut [i64],
-    alloc: &'a Bump,
-    column_data: &[impl Into<S>],
-    inverted_word_columns: Vec<&[S]>,
-    rho_256_logarithmic_derivative: &'a [S],
-) {
     // Produce an MLE over the counts of each word value
     builder.produce_intermediate_mle(word_counts as &[_]);
 
