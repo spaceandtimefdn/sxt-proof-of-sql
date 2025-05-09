@@ -66,24 +66,24 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
 ) {
     let span = span!(Level::DEBUG, "decompose scalars in final round").entered();
+    // Get the bytewise decomposition of the column of data.
     let word_columns = decompose_scalars_to_words(column_data, alloc);
     span.exit();
 
     let span = span!(Level::DEBUG, "count_word_occurrences in final round").entered();
     // Initialize a vector to count occurrences of each byte (0-255).
-    // The vector has 256 elements padded with zeros to match the length of the word columns
-    // The size is the larger of 256 or the number of scalars.
     let word_counts = count_word_occurrences(&word_columns, alloc);
     span.exit();
 
     // Retrieve verifier challenge here, *after* Phase 1
     let alpha = builder.consume_post_result_challenge();
 
-    // avoids usize to u8 cast
+    // get rho for the first 256 rows
     let rho_256 = alloc.alloc_slice_fill_iter(0u8..=255);
+
+    // get (rho_256 + α)⁻¹
     let rho_256_logarithmic_derivative: &mut [S] =
         alloc.alloc_slice_fill_iter((0..256).map(S::from));
-    // Add alpha, batch invert, etc.
     slice_ops::add_const::<S, S>(rho_256_logarithmic_derivative, alpha);
     slice_ops::batch_inversion(rho_256_logarithmic_derivative);
 
@@ -92,6 +92,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     let inverted_word_columns: Vec<_> = word_columns
         .iter()
         .map(|byte_column| {
+            // (wᵢ + α)⁻¹
             let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
                 alloc,
                 byte_column,
@@ -100,6 +101,8 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
             builder.produce_intermediate_mle(words_inv);
 
             let chi_n = alloc.alloc_slice_fill_copy(byte_column.len(), true) as &[_];
+
+            // (wᵢ + α)⁻¹ * (wᵢ + α) - chi_n = 0
             builder.produce_sumcheck_subpolynomial(
                 SumcheckSubpolynomialType::Identity,
                 vec![
@@ -121,7 +124,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     let chi_256 = alloc.alloc_slice_fill_copy(256, true);
 
     // Argument:
-    // (word_values + α)⁻¹ * (word_values + α) - 1 = 0
+    // (rho_256 + α)⁻¹ * (rho_256 + α) - chi_256 = 0
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
         vec![
@@ -140,10 +143,9 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         ],
     );
 
-    // Produce an MLE over the counts of each word value
     builder.produce_intermediate_mle(word_counts as &[_]);
 
-    // Compute sum over all columns at each row index (single-threaded)
+    // Compute sum over all logarithmic derivative columns at each row index (single-threaded)
     let row_sums = alloc.alloc_slice_fill_copy(column_data.len(), S::ZERO);
     for column in inverted_word_columns {
         for (i, &inv_word) in column.iter().enumerate() {
@@ -151,6 +153,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         }
     }
 
+    // ∑ⱼ ((∑ᵢ (wᵢⱼ + α)⁻¹) - countⱼ * (ρ₂₅₆,ⱼ + α)⁻¹) = 0 where 0 <= i < 32, and 0 <= j < max(n, 256)
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::ZeroSum,
         vec![
