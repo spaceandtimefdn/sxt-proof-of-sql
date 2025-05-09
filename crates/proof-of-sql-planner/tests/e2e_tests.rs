@@ -162,15 +162,18 @@ fn test_tableless_queries() {
 fn test_simple_filter_queries() {
     let alloc = Bump::new();
     let sql = "select id, name from cats where age > 2;
-    select * from cats;
-    select name == $1 as name_eq from cats;
-    select 2 * age as double_age from cats";
+     select * from cats;
+     select name == $1 as name_eq from cats;
+     select 2 * age as double_age from cats;
+     select * from cats where weight > 5.3;
+     select name, weight + 4.2 as weight_in_carrier from cats where 2 * weight + 0.8 > 11.79 + 0.005 + 0.0025 * 2.0;";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "cats") => table(
             vec![
                 borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
                 borrowed_varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
                 borrowed_tinyint("age", [13_i8, 2, 0, 4, 4], &alloc),
+                borrowed_decimal75("weight", 3, 1, [145, 75, 20, 45, 55], &alloc),
             ]
         )
     };
@@ -183,9 +186,20 @@ fn test_simple_filter_queries() {
             int("id", [1, 2, 3, 4, 5]),
             varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"]),
             tinyint("age", [13_i8, 2, 0, 4, 4]),
+            decimal75("weight", 3, 1, [145, 75, 20, 45, 55]),
         ]),
         owned_table([boolean("name_eq", [false, false, true, false, false])]),
         owned_table([decimal75("double_age", 39, 0, [26_i8, 4, 0, 8, 8])]),
+        owned_table([
+            int("id", [1, 2, 5]),
+            varchar("name", ["Chloe", "Margaret", "Prudence"]),
+            tinyint("age", [13_i8, 2, 4]),
+            decimal75("weight", 3, 1, [145, 75, 55]),
+        ]),
+        owned_table([
+            varchar("name", ["Chloe", "Margaret"]),
+            decimal75("weight_in_carrier", 4, 1, [187, 117]),
+        ]),
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
@@ -320,7 +334,7 @@ fn test_slicing_limit() {
 
 /// Test GROUP BY queries
 #[test]
-fn test_group_by() {
+fn test_group_by_without_postprocessing() {
     let alloc = Bump::new();
     let sql = "select human, count(1) from cats group by human;
     select human, count(1) as num_cats from cats group by human;
@@ -330,7 +344,7 @@ fn test_group_by() {
     select human, sum(2 * weight), count(1) from cats group by human;
     select human, sum(2 * weight + 1) as total_transformed_weight, count(1) from cats group by human;
     select human, sum(2 * weight + $1::bigint) as total_transformed_weight, count(1) from cats group by human;
-    select sum(2 * weight + 1) as total_transformed_weight, count(1) as num_cats from cats;
+    select sum(2 * weight + 1) as total_transformed_weight, count(1) as num_cats from cats where 2 * weight * 1.0 + 0.7 > weight + 8;
     select count(1) as num_cats from cats;
     select count(1) from cats;";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
@@ -383,8 +397,8 @@ fn test_group_by() {
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
-            decimal75("total_transformed_weight", 25, 1, [730]),
-            bigint("num_cats", [5_i64]),
+            decimal75("total_transformed_weight", 25, 1, [460]),
+            bigint("num_cats", [2_i64]),
         ]),
         owned_table([bigint("num_cats", [5_i64])]),
         owned_table([bigint("COUNT(Int64(1))", [5_i64])]),
@@ -462,7 +476,8 @@ fn test_coin() {
 fn test_group_by_with_postprocessing() {
     let alloc = Bump::new();
     let sql = "select human, 2*count(1) as double_cat_count from cats group by human;
-    select human, 2*count(1) from cats group by human;";
+    select human, 2*count(1) from cats group by human;
+    select human, 2*count(1) as double_light_cat_count from cats where weight + 6.5 > 2 * weight - 1 group by human;";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "cats") => table(
             vec![
@@ -481,6 +496,10 @@ fn test_group_by_with_postprocessing() {
         owned_table([
             varchar("cats.human", ["Cassia", "Gretta"]),
             bigint("Int64(2) * COUNT(Int64(1))", [6_i64, 4]),
+        ]),
+        owned_table([
+            varchar("cats.human", ["Cassia", "Gretta"]),
+            bigint("double_light_cat_count", [2_i64, 4]),
         ]),
     ];
     // Create public parameters for DynamicDoryEvaluationProof
