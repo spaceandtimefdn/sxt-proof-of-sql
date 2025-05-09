@@ -311,6 +311,14 @@ library Verifier {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function fold_vals(beta, vals_ptr, vals_length) -> result {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
