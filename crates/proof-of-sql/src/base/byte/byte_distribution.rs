@@ -18,7 +18,6 @@ pub struct ByteDistribution {
 
 impl ByteDistribution {
     /// Creates the `ByteDistribution` for a column of data.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn new<S: Scalar, T: Into<S> + Copy>(data: &[T]) -> Self {
         let bit_masks = data.iter().copied().map(Into::<S>::into).map(make_bit_mask);
         let (vary_mask, constant_mask) = (0u8..32)
@@ -51,7 +50,6 @@ impl ByteDistribution {
 
     /// Returns the starting indices (`0, 8, ..., 248` are the possible values) of all varying byte columns.
     #[expect(clippy::missing_panics_doc)]
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn varying_byte_indices(&self) -> impl Iterator<Item = u8> + '_ {
         BitIter::from(self.vary_mask)
             .iter()
