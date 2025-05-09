@@ -459,10 +459,16 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
 mod tests {
     use super::*;
     use crate::{
-        base::scalar::Scalar,
+        base::{
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
         proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar as S,
+        sql::proof::mock_verification_builder::run_verify_for_each_row,
     };
+    use core::convert::identity;
     use num_traits::Inv;
+    use std::collections::VecDeque;
 
     #[test]
     fn we_can_decompose_small_scalars_to_words() {
@@ -743,5 +749,47 @@ mod tests {
             .collect();
 
         assert_eq!(word_columns_from_log_deriv, expected_columns);
+    }
+
+    #[test]
+    fn we_can_verify_simple_range_check() {
+        // First round
+        let alloc = Bump::new();
+        let column_data = &[5i64, 0, 3, 28888, 400];
+        let mut first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(5);
+        first_round_evaluate_range_check(&mut first_round_builder, column_data, &alloc);
+        first_round_builder.request_post_result_challenges(1);
+
+        // Final Round
+        let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+            FinalRoundBuilder::new(2, VecDeque::from([TestScalar::TEN]));
+        final_round_evaluate_range_check(&mut final_round_builder, column_data, &alloc);
+
+        // Verification
+        let mock_verification_builder = run_verify_for_each_row(
+            5,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::from([TestScalar::TEN]),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                verifier_evaluate_range_check(
+                    verification_builder,
+                    column_data.inner_product(evaluation_point),
+                    chi_eval,
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(mock_verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|v| v.iter().copied().all(identity)));
+        assert!(mock_verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .copied()
+            .all(identity));
     }
 }
