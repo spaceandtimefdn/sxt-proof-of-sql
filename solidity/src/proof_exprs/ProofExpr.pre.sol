@@ -18,7 +18,8 @@ library ProofExpr {
         Multiply,
         And,
         Or,
-        Not
+        Not,
+        Cast
     }
 
     /// @notice Evaluates a proof expression
@@ -128,6 +129,10 @@ library ProofExpr {
             function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL CastExpr.pre.sol
+            function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
 
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 let proof_expr_variant := shr(UINT32_PADDING_BITS, calldataload(expr_ptr))
@@ -169,6 +174,10 @@ library ProofExpr {
                 case 8 {
                     case_const(8, NOT_EXPR_VARIANT)
                     expr_ptr_out, eval := not_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 9 {
+                    case_const(9, CAST_EXPR_VARIANT)
+                    expr_ptr_out, eval := cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }

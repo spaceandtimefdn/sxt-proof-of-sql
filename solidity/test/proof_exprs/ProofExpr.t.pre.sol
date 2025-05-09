@@ -210,11 +210,31 @@ contract ProofExprTest is Test {
             NOT_EXPR_VARIANT, abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(0)), hex"abcdef"
         );
         bytes memory expectedExprOut = hex"abcdef";
-
         uint256 eval;
         (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 3);
 
         assert(eval == 3); // 1 * 3 - 0 * 3
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testCastExprVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory expr = abi.encodePacked(
+            CAST_EXPR_VARIANT,
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_INT_VARIANT, int64(2)),
+            DATA_TYPE_BIGINT_VARIANT,
+            hex"abcdef"
+        );
+        bytes memory expectedExprOut = hex"abcdef";
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 3);
+
+        assert(eval == 6); // 2 * 3
         assert(expr.length == expectedExprOut.length);
         uint256 exprOutLength = expr.length;
         for (uint256 i = 0; i < exprOutLength; ++i) {
@@ -240,5 +260,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.And) == AND_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Or) == OR_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Not) == NOT_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.Cast) == CAST_EXPR_VARIANT);
     }
 }

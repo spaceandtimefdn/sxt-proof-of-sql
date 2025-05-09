@@ -1,18 +1,23 @@
 use crate::{
-    base::{
-        database::{owned_table_utility::*, CommitmentAccessor, OwnedTableTestAccessor},
+    base::database::{
+        owned_table_utility::*,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        table_utility::*,
+        ColumnField, ColumnType, CommitmentAccessor, OwnedTableTestAccessor, TableRef,
+        TableTestAccessor,
     },
     proof_primitive::hyperkzg::{self, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof},
     sql::{
         evm_proof_plan::EVMProofPlan,
         parse::QueryExpr,
         proof::{ProofPlan, VerifiableQueryResult},
+        proof_exprs::{test_utility::*, DynProofExpr},
         proof_plans::DynProofPlan,
     },
 };
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
+use bumpalo::Bump;
 use itertools::Itertools;
 
 fn evm_verifier_with_extra_args(
@@ -260,6 +265,59 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
         .unwrap();
 
     assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+fn we_can_verify_a_filter_with_cast_using_the_evm() {
+    let alloc = Bump::new();
+    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+
+    let accessor = TableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        "namespace.table".parse().unwrap(),
+        table([
+            borrowed_bigint("a", [5, 3, 2, 5, 3, 2, 4], &alloc),
+            borrowed_boolean("b", [true, false, true, false, true, false, true], &alloc),
+        ]),
+        0,
+        &ps[..],
+    );
+    let t = TableRef::from_names(Some("namespace"), "table");
+    let plan = DynProofPlan::new_projection(
+        vec![
+            col_expr_plan(&t, "a", &accessor),
+            aliased_plan(
+                DynProofExpr::try_new_cast(
+                    DynProofExpr::new_column(col_ref(&t, "b", &accessor)),
+                    ColumnType::BigInt,
+                )
+                .unwrap(),
+                "b",
+            ),
+        ],
+        DynProofPlan::new_table(
+            "namespace.table".parse().unwrap(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::Boolean),
+            ],
+        ),
+    );
+
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    assert!(evm_verifier_all(&plan, &verifiable_result, &accessor));
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
 }
 
 #[ignore = "This test requires the forge binary to be present"]
