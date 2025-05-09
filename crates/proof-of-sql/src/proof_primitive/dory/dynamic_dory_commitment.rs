@@ -93,7 +93,21 @@ impl Commitment for DynamicDoryCommitment {
 #[cfg(test)]
 mod tests {
     use super::{DynamicDoryCommitment, GT};
-    use crate::base::commitment::Commitment;
+    use crate::{
+        base::{
+            commitment::{ColumnCommitments, Commitment, TableCommitment},
+            database::{
+                owned_table_utility::{
+                    bigint, boolean, decimal75, int, int128, owned_table, scalar, smallint,
+                    timestamptz, tinyint, uint8, varbinary, varchar,
+                },
+                OwnedTable,
+            },
+            posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+            try_standard_binary_deserialization, try_standard_binary_serialization,
+        },
+        proof_primitive::dory::{test_rng, DoryScalar, ProverSetup, PublicParameters},
+    };
     use ark_ff::UniformRand;
     use rand::{rngs::StdRng, SeedableRng};
 
@@ -106,5 +120,59 @@ mod tests {
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
         );
+    }
+
+    /// Under no circumstances should this test be modified. Unless you know what you're doing.
+    /// This tests is solely meant to confirm that the serialization of a table commitment has not changed.
+    #[test]
+    fn commitment_serialization_does_not_change() {
+        let expected_serialization =
+            include_bytes!("./test_table_commitmet_do_not_modify.bin").to_vec();
+        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+
+        let base_table: OwnedTable<DoryScalar> = owned_table([
+            uint8("uint8_column", [1, 2, 3, 4]),
+            tinyint("tinyint_column", [1, -2, 3, 4]),
+            smallint("smallint_column", [1i16, 2, -3, 4]),
+            int("int_column", [1, 2, 3, -14]),
+            bigint("bigint_column", [1, 2, -333, 4]),
+            int128("int128_column", [1, 2, 3, i128::MIN]),
+            boolean("bool_column", [true, true, true, false]),
+            decimal75("decimal_column", 3, 1, [1, 300, -1, 2]),
+            varchar("varchar_column", ["Lorem", "ipsum", "dolor", "sit"]),
+            scalar("scalar_column", [1, 3, -1, 2]),
+            timestamptz(
+                "timestamp_column",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                [-18, -17, 17, 18],
+            ),
+            varbinary(
+                "varbinary_column",
+                [
+                    [1, 2, 3, 0].as_slice(),
+                    &[4, 5, 6, 7],
+                    &[4, 5, u8::MAX, 7],
+                    &[4, 0, 6, 7],
+                ],
+            ),
+        ]);
+        let base_commitments =
+            ColumnCommitments::<DynamicDoryCommitment>::try_from_columns_with_offset(
+                base_table.inner_table(),
+                0,
+                &&setup,
+            )
+            .unwrap();
+        let table_commitment = TableCommitment::try_new(base_commitments, 0..4).unwrap();
+        let serialized_table_commitment =
+            try_standard_binary_serialization(table_commitment.clone()).unwrap();
+        assert_eq!(serialized_table_commitment, expected_serialization);
+        let (deserialized_table_commitment, _) = try_standard_binary_deserialization::<
+            TableCommitment<DynamicDoryCommitment>,
+        >(&serialized_table_commitment)
+        .unwrap();
+        assert_eq!(deserialized_table_commitment, table_commitment);
     }
 }
