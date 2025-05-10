@@ -547,3 +547,33 @@ fn test_join() {
         &[],
     );
 }
+
+#[test]
+fn test_implicit_casts() {
+    let alloc = Bump::new();
+    let sql = "SELECT a<b as compared, a*b as product from sxt.table where a+b>3.5;";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(Some("sxt"), "table") => table(
+            vec![
+                borrowed_int("a", [1, 2, 3, 4, 5], &alloc),
+                borrowed_decimal75("b", 3, 1, [300, 400, 10, 2, -30], &alloc),
+            ]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([
+        boolean("compared", [true, true, false, false]),
+        decimal75("product", 14, 1, [300, 800, 30, 8]),
+    ])];
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
