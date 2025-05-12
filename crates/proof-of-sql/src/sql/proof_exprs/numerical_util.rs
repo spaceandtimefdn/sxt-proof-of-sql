@@ -15,6 +15,7 @@ use num_traits::{NumCast, PrimInt};
     reason = "lhs and rhs are guaranteed to have the same length by design, ensuring no panic occurs"
 )]
 /// Add or subtract two columns together.
+#[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn add_subtract_columns<'a, S: Scalar>(
     lhs: Column<'a, S>,
     rhs: Column<'a, S>,
