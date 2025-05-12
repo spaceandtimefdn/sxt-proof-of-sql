@@ -327,6 +327,7 @@ pub(super) fn verify_filter<S: Scalar>(
 }
 
 #[expect(clippy::too_many_arguments, clippy::many_single_char_names)]
+#[tracing::instrument(level = "debug", skip_all)]
 pub(super) fn prove_filter<'a, S: Scalar + 'a>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
