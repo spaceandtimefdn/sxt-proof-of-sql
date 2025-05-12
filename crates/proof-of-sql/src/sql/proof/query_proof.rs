@@ -26,6 +26,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
+use tracing::{span, Level};
 
 const SETUP_HASH: [u8; 32] = [
     0xe8, 0x84, 0x0d, 0x8a, 0x41, 0xce, 0x9d, 0x4e, 0x14, 0xe7, 0xba, 0x0e, 0x1b, 0x02, 0x32, 0x24,
@@ -272,7 +273,6 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 )
                 .collect();
 
-        let mut folded_mle = vec![Zero::zero(); range_length];
         let column_ref_mles: Vec<_> = total_col_refs
             .into_iter()
             .map(|c| {
@@ -280,6 +280,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                     as Box<dyn MultilinearExtension<_>>
             })
             .collect();
+
+        let span = span!(Level::DEBUG, "QueryProof get folded_mle").entered();
+        let mut folded_mle = vec![Zero::zero(); range_length];
         for (multiplier, evaluator) in random_scalars.iter().zip(
             first_round_builder
                 .pcs_proof_mles()
@@ -289,6 +292,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         ) {
             evaluator.mul_add(&mut folded_mle, multiplier);
         }
+        span.exit();
 
         // finally, form the inner product proof of the MLEs' evaluations
         let evaluation_proof = CP::new(
