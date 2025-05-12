@@ -32,6 +32,57 @@ use bytemuck::cast_slice;
 use core::iter::repeat_with;
 use tracing::{span, Level};
 
+trait RangeCheckUtilities {
+    fn get_byte_decomposition<'a, T, S: Scalar + 'a>(
+        &self,
+        column_data: &[T],
+        alloc: &'a Bump,
+    ) -> Vec<&'a [u8]>
+    where
+        T: Copy + Into<S>;
+
+    fn get_word_counts<'a>(&self, word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64];
+
+    fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        word_column: &[u8],
+        rho_256_logarithmic_derivative: &[S],
+    ) -> &'a [S];
+}
+
+struct RangeCheckUtilitiesImpl;
+
+impl RangeCheckUtilities for RangeCheckUtilitiesImpl {
+    fn get_byte_decomposition<'a, T, S: Scalar + 'a>(
+        &self,
+        column_data: &[T],
+        alloc: &'a Bump,
+    ) -> Vec<&'a [u8]>
+    where
+        T: Copy + Into<S>,
+    {
+        decompose_scalars_to_words(column_data, alloc)
+    }
+
+    fn get_word_counts<'a>(&self, word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
+        count_word_occurrences(&word_columns, alloc)
+    }
+
+    fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        word_column: &[u8],
+        rho_256_logarithmic_derivative: &[S],
+    ) -> &'a [S] {
+        get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+            alloc,
+            word_column,
+            rho_256_logarithmic_derivative,
+        )
+    }
+}
+
 #[tracing::instrument(name = "range check first round evaluate", level = "debug", skip_all)]
 pub(crate) fn first_round_evaluate_range_check<'a, S>(
     builder: &mut FirstRoundBuilder<'a, S>,
@@ -40,12 +91,24 @@ pub(crate) fn first_round_evaluate_range_check<'a, S>(
 ) where
     S: Scalar + 'a,
 {
+    let utilities = RangeCheckUtilitiesImpl {};
+    first_round_evaluate_range_check_base(builder, column_data, alloc, utilities);
+}
+
+fn first_round_evaluate_range_check_base<'a, S>(
+    builder: &mut FirstRoundBuilder<'a, S>,
+    column_data: &[impl Copy + Into<S>],
+    alloc: &'a Bump,
+    utilities: impl RangeCheckUtilities,
+) where
+    S: Scalar + 'a,
+{
     builder.update_range_length(256);
     builder.produce_chi_evaluation_length(256);
 
     // Decompose scalars to bytes
     let span = span!(Level::DEBUG, "decompose scalars in first round").entered();
-    let word_columns = decompose_scalars_to_words(column_data, alloc);
+    let word_columns = utilities.get_byte_decomposition(column_data, alloc);
     span.exit();
 
     // For each column, allocate `words` using the lookup table
@@ -65,14 +128,24 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     column_data: &[impl Copy + Into<S>],
     alloc: &'a Bump,
 ) {
+    let utilities = RangeCheckUtilitiesImpl {};
+    final_round_evaluate_range_check_base(builder, column_data, alloc, utilities);
+}
+
+fn final_round_evaluate_range_check_base<'a, S: Scalar + 'a>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    column_data: &[impl Copy + Into<S>],
+    alloc: &'a Bump,
+    utilities: impl RangeCheckUtilities,
+) {
     let span = span!(Level::DEBUG, "decompose scalars in final round").entered();
     // Get the bytewise decomposition of the column of data.
-    let word_columns = decompose_scalars_to_words(column_data, alloc);
+    let word_columns = utilities.get_byte_decomposition(column_data, alloc);
     span.exit();
 
     let span = span!(Level::DEBUG, "count_word_occurrences in final round").entered();
     // Initialize a vector to count occurrences of each byte (0-255).
-    let word_counts = count_word_occurrences(&word_columns, alloc);
+    let word_counts = utilities.get_word_counts(&word_columns, alloc);
     span.exit();
 
     // Retrieve verifier challenge here, *after* Phase 1
@@ -93,11 +166,12 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
         .iter()
         .map(|byte_column| {
             // (wᵢ + α)⁻¹
-            let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
-                alloc,
-                byte_column,
-                rho_256_logarithmic_derivative,
-            );
+            let words_inv = utilities
+                .get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+                    alloc,
+                    byte_column,
+                    rho_256_logarithmic_derivative,
+                );
             builder.produce_intermediate_mle(words_inv);
 
             let chi_n = alloc.alloc_slice_fill_copy(byte_column.len(), true) as &[_];
@@ -659,4 +733,52 @@ mod tests {
             .copied()
             .all(identity));
     }
+
+    #[test]
+    fn we_can_only_reject_range_check_if_challenge_varies_by_input() {
+        // First round
+        let alloc = Bump::new();
+        let column_data = &[5i64, 0, 3, 28888, 400];
+        let mut first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(5);
+        first_round_evaluate_range_check(&mut first_round_builder, column_data, &alloc);
+        first_round_builder.request_post_result_challenges(1);
+
+        // Final Round
+        let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+            FinalRoundBuilder::new(2, VecDeque::from([TestScalar::TEN]));
+        final_round_evaluate_range_check(&mut final_round_builder, column_data, &alloc);
+
+        // Verification
+        let mock_verification_builder = run_verify_for_each_row(
+            5,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::from([TestScalar::TEN]),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                verifier_evaluate_range_check(
+                    verification_builder,
+                    column_data.inner_product(evaluation_point),
+                    chi_eval,
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(mock_verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|v| v.iter().copied().all(identity)));
+        assert!(mock_verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .copied()
+            .all(identity));
+    }
+
+    // true value -888000
+    // false bytes are 64, 115, -14, 0, 0, ...
+    // alpha = 7
+    // false logarithmic derivatives are 71⁻¹, 122⁻¹, -7⁻¹, 7⁻¹, 7⁻¹,...
+    // false counts: 0: 27, 64: 1, 115: 1
 }
