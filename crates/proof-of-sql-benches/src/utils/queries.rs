@@ -64,7 +64,11 @@ impl BaseEntry for Filter {
                     ColumnType::BigInt,
                     Some(|size| (size / 10).max(10) as i64),
                 ),
-                ("b", ColumnType::VarChar, None),
+                (
+                    "b",
+                    ColumnType::BigInt,
+                    Some(|size| (size / 10).max(10) as i64),
+                ),
             ],
         }]
     }
