@@ -132,6 +132,7 @@ impl ProofExpr for EqualsExpr {
     clippy::missing_panics_doc,
     reason = "table_length is guaranteed to match lhs.len()"
 )]
+#[tracing::instrument(level = "debug", skip_all)]
 pub fn first_round_evaluate_equals_zero<'a, S: Scalar>(
     table_length: usize,
     alloc: &'a Bump,
