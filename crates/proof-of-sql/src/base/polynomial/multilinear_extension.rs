@@ -1,6 +1,6 @@
-use crate::base::{
-    database::Column, if_rayon, scalar::Scalar, slice_ops, slice_ops::MIN_RAYON_LEN,
-};
+#[cfg(feature = "rayon")]
+use crate::base::slice_ops::MIN_RAYON_LEN;
+use crate::base::{database::Column, if_rayon, scalar::Scalar, slice_ops};
 use alloc::vec::Vec;
 use core::{ffi::c_void, fmt::Debug};
 use num_traits::Zero;
