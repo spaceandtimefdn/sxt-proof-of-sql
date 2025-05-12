@@ -752,19 +752,10 @@ library Verifier {
             // IMPORTED-YUL ../proof_exprs/LiteralExpr.pre.sol::literal_expr_evaluate
             function exclude_coverage_start_literal_expr_evaluate() {} // solhint-disable-line no-empty-blocks
             function literal_expr_evaluate(expr_ptr, chi_eval) -> expr_ptr_out, eval {
-                let literal_variant := shr(UINT32_PADDING_BITS, calldataload(expr_ptr))
-                expr_ptr := add(expr_ptr, UINT32_SIZE)
-
-                switch literal_variant
-                case 0 {
-                    case_const(0, LITERAL_BIGINT_VARIANT)
-                    eval :=
-                        add(signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(expr_ptr))), MODULUS)
-                    expr_ptr := add(expr_ptr, INT64_SIZE)
-                }
-                default { err(ERR_UNSUPPORTED_LITERAL_VARIANT) }
+                let literal_variant
+                expr_ptr, literal_variant := read_data_type(expr_ptr)
+                expr_ptr, eval := read_entry(expr_ptr, literal_variant)
                 eval := mulmod(eval, chi_eval, MODULUS)
-
                 expr_ptr_out := expr_ptr
             }
             function exclude_coverage_stop_literal_expr_evaluate() {} // solhint-disable-line no-empty-blocks
@@ -997,6 +988,11 @@ library Verifier {
                     ),
                     2
                 )
+                builder_produce_identity_constraint(
+                    builder_ptr,
+                    mulmod(mulmod(alpha, d_fold, MODULUS), addmod(output_chi_eval, MODULUS_MINUS_ONE, MODULUS), MODULUS),
+                    2
+                )
                 plan_ptr_out := plan_ptr
             }
             function exclude_coverage_stop_filter_exec_evaluate() {} // solhint-disable-line no-empty-blocks
@@ -1150,7 +1146,7 @@ library Verifier {
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))
             }
-            // IMPORTED-YUL PlanUtil.sol::skip_plan_names
+            // IMPORTED-YUL PlanUtil.pre.sol::skip_plan_names
             function exclude_coverage_start_skip_plan_names() {} // solhint-disable-line no-empty-blocks
             function skip_plan_names(plan_ptr) -> plan_ptr_out {
                 // skip over the table names
@@ -1167,7 +1163,8 @@ library Verifier {
                     plan_ptr := add(plan_ptr, UINT64_SIZE)
                     let name_len := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                     plan_ptr := add(plan_ptr, add(UINT64_SIZE, name_len))
-                    plan_ptr := add(plan_ptr, UINT32_SIZE)
+                    let data_type
+                    plan_ptr, data_type := read_data_type(plan_ptr)
                 }
                 // skip over the output column names
                 let num_outputs := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
@@ -1247,6 +1244,7 @@ library Verifier {
                 mstore(FREE_PTR, add(evaluations_ptr, mul(length, WORD_SIZE)))
                 mstore(evaluations_ptr, 1)
                 let num_vars := mload(evaluation_point_ptr)
+                if gt(length, shl(num_vars, 1)) { err(ERR_EVALUATION_LENGTH_TOO_LARGE) }
                 for { let len := 1 } num_vars { num_vars := sub(num_vars, 1) } {
                     let x := mod(mload(add(evaluation_point_ptr, mul(num_vars, WORD_SIZE))), MODULUS)
                     let one_minus_x := sub(MODULUS_PLUS_ONE, x)
@@ -1263,6 +1261,82 @@ library Verifier {
                 }
             }
             function exclude_coverage_stop_compute_evaluation_vec() {} // solhint-disable-line no-empty-blocks
+
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_entry
+            function exclude_coverage_start_read_entry() {} // solhint-disable-line no-empty-blocks
+            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
+                result_ptr_out := result_ptr
+                switch data_type_variant
+                case 0 {
+                    case_const(0, DATA_TYPE_BOOLEAN_VARIANT)
+                    entry := shr(BOOLEAN_PADDING_BITS, calldataload(result_ptr))
+                    if shr(1, entry) { err(ERR_INVALID_BOOLEAN) }
+                    result_ptr_out := add(result_ptr, BOOLEAN_SIZE)
+                }
+                case 2 {
+                    case_const(2, DATA_TYPE_TINYINT_VARIANT)
+                    entry :=
+                        add(MODULUS, signextend(INT8_SIZE_MINUS_ONE, shr(INT8_PADDING_BITS, calldataload(result_ptr))))
+                    result_ptr_out := add(result_ptr, INT8_SIZE)
+                }
+                case 3 {
+                    case_const(3, DATA_TYPE_SMALLINT_VARIANT)
+                    entry :=
+                        add(MODULUS, signextend(INT16_SIZE_MINUS_ONE, shr(INT16_PADDING_BITS, calldataload(result_ptr))))
+                    result_ptr_out := add(result_ptr, INT16_SIZE)
+                }
+                case 4 {
+                    case_const(4, DATA_TYPE_INT_VARIANT)
+                    entry :=
+                        add(MODULUS, signextend(INT32_SIZE_MINUS_ONE, shr(INT32_PADDING_BITS, calldataload(result_ptr))))
+                    result_ptr_out := add(result_ptr, INT32_SIZE)
+                }
+                case 5 {
+                    case_const(5, DATA_TYPE_BIGINT_VARIANT)
+                    entry :=
+                        add(MODULUS, signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr))))
+                    result_ptr_out := add(result_ptr, INT64_SIZE)
+                }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    entry := calldataload(result_ptr)
+                    result_ptr_out := add(result_ptr, WORD_SIZE)
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    entry :=
+                        add(MODULUS, signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr))))
+                    result_ptr_out := add(result_ptr, INT64_SIZE)
+                }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+                entry := mod(entry, MODULUS)
+            }
+            function exclude_coverage_stop_read_entry() {} // solhint-disable-line no-empty-blocks
+
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
 
             // IMPORTED-YUL ResultVerifier.pre.sol::verify_result_evaluations
             function exclude_coverage_start_verify_result_evaluations() {} // solhint-disable-line no-empty-blocks
@@ -1283,15 +1357,11 @@ library Verifier {
 
                     let value := mload(evaluations_ptr)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                    let column_variant := shr(UINT32_PADDING_BITS, calldataload(result_ptr))
-                    result_ptr := add(result_ptr, UINT32_SIZE)
 
+                    let data_type_variant
+                    result_ptr, data_type_variant := read_data_type(result_ptr)
                     let column_length := shr(UINT64_PADDING_BITS, calldataload(result_ptr))
                     result_ptr := add(result_ptr, UINT64_SIZE)
-
-                    switch column_variant
-                    case 0 { case_const(0, COLUMN_BIGINT_VARIANT) }
-                    default { err(ERR_UNSUPPORTED_LITERAL_VARIANT) }
 
                     if first {
                         first := 0
@@ -1303,16 +1373,7 @@ library Verifier {
                     value := mulmod(MODULUS_MINUS_ONE, value, MODULUS)
                     for { let i := 0 } sub(table_len, i) { i := add(i, 1) } {
                         let entry
-                        switch column_variant
-                        case 0 {
-                            case_const(0, COLUMN_BIGINT_VARIANT)
-                            entry :=
-                                add(
-                                    MODULUS,
-                                    signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr)))
-                                )
-                            result_ptr := add(result_ptr, INT64_SIZE)
-                        }
+                        result_ptr, entry := read_entry(result_ptr, data_type_variant)
                         value := addmod(value, mulmod(entry, mload(add(eval_vec, mul(i, WORD_SIZE))), MODULUS), MODULUS)
                     }
                     if value { err(ERR_INCORRECT_RESULT) }

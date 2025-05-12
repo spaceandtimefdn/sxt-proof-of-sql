@@ -8,6 +8,8 @@ uint32 constant ERR_INVALID_EC_ADD_INPUTS = 0x765bcba0;
 uint32 constant ERR_INVALID_EC_MUL_INPUTS = 0xe32c7472;
 /// @dev Error code for when ECPAIRING inputs are invalid.
 uint32 constant ERR_INVALID_EC_PAIRING_INPUTS = 0x4385b511;
+/// @dev Error code for when a boolean literal is invalid.
+uint32 constant ERR_INVALID_BOOLEAN = 0xaf979eb5;
 /// @dev Error code for commitment array having odd length which is impossible
 /// since each commitment is 2 elements.
 uint32 constant ERR_COMMITMENT_ARRAY_ODD_LENGTH = 0x88acadef;
@@ -27,8 +29,6 @@ uint32 constant ERR_HYPER_KZG_PAIRING_CHECK_FAILED = 0xa41148a3;
 uint32 constant ERR_CONSTRAINT_DEGREE_TOO_HIGH = 0x8568ae69;
 /// @dev Error code for when the case literal in a switch statement is incorrect.
 uint32 constant ERR_INCORRECT_CASE_CONST = 0x9324fb03;
-/// @dev Error code for when a literal variant is unsupported.
-uint32 constant ERR_UNSUPPORTED_LITERAL_VARIANT = 0xed9d5b00;
 /// @dev Error code for when an index is invalid.
 uint32 constant ERR_INVALID_INDEX = 0x63df8171;
 /// @dev Error code for when a proof expression variant is unsupported.
@@ -53,6 +53,8 @@ uint32 constant ERR_UNSUPPORTED_PROOF = 0x6f1c50d9;
 uint32 constant ERR_UNSUPPORTED_PROOF_PLAN_VARIANT = 0xe5503cfa;
 /// @dev Error code for when a data type variant is unsupported.
 uint32 constant ERR_UNSUPPORTED_DATA_TYPE_VARIANT = 0xbd12560e;
+/// @dev Error code for when the evaluation length is too large.
+uint32 constant ERR_EVALUATION_LENGTH_TOO_LARGE = 0xb65e7142;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -61,6 +63,8 @@ library Errors {
     error InvalidECMulInputs();
     /// @notice Error thrown when the inputs to the ECPAIRING precompile are invalid.
     error InvalidECPairingInputs();
+    /// @notice Error thrown when a boolean literal is invalid.
+    error InvalidBoolean();
     /// @notice Error code for commitment array having odd length which is impossible
     /// since each commitment is 2 elements.
     error CommitmentArrayOddLength();
@@ -80,8 +84,6 @@ library Errors {
     error ConstraintDegreeTooHigh();
     /// @notice Error thrown when the case literal in a switch statement is incorrect.
     error IncorrectCaseConst();
-    /// @notice Error thrown when a literal variant is unsupported.
-    error UnsupportedLiteralVariant();
     /// @notice Error thrown when an index is invalid.
     error InvalidIndex();
     /// @notice Error thrown when a proof expression variant is unsupported.
@@ -106,6 +108,8 @@ library Errors {
     error UnsupportedProofPlanVariant();
     /// @notice Error thrown when a data type variant is unsupported.
     error UnsupportedDataTypeVariant();
+    /// @notice Error thrown when the evaluation length is too large.
+    error EvaluationLengthTooLarge();
 
     function __err(uint32 __code) internal pure {
         assembly {
