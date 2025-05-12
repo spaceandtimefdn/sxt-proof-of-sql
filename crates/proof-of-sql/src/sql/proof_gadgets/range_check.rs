@@ -37,16 +37,16 @@ trait RangeCheckUtilities {
         &self,
         column_data: &[T],
         alloc: &'a Bump,
-    ) -> Vec<&'a [u8]>
+    ) -> Vec<&'a [i64]>
     where
         T: Copy + Into<S>;
 
-    fn get_word_counts<'a>(&self, word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64];
+    fn get_word_counts<'a>(&self, word_columns: &[&[i64]], alloc: &'a Bump) -> &'a mut [i64];
 
     fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
         &self,
         alloc: &'a Bump,
-        word_column: &[u8],
+        word_column: &[i64],
         rho_256_logarithmic_derivative: &[S],
     ) -> &'a [S];
 }
@@ -58,21 +58,21 @@ impl RangeCheckUtilities for RangeCheckUtilitiesImpl {
         &self,
         column_data: &[T],
         alloc: &'a Bump,
-    ) -> Vec<&'a [u8]>
+    ) -> Vec<&'a [i64]>
     where
         T: Copy + Into<S>,
     {
         decompose_scalars_to_words(column_data, alloc)
     }
 
-    fn get_word_counts<'a>(&self, word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
+    fn get_word_counts<'a>(&self, word_columns: &[&[i64]], alloc: &'a Bump) -> &'a mut [i64] {
         count_word_occurrences(&word_columns, alloc)
     }
 
     fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
         &self,
         alloc: &'a Bump,
-        word_column: &[u8],
+        word_column: &[i64],
         rho_256_logarithmic_derivative: &[S],
     ) -> &'a [S] {
         get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
@@ -115,7 +115,7 @@ fn first_round_evaluate_range_check_base<'a, S>(
     let span = span!(Level::DEBUG, "compute intermediate MLE over word column").entered();
     for byte_column in word_columns {
         // Finally, commit an MLE over these word values
-        builder.produce_intermediate_mle(byte_column as &[_]);
+        builder.produce_intermediate_mle(byte_column);
     }
     span.exit();
 }
@@ -262,11 +262,11 @@ fn final_round_evaluate_range_check_base<'a, S: Scalar + 'a>(
 fn decompose_scalars_to_words<'a, T, S: Scalar + 'a>(
     column_data: &[T],
     alloc: &'a Bump,
-) -> Vec<&'a [u8]>
+) -> Vec<&'a [i64]>
 where
     T: Copy + Into<S>,
 {
-    let mut word_columns: Vec<&mut [u8]> =
+    let mut word_columns: Vec<&mut [i64]> =
         repeat_with(|| alloc.alloc_slice_fill_copy(column_data.len(), 0))
             .take(31)
             .collect();
@@ -277,7 +277,7 @@ where
 
         // Zip the "columns" and the scalar bytes so we can write them directly
         for (column, &byte) in word_columns.iter_mut().zip(scalar_bytes) {
-            column[i] = byte;
+            column[i] = byte as i64;
         }
     }
     word_columns
@@ -287,7 +287,7 @@ where
 }
 
 // Count the individual word occurrences in the decomposed columns.
-fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
+fn count_word_occurrences<'a>(word_columns: &[&[i64]], alloc: &'a Bump) -> &'a mut [i64] {
     let word_counts = alloc.alloc_slice_fill_copy(256, 0);
     for column in word_columns {
         for &byte in *column {
@@ -299,7 +299,7 @@ fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mu
 
 fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
     alloc: &'a Bump,
-    word_column: &[u8],
+    word_column: &[i64],
     rho_256_logarithmic_derivative: &[S],
 ) -> &'a [S] {
     alloc.alloc_slice_fill_with(word_column.len(), |row_index| {
@@ -411,6 +411,41 @@ mod tests {
     use num_traits::Inv;
     use std::collections::VecDeque;
 
+    #[derive(Clone)]
+    struct RangeCheckMockUtilities{
+        byte_decomposition: Vec<Vec<i64>>,
+        word_counts: Vec<i64>,
+        alpha: i64
+    }
+
+    impl RangeCheckUtilities for RangeCheckMockUtilities{
+        fn get_byte_decomposition<'a, T, S: Scalar + 'a>(
+            &self,
+            _column_data: &[T],
+            alloc: &'a Bump,
+        ) -> Vec<&'a [i64]>
+        where
+            T: Copy + Into<S> {
+            self.byte_decomposition.iter().cloned().map(|col| alloc.alloc_slice_fill_iter(col.into_iter()) as &[_]).collect()
+        }
+    
+        fn get_word_counts<'a>(&self, _word_columns: &[&[i64]], alloc: &'a Bump) -> &'a mut [i64] {
+            alloc.alloc_slice_fill_iter(self.word_counts.iter().cloned())
+        }
+    
+        fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
+            &self,
+            alloc: &'a Bump,
+            word_column: &[i64],
+            _rho_256_logarithmic_derivative: &[S],
+        ) -> &'a [S] {
+            let logarithmic_derivative = alloc.alloc_slice_fill_iter(word_column.iter().copied().map(S::from));
+            slice_ops::add_const::<S, S>(logarithmic_derivative, S::from(self.alpha));
+            slice_ops::batch_inversion(logarithmic_derivative);
+            logarithmic_derivative
+        }
+    }
+
     #[test]
     fn we_can_decompose_small_scalars_to_words() {
         let alloc = Bump::new();
@@ -511,7 +546,7 @@ mod tests {
     #[test]
     fn we_can_obtain_logarithmic_derivative_from_small_scalar() {
         let scalars: Vec<S> = [1, 2, 3, 255, 256, 257].iter().map(S::from).collect();
-        let mut word_columns: Vec<Vec<u8>> = vec![vec![0; scalars.len()]; 31];
+        let mut word_columns: Vec<Vec<i64>> = vec![vec![0; scalars.len()]; 31];
 
         // Manually set the decomposed words column
         word_columns[0] = [1, 2, 3, 255, 0, 1].to_vec();
@@ -593,7 +628,7 @@ mod tests {
     fn we_can_obtain_logarithmic_derivative_from_large_scalar() {
         let scalars: Vec<S> = [u64::MAX, u64::MAX].iter().map(S::from).collect();
 
-        let mut word_columns: Vec<Vec<u8>> = vec![vec![0; scalars.len()]; 31];
+        let mut word_columns: Vec<Vec<i64>> = vec![vec![0; scalars.len()]; 31];
 
         // Manually set the decomposed words column.
         // Its helpful to think of this transposed, i.e.
@@ -622,10 +657,10 @@ mod tests {
 
         let alloc = Bump::new();
 
-        let mut table = [0u8; 256];
+        let mut table = [0i64; 256];
         let mut table_plus_alpha = [S::ZERO; 256];
 
-        for i in 0u8..=255 {
+        for i in 0i64..=255 {
             table[i as usize] = i;
             table_plus_alpha[i as usize] = S::from(&i);
         }
@@ -735,25 +770,30 @@ mod tests {
     }
 
     #[test]
-    fn we_can_only_reject_range_check_if_challenge_varies_by_input() {
+    fn alpha_cannot_be_fixed() {
         // First round
         let alloc = Bump::new();
-        let column_data = &[5i64, 0, 3, 28888, 400];
-        let mut first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(5);
-        first_round_evaluate_range_check(&mut first_round_builder, column_data, &alloc);
+        let column_data = &[-888000];
+        let mut first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(1);
+        let utilities = RangeCheckMockUtilities{
+            byte_decomposition: [64, 115, -14].into_iter().chain([0; 28].into_iter()).map(|i| vec![i]).collect(),
+            word_counts: [27].into_iter().chain([0; 63].into_iter()).chain([1].into_iter()).chain([0; 50].into_iter()).chain([1].into_iter()).collect(),
+            alpha: 7,
+        };
+        first_round_evaluate_range_check_base(&mut first_round_builder, column_data, &alloc, utilities.clone());
         first_round_builder.request_post_result_challenges(1);
 
         // Final Round
         let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
-            FinalRoundBuilder::new(2, VecDeque::from([TestScalar::TEN]));
-        final_round_evaluate_range_check(&mut final_round_builder, column_data, &alloc);
+            FinalRoundBuilder::new(2, VecDeque::from([TestScalar::from(7)]));
+        final_round_evaluate_range_check_base(&mut final_round_builder, column_data, &alloc, utilities);
 
         // Verification
         let mock_verification_builder = run_verify_for_each_row(
-            5,
+            1,
             &first_round_builder,
             &final_round_builder,
-            Vec::from([TestScalar::TEN]),
+            Vec::from([TestScalar::from(7)]),
             3,
             |verification_builder, chi_eval, evaluation_point| {
                 verifier_evaluate_range_check(
@@ -764,7 +804,7 @@ mod tests {
                 .unwrap();
             },
         );
-
+        
         assert!(mock_verification_builder
             .get_identity_results()
             .iter()
