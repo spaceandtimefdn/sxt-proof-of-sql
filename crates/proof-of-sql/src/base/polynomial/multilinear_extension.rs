@@ -1,12 +1,16 @@
-use crate::base::{database::Column, if_rayon, scalar::Scalar, slice_ops};
+use crate::base::{
+    database::Column, if_rayon, scalar::Scalar, slice_ops, slice_ops::MIN_RAYON_LEN,
+};
 use alloc::vec::Vec;
 use core::{ffi::c_void, fmt::Debug};
 use num_traits::Zero;
 #[cfg(feature = "rayon")]
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 /// Interface for operating on multilinear extension's in-place
-pub trait MultilinearExtension<S: Scalar>: Debug {
+pub trait MultilinearExtension<S: Scalar>: Debug + Sync + Send {
     /// Given an evaluation vector, compute the evaluation of the multilinear
     /// extension
     fn inner_product(&self, evaluation_vec: &[S]) -> S;
@@ -39,7 +43,19 @@ where
     }
 
     fn mul_add(&self, res: &mut [S], multiplier: &S) {
-        slice_ops::mul_add_assign(res, *multiplier, &slice_ops::slice_cast(self));
+        assert!(
+            res.len() >= self.len(),
+            "The length of `res` must be greater than or equal to the length of `self`"
+        );
+        if_rayon!(
+            res.par_iter_mut()
+                .with_min_len(MIN_RAYON_LEN)
+                .zip(self.par_iter()),
+            res.iter_mut().zip(self.iter())
+        )
+        .for_each(|(res_i, data_i)| {
+            *res_i += *multiplier * data_i.into();
+        });
     }
 
     fn to_sumcheck_term(&self, num_vars: usize) -> Vec<S> {

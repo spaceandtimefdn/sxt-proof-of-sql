@@ -12,16 +12,12 @@ mod add_const_test;
 mod inner_product;
 #[cfg(test)]
 mod inner_product_test;
-mod mul_add_assign;
-#[cfg(test)]
-mod mul_add_assign_test;
 mod slice_cast;
 #[cfg(test)]
 mod slice_cast_test;
 
 pub use add_const::*;
 pub use inner_product::*;
-pub use mul_add_assign::*;
 pub use slice_cast::*;
 
 mod batch_inverse;
