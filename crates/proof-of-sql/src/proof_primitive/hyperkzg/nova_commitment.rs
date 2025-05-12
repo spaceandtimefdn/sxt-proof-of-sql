@@ -75,9 +75,6 @@ mod tests {
                 CommittableColumn::Boolean(vals) => {
                     expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
                 }
-                CommittableColumn::Uint8(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
-                }
                 CommittableColumn::TinyInt(vals) => {
                     expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
                 }
@@ -170,7 +167,6 @@ mod tests {
         let committable_columns = vec![
             CommittableColumn::TinyInt(&[0; 0]),
             CommittableColumn::SmallInt(&[0; 0]),
-            CommittableColumn::Uint8(&[0; 0]),
             CommittableColumn::Int(&[0; 0]),
             CommittableColumn::BigInt(&[0; 0]),
             CommittableColumn::Int128(&[0; 0]),
@@ -197,7 +193,6 @@ mod tests {
 
         let committable_columns = vec![
             CommittableColumn::BigInt(&[0, 1]),
-            CommittableColumn::Uint8(&[2, 3]),
             CommittableColumn::Int(&[4, 5, 10]),
             CommittableColumn::SmallInt(&[6, 7]),
             CommittableColumn::Int128(&[8, 9]),

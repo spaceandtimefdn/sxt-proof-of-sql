@@ -9,7 +9,7 @@ use arrow::{
     array::{
         Array, ArrayRef, BinaryArray, BooleanArray, Decimal128Array, Decimal256Array, Int16Array,
         Int32Array, Int64Array, Int8Array, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray,
     },
     datatypes::{i256, DataType, TimeUnit as ArrowTimeUnit},
 };
@@ -132,15 +132,6 @@ impl ArrayRefExt for ArrayRef {
                         .ok_or(ArrowArrayToColumnConversionError::ArrayContainsNulls)?;
                     let values = alloc.alloc_slice_fill_with(range.len(), |i| boolean_slice[i]);
                     Ok(Column::Boolean(values))
-                } else {
-                    Err(ArrowArrayToColumnConversionError::UnsupportedType {
-                        datatype: self.data_type().clone(),
-                    })
-                }
-            }
-            DataType::UInt8 => {
-                if let Some(array) = self.as_any().downcast_ref::<UInt8Array>() {
-                    Ok(Column::Uint8(&array.values()[range.start..range.end]))
                 } else {
                     Err(ArrowArrayToColumnConversionError::UnsupportedType {
                         datatype: self.data_type().clone(),

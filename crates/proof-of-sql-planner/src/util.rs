@@ -66,7 +66,6 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
         ScalarValue::Int16(Some(v)) => Ok(LiteralValue::SmallInt(v)),
         ScalarValue::Int32(Some(v)) => Ok(LiteralValue::Int(v)),
         ScalarValue::Int64(Some(v)) => Ok(LiteralValue::BigInt(v)),
-        ScalarValue::UInt8(Some(v)) => Ok(LiteralValue::Uint8(v)),
         ScalarValue::Utf8(Some(v)) => Ok(LiteralValue::VarChar(v)),
         ScalarValue::Binary(Some(v)) => Ok(LiteralValue::VarBinary(v)),
         ScalarValue::TimestampSecond(Some(v), None) => Ok(LiteralValue::TimeStampTZ(
@@ -296,13 +295,6 @@ mod tests {
         assert_eq!(
             scalar_value_to_literal_value(value).unwrap(),
             LiteralValue::BigInt(1)
-        );
-
-        // UInt8
-        let value = ScalarValue::UInt8(Some(1));
-        assert_eq!(
-            scalar_value_to_literal_value(value).unwrap(),
-            LiteralValue::Uint8(1)
         );
 
         // Utf8

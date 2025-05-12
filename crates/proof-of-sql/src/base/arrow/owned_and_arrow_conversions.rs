@@ -25,7 +25,7 @@ use arrow::{
     array::{
         ArrayRef, BinaryArray, BooleanArray, Decimal128Array, Decimal256Array, Int16Array,
         Int32Array, Int64Array, Int8Array, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray,
     },
     datatypes::{i256, DataType, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
     error::ArrowError,
@@ -75,7 +75,6 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
     fn from(value: OwnedColumn<S>) -> Self {
         match value {
             OwnedColumn::Boolean(col) => Arc::new(BooleanArray::from(col)),
-            OwnedColumn::Uint8(col) => Arc::new(UInt8Array::from(col)),
             OwnedColumn::TinyInt(col) => Arc::new(Int8Array::from(col)),
             OwnedColumn::SmallInt(col) => Arc::new(Int16Array::from(col)),
             OwnedColumn::Int(col) => Arc::new(Int32Array::from(col)),
@@ -159,14 +158,6 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                     .iter()
                     .collect::<Option<Vec<bool>>>()
                     .ok_or(OwnedArrowConversionError::NullNotSupportedYet)?,
-            )),
-            DataType::UInt8 => Ok(Self::Uint8(
-                value
-                    .as_any()
-                    .downcast_ref::<UInt8Array>()
-                    .unwrap()
-                    .values()
-                    .to_vec(),
             )),
             DataType::Int8 => Ok(Self::TinyInt(
                 value

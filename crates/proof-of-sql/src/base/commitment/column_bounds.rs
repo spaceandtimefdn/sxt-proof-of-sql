@@ -203,8 +203,6 @@ pub struct ColumnBoundsMismatch {
 pub enum ColumnBounds {
     /// Column does not have order.
     NoOrder,
-    /// The bounds of a `Uint8` column.
-    Uint8(Bounds<u8>),
     /// The bounds of a `TinyInt` column.
     TinyInt(Bounds<i8>),
     /// The bounds of a `SmallInt` column.
@@ -227,7 +225,6 @@ impl ColumnBounds {
     pub fn from_column(column: &CommittableColumn) -> ColumnBounds {
         match column {
             CommittableColumn::TinyInt(ints) => ColumnBounds::TinyInt(Bounds::from_iter(*ints)),
-            CommittableColumn::Uint8(ints) => ColumnBounds::Uint8(Bounds::from_iter(*ints)),
             CommittableColumn::SmallInt(ints) => ColumnBounds::SmallInt(Bounds::from_iter(*ints)),
             CommittableColumn::Int(ints) => ColumnBounds::Int(Bounds::from_iter(*ints)),
             CommittableColumn::BigInt(ints) => ColumnBounds::BigInt(Bounds::from_iter(*ints)),
@@ -249,9 +246,6 @@ impl ColumnBounds {
     pub fn try_union(self, other: Self) -> Result<Self, ColumnBoundsMismatch> {
         match (self, other) {
             (ColumnBounds::NoOrder, ColumnBounds::NoOrder) => Ok(ColumnBounds::NoOrder),
-            (ColumnBounds::Uint8(bounds_a), ColumnBounds::Uint8(bounds_b)) => {
-                Ok(ColumnBounds::Uint8(bounds_a.union(bounds_b)))
-            }
             (ColumnBounds::TinyInt(bounds_a), ColumnBounds::TinyInt(bounds_b)) => {
                 Ok(ColumnBounds::TinyInt(bounds_a.union(bounds_b)))
             }
@@ -284,9 +278,6 @@ impl ColumnBounds {
     pub fn try_difference(self, other: Self) -> Result<Self, ColumnBoundsMismatch> {
         match (self, other) {
             (ColumnBounds::NoOrder, ColumnBounds::NoOrder) => Ok(self),
-            (ColumnBounds::Uint8(bounds_a), ColumnBounds::Uint8(bounds_b)) => {
-                Ok(ColumnBounds::Uint8(bounds_a.difference(bounds_b)))
-            }
             (ColumnBounds::TinyInt(bounds_a), ColumnBounds::TinyInt(bounds_b)) => {
                 Ok(ColumnBounds::TinyInt(bounds_a.difference(bounds_b)))
             }

@@ -122,9 +122,6 @@ impl Commitment for NaiveCommitment {
                     CommittableColumn::Boolean(bool_vec) => {
                         bool_vec.iter().map(core::convert::Into::into).collect()
                     }
-                    CommittableColumn::Uint8(u8_vec) => {
-                        u8_vec.iter().map(core::convert::Into::into).collect()
-                    }
                     CommittableColumn::TinyInt(tiny_int_vec) => {
                         tiny_int_vec.iter().map(core::convert::Into::into).collect()
                     }

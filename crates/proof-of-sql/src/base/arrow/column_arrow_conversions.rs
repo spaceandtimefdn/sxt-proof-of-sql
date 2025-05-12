@@ -11,7 +11,6 @@ impl From<&ColumnType> for DataType {
     fn from(column_type: &ColumnType) -> Self {
         match column_type {
             ColumnType::Boolean => DataType::Boolean,
-            ColumnType::Uint8 => DataType::UInt8,
             ColumnType::TinyInt => DataType::Int8,
             ColumnType::SmallInt => DataType::Int16,
             ColumnType::Int => DataType::Int32,
@@ -44,7 +43,6 @@ impl TryFrom<DataType> for ColumnType {
     fn try_from(data_type: DataType) -> Result<Self, Self::Error> {
         match data_type {
             DataType::Boolean => Ok(ColumnType::Boolean),
-            DataType::UInt8 => Ok(ColumnType::Uint8),
             DataType::Int8 => Ok(ColumnType::TinyInt),
             DataType::Int16 => Ok(ColumnType::SmallInt),
             DataType::Int32 => Ok(ColumnType::Int),

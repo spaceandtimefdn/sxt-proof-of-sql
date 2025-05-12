@@ -415,7 +415,6 @@ fn cast_int_slice_to_int_column<'a, S: Scalar, I: NumCast + PrimInt>(
     to_type: ColumnType,
 ) -> Column<'a, S> {
     match to_type {
-        ColumnType::Uint8 => Column::Uint8(cast_int_slice_to_int_slice(alloc, column)),
         ColumnType::TinyInt => Column::TinyInt(cast_int_slice_to_int_slice(alloc, column)),
         ColumnType::SmallInt => Column::SmallInt(cast_int_slice_to_int_slice(alloc, column)),
         ColumnType::Int => Column::Int(cast_int_slice_to_int_slice(alloc, column)),
@@ -433,7 +432,6 @@ fn cast_int_column_to_int_column<'a, S: Scalar>(
     to_type: ColumnType,
 ) -> Column<'a, S> {
     match from_column {
-        Column::Uint8(column) => cast_int_slice_to_int_column(alloc, column, to_type),
         Column::TinyInt(column) => cast_int_slice_to_int_column(alloc, column, to_type),
         Column::SmallInt(column) => cast_int_slice_to_int_column(alloc, column, to_type),
         Column::Int(column) => cast_int_slice_to_int_column(alloc, column, to_type),
@@ -474,7 +472,6 @@ fn cast_scalar_slice_to_int_column<'a, S: Scalar>(
     to_type: ColumnType,
 ) -> Column<'a, S> {
     match to_type {
-        ColumnType::Uint8 => Column::Uint8(cast_scalar_slice_to_int_slice::<u8, S>(alloc, column)),
         ColumnType::TinyInt => {
             Column::TinyInt(cast_scalar_slice_to_int_slice::<i8, S>(alloc, column))
         }
@@ -515,7 +512,6 @@ pub fn cast_column<'a, S: Scalar>(
         ) => cast_bool_column_to_signed_int_column(alloc, vals, to_type),
         (
             Column::TinyInt(_)
-            | Column::Uint8(_)
             | Column::SmallInt(_)
             | Column::Int(_)
             | Column::BigInt(_)
@@ -536,13 +532,11 @@ pub fn cast_column<'a, S: Scalar>(
         }
         (
             Column::TinyInt(_)
-            | Column::Uint8(_)
             | Column::SmallInt(_)
             | Column::Int(_)
             | Column::BigInt(_)
             | Column::Int128(_),
             ColumnType::TinyInt
-            | ColumnType::Uint8
             | ColumnType::SmallInt
             | ColumnType::Int
             | ColumnType::BigInt
@@ -553,7 +547,6 @@ pub fn cast_column<'a, S: Scalar>(
         (
             Column::Scalar(vals),
             ColumnType::TinyInt
-            | ColumnType::Uint8
             | ColumnType::SmallInt
             | ColumnType::Int
             | ColumnType::BigInt
@@ -816,22 +809,24 @@ mod tests {
         modulo_columns(&tiny_int_column, &small_int_column, &alloc);
     }
 
-    #[should_panic(expected = "Modulo not supported between UINT8 and SMALLINT")]
+    #[should_panic(expected = "Modulo not supported between VARCHAR and SMALLINT")]
     #[test]
     fn we_can_error_modulo_columns_if_columns_are_unsupported_types() {
         let alloc = Bump::new();
-        let unsigned_int_column: Column<'_, TestScalar> = Column::<'_, TestScalar>::Uint8(&[1, 1]);
+        let string_column: Column<'_, TestScalar> =
+            Column::<'_, TestScalar>::VarChar((&["a", "b"], &[TestScalar::ONE, TestScalar::ONE]));
         let small_int_column: Column<'_, TestScalar> = Column::<'_, TestScalar>::SmallInt(&[2, 2]);
-        modulo_columns(&unsigned_int_column, &small_int_column, &alloc);
+        modulo_columns(&string_column, &small_int_column, &alloc);
     }
 
-    #[should_panic(expected = "Division not supported between UINT8 and SMALLINT")]
+    #[should_panic(expected = "Division not supported between VARCHAR and SMALLINT")]
     #[test]
     fn we_can_error_divide_columns_if_columns_are_unsupported_types() {
         let alloc = Bump::new();
-        let unsigned_int_column: Column<'_, TestScalar> = Column::<'_, TestScalar>::Uint8(&[1, 1]);
+        let string_column: Column<'_, TestScalar> =
+            Column::<'_, TestScalar>::VarChar((&["a", "b"], &[TestScalar::ONE, TestScalar::ONE]));
         let small_int_column: Column<'_, TestScalar> = Column::<'_, TestScalar>::SmallInt(&[2, 2]);
-        divide_columns(&unsigned_int_column, &small_int_column, &alloc);
+        divide_columns(&string_column, &small_int_column, &alloc);
     }
 
     #[test]
@@ -865,7 +860,6 @@ mod tests {
         let alloc = Bump::new();
         let small_decimal_column =
             Column::<TestScalar>::Decimal75(Precision::new(2).unwrap(), 0, &[TestScalar::ONE]);
-        let uint8_column = Column::<TestScalar>::Uint8(&[1u8]);
         let tiny_int_column = Column::<TestScalar>::TinyInt(&[1i8]);
         let small_int_column = Column::<TestScalar>::SmallInt(&[1i16]);
         let int_column = Column::<TestScalar>::Int(&[1i32]);
@@ -876,7 +870,6 @@ mod tests {
         for (from_column, to_column) in iproduct!(
             [
                 small_decimal_column,
-                uint8_column,
                 tiny_int_column,
                 small_int_column,
                 int_column,
@@ -884,7 +877,6 @@ mod tests {
                 int_128_column
             ],
             [
-                uint8_column,
                 tiny_int_column,
                 small_int_column,
                 int_column,
@@ -907,7 +899,6 @@ mod tests {
     fn we_can_cast_scalar_columns_with_numeric_types_to_numeric_types_when_castable() {
         let alloc = Bump::new();
         let scalar_column = Column::<TestScalar>::Scalar(&[TestScalar::ONE]);
-        let uint8_column = Column::<TestScalar>::Uint8(&[1u8]);
         let tiny_int_column = Column::<TestScalar>::TinyInt(&[1i8]);
         let small_int_column = Column::<TestScalar>::SmallInt(&[1i16]);
         let int_column = Column::<TestScalar>::Int(&[1i32]);
@@ -918,7 +909,6 @@ mod tests {
         for (from_type, to_column) in iproduct!(
             [
                 ColumnType::Decimal75(Precision::new(2).unwrap(), 0),
-                ColumnType::Uint8,
                 ColumnType::TinyInt,
                 ColumnType::SmallInt,
                 ColumnType::Int,
@@ -926,7 +916,6 @@ mod tests {
                 ColumnType::Int128
             ],
             [
-                uint8_column,
                 tiny_int_column,
                 small_int_column,
                 int_column,
@@ -1032,7 +1021,6 @@ mod tests {
     #[test]
     fn we_can_properly_determine_scaling_factors_for_ints() {
         for from in [
-            ColumnType::Uint8,
             ColumnType::TinyInt,
             ColumnType::SmallInt,
             ColumnType::Int,
@@ -1143,7 +1131,7 @@ mod tests {
     #[test]
     fn we_can_get_scaling_factor_for_min_and_max_types() {
         let triple = try_get_scaling_factor_with_precision_and_scale(
-            ColumnType::Uint8,
+            ColumnType::TinyInt,
             ColumnType::Decimal75(Precision::new(75).unwrap(), 72),
         )
         .unwrap();
@@ -1170,19 +1158,6 @@ mod tests {
             .map(|s| s * TestScalar::from(10));
         assert_eq!(
             cast_column_with_scaling(&alloc, tiny_int_column, ColumnType::Decimal75(prec, scale)),
-            Column::<TestScalar>::Decimal75(prec, scale, &scalar_slice)
-        );
-
-        // uint8
-        let uint8_slice = [u8::MAX, u8::MIN];
-        let uint8_column = Column::<TestScalar>::Uint8(&uint8_slice);
-        let prec = Precision::new(4).unwrap();
-        let scale = 1i8;
-        let scalar_slice = uint8_slice
-            .map(TestScalar::from)
-            .map(|s| s * TestScalar::from(10));
-        assert_eq!(
-            cast_column_with_scaling(&alloc, uint8_column, ColumnType::Decimal75(prec, scale)),
             Column::<TestScalar>::Decimal75(prec, scale, &scalar_slice)
         );
 

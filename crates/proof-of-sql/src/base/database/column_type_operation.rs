@@ -206,11 +206,9 @@ pub fn try_cast_types(from: ColumnType, to: ColumnType) -> ColumnOperationResult
             | ColumnType::BigInt,
         )
         | (ColumnType::TimestampTZ(_, _), ColumnType::BigInt)
-        | (ColumnType::Uint8, ColumnType::Uint8)
         | (ColumnType::TinyInt, ColumnType::TinyInt) => true,
         (
             ColumnType::TinyInt
-            | ColumnType::Uint8
             | ColumnType::SmallInt
             | ColumnType::Int
             | ColumnType::Int128
@@ -242,7 +240,6 @@ pub fn try_scale_cast_types(from: ColumnType, to: ColumnType) -> ColumnOperation
     match (from, to) {
         (
             ColumnType::TinyInt
-            | ColumnType::Uint8
             | ColumnType::SmallInt
             | ColumnType::Int
             | ColumnType::Int128
@@ -1100,7 +1097,6 @@ mod test {
             assert_eq!(remainder, (numerator, numerator));
         }
         let ineligible_columns = [
-            ColumnType::Uint8,
             ColumnType::Scalar,
             ColumnType::Boolean,
             ColumnType::VarBinary,
@@ -1140,7 +1136,6 @@ mod test {
     fn we_cannot_cast_integers_to_decimal_with_lower_precision() {
         for from in [
             ColumnType::TinyInt,
-            ColumnType::Uint8,
             ColumnType::SmallInt,
             ColumnType::Int,
             ColumnType::BigInt,
@@ -1158,7 +1153,6 @@ mod test {
     fn we_can_cast_integers_and_decimal_to_decimal() {
         for from in [
             ColumnType::TinyInt,
-            ColumnType::Uint8,
             ColumnType::SmallInt,
             ColumnType::Int,
             ColumnType::BigInt,
@@ -1191,12 +1185,6 @@ mod test {
 
     #[test]
     fn we_can_cast_integers_to_signed_integers() {
-        try_cast_types(ColumnType::Uint8, ColumnType::Uint8).unwrap();
-        try_cast_types(ColumnType::Uint8, ColumnType::TinyInt).unwrap_err();
-        try_cast_types(ColumnType::Uint8, ColumnType::SmallInt).unwrap();
-        try_cast_types(ColumnType::Uint8, ColumnType::Int).unwrap();
-        try_cast_types(ColumnType::Uint8, ColumnType::BigInt).unwrap();
-        try_cast_types(ColumnType::Uint8, ColumnType::Int128).unwrap();
         try_cast_types(ColumnType::TinyInt, ColumnType::TinyInt).unwrap();
         try_cast_types(ColumnType::TinyInt, ColumnType::SmallInt).unwrap();
         try_cast_types(ColumnType::TinyInt, ColumnType::Int).unwrap();
@@ -1248,7 +1236,6 @@ mod test {
     #[test]
     fn we_can_properly_determine_if_types_are_scale_castable() {
         for from in [
-            ColumnType::Uint8,
             ColumnType::TinyInt,
             ColumnType::SmallInt,
             ColumnType::Int,

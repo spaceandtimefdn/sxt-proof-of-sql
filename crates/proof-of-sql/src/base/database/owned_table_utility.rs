@@ -51,27 +51,6 @@ pub fn owned_table<S: Scalar>(
     OwnedTable::try_from_iter(iter).unwrap()
 }
 
-/// Creates a (Ident, `OwnedColumn`) pair for a uint8 column.
-/// This is primarily intended for use in conjunction with [`owned_table`].
-/// # Example
-/// ```
-/// use proof_of_sql::base::{database::owned_table_utility::*};
-/// # use proof_of_sql::base::scalar::MontScalar;
-/// # pub type MyScalar = MontScalar<ark_curve25519::FrConfig>;
-/// let result = owned_table::<MyScalar>([
-///     uint8("a", [1_u8, 2, 3]),
-/// ]);
-///```
-pub fn uint8<S: Scalar>(
-    name: impl Into<Ident>,
-    data: impl IntoIterator<Item = impl Into<u8>>,
-) -> (Ident, OwnedColumn<S>) {
-    (
-        name.into(),
-        OwnedColumn::Uint8(data.into_iter().map(Into::into).collect()),
-    )
-}
-
 /// Creates a (Ident, `OwnedColumn`) pair for a tinyint column.
 /// This is primarily intended for use in conjunction with [`owned_table`].
 /// # Example

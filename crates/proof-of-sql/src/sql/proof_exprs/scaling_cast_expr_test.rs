@@ -2,7 +2,7 @@ use crate::{
     base::{
         database::{
             owned_table_utility::{
-                bigint, decimal75, int, int128, owned_table, smallint, timestamptz, tinyint, uint8,
+                bigint, decimal75, int, int128, owned_table, smallint, timestamptz, tinyint,
             },
             ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef,
         },
@@ -24,7 +24,6 @@ use blitzar::proof::InnerProductProof;
 fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
     let data = owned_table([
         tinyint("a", [1]),
-        uint8("b", [1]),
         smallint("c", [1i16]),
         int("d", [1i32]),
         bigint("e", [1i64]),
@@ -41,13 +40,6 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
                     ColumnType::Decimal75(Precision::new(4).unwrap(), 1),
                 ),
                 "a_cast",
-            ),
-            aliased_plan(
-                scaling_cast(
-                    column(&t, "b", &accessor),
-                    ColumnType::Decimal75(Precision::new(4).unwrap(), 1),
-                ),
-                "b_cast",
             ),
             aliased_plan(
                 scaling_cast(
@@ -89,7 +81,6 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
         .table;
     let expected_res = owned_table([
         decimal75("a_cast", 4, 1, [10]),
-        decimal75("b_cast", 4, 1, [10]),
         decimal75("c_cast", 6, 1, [10]),
         decimal75("d_cast", 11, 1, [10]),
         decimal75("e_cast", 20, 1, [10]),

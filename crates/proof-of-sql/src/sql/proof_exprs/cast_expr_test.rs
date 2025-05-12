@@ -7,7 +7,7 @@ use crate::{
         database::{
             owned_table_utility::{
                 bigint, boolean, decimal75, int, int128, owned_table, smallint, timestamptz,
-                tinyint, uint8,
+                tinyint,
             },
             table_utility::{borrowed_smallint, table},
             ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef, TableTestAccessor,
@@ -91,7 +91,6 @@ fn we_can_prove_a_simple_cast_expr() {
 fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
     let data = owned_table([
         tinyint("a", [1]),
-        uint8("b", [1]),
         smallint("c", [1i16]),
         int("d", [1i32]),
         bigint("e", [1i64]),
@@ -106,10 +105,6 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
             aliased_plan(
                 cast(column(&t, "a", &accessor), ColumnType::SmallInt),
                 "a_cast",
-            ),
-            aliased_plan(
-                cast(column(&t, "b", &accessor), ColumnType::Uint8),
-                "b_cast",
             ),
             aliased_plan(
                 cast(column(&t, "c", &accessor), ColumnType::BigInt),
@@ -152,7 +147,6 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
         .table;
     let expected_res = owned_table([
         smallint("a_cast", [1i16]),
-        uint8("b_cast", [1u8]),
         bigint("c_cast", [1i64]),
         int128("d_cast", [1i128]),
         decimal75("e_cast", 42, 0, [1]),

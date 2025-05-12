@@ -145,8 +145,6 @@ impl EVMColumnExpr {
 pub(crate) enum EVMLiteralExpr {
     /// Boolean literals
     Boolean(bool),
-    /// u8 literals
-    Uint8(u8),
     /// i8 literals
     TinyInt(i8),
     /// i16 literals
@@ -178,7 +176,6 @@ impl EVMLiteralExpr {
     pub(crate) fn from_proof_expr(expr: &LiteralExpr) -> Self {
         match expr.value() {
             LiteralValue::Boolean(value) => EVMLiteralExpr::Boolean(*value),
-            LiteralValue::Uint8(value) => EVMLiteralExpr::Uint8(*value),
             LiteralValue::TinyInt(value) => EVMLiteralExpr::TinyInt(*value),
             LiteralValue::SmallInt(value) => EVMLiteralExpr::SmallInt(*value),
             LiteralValue::Int(value) => EVMLiteralExpr::Int(*value),
@@ -208,7 +205,6 @@ impl EVMLiteralExpr {
     pub(crate) fn to_proof_expr(&self) -> LiteralExpr {
         match self {
             EVMLiteralExpr::Boolean(value) => LiteralExpr::new(LiteralValue::Boolean(*value)),
-            EVMLiteralExpr::Uint8(value) => LiteralExpr::new(LiteralValue::Uint8(*value)),
             EVMLiteralExpr::TinyInt(value) => LiteralExpr::new(LiteralValue::TinyInt(*value)),
             EVMLiteralExpr::SmallInt(value) => LiteralExpr::new(LiteralValue::SmallInt(*value)),
             EVMLiteralExpr::Int(value) => LiteralExpr::new(LiteralValue::Int(*value)),
@@ -597,13 +593,6 @@ mod tests {
     // EVMLiteralExpr
     #[test]
     fn we_can_put_an_integer_literal_expr_in_evm() {
-        // Test Uint8
-        let evm_literal_expr =
-            EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::Uint8(42)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::Uint8(42));
-        let roundtripped = evm_literal_expr.to_proof_expr();
-        assert_eq!(*roundtripped.value(), LiteralValue::Uint8(42));
-
         // Test TinyInt
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::TinyInt(-42)));

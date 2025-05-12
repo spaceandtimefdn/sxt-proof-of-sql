@@ -65,12 +65,6 @@ fn we_can_evaluate_a_literal() {
     let expected_column = OwnedColumn::BigInt(vec![i64::MIN; 5]);
     assert_eq!(actual_column, expected_column);
 
-    // 255 as a uint8
-    let expr = Expr::Literal(ScalarValue::UInt8(Some(255_u8)));
-    let actual_column = evaluate_expr(&table, &expr).unwrap();
-    let expected_column = OwnedColumn::Uint8(vec![255_u8; 5]);
-    assert_eq!(actual_column, expected_column);
-
     // Is Proof of SQL in production?
     let expr = Expr::Literal(ScalarValue::Boolean(Some(true)));
     let actual_column = evaluate_expr(&table, &expr).unwrap();

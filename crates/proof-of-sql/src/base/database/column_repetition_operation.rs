@@ -23,12 +23,6 @@ pub trait RepetitionOp {
                     iter.next().expect("Iterator should have enough elements")
                 }) as &[_])
             }
-            ColumnType::Uint8 => {
-                let mut iter = Self::op(column.as_uint8().expect("Column types should match"), n);
-                Column::Uint8(alloc.alloc_slice_fill_with(len, |_| {
-                    iter.next().expect("Iterator should have enough elements")
-                }) as &[_])
-            }
             ColumnType::TinyInt => {
                 let mut iter = Self::op(column.as_tinyint().expect("Column types should match"), n);
                 Column::TinyInt(alloc.alloc_slice_fill_with(len, |_| {
@@ -208,10 +202,6 @@ mod tests {
             result.as_boolean().unwrap(),
             &[false, false, true, true, false, false]
         );
-
-        let column: Column<TestScalar> = Column::Uint8(&[3u8, 5u8, 2u8]);
-        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
-        assert_eq!(result.as_uint8().unwrap(), &[3u8, 3u8, 5u8, 5u8, 2u8, 2u8]);
     }
 
     #[test]

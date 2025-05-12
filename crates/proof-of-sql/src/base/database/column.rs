@@ -26,8 +26,6 @@ use sqlparser::ast::Ident;
 pub enum Column<'a, S: Scalar> {
     /// Boolean columns
     Boolean(&'a [bool]),
-    /// u8 columns
-    Uint8(&'a [u8]),
     /// i8 columns
     TinyInt(&'a [i8]),
     /// i16 columns
@@ -62,7 +60,6 @@ impl<'a, S: Scalar> Column<'a, S> {
     pub fn column_type(&self) -> ColumnType {
         match self {
             Self::Boolean(_) => ColumnType::Boolean,
-            Self::Uint8(_) => ColumnType::Uint8,
             Self::TinyInt(_) => ColumnType::TinyInt,
             Self::SmallInt(_) => ColumnType::SmallInt,
             Self::Int(_) => ColumnType::Int,
@@ -84,7 +81,6 @@ impl<'a, S: Scalar> Column<'a, S> {
     pub fn len(&self) -> usize {
         match self {
             Self::Boolean(col) => col.len(),
-            Self::Uint8(col) => col.len(),
             Self::TinyInt(col) => col.len(),
             Self::SmallInt(col) => col.len(),
             Self::Int(col) => col.len(),
@@ -116,9 +112,6 @@ impl<'a, S: Scalar> Column<'a, S> {
         match literal {
             LiteralValue::Boolean(value) => {
                 Column::Boolean(alloc.alloc_slice_fill_copy(length, *value))
-            }
-            LiteralValue::Uint8(value) => {
-                Column::Uint8(alloc.alloc_slice_fill_copy(length, *value))
             }
             LiteralValue::TinyInt(value) => {
                 Column::TinyInt(alloc.alloc_slice_fill_copy(length, *value))
@@ -173,7 +166,6 @@ impl<'a, S: Scalar> Column<'a, S> {
     pub fn from_owned_column(owned_column: &'a OwnedColumn<S>, alloc: &'a Bump) -> Self {
         match owned_column {
             OwnedColumn::Boolean(col) => Column::Boolean(col.as_slice()),
-            OwnedColumn::Uint8(col) => Column::Uint8(col.as_slice()),
             OwnedColumn::TinyInt(col) => Column::TinyInt(col.as_slice()),
             OwnedColumn::SmallInt(col) => Column::SmallInt(col.as_slice()),
             OwnedColumn::Int(col) => Column::Int(col.as_slice()),
@@ -213,14 +205,6 @@ impl<'a, S: Scalar> Column<'a, S> {
     pub(crate) fn as_boolean(&self) -> Option<&'a [bool]> {
         match self {
             Self::Boolean(col) => Some(col),
-            _ => None,
-        }
-    }
-
-    /// Returns the column as a slice of u8 if it is a uint8 column. Otherwise, returns None.
-    pub(crate) fn as_uint8(&self) -> Option<&'a [u8]> {
-        match self {
-            Self::Uint8(col) => Some(col),
             _ => None,
         }
     }
@@ -311,7 +295,6 @@ impl<'a, S: Scalar> Column<'a, S> {
     pub(crate) fn scalar_at(&self, index: usize) -> Option<S> {
         (index < self.len()).then_some(match self {
             Self::Boolean(col) => S::from(col[index]),
-            Self::Uint8(col) => S::from(col[index]),
             Self::TinyInt(col) => S::from(col[index]),
             Self::SmallInt(col) => S::from(col[index]),
             Self::Int(col) => S::from(col[index]),
@@ -329,7 +312,6 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::Decimal75(_, _, col) => slice_cast_with(col, |s| *s),
             Self::VarChar((_, values)) => slice_cast_with(values, |s| *s),
             Self::VarBinary((_, values)) => slice_cast_with(values, |s| *s),
-            Self::Uint8(col) => slice_cast_with(col, |i| S::from(i)),
             Self::TinyInt(col) => slice_cast_with(col, |i| S::from(i)),
             Self::SmallInt(col) => slice_cast_with(col, |i| S::from(i)),
             Self::Int(col) => slice_cast_with(col, |i| S::from(i)),
@@ -352,9 +334,6 @@ pub enum ColumnType {
     /// Mapped to bool
     #[serde(alias = "BOOLEAN", alias = "boolean")]
     Boolean,
-    /// Mapped to u8
-    #[serde(alias = "UINT8", alias = "uint8")]
-    Uint8,
     /// Mapped to i8
     #[serde(alias = "TINYINT", alias = "tinyint")]
     TinyInt,
@@ -395,8 +374,7 @@ impl ColumnType {
     pub fn is_numeric(&self) -> bool {
         matches!(
             self,
-            ColumnType::Uint8
-                | ColumnType::TinyInt
+            ColumnType::TinyInt
                 | ColumnType::SmallInt
                 | ColumnType::Int
                 | ColumnType::BigInt
@@ -411,8 +389,7 @@ impl ColumnType {
     pub fn is_integer(&self) -> bool {
         matches!(
             self,
-            ColumnType::Uint8
-                | ColumnType::TinyInt
+            ColumnType::TinyInt
                 | ColumnType::SmallInt
                 | ColumnType::Int
                 | ColumnType::BigInt
@@ -440,7 +417,7 @@ impl ColumnType {
     /// Returns the number of bits in the integer type if it is an integer type. Otherwise, return None.
     fn to_integer_bits(self) -> Option<usize> {
         match self {
-            ColumnType::Uint8 | ColumnType::TinyInt => Some(8),
+            ColumnType::TinyInt => Some(8),
             ColumnType::SmallInt => Some(16),
             ColumnType::Int => Some(32),
             ColumnType::BigInt => Some(64),
@@ -463,16 +440,6 @@ impl ColumnType {
         }
     }
 
-    /// Returns the [`ColumnType`] of the unsigned integer type with the given number of bits if it is a valid integer type.
-    ///
-    /// Otherwise, return None.
-    fn from_unsigned_integer_bits(bits: usize) -> Option<Self> {
-        match bits {
-            8 => Some(ColumnType::Uint8),
-            _ => None,
-        }
-    }
-
     /// Returns the larger integer type of two [`ColumnType`]s if they are both integers.
     ///
     /// If either of the columns is not an integer, return None.
@@ -489,27 +456,11 @@ impl ColumnType {
         })
     }
 
-    /// Returns the larger integer type of two [`ColumnType`]s if they are both integers.
-    ///
-    /// If either of the columns is not an integer, return None.
-    #[must_use]
-    pub fn max_unsigned_integer_type(&self, other: &Self) -> Option<Self> {
-        // If either of the columns is not an integer, return None
-        if !self.is_integer() || !other.is_integer() {
-            return None;
-        }
-        self.to_integer_bits().and_then(|self_bits| {
-            other
-                .to_integer_bits()
-                .and_then(|other_bits| Self::from_unsigned_integer_bits(self_bits.max(other_bits)))
-        })
-    }
-
     /// Returns the precision of a [`ColumnType`] if it is converted to a decimal wrapped in `Some()`. If it can not be converted to a decimal, return None.
     #[must_use]
     pub fn precision_value(&self) -> Option<u8> {
         match self {
-            Self::Uint8 | Self::TinyInt => Some(3_u8),
+            Self::TinyInt => Some(3_u8),
             Self::SmallInt => Some(5_u8),
             Self::Int => Some(10_u8),
             Self::BigInt | Self::TimestampTZ(_, _) => Some(19_u8),
@@ -527,7 +478,6 @@ impl ColumnType {
         match self {
             Self::Decimal75(_, scale) => Some(*scale),
             Self::TinyInt
-            | Self::Uint8
             | Self::SmallInt
             | Self::Int
             | Self::BigInt
@@ -548,7 +498,6 @@ impl ColumnType {
     pub fn byte_size(&self) -> usize {
         match self {
             Self::Boolean => size_of::<bool>(),
-            Self::Uint8 => size_of::<u8>(),
             Self::TinyInt => size_of::<i8>(),
             Self::SmallInt => size_of::<i16>(),
             Self::Int => size_of::<i32>(),
@@ -581,8 +530,7 @@ impl ColumnType {
             | Self::Scalar
             | Self::VarBinary
             | Self::VarChar
-            | Self::Boolean
-            | Self::Uint8 => false,
+            | Self::Boolean => false,
         }
     }
 
@@ -605,7 +553,6 @@ impl Display for ColumnType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ColumnType::Boolean => write!(f, "BOOLEAN"),
-            ColumnType::Uint8 => write!(f, "UINT8"),
             ColumnType::TinyInt => write!(f, "TINYINT"),
             ColumnType::SmallInt => write!(f, "SMALLINT"),
             ColumnType::Int => write!(f, "INT"),
@@ -1266,7 +1213,6 @@ mod tests {
             ColumnType::Int128.min_scalar(),
             Some(TestScalar::from(i128::MIN))
         );
-        assert_eq!(ColumnType::Uint8.min_scalar::<TestScalar>(), None);
         assert_eq!(ColumnType::Scalar.min_scalar::<TestScalar>(), None);
         assert_eq!(ColumnType::Boolean.min_scalar::<TestScalar>(), None);
         assert_eq!(ColumnType::VarBinary.min_scalar::<TestScalar>(), None);
@@ -1300,7 +1246,6 @@ mod tests {
             assert!(negative_min_scalar < ceiling_squared);
         }
         for column_type in [
-            ColumnType::Uint8,
             ColumnType::Scalar,
             ColumnType::Boolean,
             ColumnType::VarBinary,

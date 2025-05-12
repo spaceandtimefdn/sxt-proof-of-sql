@@ -141,7 +141,6 @@ fn compute_commitments_impl(
             CommittableColumn::Boolean(vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)
             }
-            CommittableColumn::Uint8(vals) => compute_commitment_generic_impl(setup, offset, vals),
             CommittableColumn::TinyInt(vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)
             }

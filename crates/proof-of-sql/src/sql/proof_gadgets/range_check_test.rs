@@ -54,12 +54,6 @@ macro_rules! handle_column_with_match {
                     .expect("column_type() is TinyInt, but as_tinyint() was None");
                 $fn_name($builder, slice, $alloc);
             }
-            ColumnType::Uint8 => {
-                let slice = $col
-                    .as_uint8()
-                    .expect("column_type() is Uint8, but as_uint8() was None");
-                $fn_name($builder, slice, $alloc);
-            }
             ColumnType::Int128 => {
                 let slice = $col
                     .as_int128()
@@ -211,7 +205,6 @@ mod tests {
     #[test]
     fn we_can_prove_ranges_on_mixed_column_types() {
         let data = owned_table([
-            uint8("uint8", [0, u8::MAX]),
             tinyint("tinyint", [0, i8::MAX]),
             smallint("smallint", [0, i16::MAX]),
             int("int", [0, i32::MAX]),
@@ -244,7 +237,6 @@ mod tests {
         let accessor =
             OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
 
-        check_range(t.clone(), "uint8", ColumnType::Uint8, &accessor);
         check_range(t.clone(), "tinyint", ColumnType::TinyInt, &accessor);
         check_range(t.clone(), "smallint", ColumnType::SmallInt, &accessor);
         check_range(t.clone(), "int", ColumnType::Int, &accessor);

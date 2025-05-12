@@ -63,7 +63,6 @@ fn evaluate_literal<S: Scalar>(
         ScalarValue::Int16(Some(i)) => Ok(OwnedColumn::SmallInt(vec![*i; len])),
         ScalarValue::Int32(Some(i)) => Ok(OwnedColumn::Int(vec![*i; len])),
         ScalarValue::Int64(Some(i)) => Ok(OwnedColumn::BigInt(vec![*i; len])),
-        ScalarValue::UInt8(Some(i)) => Ok(OwnedColumn::Uint8(vec![*i; len])),
         ScalarValue::Utf8(Some(s)) => Ok(OwnedColumn::VarChar(vec![s.clone(); len])),
         ScalarValue::Binary(Some(b)) => Ok(OwnedColumn::VarBinary(vec![b.clone(); len])),
         ScalarValue::TimestampSecond(Some(v), None) => Ok(OwnedColumn::TimestampTZ(

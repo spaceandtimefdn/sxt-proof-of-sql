@@ -137,11 +137,11 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
 fn decompose_scalars_to_words<'a, T, S: Scalar + 'a>(
     column_data: &[T],
     alloc: &'a Bump,
-) -> Vec<&'a [u8]>
+) -> Vec<&'a [i64]>
 where
     T: Copy + Into<S>,
 {
-    let mut word_columns: Vec<&mut [u8]> =
+    let mut word_columns: Vec<&mut [i64]> =
         repeat_with(|| alloc.alloc_slice_fill_copy(column_data.len(), 0))
             .take(31)
             .collect();
@@ -152,7 +152,7 @@ where
 
         // Zip the "columns" and the scalar bytes so we can write them directly
         for (column, &byte) in word_columns.iter_mut().zip(scalar_bytes) {
-            column[i] = byte;
+            column[i] = i64::from(byte);
         }
     }
     word_columns
@@ -162,11 +162,12 @@ where
 }
 
 // Count the individual word occurrences in the decomposed columns.
-fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mut [i64] {
+#[expect(clippy::missing_panics_doc)]
+fn count_word_occurrences<'a>(word_columns: &[&[i64]], alloc: &'a Bump) -> &'a mut [i64] {
     let word_counts = alloc.alloc_slice_fill_copy(256, 0);
     for column in word_columns {
         for &byte in *column {
-            word_counts[byte as usize] += 1;
+            word_counts[usize::try_from(byte).unwrap()] += 1;
         }
     }
     word_counts
@@ -210,7 +211,7 @@ fn count_word_occurrences<'a>(word_columns: &[&[u8]], alloc: &'a Bump) -> &'a mu
 fn get_logarithmic_derivative<'a, S: Scalar + 'a>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
-    word_columns: &[&'a [u8]],
+    word_columns: &[&'a [i64]],
     alpha: S,
     rho_256_logarithmic_derivative: &[S],
 ) -> Vec<&'a [S]> {
@@ -356,13 +357,14 @@ fn prove_row_zero_sum<'a, S: Scalar + 'a>(
     );
 }
 
+#[expect(clippy::missing_panics_doc)]
 fn get_logarithmic_derivative_from_rho_256_logarithmic_derivative<'a, S: Scalar>(
     alloc: &'a Bump,
-    word_column: &[u8],
+    word_column: &[i64],
     rho_256_logarithmic_derivative: &[S],
 ) -> &'a [S] {
     alloc.alloc_slice_fill_with(word_column.len(), |row_index| {
-        rho_256_logarithmic_derivative[word_column[row_index] as usize]
+        rho_256_logarithmic_derivative[usize::try_from(word_column[row_index]).unwrap()]
     })
 }
 
@@ -564,7 +566,7 @@ mod tests {
     #[test]
     fn we_can_obtain_logarithmic_derivative_from_small_scalar() {
         let scalars: Vec<S> = [1, 2, 3, 255, 256, 257].iter().map(S::from).collect();
-        let mut word_columns: Vec<Vec<u8>> = vec![vec![0; scalars.len()]; 31];
+        let mut word_columns: Vec<Vec<i64>> = vec![vec![0; scalars.len()]; 31];
 
         // Manually set the decomposed words column
         word_columns[0] = [1, 2, 3, 255, 0, 1].to_vec();
@@ -646,7 +648,7 @@ mod tests {
     fn we_can_obtain_logarithmic_derivative_from_large_scalar() {
         let scalars: Vec<S> = [u64::MAX, u64::MAX].iter().map(S::from).collect();
 
-        let mut word_columns: Vec<Vec<u8>> = vec![vec![0; scalars.len()]; 31];
+        let mut word_columns: Vec<Vec<i64>> = vec![vec![0; scalars.len()]; 31];
 
         // Manually set the decomposed words column.
         // Its helpful to think of this transposed, i.e.
