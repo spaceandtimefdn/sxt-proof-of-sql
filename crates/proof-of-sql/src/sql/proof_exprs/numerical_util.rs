@@ -10,10 +10,6 @@ use core::{convert::TryInto, ops::Neg};
 use itertools::izip;
 use num_traits::{NumCast, PrimInt};
 
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "lhs and rhs are guaranteed to have the same length by design, ensuring no panic occurs"
-)]
 /// Add or subtract two columns together.
 #[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn add_subtract_columns<'a, S: Scalar>(
