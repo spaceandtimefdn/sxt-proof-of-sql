@@ -1,5 +1,6 @@
 use csv::{ReaderBuilder, Writer, WriterBuilder};
 use plotters::prelude::*;
+use plotters::prelude::SeriesLabelPosition::LowerRight;
 use plotters_bitmap::BitMapBackend;
 use std::{
     collections::{HashMap, HashSet},
@@ -337,6 +338,8 @@ pub fn draw_chart_from_csv(
     in_seconds: bool,
     with_verify: bool,
 ) -> Result<(), Box<dyn Error>> {
+    println!("Drawing chart from CSV file: {:?}", csv_file_path);
+
     // Read the CSV file into memory
     let mut csv_rows = BenchResult::new();
     csv_rows.read_csv(csv_file_path)?;
@@ -354,6 +357,8 @@ pub fn draw_chart_from_csv(
 
         // Create the file name related to the scheme for the chart
         let scheme_graph_path = graph_file_path.to_path_buf().join(format!("{scheme}.png"));
+
+        println!("Drawing chart for scheme: {:?}", scheme_graph_path);
 
         // Create the chart root
         let root = BitMapBackend::new(&scheme_graph_path, (1280, 720)).into_drawing_area();
@@ -379,16 +384,16 @@ pub fn draw_chart_from_csv(
         // Create the chart
         let mut chart = ChartBuilder::on(&root)
             .caption(
-                "Proof of SQL Query Performance - ".to_string() + scheme,
+                format!("Proof of SQL Query Performance - {scheme} - Multi-A100"),
                 ("sans-serif", 30).into_font().color(&WHITE),
             )
             .margin(10)
-            .margin_right(20)
+            .margin_right(50)
             .x_label_area_size(50)
             .y_label_area_size(70)
             .build_cartesian_2d(
-                min_table_size..max_table_size,
-                (0.001_f64..(max_time * 2.0)).log_scale(),
+                (min_table_size..max_table_size),//.log_scale(),
+                (0_f64..max_time),//.log_scale(),
             )?;
 
         chart
@@ -399,13 +404,17 @@ pub fn draw_chart_from_csv(
             .y_label_style(("sans-serif", 20).into_font().color(&WHITE))
             .axis_style(WHITE)
             .disable_mesh()
-            .x_labels(10) // Set the number of x-axis labels to 10 (evenly spaced)
+            .x_labels(16) // Set the number of x-axis labels to 10 (evenly spaced)
             .x_label_formatter(&|x| format!("{:.0}", x)) // Format x-axis labels as integers
             .draw()?;
 
         let sxt_colors: Vec<RGBColor> = sxt_colors();
         for (i, q) in queries.iter().enumerate() {
             let query_color: RGBColor = sxt_colors[i % sxt_colors.len()];
+
+            println!("index: {:?}", i);
+            println!("Drawing chart for query: {:?}", q);
+            //println!("cvs_rows.generate_proof_times: {:?}", csv_rows.generate_proof_times);
 
             // Vectors to store data for the current query
             let mut generate_median_data = median_time_data(
@@ -420,8 +429,11 @@ pub fn draw_chart_from_csv(
 
             // Convert to seconds
             if in_seconds {
-                for (_, time) in &mut generate_median_data {
+                for (ts, time) in &mut generate_median_data {
+                    println!("table size: {:?}", ts);
+                    println!("time: {:?}", time);
                     *time /= 1000_f64;
+                    println!("time in seconds: {:?}", time);
                 }
 
                 for (_, time) in &mut verify_median_data {
@@ -463,7 +475,8 @@ pub fn draw_chart_from_csv(
         // Draw the legend
         chart
             .configure_series_labels()
-            .label_font(("sans-serif", 15).into_font())
+            .label_font(("sans-serif", 20).into_font())
+            //.position(LowerRight)
             .background_style(WHITE)
             .border_style(BLACK)
             .draw()?;
