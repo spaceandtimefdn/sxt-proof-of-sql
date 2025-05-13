@@ -1,4 +1,7 @@
-use crate::base::{bit::bit_mask_utils::make_bit_mask, scalar::Scalar};
+use crate::base::{
+    bit::{bit_mask_utils::make_bit_mask, BitDistribution},
+    scalar::Scalar,
+};
 use ark_std::iterable::Iterable;
 use bit_iter::BitIter;
 use bnum::types::U256;
@@ -14,6 +17,15 @@ pub struct ByteDistribution {
     /// Identifies the values of the constant bytes (the ones not identified by `vary_mask`).
     /// The varying bytes are all set to `0`.
     constant_mask: [u64; 4],
+}
+
+impl From<BitDistribution> for ByteDistribution {
+    fn from(value: BitDistribution) -> Self {
+        Self {
+            vary_mask: u32::try_from(value.vary_mask[0] & u64::from(u32::MAX)).unwrap(),
+            constant_mask: value.leading_bit_mask,
+        }
+    }
 }
 
 impl ByteDistribution {

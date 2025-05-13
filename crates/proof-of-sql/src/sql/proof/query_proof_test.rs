@@ -99,7 +99,7 @@ impl ProofPlan for TrivialTestProofPlan {
             S::from(self.evaluation),
             1,
         )?;
-        let _ = builder.try_consume_bit_distribution()?;
+        let _ = builder.try_consume_bit_byte_distribution::<BitDistribution>()?;
         Ok(TableEvaluation::new(
             vec![S::ZERO],
             builder.try_consume_chi_evaluation()?,

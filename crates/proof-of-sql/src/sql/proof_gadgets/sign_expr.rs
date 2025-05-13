@@ -85,7 +85,7 @@ pub fn verifier_evaluate_sign<S: Scalar>(
     num_bits_allowed: Option<u8>,
 ) -> Result<S, ProofError> {
     // bit_distribution
-    let dist = builder.try_consume_bit_distribution()?;
+    let dist: BitDistribution = builder.try_consume_bit_byte_distribution()?;
     let num_varying_bits = dist.num_varying_bits();
 
     // extract evaluations and commitmens of the multilinear extensions for the varying

@@ -72,14 +72,16 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
         Ok(())
     }
 
-    fn try_consume_bit_distribution(&mut self) -> Result<BitDistribution, ProofSizeMismatch> {
+    fn try_consume_bit_byte_distribution<B: From<BitDistribution>>(
+        &mut self,
+    ) -> Result<B, ProofSizeMismatch> {
         let res = self
             .bit_distributions
             .get(self.bit_distribution_offset)
             .cloned()
             .ok_or(ProofSizeMismatch::TooFewBitDistributions)?;
         self.bit_distribution_offset += 1;
-        Ok(res)
+        Ok(res.into())
     }
 
     fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
@@ -609,7 +611,9 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             );
-        let result = verification_builder.try_consume_bit_distribution().unwrap();
+        let result: BitDistribution = verification_builder
+            .try_consume_bit_byte_distribution()
+            .unwrap();
         assert_eq!(
             result,
             BitDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ONE])
@@ -629,7 +633,7 @@ mod tests {
                 Vec::new(),
             );
         let error = verification_builder
-            .try_consume_bit_distribution()
+            .try_consume_bit_byte_distribution::<BitDistribution>()
             .unwrap_err();
         assert!(matches!(error, ProofSizeMismatch::TooFewBitDistributions));
     }

@@ -24,7 +24,9 @@ pub trait VerificationBuilder<S: Scalar> {
 
     /// Consume a bit distribution that describes which bits are constant
     /// and which bits varying in a column of data
-    fn try_consume_bit_distribution(&mut self) -> Result<BitDistribution, ProofSizeMismatch>;
+    fn try_consume_bit_byte_distribution<B: From<BitDistribution>>(
+        &mut self,
+    ) -> Result<B, ProofSizeMismatch>;
 
     /// Produce the evaluation of a subpolynomial used in sumcheck
     fn try_produce_sumcheck_subpolynomial_evaluation(
@@ -182,14 +184,16 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
             .collect()
     }
 
-    fn try_consume_bit_distribution(&mut self) -> Result<BitDistribution, ProofSizeMismatch> {
+    fn try_consume_bit_byte_distribution<B: From<BitDistribution>>(
+        &mut self,
+    ) -> Result<B, ProofSizeMismatch> {
         let res = self
             .bit_distributions
             .first()
             .cloned()
             .ok_or(ProofSizeMismatch::TooFewBitDistributions)?;
         self.bit_distributions = &self.bit_distributions[1..];
-        Ok(res)
+        Ok(res.into())
     }
 
     fn try_produce_sumcheck_subpolynomial_evaluation(
