@@ -392,8 +392,8 @@ pub fn draw_chart_from_csv(
             .x_label_area_size(50)
             .y_label_area_size(70)
             .build_cartesian_2d(
-                (min_table_size..max_table_size),//.log_scale(),
-                (0_f64..max_time),//.log_scale(),
+                (min_table_size..max_table_size).log_scale(),
+                (0.1_f64..max_time).log_scale(),
             )?;
 
         chart
@@ -414,7 +414,6 @@ pub fn draw_chart_from_csv(
 
             println!("index: {:?}", i);
             println!("Drawing chart for query: {:?}", q);
-            //println!("cvs_rows.generate_proof_times: {:?}", csv_rows.generate_proof_times);
 
             // Vectors to store data for the current query
             let mut generate_median_data = median_time_data(
@@ -430,10 +429,7 @@ pub fn draw_chart_from_csv(
             // Convert to seconds
             if in_seconds {
                 for (ts, time) in &mut generate_median_data {
-                    println!("table size: {:?}", ts);
-                    println!("time: {:?}", time);
                     *time /= 1000_f64;
-                    println!("time in seconds: {:?}", time);
                 }
 
                 for (_, time) in &mut verify_median_data {
@@ -476,7 +472,7 @@ pub fn draw_chart_from_csv(
         chart
             .configure_series_labels()
             .label_font(("sans-serif", 20).into_font())
-            //.position(LowerRight)
+            .position(LowerRight)
             .background_style(WHITE)
             .border_style(BLACK)
             .draw()?;
