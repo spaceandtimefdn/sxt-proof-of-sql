@@ -33,41 +33,11 @@ uint256 constant WORDX11_SIZE = 0x20 * 11;
 /// @dev Size of twelve words in bytes.
 uint256 constant WORDX12_SIZE = 0x20 * 12;
 
-/// @dev Size of boolean in bytes. In bincode encoding, booleans are one byte.
-uint256 constant BOOLEAN_SIZE = 0x01;
-/// @dev Number of bits needed to pad boolean to 256 bits
-/// @dev This is useful for shifting a uint256 to the right to extract a boolean
-uint256 constant BOOLEAN_PADDING_BITS = 0xF8;
-/// @dev Size of boolean minus one byte
-uint256 constant BOOLEAN_SIZE_MINUS_ONE = 0x00;
-/// @dev Size of int8 in bytes
-uint256 constant INT8_SIZE = 0x01;
-/// @dev Number of bits needed to pad int8 to 256 bits
-/// @dev This is useful for shifting a uint256 to the right to extract a int8
-uint256 constant INT8_PADDING_BITS = 0xF8;
-/// @dev Size of int8 minus one byte
-uint256 constant INT8_SIZE_MINUS_ONE = 0x00;
-/// @dev Size of uint8 in bytes
-uint256 constant UINT8_SIZE = 0x01;
-/// @dev Size of int16 in bytes
-uint256 constant INT16_SIZE = 0x02;
-/// @dev Number of bits needed to pad int16 to 256 bits
-/// @dev This is useful for shifting a uint256 to the right to extract a int16
-uint256 constant INT16_PADDING_BITS = 0xF0;
-/// @dev Size of int16 minus one byte
-uint256 constant INT16_SIZE_MINUS_ONE = 0x01;
 /// @dev Size of uint32 in bytes
 uint256 constant UINT32_SIZE = 0x04;
 /// @dev Number of bits needed to pad uint32 to 256 bits
 /// @dev This is useful for shifting a uint256 to the right to extract a uint32
 uint256 constant UINT32_PADDING_BITS = 0xE0;
-/// @dev Size of int32 in bytes
-uint256 constant INT32_SIZE = 0x04;
-/// @dev Number of bits needed to pad int32 to 256 bits
-/// @dev This is useful for shifting a uint256 to the right to extract a int32
-uint256 constant INT32_PADDING_BITS = 0xE0;
-/// @dev Size of int32 minus one byte
-uint256 constant INT32_SIZE_MINUS_ONE = 0x03;
 /// @dev Size of uint64 in bytes
 uint256 constant UINT64_SIZE = 0x08;
 /// @dev Number of bits needed to pad uint64 to 256 bits
@@ -103,20 +73,8 @@ uint32 constant NOT_EXPR_VARIANT = 8;
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
 
-/// @dev Boolean variant constant for column types
-uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;
-/// @dev TinyInt variant constant for column types
-uint32 constant DATA_TYPE_TINYINT_VARIANT = 2;
-/// @dev SmallInt variant constant for column types
-uint32 constant DATA_TYPE_SMALLINT_VARIANT = 3;
-/// @dev Int variant constant for column types
-uint32 constant DATA_TYPE_INT_VARIANT = 4;
 /// @dev BigInt variant constant for column types
 uint32 constant DATA_TYPE_BIGINT_VARIANT = 5;
-/// @dev Decimal75 variant constant for column types
-uint32 constant DATA_TYPE_DECIMAL75_VARIANT = 8;
-/// @dev Timestamp variant constant for column types
-uint32 constant DATA_TYPE_TIMESTAMP_VARIANT = 9;
 
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;
