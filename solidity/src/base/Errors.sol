@@ -8,8 +8,6 @@ uint32 constant ERR_INVALID_EC_ADD_INPUTS = 0x765bcba0;
 uint32 constant ERR_INVALID_EC_MUL_INPUTS = 0xe32c7472;
 /// @dev Error code for when ECPAIRING inputs are invalid.
 uint32 constant ERR_INVALID_EC_PAIRING_INPUTS = 0x4385b511;
-/// @dev Error code for when a boolean literal is invalid.
-uint32 constant ERR_INVALID_BOOLEAN = 0xaf979eb5;
 /// @dev Error code for commitment array having odd length which is impossible
 /// since each commitment is 2 elements.
 uint32 constant ERR_COMMITMENT_ARRAY_ODD_LENGTH = 0x88acadef;
@@ -63,8 +61,6 @@ library Errors {
     error InvalidECMulInputs();
     /// @notice Error thrown when the inputs to the ECPAIRING precompile are invalid.
     error InvalidECPairingInputs();
-    /// @notice Error thrown when a boolean literal is invalid.
-    error InvalidBoolean();
     /// @notice Error code for commitment array having odd length which is impossible
     /// since each commitment is 2 elements.
     error CommitmentArrayOddLength();
