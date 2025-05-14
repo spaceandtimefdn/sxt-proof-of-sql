@@ -50,8 +50,8 @@ where
         if_rayon!(
             res.par_iter_mut()
                 .with_min_len(MIN_RAYON_LEN)
-                .zip(self.par_iter()),
-            res.iter_mut().zip(self.iter())
+                .zip(*self),
+            res.iter_mut().zip(self)
         )
         .for_each(|(res_i, data_i)| {
             *res_i += *multiplier * data_i.into();
