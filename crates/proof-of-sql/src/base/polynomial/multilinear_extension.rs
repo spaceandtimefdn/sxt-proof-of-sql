@@ -48,9 +48,7 @@ where
             "The length of `res` must be greater than or equal to the length of `self`"
         );
         if_rayon!(
-            res.par_iter_mut()
-                .with_min_len(MIN_RAYON_LEN)
-                .zip(*self),
+            res.par_iter_mut().with_min_len(MIN_RAYON_LEN).zip(*self),
             res.iter_mut().zip(self)
         )
         .for_each(|(res_i, data_i)| {
