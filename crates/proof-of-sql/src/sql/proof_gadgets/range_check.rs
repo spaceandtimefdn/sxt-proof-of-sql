@@ -65,6 +65,7 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     column_data: &[impl Copy + Into<S>],
     alloc: &'a Bump,
 ) {
+    let num_rows = column_data.len();
     let span = span!(Level::DEBUG, "decompose scalars in final round").entered();
     // Get the bytewise decomposition of the column of data.
     let word_columns = decompose_scalars_to_words(column_data, alloc);
@@ -89,6 +90,8 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
 
     let span = span!(Level::DEBUG, "get_logarithmic_derivative total loop time").entered();
 
+    let chi_n = alloc.alloc_slice_fill_copy(num_rows, true) as &[_];
+
     let inverted_word_columns: Vec<_> = word_columns
         .iter()
         .map(|byte_column| {
@@ -99,8 +102,6 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
                 rho_256_logarithmic_derivative,
             );
             builder.produce_intermediate_mle(words_inv);
-
-            let chi_n = alloc.alloc_slice_fill_copy(byte_column.len(), true) as &[_];
 
             // (wᵢ + α)⁻¹ * (wᵢ + α) - chi_n = 0
             builder.produce_sumcheck_subpolynomial(
