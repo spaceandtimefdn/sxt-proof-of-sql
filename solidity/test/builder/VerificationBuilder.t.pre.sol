@@ -922,6 +922,30 @@ contract VerificationBuilderTest is Test {
         }
     }
 
+    function testSetSingletonChiEvaluation() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        VerificationBuilder.__setSingletonChiEvaluation(builder, 42);
+        assert(builder.singletonChiEvaluation == 42);
+    }
+
+    function testFuzzSetSingletonChiEvaluation(uint256 value) public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        VerificationBuilder.__setSingletonChiEvaluation(builder, value);
+        assert(builder.singletonChiEvaluation == value);
+    }
+
+    function testGetSingletonChiEvaluation() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        builder.singletonChiEvaluation = 42;
+        assert(VerificationBuilder.__getSingletonChiEvaluation(builder) == 42);
+    }
+
+    function testFuzzGetSingletonChiEvaluation(uint256 value) public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        builder.singletonChiEvaluation = value;
+        assert(VerificationBuilder.__getSingletonChiEvaluation(builder) == value);
+    }
+
     function testCheckAggregateEvaluationZero() public pure {
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
         builder.aggregateEvaluation = 0;
