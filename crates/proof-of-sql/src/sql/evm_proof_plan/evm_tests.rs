@@ -116,18 +116,42 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
                     1_746_627_940,
                 ],
             ),
+            varchar("lang", ["en", "he", "hu", "ru", "hy"]),
+            varchar(
+                "sxt",
+                [
+                    "Space and Time",
+                    "מרחב וזמן",
+                    "Tér és idő",
+                    "Пространство и время",
+                    "Տարածություն և ժամանակ",
+                ],
+            ),
+            varbinary(
+                "bin",
+                [
+                    b"\x00\x01\x02\x03\x04",
+                    b"\x00\x01\x02\x03\x04",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                ],
+            ),
         ]),
         0,
         &ps[..],
     );
 
     let sql_list = [
-        "SELECT b, i8, i16, i32, i64, d, t from table where b",
-        "SELECT b, i8, i16, i32, i64, d, t from table where i8 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t from table where i16 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t from table where i32 = 1",
-        "SELECT b, i8, i16, i32, i64, d, t from table where i64 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t from table where d = 1",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where bin = 0x0001020304",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where lang = 'en'",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where sxt = 'מרחב וזמן'",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where b",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i8 = 0",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i16 = 0",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i32 = 1",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i64 = 0",
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where d = 1",
     ];
 
     for sql in sql_list {

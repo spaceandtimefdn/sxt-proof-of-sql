@@ -8,6 +8,21 @@ import "../base/Constants.t.sol";
 import {F} from "../base/FieldUtil.sol";
 
 contract DataTypeTest is Test {
+    // Helper function to hash bytes to a field element
+    function _hashBytesToField(bytes memory literalValue) internal pure returns (uint256 field) {
+        if (literalValue.length == 0) {
+            return 0;
+        } else {
+            // After endian swap, need to reverse keccak hash bytes
+            bytes32 hash = keccak256(literalValue);
+            uint256 rev = 0;
+            for (uint256 i = 0; i < 32; i++) {
+                rev = rev | (uint256(uint8(hash[i])) << (i * 8));
+            }
+            field = rev & MODULUS_MASK;
+        }
+    }
+
     function testReadTrueBooleanEntryExpr() public pure {
         bytes memory exprIn = abi.encodePacked(uint8(1), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
@@ -158,7 +173,67 @@ contract DataTypeTest is Test {
         }
     }
 
-    function testFuzzReadEntryExpr(int64 literalValue, bytes memory trailingExpr) public pure {
+    function testReadVarcharEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(3), "sxt", hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        assert(entry == _hashBytesToField(bytes("sxt")));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testReadNonAsciiVarcharEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(8), unicode"😸🐾", hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        assert(entry == _hashBytesToField(bytes(unicode"😸🐾")));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testFuzzReadVarcharEntryExpr(string memory literalValue, bytes memory trailingExpr) public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(bytes(literalValue).length), bytes(literalValue), trailingExpr);
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        // If the string was empty, we expect entry == 0
+        assert(entry == _hashBytesToField(bytes(literalValue)));
+        assert(exprOut.length == trailingExpr.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == trailingExpr[i]);
+        }
+    }
+
+    function testReadVarbinaryEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(3), bytes("\x01\x02\x03"), hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARBINARY_VARIANT);
+        assert(entry == _hashBytesToField(bytes("\x01\x02\x03")));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testFuzzReadVarbinaryEntryExpr(bytes memory literalValue, bytes memory trailingExpr) public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(literalValue.length), literalValue, trailingExpr);
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARBINARY_VARIANT);
+        // Convert bytes to bytes memory for hashBytesToField
+        assert(entry == _hashBytesToField(literalValue));
+        assert(exprOut.length == trailingExpr.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == trailingExpr[i]);
+        }
+    }
+
+    function testFuzzReadInt64EntryExpr(int64 literalValue, bytes memory trailingExpr) public pure {
         bytes memory exprIn = abi.encodePacked(literalValue, trailingExpr);
         (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_BIGINT_VARIANT);
         uint256 expected = F.from(literalValue).into();
@@ -177,7 +252,7 @@ contract DataTypeTest is Test {
     }
 
     function testReadFuzzSimpleDataType(uint32 dataType) public pure {
-        vm.assume(dataType < 6 && dataType != 1);
+        vm.assume((dataType < 6 && dataType != 1) || dataType == 7 || dataType == 11);
         bytes memory exprIn = abi.encodePacked(dataType, hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
         (bytes memory exprOut, uint32 actualDataType) = DataType.__readDataType(exprIn);
