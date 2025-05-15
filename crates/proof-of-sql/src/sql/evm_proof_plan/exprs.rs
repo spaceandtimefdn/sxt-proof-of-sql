@@ -155,22 +155,22 @@ pub(crate) enum EVMLiteralExpr {
     Int(i32),
     /// i64 literals
     BigInt(i64),
-    /// String literals (stored with its string value)
-    VarChar(String),
-    /// Binary data literals
-    VarBinary(Vec<u8>),
     /// i128 literals
     Int128(i128),
+    /// String literals (stored with its string value)
+    VarChar(String),
     /// Decimal literals with precision (max 75), scale, and 256-bit value as limbs
     Decimal75(Precision, i8, [u64; 4]),
-    /// Scalar literals
-    Scalar([u64; 4]),
     /// `TimeStamp` defined over a unit and timezone with backing store
     /// For `TimeStampTZ`, we store:
     /// - `unit`: The time unit (Second, Millisecond, Microsecond, Nanosecond)
     /// - `timezone`: The timezone as an offset in seconds from UTC
     /// - timestamp: time units since unix epoch
     TimeStampTZ(PoSQLTimeUnit, PoSQLTimeZone, i64),
+    /// Scalar literals
+    Scalar([u64; 4]),
+    /// Binary data literals
+    VarBinary(Vec<u8>),
 }
 
 impl EVMLiteralExpr {
