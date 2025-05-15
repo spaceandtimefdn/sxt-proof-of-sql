@@ -32,8 +32,24 @@ contract LiteralExprTest is Test {
         }
     }
 
+    function testFuzzVarcharLiteralExpr(string memory literalValue, uint256 chiInEval, bytes memory trailingExpr)
+        public
+        pure
+    {
+        bytes memory exprIn =
+            abi.encodePacked(DATA_TYPE_VARCHAR_VARIANT, uint64(bytes(literalValue).length), literalValue, trailingExpr);
+        (bytes memory exprOut, uint256 eval) = LiteralExpr.__literalExprEvaluate(exprIn, chiInEval);
+        bytes32 hashedLiteralValue = keccak256(bytes(literalValue)) & bytes32(MODULUS_MASK);
+        assert(eval == (F.from(uint256(hashedLiteralValue)) * F.from(chiInEval)).into());
+        assert(exprOut.length == trailingExpr.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == trailingExpr[i]);
+        }
+    }
+
     function testFuzzInvalidLiteralVariant(uint32 variant) public {
-        vm.assume(variant > DATA_TYPE_TIMESTAMP_VARIANT);
+        vm.assume(variant > DATA_TYPE_VARBINARY_VARIANT);
         bytes memory exprIn = abi.encodePacked(variant, int64(2), hex"abcdef");
         vm.expectRevert(Errors.UnsupportedDataTypeVariant.selector);
         LiteralExpr.__literalExprEvaluate(exprIn, 3);

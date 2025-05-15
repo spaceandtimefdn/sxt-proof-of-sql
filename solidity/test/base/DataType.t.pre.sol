@@ -158,6 +158,64 @@ contract DataTypeTest is Test {
         }
     }
 
+    function testReadVarcharEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(3), "sxt", hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        assert(bytes32(entry) == keccak256(bytes("sxt")) & bytes32(MODULUS_MASK));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testReadNonAsciiVarcharEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(8), unicode"😸🐾", hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        assert(bytes32(entry) == keccak256(bytes(unicode"😸🐾")) & bytes32(MODULUS_MASK));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testFuzzReadVarcharEntryExpr(string memory literalValue, bytes memory trailingExpr) public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(bytes(literalValue).length), bytes(literalValue), trailingExpr);
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARCHAR_VARIANT);
+        assert(bytes32(entry) == keccak256(bytes(literalValue)) & bytes32(MODULUS_MASK));
+        assert(exprOut.length == trailingExpr.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == trailingExpr[i]);
+        }
+    }
+
+    function testReadVarbinaryEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(3), bytes("\x01\x02\x03"), hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARBINARY_VARIANT);
+        assert(bytes32(entry) == keccak256(bytes("\x01\x02\x03")) & bytes32(MODULUS_MASK));
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testFuzzReadVarbinaryEntryExpr(bytes memory literalValue, bytes memory trailingExpr) public pure {
+        bytes memory exprIn = abi.encodePacked(uint64(literalValue.length), literalValue, trailingExpr);
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_VARBINARY_VARIANT);
+        assert(bytes32(entry) == keccak256(literalValue) & bytes32(MODULUS_MASK));
+        assert(exprOut.length == trailingExpr.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == trailingExpr[i]);
+        }
+    }
+
     function testFuzzReadEntryExpr(int64 literalValue, bytes memory trailingExpr) public pure {
         bytes memory exprIn = abi.encodePacked(literalValue, trailingExpr);
         (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_BIGINT_VARIANT);
@@ -177,7 +235,7 @@ contract DataTypeTest is Test {
     }
 
     function testReadFuzzSimpleDataType(uint32 dataType) public pure {
-        vm.assume(dataType < 6 && dataType != 1);
+        vm.assume((dataType < 6 && dataType != 1) || dataType == 7 || dataType == 11);
         bytes memory exprIn = abi.encodePacked(dataType, hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
         (bytes memory exprOut, uint32 actualDataType) = DataType.__readDataType(exprIn);
