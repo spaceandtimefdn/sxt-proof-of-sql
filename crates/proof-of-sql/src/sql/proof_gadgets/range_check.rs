@@ -92,32 +92,33 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
 
     let chi_n = alloc.alloc_slice_fill_copy(num_rows, true) as &[_];
 
-    let inverted_word_columns: Vec<_> = word_columns
-        .iter()
-        .map(|byte_column| {
-            // (wᵢ + α)⁻¹
-            let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
-                alloc,
-                byte_column,
-                rho_256_logarithmic_derivative,
-            );
-            builder.produce_intermediate_mle(words_inv);
+    let row_sums = alloc.alloc_slice_fill_copy(num_rows, S::ZERO);
 
-            // (wᵢ + α)⁻¹ * (wᵢ + α) - chi_n = 0
-            builder.produce_sumcheck_subpolynomial(
-                SumcheckSubpolynomialType::Identity,
-                vec![
-                    (alpha, vec![Box::new(words_inv)]),
-                    (
-                        S::one(),
-                        vec![Box::new(byte_column as &[_]), Box::new(words_inv)],
-                    ),
-                    (-S::one(), vec![Box::new(chi_n as &[_])]),
-                ],
-            );
-            words_inv
-        })
-        .collect();
+    for byte_column in word_columns {
+        // (wᵢ + α)⁻¹
+        let words_inv = get_logarithmic_derivative_from_rho_256_logarithmic_derivative(
+            alloc,
+            byte_column,
+            rho_256_logarithmic_derivative,
+        );
+        builder.produce_intermediate_mle(words_inv);
+        // (wᵢ + α)⁻¹ * (wᵢ + α) - chi_n = 0
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (alpha, vec![Box::new(words_inv)]),
+                (
+                    S::one(),
+                    vec![Box::new(byte_column as &[_]), Box::new(words_inv)],
+                ),
+                (-S::one(), vec![Box::new(chi_n)]),
+            ],
+        );
+        // Compute sum over all logarithmic derivative columns at each row index (single-threaded)
+        for (i, &inv_word) in words_inv.iter().enumerate() {
+            row_sums[i] += inv_word;
+        }
+    }
     span.exit();
 
     builder.produce_intermediate_mle(rho_256_logarithmic_derivative as &[_]);
@@ -145,14 +146,6 @@ pub(crate) fn final_round_evaluate_range_check<'a, S: Scalar + 'a>(
     );
 
     builder.produce_intermediate_mle(word_counts as &[_]);
-
-    // Compute sum over all logarithmic derivative columns at each row index (single-threaded)
-    let row_sums = alloc.alloc_slice_fill_copy(column_data.len(), S::ZERO);
-    for column in inverted_word_columns {
-        for (i, &inv_word) in column.iter().enumerate() {
-            row_sums[i] += inv_word;
-        }
-    }
 
     // ∑ⱼ ((∑ᵢ (wᵢⱼ + α)⁻¹) - countⱼ * (ρ₂₅₆,ⱼ + α)⁻¹) = 0 where 0 <= i < 32, and 0 <= j < max(n, 256)
     builder.produce_sumcheck_subpolynomial(
