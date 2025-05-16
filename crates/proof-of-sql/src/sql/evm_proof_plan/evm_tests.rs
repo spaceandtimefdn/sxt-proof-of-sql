@@ -55,24 +55,26 @@ fn evm_verifier_with_extra_args(
     let result_bytes =
         bincode::serde::encode_to_vec(&verifiable_result.result, bincode_options).unwrap();
 
-    std::process::Command::new("../../solidity/scripts/pre_forge.sh")
-        .arg("script")
-        .arg("-vvvvv")
-        .args(extra_args)
-        .args(["--tc", "VerifierTest"])
-        .args(["--sig", "verify(bytes,bytes,bytes,uint256[],uint256[])"])
-        .arg("./test/verifier/Verifier.t.post.sol")
-        .args([
-            dbg!(hex::encode(&result_bytes)),
-            dbg!(hex::encode(&query_bytes)),
-            dbg!(hex::encode(&proof_bytes)),
-        ])
-        .arg(dbg!(format!("[{table_lengths}]")))
-        .arg(dbg!(format!("[{commitments}]")))
-        .output()
-        .unwrap()
-        .status
-        .success()
+    dbg!(
+        std::process::Command::new("../../solidity/scripts/pre_forge.sh")
+            .arg("script")
+            .arg("-vvvvv")
+            .args(extra_args)
+            .args(["--tc", "VerifierTest"])
+            .args(["--sig", "verify(bytes,bytes,bytes,uint256[],uint256[])"])
+            .arg("./test/verifier/Verifier.t.post.sol")
+            .args([
+                dbg!(hex::encode(&result_bytes)),
+                dbg!(hex::encode(&query_bytes)),
+                dbg!(hex::encode(&proof_bytes)),
+            ])
+            .arg(dbg!(format!("[{table_lengths}]")))
+            .arg(dbg!(format!("[{commitments}]")))
+            .output()
+    )
+    .unwrap()
+    .status
+    .success()
 }
 fn evm_verifier_all(
     plan: &DynProofPlan,
@@ -116,13 +118,35 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
                     1_746_627_940,
                 ],
             ),
+            varchar("lang", ["en", "he", "hu", "ru", "hy"]),
+            varchar(
+                "sxt",
+                [
+                    "Space and Time",
+                    "מרחב וזמן",
+                    "Tér és idő",
+                    "Пространство и время",
+                    "Տարածություն և ժամանակ",
+                ],
+            ),
+            varbinary(
+                "bin",
+                [
+                    b"\x00\x01\x02\x03\x04",
+                    b"\x00\x01\x02\x03\x04",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                    b"\xFF\xFE\xFD\xFC\xFB",
+                ],
+            ),
         ]),
         0,
         &ps[..],
     );
 
     let sql_list = [
-        "SELECT b, i8, i16, i32, i64, d, t from table where b",
+        //"SELECT lang from table where lang = 'en'",
+        "SELECT b, i8, i16, i32, i64, d, t, lang from table where b",
         "SELECT b, i8, i16, i32, i64, d, t from table where i8 = 0",
         "SELECT b, i8, i16, i32, i64, d, t from table where i16 = 0",
         "SELECT b, i8, i16, i32, i64, d, t from table where i32 = 1",

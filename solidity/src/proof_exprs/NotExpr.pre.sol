@@ -113,6 +113,10 @@ library NotExpr {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/DataType.pre.sol
+            function read_binary(result_ptr) -> result_ptr_out, entry {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
