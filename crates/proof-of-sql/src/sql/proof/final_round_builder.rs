@@ -3,12 +3,15 @@ use crate::{
     base::{
         bit::BitDistribution,
         commitment::{Commitment, CommittableColumn, VecCommitmentExt},
+        if_rayon,
         polynomial::MultilinearExtension,
         scalar::Scalar,
     },
     utils::log,
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 /// Track components used to form a query's proof
 pub struct FinalRoundBuilder<'a, S: Scalar> {
@@ -127,10 +130,9 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
     pub fn evaluate_pcs_proof_mles(&self, evaluation_vec: &[S]) -> Vec<S> {
         log::log_memory_usage("Start");
 
-        let mut res = Vec::with_capacity(self.pcs_proof_mles.len());
-        for evaluator in &self.pcs_proof_mles {
-            res.push(evaluator.inner_product(evaluation_vec));
-        }
+        let res: Vec<S> = if_rayon!(self.pcs_proof_mles.par_iter(), self.pcs_proof_mles.iter())
+            .map(|evaluator| evaluator.inner_product(evaluation_vec))
+            .collect();
 
         log::log_memory_usage("End");
 

@@ -1,5 +1,6 @@
 use crate::base::{
     database::{Column, ColumnType, OwnedColumn},
+    if_rayon,
     math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     ref_into::RefInto,
@@ -8,6 +9,8 @@ use crate::base::{
 use alloc::vec::Vec;
 #[cfg(feature = "blitzar")]
 use blitzar::sequence::Sequence;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 /// Column data in "committable form".
 ///
@@ -211,7 +214,11 @@ impl<'a> From<&'a [i128]> for CommittableColumn<'a> {
 }
 impl<'a, S: Scalar> From<&'a [S]> for CommittableColumn<'a> {
     fn from(value: &'a [S]) -> Self {
-        CommittableColumn::Scalar(value.iter().map(RefInto::<[u64; 4]>::ref_into).collect())
+        CommittableColumn::Scalar(
+            if_rayon!(value.par_iter(), value.iter())
+                .map(RefInto::<[u64; 4]>::ref_into)
+                .collect(),
+        )
     }
 }
 impl<'a> From<&'a [bool]> for CommittableColumn<'a> {

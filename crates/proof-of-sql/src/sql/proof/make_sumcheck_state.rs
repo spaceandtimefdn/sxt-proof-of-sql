@@ -3,12 +3,14 @@ use super::{
     SumcheckSubpolynomialType,
 };
 use crate::{
-    base::{map::IndexMap, polynomial::MultilinearExtension, scalar::Scalar},
+    base::{if_rayon, map::IndexMap, polynomial::MultilinearExtension, scalar::Scalar},
     proof_primitive::sumcheck::ProverState,
 };
 use alloc::vec::Vec;
 use core::ffi::c_void;
 use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use tracing::Level;
 
 #[tracing::instrument(
@@ -95,15 +97,19 @@ impl<'a, S: Scalar> FlattenedMLEBuilder<'a, S> {
         skip_all
     )]
     fn flattened_ml_extensions(self) -> Vec<Vec<S>> {
-        self.entrywise_multipliers
-            .into_iter()
-            .map(|mle| (&mle).to_sumcheck_term(self.num_vars))
-            .chain(
-                self.all_ml_extensions
-                    .iter()
-                    .map(|mle| mle.to_sumcheck_term(self.num_vars)),
+        if_rayon!(
+            self.entrywise_multipliers.into_par_iter(),
+            self.entrywise_multipliers.into_iter()
+        )
+        .map(|mle| (&mle).to_sumcheck_term(self.num_vars))
+        .chain(
+            if_rayon!(
+                self.all_ml_extensions.par_iter(),
+                self.all_ml_extensions.iter()
             )
-            .collect()
+            .map(|mle| mle.to_sumcheck_term(self.num_vars)),
+        )
+        .collect()
     }
 }
 

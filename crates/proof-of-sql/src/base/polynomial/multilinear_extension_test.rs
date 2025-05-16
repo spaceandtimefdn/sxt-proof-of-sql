@@ -114,3 +114,78 @@ fn we_can_use_multilinear_extension_methods_for_i64_vec() {
         MultilinearExtension::<TestScalar>::id(&&evaluation_vec)
     );
 }
+
+#[test]
+fn we_can_mul_add() {
+    let slice: &Vec<i64> = &vec![2, 3, 4, 5];
+    let evaluation_vec: Vec<TestScalar> = vec![1.into(), 2.into(), 3.into(), 4.into()];
+    let mut res = evaluation_vec.clone();
+    slice.mul_add(&mut res, &10.into());
+    assert_eq!(
+        res,
+        vec![
+            (1 + 10 * 2).into(),
+            (2 + 10 * 3).into(),
+            (3 + 10 * 4).into(),
+            (4 + 10 * 5).into()
+        ]
+    );
+}
+
+#[test]
+fn we_can_mul_add_uneven() {
+    let slice: &Vec<i64> = &vec![2, 3, 4, 5];
+    let evaluation_vec: Vec<TestScalar> = vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()];
+    let mut res = evaluation_vec.clone();
+    slice.mul_add(&mut res, &10.into());
+    assert_eq!(
+        res,
+        vec![
+            (1 + 10 * 2).into(),
+            (2 + 10 * 3).into(),
+            (3 + 10 * 4).into(),
+            (4 + 10 * 5).into(),
+            (5).into()
+        ]
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "The length of `res` must be greater than or equal to the length of `self`"
+)]
+fn we_can_mul_add_uneven_panic() {
+    let slice: &Vec<i64> = &vec![2, 3, 4, 5, 6];
+    let evaluation_vec: Vec<TestScalar> = vec![1.into(), 2.into(), 3.into(), 4.into()];
+    let mut res = evaluation_vec.clone();
+    slice.mul_add(&mut res, &10.into());
+}
+
+#[test]
+fn we_can_mul_add_testscalar() {
+    let mut a = vec![TestScalar::from(1u64), TestScalar::from(2u64)];
+    let b: &Vec<TestScalar> = &vec![TestScalar::from(2u64), TestScalar::from(3u64)];
+    b.mul_add(&mut a, &TestScalar::from(10u64));
+    let c = vec![
+        TestScalar::from(1u64) + TestScalar::from(10u64) * TestScalar::from(2u64),
+        TestScalar::from(2u64) + TestScalar::from(10u64) * TestScalar::from(3u64),
+    ];
+    assert_eq!(a, c);
+}
+
+#[test]
+fn we_can_mul_add_testscalar_uneven() {
+    let mut a = vec![
+        TestScalar::from(1u64),
+        TestScalar::from(2u64),
+        TestScalar::from(3u64),
+    ];
+    let b: &Vec<TestScalar> = &vec![TestScalar::from(2u64), TestScalar::from(3u64)];
+    b.mul_add(&mut a, &TestScalar::from(10u64));
+    let c = vec![
+        TestScalar::from(1u64) + TestScalar::from(10u64) * TestScalar::from(2u64),
+        TestScalar::from(2u64) + TestScalar::from(10u64) * TestScalar::from(3u64),
+        TestScalar::from(3u64),
+    ];
+    assert_eq!(a, c);
+}
