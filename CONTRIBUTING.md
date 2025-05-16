@@ -127,6 +127,8 @@ The most relevant fields in the issue are: `assignees`, `projects`, `milestone`,
 
 Before you submit your Pull Request (PR) consider the following guidelines:
 
+> **IMPORTANT:** Please note that PRs without activity for 30 days will be automatically closed as stale. If your PR is closed due to inactivity but you would like to continue working on it, please feel free to reopen it when you're ready to continue.
+
 1. Make your changes in a new git branch:
 
    In case you haven't generated a new branch yet, use the following command to create a new branch from the main:

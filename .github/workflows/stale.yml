@@ -1,0 +1,37 @@
+name: Mark and Close Stale PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * 5'  # Run at midnight every Friday
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  actions: write
+  contents: write # only for delete-branch option
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and Close Stale PRs
+        uses: actions/stale@v9
+        with:
+          # PR specific settings
+          stale-pr-message: 'This PR has been marked as stale due to 30 days of inactivity. It will be closed in 7 days if no further activity occurs.'
+          close-pr-message: 'This PR has been closed due to inactivity. Feel free to reopen if you wish to continue working on it.'
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-pr-label: 'stale'
+          exempt-pr-labels: 'no-stale,dependencies,security'
+          exempt-draft-pr: true
+          
+          # Issue specific settings - disabled by default
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          
+          # General settings
+          operations-per-run: 100
+          ascending: true  # Older PRs are processed first
+          remove-stale-when-updated: true
