@@ -6,7 +6,7 @@ use num_traits::Zero;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 /// Interface for operating on multilinear extension's in-place
-pub trait MultilinearExtension<S: Scalar>: Debug {
+pub trait MultilinearExtension<S: Scalar>: Debug + Sync {
     /// Given an evaluation vector, compute the evaluation of the multilinear
     /// extension
     fn inner_product(&self, evaluation_vec: &[S]) -> S;
