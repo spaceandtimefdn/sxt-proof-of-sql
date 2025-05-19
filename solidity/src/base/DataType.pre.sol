@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // This is licensed under the Cryptographic Open Software License 1.0
+// slither-disable write-after-write
 pragma solidity ^0.8.28;
 
 import "./Constants.sol";
