@@ -23,6 +23,7 @@ library VerificationBuilder {
         uint256[] tableChiEvaluations;
         uint256 firstRoundCommitmentsPtr;
         uint256 finalRoundCommitmentsPtr;
+        uint256 singletonChiEvaluation;
     }
 
     /// @notice Allocates and reserves a block of memory for a verification builder
@@ -849,6 +850,42 @@ library VerificationBuilder {
                 }
             }
             builder_check_aggregate_evaluation(__builder)
+        }
+    }
+
+    /// @notice Sets the singleton chi evaluation in the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_set_singleton_chi_evaluation(builder_ptr, value)
+    /// ```
+    /// @param __builder The builder struct
+    /// @param __value The singleton chi evaluation value
+    function __setSingletonChiEvaluation(Builder memory __builder, uint256 __value) internal pure {
+        assembly {
+            function builder_set_singleton_chi_evaluation(builder_ptr, value) {
+                mstore(add(builder_ptr, BUILDER_SINGLETON_CHI_EVALUATION_OFFSET), value)
+            }
+            builder_set_singleton_chi_evaluation(__builder, __value)
+        }
+    }
+
+    /// @notice Gets the singleton chi evaluation from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_get_singleton_chi_evaluation(builder_ptr) -> value
+    /// ```
+    /// @param __builder The builder struct
+    /// @return __value The singleton chi evaluation value
+    function __getSingletonChiEvaluation(Builder memory __builder) internal pure returns (uint256 __value) {
+        assembly {
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                value := mload(add(builder_ptr, BUILDER_SINGLETON_CHI_EVALUATION_OFFSET))
+            }
+            __value := builder_get_singleton_chi_evaluation(__builder)
         }
     }
 }
