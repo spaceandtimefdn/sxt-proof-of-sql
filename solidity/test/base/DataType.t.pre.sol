@@ -16,7 +16,7 @@ contract DataTypeTest is Test {
             // After endian swap, need to reverse keccak hash bytes
             bytes32 hash = keccak256(literalValue);
             uint256 rev = 0;
-            for (uint256 i = 0; i < 32; i++) {
+            for (uint256 i = 0; i < 32; ++i) {
                 rev = rev | (uint256(uint8(hash[i])) << (i * 8));
             }
             field = rev & MODULUS_MASK;

@@ -50,17 +50,43 @@ library DataType {
                 calldatacopy(free_ptr, result_ptr, len)
                 let hash_val := keccak256(free_ptr, len)
                 // ----- begin endian swap -----
-                // build `rev` by taking each byte of hash_val (big-endian)
-                // and placing it at the corresponding little-endian offset
-                let rev := 0
-                for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                    // byte(i, hash_val) returns the i’th byte (0 = MSB)
-                    // shl(mul(8, i), …) shifts it to become little-endian
-                    rev := or(rev, shl(mul(8, i), byte(i, hash_val)))
-                }
+                // swap 128-bit halves
+                hash_val :=
+                    or(
+                        shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
+                        shl(128, and(hash_val, 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
+                    )
+
+                // swap 64-bit chunks within each 128-bit half
+                hash_val :=
+                    or(
+                        shr(64, and(hash_val, 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000)),
+                        shl(64, and(hash_val, 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF))
+                    )
+
+                // swap 32-bit words within each 64-bit chunk
+                hash_val :=
+                    or(
+                        shr(32, and(hash_val, 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000)),
+                        shl(32, and(hash_val, 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF))
+                    )
+
+                // swap 16-bit half-words within each 32-bit word
+                hash_val :=
+                    or(
+                        shr(16, and(hash_val, 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000)),
+                        shl(16, and(hash_val, 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF))
+                    )
+
+                // finally swap every adjacent byte
+                hash_val :=
+                    or(
+                        shr(8, and(hash_val, 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00)),
+                        shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
+                    )
+
                 // Apply the MODULUS_MASK to ensure value is in field
-                entry := and(rev, MODULUS_MASK)
-                mstore(FREE_PTR, add(free_ptr, len))
+                entry := and(hash_val, MODULUS_MASK)
                 result_ptr_out := add(result_ptr, len)
             }
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
