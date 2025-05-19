@@ -20,6 +20,7 @@ impl<'a, S: Scalar> SumcheckRandomScalars<'a, S> {
         }
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn compute_entrywise_multipliers(&self) -> Vec<S> {
         let mut v = vec![Default::default(); self.table_length];
         compute_evaluation_vector(&mut v, self.entrywise_point);
