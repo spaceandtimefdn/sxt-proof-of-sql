@@ -130,11 +130,11 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
             varbinary(
                 "bin",
                 [
-                    b"\x00\x01\x02\x03\x04",
-                    b"\x00\x01\x02\x03\x04",
-                    b"\xFF\xFE\xFD\xFC\xFB",
-                    b"\xFF\xFE\xFD\xFC\xFB",
-                    b"\xFF\xFE\xFD\xFC\xFB",
+                    &b""[..],
+                    &b"\x00\x01\x02\x03\x04"[..],
+                    &b"\xFF\xFE\xFD\xFC\xFB"[..],
+                    &b"\xFF\xFE\xFD\xFC\xFB"[..],
+                    &b"\xFF\xFE\xFD\xFC\xFB"[..],
                 ],
             ),
         ]),
@@ -143,6 +143,7 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
     );
 
     let sql_list = [
+        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where bin = 0x",
         "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where bin = 0x0001020304",
         "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where lang = 'en'",
         "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where sxt = 'מרחב וזמן'",

@@ -23,6 +23,18 @@ contract DataTypeTest is Test {
         }
     }
 
+    function testHashBytesToFieldEmpty() public pure {
+        bytes memory literalValue = "";
+        uint256 field = _hashBytesToField(literalValue);
+        assert(field == 0);
+    }
+
+    function testHashBytesToFieldNonEmpty() public pure {
+        bytes memory literalValue = "abc";
+        uint256 field = _hashBytesToField(literalValue);
+        assert(field == 0x056c2da18ff544ec36a0643ae3e6d1c067d6c826a87bd4c74fa945ea7a65034e);
+    }
+
     function testReadTrueBooleanEntryExpr() public pure {
         bytes memory exprIn = abi.encodePacked(uint8(1), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
