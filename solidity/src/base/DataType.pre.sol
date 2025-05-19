@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 // This is licensed under the Cryptographic Open Software License 1.0
-// slither-disable write-after-write
 pragma solidity ^0.8.28;
 
 import "./Constants.sol";
@@ -42,54 +41,54 @@ library DataType {
                 let free_ptr := mload(FREE_PTR)
                 let len := shr(UINT64_PADDING_BITS, calldataload(result_ptr))
                 result_ptr := add(result_ptr, UINT64_SIZE)
-                // Special case for empty slices - return zero
-                if iszero(len) {
-                    entry := 0
-                    result_ptr_out := result_ptr
-                    leave
+
+                // temps with their empty‐slice defaults
+                let e := 0
+                let rpo := result_ptr
+
+                // only run this when len != 0
+                if len {
+                    calldatacopy(free_ptr, result_ptr, len)
+                    let hash_val := keccak256(free_ptr, len)
+
+                    // [endian-swap steps as before…]
+                    hash_val :=
+                        or(
+                            shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
+                            shl(128, and(hash_val, 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
+                        )
+                    hash_val :=
+                        or(
+                            shr(64, and(hash_val, 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000)),
+                            shl(64, and(hash_val, 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF))
+                        )
+                    hash_val :=
+                        or(
+                            shr(32, and(hash_val, 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000)),
+                            shl(32, and(hash_val, 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF))
+                        )
+                    hash_val :=
+                        or(
+                            shr(16, and(hash_val, 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000)),
+                            shl(16, and(hash_val, 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF))
+                        )
+                    hash_val :=
+                        or(
+                            shr(8, and(hash_val, 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00)),
+                            shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
+                        )
+
+                    e := and(hash_val, MODULUS_MASK)
+                    rpo := add(result_ptr, len)
+                    // bump the free pointer
+                    mstore(FREE_PTR, add(free_ptr, len))
                 }
-                calldatacopy(free_ptr, result_ptr, len)
-                let hash_val := keccak256(free_ptr, len)
-                // ----- begin endian swap -----
-                // swap 128-bit halves
-                hash_val :=
-                    or(
-                        shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
-                        shl(128, and(hash_val, 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
-                    )
 
-                // swap 64-bit chunks within each 128-bit half
-                hash_val :=
-                    or(
-                        shr(64, and(hash_val, 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000)),
-                        shl(64, and(hash_val, 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF))
-                    )
-
-                // swap 32-bit words within each 64-bit chunk
-                hash_val :=
-                    or(
-                        shr(32, and(hash_val, 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000)),
-                        shl(32, and(hash_val, 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF))
-                    )
-
-                // swap 16-bit half-words within each 32-bit word
-                hash_val :=
-                    or(
-                        shr(16, and(hash_val, 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000)),
-                        shl(16, and(hash_val, 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF))
-                    )
-
-                // finally swap every adjacent byte
-                hash_val :=
-                    or(
-                        shr(8, and(hash_val, 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00)),
-                        shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
-                    )
-
-                // Apply the MODULUS_MASK to ensure value is in field
-                entry := and(hash_val, MODULUS_MASK)
-                result_ptr_out := add(result_ptr, len)
+                // single assign to named returns
+                entry := e
+                result_ptr_out := rpo
             }
+
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 result_ptr_out := result_ptr
                 switch data_type_variant
