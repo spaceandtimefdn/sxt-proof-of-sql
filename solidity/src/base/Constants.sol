@@ -99,6 +99,8 @@ uint32 constant AND_EXPR_VARIANT = 6;
 uint32 constant OR_EXPR_VARIANT = 7;
 /// @dev Not variant constant for proof expressions
 uint32 constant NOT_EXPR_VARIANT = 8;
+/// @dev Cast variant constant for proof expressions
+uint32 constant CAST_EXPR_VARIANT = 9;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;

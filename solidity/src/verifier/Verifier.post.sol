@@ -864,6 +864,14 @@ library Verifier {
                 expr_ptr_out := expr_ptr
             }
             function exclude_coverage_stop_not_expr_evaluate() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_exprs/CastExpr.pre.sol::cast_expr_evaluate
+            function exclude_coverage_start_cast_expr_evaluate() {} // solhint-disable-line no-empty-blocks
+            function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                let data_type
+                expr_ptr, data_type := read_data_type(expr_ptr)
+                expr_ptr_out, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+            }
+            function exclude_coverage_stop_cast_expr_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_exprs/ProofExpr.pre.sol::proof_expr_evaluate
             function exclude_coverage_start_proof_expr_evaluate() {} // solhint-disable-line no-empty-blocks
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
@@ -906,6 +914,10 @@ library Verifier {
                 case 8 {
                     case_const(8, NOT_EXPR_VARIANT)
                     expr_ptr_out, eval := not_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 9 {
+                    case_const(9, CAST_EXPR_VARIANT)
+                    expr_ptr_out, eval := cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }
