@@ -39,7 +39,7 @@ where
     }
 
     fn mul_add(&self, res: &mut [S], multiplier: &S) {
-        slice_ops::mul_add_assign(res, *multiplier, &slice_ops::slice_cast(self));
+        slice_ops::mul_add_assign(res, *multiplier, self);
     }
 
     fn to_sumcheck_term(&self, num_vars: usize) -> Vec<S> {
