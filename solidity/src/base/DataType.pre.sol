@@ -43,15 +43,14 @@ library DataType {
                 result_ptr := add(result_ptr, UINT64_SIZE)
 
                 // temps with their empty‐slice defaults
-                let e := 0
-                let rpo := result_ptr
+                entry := 0
 
                 // only run this when len != 0
                 if len {
                     calldatacopy(free_ptr, result_ptr, len)
                     let hash_val := keccak256(free_ptr, len)
 
-                    // [endian-swap steps as before…]
+                    // endian-swap steps
                     hash_val :=
                         or(
                             shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
@@ -78,15 +77,11 @@ library DataType {
                             shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
                         )
 
-                    e := and(hash_val, MODULUS_MASK)
-                    rpo := add(result_ptr, len)
-                    // bump the free pointer
-                    mstore(FREE_PTR, add(free_ptr, len))
+                    entry := and(hash_val, MODULUS_MASK)
                 }
 
                 // single assign to named returns
-                entry := e
-                result_ptr_out := rpo
+                result_ptr_out := add(result_ptr, len)
             }
 
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
