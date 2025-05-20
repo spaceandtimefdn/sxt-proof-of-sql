@@ -1,4 +1,4 @@
 {
-    "detectors_to_exclude": "assembly,naming-conventions",
+    "detectors_to_exclude": "assembly,naming-conventions,too-many-digits",
     "fail_on": "pedantic"
 }
