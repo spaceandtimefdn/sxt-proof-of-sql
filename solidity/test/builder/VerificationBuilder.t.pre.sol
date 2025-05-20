@@ -895,6 +895,27 @@ contract VerificationBuilderTest is Test {
         assert(leadingBitMask == 0x12345677);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testSetByteDistributions() public {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory emptyValues = new uint256[](0);
+        // Empty array should not revert
+        VerificationBuilder.__setByteDistributions(builder, emptyValues);
+
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0x12345678;
+        vm.expectRevert(Errors.UnsupportedProof.selector);
+        VerificationBuilder.__setByteDistributions(builder, values);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testFuzzSetByteDistributions(uint256[] memory values) public {
+        vm.assume(values.length > 0);
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        vm.expectRevert(Errors.UnsupportedProof.selector);
+        VerificationBuilder.__setByteDistributions(builder, values);
+    }
+
     function testGetChiEvaluations() public pure {
         VerificationBuilder.Builder memory builder;
         uint256[] memory values = new uint256[](3);
