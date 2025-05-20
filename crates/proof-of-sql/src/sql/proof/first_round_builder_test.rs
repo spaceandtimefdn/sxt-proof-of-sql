@@ -1,6 +1,10 @@
 use super::FirstRoundBuilder;
 use crate::{
-    base::commitment::{Commitment, CommittableColumn},
+    base::{
+        byte::ByteDistribution,
+        commitment::{Commitment, CommittableColumn},
+        scalar::{test_scalar::TestScalar, Scalar},
+    },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
 use curve25519_dalek::RistrettoPoint;
@@ -72,4 +76,13 @@ fn we_can_add_post_result_challenges() {
     assert_eq!(builder.num_post_result_challenges(), 1);
     builder.request_post_result_challenges(2);
     assert_eq!(builder.num_post_result_challenges(), 3);
+}
+
+#[test]
+fn we_can_add_byte_distributions() {
+    let byte_distribution = ByteDistribution::new::<TestScalar, _>(&[TestScalar::ONE]);
+    let mut builder = FirstRoundBuilder::<Curve25519Scalar>::new(0);
+    builder.produce_byte_distribution(byte_distribution.clone());
+    let byte_distributions = builder.byte_distributions();
+    assert_eq!(byte_distributions, [byte_distribution]);
 }

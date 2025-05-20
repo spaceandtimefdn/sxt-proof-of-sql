@@ -1,5 +1,10 @@
 use super::{SumcheckMleEvaluations, VerificationBuilderImpl};
 use crate::{
+    base::{
+        byte::ByteDistribution,
+        proof::ProofSizeMismatch,
+        scalar::{test_scalar::TestScalar, Scalar},
+    },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::proof::{SumcheckSubpolynomialType, VerificationBuilder},
 };
@@ -13,6 +18,7 @@ fn an_empty_sumcheck_polynomial_evaluates_to_zero() {
     };
     let builder = VerificationBuilderImpl::<Curve25519Scalar>::new(
         mle_evaluations,
+        &[][..],
         &[][..],
         &[][..],
         VecDeque::new(),
@@ -34,6 +40,7 @@ fn we_build_up_a_sumcheck_polynomial_evaluation_from_subpolynomial_evaluations()
     ];
     let mut builder = VerificationBuilderImpl::new(
         mle_evaluations,
+        &[][..],
         &[][..],
         &subpolynomial_multipliers,
         VecDeque::new(),
@@ -66,6 +73,7 @@ fn we_can_consume_post_result_challenges_in_verification_builder() {
         SumcheckMleEvaluations::default(),
         &[][..],
         &[][..],
+        &[][..],
         [
             Curve25519Scalar::from(123),
             Curve25519Scalar::from(456),
@@ -88,4 +96,48 @@ fn we_can_consume_post_result_challenges_in_verification_builder() {
         Curve25519Scalar::from(789),
         builder.try_consume_post_result_challenge().unwrap()
     );
+}
+
+#[test]
+fn we_can_try_consume_bit_distribution() {
+    let byte_distributions = [ByteDistribution::new::<TestScalar, TestScalar>(&[
+        TestScalar::ONE,
+    ])];
+    let mut verification_builder: VerificationBuilderImpl<TestScalar> =
+        VerificationBuilderImpl::new(
+            SumcheckMleEvaluations::default(),
+            &[],
+            &byte_distributions,
+            &[],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            2,
+        );
+    let result = verification_builder
+        .try_consume_byte_distribution()
+        .unwrap();
+    assert_eq!(
+        result,
+        ByteDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ONE,])
+    );
+}
+
+#[test]
+fn we_can_get_error_when_not_enough_byte_disributions() {
+    let mut verification_builder: VerificationBuilderImpl<TestScalar> =
+        VerificationBuilderImpl::new(
+            SumcheckMleEvaluations::default(),
+            &[],
+            &[],
+            &[],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            2,
+        );
+    let result = verification_builder
+        .try_consume_byte_distribution()
+        .unwrap_err();
+    assert!(matches!(result, ProofSizeMismatch::TooFewByteDistributions));
 }
