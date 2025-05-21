@@ -217,6 +217,11 @@ library FilterExec {
                 plan_ptr_out := plan_ptr
             }
 
+            // IMPORT-YUL TableExec.pre.sol
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+                revert(0, 0)
+            }
+
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 let alpha := builder_consume_challenge(builder_ptr)
 
