@@ -35,7 +35,7 @@ where
     &'a T: Into<S>,
 {
     fn inner_product(&self, evaluation_vec: &[S]) -> S {
-        slice_ops::inner_product(evaluation_vec, &slice_ops::slice_cast(self))
+        slice_ops::inner_product(evaluation_vec, self)
     }
 
     fn mul_add(&self, res: &mut [S], multiplier: &S) {

@@ -110,17 +110,17 @@ fn test_inner_product_with_bytes_some_edge_cases() {
 
 #[test]
 fn test_inner_product() {
-    let a = vec![1, 2, 3, 4];
-    let b = vec![2, 3, 4, 5];
-    assert_eq!(40, inner_product(&a, &b));
+    let a = [1, 2, 3, 4].map(TestScalar::from).to_vec();
+    let b = [2, 3, 4, 5].map(TestScalar::from).to_vec();
+    assert_eq!(TestScalar::from(40), inner_product(&a, &b));
 }
 
 /// test inner products of different lengths
 #[test]
 fn test_inner_product_different_lengths() {
-    let a = vec![1, 2, 3, 4];
-    let b = vec![2, 3, 4, 5, 6];
-    assert_eq!(40, inner_product(&a, &b));
+    let a = [1, 2, 3, 4].map(TestScalar::from).to_vec();
+    let b = [2, 3, 4, 5, 6].map(TestScalar::from).to_vec();
+    assert_eq!(TestScalar::from(40), inner_product(&a, &b));
 }
 
 /// test inner producr with scalar
