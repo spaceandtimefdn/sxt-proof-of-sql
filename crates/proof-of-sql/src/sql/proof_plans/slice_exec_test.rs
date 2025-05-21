@@ -537,9 +537,45 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_an_empty_exec() {
 }
 
 #[test]
-fn we_cannot_prove_a_slice_exec_if_it_has_groupby_as_input_for_now() {
+fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input() {
     let data = owned_table([
         bigint("a", [1, 2, 2, 1, 2]),
+        bigint("b", [99, 99, 99, 99, 0]),
+        bigint("c", [101, 102, 103, 104, 105]),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+    let plan = slice_exec(
+        group_by(
+            cols_expr(&t, &["a"], &accessor),
+            vec![sum_expr(column(&t, "c", &accessor), "sum_c")],
+            "__count__",
+            tab(&t),
+            equal(column(&t, "b", &accessor), const_int128(99)),
+        ),
+        1,
+        None,
+    );
+    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+        VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+    exercise_verification(&verifiable_res, &plan, &accessor, &t);
+    let res = verifiable_res
+        .verify(&plan, &accessor, &(), &[])
+        .unwrap()
+        .table;
+    let expected = owned_table([
+        bigint("a", [2]),
+        bigint("sum_c", [205]),
+        bigint("__count__", [2]),
+    ]);
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn we_cannot_prove_a_slice_exec_if_it_has_groupby_without_uniqueness_proof_as_input_for_now() {
+    let data = owned_table([
+        varchar("a", ["1", "2", "2", "1", "2"]),
         bigint("b", [99, 99, 99, 99, 0]),
         bigint("c", [101, 102, 103, 104, 105]),
     ]);
