@@ -38,7 +38,8 @@ impl EVMDynProofPlan {
                 Ok(Self::Empty(EVMEmptyExec::try_from_proof_plan(empty_exec)))
             }
             DynProofPlan::Table(table_exec) => {
-                EVMTableExec::try_from_proof_plan(table_exec, table_refs).map(Self::Table)
+                EVMTableExec::try_from_proof_plan(table_exec, table_refs, column_refs)
+                    .map(Self::Table)
             }
             DynProofPlan::Filter(filter_exec) => {
                 EVMFilterExec::try_from_proof_plan(filter_exec, table_refs, column_refs)
@@ -113,6 +114,7 @@ impl EVMEmptyExec {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMTableExec {
     table_number: usize,
+    column_numbers: Vec<usize>,
 }
 
 impl EVMTableExec {
@@ -120,11 +122,17 @@ impl EVMTableExec {
     pub(crate) fn try_from_proof_plan(
         plan: &TableExec,
         table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             table_number: table_refs
                 .get_index_of(plan.table_ref())
                 .ok_or(EVMProofPlanError::TableNotFound)?,
+            column_numbers: column_refs
+                .iter()
+                .enumerate()
+                .filter_map(|(i, col_ref)| (&col_ref.table_ref() == plan.table_ref()).then_some(i))
+                .collect(),
         })
     }
 
@@ -571,10 +579,17 @@ mod tests {
 
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
-        let evm_table_exec =
-            EVMTableExec::try_from_proof_plan(&table_exec, &indexset![table_ref.clone()]).unwrap();
+        let evm_table_exec = EVMTableExec::try_from_proof_plan(
+            &table_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
 
-        let expected_evm_table_exec = EVMTableExec { table_number: 0 };
+        let expected_evm_table_exec = EVMTableExec {
+            table_number: 0,
+            column_numbers: vec![0, 1],
+        };
 
         assert_eq!(evm_table_exec, expected_evm_table_exec);
 
@@ -604,14 +619,17 @@ mod tests {
 
         let table_exec = TableExec::new(missing_table_ref, column_fields);
 
-        let result = EVMTableExec::try_from_proof_plan(&table_exec, &indexset![]);
+        let result = EVMTableExec::try_from_proof_plan(&table_exec, &indexset![], &indexset![]);
 
         assert!(matches!(result, Err(EVMProofPlanError::TableNotFound)));
     }
 
     #[test]
     fn table_exec_fails_with_table_not_found_into_proof_plan() {
-        let evm_table_exec = EVMTableExec { table_number: 0 };
+        let evm_table_exec = EVMTableExec {
+            table_number: 0,
+            column_numbers: Vec::new(),
+        };
 
         // Use an empty table_refs to trigger TableNotFound
         let result = EVMTableExec::try_into_proof_plan(&evm_table_exec, &indexset![], &indexset![]);
