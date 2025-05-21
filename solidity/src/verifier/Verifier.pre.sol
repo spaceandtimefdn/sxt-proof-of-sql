@@ -315,6 +315,15 @@ library Verifier {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
@@ -329,7 +338,7 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol
-            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
 
@@ -543,7 +552,8 @@ library Verifier {
                 )
 
                 plan_ptr := skip_plan_names(plan_ptr)
-                plan_ptr, evaluations_ptr := proof_plan_evaluate(plan_ptr, builder_ptr)
+                let output_chi_eval
+                plan_ptr, evaluations_ptr, output_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
                 builder_check_aggregate_evaluation(builder_ptr)
             }
 
