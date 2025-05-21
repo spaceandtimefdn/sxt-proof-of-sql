@@ -104,6 +104,8 @@ uint32 constant CAST_EXPR_VARIANT = 9;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
+/// @dev Group By variant constant for proof plans
+uint32 constant GROUP_BY_EXEC_VARIANT = 1;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;
