@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 
 /// @dev The modulus of the bn254 scalar field.
 uint256 constant MODULUS = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000001;
+/// @dev The max number of bits a sign expr supports. This is the floor of log base 2 of the max value of bn254.
+uint8 constant MAX_BITS = 253;
 /// @dev The largest mask that can be applied to a 256-bit number in order to enforce that it is less than the modulus.
 uint256 constant MODULUS_MASK = 0x1FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF;
 /// @dev MODULUS + 1. Needs to be explicit for Yul usage.
