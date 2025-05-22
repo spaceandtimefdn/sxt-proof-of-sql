@@ -1,0 +1,48 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Monotonicity}
+\author{Makeinfinite Labs}
+\date{May 2025}
+
+\begin{document}
+\maketitle
+
+\noindent Let $A=(a_{ij})$ be a table with $R$ rows and $N$ columns. We need to prove that $A$ is sorted on columns $(c_{i_k}, w_k)$ for $k \in [0, K)$. Strictness is $s$. That is, $A$ needs to increase in $c_{i_0}$ if $w_0 = 1$ and decrease in $c_{i_0}$ if $w_0 = -1$. Then tie breaker is $c_{i_1}$ for rows with the same $c_{i_0}$. So on and so on.\\
+Note that if $s$ is on it is implied that $A$ is distinct on columns $c_{i_0}, \cdots c_{i_{K-1}}$ which is needed for joins, groupbys etc.\\
+
+\section{Summary}
+\begin{itemize}
+    \item Plan values: $(c_{i_k}, w_k)$ for $k \in [0, K)$ and strictness $s$.
+    \item Inputs: $A$
+    \item Hints: $d$, $e_k$, $s_k$, $t$.
+\end{itemize}
+
+\section{Details}
+We set $A'$ be the shifted version of $A$. The following holds:\\
+\begin{itemize}
+    \item $A'$ is a shift of $A$, $D = (A' - A)\mathbf{1_{[0, R)}}$
+    \item Let $k = 0, e_{-1} = \mathbf{1}, t:=\mathbf{0}$.
+    \item Do sign check on $c_{i_k}e_{k-1}w_k$ with result $s_k$. $t:=t+s_k$. Note that all checks are strict with the possible exception of if $k = K - 1$ and we don't require strict order. Also break if $k = K - 1$.
+    \item Take $e_k = e_{k-1}\mathbf{1}_{d_k = 0}$. If $e_k = \mathbf{0}$, break. Otherwise return to 3.
+    \item Verify that $t = \mathbf{1}$.
+\end{itemize}
+
+\end{document}
