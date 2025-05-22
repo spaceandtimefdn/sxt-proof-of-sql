@@ -18,6 +18,9 @@ use crate::{
             SumcheckSubpolynomialType, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, ProofExpr, TableExpr},
+        proof_gadgets::{
+            final_round_evaluate_monotonic, first_round_evaluate_monotonic, verify_monotonic,
+        },
     },
     utils::log,
 };
@@ -90,6 +93,17 @@ impl GroupByExec {
     pub fn count_alias(&self) -> &Ident {
         &self.count_alias
     }
+
+    /// Checks if the group by expression can prove uniqueness
+    /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
+    pub fn is_uniqueness_provable(&self) -> bool {
+        if self.group_by_exprs.len() != 1 {
+            return false;
+        }
+
+        let column_type = self.group_by_exprs[0].data_type();
+        !matches!(column_type, ColumnType::VarChar | ColumnType::VarBinary)
+    }
 }
 
 impl ProofPlan for GroupByExec {
@@ -138,6 +152,7 @@ impl ProofPlan for GroupByExec {
         let beta = builder.try_consume_post_result_challenge()?;
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
+        let is_uniqueness_provable = self.is_uniqueness_provable();
         verify_group_by(
             builder,
             alpha,
@@ -150,31 +165,34 @@ impl ProofPlan for GroupByExec {
                 sum_result_columns_evals.clone(),
                 count_column_eval,
             ),
+            is_uniqueness_provable,
         )?;
-        match result {
-            Some(table) => {
-                let cols = self
-                    .group_by_exprs
-                    .iter()
-                    .map(|col| table.inner_table().get(&col.column_id()))
-                    .collect::<Option<Vec<_>>>()
-                    .ok_or(ProofError::VerificationError {
-                        error: "Result does not all correct group by columns.",
-                    })?;
-                let num_rows = table.num_rows();
-                if num_rows > 0
-                    && (0..num_rows - 1)
-                        .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
-                {
-                    Err(ProofError::VerificationError {
-                        error: "Result of group by not ordered as expected.",
+        if !is_uniqueness_provable {
+            match result {
+                Some(table) => {
+                    let cols = self
+                        .group_by_exprs
+                        .iter()
+                        .map(|col| table.inner_table().get(&col.column_id()))
+                        .collect::<Option<Vec<_>>>()
+                        .ok_or(ProofError::VerificationError {
+                            error: "Result does not all correct group by columns.",
+                        })?;
+                    let num_rows = table.num_rows();
+                    if num_rows > 0
+                        && (0..num_rows - 1)
+                            .any(|i| compare_indexes_by_owned_columns(&cols, i, i + 1).is_ge())
+                    {
+                        Err(ProofError::VerificationError {
+                            error: "Result of group by not ordered as expected.",
+                        })?;
+                    }
+                }
+                None => {
+                    Err(ProofError::UnsupportedQueryPlan {
+                        error: "GroupByExec currently only supported at top level of query plan.",
                     })?;
                 }
-            }
-            None => {
-                Err(ProofError::UnsupportedQueryPlan {
-                    error: "GroupByExec currently only supported at top level of query plan.",
-                })?;
             }
         }
 
@@ -282,6 +300,10 @@ impl ProverEvaluate for GroupByExec {
         .expect("Failed to create table from column references");
         builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(count_column.len());
+        // Prove result uniqueness if possible
+        if self.is_uniqueness_provable() {
+            first_round_evaluate_monotonic(builder, res.num_rows());
+        }
 
         log::log_memory_usage("End");
 
@@ -357,6 +379,7 @@ impl ProverEvaluate for GroupByExec {
             builder.produce_intermediate_mle(column);
         }
         // 6. Prove group by
+        let check_uniqueness = self.is_uniqueness_provable();
         prove_group_by(
             builder,
             alloc,
@@ -365,6 +388,7 @@ impl ProverEvaluate for GroupByExec {
             (&group_by_columns, &sum_columns, selection),
             (&group_by_result_columns, &sum_result_columns, count_column),
             table.num_rows(),
+            check_uniqueness,
         );
 
         log::log_memory_usage("End");
@@ -373,6 +397,7 @@ impl ProverEvaluate for GroupByExec {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn verify_group_by<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
     alpha: S,
@@ -381,6 +406,7 @@ fn verify_group_by<S: Scalar>(
     output_chi_eval: S,
     (g_in_evals, sum_in_evals, sel_in_eval): (Vec<S>, Vec<S>, S),
     (g_out_evals, sum_out_evals, count_out_eval): (Vec<S>, Vec<S>, S),
+    check_uniqueness: bool,
 ) -> Result<(), ProofError> {
     // g_in_fold = alpha * sum beta^j * g_in[j]
     let g_in_fold_eval = alpha * fold_vals(beta, &g_in_evals);
@@ -415,9 +441,15 @@ fn verify_group_by<S: Scalar>(
         2,
     )?;
 
-    Ok(())
+    // Verify result uniqueness
+    if check_uniqueness {
+        verify_monotonic::<S, true, true>(builder, alpha, beta, g_out_evals[0], output_chi_eval)
+    } else {
+        Ok(())
+    }
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn prove_group_by<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -426,6 +458,7 @@ pub fn prove_group_by<'a, S: Scalar>(
     (g_in, sum_in, sel_in): (&[Column<S>], &[Column<S>], &'a [bool]),
     (g_out, sum_out, count_out): (&[Column<S>], &[&'a [S]], &'a [i64]),
     n: usize,
+    check_uniqueness: bool,
 ) {
     let m = count_out.len();
     let chi_n = alloc.alloc_slice_fill_copy(n, true);
@@ -505,4 +538,17 @@ pub fn prove_group_by<'a, S: Scalar>(
             (-S::one(), vec![Box::new(chi_m as &[_])]),
         ],
     );
+
+    // Prove result uniqueness
+    if check_uniqueness {
+        let g_out_scalars = g_out[0].to_scalar();
+        let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
+        final_round_evaluate_monotonic::<S, true, true>(
+            builder,
+            alloc,
+            alpha,
+            beta,
+            alloc_g_out_scalars,
+        );
+    }
 }
