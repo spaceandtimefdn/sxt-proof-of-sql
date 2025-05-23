@@ -23,10 +23,22 @@ pub(crate) fn first_round_evaluate_shift<S: Scalar>(
 }
 
 /// Perform final round evaluation of downward shift.
+pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    alpha: S,
+    beta: S,
+    column: &'a [S],
+    shifted_column: &'a [S],
+){
+    final_round_evaluate_shift_base(builder, alloc, alpha, beta, column, shifted_column)
+}
+
+/// Perform final round evaluation of downward shift.
 ///
 /// # Panics
 /// Panics if `column.len() != shifted_column.len() - 1` which should always hold for shifts.
-pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
+fn final_round_evaluate_shift_base<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
     alpha: S,
