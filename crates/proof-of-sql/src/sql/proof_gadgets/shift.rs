@@ -29,9 +29,17 @@ pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
     alpha: S,
     beta: S,
     column: &'a [S],
-    shifted_column: &'a [S],
-){
-    final_round_evaluate_shift_base(builder, alloc, alpha, beta, column, shifted_column)
+) -> &'a [S] {
+    let shifted_column = alloc.alloc_slice_fill_with(column.len() + 1, |i| {
+        if i == 0 {
+            S::ZERO
+        } else {
+            column[i - 1]
+        }
+    });
+    builder.produce_intermediate_mle(shifted_column as &[_]);
+    final_round_evaluate_shift_base(builder, alloc, alpha, beta, column, shifted_column);
+    shifted_column
 }
 
 /// Perform final round evaluation of downward shift.
@@ -115,10 +123,10 @@ pub(crate) fn verify_shift<S: Scalar>(
     alpha: S,
     beta: S,
     column_eval: S,
-    shifted_column_eval: S,
     chi_n_eval: S,
     chi_n_plus_1_eval: S,
-) -> Result<(), ProofError> {
+) -> Result<S, ProofError> {
+    let shifted_column_eval = builder.try_consume_final_round_mle_evaluation()?;
     let rho_n_eval = builder.try_consume_rho_evaluation()?;
     let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?;
     let c_fold_eval = alpha * fold_vals(beta, &[rho_n_eval + chi_n_eval, column_eval]);
@@ -147,12 +155,12 @@ pub(crate) fn verify_shift<S: Scalar>(
         2,
     )?;
 
-    Ok(())
+    Ok(shifted_column_eval)
 }
 
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
-    use super::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
+    use super::{final_round_evaluate_shift_base, first_round_evaluate_shift, verify_shift};
     use crate::{
         base::{
             database::{
@@ -234,7 +242,7 @@ mod tests {
             builder.produce_intermediate_mle(alloc_candidate_column as &[_]);
             let alpha = builder.consume_post_result_challenge();
             let beta = builder.consume_post_result_challenge();
-            final_round_evaluate_shift(
+            final_round_evaluate_shift_base(
                 builder,
                 alloc,
                 alpha,
@@ -279,7 +287,6 @@ mod tests {
             let beta = builder.try_consume_post_result_challenge()?;
             // Get the columns
             let column_eval = builder.try_consume_final_round_mle_evaluation()?;
-            let candidate_shift_eval = builder.try_consume_final_round_mle_evaluation()?;
             let chi_n_eval = builder.try_consume_chi_evaluation()?;
             let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?;
             // Evaluate the verifier
@@ -288,7 +295,6 @@ mod tests {
                 alpha,
                 beta,
                 column_eval,
-                candidate_shift_eval,
                 chi_n_eval,
                 chi_n_plus_1_eval,
             )?;
