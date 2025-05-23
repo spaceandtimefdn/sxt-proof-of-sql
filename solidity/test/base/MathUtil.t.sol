@@ -2,6 +2,7 @@
 // This is licensed under the Cryptographic Open Software License 1.0
 pragma solidity ^0.8.28;
 
+import "../../src/base/Constants.sol";
 import {MathUtil} from "../../src/base/MathUtil.sol";
 
 library MathUtilTest {
@@ -47,5 +48,14 @@ library MathUtilTest {
             assert(exponent == 256);
             assert((1 << 255) < value);
         }
+    }
+
+    function testWeCanComputeAddAndMultiplicationModulus() public pure {
+        assert(MathUtil.__addModBN254(1, 2) == 3);
+        assert(MathUtil.__addModBN254(MODULUS_MINUS_ONE, 2) == 1);
+        assert(MathUtil.__subModBN254(2, 1) == 1);
+        assert(MathUtil.__subModBN254(1, 2) == MODULUS_MINUS_ONE);
+        assert(MathUtil.__mulModBN254(1, 2) == 2);
+        assert(MathUtil.__mulModBN254(MODULUS_MINUS_ONE, 2) == MODULUS_MINUS_ONE - 1);
     }
 }
