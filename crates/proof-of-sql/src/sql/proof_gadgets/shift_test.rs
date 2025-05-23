@@ -19,7 +19,16 @@ use bumpalo::Bump;
 use serde::Serialize;
 use sqlparser::ast::Ident;
 
-#[derive(Debug, Serialize)]
+#[cfg(all(test, feature = "blitzar"))]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
+        sql::proof::VerifiableQueryResult,
+    };
+    use blitzar::proof::InnerProductProof;
+
+    #[derive(Debug, Serialize)]
 pub struct ShiftTestPlan {
     pub column: ColumnRef,
     pub candidate_shifted_column: ColumnRef,
@@ -139,15 +148,6 @@ impl ProofPlan for ShiftTestPlan {
         Ok(TableEvaluation::new(vec![], S::zero()))
     }
 }
-
-#[cfg(all(test, feature = "blitzar"))]
-mod tests {
-    use super::*;
-    use crate::{
-        base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
-        sql::proof::VerifiableQueryResult,
-    };
-    use blitzar::proof::InnerProductProof;
 
     #[test]
     fn we_can_do_shift() {
