@@ -1,153 +1,155 @@
 //! This module contains the implementation of the `ShiftTestPlan` struct. This struct
 //! is used to check whether the membership check gadgets work correctly.
-use super::shift::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
-use crate::{
-    base::{
-        database::{
-            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions,
-            TableRef,
-        },
-        map::{indexset, IndexMap, IndexSet},
-        proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
-    },
-    sql::proof::{
-        FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
-    },
-};
-use bumpalo::Bump;
-use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
-    use super::*;
     use crate::{
-        base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
-        sql::proof::VerifiableQueryResult,
+        base::{
+            database::{
+                table_utility::*, ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable,
+                Table, TableEvaluation, TableOptions, TableRef, TableTestAccessor, TestAccessor,
+            },
+            map::{indexset, IndexMap, IndexSet},
+            proof::{PlaceholderResult, ProofError},
+            scalar::Scalar,
+        },
+        sql::{
+            proof::{
+                FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+                VerifiableQueryResult, VerificationBuilder,
+            },
+            proof_gadgets::shift::{
+                final_round_evaluate_shift, first_round_evaluate_shift, verify_shift,
+            },
+        },
     };
     use blitzar::proof::InnerProductProof;
+    use bumpalo::Bump;
+    use serde::Serialize;
+    use sqlparser::ast::Ident;
 
     #[derive(Debug, Serialize)]
-pub struct ShiftTestPlan {
-    pub column: ColumnRef,
-    pub candidate_shifted_column: ColumnRef,
-    /// The length can be wrong in the test plan and that should error out
-    pub column_length: usize,
-}
-
-impl ProverEvaluate for ShiftTestPlan {
-    #[doc = "Evaluate the query, modify `FirstRoundBuilder` and return the result."]
-    fn first_round_evaluate<'a, S: Scalar>(
-        &self,
-        builder: &mut FirstRoundBuilder<'a, S>,
-        _alloc: &'a Bump,
-        _table_map: &IndexMap<TableRef, Table<'a, S>>,
-        _params: &[LiteralValue],
-    ) -> PlaceholderResult<Table<'a, S>> {
-        builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(self.column_length);
-        builder.produce_chi_evaluation_length(self.column_length + 1);
-        // Evaluate the first round
-        first_round_evaluate_shift(builder, self.column_length);
-        // This is just a dummy table, the actual data is not used
-        Ok(
-            Table::try_new_with_options(IndexMap::default(), TableOptions { row_count: Some(0) })
-                .unwrap(),
-        )
+    pub struct ShiftTestPlan {
+        pub column: ColumnRef,
+        pub candidate_shifted_column: ColumnRef,
+        /// The length can be wrong in the test plan and that should error out
+        pub column_length: usize,
     }
 
-    fn final_round_evaluate<'a, S: Scalar>(
-        &self,
-        builder: &mut FinalRoundBuilder<'a, S>,
-        alloc: &'a Bump,
-        table_map: &IndexMap<TableRef, Table<'a, S>>,
-        _params: &[LiteralValue],
-    ) -> PlaceholderResult<Table<'a, S>> {
-        // Get the table from the map using the table reference
-        let source_table: &Table<'a, S> = table_map
-            .get(&self.column.table_ref())
-            .expect("Table not found");
-        let source_column: Vec<S> = source_table
-            .inner_table()
-            .get(&self.column.column_id())
-            .expect("Column not found in table")
-            .to_scalar();
-        let alloc_source_column = alloc.alloc_slice_copy(&source_column);
-        builder.produce_intermediate_mle(alloc_source_column as &[_]);
+    impl ProverEvaluate for ShiftTestPlan {
+        #[doc = "Evaluate the query, modify `FirstRoundBuilder` and return the result."]
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FirstRoundBuilder<'a, S>,
+            _alloc: &'a Bump,
+            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            builder.request_post_result_challenges(2);
+            builder.produce_chi_evaluation_length(self.column_length);
+            builder.produce_chi_evaluation_length(self.column_length + 1);
+            // Evaluate the first round
+            first_round_evaluate_shift(builder, self.column_length);
+            // This is just a dummy table, the actual data is not used
+            Ok(Table::try_new_with_options(
+                IndexMap::default(),
+                TableOptions { row_count: Some(0) },
+            )
+            .unwrap())
+        }
 
-        let candidate_table = table_map
-            .get(&self.candidate_shifted_column.table_ref())
-            .expect("Table not found");
-        let candidate_column: Vec<S> = candidate_table
-            .inner_table()
-            .get(&self.candidate_shifted_column.column_id())
-            .expect("Column not found in table")
-            .to_scalar();
-        let alloc_candidate_column = alloc.alloc_slice_copy(&candidate_column);
-        builder.produce_intermediate_mle(alloc_candidate_column as &[_]);
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-        final_round_evaluate_shift(
-            builder,
-            alloc,
-            alpha,
-            beta,
-            alloc_source_column,
-            alloc_candidate_column,
-        );
-        // Return a dummy table
-        Ok(
-            Table::try_new_with_options(IndexMap::default(), TableOptions { row_count: Some(0) })
-                .unwrap(),
-        )
-    }
-}
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FinalRoundBuilder<'a, S>,
+            alloc: &'a Bump,
+            table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            // Get the table from the map using the table reference
+            let source_table: &Table<'a, S> = table_map
+                .get(&self.column.table_ref())
+                .expect("Table not found");
+            let source_column: Vec<S> = source_table
+                .inner_table()
+                .get(&self.column.column_id())
+                .expect("Column not found in table")
+                .to_scalar();
+            let alloc_source_column = alloc.alloc_slice_copy(&source_column);
+            builder.produce_intermediate_mle(alloc_source_column as &[_]);
 
-impl ProofPlan for ShiftTestPlan {
-    fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        vec![]
+            let candidate_table = table_map
+                .get(&self.candidate_shifted_column.table_ref())
+                .expect("Table not found");
+            let candidate_column: Vec<S> = candidate_table
+                .inner_table()
+                .get(&self.candidate_shifted_column.column_id())
+                .expect("Column not found in table")
+                .to_scalar();
+            let alloc_candidate_column = alloc.alloc_slice_copy(&candidate_column);
+            builder.produce_intermediate_mle(alloc_candidate_column as &[_]);
+            let alpha = builder.consume_post_result_challenge();
+            let beta = builder.consume_post_result_challenge();
+            final_round_evaluate_shift(
+                builder,
+                alloc,
+                alpha,
+                beta,
+                alloc_source_column,
+                alloc_candidate_column,
+            );
+            // Return a dummy table
+            Ok(Table::try_new_with_options(
+                IndexMap::default(),
+                TableOptions { row_count: Some(0) },
+            )
+            .unwrap())
+        }
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {self.column.clone(), self.candidate_shifted_column.clone()}
-    }
+    impl ProofPlan for ShiftTestPlan {
+        fn get_column_result_fields(&self) -> Vec<ColumnField> {
+            vec![]
+        }
 
-    #[doc = "Return all the tables referenced in the Query"]
-    fn get_table_references(&self) -> IndexSet<TableRef> {
-        indexset! {self.column.table_ref(), self.candidate_shifted_column.table_ref()}
-    }
+        fn get_column_references(&self) -> IndexSet<ColumnRef> {
+            indexset! {self.column.clone(), self.candidate_shifted_column.clone()}
+        }
 
-    #[doc = "Form components needed to verify and proof store into `VerificationBuilder`"]
-    fn verifier_evaluate<S: Scalar>(
-        &self,
-        builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
-        _params: &[LiteralValue],
-    ) -> Result<TableEvaluation<S>, ProofError> {
-        // Get the challenges from the builder
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        // Get the columns
-        let column_eval = builder.try_consume_final_round_mle_evaluation()?;
-        let candidate_shift_eval = builder.try_consume_final_round_mle_evaluation()?;
-        let chi_n_eval = builder.try_consume_chi_evaluation()?;
-        let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?;
-        // Evaluate the verifier
-        verify_shift(
-            builder,
-            alpha,
-            beta,
-            column_eval,
-            candidate_shift_eval,
-            chi_n_eval,
-            chi_n_plus_1_eval,
-        )?;
-        Ok(TableEvaluation::new(vec![], S::zero()))
+        #[doc = "Return all the tables referenced in the Query"]
+        fn get_table_references(&self) -> IndexSet<TableRef> {
+            indexset! {self.column.table_ref(), self.candidate_shifted_column.table_ref()}
+        }
+
+        #[doc = "Form components needed to verify and proof store into `VerificationBuilder`"]
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+            _result: Option<&OwnedTable<S>>,
+            _chi_eval_map: &IndexMap<TableRef, S>,
+            _params: &[LiteralValue],
+        ) -> Result<TableEvaluation<S>, ProofError> {
+            // Get the challenges from the builder
+            let alpha = builder.try_consume_post_result_challenge()?;
+            let beta = builder.try_consume_post_result_challenge()?;
+            // Get the columns
+            let column_eval = builder.try_consume_final_round_mle_evaluation()?;
+            let candidate_shift_eval = builder.try_consume_final_round_mle_evaluation()?;
+            let chi_n_eval = builder.try_consume_chi_evaluation()?;
+            let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?;
+            // Evaluate the verifier
+            verify_shift(
+                builder,
+                alpha,
+                beta,
+                column_eval,
+                candidate_shift_eval,
+                chi_n_eval,
+                chi_n_plus_1_eval,
+            )?;
+            Ok(TableEvaluation::new(vec![], S::zero()))
+        }
     }
-}
 
     #[test]
     fn we_can_do_shift() {
