@@ -2,6 +2,8 @@
 // This is licensed under the Cryptographic Open Software License 1.0
 pragma solidity ^0.8.28;
 
+import "../base/Constants.sol";
+
 /// @title Math Utilities Library
 /// @notice Provides functions to perform various math operations
 library MathUtil {
@@ -49,6 +51,48 @@ library MathUtil {
                 }
             }
             __exponent := log2_up(__value)
+        }
+    }
+
+    /// @notice Computes `addmod(lhs, rhs, MODULUS)`
+    /// @dev The sum of two uint256 values mod the order of bn254.
+    /// @param __lhs The left hand side
+    /// @param __rhs The right hand side
+    /// @return __sum The sum of the two sides with the appropriate modulus
+    function __addModBN254(uint256 __lhs, uint256 __rhs) internal pure returns (uint256 __sum) {
+        assembly {
+            function addmod_bn254(lhs, rhs) -> sum {
+                sum := addmod(lhs, rhs, MODULUS)
+            }
+            __sum := addmod_bn254(__lhs, __rhs)
+        }
+    }
+
+    /// @notice Computes `addmod(lhs, mulmod(rhs, MODULUS_MINUS_ONE, MODULUS), MODULUS)`
+    /// @dev The difference of two uint256 values mod the order of bn254.
+    /// @param __lhs The left hand side
+    /// @param __rhs The right hand side
+    /// @return __difference The difference of the two sides with the appropriate modulus
+    function __subModBN254(uint256 __lhs, uint256 __rhs) internal pure returns (uint256 __difference) {
+        assembly {
+            function submod_bn254(lhs, rhs) -> difference {
+                difference := addmod(lhs, mulmod(rhs, MODULUS_MINUS_ONE, MODULUS), MODULUS)
+            }
+            __difference := submod_bn254(__lhs, __rhs)
+        }
+    }
+
+    /// @notice Computes `mulmod(lhs, rhs, MODULUS)`
+    /// @dev The product of two uint256 values mod the order of bn254.
+    /// @param __lhs The left hand side
+    /// @param __rhs The right hand side
+    /// @return __product The product of the two sides with the appropriate modulus
+    function __mulModBN254(uint256 __lhs, uint256 __rhs) internal pure returns (uint256 __product) {
+        assembly {
+            function mulmod_bn254(lhs, rhs) -> product {
+                product := mulmod(lhs, rhs, MODULUS)
+            }
+            __product := mulmod_bn254(__lhs, __rhs)
         }
     }
 }
