@@ -140,6 +140,7 @@ pub(crate) fn verify_shift<S: Scalar>(
 
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
+    use super::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
     use crate::{
         base::{
             database::{
@@ -150,14 +151,9 @@ mod tests {
             proof::{PlaceholderResult, ProofError},
             scalar::Scalar,
         },
-        sql::{
-            proof::{
-                FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
-                VerifiableQueryResult, VerificationBuilder,
-            },
-            proof_gadgets::shift::{
-                final_round_evaluate_shift, first_round_evaluate_shift, verify_shift,
-            },
+        sql::proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerifiableQueryResult,
+            VerificationBuilder,
         },
     };
     use blitzar::proof::InnerProductProof;
