@@ -7,8 +7,8 @@ use crate::{
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     sql::proof_exprs::{
-        AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr,
-        MultiplyExpr, NotExpr, OrExpr, SubtractExpr,
+        AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
+        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, SubtractExpr,
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -27,6 +27,7 @@ pub(crate) enum EVMDynProofExpr {
     Or(EVMOrExpr),
     Not(EVMNotExpr),
     Cast(EVMCastExpr),
+    Inequality(EVMInequalityExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -43,6 +44,10 @@ impl EVMDynProofExpr {
             }
             DynProofExpr::Equals(equals_expr) => {
                 EVMEqualsExpr::try_from_proof_expr(equals_expr, column_refs).map(Self::Equals)
+            }
+            DynProofExpr::Inequality(inequality_expr) => {
+                EVMInequalityExpr::try_from_proof_expr(inequality_expr, column_refs)
+                    .map(Self::Inequality)
             }
             DynProofExpr::Add(add_expr) => {
                 EVMAddExpr::try_from_proof_expr(add_expr, column_refs).map(Self::Add)
@@ -79,6 +84,9 @@ impl EVMDynProofExpr {
             )),
             EVMDynProofExpr::Equals(equals_expr) => Ok(DynProofExpr::Equals(
                 equals_expr.try_into_proof_expr(column_refs)?,
+            )),
+            EVMDynProofExpr::Inequality(inequality_expr) => Ok(DynProofExpr::Inequality(
+                inequality_expr.try_into_proof_expr(column_refs)?,
             )),
             EVMDynProofExpr::Literal(literal_expr) => {
                 Ok(DynProofExpr::Literal(literal_expr.to_proof_expr()))
@@ -282,6 +290,54 @@ impl EVMEqualsExpr {
         Ok(EqualsExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
             Box::new(self.rhs.try_into_proof_expr(column_refs)?),
+        )?)
+    }
+}
+
+/// Represents an inequality expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMInequalityExpr {
+    is_lt: bool,
+    lhs: Box<EVMDynProofExpr>,
+    rhs: Box<EVMDynProofExpr>,
+}
+
+impl EVMInequalityExpr {
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr, is_lt: bool) -> Self {
+        Self {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            is_lt,
+        }
+    }
+
+    /// Try to create an `EVMInequalityExpr` from a `InequalityExpr`.
+    pub(crate) fn try_from_proof_expr(
+        expr: &InequalityExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(EVMInequalityExpr {
+            lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.lhs(),
+                column_refs,
+            )?),
+            rhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.rhs(),
+                column_refs,
+            )?),
+            is_lt: expr.is_lt(),
+        })
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<InequalityExpr> {
+        Ok(InequalityExpr::try_new(
+            Box::new(self.lhs.try_into_proof_expr(column_refs)?),
+            Box::new(self.rhs.try_into_proof_expr(column_refs)?),
+            self.is_lt,
         )?)
     }
 }
@@ -1169,6 +1225,43 @@ mod tests {
         );
     }
 
+    // EVMInequalityExpr
+    #[test]
+    fn we_can_put_an_inequality_expr_in_evm() {
+        let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
+        let ident_a = "a".into();
+        let ident_b = "b".into();
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+
+        let inequality_expr = InequalityExpr::try_new(
+            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
+            true,
+        )
+        .unwrap();
+
+        let evm_inquality_expr = EVMInequalityExpr::try_from_proof_expr(
+            &inequality_expr,
+            &indexset! {column_ref_a.clone(), column_ref_b.clone()},
+        )
+        .unwrap();
+        assert_eq!(
+            evm_inquality_expr,
+            EVMInequalityExpr::new(
+                EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)),
+                true
+            )
+        );
+
+        // Roundtrip
+        let roundtripped_add_expr = evm_inquality_expr
+            .try_into_proof_expr(&indexset! {column_ref_a.clone(), column_ref_b.clone()})
+            .unwrap();
+        assert_eq!(roundtripped_add_expr, inequality_expr);
+    }
+
     // EVMDynProofExpr
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_equals_expr() {
@@ -1328,21 +1421,43 @@ mod tests {
         assert_eq!(evm.try_into_proof_expr(&indexset! { c }).unwrap(), expr);
     }
 
+    #[test]
+    fn we_can_put_into_evm_a_dyn_proof_expr_inequality_expr() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+
+        let expr = lt(
+            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_literal(LiteralValue::BigInt(4)),
+        );
+        let evm =
+            EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
+        let expected = EVMDynProofExpr::Inequality(EVMInequalityExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(4)),
+            true,
+        ));
+        assert_eq!(evm, expected);
+        assert_eq!(
+            evm.try_into_proof_expr(&indexset! { column_b }).unwrap(),
+            expr
+        );
+    }
+
     // Unsupported expressions
     #[test]
     fn we_cannot_put_a_proof_expr_in_evm_if_not_supported() {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Boolean);
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Boolean);
 
         assert!(matches!(
             EVMDynProofExpr::try_from_proof_expr(
-                &DynProofExpr::try_new_inequality(
+                &DynProofExpr::try_new_scaling_cast(
                     DynProofExpr::new_column(column_ref_a.clone()),
-                    DynProofExpr::new_column(column_ref_b.clone()),
-                    false,
+                    ColumnType::Decimal75(Precision::new(15).unwrap(), 1)
                 )
                 .unwrap(),
                 &indexset! {column_ref_a.clone(), column_ref_b.clone()}
