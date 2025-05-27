@@ -55,6 +55,10 @@ uint32 constant ERR_UNSUPPORTED_PROOF_PLAN_VARIANT = 0xe5503cfa;
 uint32 constant ERR_UNSUPPORTED_DATA_TYPE_VARIANT = 0xbd12560e;
 /// @dev Error code for when the evaluation length is too large.
 uint32 constant ERR_EVALUATION_LENGTH_TOO_LARGE = 0xb65e7142;
+/// @dev Error code for when a bit decomposition is invalid.
+uint32 constant ERR_BIT_DECOMPOSITION_INVALID = 0xda443b2b;
+/// @dev Error code for when bits that shouldn't vary do vary.
+uint32 constant ERR_INVALID_VARYING_BITS = 0x76d56a3d;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -110,6 +114,10 @@ library Errors {
     error UnsupportedDataTypeVariant();
     /// @notice Error thrown when the evaluation length is too large.
     error EvaluationLengthTooLarge();
+    /// @notice Error thrown when a bit decomposition is invalid.
+    error BitDecompositionInvalid();
+    /// @notice Error thrown when bits that shouldn't vary do vary.
+    error InvalidVaryingBits();
 
     function __err(uint32 __code) internal pure {
         assembly {
