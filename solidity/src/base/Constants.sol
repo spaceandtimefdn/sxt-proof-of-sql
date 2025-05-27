@@ -103,6 +103,8 @@ uint32 constant OR_EXPR_VARIANT = 7;
 uint32 constant NOT_EXPR_VARIANT = 8;
 /// @dev Cast variant constant for proof expressions
 uint32 constant CAST_EXPR_VARIANT = 9;
+/// @dev Inequality variant constant for proof expressions
+uint32 constant INEQUALITY_EXPR_VARIANT = 10;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
