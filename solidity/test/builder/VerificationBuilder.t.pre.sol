@@ -851,8 +851,7 @@ contract VerificationBuilderTest is Test {
         assert(VerificationBuilder.__getFinalRoundCommitments(builder) == valuesPtr);
     }
 
-    /// forge-config: default.allow_internal_expect_revert = true
-    function testSetBitDistributions() public {
+    function testSetBitDistributions() public pure {
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
         uint256[] memory emptyValues = new uint256[](0);
         // Empty array should not revert
@@ -860,15 +859,31 @@ contract VerificationBuilderTest is Test {
 
         uint256[] memory values = new uint256[](1);
         values[0] = 0x12345678;
-        vm.expectRevert(Errors.UnsupportedProof.selector);
+        // Populated array should not revert
         VerificationBuilder.__setBitDistributions(builder, values);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
-    function testFuzzSetBitDistributions(uint256[] memory values) public {
+    function testConsumeBitDistributions() public {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory values = new uint256[](3);
+        values[0] = 0x12345678;
+        values[1] = 0x12345677;
+        values[2] = 0x12345676;
+        // Populated array should not revert
+        VerificationBuilder.__setBitDistributions(builder, values);
+        uint256 varyMask;
+        uint256 leadingBitMask;
+        (varyMask, leadingBitMask) = VerificationBuilder.__consumeBitDistribution(builder);
+        // Error should occur if there's only one uint256 available
+        vm.expectRevert(Errors.EmptyQueue.selector);
+        VerificationBuilder.__consumeBitDistribution(builder);
+    }
+
+    function testFuzzSetBitDistributions(uint256[] memory values) public pure {
         vm.assume(values.length > 0);
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
-        vm.expectRevert(Errors.UnsupportedProof.selector);
+        // Populated array should not revert
         VerificationBuilder.__setBitDistributions(builder, values);
     }
 
