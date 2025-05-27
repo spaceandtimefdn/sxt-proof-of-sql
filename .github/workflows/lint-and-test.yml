@@ -245,4 +245,5 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85.0
       - name: Run Rust EVM tests
         run: cargo test --package proof-of-sql --lib --all-features -- evm_tests --ignored --test-threads=1
-
+      - name: Run Planner Rust EVM tests
+        run: cargo test --package proof-of-sql-planner --all-features --test evm_tests -- --ignored --test-threads=1
