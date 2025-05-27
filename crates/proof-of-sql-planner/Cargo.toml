@@ -25,8 +25,14 @@ sqlparser = { workspace = true }
 uuid = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
 ark-std = { workspace = true }
+bincode = { workspace = true }
 bumpalo = { workspace = true }
+hex = { workspace = true }
+itertools = { workspace = true }
+proof-of-sql = { workspace = true, features = ["arrow", "hyperkzg_proof"] }
 
 [lints]
 workspace = true

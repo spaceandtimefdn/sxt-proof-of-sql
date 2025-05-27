@@ -55,10 +55,12 @@ pub fn deserialize_flat_compressed_hyperkzg_public_setup_from_slice(
         .collect()
 }
 
-#[cfg(all(test, feature = "hyperkzg_proof"))]
+#[cfg(feature = "hyperkzg_proof")]
 #[must_use]
 /// Load a small setup for testing.
 /// This returns a public setup and a verifier key.
+/// # Panics
+/// Panics if bin file not found
 pub fn load_small_setup_for_testing() -> (
     HyperKZGPublicSetupOwned,
     nova_snark::provider::hyperkzg::VerifierKey<super::HyperKZGEngine>,
