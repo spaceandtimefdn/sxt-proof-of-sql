@@ -1,25 +1,35 @@
-use crate::{
+//! In this file we run end-to-end tests for the evm verifier.
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::PrimeField;
+use datafusion::config::ConfigOptions;
+use itertools::Itertools;
+use proof_of_sql::{
     base::{
         database::{
-            owned_table_utility::*, ColumnType, CommitmentAccessor, LiteralValue,
-            OwnedTableTestAccessor, TableRef,
+            owned_table_utility::{
+                bigint, boolean, decimal75, int, owned_table, smallint, timestamptz, tinyint,
+                varbinary, varchar,
+            },
+            ColumnRef, ColumnType, CommitmentAccessor, LiteralValue, OwnedTableTestAccessor,
+            SchemaAccessor, TableRef,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
-    proof_primitive::hyperkzg::{self, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof},
+    proof_primitive::hyperkzg::{
+        load_small_setup_for_testing, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof,
+    },
     sql::{
         evm_proof_plan::EVMProofPlan,
-        parse::QueryExpr,
         proof::{ProofPlan, VerifiableQueryResult},
-        proof_exprs::{test_utility::*, DynProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
         proof_plans::DynProofPlan,
     },
 };
-use ark_ec::{AffineRepr, CurveGroup};
-use ark_ff::PrimeField;
-use itertools::Itertools;
+use proof_of_sql_planner::sql_to_proof_plans;
+use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
 
+#[expect(clippy::missing_panics_doc)]
 fn evm_verifier_with_extra_args(
     plan: &DynProofPlan,
     verifiable_result: &VerifiableQueryResult<HyperKZGCommitmentEvaluationProof>,
@@ -90,13 +100,39 @@ fn evm_verifier_all(
         )
 }
 
+#[expect(clippy::missing_panics_doc)]
+fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
+    let name: Ident = name.into();
+    let type_col = accessor.lookup_column(tab, &name).unwrap();
+    ColumnRef::new(tab.clone(), name, type_col)
+}
+
+fn col_expr_plan(
+    tab: &TableRef,
+    name: &str,
+    accessor: &impl SchemaAccessor,
+) -> AliasedDynProofExpr {
+    AliasedDynProofExpr {
+        expr: DynProofExpr::Column(ColumnExpr::new(col_ref(tab, name, accessor))),
+        alias: name.into(),
+    }
+}
+
+fn aliased_plan(expr: DynProofExpr, alias: &str) -> AliasedDynProofExpr {
+    AliasedDynProofExpr {
+        expr,
+        alias: alias.into(),
+    }
+}
+
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             boolean("b", [true, false, true, false, true]),
             tinyint("i8", [0, i8::MIN, i8::MAX, -1, 1]),
@@ -142,24 +178,20 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
         &ps[..],
     );
 
-    let sql_list = [
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where bin = 0x",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where bin = 0x0001020304",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where lang = 'en'",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where sxt = 'מרחב וזמן'",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where b",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i8 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i16 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i32 = 1",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where i64 = 0",
-        "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from table where d = 1",
-    ];
+    let sql_list = "SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where bin = 0x;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where bin = 0x0001020304;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where lang = 'en';
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where sxt = 'מרחב וזמן';
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where b;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i8 = 0;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i16 = 0;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i32 = 1;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i64 = 0;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where d = 1;";
 
-    for sql in sql_list {
-        let query =
-            QueryExpr::try_new(sql.parse().unwrap(), "namespace".into(), &accessor).unwrap();
-        let plan = query.proof_expr();
-
+    let statements = Parser::parse_sql(&GenericDialect {}, sql_list).unwrap();
+    let plans = sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap();
+    for plan in plans {
         let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
             &EVMProofPlan::new(plan.clone()),
             &accessor,
@@ -168,7 +200,7 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
         )
         .unwrap();
 
-        assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+        assert!(evm_verifier_all(&plan, &verifiable_result, &accessor));
 
         verifiable_result
             .clone()
@@ -179,11 +211,12 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_filter_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, 2, 5, 3, 2]),
             bigint("b", [0, 1, 2, 3, 4, 5]),
@@ -191,13 +224,12 @@ fn we_can_verify_a_simple_filter_using_the_evm() {
         0,
         &ps[..],
     );
-    let query = QueryExpr::try_new(
-        "SELECT b FROM table WHERE a = 5".parse().unwrap(),
-        "namespace".into(),
-        &accessor,
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT b FROM namespace.table WHERE a = 5",
     )
     .unwrap();
-    let plan = query.proof_expr();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
 
     let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
         &EVMProofPlan::new(plan.clone()),
@@ -217,11 +249,12 @@ fn we_can_verify_a_simple_filter_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, -2, 5, 3, -2]),
             bigint("b", [0, 1, 2, 3, 4, 5]),
@@ -229,13 +262,12 @@ fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
         0,
         &ps[..],
     );
-    let query = QueryExpr::try_new(
-        "SELECT b FROM table WHERE a = -2".parse().unwrap(),
-        "namespace".into(),
-        &accessor,
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT b FROM namespace.table WHERE a = -2",
     )
     .unwrap();
-    let plan = query.proof_expr();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
     let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
         &EVMProofPlan::new(plan.clone()),
         &accessor,
@@ -254,11 +286,12 @@ fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, 2, 5, 3, 2]),
             bigint("b", [0, 1, 2, 3, 4, 5]),
@@ -266,15 +299,12 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
         0,
         &ps[..],
     );
-    let query = QueryExpr::try_new(
-        "SELECT a, b FROM table WHERE a + b = a - b"
-            .parse()
-            .unwrap(),
-        "namespace".into(),
-        &accessor,
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT a, b FROM namespace.table WHERE a + b = a - b",
     )
     .unwrap();
-    let plan = query.proof_expr();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
 
     let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
         &EVMProofPlan::new(plan.clone()),
@@ -294,11 +324,12 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_cast_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, 2, 5, 3, 2, 4]),
             boolean("b", [true, false, true, false, true, false, true]),
@@ -347,11 +378,12 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, 2, 5, 3, 2, 4]),
             boolean("b", [true, false, true, false, true, false, true]),
@@ -400,11 +432,12 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_complex_filter_using_the_evm() {
-    let (ps, vk) = hyperkzg::load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
-        "namespace.table".parse().unwrap(),
+        TableRef::new("namespace", "table"),
         owned_table([
             bigint("a", [5, 3, 2, 5, 3, 2, 102, 104, 107, 108]),
             bigint("b", [0, 1, 2, 3, 4, 5, 33, 44, 55, 6]),
@@ -414,15 +447,12 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
         0,
         &ps[..],
     );
-    let query = QueryExpr::try_new(
-        "SELECT b,c FROM table WHERE (a + b = d) and (b = a * c)"
-            .parse()
-            .unwrap(),
-        "namespace".into(),
-        &accessor,
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT b,c FROM namespace.table WHERE (a + b = d) and (b = a * c)",
     )
     .unwrap();
-    let plan = query.proof_expr();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
     let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
         &EVMProofPlan::new(plan.clone()),
         &accessor,
