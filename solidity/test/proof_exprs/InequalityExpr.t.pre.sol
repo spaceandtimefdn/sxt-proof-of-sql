@@ -46,7 +46,7 @@ contract InequalityExprTest is Test {
             [int64(1), 0, 0, 1],
             [int64(1), 0, 1, 0],
             [int64(1), 1, 0, 0],
-            [int64(1), 1, 0, 0]
+            [int64(0), 0, 1, 1]
         ];
 
         uint256[] memory evaluations = new uint256[](10);

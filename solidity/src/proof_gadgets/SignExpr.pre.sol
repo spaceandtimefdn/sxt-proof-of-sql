@@ -84,7 +84,7 @@ library SignExpr {
                 let leading_bit_mask
                 vary_mask, leading_bit_mask := builder_consume_bit_distribution(builder_ptr)
                 let leading_bit_inverse_mask := shr(1, shl(1, xor(not(vary_mask), leading_bit_mask)))
-                let sign_eval := shr(255, leading_bit_mask)
+                let sign_eval := mulmod(shr(255, leading_bit_mask), chi_eval, MODULUS)
                 let rhs_eval := 0
 
                 for { let i := 0 } lt(i, 256) { i := add(i, 1) } {

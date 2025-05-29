@@ -170,6 +170,30 @@ contract ArrayTest is Test {
         assert(sourceOut[2] == 0xef);
     }
 
+    function testSimpleLimbsArray() public pure {
+        // Create test data with two words per element
+        bytes memory source = abi.encodePacked(
+            uint64(1), // length
+            uint64(0),
+            uint64(1 << 63),
+            uint64(0),
+            uint64(0),
+            uint64(1 << 63),
+            uint64(0),
+            uint64(0),
+            uint64(0),
+            hex"abcdef"
+        );
+
+        uint256[] memory array;
+        (source, array) = Array.__readLimbsArray(source);
+
+        assert(array.length == 2);
+
+        assert(array[0] == 1 << 127);
+        assert(array[1] == 1 << 63);
+    }
+
     function testFuzzReadWordx2Array(bytes calldata source) public pure {
         uint256 sourceLength = source.length;
         vm.assume(sourceLength > 7);

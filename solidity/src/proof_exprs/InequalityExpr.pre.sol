@@ -151,7 +151,7 @@ library InequalityExpr {
 
                 let diff_eval := submod_bn254(rhs_eval, lhs_eval)
                 if is_lt { diff_eval := submod_bn254(lhs_eval, rhs_eval) }
-                result_eval := sign_expr_evaluate(diff_eval, builder_ptr, chi_eval)
+                result_eval := submod_bn254(chi_eval, sign_expr_evaluate(diff_eval, builder_ptr, chi_eval))
                 expr_ptr_out := expr_ptr
             }
 

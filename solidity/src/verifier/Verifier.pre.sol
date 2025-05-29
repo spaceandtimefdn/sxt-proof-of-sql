@@ -30,6 +30,10 @@ library Verifier {
             function read_wordx2_array(proof_ptr_init) -> proof_ptr, array_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function read_limbs_array(source_ptr) -> source_ptr_out, array_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/ECPrecompiles.pre.sol
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
@@ -387,7 +391,7 @@ library Verifier {
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_final_round_commitments(builder_ptr, array_ptr)
 
-                proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
+                proof_ptr, array_ptr := read_limbs_array(proof_ptr)
                 builder_set_bit_distributions(builder_ptr, array_ptr)
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))
