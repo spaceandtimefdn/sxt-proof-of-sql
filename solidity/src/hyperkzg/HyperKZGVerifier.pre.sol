@@ -135,6 +135,18 @@ library HyperKZGVerifier {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Transcript.sol
             function append_calldata(transcript_ptr, offset, size) {
                 revert(0, 0)

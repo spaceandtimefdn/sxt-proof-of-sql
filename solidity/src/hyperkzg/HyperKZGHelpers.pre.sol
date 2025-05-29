@@ -82,6 +82,14 @@ library HyperKZGHelpers {
         returns (uint256 __b)
     {
         assembly {
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             function bivariate_evaluation(v_ptr, q, d, ell) -> b {
                 b := 0
                 let v_stack := add(v_ptr, mul(WORDX3_SIZE, ell))
@@ -90,20 +98,20 @@ library HyperKZGHelpers {
                     v_stack := sub(v_stack, WORD_SIZE)
                     let tmp := calldataload(v_stack)
                     // tmp = v2i * d
-                    tmp := mulmod(tmp, d, MODULUS)
+                    tmp := mulmod_bn254(tmp, d)
                     // tmp += v1i
                     v_stack := sub(v_stack, WORD_SIZE)
-                    tmp := addmod(tmp, calldataload(v_stack), MODULUS)
+                    tmp := addmod_bn254(tmp, calldataload(v_stack))
                     // tmp *= d
-                    tmp := mulmod(tmp, d, MODULUS)
+                    tmp := mulmod_bn254(tmp, d)
                     // tmp += v0i
                     v_stack := sub(v_stack, WORD_SIZE)
-                    tmp := addmod(tmp, calldataload(v_stack), MODULUS)
+                    tmp := addmod_bn254(tmp, calldataload(v_stack))
 
                     // b *= q
-                    b := mulmod(b, q, MODULUS)
+                    b := mulmod_bn254(b, q)
                     // b += tmp
-                    b := addmod(b, tmp, MODULUS)
+                    b := addmod_bn254(b, tmp)
                 }
             }
             __b := bivariate_evaluation(__v.offset, __q, __d, __v.length)
@@ -138,6 +146,18 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             function check_v_consistency(v_ptr, r, x, y) {
                 let ell := mload(x)
                 let v_stack := add(v_ptr, mul(WORDX3_SIZE, ell))
@@ -154,18 +174,15 @@ library HyperKZGHelpers {
                     let xi := mload(x)
 
                     // r * (2 * y + (xi - 1) * (v1i + v0i)) + xi * (v1i - v0i)
-                    if addmod(
-                        mulmod(
+                    if addmod_bn254(
+                        mulmod_bn254(
                             r,
-                            addmod(
-                                addmod(last_v2, last_v2, MODULUS),
-                                mulmod(addmod(xi, MODULUS_MINUS_ONE, MODULUS), addmod(v1i, v0i, MODULUS), MODULUS),
-                                MODULUS
-                            ),
-                            MODULUS
+                            addmod_bn254(
+                                addmod_bn254(last_v2, last_v2),
+                                mulmod_bn254(submod_bn254(xi, 1), addmod_bn254(v1i, v0i))
+                            )
                         ),
-                        mulmod(xi, addmod(v1i, sub(MODULUS, mod(v0i, MODULUS)), MODULUS), MODULUS),
-                        MODULUS
+                        mulmod_bn254(xi, submod_bn254(v1i, v0i))
                     ) { err(ERR_HYPER_KZG_INCONSISTENT_V) }
 
                     last_v2 := v2i
@@ -289,6 +306,14 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/ECPrecompiles.pre.sol
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
@@ -337,17 +362,17 @@ library HyperKZGHelpers {
                 // g_l += commitment
                 ec_add_assign(scratch, commitment_ptr)
                 // g_l *= d * (d + 1) + 1
-                ec_mul_assign(scratch, addmod(mulmod(d, addmod(d, 1, MODULUS), MODULUS), 1, MODULUS))
+                ec_mul_assign(scratch, addmod_bn254(mulmod_bn254(d, addmod_bn254(d, 1)), 1))
                 // g_l += -G * b
                 constant_ec_mul_add_assign(scratch, G1_NEG_GEN_X, G1_NEG_GEN_Y, b)
 
-                let dr := mulmod(d, r, MODULUS)
+                let dr := mulmod_bn254(d, r)
                 // g_l += w[0] * r
                 calldata_ec_mul_add_assign(scratch, w_ptr, r)
                 // g_l += w[1] * -d * r
                 calldata_ec_mul_add_assign(scratch, add(w_ptr, WORDX2_SIZE), sub(MODULUS, dr))
                 // g_l += w[2] * (d * r)^2
-                calldata_ec_mul_add_assign(scratch, add(w_ptr, WORDX4_SIZE), mulmod(dr, dr, MODULUS))
+                calldata_ec_mul_add_assign(scratch, add(w_ptr, WORDX4_SIZE), mulmod_bn254(dr, dr))
             }
             compute_gl_msm(
                 __com.offset,

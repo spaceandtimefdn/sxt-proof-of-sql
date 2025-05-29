@@ -45,6 +45,18 @@ library AddExpr {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -129,7 +141,7 @@ library AddExpr {
                 let rhs_eval
                 expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
-                result_eval := addmod(lhs_eval, rhs_eval, MODULUS)
+                result_eval := addmod_bn254(lhs_eval, rhs_eval)
                 expr_ptr_out := expr_ptr
             }
 

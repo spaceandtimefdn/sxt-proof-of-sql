@@ -39,6 +39,18 @@ library LiteralExpr {
         returns (bytes calldata __exprOut, uint256 __eval)
     {
         assembly {
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Errors.sol
             function err(code) {
                 revert(0, 0)
@@ -64,7 +76,7 @@ library LiteralExpr {
                 let literal_variant
                 expr_ptr, literal_variant := read_data_type(expr_ptr)
                 expr_ptr, eval := read_entry(expr_ptr, literal_variant)
-                eval := mulmod(eval, chi_eval, MODULUS)
+                eval := mulmod_bn254(eval, chi_eval)
                 expr_ptr_out := expr_ptr
             }
             let __exprOutOffset

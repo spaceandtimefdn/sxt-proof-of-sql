@@ -36,6 +36,18 @@ library Sumcheck {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Transcript.sol
             function append_calldata(transcript_ptr, offset, size) {
                 revert(0, 0)
@@ -54,11 +66,11 @@ library Sumcheck {
                 for {} degree { degree := sub(degree, 1) } {
                     coefficient := calldataload(proof_ptr)
                     proof_ptr := add(proof_ptr, WORD_SIZE)
-                    round_evaluation := mulmod(round_evaluation, challenge, MODULUS)
-                    round_evaluation := addmod(round_evaluation, coefficient, MODULUS)
-                    actual_sum := addmod(actual_sum, coefficient, MODULUS)
+                    round_evaluation := mulmod_bn254(round_evaluation, challenge)
+                    round_evaluation := addmod_bn254(round_evaluation, coefficient)
+                    actual_sum := addmod_bn254(actual_sum, coefficient)
                 }
-                actual_sum := addmod(actual_sum, coefficient, MODULUS)
+                actual_sum := addmod_bn254(actual_sum, coefficient)
                 proof_ptr_out := proof_ptr
             }
 

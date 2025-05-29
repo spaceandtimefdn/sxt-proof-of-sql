@@ -44,6 +44,18 @@ library NotExpr {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -125,7 +137,7 @@ library NotExpr {
                 let input_eval
                 expr_ptr, input_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
-                result_eval := addmod(chi_eval, mulmod(MODULUS_MINUS_ONE, input_eval, MODULUS), MODULUS)
+                result_eval := submod_bn254(chi_eval, input_eval)
                 expr_ptr_out := expr_ptr
             }
 

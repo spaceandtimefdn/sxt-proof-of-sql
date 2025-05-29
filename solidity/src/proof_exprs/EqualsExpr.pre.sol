@@ -71,6 +71,18 @@ library EqualsExpr {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -155,22 +167,14 @@ library EqualsExpr {
                 let rhs_eval
                 expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
-                let diff_eval := addmod(lhs_eval, mulmod(MODULUS_MINUS_ONE, rhs_eval, MODULUS), MODULUS)
+                let diff_eval := submod_bn254(lhs_eval, rhs_eval)
                 let diff_star_eval := builder_consume_final_round_mle(builder_ptr)
                 result_eval := mod(builder_consume_final_round_mle(builder_ptr), MODULUS)
 
-                builder_produce_identity_constraint(builder_ptr, mulmod(result_eval, diff_eval, MODULUS), 2)
+                builder_produce_identity_constraint(builder_ptr, mulmod_bn254(result_eval, diff_eval), 2)
                 builder_produce_identity_constraint(
                     builder_ptr,
-                    addmod(
-                        chi_eval,
-                        mulmod(
-                            MODULUS_MINUS_ONE,
-                            addmod(mulmod(diff_eval, diff_star_eval, MODULUS), result_eval, MODULUS),
-                            MODULUS
-                        ),
-                        MODULUS
-                    ),
+                    submod_bn254(chi_eval, addmod_bn254(mulmod_bn254(diff_eval, diff_star_eval), result_eval)),
                     2
                 )
 

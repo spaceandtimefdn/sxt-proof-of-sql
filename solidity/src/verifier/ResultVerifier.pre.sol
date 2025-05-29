@@ -38,6 +38,14 @@ library ResultVerifier {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)
@@ -93,7 +101,7 @@ library ResultVerifier {
                     for { let i := 0 } sub(table_len, i) { i := add(i, 1) } {
                         let entry
                         result_ptr, entry := read_entry(result_ptr, data_type_variant)
-                        value := addmod(value, mulmod(entry, mload(add(eval_vec, mul(i, WORD_SIZE))), MODULUS), MODULUS)
+                        value := addmod_bn254(value, mulmod_bn254(entry, mload(add(eval_vec, mul(i, WORD_SIZE)))))
                     }
                     if value { err(ERR_INCORRECT_RESULT) }
                 }
