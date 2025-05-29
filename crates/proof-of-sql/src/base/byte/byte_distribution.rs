@@ -58,13 +58,11 @@ impl ByteDistribution {
 
     /// Returns the number of byte columns that vary.
     #[expect(clippy::missing_panics_doc)]
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn varying_byte_count(&self) -> u8 {
         self.vary_mask.count_ones().try_into().unwrap()
     }
 
     /// Exposes `constant_mask` as `U256`
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn constant_mask(&self) -> U256 {
         U256::from(self.constant_mask)
     }
