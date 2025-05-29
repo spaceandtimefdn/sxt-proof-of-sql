@@ -19,7 +19,8 @@ library ProofExpr {
         And,
         Or,
         Not,
-        Cast
+        Cast,
+        Inequality
     }
 
     /// @notice Evaluates a proof expression
@@ -137,6 +138,22 @@ library ProofExpr {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
 
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 let proof_expr_variant := shr(UINT32_PADDING_BITS, calldataload(expr_ptr))
@@ -182,6 +199,10 @@ library ProofExpr {
                 case 9 {
                     case_const(9, CAST_EXPR_VARIANT)
                     expr_ptr_out, eval := cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 10 {
+                    case_const(10, INEQUALITY_EXPR_VARIANT)
+                    expr_ptr_out, eval := inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }

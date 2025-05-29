@@ -7,6 +7,7 @@ import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
 import {ProofExpr} from "../../src/proof_exprs/ProofExpr.pre.sol";
+import {F} from "../base/FieldUtil.sol";
 
 contract ProofExprTest is Test {
     function testColumnExprVariant() public pure {
@@ -242,6 +243,78 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testInequalityExprVariant() public pure {
+        bytes memory expr = abi.encodePacked(
+            INEQUALITY_EXPR_VARIANT,
+            true,
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(7)),
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            hex"abcdef"
+        );
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory bitDistribution = new uint256[](2);
+        bitDistribution[0] = 0x800000000000000000000000000000000000000000000000000000000000007D;
+        bitDistribution[1] = 0x8000000000000000000000000000000000000000000000000000000000000002;
+        VerificationBuilder.__setBitDistributions(builder, bitDistribution);
+        builder.maxDegree = 3;
+        builder.constraintMultipliers = new uint256[](7);
+        builder.constraintMultipliers[0] = 5;
+        builder.constraintMultipliers[1] = 5;
+        builder.constraintMultipliers[2] = 5;
+        builder.constraintMultipliers[3] = 5;
+        builder.constraintMultipliers[4] = 5;
+        builder.constraintMultipliers[5] = 5;
+        builder.constraintMultipliers[6] = 5;
+        builder.aggregateEvaluation = 0;
+        builder.rowMultipliersEvaluation = addmod(MODULUS, mulmod(MODULUS_MINUS_ONE, 2, MODULUS), MODULUS);
+
+        int64[4] memory evaluationVector = [int64(700), -6, 3007, 134562844];
+
+        int64[4][10] memory vectorsToEvaluate = [
+            [int64(-99), -16, 67, 83],
+            [int64(1), 1, 1, 1],
+            [int64(0), 1, 0, 0],
+            [int64(0), 1, 1, 1],
+            [int64(1), 0, 0, 0],
+            [int64(0), 1, 0, 1],
+            [int64(1), 0, 0, 1],
+            [int64(1), 0, 1, 0],
+            [int64(1), 1, 0, 0],
+            [int64(0), 0, 1, 1]
+        ];
+
+        uint256[] memory evaluations = new uint256[](10);
+
+        for (uint8 i = 0; i < 10; ++i) {
+            int64 evaluation = 0;
+            for (uint8 j = 0; j < 4; ++j) {
+                evaluation += evaluationVector[j] * vectorsToEvaluate[i][j];
+            }
+            evaluations[i] = F.from(evaluation).into();
+        }
+
+        builder.columnEvaluations = new uint256[](1);
+        builder.columnEvaluations[0] = evaluations[0];
+
+        uint256[] memory finalRoundMles = new uint256[](7);
+        for (uint8 i = 2; i < 9; ++i) {
+            finalRoundMles[i - 2] = evaluations[i];
+        }
+
+        VerificationBuilder.__setFinalRoundMLEs(builder, finalRoundMles);
+        bytes memory expectedExprOut = hex"abcdef";
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, evaluations[1]);
+
+        assert(eval == evaluations[9]); // 2 * 3
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
@@ -261,5 +334,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Or) == OR_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Not) == NOT_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Cast) == CAST_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
     }
 }

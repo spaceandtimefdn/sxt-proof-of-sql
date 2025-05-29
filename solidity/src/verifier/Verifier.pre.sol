@@ -298,6 +298,22 @@ library Verifier {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
@@ -317,6 +333,10 @@ library Verifier {
             }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr {
                 revert(0, 0)
             }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
@@ -371,7 +391,7 @@ library Verifier {
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_final_round_commitments(builder_ptr, array_ptr)
 
-                proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
+                proof_ptr, array_ptr := read_bit_distribution_array(proof_ptr)
                 builder_set_bit_distributions(builder_ptr, array_ptr)
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))

@@ -146,24 +146,40 @@ contract ArrayTest is Test {
         assert(sourceOut[2] == 0xef);
     }
 
-    function testSimpleReadWordx2Array() public pure {
-        // Create test data with two words per element
-        bytes memory source = abi.encodePacked(
-            uint64(2), // length
-            uint256(1),
-            uint256(2), // first element
-            uint256(3),
-            uint256(4), // second element
-            hex"abcdef" // remainder
-        );
+    function testNonEmptyReadWordx2Array() public pure {
+        bytes memory source = abi.encodePacked(uint64(1), uint256(1), uint256(1), hex"abcdef");
 
         (bytes memory sourceOut, uint256[2][] memory array) = Array.__readWordx2Array(source);
 
+        assert(array.length == 1);
+        assert(sourceOut.length == 3);
+        assert(sourceOut[0] == 0xab);
+        assert(sourceOut[1] == 0xcd);
+        assert(sourceOut[2] == 0xef);
+    }
+
+    function testSimpleBitDistributionArray() public pure {
+        bytes memory source = abi.encodePacked(
+            uint64(1), // length
+            uint64(0),
+            uint64(1 << 63),
+            uint64(0),
+            uint64(0),
+            uint64(1 << 63),
+            uint64(0),
+            uint64(0),
+            uint64(0),
+            hex"abcdef"
+        );
+
+        uint256[] memory array;
+        bytes memory sourceOut;
+        (sourceOut, array) = Array.__readBitDistributionArray(source);
+
         assert(array.length == 2);
-        assert(array[0][0] == 1);
-        assert(array[0][1] == 2);
-        assert(array[1][0] == 3);
-        assert(array[1][1] == 4);
+
+        assert(array[0] == 1 << 127);
+        assert(array[1] == 1 << 63);
         assert(sourceOut.length == 3);
         assert(sourceOut[0] == 0xab);
         assert(sourceOut[1] == 0xcd);

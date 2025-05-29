@@ -203,4 +203,61 @@ library Array {
         }
         __array = __arrayTmp;
     }
+
+    /// @notice Reads an array of bit distributions to a uint256 array
+    /// @custom:yul-function
+    /// #### Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `source_ptr` - calldata pointer to array length followed by array elements
+    /// ##### Return Values
+    /// * `source_ptr_out` - pointer to remaining calldata after consuming the array
+    /// * `array_ptr` - pointer to array in memory containing [length, [word0,word1],...]
+    /// @dev Reads an array by first reading length as uint64, then retrieving twice that many uint256 values from limbs.
+    /// @param __source The input source containing the array
+    /// @return __sourceOut The remaining source after consuming the array
+    /// @return __array The decoded array of uint256s
+
+    function __readBitDistributionArray(bytes calldata __source)
+        external
+        pure
+        returns (bytes calldata __sourceOut, uint256[] memory __array)
+    {
+        assembly {
+            function read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr {
+                array_ptr := mload(FREE_PTR)
+
+                let length := shr(UINT64_PADDING_BITS, calldataload(source_ptr))
+                mstore(array_ptr, mul(length, 2))
+                source_ptr := add(source_ptr, UINT64_SIZE)
+
+                let tmp_ptr := add(array_ptr, WORD_SIZE)
+                for {} length { length := sub(length, 1) } {
+                    for { let i := 2 } i { i := sub(i, 1) } {
+                        let sum := 0
+                        for { let j := 4 } j { j := sub(j, 1) } {
+                            let term := shl(mul(64, sub(4, j)), shr(UINT64_PADDING_BITS, calldataload(source_ptr)))
+                            source_ptr := add(source_ptr, UINT64_SIZE)
+                            sum := add(sum, term)
+                        }
+                        mstore(tmp_ptr, sum)
+                        tmp_ptr := add(tmp_ptr, WORD_SIZE)
+                    }
+                }
+
+                mstore(FREE_PTR, tmp_ptr)
+
+                source_ptr_out := source_ptr
+            }
+
+            let __sourceOutOffset
+            __sourceOutOffset, __array := read_bit_distribution_array(__source.offset)
+            __sourceOut.offset := __sourceOutOffset
+            // slither-disable-next-line write-after-write
+            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+        }
+    }
 }
