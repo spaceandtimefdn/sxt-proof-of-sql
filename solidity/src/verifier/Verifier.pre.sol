@@ -239,6 +239,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_singleton_chi_evaluation(builder_ptr, value) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_set_table_chi_evaluations(builder_ptr, values_ptr) {
                 revert(0, 0)
             }
@@ -543,6 +547,9 @@ library Verifier {
 
                 compute_evaluations(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
                 compute_evaluations(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
+                builder_set_singleton_chi_evaluation(
+                    builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
+                )
 
                 builder_set_row_multipliers_evaluation(
                     builder_ptr,
