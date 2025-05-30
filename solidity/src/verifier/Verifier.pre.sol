@@ -319,6 +319,10 @@ library Verifier {
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function verify_sumcheck_proof(transcript_ptr, proof_ptr, num_vars) ->
                 proof_ptr_out,
@@ -371,7 +375,7 @@ library Verifier {
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_final_round_commitments(builder_ptr, array_ptr)
 
-                proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
+                proof_ptr, array_ptr := read_bit_distribution_array(proof_ptr)
                 builder_set_bit_distributions(builder_ptr, array_ptr)
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))

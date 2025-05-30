@@ -203,4 +203,51 @@ library Array {
         }
         __array = __arrayTmp;
     }
+
+    /// @notice Reads an array of bit distributions to a uint256 array
+    /// @custom:yul-function
+    /// #### Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `source_ptr` - calldata pointer to array length followed by array elements
+    /// ##### Return Values
+    /// * `source_ptr_out` - pointer to remaining calldata after consuming the array
+    /// * `array_ptr` - pointer to array in memory containing [length, [word0,word1],...]
+    /// @dev Reads an array by first reading length as uint64, then retrieving twice that many uint256 values from limbs.
+    /// @param __source The input source containing the array
+    /// @return __sourceOut The remaining source after consuming the array
+    /// @return __array The decoded array of uint256s
+
+    function __readBitDistributionArray(bytes calldata __source)
+        external
+        pure
+        returns (bytes calldata __sourceOut, uint256[] memory __array)
+    {
+        assembly {
+            function read_bit_distribution_array(source_ptr) -> source_ptr_out, array_ptr {
+                array_ptr := mload(FREE_PTR)
+
+                let length := shr(UINT64_PADDING_BITS, calldataload(source_ptr))
+                mstore(array_ptr, mul(length, 2))
+                source_ptr := add(source_ptr, UINT64_SIZE)
+
+                let target_ptr := add(array_ptr, WORD_SIZE)
+                let copy_size := mul(length, WORDX2_SIZE)
+                calldatacopy(target_ptr, source_ptr, copy_size)
+
+                mstore(FREE_PTR, add(target_ptr, copy_size))
+
+                source_ptr_out := add(source_ptr, copy_size)
+            }
+
+            let __sourceOutOffset
+            __sourceOutOffset, __array := read_bit_distribution_array(__source.offset)
+            __sourceOut.offset := __sourceOutOffset
+            // slither-disable-next-line write-after-write
+            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+        }
+    }
 }
