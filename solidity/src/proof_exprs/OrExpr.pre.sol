@@ -45,6 +45,18 @@ library OrExpr {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -130,18 +142,9 @@ library OrExpr {
                 expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
                 let lhs_times_rhs_eval := builder_consume_final_round_mle(builder_ptr)
-                result_eval :=
-                    addmod(
-                        addmod(lhs_eval, rhs_eval, MODULUS), mulmod(MODULUS_MINUS_ONE, lhs_times_rhs_eval, MODULUS), MODULUS
-                    )
+                result_eval := submod_bn254(addmod_bn254(lhs_eval, rhs_eval), lhs_times_rhs_eval)
                 builder_produce_identity_constraint(
-                    builder_ptr,
-                    addmod(
-                        lhs_times_rhs_eval,
-                        mulmod(MODULUS_MINUS_ONE, mulmod(lhs_eval, rhs_eval, MODULUS), MODULUS),
-                        MODULUS
-                    ),
-                    2
+                    builder_ptr, submod_bn254(lhs_times_rhs_eval, mulmod_bn254(lhs_eval, rhs_eval)), 2
                 )
 
                 expr_ptr_out := expr_ptr

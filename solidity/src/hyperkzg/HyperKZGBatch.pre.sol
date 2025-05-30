@@ -49,6 +49,14 @@ library HyperKZGBatch {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Transcript.sol
             function draw_challenge(transcript_ptr) -> result {
                 revert(0, 0)
@@ -67,7 +75,7 @@ library HyperKZGBatch {
                         args_ptr, mload(commitments_ptr), mload(add(commitments_ptr, WORD_SIZE)), challenge
                     )
                     commitments_ptr := add(commitments_ptr, WORDX2_SIZE)
-                    batch_eval := addmod(batch_eval, mulmod(mload(evaluations_ptr), challenge, MODULUS), MODULUS)
+                    batch_eval := addmod_bn254(batch_eval, mulmod_bn254(mload(evaluations_ptr), challenge))
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
                 batch_eval_out := mod(batch_eval, MODULUS)

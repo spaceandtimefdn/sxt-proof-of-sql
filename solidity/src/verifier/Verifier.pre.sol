@@ -74,6 +74,18 @@ library Verifier {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
             function compute_truncated_lagrange_basis_inner_product(length, x_ptr, y_ptr, num_vars) -> result {
                 revert(0, 0)
@@ -383,7 +395,7 @@ library Verifier {
                 let expected_evaluation, sumcheck_degree
                 proof_ptr, evaluation_point_ptr, expected_evaluation, sumcheck_degree :=
                     verify_sumcheck_proof(transcript_ptr, proof_ptr_init, num_vars)
-                builder_set_aggregate_evaluation(builder_ptr, mulmod(MODULUS_MINUS_ONE, expected_evaluation, MODULUS))
+                builder_set_aggregate_evaluation(builder_ptr, mulmod_bn254(MODULUS_MINUS_ONE, expected_evaluation))
                 builder_set_max_degree(builder_ptr, sumcheck_degree)
             }
             // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol

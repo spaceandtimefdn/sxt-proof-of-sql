@@ -85,6 +85,18 @@ library FilterExec {
             function err(code) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function submod_bn254(lhs, rhs) -> difference {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -201,13 +213,13 @@ library FilterExec {
                 for { let i := column_count } i { i := sub(i, 1) } {
                     let c
                     plan_ptr, c := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
-                    c_fold := addmod(mulmod(c_fold, beta, MODULUS), c, MODULUS)
+                    c_fold := addmod_bn254(mulmod_bn254(c_fold, beta), c)
                 }
 
                 d_fold := 0
                 for { let i := column_count } i { i := sub(i, 1) } {
                     let d := builder_consume_final_round_mle(builder_ptr)
-                    d_fold := addmod(mulmod(d_fold, beta, MODULUS), d, MODULUS)
+                    d_fold := addmod_bn254(mulmod_bn254(d_fold, beta), d)
 
                     mstore(evaluations_ptr, d)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
@@ -234,32 +246,20 @@ library FilterExec {
                 let output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
 
                 builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
+                )
+                builder_produce_identity_constraint(
                     builder_ptr,
-                    addmod(mulmod(c_star, selection_eval, MODULUS), mulmod(MODULUS_MINUS_ONE, d_star, MODULUS), MODULUS),
+                    submod_bn254(mulmod_bn254(add(1, mulmod_bn254(alpha, c_fold)), c_star), input_chi_eval),
                     2
                 )
                 builder_produce_identity_constraint(
                     builder_ptr,
-                    addmod(
-                        mulmod(add(1, mulmod(alpha, c_fold, MODULUS)), c_star, MODULUS),
-                        mulmod(MODULUS_MINUS_ONE, input_chi_eval, MODULUS),
-                        MODULUS
-                    ),
+                    submod_bn254(mulmod_bn254(add(1, mulmod_bn254(alpha, d_fold)), d_star), output_chi_eval),
                     2
                 )
                 builder_produce_identity_constraint(
-                    builder_ptr,
-                    addmod(
-                        mulmod(add(1, mulmod(alpha, d_fold, MODULUS)), d_star, MODULUS),
-                        mulmod(MODULUS_MINUS_ONE, output_chi_eval, MODULUS),
-                        MODULUS
-                    ),
-                    2
-                )
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    mulmod(mulmod(alpha, d_fold, MODULUS), addmod(output_chi_eval, MODULUS_MINUS_ONE, MODULUS), MODULUS),
-                    2
+                    builder_ptr, mulmod_bn254(mulmod_bn254(alpha, d_fold), submod_bn254(output_chi_eval, 1)), 2
                 )
                 plan_ptr_out := plan_ptr
             }
