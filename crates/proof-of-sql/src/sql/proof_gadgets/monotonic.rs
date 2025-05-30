@@ -28,20 +28,8 @@ pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, 
     column: &'a [S],
 ) {
     let num_rows = column.len();
-    let shifted_column =
-        alloc.alloc_slice_fill_with(
-            num_rows + 1,
-            |i| {
-                if i == 0 {
-                    S::ZERO
-                } else {
-                    column[i - 1]
-                }
-            },
-        );
-    builder.produce_intermediate_mle(shifted_column as &[_]);
     // 1. Prove that `shifted_column` is a shift of `column`
-    final_round_evaluate_shift(builder, alloc, alpha, beta, column, shifted_column);
+    let shifted_column = final_round_evaluate_shift(builder, alloc, alpha, beta, column);
     // 2. Construct an indicator `diff = column - shifted_column`
     let diff = if num_rows >= 1 {
         alloc.alloc_slice_fill_with(num_rows + 1, |i| {
@@ -85,14 +73,12 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
     chi_eval: S,
 ) -> Result<(), ProofError> {
     // 1. Verify that `shifted_column` is a shift of `column`
-    let shifted_column_eval = builder.try_consume_final_round_mle_evaluation()?;
     let shifted_chi_eval = builder.try_consume_chi_evaluation()?;
-    verify_shift(
+    let shifted_column_eval = verify_shift(
         builder,
         alpha,
         beta,
         column_eval,
-        shifted_column_eval,
         chi_eval,
         shifted_chi_eval,
     )?;
