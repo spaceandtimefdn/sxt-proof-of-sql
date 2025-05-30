@@ -3,7 +3,7 @@ use crate::base::{polynomial::MultilinearExtension, scalar::Scalar};
 /// This function takes a set of columns and fold it into a slice of scalars.
 ///
 /// The result `res` is updated with
-/// `res[i] += mul * sum (beta^(n-j) * columns[j][i]) for j in 0..columns.len()` where n is the number of columns.
+/// `res[i] += mul * sum (beta^(n-j-1) * columns[j][i]) for j in 0..columns.len()` where n is the number of columns.
 /// where each column is padded with 0s as needed.
 ///
 /// This is similar to adding `mul * fold_vals(beta,...)` on each row.
@@ -22,7 +22,7 @@ pub fn fold_columns<S: Scalar>(
 /// result of folding the values.
 ///
 /// The result is
-/// `sum (beta^(n-j) * vals[j]) for j in 0..vals.len()` where n is the number of vals.
+/// `sum (beta^(n-j-1) * vals[j]) for j in 0..vals.len()` where n is the number of vals.
 pub fn fold_vals<S: Scalar>(beta: S, vals: &[S]) -> S {
     vals.iter().fold(S::zero(), |acc, &v| acc * beta + v)
 }
