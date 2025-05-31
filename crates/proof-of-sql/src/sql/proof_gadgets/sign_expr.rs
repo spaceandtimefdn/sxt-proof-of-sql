@@ -108,7 +108,7 @@ pub fn verifier_evaluate_sign<S: Scalar>(
 /// This function checks the consistency of the bit evaluations with the expression evaluation.
 /// The column of data is restricted to an unsigned integer type of `num_bits_allowed` bits.
 fn verify_bit_decomposition<S: ScalarExt>(
-    expr_eval: S,
+    eval: S,
     chi_eval: S,
     bit_evals: &[S],
     dist: &BitDistribution,
@@ -135,7 +135,7 @@ fn verify_bit_decomposition<S: ScalarExt>(
     let is_eval_correct_number_of_bits = bits_that_must_match_inverse_lead_bit
         & dist.leading_bit_inverse_mask()
         == bits_that_must_match_inverse_lead_bit;
-    (rhs == expr_eval && is_eval_correct_number_of_bits)
+    (rhs == eval && is_eval_correct_number_of_bits)
         .then_some(sign_eval)
         .ok_or(BitDistributionError::Verification)
 }
