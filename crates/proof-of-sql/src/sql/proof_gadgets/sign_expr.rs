@@ -101,16 +101,8 @@ pub fn verifier_evaluate_sign<S: Scalar>(
         bit_evals.push(eval);
     }
 
-    verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)
-        .map(|sign_eval| chi_eval - sign_eval)
-        .map_err(|err| match err {
-            BitDistributionError::NoLeadBit => {
-                panic!("No lead bit available despite variable lead bit.")
-            }
-            BitDistributionError::Verification => ProofError::VerificationError {
-                error: "invalid bit_decomposition",
-            },
-        })
+    let sign_eval = verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)?;
+    Ok(chi_eval - sign_eval)
 }
 
 /// This function checks the consistency of the bit evaluations with the expression evaluation.
