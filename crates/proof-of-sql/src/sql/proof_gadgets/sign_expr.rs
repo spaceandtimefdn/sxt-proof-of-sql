@@ -93,11 +93,13 @@ pub fn verifier_evaluate_sign<S: Scalar>(
     let mut bit_evals = Vec::with_capacity(num_varying_bits);
     for _ in 0..num_varying_bits {
         let eval = builder.try_consume_final_round_mle_evaluation()?;
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            eval - eval * eval,
+            2,
+        )?;
         bit_evals.push(eval);
     }
-
-    // establish that the bits are binary
-    verify_bits_are_binary(builder, &bit_evals)?;
 
     verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)
         .map(|sign_eval| chi_eval - sign_eval)
@@ -125,20 +127,6 @@ fn prove_bits_are_binary<'a, S: Scalar>(
             ],
         );
     }
-}
-
-fn verify_bits_are_binary<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    bit_evals: &[S],
-) -> Result<(), ProofError> {
-    for bit_eval in bit_evals {
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            *bit_eval - *bit_eval * *bit_eval,
-            2,
-        )?;
-    }
-    Ok(())
 }
 
 /// This function checks the consistency of the bit evaluations with the expression evaluation.
