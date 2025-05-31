@@ -1,5 +1,8 @@
 use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
-use crate::base::scalar::{Scalar, ScalarExt};
+use crate::base::{
+    proof::ProofError,
+    scalar::{Scalar, ScalarExt},
+};
 use ark_std::iterable::Iterable;
 use bit_iter::BitIter;
 use bnum::types::U256;
@@ -43,6 +46,19 @@ pub enum BitDistributionError {
     NoLeadBit,
     /// Failed to verify bit decomposition
     Verification,
+}
+
+impl From<BitDistributionError> for ProofError {
+    fn from(err: BitDistributionError) -> Self {
+        match err {
+            BitDistributionError::NoLeadBit => {
+                panic!("No lead bit available despite variable lead bit.")
+            }
+            BitDistributionError::Verification => ProofError::VerificationError {
+                error: "invalid bit_decomposition",
+            },
+        }
+    }
 }
 
 impl BitDistribution {
