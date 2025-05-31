@@ -113,22 +113,6 @@ pub fn verifier_evaluate_sign<S: Scalar>(
         })
 }
 
-fn prove_bits_are_binary<'a, S: Scalar>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    bits: &[&'a [bool]],
-) {
-    for &seq in bits {
-        builder.produce_intermediate_mle(seq);
-        builder.produce_sumcheck_subpolynomial(
-            SumcheckSubpolynomialType::Identity,
-            vec![
-                (S::one(), vec![Box::new(seq)]),
-                (-S::one(), vec![Box::new(seq), Box::new(seq)]),
-            ],
-        );
-    }
-}
-
 /// This function checks the consistency of the bit evaluations with the expression evaluation.
 /// The column of data is restricted to an unsigned integer type of `num_bits_allowed` bits.
 fn verify_bit_decomposition<S: ScalarExt>(
@@ -162,6 +146,22 @@ fn verify_bit_decomposition<S: ScalarExt>(
     (rhs == expr_eval && is_eval_correct_number_of_bits)
         .then_some(sign_eval)
         .ok_or(BitDistributionError::Verification)
+}
+
+fn prove_bits_are_binary<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    bits: &[&'a [bool]],
+) {
+    for &seq in bits {
+        builder.produce_intermediate_mle(seq);
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(seq)]),
+                (-S::one(), vec![Box::new(seq), Box::new(seq)]),
+            ],
+        );
+    }
 }
 
 #[cfg(test)]
