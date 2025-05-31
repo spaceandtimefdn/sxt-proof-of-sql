@@ -101,20 +101,7 @@ pub fn verifier_evaluate_sign<S: Scalar>(
         bit_evals.push(eval);
     }
 
-    let sign_eval = verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)?;
-    Ok(chi_eval - sign_eval)
-}
-
-/// This function checks the consistency of the bit evaluations with the expression evaluation.
-/// The column of data is restricted to an unsigned integer type of `num_bits_allowed` bits.
-fn verify_bit_decomposition<S: ScalarExt>(
-    eval: S,
-    chi_eval: S,
-    bit_evals: &[S],
-    dist: &BitDistribution,
-    num_bits_allowed: Option<u8>,
-) -> Result<S, BitDistributionError> {
-    let sign_eval = dist.leading_bit_eval(bit_evals, chi_eval)?;
+    let sign_eval = dist.leading_bit_eval(&bit_evals, chi_eval)?;
     let mut rhs = sign_eval * S::from_wrapping(dist.leading_bit_mask())
         + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
         - chi_eval * S::from_wrapping(U256::ONE.shl(255));
@@ -128,7 +115,7 @@ fn verify_bit_decomposition<S: ScalarExt>(
     }
     let num_bits_allowed = num_bits_allowed.unwrap_or(S::MAX_BITS);
     if num_bits_allowed > S::MAX_BITS {
-        return Err(BitDistributionError::Verification);
+        return Err(ProofError::from(BitDistributionError::Verification));
     }
     let bits_that_must_match_inverse_lead_bit =
         U256::MAX.shl(num_bits_allowed - 1) ^ U256::ONE.shl(255);
@@ -137,7 +124,8 @@ fn verify_bit_decomposition<S: ScalarExt>(
         == bits_that_must_match_inverse_lead_bit;
     (rhs == eval && is_eval_correct_number_of_bits)
         .then_some(sign_eval)
-        .ok_or(BitDistributionError::Verification)
+        .ok_or(BitDistributionError::Verification)?;
+    Ok(chi_eval - sign_eval)
 }
 
 fn prove_bits_are_binary<'a, S: Scalar>(
