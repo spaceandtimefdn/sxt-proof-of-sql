@@ -8,14 +8,25 @@ use core::{
     ops::{Shl, Shr},
 };
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+fn serialize_limbs<S: Serializer>(limbs: &[u64; 4], serializer: S) -> Result<S::Ok, S::Error> {
+    [limbs[3], limbs[2], limbs[1], limbs[0]].serialize(serializer)
+}
+
+fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<[u64; 4], D::Error> {
+    let limbs = <[u64; 4]>::deserialize(deserializer)?;
+    Ok([limbs[3], limbs[2], limbs[1], limbs[0]])
+}
 
 /// Describe the distribution of bit values in a table column
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct BitDistribution {
     /// Identifies all columns that are not either identical to or the inverse of the leading column (the sign column). The lead bit indicates if the sign column is constant
+    #[serde(serialize_with = "serialize_limbs", deserialize_with = "deserialize")]
     pub(crate) vary_mask: [u64; 4],
     /// Identifies all columns that are the identical to the lead column. The lead bit indicates the sign of the last row of data (only relevant if the sign is constant)
+    #[serde(serialize_with = "serialize_limbs", deserialize_with = "deserialize")]
     pub(crate) leading_bit_mask: [u64; 4],
 }
 

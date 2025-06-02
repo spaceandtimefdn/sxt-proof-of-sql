@@ -10,12 +10,6 @@ import {F} from "../base/FieldUtil.sol";
 
 contract InequalityExprTest is Test {
     function testSimpleInequalityExpr() public pure {
-        bytes memory expr = abi.encodePacked(
-            true,
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(7)),
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
-            hex"abcdef"
-        );
         VerificationBuilder.Builder memory builder;
         uint256[] memory bitDistribution = new uint256[](2);
         bitDistribution[0] = 0x800000000000000000000000000000000000000000000000000000000000007D;
@@ -67,6 +61,13 @@ contract InequalityExprTest is Test {
         }
 
         VerificationBuilder.__setFinalRoundMLEs(builder, finalRoundMles);
+
+        bytes memory expr = abi.encodePacked(
+            true,
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(7)),
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            hex"abcdef"
+        );
 
         uint256 signEval;
         (expr, builder, signEval) = InequalityExpr.__inequalityExprEvaluate(expr, builder, evaluations[1]);

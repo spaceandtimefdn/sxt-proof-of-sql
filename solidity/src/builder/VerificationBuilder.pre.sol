@@ -23,7 +23,7 @@ library VerificationBuilder {
         uint256[] tableChiEvaluations;
         uint256 firstRoundCommitmentsPtr;
         uint256 finalRoundCommitmentsPtr;
-        uint256[] bitDistributions;
+        uint256 bitDistributionsPtr;
     }
 
     /// @notice Allocates and reserves a block of memory for a verification builder
@@ -773,6 +773,9 @@ library VerificationBuilder {
     /// @param __values The bit distributions array
     function __setBitDistributions(Builder memory __builder, uint256[] memory __values) internal pure {
         assembly {
+            let length := mload(__values)
+            mstore(__values, div(length, 2))
+
             function builder_set_bit_distributions(builder_ptr, values_ptr) {
                 mstore(add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET), values_ptr)
             }
@@ -807,12 +810,15 @@ library VerificationBuilder {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
-            function dequeue(queue_ptr) -> value {
+            function dequeue_uint512(queue_ptr) -> value {
                 revert(0, 0)
             }
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
-                vary_mask := dequeue(add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET))
-                leading_bit_mask := dequeue(add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET))
+                let values_ptr := add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET)
+                let value := dequeue_uint512(values_ptr)
+                vary_mask := mload(value)
+                value := add(value, WORD_SIZE)
+                leading_bit_mask := mload(value)
             }
             __varyMask, __leadingBitMask := builder_consume_bit_distribution(__builder)
         }

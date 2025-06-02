@@ -7,6 +7,7 @@ import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
 import {F, FF} from "../base/FieldUtil.sol";
+import {Array} from "../../src/base/Array.pre.sol";
 
 contract VerificationBuilderTest is Test {
     function testBuilderNewAllocatesValidMemory(bytes memory) public pure {
@@ -857,8 +858,9 @@ contract VerificationBuilderTest is Test {
         // Empty array should not revert
         VerificationBuilder.__setBitDistributions(builder, emptyValues);
 
-        uint256[] memory values = new uint256[](1);
+        uint256[] memory values = new uint256[](2);
         values[0] = 0x12345678;
+        values[1] = 0x12345678;
         // Populated array should not revert
         VerificationBuilder.__setBitDistributions(builder, values);
     }

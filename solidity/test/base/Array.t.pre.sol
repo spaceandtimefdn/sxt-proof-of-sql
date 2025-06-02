@@ -152,6 +152,7 @@ contract ArrayTest is Test {
         (bytes memory sourceOut, uint256[2][] memory array) = Array.__readWordx2Array(source);
 
         assert(array.length == 1);
+        assert(array[0][0] == 1);
         assert(sourceOut.length == 3);
         assert(sourceOut[0] == 0xab);
         assert(sourceOut[1] == 0xcd);
@@ -162,13 +163,13 @@ contract ArrayTest is Test {
         bytes memory source = abi.encodePacked(
             uint64(1), // length
             uint64(0),
-            uint64(1 << 63),
-            uint64(0),
             uint64(0),
             uint64(1 << 63),
             uint64(0),
             uint64(0),
             uint64(0),
+            uint64(0),
+            uint64(1 << 63),
             hex"abcdef"
         );
 

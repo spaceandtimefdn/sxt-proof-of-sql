@@ -90,6 +90,10 @@ library Verifier {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)
@@ -391,7 +395,7 @@ library Verifier {
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_final_round_commitments(builder_ptr, array_ptr)
 
-                proof_ptr, array_ptr := read_bit_distribution_array(proof_ptr)
+                proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_bit_distributions(builder_ptr, array_ptr)
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))

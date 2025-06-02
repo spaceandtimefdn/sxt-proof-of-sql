@@ -50,6 +50,10 @@ library InequalityExpr {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)

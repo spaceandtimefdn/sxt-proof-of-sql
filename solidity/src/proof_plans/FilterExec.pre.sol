@@ -89,6 +89,10 @@ library FilterExec {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_challenge(builder_ptr) -> value {
                 revert(0, 0)

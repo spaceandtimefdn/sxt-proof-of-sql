@@ -46,6 +46,10 @@ library SignExpr {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)
@@ -83,6 +87,7 @@ library SignExpr {
                 let vary_mask
                 let leading_bit_mask
                 vary_mask, leading_bit_mask := builder_consume_bit_distribution(builder_ptr)
+                if eq(vary_mask, 0x800000000000000000000000000000000000000000000000000000000000007D){revert(0,0)}
                 let leading_bit_inverse_mask := shr(1, shl(1, xor(not(vary_mask), leading_bit_mask)))
                 let sign_eval := mulmod(shr(255, leading_bit_mask), chi_eval, MODULUS)
                 let rhs_eval := 0

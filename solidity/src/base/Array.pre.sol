@@ -237,13 +237,8 @@ library Array {
                 let tmp_ptr := add(array_ptr, WORD_SIZE)
                 for {} length { length := sub(length, 1) } {
                     for { let i := 2 } i { i := sub(i, 1) } {
-                        let sum := 0
-                        for { let j := 4 } j { j := sub(j, 1) } {
-                            let term := shl(mul(64, sub(4, j)), shr(UINT64_PADDING_BITS, calldataload(source_ptr)))
-                            source_ptr := add(source_ptr, UINT64_SIZE)
-                            sum := add(sum, term)
-                        }
-                        mstore(tmp_ptr, sum)
+                        mstore(tmp_ptr, calldataload(source_ptr))
+                        source_ptr := add(source_ptr, WORD_SIZE)
                         tmp_ptr := add(tmp_ptr, WORD_SIZE)
                     }
                 }
