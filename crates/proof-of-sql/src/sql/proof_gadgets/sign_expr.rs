@@ -86,41 +86,32 @@ pub fn verifier_evaluate_sign<S: Scalar>(
 ) -> Result<S, ProofError> {
     // bit_distribution
     let dist = builder.try_consume_bit_distribution()?;
-    let num_varying_bits = dist.num_varying_bits();
 
     // extract evaluations and commitmens of the multilinear extensions for the varying
     // bits of the expression
-    let mut bit_evals = Vec::with_capacity(num_varying_bits);
-    for _ in 0..num_varying_bits {
+    let mut rhs = S::ZERO;
+    let mut lead_bit = None;
+    for bit_index in dist.vary_mask_iter() {
         let eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
             eval - eval * eval,
             2,
         )?;
-        bit_evals.push(eval);
-    }
-
-    let sign_eval = dist.try_constant_leading_bit_eval(chi_eval).map_or_else(
-        || {
-            bit_evals
-                .last()
-                .ok_or(BitDistributionError::NoLeadBit)
-                .copied()
-        },
-        Ok,
-    )?;
-    let mut rhs = sign_eval * S::from_wrapping(dist.leading_bit_mask())
-        + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
-        - chi_eval * S::from_wrapping(U256::ONE.shl(255));
-
-    for (vary_index, bit_index) in dist.vary_mask_iter().enumerate() {
-        if bit_index != 255 {
+        if bit_index == 255 {
+            lead_bit = Some(eval);
+        } else {
             let mult = U256::ONE.shl(bit_index);
-            let bit_eval = bit_evals[vary_index];
-            rhs += S::from_wrapping(mult) * bit_eval;
+            rhs += S::from_wrapping(mult) * eval;
         }
     }
+
+    let sign_eval = dist
+        .try_constant_leading_bit_eval(chi_eval)
+        .map_or_else(|| lead_bit.ok_or(BitDistributionError::NoLeadBit), Ok)?;
+    rhs += sign_eval * S::from_wrapping(dist.leading_bit_mask())
+        + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
+        - chi_eval * S::from_wrapping(U256::ONE.shl(255));
     let num_bits_allowed = num_bits_allowed.unwrap_or(S::MAX_BITS);
     if num_bits_allowed > S::MAX_BITS {
         return Err(ProofError::from(BitDistributionError::Verification));
