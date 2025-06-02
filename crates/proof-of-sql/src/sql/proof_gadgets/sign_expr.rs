@@ -101,7 +101,15 @@ pub fn verifier_evaluate_sign<S: Scalar>(
         bit_evals.push(eval);
     }
 
-    let sign_eval = dist.leading_bit_eval(&bit_evals, chi_eval)?;
+    let sign_eval = dist.try_constant_leading_bit_eval(chi_eval).map_or_else(
+        || {
+            bit_evals
+                .last()
+                .ok_or(BitDistributionError::NoLeadBit)
+                .copied()
+        },
+        Ok,
+    )?;
     let mut rhs = sign_eval * S::from_wrapping(dist.leading_bit_mask())
         + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
         - chi_eval * S::from_wrapping(U256::ONE.shl(255));
