@@ -99,16 +99,10 @@ pub fn verifier_evaluate_sign<S: Scalar>(
     // establish that the bits are binary
     verify_bits_are_binary(builder, &bit_evals)?;
 
-    verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)
-        .map(|sign_eval| chi_eval - sign_eval)
-        .map_err(|err| match err {
-            BitDistributionError::NoLeadBit => {
-                panic!("No lead bit available despite variable lead bit.")
-            }
-            BitDistributionError::Verification => ProofError::VerificationError {
-                error: "invalid bit_decomposition",
-            },
-        })
+    Ok(
+        verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)
+            .map(|sign_eval| chi_eval - sign_eval)?,
+    )
 }
 
 fn prove_bits_are_binary<'a, S: Scalar>(

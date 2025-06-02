@@ -1,5 +1,8 @@
 use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
-use crate::base::scalar::{Scalar, ScalarExt};
+use crate::base::{
+    proof::ProofError,
+    scalar::{Scalar, ScalarExt},
+};
 use ark_std::iterable::Iterable;
 use bit_iter::BitIter;
 use bnum::types::U256;
@@ -26,6 +29,19 @@ pub enum BitDistributionError {
     NoLeadBit,
     /// Failed to verify bit decomposition
     Verification,
+}
+
+impl From<BitDistributionError> for ProofError {
+    fn from(err: BitDistributionError) -> Self {
+        match err {
+            BitDistributionError::NoLeadBit => {
+                panic!("No lead bit available despite variable lead bit.")
+            }
+            BitDistributionError::Verification => ProofError::VerificationError {
+                error: "invalid bit_decomposition",
+            },
+        }
+    }
 }
 
 impl BitDistribution {
@@ -123,5 +139,24 @@ impl BitDistribution {
                 .iter()
                 .map(move |pos| u8::try_from(i * 64 + pos).expect("index greater than 255"))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BitDistribution;
+    use crate::base::{
+        bit::BitDistributionError,
+        scalar::{test_scalar::TestScalar, Scalar},
+    };
+
+    #[test]
+    fn we_can_get_no_lead_bit_error() {
+        let dist = BitDistribution {
+            vary_mask: [0, 0, 0, 1 << 63],
+            leading_bit_mask: [0, 0, 0, 0],
+        };
+        let err = dist.leading_bit_eval(&[], TestScalar::ONE).unwrap_err();
+        assert!(matches!(err, BitDistributionError::NoLeadBit));
     }
 }
