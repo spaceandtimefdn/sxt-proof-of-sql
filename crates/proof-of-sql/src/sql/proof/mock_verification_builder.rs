@@ -10,6 +10,7 @@ use core::iter;
 use itertools::Itertools;
 
 /// Track components used to verify a query's proof
+#[derive(Clone)]
 pub struct MockVerificationBuilder<S: Scalar> {
     bit_distributions: Vec<BitDistribution>,
     bit_distribution_offset: usize,

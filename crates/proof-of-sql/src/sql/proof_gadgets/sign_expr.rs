@@ -180,10 +180,14 @@ fn verify_bit_decomposition<S: ScalarExt>(
 mod tests {
     use crate::{
         base::{
-            bit::{BitDistribution, BitDistributionError},
+            bit::BitDistribution,
+            proof::ProofError,
             scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
         },
-        sql::proof_gadgets::sign_expr::verify_bit_decomposition,
+        sql::{
+            proof::mock_verification_builder::MockVerificationBuilder,
+            proof_gadgets::verifier_evaluate_sign,
+        },
     };
     use bnum::{
         cast::As,
@@ -213,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn we_can_verify_bit_decomposition() {
+    fn we_can_verify_evaluate_sign() {
         let dist = BitDistribution {
             vary_mask: [629, 0, 0, 0],
             leading_bit_mask: [2, 0, 0, 9_223_372_036_854_775_808],
@@ -221,13 +225,22 @@ mod tests {
         let chi_eval = TestScalar::ONE;
         let bit_evals = [0, 0, 1, 1, 0, 1].map(TestScalar::from);
         let expr_eval = TestScalar::from(562);
-        let sign_eval =
-            verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, None).unwrap();
-        assert_eq!(sign_eval, TestScalar::ONE);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            vec![bit_evals.to_vec()],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+        let sign_eval = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, None).unwrap();
+        assert_eq!(sign_eval, TestScalar::ZERO);
+        assert!(builder.get_identity_results().iter().flatten().all(|b| *b));
     }
 
     #[test]
-    fn we_can_verify_bit_decomposition_positive_sign() {
+    fn we_can_verify_evaluate_sign_positive_sign() {
         let dist = BitDistribution {
             vary_mask: [629, 0, 0, 0],
             leading_bit_mask: [2, 0, 0, 9_223_372_036_854_775_808],
@@ -260,13 +273,21 @@ mod tests {
                 + TestScalar::from(1) * a * (TestScalar::ONE - b)
                 + TestScalar::from(0) * (TestScalar::ONE - a) * b,
         ];
-        let sign_eval =
-            verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, None).unwrap();
-        assert_eq!(sign_eval, chi_eval);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            vec![bit_evals.to_vec()],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+        let sign_eval = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, None).unwrap();
+        assert_eq!(sign_eval, TestScalar::ZERO);
     }
 
     #[test]
-    fn we_can_verify_bit_decomposition_i8_sign() {
+    fn we_can_verify_evaluate_sign_i8_sign() {
         let dist = BitDistribution {
             vary_mask: [125, 0, 0, 9_223_372_036_854_775_808],
             leading_bit_mask: [2, 0, 0, 9_223_372_036_854_775_808],
@@ -298,18 +319,32 @@ mod tests {
 
         let bit_evals = evaluate_matrix(bit_matrix, &s);
 
-        let expected_eval = evaluate_terms(&[I256::ONE, I256::ONE, I256::ZERO, I256::ZERO], &s);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            vec![bit_evals],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let expected_eval = evaluate_terms(&[I256::ZERO, I256::ZERO, I256::ONE, I256::ONE], &s);
 
         let sign_eval =
-            verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, Some(8)).unwrap();
+            verifier_evaluate_sign(&mut builder.clone(), expr_eval, chi_eval, Some(8)).unwrap();
         assert_eq!(sign_eval, expected_eval);
-        let err =
-            verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, Some(7)).unwrap_err();
-        assert!(matches!(err, BitDistributionError::Verification));
+        let err = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, Some(7)).unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid bit_decomposition"
+            }
+        ));
     }
 
     #[test]
-    fn we_can_verify_bit_decomposition_with_max_data_type() {
+    fn we_can_verify_evaluate_sign_with_max_data_type() {
         // Note that this is not i251 because i251::MIN would theoretically be -2^250
         let i252_val = -TestScalar::from_wrapping(U256::ONE.shl(250)) - TestScalar::ONE;
         let data = [TestScalar::ZERO, i252_val];
@@ -333,18 +368,37 @@ mod tests {
 
         let bit_evals = evaluate_matrix(bit_matrix, &s);
 
-        let expected_eval = evaluate_terms(&[I256::ONE, I256::ZERO], &s);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            vec![bit_evals],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let expected_eval = evaluate_terms(&[I256::ZERO, I256::ONE], &s);
 
         let sign_eval =
-            verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, Some(252)).unwrap();
+            verifier_evaluate_sign(&mut builder.clone(), expr_eval, chi_eval, Some(252)).unwrap();
         assert_eq!(sign_eval, expected_eval);
         // Should fail because the TestScalar can only securely hold i252 values
-        let err = verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, Some(253))
+        let err = verifier_evaluate_sign(&mut builder.clone(), expr_eval, chi_eval, Some(253))
             .unwrap_err();
-        assert!(matches!(err, BitDistributionError::Verification));
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid bit_decomposition"
+            }
+        ));
         // Should fail because the highest value is too big to be held by an i251
-        let err = verify_bit_decomposition(expr_eval, chi_eval, &bit_evals, &dist, Some(251))
-            .unwrap_err();
-        assert!(matches!(err, BitDistributionError::Verification));
+        let err = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, Some(251)).unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid bit_decomposition"
+            }
+        ));
     }
 }
