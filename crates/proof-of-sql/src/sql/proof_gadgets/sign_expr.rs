@@ -121,10 +121,9 @@ pub fn verifier_evaluate_sign<S: Scalar>(
     let is_eval_correct_number_of_bits = bits_that_must_match_inverse_lead_bit
         & dist.leading_bit_inverse_mask()
         == bits_that_must_match_inverse_lead_bit;
-    (rhs == eval && is_eval_correct_number_of_bits)
-        .then_some(sign_eval)
-        .ok_or(BitDistributionError::Verification)?;
-    Ok(chi_eval - sign_eval)
+    Ok((rhs == eval && is_eval_correct_number_of_bits)
+        .then_some(chi_eval - sign_eval)
+        .ok_or(BitDistributionError::Verification)?)
 }
 
 fn prove_bits_are_binary<'a, S: Scalar>(
