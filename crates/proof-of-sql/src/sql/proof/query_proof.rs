@@ -26,6 +26,7 @@ use itertools::Itertools;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
+use tracing::{span, Level};
 
 const SETUP_HASH: [u8; 32] = [
     0xe8, 0x84, 0x0d, 0x8a, 0x41, 0xce, 0x9d, 0x4e, 0x14, 0xe7, 0xba, 0x0e, 0x1b, 0x02, 0x32, 0x24,
@@ -254,15 +255,21 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             final_round_builder.evaluate_pcs_proof_mles(&evaluation_vec);
 
         // commit to the MLE evaluations
+        let span = span!(Level::DEBUG, "QueryProofPCSProofEvaluations").entered();
         let pcs_proof_evaluations = QueryProofPCSProofEvaluations {
             first_round: first_round_pcs_proof_evaluations,
             column_ref: column_ref_pcs_proof_evaluations,
             final_round: final_round_pcs_proof_evaluations,
         };
+        span.exit();
+
+        let span = span!(Level::DEBUG, "extend_serialize_as_le").entered();
         transcript.extend_serialize_as_le(&pcs_proof_evaluations);
+        span.exit();
 
         // fold together the pre result MLEs -- this will form the input to an inner product proof
         // of their evaluations (fold in this context means create a random linear combination)
+        let span = span!(Level::DEBUG, "set up random_scalars").entered();
         let random_scalars: Vec<_> =
             core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
                 .take(
@@ -271,7 +278,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                         + pcs_proof_evaluations.final_round.len(),
                 )
                 .collect();
+        span.exit();
 
+        let span = span!(Level::DEBUG, "column_ref_mles").entered();
         let mut folded_mle = vec![Zero::zero(); range_length];
         let column_ref_mles: Vec<_> = total_col_refs
             .into_iter()
@@ -280,6 +289,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                     as Box<dyn MultilinearExtension<_>>
             })
             .collect();
+        span.exit();
+
+        let span = span!(Level::DEBUG, "QueryProof get folded_mle").entered();
         for (multiplier, evaluator) in random_scalars.iter().zip(
             first_round_builder
                 .pcs_proof_mles()
@@ -289,8 +301,10 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         ) {
             evaluator.mul_add(&mut folded_mle, multiplier);
         }
+        span.exit();
 
         // finally, form the inner product proof of the MLEs' evaluations
+        let span = span!(Level::DEBUG, "evaluation_proof new").entered();
         let evaluation_proof = CP::new(
             &mut transcript,
             &folded_mle,
@@ -298,7 +312,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             min_row_num as u64,
             setup,
         );
+        span.exit();
 
+        let span = span!(Level::DEBUG, "proof self").entered();
         let proof = Self {
             first_round_message,
             final_round_message,
@@ -306,6 +322,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             pcs_proof_evaluations,
             evaluation_proof,
         };
+        span.exit();
 
         log::log_memory_usage("End");
 

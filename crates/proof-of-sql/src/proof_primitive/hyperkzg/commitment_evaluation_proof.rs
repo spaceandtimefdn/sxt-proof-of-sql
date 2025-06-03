@@ -59,21 +59,31 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
         setup: &Self::ProverPublicSetup<'_>,
     ) -> Self {
         assert_eq!(generators_offset, 0);
+
+        let span = span!(Level::DEBUG, "nova_point reverse").entered();
         let mut nova_point = slice_ops::slice_cast(b_point);
         nova_point.reverse();
         if nova_point.is_empty() {
             nova_point.push(NovaScalar::ZERO);
         }
+        span.exit();
+
+        let span = span!(Level::DEBUG, "nova_a extend").entered();
         let mut nova_a = slice_ops::slice_cast(a);
         nova_a.extend(itertools::repeat_n(
             NovaScalar::ZERO,
             (1 << nova_point.len()) - nova_a.len(),
         ));
+        span.exit();
+
+        let span = span!(Level::DEBUG, "nova_ck new").entered();
         let nova_ck: CommitmentKey<HyperKZGEngine> = CommitmentKey::new(
             slice_ops::slice_cast_with(setup, blitzar::compute::convert_to_halo2_bn256_g1_affine),
             Affine::default(),   // I'm pretty sure this is unused in the proof
             G2Affine::default(), // I'm pretty sure this is unused in the proof
         );
+        span.exit();
+
         transcript
             .wrap_transcript(|keccak_transcript| {
                 let span = span!(Level::DEBUG, "EvaluationEngine::prove").entered();
