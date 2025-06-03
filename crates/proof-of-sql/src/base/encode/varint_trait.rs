@@ -158,7 +158,7 @@ impl VarInt for bool {
 impl VarInt for u64 {
     fn required_space(self) -> usize {
         let bits = 64 - self.leading_zeros() as usize;
-        core::cmp::max(1, (bits + 6) / 7)
+        core::cmp::max(1, bits.div_ceil(7))
     }
 
     #[inline]

@@ -132,7 +132,9 @@ pub fn expr_to_proof_expr(
                 }
             }
         }
-        _ => Err(PlannerError::UnsupportedLogicalExpression { expr: expr.clone() }),
+        _ => Err(PlannerError::UnsupportedLogicalExpression {
+            expr: Box::new(expr.clone()),
+        }),
     }
 }
 

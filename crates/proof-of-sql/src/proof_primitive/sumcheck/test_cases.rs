@@ -1,5 +1,4 @@
 use crate::base::{polynomial::CompositePolynomial, scalar::Scalar};
-use core::iter;
 use itertools::Itertools;
 
 pub struct SumcheckTestCase<S: Scalar> {
@@ -29,7 +28,7 @@ impl<S: Scalar> SumcheckTestCase<S> {
         let polynomial = CompositePolynomial::<S>::rand(
             num_vars,
             max_multiplicands,
-            iter::repeat(length).take(num_multiplicands),
+            std::iter::repeat_n(length, num_multiplicands),
             products_vec,
             rng,
         );

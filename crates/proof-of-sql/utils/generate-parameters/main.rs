@@ -80,7 +80,7 @@ fn main() {
         args.target,
     );
         std::process::exit(-1)
-    };
+    }
 }
 
 fn generate_parameters(args: &Args) {

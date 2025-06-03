@@ -56,7 +56,7 @@ pub fn eval_vmv_re_prove(
 /// Note: there are several typos in the paper here.
 /// * The paper uses `C'` and `T_vec_prime` interchangeably. They are the same thing.
 /// * The paper uses `s1 = L` and `s2 = R` as the arguments to Dory-Innerproduct. This is backwards.
-///     We should have `E_1 = s2 * v1` and `E_2 = s1 * v2`, which is the case if we use `s1 = R` and `s2 = L`.
+///   We should have `E_1 = s2 * v1` and `E_2 = s1 * v2`, which is the case if we use `s1 = R` and `s2 = L`.
 ///
 /// Note: the paper has the prover send `E_2` to the verifier. We opt to simply have the verifier compute `E_2` from y, which is known.
 pub fn eval_vmv_re_verify(

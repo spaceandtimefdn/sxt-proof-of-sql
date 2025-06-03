@@ -87,13 +87,13 @@ pub enum PlannerError {
     #[snafu(display("Logical expression {:?} is not supported", expr))]
     UnsupportedLogicalExpression {
         /// Unsupported logical expression
-        expr: Expr,
+        expr: Box<Expr>,
     },
     /// Returned when a `LogicalPlan` is not supported
     #[snafu(display("LogicalPlan is not supported"))]
     UnsupportedLogicalPlan {
         /// Unsupported `LogicalPlan`
-        plan: LogicalPlan,
+        plan: Box<LogicalPlan>,
     },
     /// Returned when the `LogicalPlan` is not resolved
     #[snafu(display("LogicalPlan is not resolved"))]

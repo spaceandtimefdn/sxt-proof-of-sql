@@ -165,7 +165,7 @@ pub fn u256_varint_size(zig_x: U256) -> usize {
 
     // we must at least return 1. because even for
     // the 0 scalar case, we need one byte for the encoding
-    max(1, (zigzag_size as usize + 6) / 7)
+    max(1, (zigzag_size as usize).div_ceil(7))
 }
 
 /// This function returns the varint encoding size for the given scalar slice

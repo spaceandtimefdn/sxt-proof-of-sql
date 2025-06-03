@@ -239,7 +239,7 @@ pub(super) fn repeat_slice<S: Clone>(slice: &[S], n: usize) -> impl Iterator<Ite
 pub(super) fn repeat_elementwise<S: Clone>(slice: &[S], n: usize) -> impl Iterator<Item = S> + '_ {
     slice
         .iter()
-        .flat_map(move |s| core::iter::repeat(s).take(n).cloned())
+        .flat_map(move |s| core::iter::repeat_n(s, n).cloned())
 }
 
 /// Apply a slice to a slice of indexes.

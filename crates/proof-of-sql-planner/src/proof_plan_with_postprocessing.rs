@@ -54,7 +54,9 @@ pub fn logical_plan_to_proof_plan_with_postprocessing(
                         Some(postprocessing),
                     ))
                 }
-                _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
+                _ => Err(PlannerError::UnsupportedLogicalPlan {
+                    plan: Box::new(plan.clone()),
+                }),
             }
         }
     }

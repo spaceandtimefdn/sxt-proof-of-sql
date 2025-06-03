@@ -8,7 +8,7 @@ use num_traits::One;
 #[cfg(feature = "std")]
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Error, ErrorKind, Read, Write},
+    io::{BufReader, BufWriter, Error, Read, Write},
     path::Path,
 };
 
@@ -280,7 +280,7 @@ impl VerifierSetup {
         // Serialize the PublicParameters struct into the file
         let mut serialized_data = Vec::new();
         self.serialize_with_mode(&mut serialized_data, Compress::No)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("{e}")))?;
+            .map_err(|e| Error::other(format!("{e}")))?;
 
         // Write serialized bytes to the file
         writer.write_all(&serialized_data)?;
@@ -302,7 +302,7 @@ impl VerifierSetup {
 
         // Deserialize the data into a PublicParameters instance
         Self::deserialize_with_mode(&mut &serialized_data[..], Compress::No, Validate::No)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("{e}")))
+            .map_err(|e| Error::other(format!("{e}")))
     }
 }
 
