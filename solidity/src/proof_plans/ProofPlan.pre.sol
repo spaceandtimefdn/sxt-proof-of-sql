@@ -10,7 +10,8 @@ import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 /// @dev Library for handling proof plans
 library ProofPlan {
     enum PlanVariant {
-        Filter
+        Filter,
+        GroupBy
     }
 
     /// @notice Evaluates a proof plan
@@ -156,6 +157,21 @@ library ProofPlan {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_groupby_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+                plan_ptr_out,
+                g_in_fold,
+                g_out_fold,
+                sum_in_fold,
+                sum_out_fold,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
@@ -177,6 +193,10 @@ library ProofPlan {
                 case 0 {
                     case_const(0, FILTER_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr := filter_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 1 {
+                    case_const(1, GROUP_BY_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr := group_by_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
