@@ -28,6 +28,19 @@ contract ErrorsTest is Test {
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
+    function testDequeueUint512() public pure {
+        uint256[][1] memory queue = [new uint256[](2)];
+        queue[0][0] = 1001;
+        queue[0][1] = 1002;
+        (uint256 upper, uint256 lower) = Queue.__dequeueUint512(queue);
+        assert(upper == 1001);
+        assert(lower == 1002);
+        // This is a little hacky. Even though we lost two elements, the length only drops by one,
+        // because the dequeue function is interpreting it as a 512 array
+        assert(queue[0].length == 1);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
     function testFuzzDequeue(uint256[][1] memory queue) public {
         uint256 length = queue[0].length;
         uint256[] memory original = new uint256[](length);

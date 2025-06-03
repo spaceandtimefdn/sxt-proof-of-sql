@@ -778,9 +778,47 @@ library VerificationBuilder {
                 revert(0, 0)
             }
             function builder_set_bit_distributions(builder_ptr, values_ptr) {
-                if mload(values_ptr) { err(ERR_UNSUPPORTED_PROOF) }
+                mstore(add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET), values_ptr)
             }
             builder_set_bit_distributions(__builder, __values)
+        }
+    }
+
+    /// @notice Consumes a final round bit distribution from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// ##### Return Values
+    /// * `vary_mask` - the vary mask of the bit distribution
+    /// * `leading_bit_mask` - the leading bit mask of the bit distribution
+    /// @dev Dequeues and returns a final round bit distribution. Reverts with Errors.EmptyQueue if no values remain
+    /// @param __builder The builder struct
+    /// @return __varyMask the vary mask of the consumed bit distribution
+    /// @return __leadingBitMask the leading bit mask of the consumed bit distribution
+    function __consumeBitDistribution(Builder memory __builder)
+        internal
+        pure
+        returns (uint256 __varyMask, uint256 __leadingBitMask)
+    {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> upper, lower {
+                revert(0, 0)
+            }
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                let values_ptr := add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET)
+                vary_mask, leading_bit_mask := dequeue_uint512(values_ptr)
+            }
+            __varyMask, __leadingBitMask := builder_consume_bit_distribution(__builder)
         }
     }
 
