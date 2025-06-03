@@ -51,6 +51,7 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
     type ProverPublicSetup<'a> = HyperKZGPublicSetup<'a>;
     type VerifierPublicSetup<'a> = &'a VerifierKey<HyperKZGEngine>;
 
+    #[tracing::instrument(name = "HyperKZGCommitmentEvaluationProof::new", level = "debug", skip_all)]
     fn new(
         transcript: &mut impl crate::base::proof::Transcript,
         a: &[Self::Scalar],
