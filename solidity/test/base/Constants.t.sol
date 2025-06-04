@@ -21,6 +21,11 @@ contract ConstantsTest is Test {
         assert(mask == 0);
     }
 
+    function testModulusMaskAndModulusInvalidVaryMaskAgree() public pure {
+        assert(MODULUS_MASK & MODULUS_INVALID_VARY_MASK == 0);
+        assert(MODULUS_MASK | MODULUS_INVALID_VARY_MASK == (1 << 255) - 1);
+    }
+
     function testModulusPlusAndMinusOneAreCorrect() public pure {
         assert(MODULUS_PLUS_ONE == MODULUS + 1);
         assert(MODULUS_MINUS_ONE == MODULUS - 1);

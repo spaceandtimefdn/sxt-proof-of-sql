@@ -6,6 +6,8 @@ pragma solidity ^0.8.28;
 uint256 constant MODULUS = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000001;
 /// @dev The largest mask that can be applied to a 256-bit number in order to enforce that it is less than the modulus.
 uint256 constant MODULUS_MASK = 0x1FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF;
+/// @dev A mask that can be applied to a bit distributions vary mask to see if it is valid, given the modulus.
+uint256 constant MODULUS_INVALID_VARY_MASK = 0x60000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000;
 /// @dev MODULUS + 1. Needs to be explicit for Yul usage.
 uint256 constant MODULUS_PLUS_ONE = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000002;
 /// @dev MODULUS - 1. Needs to be explicit for Yul usage.
