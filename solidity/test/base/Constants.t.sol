@@ -21,6 +21,11 @@ contract ConstantsTest is Test {
         assert(mask == 0);
     }
 
+    function testModulusMaskAndModulusInvalidVaryMaskAgree() public pure {
+        assert(MODULUS_MASK & MODULUS_INVALID_VARY_MASK == 0);
+        assert(MODULUS_MASK | MODULUS_INVALID_VARY_MASK == (1 << 255) - 1);
+    }
+
     function testModulusPlusAndMinusOneAreCorrect() public pure {
         assert(MODULUS_PLUS_ONE == MODULUS + 1);
         assert(MODULUS_MINUS_ONE == MODULUS - 1);
@@ -85,7 +90,7 @@ contract ConstantsTest is Test {
     }
 
     function testVerificationBuilderOffsetsAreValid() public pure {
-        uint256[14] memory offsets = [
+        uint256[15] memory offsets = [
             BUILDER_CHALLENGES_OFFSET,
             BUILDER_FIRST_ROUND_MLES_OFFSET,
             BUILDER_FINAL_ROUND_MLES_OFFSET,
@@ -99,7 +104,8 @@ contract ConstantsTest is Test {
             BUILDER_TABLE_CHI_EVALUATIONS_OFFSET,
             BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET,
             BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET,
-            BUILDER_SINGLETON_CHI_EVALUATION_OFFSET
+            BUILDER_SINGLETON_CHI_EVALUATION_OFFSET,
+            BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET
         ];
         uint256 offsetsLength = offsets.length;
         assert(VERIFICATION_BUILDER_SIZE == offsetsLength * WORD_SIZE);

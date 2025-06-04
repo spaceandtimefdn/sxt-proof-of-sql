@@ -6,6 +6,8 @@ pragma solidity ^0.8.28;
 uint256 constant MODULUS = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000001;
 /// @dev The largest mask that can be applied to a 256-bit number in order to enforce that it is less than the modulus.
 uint256 constant MODULUS_MASK = 0x1FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF;
+/// @dev A mask that can be applied to a bit distributions vary mask to see if it is valid, given the modulus.
+uint256 constant MODULUS_INVALID_VARY_MASK = 0x60000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000;
 /// @dev MODULUS + 1. Needs to be explicit for Yul usage.
 uint256 constant MODULUS_PLUS_ONE = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000002;
 /// @dev MODULUS - 1. Needs to be explicit for Yul usage.
@@ -174,7 +176,7 @@ uint256 constant VK_TAU_HY_REAL = 0x2bad9a374aec49d329ec66e8f530f68509313450580c
 uint256 constant VK_TAU_HY_IMAG = 0x219edfceee1723de674f5b2f6fdb69d9e32dd53b15844956a630d3c7cdaa6ed9;
 
 /// @dev Size of the verification builder in bytes.
-uint256 constant VERIFICATION_BUILDER_SIZE = 0x20 * 14;
+uint256 constant VERIFICATION_BUILDER_SIZE = 0x20 * 15;
 /// @dev Offset of the pointer to the challenge queue in the verification builder.
 uint256 constant BUILDER_CHALLENGES_OFFSET = 0x20 * 0;
 /// @dev Offset of the pointer to the first round MLEs in the verification builder.
@@ -203,6 +205,8 @@ uint256 constant BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET = 0x20 * 11;
 uint256 constant BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET = 0x20 * 12;
 /// @dev Offset of the singleton chi evaluation in the verification builder.
 uint256 constant BUILDER_SINGLETON_CHI_EVALUATION_OFFSET = 0x20 * 13;
+/// @dev Offset of the pointer to the final round bit distributions in the verification builder.
+uint256 constant BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET = 0x20 * 14;
 
 /// @dev The initial transcript state. This is the hash of the empty string.
 uint256 constant INITIAL_TRANSCRIPT_STATE = 0x7c26f909f37b2c61df0bb3b19f76296469cb4d07b582a215c4e2b1f7a05527c3;
