@@ -194,7 +194,7 @@ pub fn create_blitzar_metadata_tables(
     let single_entry_in_blitzar_output_bit_table: Vec<u32> = committable_columns
         .iter()
         .map(|column| column.column_type().bit_size())
-        .chain(iter::repeat(BYTE_SIZE).take(ones_columns_lengths.len()))
+        .chain(core::iter::repeat_n(BYTE_SIZE, ones_columns_lengths.len()))
         .collect();
 
     // Create the full bit table vector to be used by Blitzar's vlen_msm algorithm.

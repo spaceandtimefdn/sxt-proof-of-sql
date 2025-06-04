@@ -31,10 +31,10 @@ impl VisitorMut for UppercaseColumnVisitor {
 
 /// Returns the sqlparser statement with all of its column/table identifiers uppercased.
 pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Statement {
-    statement.visit(&mut UppercaseColumnVisitor);
+    let _ = statement.visit(&mut UppercaseColumnVisitor);
 
     // uppercase all tables
-    visit_relations_mut(&mut statement, |object_name| {
+    let _ = visit_relations_mut(&mut statement, |object_name| {
         object_name.0.iter_mut().for_each(|ident| {
             ident.value = ident.value.to_uppercase();
         });

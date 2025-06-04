@@ -48,7 +48,7 @@ pub(crate) const fn row_start_index(row: usize) -> usize {
 
 /// Returns the (row, column) in the matrix where the data with the given index belongs.
 pub(crate) const fn row_and_column_from_index(index: usize) -> (usize, usize) {
-    let width_of_row = 1 << (((2 * index + 1).ilog2() + 1) / 2);
+    let width_of_row = 1 << (2 * index + 1).ilog2().div_ceil(2);
     let row = index / width_of_row + width_of_row / 2;
     let column = index % width_of_row;
     (row, column)
@@ -160,14 +160,14 @@ mod tests {
         let mut expected_widths = Vec::new();
 
         // First three rows are defined by the dynamic Dory structure.
-        expected_widths.extend(std::iter::repeat(1).take(1));
-        expected_widths.extend(std::iter::repeat(2).take(2));
+        expected_widths.extend(std::iter::repeat_n(1, 1));
+        expected_widths.extend(std::iter::repeat_n(2, 2));
 
         // The rest of the rows are defined by the pattern 3*2^n rows of length 4*2^n.
         for n in 0..n {
             let repeat_count = 3 * 2_usize.pow(n);
             let value = 4 * 2_usize.pow(n);
-            expected_widths.extend(std::iter::repeat(value).take(repeat_count));
+            expected_widths.extend(std::iter::repeat_n(value, repeat_count));
         }
 
         // Verify the widths.

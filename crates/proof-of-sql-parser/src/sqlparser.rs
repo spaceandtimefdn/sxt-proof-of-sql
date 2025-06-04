@@ -9,11 +9,10 @@ use crate::{
 };
 use alloc::{
     boxed::Box,
-    format,
     string::{String, ToString},
     vec,
 };
-use core::fmt::Display;
+use core::fmt::{Display, Write};
 use sqlparser::ast::{
     BinaryOperator, DataType, Expr, Function, FunctionArg, FunctionArgExpr, GroupByExpr, Ident,
     ObjectName, Offset, OffsetRows, OrderByExpr, Query, Select, SelectItem, SetExpr, TableFactor,
@@ -77,7 +76,7 @@ impl From<Literal> for Expr {
                     bytes
                         .iter()
                         .fold(String::with_capacity(bytes.len() * 2), |mut acc, byte| {
-                            acc.push_str(&format!("{byte:02x}"));
+                            write!(&mut acc, "{byte:02x}").unwrap();
                             acc
                         });
                 Expr::Value(Value::HexStringLiteral(hex_string))

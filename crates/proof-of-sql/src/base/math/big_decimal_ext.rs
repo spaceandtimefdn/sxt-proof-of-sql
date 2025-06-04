@@ -13,13 +13,11 @@ pub trait BigDecimalExt {
 }
 impl BigDecimalExt for BigDecimal {
     /// Get the precision of the fixed-point representation of this intermediate decimal.
-    #[must_use]
     fn precision(&self) -> u64 {
         self.normalized().digits()
     }
 
     /// Get the scale of the fixed-point representation of this intermediate decimal.
-    #[must_use]
     fn scale(&self) -> i64 {
         self.normalized().fractional_digit_count()
     }

@@ -167,7 +167,7 @@ fn aggregate_to_proof_plan(
         .map(|e| match e {
             Expr::Column(c) => Ok(c),
             _ => Err(PlannerError::UnsupportedLogicalPlan {
-                plan: input.clone(),
+                plan: Box::new(input.clone()),
             }),
         })
         .collect::<PlannerResult<Vec<_>>>()?;
@@ -195,7 +195,7 @@ fn aggregate_to_proof_plan(
             // 3. COUNT
             if aggr_expr.is_empty() {
                 return Err(PlannerError::UnsupportedLogicalPlan {
-                    plan: input.clone(),
+                    plan: Box::new(input.clone()),
                 });
             }
             let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
@@ -206,7 +206,7 @@ fn aggregate_to_proof_plan(
                         let name = name_string.as_str();
                         let alias = alias_map.get(&name).ok_or_else(|| {
                             PlannerError::UnsupportedLogicalPlan {
-                                plan: input.clone(),
+                                plan: Box::new(input.clone()),
                             }
                         })?;
                         Ok((
@@ -215,7 +215,7 @@ fn aggregate_to_proof_plan(
                         ))
                     }
                     _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: input.clone(),
+                        plan: Box::new(input.clone()),
                     }),
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
@@ -230,7 +230,7 @@ fn aggregate_to_proof_plan(
                 .all(|((op, _), _)| matches!(op, AggregateFunc::Count));
             if !sum_is_compliant || !count_is_compliant {
                 return Err(PlannerError::UnsupportedLogicalPlan {
-                    plan: input.clone(),
+                    plan: Box::new(input.clone()),
                 });
             }
             let count_alias = agg_aliased_proof_exprs
@@ -265,7 +265,7 @@ fn aggregate_to_proof_plan(
             ))
         }
         _ => Err(PlannerError::UnsupportedLogicalPlan {
-            plan: input.clone(),
+            plan: Box::new(input.clone()),
         }),
     }
 }
@@ -276,7 +276,9 @@ fn join_to_proof_plan(
     plan: &LogicalPlan,
 ) -> PlannerResult<DynProofPlan> {
     if join.join_type != JoinType::Inner || join.join_constraint != JoinConstraint::On {
-        return Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() });
+        return Err(PlannerError::UnsupportedLogicalPlan {
+            plan: Box::new(plan.clone()),
+        });
     }
     let left_plan = Box::new(logical_plan_to_proof_plan(&join.left, schema_accessor)?);
     let right_plan = Box::new(logical_plan_to_proof_plan(&join.right, schema_accessor)?);
@@ -305,7 +307,9 @@ fn join_to_proof_plan(
                         column_id,
                     ))
                 }
-                _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
+                _ => Err(PlannerError::UnsupportedLogicalPlan {
+                    plan: Box::new(plan.clone()),
+                }),
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -416,10 +420,14 @@ pub fn logical_plan_to_proof_plan(
                                 if let Expr::Column(c) = expr.as_ref() {
                                     Ok((c.name.as_str(), name.as_str()))
                                 } else {
-                                    Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() })
+                                    Err(PlannerError::UnsupportedLogicalPlan {
+                                        plan: Box::new(plan.clone()),
+                                    })
                                 }
                             }
-                            _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
+                            _ => Err(PlannerError::UnsupportedLogicalPlan {
+                                plan: Box::new(plan.clone()),
+                            }),
                         })
                         .collect::<PlannerResult<IndexMap<_, _>>>()?;
                     aggregate_to_proof_plan(
@@ -449,7 +457,9 @@ pub fn logical_plan_to_proof_plan(
             Ok(DynProofPlan::new_union(input_plans, column_fields))
         }
         LogicalPlan::Join(join) => join_to_proof_plan(join, schema_accessor, plan),
-        _ => Err(PlannerError::UnsupportedLogicalPlan { plan: plan.clone() }),
+        _ => Err(PlannerError::UnsupportedLogicalPlan {
+            plan: Box::new(plan.clone()),
+        }),
     }
 }
 
@@ -2019,7 +2029,7 @@ mod tests {
         )
         .unwrap_err();
         assert!(
-            matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if logical_plan == plan )
+            matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
         );
     }
 }

@@ -65,13 +65,13 @@ pub trait ArrayRefExt {
     ///
     /// Parameters:
     /// - `alloc`: used to allocate a slice of data when necessary
-    ///    (vide [`StringArray`] into `Column::HashedBytes((_,_))`.
+    ///   (vide [`StringArray`] into `Column::HashedBytes((_,_))`.
     ///
     /// - `range`: used to get a subslice out of [`ArrayRef`].
     ///
     /// - `scals`: scalar representation of each element in the [`ArrayRef`].
-    ///    Some types don't require this slice (see [`Column::BigInt`]). But for types requiring it,
-    ///    `scals` must be provided and have a length equal to `range.len()`.
+    ///   Some types don't require this slice (see [`Column::BigInt`]). But for types requiring it,
+    ///   `scals` must be provided and have a length equal to `range.len()`.
     ///
     /// Note: this function must not be called from unsupported or nullable arrays as it will panic.
     fn to_column<'a, S: Scalar>(
@@ -90,7 +90,7 @@ impl ArrayRefExt for ArrayRef {
     /// - `alloc`: Reference to a `Bump` allocator used for memory allocation during the conversion.
     /// - `range`: Reference to a `Range<usize>` specifying the slice of the array to convert.
     /// - `precomputed_scals`: Optional reference to a slice of `TestScalars` values.
-    ///    `VarChar` columns store hashes to their values as scalars, which can be provided here.
+    ///   `VarChar` columns store hashes to their values as scalars, which can be provided here.
     ///
     /// # Supported types
     /// - For `DataType::Int64` and `DataType::Decimal128(38, 0)`, it slices the array

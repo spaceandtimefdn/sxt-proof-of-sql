@@ -42,7 +42,7 @@ fn we_can_access_the_columns_of_a_table() {
     match accessor.get_column(&table_ref_1, &"b".into()) {
         Column::BigInt(col) => assert_eq!(col.to_vec(), vec![4, 5, 6]),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     let data2 = owned_table([
         bigint("a", [1, 2, 3, 4]),
@@ -63,17 +63,17 @@ fn we_can_access_the_columns_of_a_table() {
     match accessor.get_column(&table_ref_1, &"a".into()) {
         Column::BigInt(col) => assert_eq!(col.to_vec(), vec![1, 2, 3]),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     match accessor.get_column(&table_ref_2, &"b".into()) {
         Column::BigInt(col) => assert_eq!(col.to_vec(), vec![4, 5, 6, 5]),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     match accessor.get_column(&table_ref_2, &"c128".into()) {
         Column::Int128(col) => assert_eq!(col.to_vec(), vec![1, 2, 3, 4]),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     let col_slice: Vec<_> = vec!["a", "bc", "d", "e"];
     let col_scalars: Vec<_> = ["a", "bc", "d", "e"]
@@ -86,7 +86,7 @@ fn we_can_access_the_columns_of_a_table() {
             assert_eq!(scals.to_vec(), col_scalars);
         }
         _ => panic!("Invalid column type"),
-    };
+    }
 
     match accessor.get_column(&table_ref_2, &"scalar".into()) {
         Column::Scalar(col) => assert_eq!(
@@ -99,17 +99,17 @@ fn we_can_access_the_columns_of_a_table() {
             ]
         ),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     match accessor.get_column(&table_ref_2, &"boolean".into()) {
         Column::Boolean(col) => assert_eq!(col.to_vec(), vec![true, false, true, false]),
         _ => panic!("Invalid column type"),
-    };
+    }
 
     match accessor.get_column(&table_ref_2, &"time".into()) {
         Column::TimestampTZ(_, _, col) => assert_eq!(col.to_vec(), vec![4, 5, 6, 5]),
         _ => panic!("Invalid column type"),
-    };
+    }
 }
 
 #[test]
