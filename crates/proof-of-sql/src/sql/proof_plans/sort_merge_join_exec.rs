@@ -95,11 +95,36 @@ impl SortMergeJoinExec {
     }
 }
 
+#[expect(clippy::missing_panics_doc)]
+fn compute_hat_column_evals<S: Scalar>(
+    eval: &TableEvaluation<S>,
+    rho_eval: S,
+    join_column_indexes: &[usize],
+) -> (Vec<S>, Vec<S>, usize) {
+    let column_evals = eval.column_evals();
+    let num_columns = column_evals.len();
+    let column_and_rho_evals = column_evals
+        .iter()
+        .chain(core::iter::once(&rho_eval))
+        .copied()
+        .collect::<Vec<_>>();
+    let hat_column_indexes = join_column_indexes
+        .iter()
+        .copied()
+        .chain((0..=num_columns).filter(|i| !join_column_indexes.contains(i)))
+        .collect::<Vec<_>>();
+    let hat_column_evals = apply_slice_to_indexes(&column_and_rho_evals, &hat_column_indexes)
+        .expect("Indexes can not be out of bounds");
+    let join_column_evals = apply_slice_to_indexes(&column_and_rho_evals, join_column_indexes)
+        .expect("Indexes can not be out of bounds");
+    (hat_column_evals, join_column_evals, num_columns)
+}
+
 impl ProofPlan for SortMergeJoinExec
 where
     SortMergeJoinExec: ProverEvaluate,
 {
-    #[expect(clippy::too_many_lines, clippy::similar_names)]
+    #[expect(clippy::similar_names)]
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -127,20 +152,10 @@ where
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         // 4. column evals
-        let left_column_evals = left_eval.column_evals();
-        let right_column_evals = right_eval.column_evals();
-        let num_columns_left = left_column_evals.len();
-        let num_columns_right = right_column_evals.len();
-        let left_hat_column_evals = left_column_evals
-            .iter()
-            .chain(core::iter::once(&left_rho_eval))
-            .copied()
-            .collect::<Vec<_>>();
-        let right_hat_column_evals = right_column_evals
-            .iter()
-            .chain(core::iter::once(&right_rho_eval))
-            .copied()
-            .collect::<Vec<_>>();
+        let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
+            compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
+        let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
+            compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
         let num_columns_u = self.left_join_column_indexes.len();
         if num_columns_u != 1 {
             return Err(ProofError::VerificationError {
@@ -159,24 +174,6 @@ where
             + rho_bar_right_eval;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 6. Membership checks
-        let hat_left_column_indexes = self
-            .left_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-        let hat_right_column_indexes = self
-            .right_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-        let hat_left_column_evals =
-            apply_slice_to_indexes(&left_hat_column_evals, &hat_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
-        let hat_right_column_evals =
-            apply_slice_to_indexes(&right_hat_column_evals, &hat_right_column_indexes)
-                .expect("Indexes can not be out of bounds");
         let res_left_column_indexes = (0..=num_columns_left).collect::<Vec<_>>();
         let res_right_column_indexes = (0..num_columns_u)
             .chain(num_columns_left + 1..num_columns_res_hat)
@@ -205,12 +202,6 @@ where
             &hat_right_column_evals,
             &res_right_column_evals,
         )?;
-        let left_join_column_evals =
-            apply_slice_to_indexes(&left_hat_column_evals, &self.left_join_column_indexes)
-                .expect("Indexes can not be out of bounds");
-        let right_join_column_evals =
-            apply_slice_to_indexes(&right_hat_column_evals, &self.right_join_column_indexes)
-                .expect("Indexes can not be out of bounds");
         //TODO: Relax to allow multiple columns
         if left_join_column_evals.len() != 1 || right_join_column_evals.len() != 1 {
             return Err(ProofError::VerificationError {
