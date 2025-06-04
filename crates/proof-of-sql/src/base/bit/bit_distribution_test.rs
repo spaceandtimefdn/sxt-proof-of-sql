@@ -160,7 +160,7 @@ fn we_can_get_u256_version_of_leading_bit_inverse_mask_for_large_number() {
 // leading_bit_inverse_mask function end
 
 #[test]
-fn we_can_get_leading_bit_eval_while_varying() {
+fn we_cannot_get_leading_bit_eval_from_dist_while_varying() {
     // ARRANGE
     let bit_distribution = BitDistribution {
         vary_mask: [0, 0, 0, 1 << 63],
@@ -168,12 +168,10 @@ fn we_can_get_leading_bit_eval_while_varying() {
     };
 
     // ACT
-    let bit_eval = bit_distribution
-        .leading_bit_eval(&[TestScalar::ONE], TestScalar::TWO)
-        .unwrap();
+    let bit_eval = bit_distribution.try_constant_leading_bit_eval(TestScalar::TWO);
 
     // ASSERT
-    assert_eq!(bit_eval, TestScalar::ONE);
+    assert!(bit_eval.is_none());
 }
 
 #[test]
@@ -186,7 +184,7 @@ fn we_can_get_leading_bit_eval_while_constant_and_zero() {
 
     // ACT
     let bit_eval = bit_distribution
-        .leading_bit_eval(&[TestScalar::ONE], TestScalar::TWO)
+        .try_constant_leading_bit_eval(TestScalar::TWO)
         .unwrap();
 
     // ASSERT
@@ -203,7 +201,7 @@ fn we_can_get_leading_bit_eval_while_constant_and_non_zero() {
 
     // ACT
     let bit_eval = bit_distribution
-        .leading_bit_eval(&[TestScalar::ONE], TestScalar::TWO)
+        .try_constant_leading_bit_eval(TestScalar::TWO)
         .unwrap();
 
     // ASSERT

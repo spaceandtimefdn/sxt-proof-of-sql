@@ -86,29 +86,44 @@ pub fn verifier_evaluate_sign<S: Scalar>(
 ) -> Result<S, ProofError> {
     // bit_distribution
     let dist = builder.try_consume_bit_distribution()?;
-    let num_varying_bits = dist.num_varying_bits();
 
     // extract evaluations and commitmens of the multilinear extensions for the varying
     // bits of the expression
-    let mut bit_evals = Vec::with_capacity(num_varying_bits);
-    for _ in 0..num_varying_bits {
+    let mut rhs = S::ZERO;
+    let mut lead_bit = None;
+    for bit_index in dist.vary_mask_iter() {
         let eval = builder.try_consume_final_round_mle_evaluation()?;
-        bit_evals.push(eval);
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            eval - eval * eval,
+            2,
+        )?;
+        if bit_index == 255 {
+            lead_bit = Some(eval);
+        } else {
+            let mult = U256::ONE.shl(bit_index);
+            rhs += S::from_wrapping(mult) * eval;
+        }
     }
 
-    // establish that the bits are binary
-    verify_bits_are_binary(builder, &bit_evals)?;
-
-    verify_bit_decomposition(eval, chi_eval, &bit_evals, &dist, num_bits_allowed)
-        .map(|sign_eval| chi_eval - sign_eval)
-        .map_err(|err| match err {
-            BitDistributionError::NoLeadBit => {
-                panic!("No lead bit available despite variable lead bit.")
-            }
-            BitDistributionError::Verification => ProofError::VerificationError {
-                error: "invalid bit_decomposition",
-            },
-        })
+    let sign_eval = dist
+        .try_constant_leading_bit_eval(chi_eval)
+        .map_or_else(|| lead_bit.ok_or(BitDistributionError::NoLeadBit), Ok)?;
+    rhs += sign_eval * S::from_wrapping(dist.leading_bit_mask())
+        + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
+        - chi_eval * S::from_wrapping(U256::ONE.shl(255));
+    let num_bits_allowed = num_bits_allowed.unwrap_or(S::MAX_BITS);
+    if num_bits_allowed > S::MAX_BITS {
+        return Err(ProofError::from(BitDistributionError::Verification));
+    }
+    let bits_that_must_match_inverse_lead_bit =
+        U256::MAX.shl(num_bits_allowed - 1) ^ U256::ONE.shl(255);
+    let is_eval_correct_number_of_bits = bits_that_must_match_inverse_lead_bit
+        & dist.leading_bit_inverse_mask()
+        == bits_that_must_match_inverse_lead_bit;
+    Ok((rhs == eval && is_eval_correct_number_of_bits)
+        .then_some(chi_eval - sign_eval)
+        .ok_or(BitDistributionError::Verification)?)
 }
 
 fn prove_bits_are_binary<'a, S: Scalar>(
@@ -125,55 +140,6 @@ fn prove_bits_are_binary<'a, S: Scalar>(
             ],
         );
     }
-}
-
-fn verify_bits_are_binary<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    bit_evals: &[S],
-) -> Result<(), ProofError> {
-    for bit_eval in bit_evals {
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            *bit_eval - *bit_eval * *bit_eval,
-            2,
-        )?;
-    }
-    Ok(())
-}
-
-/// This function checks the consistency of the bit evaluations with the expression evaluation.
-/// The column of data is restricted to an unsigned integer type of `num_bits_allowed` bits.
-fn verify_bit_decomposition<S: ScalarExt>(
-    expr_eval: S,
-    chi_eval: S,
-    bit_evals: &[S],
-    dist: &BitDistribution,
-    num_bits_allowed: Option<u8>,
-) -> Result<S, BitDistributionError> {
-    let sign_eval = dist.leading_bit_eval(bit_evals, chi_eval)?;
-    let mut rhs = sign_eval * S::from_wrapping(dist.leading_bit_mask())
-        + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
-        - chi_eval * S::from_wrapping(U256::ONE.shl(255));
-
-    for (vary_index, bit_index) in dist.vary_mask_iter().enumerate() {
-        if bit_index != 255 {
-            let mult = U256::ONE.shl(bit_index);
-            let bit_eval = bit_evals[vary_index];
-            rhs += S::from_wrapping(mult) * bit_eval;
-        }
-    }
-    let num_bits_allowed = num_bits_allowed.unwrap_or(S::MAX_BITS);
-    if num_bits_allowed > S::MAX_BITS {
-        return Err(BitDistributionError::Verification);
-    }
-    let bits_that_must_match_inverse_lead_bit =
-        U256::MAX.shl(num_bits_allowed - 1) ^ U256::ONE.shl(255);
-    let is_eval_correct_number_of_bits = bits_that_must_match_inverse_lead_bit
-        & dist.leading_bit_inverse_mask()
-        == bits_that_must_match_inverse_lead_bit;
-    (rhs == expr_eval && is_eval_correct_number_of_bits)
-        .then_some(sign_eval)
-        .ok_or(BitDistributionError::Verification)
 }
 
 #[cfg(test)]

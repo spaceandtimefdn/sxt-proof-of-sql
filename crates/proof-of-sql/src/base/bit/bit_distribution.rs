@@ -1,5 +1,8 @@
 use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
-use crate::base::scalar::{Scalar, ScalarExt};
+use crate::base::{
+    proof::ProofError,
+    scalar::{Scalar, ScalarExt},
+};
 use ark_std::iterable::Iterable;
 use bit_iter::BitIter;
 use bnum::types::U256;
@@ -43,6 +46,19 @@ pub enum BitDistributionError {
     NoLeadBit,
     /// Failed to verify bit decomposition
     Verification,
+}
+
+impl From<BitDistributionError> for ProofError {
+    fn from(err: BitDistributionError) -> Self {
+        match err {
+            BitDistributionError::NoLeadBit => {
+                panic!("No lead bit available despite variable lead bit.")
+            }
+            BitDistributionError::Verification => ProofError::VerificationError {
+                error: "invalid bit_decomposition",
+            },
+        }
+    }
 }
 
 impl BitDistribution {
@@ -94,20 +110,13 @@ impl BitDistribution {
     }
 
     /// Determines the lead (sign) bit.
-    pub fn leading_bit_eval<S: ScalarExt>(
-        &self,
-        bit_evals: &[S],
-        chi_eval: S,
-    ) -> Result<S, BitDistributionError> {
+    pub fn try_constant_leading_bit_eval<S: ScalarExt>(&self, chi_eval: S) -> Option<S> {
         if U256::from(self.vary_mask) & (U256::ONE.shl(255)) != U256::ZERO {
-            bit_evals
-                .last()
-                .ok_or(BitDistributionError::NoLeadBit)
-                .copied()
+            None
         } else if U256::from(self.leading_bit_mask) & U256::ONE.shl(255) == U256::ZERO {
-            Ok(S::ZERO)
+            Some(S::ZERO)
         } else {
-            Ok(chi_eval)
+            Some(chi_eval)
         }
     }
 
