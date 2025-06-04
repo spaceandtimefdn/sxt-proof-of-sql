@@ -1,5 +1,8 @@
 use super::*;
-use crate::base::scalar::{test_scalar::TestScalar, Scalar, ScalarExt};
+use crate::base::{
+    scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
+    try_standard_binary_deserialization, try_standard_binary_serialization,
+};
 use bnum::types::U256;
 use core::ops::Shl;
 
@@ -413,4 +416,20 @@ fn we_reject_distributions_that_are_outside_of_maximum_range() {
     ];
     let dist = BitDistribution::new::<TestScalar, _>(&data);
     assert!(!dist.is_within_acceptable_range());
+}
+
+#[test]
+fn we_can_serialize_round_trip() {
+    let bit_distribution = BitDistribution {
+        vary_mask: [0, 0, 0, 1 << 63],
+        leading_bit_mask: [2, 0, 0, 0],
+    };
+
+    let expected_serialization: Vec<_> =
+        [128u8].into_iter().chain([0u8; 62]).chain([2u8]).collect();
+    let serialized = try_standard_binary_serialization(bit_distribution.clone()).unwrap();
+    assert_eq!(expected_serialization, serialized);
+
+    let deserialized: BitDistribution = try_standard_binary_deserialization(&serialized).unwrap().0;
+    assert_eq!(deserialized, bit_distribution);
 }
