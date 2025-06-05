@@ -51,6 +51,11 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
     type ProverPublicSetup<'a> = HyperKZGPublicSetup<'a>;
     type VerifierPublicSetup<'a> = &'a VerifierKey<HyperKZGEngine>;
 
+    #[tracing::instrument(
+        name = "HyperKZGCommitmentEvaluationProof::new",
+        level = "debug",
+        skip_all
+    )]
     fn new(
         transcript: &mut impl crate::base::proof::Transcript,
         a: &[Self::Scalar],
@@ -64,16 +69,23 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
         if nova_point.is_empty() {
             nova_point.push(NovaScalar::ZERO);
         }
+
+        let span = span!(Level::DEBUG, "initialize nova_a").entered();
         let mut nova_a = slice_ops::slice_cast(a);
         nova_a.extend(itertools::repeat_n(
             NovaScalar::ZERO,
             (1 << nova_point.len()) - nova_a.len(),
         ));
+        span.exit();
+
+        let span = span!(Level::DEBUG, "initialize nova_ck").entered();
         let nova_ck: CommitmentKey<HyperKZGEngine> = CommitmentKey::new(
             slice_ops::slice_cast_with(setup, blitzar::compute::convert_to_halo2_bn256_g1_affine),
             Affine::default(),   // I'm pretty sure this is unused in the proof
             G2Affine::default(), // I'm pretty sure this is unused in the proof
         );
+        span.exit();
+
         transcript
             .wrap_transcript(|keccak_transcript| {
                 let span = span!(Level::DEBUG, "EvaluationEngine::prove").entered();

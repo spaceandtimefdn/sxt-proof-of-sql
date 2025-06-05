@@ -235,14 +235,19 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         transcript.challenge_as_le();
 
         // create the sumcheck proof -- this is the main part of proving a query
+        let span = span!(Level::DEBUG, "Sumcheck with initialization").entered();
         let mut evaluation_point = vec![Zero::zero(); state.num_vars];
         let sumcheck_proof = SumcheckProof::create(&mut transcript, &mut evaluation_point, state);
+        span.exit();
 
         // evaluate the MLEs used in sumcheck except for the result columns
+        let span = span!(Level::DEBUG, "initialize evaluation_vec").entered();
         let mut evaluation_vec = vec![Zero::zero(); range_length];
+        span.exit();
         compute_evaluation_vector(&mut evaluation_vec, &evaluation_point);
         let first_round_pcs_proof_evaluations =
             first_round_builder.evaluate_pcs_proof_mles(&evaluation_vec);
+        let span = span!(Level::DEBUG, "initialize column_ref_pcs_proof_evaluations").entered();
         let column_ref_pcs_proof_evaluations: Vec<_> = total_col_refs
             .iter()
             .map(|col_ref| {
@@ -251,6 +256,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                     .inner_product(&evaluation_vec)
             })
             .collect();
+        span.exit();
         let final_round_pcs_proof_evaluations =
             final_round_builder.evaluate_pcs_proof_mles(&evaluation_vec);
 
