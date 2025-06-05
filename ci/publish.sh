@@ -26,6 +26,6 @@ for crate in "${CRATES[@]}"; do
     echo "The version ${NEW_VERSION} for ${crate} is already on crates.io. Skipping publish."
   else
     echo "${crate}@${NEW_VERSION} not found, publishing..."
-    cargo publish -p "${crate}" --token "${CRATES_TOKEN}"
+    cargo publish -p "${crate}" --token "${CRATES_TOKEN}" --allow-dirty
   fi
 done
