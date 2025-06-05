@@ -154,14 +154,14 @@ pub(crate) fn verify_membership_check<S: Scalar>(
         2,
     )?;
 
-    // c_star + c_fold * c_star - chi_n = 0
+    // c_star + c_fold * c_star * alpha - chi_n = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
         (S::ONE + alpha * c_fold_eval) * c_star_eval - chi_n_eval,
         2,
     )?;
 
-    // d_star + d_fold * d_star - chi_m = 0
+    // d_star + d_fold * d_star * alpha - chi_m = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
         (S::ONE + alpha * d_fold_eval) * d_star_eval - chi_m_eval,
