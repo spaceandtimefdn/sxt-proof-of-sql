@@ -87,18 +87,17 @@ pub mod table_utility;
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
 
-/// TODO: add docs
-pub(crate) mod expression_evaluation;
-mod expression_evaluation_error;
-#[cfg(test)]
-mod expression_evaluation_test;
-pub use expression_evaluation_error::{ExpressionEvaluationError, ExpressionEvaluationResult};
-
 mod test_accessor;
 pub use test_accessor::TestAccessor;
 
 mod test_schema_accessor;
+<<<<<<< HEAD
 pub use test_schema_accessor::TestSchemaAccessor;
+=======
+#[cfg(test)]
+#[expect(unused_imports)]
+pub(crate) use test_schema_accessor::TestSchemaAccessor;
+>>>>>>> 1e166fad (feat: drop tech debt)
 
 mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
