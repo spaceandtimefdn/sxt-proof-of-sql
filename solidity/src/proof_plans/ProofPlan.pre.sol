@@ -68,6 +68,10 @@ library ProofPlan {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_challenge(builder_ptr) -> value {
                 revert(0, 0)
@@ -140,10 +144,24 @@ library ProofPlan {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // slither-disable-start cyclomatic-complexity
             // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // slither-disable-end cyclomatic-complexity
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
