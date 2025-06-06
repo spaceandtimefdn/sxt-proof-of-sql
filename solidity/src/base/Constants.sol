@@ -106,6 +106,10 @@ uint32 constant CAST_EXPR_VARIANT = 9;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
+/// @dev Empty variant constant for proof plans
+uint32 constant EMPTY_EXEC_VARIANT = 1;
+/// @dev Table variant constant for proof plans
+uint32 constant TABLE_EXEC_VARIANT = 2;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;

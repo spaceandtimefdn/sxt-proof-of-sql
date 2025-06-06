@@ -80,12 +80,50 @@ contract ProofPlanTest is Test {
     /// forge-config: default.allow_internal_expect_revert = true
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
-        bytes memory plan = abi.encodePacked(uint32(1), hex"abcdef");
+        bytes memory plan = abi.encodePacked(uint32(4), hex"abcdef");
         vm.expectRevert(Errors.UnsupportedProofPlanVariant.selector);
         ProofPlan.__proofPlanEvaluate(plan, builder);
     }
 
+    function testTableExecVariant() public pure {
+        bytes memory plan = abi.encodePacked(
+            TABLE_EXEC_VARIANT,
+            uint64(0), // table_ref
+            uint64(3), // column_count
+            uint64(0), // column1_index
+            uint64(1), // column2_index
+            uint64(2), // column3_index
+            hex"abcdef"
+        );
+
+        VerificationBuilder.Builder memory builder;
+        builder.tableChiEvaluations = new uint256[](1);
+        builder.tableChiEvaluations[0] = 801;
+        builder.columnEvaluations = new uint256[](3);
+        builder.columnEvaluations[0] = 101;
+        builder.columnEvaluations[1] = 102;
+        builder.columnEvaluations[2] = 103;
+
+        uint256[] memory evals;
+        uint256 chiEval;
+        (plan, builder, evals, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+
+        assert(evals.length == 3);
+        assert(evals[0] == 101);
+        assert(evals[1] == 102);
+        assert(evals[2] == 103);
+
+        bytes memory expectedExprOut = hex"abcdef";
+        assert(plan.length == expectedExprOut.length);
+        uint256 exprOutLength = plan.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(plan[i] == expectedExprOut[i]);
+        }
+    }
+
     function testVariantsMatchEnum() public pure {
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Table) == TABLE_EXEC_VARIANT);
     }
 }
