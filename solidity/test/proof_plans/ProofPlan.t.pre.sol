@@ -77,15 +77,30 @@ contract ProofPlanTest is Test {
         }
     }
 
+    function testEmptyExecVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory plan = abi.encodePacked(EMPTY_EXEC_VARIANT, hex"abcdef");
+        uint256[] memory evals;
+        uint256 outputChiEval;
+        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        assert(evals.length == 0);
+        bytes memory expectedExprOut = hex"abcdef";
+        uint256 exprOutLength = plan.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(plan[i] == expectedExprOut[i]);
+        }
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
-        bytes memory plan = abi.encodePacked(uint32(1), hex"abcdef");
+        bytes memory plan = abi.encodePacked(uint32(2), hex"abcdef");
         vm.expectRevert(Errors.UnsupportedProofPlanVariant.selector);
         ProofPlan.__proofPlanEvaluate(plan, builder);
     }
 
     function testVariantsMatchEnum() public pure {
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
     }
 }
