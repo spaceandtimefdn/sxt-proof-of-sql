@@ -316,6 +316,7 @@ fn compute_cumulative_bit_sum_table(
     level = "debug",
     skip_all
 )]
+#[expect(clippy::too_many_lines, clippy::missing_panics_doc)]
 pub fn bit_table_and_scalars_for_packed_msm(
     committable_columns: &[CommittableColumn],
     offset: usize,

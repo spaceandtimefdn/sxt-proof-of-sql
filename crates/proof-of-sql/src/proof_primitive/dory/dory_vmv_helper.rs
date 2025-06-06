@@ -37,6 +37,7 @@ fn convert_scalar_to_array(
 
 /// Compute the commitments to the rows of the matrix M that is derived from `a`.
 #[tracing::instrument(level = "debug", skip_all)]
+#[expect(clippy::missing_panics_doc)]
 #[cfg(feature = "blitzar")]
 pub(super) fn compute_T_vec_prime(
     a: &[F],

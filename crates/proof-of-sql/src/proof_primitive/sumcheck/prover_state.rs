@@ -36,6 +36,7 @@ impl<S: Scalar> ProverState<S> {
     }
 
     #[tracing::instrument(name = "ProverState::create", level = "debug", skip_all)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn create(polynomial: &CompositePolynomial<S>) -> Self {
         log::log_memory_usage("Start");
 
