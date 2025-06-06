@@ -24,7 +24,7 @@ library EmptyExec {
             function empty_exec_evaluate() -> evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(evaluations_ptr, 0)
-                mstore(FREE_PTR, add(FREE_PTR, WORD_SIZE))
+                mstore(FREE_PTR, add(evaluations_ptr, WORD_SIZE))
             }
 
             __evaluationsPtr := empty_exec_evaluate()

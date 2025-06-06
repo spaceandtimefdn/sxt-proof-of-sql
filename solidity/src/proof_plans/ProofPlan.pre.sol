@@ -10,7 +10,8 @@ import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 /// @dev Library for handling proof plans
 library ProofPlan {
     enum PlanVariant {
-        Filter
+        Filter,
+        Empty
     }
 
     /// @notice Evaluates a proof plan
@@ -156,6 +157,10 @@ library ProofPlan {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL EmptyExec.pre.sol
+            function empty_exec_evaluate() -> evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
@@ -177,6 +182,11 @@ library ProofPlan {
                 case 0 {
                     case_const(0, FILTER_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr := filter_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 1 {
+                    case_const(1, EMPTY_EXEC_VARIANT)
+                    evaluations_ptr := empty_exec_evaluate()
+                    plan_ptr_out := plan_ptr
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
