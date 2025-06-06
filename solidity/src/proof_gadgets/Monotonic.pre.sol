@@ -145,20 +145,24 @@ library Monotonic {
                 case 1 {
                     // Strict monotonicity: sign(ind) == 1 for all but first and last element
                     // Allowed evaluations: chi_eval, shifted_chi_eval - singleton_chi_eval, chi_eval - singleton_chi_eval
-                    if eq(sign_eval, chi_eval) { is_valid := 1 }
-                    if eq(sign_eval, submod_bn254(shifted_chi_eval, singleton_chi_eval)) { is_valid := 1 }
-                    if eq(sign_eval, submod_bn254(chi_eval, singleton_chi_eval)) { is_valid := 1 }
+                    is_valid :=
+                        or(
+                            or(eq(sign_eval, chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, singleton_chi_eval))),
+                            eq(sign_eval, submod_bn254(chi_eval, singleton_chi_eval))
+                        )
                 }
                 default {
                     // Non-strict monotonicity: sign(ind) == 0 for all but first and last element
                     // Allowed evaluations: singleton_chi_eval, shifted_chi_eval - chi_eval,
                     // singleton_chi_eval + shifted_chi_eval - chi_eval, 0
-                    if eq(sign_eval, singleton_chi_eval) { is_valid := 1 }
-                    if eq(sign_eval, submod_bn254(shifted_chi_eval, chi_eval)) { is_valid := 1 }
-                    if eq(sign_eval, submod_bn254(addmod_bn254(singleton_chi_eval, shifted_chi_eval), chi_eval)) {
-                        is_valid := 1
-                    }
-                    if iszero(sign_eval) { is_valid := 1 }
+                    is_valid :=
+                        or(
+                            or(eq(sign_eval, singleton_chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, chi_eval))),
+                            or(
+                                eq(sign_eval, submod_bn254(addmod_bn254(singleton_chi_eval, shifted_chi_eval), chi_eval)),
+                                iszero(sign_eval)
+                            )
+                        )
                 }
 
                 if iszero(is_valid) { err(ERR_MONOTONY_CHECK_FAILED) }
