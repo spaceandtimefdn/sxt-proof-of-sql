@@ -3,11 +3,17 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
 import {EmptyExec} from "../../src/proof_plans/EmptyExec.pre.sol";
 
 contract EmptyExecTest is Test {
     function testEmptyExec() public pure {
-        uint256[] memory evaluations = EmptyExec.__emptyExecEvaluate();
+        VerificationBuilder.Builder memory builder;
+        builder.singletonChiEvaluation = 1;
+        uint256[] memory evaluations;
+        uint256 singleton;
+        (builder, evaluations, singleton) = EmptyExec.__emptyExecEvaluate(builder);
         assert(evaluations.length == 0);
+        assert(singleton == 1);
     }
 }

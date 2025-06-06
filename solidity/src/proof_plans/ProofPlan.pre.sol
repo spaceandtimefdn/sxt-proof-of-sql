@@ -28,12 +28,14 @@ library ProofPlan {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the proof plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length output
     /// @dev Evaluates a proof plan by dispatching to the appropriate sub-plan evaluator
     /// @param __plan The proof plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The updated verification builder
     /// @return __evaluations The evaluations pointer
+    /// @return __outputChiEvaluation The output chi evaluation
     function __proofPlanEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
@@ -41,7 +43,8 @@ library ProofPlan {
         returns (
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
-            uint256[] memory __evaluations
+            uint256[] memory __evaluations,
+            uint256 __outputChiEvaluation
         )
     {
         assembly {
@@ -145,6 +148,10 @@ library ProofPlan {
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL FilterExec.pre.sol
             function compute_folds(plan_ptr, builder_ptr, input_chi_eval) ->
                 plan_ptr_out,
@@ -155,11 +162,11 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL FilterExec.pre.sol
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL EmptyExec.pre.sol
-            function empty_exec_evaluate() -> evaluations_ptr {
+            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/DataType.pre.sol
@@ -175,33 +182,33 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL TableExec.pre.sol
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
 
-            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT32_SIZE)
 
                 switch proof_plan_variant
                 case 0 {
                     case_const(0, FILTER_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr := filter_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_chi_eval := filter_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 1 {
                     case_const(1, EMPTY_EXEC_VARIANT)
-                    evaluations_ptr := empty_exec_evaluate()
+                    evaluations_ptr, output_chi_eval := empty_exec_evaluate(builder_ptr)
                     plan_ptr_out := plan_ptr
                 }
                 case 2 {
                     case_const(2, TABLE_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr := table_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_chi_eval := table_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations := proof_plan_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputChiEvaluation := proof_plan_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

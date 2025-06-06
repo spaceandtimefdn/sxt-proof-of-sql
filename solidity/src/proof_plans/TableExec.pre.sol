@@ -14,7 +14,7 @@ library TableExec {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
+    /// table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval
     /// ```
     /// ##### Parameters
     /// * `plan_ptr` - calldata pointer to the table execution plan
@@ -22,6 +22,7 @@ library TableExec {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the table execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
     /// @notice Evaluates a table execution plan
     /// @notice ##### Table execution plan
     /// The table execution plan is a representation of a table query source, such as `SELECT col from tab`.
@@ -32,6 +33,7 @@ library TableExec {
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputChiEvaluation The output chi evaluation
     function __tableExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
@@ -39,7 +41,8 @@ library TableExec {
         returns (
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
-            uint256[] memory __evaluationsPtr
+            uint256[] memory __evaluationsPtr,
+            uint256 __outputChiEvaluation
         )
     {
         uint256[] memory __evaluations;
@@ -65,7 +68,9 @@ library TableExec {
                 revert(0, 0)
             }
 
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                let table_number := shr(UINT64_PADDING_BITS, mload(plan_ptr))
+                output_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_number)
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 // Get the number of columns in the schema
@@ -100,7 +105,7 @@ library TableExec {
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations := table_exec_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputChiEvaluation := table_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

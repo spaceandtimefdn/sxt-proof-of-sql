@@ -250,6 +250,10 @@ library Verifier {
             function builder_check_aggregate_evaluation(builder_ptr) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../hyperkzg/HyperKZGHelpers.pre.sol
             function bivariate_evaluation(v_ptr, q, d, ell) -> b {
                 revert(0, 0)
@@ -328,15 +332,15 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/EmptyExec.pre.sol
-            function empty_exec_evaluate() -> evaluations_ptr {
+            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/TableExec.pre.sol
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
@@ -353,7 +357,7 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol
-            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
 
@@ -570,7 +574,8 @@ library Verifier {
                 )
 
                 plan_ptr := skip_plan_names(plan_ptr)
-                plan_ptr, evaluations_ptr := proof_plan_evaluate(plan_ptr, builder_ptr)
+                let output_chi_eval
+                plan_ptr, evaluations_ptr, output_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
                 builder_check_aggregate_evaluation(builder_ptr)
             }
 

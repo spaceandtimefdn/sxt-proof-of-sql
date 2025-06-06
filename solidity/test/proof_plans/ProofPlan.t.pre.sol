@@ -47,7 +47,8 @@ contract ProofPlanTest is Test {
         builder.tableChiEvaluations[0] = 801;
 
         uint256[] memory evals;
-        (plan, builder, evals) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        uint256 outputChiEval;
+        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
         FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);
@@ -80,7 +81,8 @@ contract ProofPlanTest is Test {
         VerificationBuilder.Builder memory builder;
         bytes memory plan = abi.encodePacked(EMPTY_EXEC_VARIANT, hex"abcdef");
         uint256[] memory evals;
-        (plan, builder, evals) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        uint256 outputChiEval;
+        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
         assert(evals.length == 0);
         bytes memory expectedExprOut = hex"abcdef";
         uint256 exprOutLength = plan.length;
@@ -117,7 +119,8 @@ contract ProofPlanTest is Test {
         builder.columnEvaluations[2] = 103;
 
         uint256[] memory evals;
-        (plan, builder, evals) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        uint256 chiEval;
+        (plan, builder, evals, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         assert(evals.length == 3);
         assert(evals[0] == 101);
