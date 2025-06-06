@@ -47,7 +47,8 @@ contract ProofPlanTest is Test {
         builder.tableChiEvaluations[0] = 801;
 
         uint256[] memory evals;
-        (plan, builder, evals) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        uint256 outputChiEval;
+        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
         FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);

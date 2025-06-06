@@ -14,7 +14,7 @@ library FilterExec {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// filter_exec_evaluate(plan_ptr, builder_ptr, accessor_ptr, one_evals) -> plan_ptr_out, evaluations_ptr
+    /// filter_exec_evaluate(plan_ptr, builder_ptr, accessor_ptr, one_evals) -> plan_ptr_out, evaluations_ptr, output_chi_eval
     /// ```
     /// ##### Parameters
     /// * `plan_ptr` - calldata pointer to the filter execution plan
@@ -22,6 +22,7 @@ library FilterExec {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the filter execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
     /// @notice Evaluates two sub-expressions and produces identity constraints checking their equality
     /// @notice ##### Constraints
     /// * Inputs: \\(S=\texttt{selection}\\), \\(C_1,\ldots,C_\ell=\texttt{c}\\) with length \\(n\\), and thus \\(\chi_{[0,n)}=\texttt{input_chi_eval}\\).
@@ -69,6 +70,7 @@ library FilterExec {
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputChiEvaluation The output chi evaluation
     function __filterExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
@@ -76,7 +78,8 @@ library FilterExec {
         returns (
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
-            uint256[] memory __evaluationsPtr
+            uint256[] memory __evaluationsPtr,
+            uint256 __outputChiEvaluation
         )
     {
         uint256[] memory __evaluations;
@@ -229,7 +232,7 @@ library FilterExec {
                 plan_ptr_out := plan_ptr
             }
 
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr {
+            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
 
                 let input_chi_eval :=
@@ -243,7 +246,7 @@ library FilterExec {
                 plan_ptr, c_fold, d_fold, evaluations_ptr := compute_folds(plan_ptr, builder_ptr, input_chi_eval)
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)
-                let output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
 
                 builder_produce_zerosum_constraint(
                     builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
@@ -265,7 +268,7 @@ library FilterExec {
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations := filter_exec_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputChiEvaluation := filter_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
