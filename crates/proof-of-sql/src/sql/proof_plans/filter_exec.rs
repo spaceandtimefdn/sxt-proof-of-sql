@@ -326,6 +326,11 @@ pub(super) fn verify_filter<S: Scalar>(
     Ok(())
 }
 
+/// Below are the mappings between the names of the parameters in the math and the code
+/// `c = columns`
+/// `d = filtered_columns`
+/// `n = input_length`
+/// `m = output_length`
 #[expect(clippy::too_many_arguments)]
 #[tracing::instrument(level = "debug", skip_all)]
 pub(super) fn prove_filter<'a, S: Scalar + 'a>(
@@ -333,19 +338,19 @@ pub(super) fn prove_filter<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
     alpha: S,
     beta: S,
-    c: &[Column<S>],
+    columns: &[Column<S>],
     s: &'a [bool],
-    d: &[Column<S>],
-    n: usize,
-    m: usize,
+    filtered_columns: &[Column<S>],
+    input_length: usize,
+    output_length: usize,
 ) {
-    let chi_n = alloc.alloc_slice_fill_copy(n, true);
-    let chi_m = alloc.alloc_slice_fill_copy(m, true);
+    let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
+    let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
 
-    let c_fold = alloc.alloc_slice_fill_copy(n, Zero::zero());
-    fold_columns(c_fold, alpha, beta, c);
-    let d_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
-    fold_columns(d_fold, alpha, beta, d);
+    let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
+    fold_columns(c_fold, alpha, beta, columns);
+    let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
+    fold_columns(d_fold, alpha, beta, filtered_columns);
 
     let c_star = alloc.alloc_slice_copy(c_fold);
     slice_ops::add_const::<S, S>(c_star, One::one());

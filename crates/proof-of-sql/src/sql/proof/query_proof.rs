@@ -103,6 +103,7 @@ pub struct QueryProof<CP: CommitmentEvaluationProof> {
 impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
     /// Create a new `QueryProof`.
     #[tracing::instrument(name = "QueryProof::new", level = "debug", skip_all)]
+    #[expect(clippy::too_many_lines)]
     pub fn new(
         expr: &(impl ProofPlan + Serialize),
         accessor: &impl DataAccessor<CP::Scalar>,
@@ -323,6 +324,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
     }
 
     #[tracing::instrument(name = "QueryProof::verify", level = "debug", skip_all, err)]
+    #[expect(clippy::too_many_lines)]
     /// Verify a `QueryProof`. Note: This does NOT transform the result!
     pub fn verify(
         self,

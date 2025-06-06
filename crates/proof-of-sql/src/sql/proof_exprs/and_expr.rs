@@ -66,12 +66,12 @@ impl ProofExpr for AndExpr {
         let rhs_column: Column<'a, S> = self.rhs.first_round_evaluate(alloc, table, params)?;
         let lhs = lhs_column.as_boolean().expect("lhs is not boolean");
         let rhs = rhs_column.as_boolean().expect("rhs is not boolean");
-        let res =
+        let result =
             Column::Boolean(alloc.alloc_slice_fill_with(table.num_rows(), |i| lhs[i] && rhs[i]));
 
         log::log_memory_usage("End");
 
-        Ok(res)
+        Ok(result)
     }
 
     #[tracing::instrument(name = "AndExpr::final_round_evaluate", level = "debug", skip_all)]
@@ -107,11 +107,11 @@ impl ProofExpr for AndExpr {
                 (-S::one(), vec![Box::new(lhs), Box::new(rhs)]),
             ],
         );
-        let res = Column::Boolean(lhs_and_rhs);
+        let result = Column::Boolean(lhs_and_rhs);
 
         log::log_memory_usage("End");
 
-        Ok(res)
+        Ok(result)
     }
 
     fn verifier_evaluate<S: Scalar>(

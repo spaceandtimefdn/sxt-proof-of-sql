@@ -155,6 +155,7 @@ fn copy_column_data_to_slice(
 ///
 /// Panics if the row of a column exceeds `u32::MAX`.
 #[tracing::instrument(name = "create_blitzar_metadata_tables", level = "debug", skip_all)]
+#[expect(clippy::too_many_lines)]
 pub fn create_blitzar_metadata_tables(
     committable_columns: &[CommittableColumn],
     offset: usize,

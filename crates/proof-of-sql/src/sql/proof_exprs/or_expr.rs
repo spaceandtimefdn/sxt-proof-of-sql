@@ -66,11 +66,11 @@ impl ProofExpr for OrExpr {
         let rhs_column: Column<'a, S> = self.rhs.first_round_evaluate(alloc, table, params)?;
         let lhs = lhs_column.as_boolean().expect("lhs is not boolean");
         let rhs = rhs_column.as_boolean().expect("rhs is not boolean");
-        let res = Column::Boolean(first_round_evaluate_or(table.num_rows(), alloc, lhs, rhs));
+        let result = Column::Boolean(first_round_evaluate_or(table.num_rows(), alloc, lhs, rhs));
 
         log::log_memory_usage("End");
 
-        Ok(res)
+        Ok(result)
     }
 
     #[tracing::instrument(name = "OrExpr::final_round_evaluate", level = "debug", skip_all)]
@@ -91,11 +91,11 @@ impl ProofExpr for OrExpr {
             .final_round_evaluate(builder, alloc, table, params)?;
         let lhs = lhs_column.as_boolean().expect("lhs is not boolean");
         let rhs = rhs_column.as_boolean().expect("rhs is not boolean");
-        let res = Column::Boolean(final_round_evaluate_or(builder, alloc, lhs, rhs));
+        let result = Column::Boolean(final_round_evaluate_or(builder, alloc, lhs, rhs));
 
         log::log_memory_usage("End");
 
-        Ok(res)
+        Ok(result)
     }
 
     fn verifier_evaluate<S: Scalar>(
