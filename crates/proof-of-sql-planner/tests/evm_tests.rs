@@ -2,23 +2,28 @@
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use datafusion::config::ConfigOptions;
+use indexmap::IndexMap;
+use indexmap::indexmap;
 use itertools::Itertools;
+use ark_std::test_rng;
+use proof_of_sql::proof_primitive::dory::DynamicDoryEvaluationProof;
+use proof_of_sql::proof_primitive::dory::ProverSetup;
+use proof_of_sql::proof_primitive::dory::PublicParameters;
+use proof_of_sql::proof_primitive::dory::VerifierSetup;
 use proof_of_sql::{
     base::{
         database::{
             owned_table_utility::{
                 bigint, boolean, decimal75, int, owned_table, smallint, timestamptz, tinyint,
                 varbinary, varchar,
-            },
-            ColumnRef, ColumnType, CommitmentAccessor, LiteralValue, OwnedTableTestAccessor,
-            SchemaAccessor, TableRef,
+            }, ColumnRef, ColumnType, CommitmentAccessor, LiteralValue, OwnedTable, OwnedTableTestAccessor, SchemaAccessor, Table, TableRef
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
-    proof_primitive::hyperkzg::{
+    proof_primitive::{dory::DoryScalar, hyperkzg::{
         load_small_setup_for_testing, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof,
-    },
+    }},
     sql::{
         evm_proof_plan::EVMProofPlan,
         proof::{ProofPlan, VerifiableQueryResult},
@@ -466,5 +471,60 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
     verifiable_result
         .clone()
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+}
+
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_an_expty_exec_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::default();
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "select 1",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        plan,
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(plan, &accessor, &&vk, &[])
+        .unwrap();
+}
+
+#[test]
+fn test_tableless_queries_with_dynamic_dory() {
+    let accessor = OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::default();
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "select 1",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
+        plan,
+        &accessor,
+        &&prover_setup,
+        &[],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(plan, &accessor, &&verifier_setup, &[])
         .unwrap();
 }
