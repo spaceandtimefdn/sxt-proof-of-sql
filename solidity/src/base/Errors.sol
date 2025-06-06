@@ -59,6 +59,8 @@ uint32 constant ERR_EVALUATION_LENGTH_TOO_LARGE = 0xb65e7142;
 uint32 constant ERR_BIT_DECOMPOSITION_INVALID = 0xda443b2b;
 /// @dev Error code for when bits that shouldn't vary do vary.
 uint32 constant ERR_INVALID_VARYING_BITS = 0x76d56a3d;
+/// @dev Error code for when monotony check fails.
+uint32 constant ERR_MONOTONY_CHECK_FAILED = 0x976f97b8;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -118,6 +120,8 @@ library Errors {
     error BitDecompositionInvalid();
     /// @notice Error thrown when bits that shouldn't vary do vary.
     error InvalidVaryingBits();
+    /// @notice Error thrown when monotony check fails.
+    error MonotonyCheckFailed();
 
     function __err(uint32 __code) internal pure {
         assembly {
