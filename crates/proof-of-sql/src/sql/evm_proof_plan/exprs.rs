@@ -297,9 +297,9 @@ impl EVMEqualsExpr {
 /// Represents an inequality expression.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMInequalityExpr {
-    is_lt: bool,
     lhs: Box<EVMDynProofExpr>,
     rhs: Box<EVMDynProofExpr>,
+    is_lt: bool,
 }
 
 impl EVMInequalityExpr {

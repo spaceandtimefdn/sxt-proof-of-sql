@@ -6,15 +6,15 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 
-/// @title SubtractExpr
-/// @dev Library for handling subtracting two proof expressions
-library SubtractExpr {
-    /// @notice Evaluates an subtract expression by subtracting one sub-expression from the other
+/// @title InequalityExpr
+/// @dev Library for handling inequality comparison expressions between two proof expressions
+library InequalityExpr {
+    /// @notice Evaluates an inequality expression by comparing two sub-expressions
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
     /// ```
     /// ##### Parameters
     /// * `expr_ptr` - calldata pointer to the expression data
@@ -23,18 +23,19 @@ library SubtractExpr {
     /// ##### Return Values
     /// * `expr_ptr_out` - pointer to the remaining expression after consuming both sub-expressions
     /// * `eval` - the evaluation result from the builder's final round MLE
-    /// @notice Evaluates two sub-expressions and subtract one from the other
+    /// @notice Evaluates two sub-expressions and uses sign gadget to check inequality
     /// ##### Proof Plan Encoding
-    /// The subtract expression is encoded as follows:
-    /// 1. The left hand side expression
-    /// 2. The right hand side expression
-    /// @param __expr The subtract expression data
+    /// The equals expression is encoded as follows:
+    /// 1. A bit representing if it is a less than comparison
+    /// 2. The left hand side expression
+    /// 3. The right hand side expression
+    /// @param __expr The inqeuality expression data
     /// @param __builder The verification builder
     /// @param __chiEval The chi value for evaluation
     /// @return __exprOut The remaining expression after processing
     /// @return __builderOut The verification builder result
     /// @return __eval The evaluated result
-    function __subtractExprEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __inequalityExprEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
         external
         pure
@@ -85,12 +86,12 @@ library SubtractExpr {
             function literal_expr_evaluate(expr_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL EqualsExpr.pre.sol
-            function equals_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
-                revert(0, 0)
-            }
             // IMPORT-YUL AddExpr.pre.sol
             function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SubtractExpr.pre.sol
+            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL MultiplyExpr.pre.sol
@@ -113,16 +114,8 @@ library SubtractExpr {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
-            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
-            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            // IMPORT-YUL EqualsExpr.pre.sol
+            function equals_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -147,24 +140,37 @@ library SubtractExpr {
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
 
-            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 let lhs_eval
                 expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
                 let rhs_eval
                 expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
-                result_eval := submod_bn254(lhs_eval, rhs_eval)
+                let is_lt := shr(BOOLEAN_PADDING_BITS, calldataload(expr_ptr))
+                expr_ptr := add(expr_ptr, BOOLEAN_SIZE)
+
+                let diff_eval := submod_bn254(rhs_eval, lhs_eval)
+                if is_lt { diff_eval := submod_bn254(lhs_eval, rhs_eval) }
+                result_eval := sign_expr_evaluate(diff_eval, builder_ptr, chi_eval)
                 expr_ptr_out := expr_ptr
             }
 
             let __exprOutOffset
-            __exprOutOffset, __eval := subtract_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOutOffset, __eval := inequality_expr_evaluate(__expr.offset, __builder, __chiEval)
             __exprOut.offset := __exprOutOffset
             // slither-disable-next-line write-after-write
             __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))

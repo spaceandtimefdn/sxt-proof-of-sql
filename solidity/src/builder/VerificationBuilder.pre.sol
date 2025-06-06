@@ -24,6 +24,7 @@ library VerificationBuilder {
         uint256 firstRoundCommitmentsPtr;
         uint256 finalRoundCommitmentsPtr;
         uint256 singletonChiEvaluation;
+        uint256[] bitDistributions;
     }
 
     /// @notice Allocates and reserves a block of memory for a verification builder
