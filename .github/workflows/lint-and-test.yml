@@ -18,7 +18,7 @@ jobs:
   # Run cargo check (with various feature permutations)
   check:
     name: Check Package
-    runs-on: large-8-core-32gb-22-04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -150,20 +150,14 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: large-8-core-32gb-22-04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: |
-          curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
-          rustup component add clippy
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
-      - name: Run clippy
-        run: cargo cl -- -D warnings
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y clang lld
+      - run: rustup component add clippy
+      - run: cargo cl -- -D warnings
         
   # Run cargo f --check
   format:
