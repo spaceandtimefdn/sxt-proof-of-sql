@@ -66,6 +66,9 @@ done
 # Run Dynamic Dory benchmarks if requested
 if $RUN_DYNAMIC_DORY; then
   echo "Running Dynamic Dory benchmarks..."
+
+  # Flag to track if downloads were successful
+  DOWNLOAD_SUCCESS=true
   
   # Check if blitzar_handle_nu_16.bin and public_params_nu_16.bin exist
   if [[ ! -f "$DATA_DIR/blitzar_handle_nu_16.bin" ]] || \
@@ -75,27 +78,46 @@ if $RUN_DYNAMIC_DORY; then
      
      for part in aa ab ac ad; do
        echo "Downloading part $part of blitzar_handle_nu_16.bin..."
-       wget -q --show-progress https://github.com/spaceandtimelabs/sxt-proof-of-sql/releases/download/dory-prover-params-nu-16/blitzar_handle_nu_16.bin.part.$part
+       wget -q --show-progress https://github.com/spaceandtimelabs/sxt-proof-of-sql/releases/download/dory-prover-params-nu-16/blitzar_handle_nu_16.bin.part.$part || {
+         echo "ERROR: Failed to download blitzar_handle_nu_16.bin.part.$part"
+         DOWNLOAD_SUCCESS=false
+         break  # Exit the loop if any download fails
+       }
      done
      
-     echo "Downloading public_parameters_nu_16.bin..."
-     wget -q --show-progress https://github.com/spaceandtimelabs/sxt-proof-of-sql/releases/download/dory-prover-params-nu-16/public_parameters_nu_16.bin
-     
-     echo "Combining parts into blitzar_handle_nu_16.bin..."
-     cat blitzar_handle_nu_16.bin.part.* > blitzar_handle_nu_16.bin
-     rm blitzar_handle_nu_16.bin.part.*
-     
-     # Fix the filename if needed
-     if [[ ! -f "$DATA_DIR/public_params_nu_16.bin" ]]; then
-       mv public_parameters_nu_16.bin public_params_nu_16.bin || true
+     if $DOWNLOAD_SUCCESS; then
+       echo "Downloading public_parameters_nu_16.bin..."
+       wget -q --show-progress https://github.com/spaceandtimelabs/sxt-proof-of-sql/releases/download/dory-prover-params-nu-16/public_parameters_nu_16.bin || {
+         echo "ERROR: Failed to download public_parameters_nu_16.bin"
+         DOWNLOAD_SUCCESS=false
+       }
      fi
      
-     echo "Download complete."
+     if $DOWNLOAD_SUCCESS; then
+       echo "Combining parts into blitzar_handle_nu_16.bin..."
+       cat blitzar_handle_nu_16.bin.part.* > blitzar_handle_nu_16.bin || {
+         echo "ERROR: Failed to combine file parts"
+         DOWNLOAD_SUCCESS=false
+       }
+       
+       # Clean up only if combination was successful
+       if $DOWNLOAD_SUCCESS; then
+         rm blitzar_handle_nu_16.bin.part.* || echo "Warning: Could not remove part files"
+       fi
+     fi
+     
+     if $DOWNLOAD_SUCCESS; then
+       echo "Download complete."
+     else
+       echo "Download failed. Building Dory setup."
+     fi
   fi
 
   # Set these environment variables outside the if block to ensure they're available
-  export BLITZAR_HANDLE_PATH="$DATA_DIR/blitzar_handle_nu_16.bin"
-  export DORY_PUBLIC_PARAMS_PATH="$DATA_DIR/public_params_nu_16.bin"
+  if $DOWNLOAD_SUCCESS && [[ -f "$DATA_DIR/blitzar_handle_nu_16.bin" ]] && [[ -f "$DATA_DIR/public_params_nu_16.bin" ]]; then
+    export BLITZAR_HANDLE_PATH="$DATA_DIR/blitzar_handle_nu_16.bin"
+    export DORY_PUBLIC_PARAMS_PATH="$DATA_DIR/public_params_nu_16.bin"
+  fi
 
   # Note: Dynamic Dory with nu-16 cannot handle table sizes larger than ~10 million
   DORY_TABLE_SIZES=()
