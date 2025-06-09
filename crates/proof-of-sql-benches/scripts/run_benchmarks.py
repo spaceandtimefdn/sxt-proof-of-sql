@@ -184,7 +184,7 @@ def main():
     start_time = time.time()
 
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Run proof-of-sql-benchs')
+    parser = argparse.ArgumentParser(description='Run proof-of-sql-benches')
     parser.add_argument('mode', nargs='?', choices=['d', 'daily', 'm', 'marketing', 'a', 'all'], 
                         default='a', help='Benchmark mode to run')
     args = parser.parse_args()
