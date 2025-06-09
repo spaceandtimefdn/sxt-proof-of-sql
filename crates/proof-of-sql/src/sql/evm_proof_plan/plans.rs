@@ -5,9 +5,11 @@ use crate::{
         map::IndexSet,
     },
     sql::{
+        proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
             DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, TableExec,
+            UnionExec,
         },
     },
 };
@@ -415,6 +417,52 @@ impl EVMGroupByExec {
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
             self.where_clause.try_into_proof_expr(column_refs)?,
+        ))
+    }
+}
+
+/// Represents a union execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMUnionExec {
+    pub(super) inputs: Vec<EVMDynProofPlan>,
+    pub(super) column_numbers: Vec<usize>,
+}
+
+impl EVMUnionExec {
+    /// Try to create a `EVMUnionExec` from a `UnionExec`.
+    pub(crate) fn try_from_proof_plan(
+        plan: &UnionExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        // Map column expressions to their indices in column_refs
+        let input_columns_references = plan.get_column_references();
+
+        Ok(Self {
+            inputs: plan
+                .input_plans()
+                .iter()
+                .map(|plan| EVMDynProofPlan::try_from_proof_plan(plan, table_refs, column_refs))
+                .collect::<Result<Vec<_>, _>>()?,
+            column_numbers: column_refs
+                .iter()
+                .enumerate()
+                .filter_map(|(i, col_ref)| {
+                    (input_columns_references.contains(col_ref)).then_some(i)
+                })
+                .collect(),
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<UnionExec> {
+
+        Ok(UnionExec::new(
+            self.inputs.iter().map(|plan| plan.try_into_proof_plan(table_refs, column_refs, output_column_names)),
+            self.column_numbers.into_iter().map(|i| column_refs.get_index(i).map(|col_ref| ColumnField::new(col_ref.column_id(), *col_ref.column_type()))).collect::<Option<Vec<_>>>().ok_or(EVMProofPlanError::ColumnNotFound)?
         ))
     }
 }

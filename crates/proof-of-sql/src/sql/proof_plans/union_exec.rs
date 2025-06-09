@@ -42,6 +42,10 @@ impl UnionExec {
     pub fn new(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
         Self { inputs, schema }
     }
+
+    pub(crate) fn input_plans(&self) -> &[DynProofPlan] {
+        &self.inputs
+    }
 }
 
 impl ProofPlan for UnionExec
