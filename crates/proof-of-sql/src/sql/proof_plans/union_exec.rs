@@ -48,7 +48,6 @@ impl ProofPlan for UnionExec
 where
     UnionExec: ProverEvaluate,
 {
-    #[expect(unused_variables)]
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -62,17 +61,8 @@ where
             .iter()
             .map(|input| input.verifier_evaluate(builder, accessor, None, chi_eval_map, params))
             .collect::<Result<Vec<_>, _>>()?;
-        let num_parts = self.inputs.len();
-        let input_column_evals = input_table_evals
-            .iter()
-            .map(TableEvaluation::column_evals)
-            .collect::<Vec<_>>();
         let output_column_evals =
             builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
-        let chi_n_evals = input_table_evals
-            .iter()
-            .map(TableEvaluation::chi_eval)
-            .collect::<Vec<_>>();
         let chi_m_eval = builder.try_consume_chi_evaluation()?;
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
@@ -80,9 +70,8 @@ where
             builder,
             gamma,
             beta,
-            &input_column_evals,
+            &input_table_evals,
             &output_column_evals,
-            &chi_n_evals,
             chi_m_eval,
         )?;
         Ok(TableEvaluation::new(output_column_evals, chi_m_eval))
@@ -180,22 +169,19 @@ fn verify_union<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
     gamma: S,
     beta: S,
-    input_evals: &[&[S]],
+    input_table_evals: &[TableEvaluation<S>],
     output_eval: &[S],
-    chi_n_evals: &[S],
     chi_m_eval: S,
 ) -> Result<(), ProofError> {
-    assert_eq!(input_evals.len(), chi_n_evals.len());
-    let c_star_evals = input_evals
+    let c_star_evals = input_table_evals
         .iter()
-        .zip(chi_n_evals)
-        .map(|(&input_eval, &input_chi_eval)| -> Result<_, ProofError> {
-            let c_fold_eval = gamma * fold_vals(beta, input_eval);
+        .map(|table_evaluation| -> Result<_, ProofError> {
+            let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
             let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
             // c_star + c_fold * c_star - chi_n_i = 0
             builder.try_produce_sumcheck_subpolynomial_evaluation(
                 SumcheckSubpolynomialType::Identity,
-                c_star_eval + c_fold_eval * c_star_eval - input_chi_eval,
+                c_star_eval + c_fold_eval * c_star_eval - table_evaluation.chi_eval(),
                 2,
             )?;
             Ok(c_star_eval)
