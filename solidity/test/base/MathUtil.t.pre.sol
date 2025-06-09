@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "../../src/base/Constants.sol";
-import {MathUtil} from "../../src/base/MathUtil.sol";
+import {MathUtil} from "../../src/base/MathUtil.pre.sol";
 
 library MathUtilTest {
     function testWeCanComputeLog2Up() public pure {
