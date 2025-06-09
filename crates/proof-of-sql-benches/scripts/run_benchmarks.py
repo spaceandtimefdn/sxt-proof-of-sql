@@ -70,6 +70,7 @@ def setup_environment() -> Tuple[Path, Path, Path]:
     return project_root, data_dir, csv_path
 
 def run_command(cmd: List[str], check: bool = True) -> bool:
+    """Run a shell command and handle errors appropriately."""
     try:
         subprocess.run(cmd, check=check)
         return True
