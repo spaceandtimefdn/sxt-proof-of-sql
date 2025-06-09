@@ -119,6 +119,10 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
         if generators_offset != 0 {
             Err(NovaError::InvalidPCS)?;
         }
+        // If there are no commitments or evaluations, verification is complete
+        if commit_batch.len() + batching_factors.len() + evaluations.len() == 0 {
+            return Ok(());
+        }
         let commit: G1Affine = commit_batch
             .iter()
             .zip(batching_factors)
