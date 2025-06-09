@@ -1,31 +1,31 @@
 #!/bin/bash
 # Check for command-line argument
-BENCHMARK_MODE=${1:-"a"}  # Default to "a" if no argument provided
+BENCHMARK_MODE=${1:-"a"}  # Default to "a" - all queries if no argument provided
 
 # Define the benchmark parameters
 case $BENCHMARK_MODE in
   d|daily)
     echo "Running daily benchmark suite"
-    TABLE_SIZES=(10000 100000 1000000 10000000 100000000)
     QUERIES=("filter" "arithmetic" "group-by" "join")
+    TABLE_SIZES=(10000 100000 1000000 10000000 100000000)
     RUN_DYNAMIC_DORY=true
     FLAGS=""
     ;;
   m|marketing)
     echo "Running marketing benchmark suite"
+    QUERIES=("filter" "complex-filter" "group-by" "join")
     TABLE_SIZES=(
       10000 20000 30000 40000 50000 60000 70000 80000 90000 100000
       110000 120000 130000 140000 150000 160000 170000 180000 190000
       200000 400000 600000 800000 1000000 3000000 6000000 10000000
     )
-    QUERIES=("filter" "complex-filter" "group-by" "join")
     RUN_DYNAMIC_DORY=false
     FLAGS="-r 0 -i 10"
     ;;
   a|all)
     echo "Running full benchmark suite"
-    TABLE_SIZES=(10000 100000 1000000 10000000 100000000)
     QUERIES=("all")
+    TABLE_SIZES=(10000 100000 1000000 10000000 100000000)
     RUN_DYNAMIC_DORY=true
     FLAGS=""
     ;;
