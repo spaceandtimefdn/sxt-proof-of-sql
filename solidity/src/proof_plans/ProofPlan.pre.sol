@@ -10,7 +10,9 @@ import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 /// @dev Library for handling proof plans
 library ProofPlan {
     enum PlanVariant {
-        Filter
+        Filter,
+        Empty,
+        Table
     }
 
     /// @notice Evaluates a proof plan
@@ -171,6 +173,10 @@ library ProofPlan {
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
+            // IMPORT-YUL TableExec.pre.sol
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
 
             function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
@@ -180,6 +186,10 @@ library ProofPlan {
                 case 0 {
                     case_const(0, FILTER_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_chi_eval := filter_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 2 {
+                    case_const(2, TABLE_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_chi_eval := table_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
