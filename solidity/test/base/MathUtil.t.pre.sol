@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "../../src/base/Constants.sol";
-import {MathUtil} from "../../src/base/MathUtil.sol";
+import {MathUtil} from "../../src/base/MathUtil.pre.sol";
 
 library MathUtilTest {
     function testWeCanComputeLog2Up() public pure {
@@ -57,5 +57,15 @@ library MathUtilTest {
         assert(MathUtil.__subModBN254(1, 2) == MODULUS_MINUS_ONE);
         assert(MathUtil.__mulModBN254(1, 2) == 2);
         assert(MathUtil.__mulModBN254(MODULUS_MINUS_ONE, 2) == MODULUS_MINUS_ONE - 1);
+    }
+
+    function testSimpleFold() public pure {
+        uint256 beta = 4;
+        uint256[] memory evals = new uint256[](3);
+        evals[0] = 1;
+        evals[1] = MODULUS_MINUS_ONE;
+        evals[2] = 3;
+        uint256 fold = MathUtil.__computeFold(beta, evals);
+        assert(fold == 15);
     }
 }

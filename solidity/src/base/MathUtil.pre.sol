@@ -95,4 +95,31 @@ library MathUtil {
             __product := mulmod_bn254(__lhs, __rhs)
         }
     }
+
+    /// @notice Computes `compute_fold(beta, evals)`
+    /// @dev The sum of a collection of vales with some mulitplier for each term.
+    /// @param __beta The generator of the multipliers for each term in the fold
+    /// @param __evals The collection of values to fold
+    /// @return __fold The sum of __evals[n - 1] + evals[n - 2] * beta + ... + evals[0] * beta ^ (n - 1), where n is the length of the evals
+    function __computeFold(uint256 __beta, uint256[] memory __evals) internal pure returns (uint256 __fold) {
+        assembly {
+            // IMPORT-YUL MathUtil.pre.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL MathUtil.pre.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
+            function compute_fold(beta, evals) -> fold {
+                let num_columns := mload(evals)
+                fold := 0
+                for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
+                    evals := add(evals, WORD_SIZE)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), mload(evals))
+                }
+            }
+            __fold := compute_fold(__beta, __evals)
+        }
+    }
 }

@@ -61,6 +61,8 @@ uint32 constant ERR_BIT_DECOMPOSITION_INVALID = 0xda443b2b;
 uint32 constant ERR_INVALID_VARYING_BITS = 0x76d56a3d;
 /// @dev Error code for when monotony check fails.
 uint32 constant ERR_MONOTONY_CHECK_FAILED = 0x976f97b8;
+/// @dev Error thrown when there is an internal error.
+uint32 constant ERR_INTERNAL = 0xfe835e35;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -122,6 +124,8 @@ library Errors {
     error InvalidVaryingBits();
     /// @notice Error thrown when monotony check fails.
     error MonotonyCheckFailed();
+    /// @notice Error thrown when there is an internal error.
+    error InternalError();
 
     function __err(uint32 __code) internal pure {
         assembly {

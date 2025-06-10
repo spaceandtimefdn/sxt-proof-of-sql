@@ -82,11 +82,11 @@ library HyperKZGHelpers {
         returns (uint256 __b)
     {
         assembly {
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -146,15 +146,15 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -306,11 +306,11 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.sol
+            // IMPORT-YUL ../base/MathUtil.pre.sol
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
