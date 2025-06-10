@@ -191,11 +191,20 @@ struct Cli {
 ///
 /// # Arguments
 /// * `cli` - A reference to the command line interface arguments.
-fn get_rng(cli: &Cli) -> StdRng {
+fn rng(cli: &Cli) -> StdRng {
     if let Some(seed) = cli.rand_seed {
         StdRng::seed_from_u64(seed)
     } else {
         StdRng::from_entropy()
+    }
+}
+
+/// Returns the size of the table based on the query type.
+fn table_size(cli: &Cli, query: &str) -> usize {
+    if query == Query::Join.to_string() {
+        cli.table_size.div_ceil(2)
+    } else {
+        cli.table_size
     }
 }
 
@@ -216,7 +225,7 @@ fn bench_by_schema<CP: CommitmentEvaluationProof>(
 ) {
     let alloc = Bump::new();
     let mut accessor: BenchmarkAccessor<'_, CP::Commitment> = BenchmarkAccessor::default();
-    let mut rng = get_rng(cli);
+    let mut rng = rng(cli);
 
     for (query, sql, tables, params) in queries {
         // Get accessor
@@ -227,7 +236,7 @@ fn bench_by_schema<CP: CommitmentEvaluationProof>(
                     &alloc,
                     &mut rng,
                     table.columns.as_slice(),
-                    cli.table_size,
+                    table_size(cli, query),
                 ),
                 &prover_setup,
             );
@@ -426,16 +435,7 @@ fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
 
         (prover_setup, vk)
     } else {
-        let table_size = if queries
-            .iter()
-            .any(|query| query.0 == Query::Join.to_string())
-        {
-            cli.table_size * 2
-        } else {
-            cli.table_size
-        };
-
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", table_size);
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", cli.table_size);
         let (_, vk) = EvaluationEngine::setup(&ck);
         let prover_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         (prover_setup, vk)
