@@ -184,7 +184,7 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     );
     assert!(matches!(
         VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[],),
-        Err(PlaceholderError::InvalidPlaceholderId { .. })
+        Err(PlaceholderError::InvalidPlaceholderIndex { .. })
     ));
 }
 
