@@ -541,3 +541,22 @@ fn we_can_verify_simple_inequality_filter_using_the_evm() {
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 }
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_empty_exec_using_the_evm() {
+    let (ps, _vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::default();
+    let plan = &DynProofPlan::new_empty();
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+}

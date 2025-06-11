@@ -345,6 +345,14 @@ library Verifier {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/EmptyExec.pre.sol
+            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
