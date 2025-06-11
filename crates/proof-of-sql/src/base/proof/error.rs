@@ -72,11 +72,11 @@ pub enum PlaceholderError {
         num_params: usize,
     },
 
-    #[snafu(display("Invalid placeholder type: {id}, expected: {expected}, actual: {actual}"))]
+    #[snafu(display("Invalid placeholder type: {index}, expected: {expected}, actual: {actual}"))]
     /// Placeholder type is invalid
     InvalidPlaceholderType {
         /// The invalid placeholder id
-        id: usize,
+        index: usize,
         /// The expected type
         expected: ColumnType,
         /// The actual type
