@@ -549,6 +549,51 @@ fn test_join() {
 }
 
 #[test]
+fn test_union() {
+    let alloc = Bump::new();
+    // WE do not yet support regular UNION
+    let sql = "SELECT column1 FROM table1 UNION ALL SELECT column2 FROM table2;";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "table1") => table(
+            vec![
+                borrowed_varchar("column1", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "table2") => table(
+            vec![
+                borrowed_varchar("column2", ["Test", "Some", "Creamy", "Chocolate"], &alloc),
+            ]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([varchar(
+        "column1",
+        [
+            "Chloe",
+            "Margaret",
+            "Katy",
+            "Lucy",
+            "Prudence",
+            "Test",
+            "Some",
+            "Creamy",
+            "Chocolate",
+        ],
+    )])];
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+#[test]
 fn test_implicit_casts() {
     let alloc = Bump::new();
     let sql = "SELECT a<b as compared, a*b as product from sxt.table where a+b>3.5;";
