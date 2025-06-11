@@ -85,6 +85,20 @@ contract ProofPlanTest is Test {
         ProofPlan.__proofPlanEvaluate(plan, builder);
     }
 
+    function testEmptyExecVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory plan = abi.encodePacked(EMPTY_EXEC_VARIANT, hex"abcdef");
+        uint256[] memory evals;
+        uint256 chiEval;
+        (plan, builder, evals, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        assert(evals.length == 0);
+        bytes memory expectedExprOut = hex"abcdef";
+        uint256 exprOutLength = plan.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(plan[i] == expectedExprOut[i]);
+        }
+    }
+
     function testTableExecVariant() public pure {
         bytes memory plan = abi.encodePacked(
             TABLE_EXEC_VARIANT,
