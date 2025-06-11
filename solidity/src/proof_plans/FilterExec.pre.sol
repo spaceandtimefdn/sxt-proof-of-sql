@@ -214,8 +214,15 @@ library FilterExec {
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
-
-            function compute_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+                revert(0, 0)
+            }
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval) ->
                 plan_ptr_out,
                 c_fold,
                 d_fold,
@@ -226,27 +233,8 @@ library FilterExec {
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                evaluations_ptr := mload(FREE_PTR)
-                mstore(evaluations_ptr, column_count)
-                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-
-                c_fold := 0
-                for { let i := column_count } i { i := sub(i, 1) } {
-                    let c
-                    plan_ptr, c := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
-                    c_fold := addmod_bn254(mulmod_bn254(c_fold, beta), c)
-                }
-
-                d_fold := 0
-                for { let i := column_count } i { i := sub(i, 1) } {
-                    let d := builder_consume_final_round_mle(builder_ptr)
-                    d_fold := addmod_bn254(mulmod_bn254(d_fold, beta), d)
-
-                    mstore(evaluations_ptr, d)
-                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                }
-                evaluations_ptr := mload(FREE_PTR)
-                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
+                plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
+                d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, column_count)
                 plan_ptr_out := plan_ptr
             }
 
@@ -266,7 +254,7 @@ library FilterExec {
                 plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 let c_fold, d_fold
-                plan_ptr, c_fold, d_fold, evaluations_ptr := compute_folds(plan_ptr, builder_ptr, input_chi_eval)
+                plan_ptr, c_fold, d_fold, evaluations_ptr := compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval)
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)
                 output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
