@@ -61,7 +61,7 @@ impl PlaceholderExpr {
             })?;
         if param_value.column_type() != self.column_type {
             return Err(PlaceholderError::InvalidPlaceholderType {
-                id: self.id,
+                index: self.id - 1,
                 expected: self.column_type,
                 actual: param_value.column_type(),
             });
