@@ -61,6 +61,10 @@ library AddExpr {
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)
@@ -110,6 +114,18 @@ library AddExpr {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -117,10 +133,12 @@ library AddExpr {
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
+            // slither-disable-start cyclomatic-complexity
             // IMPORT-YUL ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // slither-disable-end cyclomatic-complexity
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
