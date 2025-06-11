@@ -55,8 +55,8 @@ impl PlaceholderExpr {
         let pos = self.id - 1;
         let param_value = params
             .get(pos)
-            .ok_or(PlaceholderError::InvalidPlaceholderId {
-                id: self.id,
+            .ok_or(PlaceholderError::InvalidPlaceholderIndex {
+                index: self.id - 1,
                 num_params: params.len(),
             })?;
         if param_value.column_type() != self.column_type {
@@ -151,7 +151,7 @@ mod tests {
         let res = placeholder_expr.interpolate(&params);
         assert!(matches!(
             res,
-            Err(PlaceholderError::InvalidPlaceholderId { .. })
+            Err(PlaceholderError::InvalidPlaceholderIndex { .. })
         ));
 
         // Params exist but not enough of them
@@ -160,7 +160,7 @@ mod tests {
         let res = placeholder_expr.interpolate(&params);
         assert!(matches!(
             res,
-            Err(PlaceholderError::InvalidPlaceholderId { .. })
+            Err(PlaceholderError::InvalidPlaceholderIndex { .. })
         ));
     }
 
