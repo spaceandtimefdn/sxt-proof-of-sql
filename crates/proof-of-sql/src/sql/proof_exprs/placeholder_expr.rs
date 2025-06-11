@@ -19,7 +19,7 @@ use sqlparser::ast::Ident;
 ///    select $1, $2 from T
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaceholderExpr {
-    id: usize,
+    index: usize,
     column_type: ColumnType,
 }
 
@@ -27,13 +27,16 @@ impl PlaceholderExpr {
     /// Creates a new `PlaceholderExpr`
     pub fn try_new(id: usize, column_type: ColumnType) -> PlaceholderResult<Self> {
         (id > 0)
-            .then_some(Self { id, column_type })
+            .then(|| Self {
+                index: id - 1,
+                column_type,
+            })
             .ok_or(PlaceholderError::ZeroPlaceholderId)
     }
 
     /// Get the id of the placeholder
     pub fn index(&self) -> usize {
-        self.id - 1
+        self.index
     }
 
     /// Get the column type of the placeholder
@@ -52,16 +55,16 @@ impl PlaceholderExpr {
         &self,
         params: &'a [LiteralValue],
     ) -> Result<&'a LiteralValue, PlaceholderError> {
-        let pos = self.id - 1;
+        let pos = self.index;
         let param_value = params
             .get(pos)
             .ok_or(PlaceholderError::InvalidPlaceholderIndex {
-                index: self.id - 1,
+                index: self.index,
                 num_params: params.len(),
             })?;
         if param_value.column_type() != self.column_type {
             return Err(PlaceholderError::InvalidPlaceholderType {
-                index: self.id - 1,
+                index: self.index,
                 expected: self.column_type,
                 actual: param_value.column_type(),
             });
