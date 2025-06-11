@@ -290,11 +290,9 @@ library FilterExec {
                 plan_ptr_out := plan_ptr
             }
 
-            let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := filter_exec_evaluate(__plan.offset, __builder)
-            __planOut.offset := __planOutOffset
+            __planOut.offset, __evaluations, __outputChiEvaluation := filter_exec_evaluate(__plan.offset, __builder)
             // slither-disable-next-line write-after-write
-            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            __planOut.length := sub(__plan.length, sub(__planOut.offset, __plan.offset))
         }
         __evaluationsPtr = __evaluations;
         __builderOut = __builder;

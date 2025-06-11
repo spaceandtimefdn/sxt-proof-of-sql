@@ -225,11 +225,9 @@ library ProofPlan {
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
 
-            let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := proof_plan_evaluate(__plan.offset, __builder)
-            __planOut.offset := __planOutOffset
+            __planOut.offset, __evaluations, __outputChiEvaluation := proof_plan_evaluate(__plan.offset, __builder)
             // slither-disable-next-line write-after-write
-            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            __planOut.length := sub(__plan.length, sub(__planOut.offset, __plan.offset))
         }
         __builderOut = __builder;
     }

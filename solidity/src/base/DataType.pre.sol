@@ -145,11 +145,9 @@ library DataType {
                 }
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
-            let __exprOutOffset
-            __exprOutOffset, __entry := read_entry(__expr.offset, __dataTypeVariant)
-            __exprOut.offset := __exprOutOffset
+            __exprOut.offset, __entry := read_entry(__expr.offset, __dataTypeVariant)
             // slither-disable-next-line write-after-write
-            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+            __exprOut.length := sub(__expr.length, sub(__exprOut.offset, __expr.offset))
         }
     }
 
@@ -204,11 +202,9 @@ library DataType {
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
 
-            let __exprOutOffset
-            __exprOutOffset, __dataType := read_data_type(__expr.offset)
-            __exprOut.offset := __exprOutOffset
+            __exprOut.offset, __dataType := read_data_type(__expr.offset)
             // slither-disable-next-line write-after-write
-            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+            __exprOut.length := sub(__expr.length, sub(__exprOut.offset, __expr.offset))
         }
     }
 }

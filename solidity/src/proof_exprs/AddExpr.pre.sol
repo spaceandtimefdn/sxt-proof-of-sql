@@ -163,11 +163,9 @@ library AddExpr {
                 expr_ptr_out := expr_ptr
             }
 
-            let __exprOutOffset
-            __exprOutOffset, __eval := add_expr_evaluate(__expr.offset, __builder, __chiEval)
-            __exprOut.offset := __exprOutOffset
+            __exprOut.offset, __eval := add_expr_evaluate(__expr.offset, __builder, __chiEval)
             // slither-disable-next-line write-after-write
-            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+            __exprOut.length := sub(__expr.length, sub(__exprOut.offset, __expr.offset))
         }
         __builderOut = __builder;
     }

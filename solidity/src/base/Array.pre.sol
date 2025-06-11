@@ -85,11 +85,9 @@ library Array {
                 source_ptr_out := source_ptr
             }
 
-            let __sourceOutOffset
-            __sourceOutOffset, __arrayTmp := read_uint64_array(__source.offset)
-            __sourceOut.offset := __sourceOutOffset
+            __sourceOut.offset, __arrayTmp := read_uint64_array(__source.offset)
             // slither-disable-next-line write-after-write
-            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+            __sourceOut.length := sub(__source.length, sub(__sourceOut.offset, __source.offset))
         }
         __array = __arrayTmp;
     }
@@ -133,11 +131,9 @@ library Array {
                 source_ptr_out := add(source_ptr, copy_size)
             }
 
-            let __sourceOutOffset
-            __sourceOutOffset, __arrayTmp := read_word_array(__source.offset)
-            __sourceOut.offset := __sourceOutOffset
+            __sourceOut.offset, __arrayTmp := read_word_array(__source.offset)
             // slither-disable-next-line write-after-write
-            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+            __sourceOut.length := sub(__source.length, sub(__sourceOut.offset, __source.offset))
         }
         __array = __arrayTmp;
     }
@@ -182,11 +178,9 @@ library Array {
                 source_ptr_out := add(source_ptr, copy_size)
             }
 
-            let __sourceOutOffset
-            __sourceOutOffset, __array := read_wordx2_array(__source.offset)
-            __sourceOut.offset := __sourceOutOffset
+            __sourceOut.offset, __array := read_wordx2_array(__source.offset)
             // slither-disable-next-line write-after-write
-            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+            __sourceOut.length := sub(__source.length, sub(__sourceOut.offset, __source.offset))
         }
 
         // __array is a flat array of uint256 values, so we need to convert it to an array of uint256[2],

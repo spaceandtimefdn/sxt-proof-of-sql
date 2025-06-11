@@ -106,12 +106,10 @@ library Sumcheck {
                 }
                 proof_ptr_out := proof_ptr
             }
-            let __proofOutOffset
-            __proofOutOffset, __evaluationPoint, __expectedEvaluation, __degree :=
+            __proofOut.offset, __evaluationPoint, __expectedEvaluation, __degree :=
                 verify_sumcheck_proof(__transcript, __proof.offset, __numVars)
-            __proofOut.offset := __proofOutOffset
             // slither-disable-next-line write-after-write
-            __proofOut.length := sub(__proof.length, sub(__proofOutOffset, __proof.offset))
+            __proofOut.length := sub(__proof.length, sub(__proofOut.offset, __proof.offset))
         }
     }
 }

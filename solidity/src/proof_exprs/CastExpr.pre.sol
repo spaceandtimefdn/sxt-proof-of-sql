@@ -157,11 +157,9 @@ library CastExpr {
                 expr_ptr_out, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
             }
 
-            let __exprOutOffset
-            __exprOutOffset, __eval := cast_expr_evaluate(__expr.offset, __builder, __chiEval)
-            __exprOut.offset := __exprOutOffset
+            __exprOut.offset, __eval := cast_expr_evaluate(__expr.offset, __builder, __chiEval)
             // slither-disable-next-line write-after-write
-            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+            __exprOut.length := sub(__expr.length, sub(__exprOut.offset, __expr.offset))
         }
         __builderOut = __builder;
     }

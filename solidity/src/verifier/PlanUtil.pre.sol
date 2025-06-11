@@ -70,10 +70,9 @@ library PlanUtil {
                 plan_ptr_out := plan_ptr
             }
 
-            let __planOutOffset := skip_plan_names(__plan.offset)
-            __planOut.offset := __planOutOffset
+            __planOut.offset := skip_plan_names(__plan.offset)
             // slither-disable-next-line write-after-write
-            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            __planOut.length := sub(__plan.length, sub(__planOut.offset, __plan.offset))
         }
     }
 }
