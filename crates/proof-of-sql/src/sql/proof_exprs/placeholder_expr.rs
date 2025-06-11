@@ -32,8 +32,8 @@ impl PlaceholderExpr {
     }
 
     /// Get the id of the placeholder
-    pub fn id(&self) -> usize {
-        self.id
+    pub fn index(&self) -> usize {
+        self.id - 1
     }
 
     /// Get the column type of the placeholder
