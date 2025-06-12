@@ -16,6 +16,7 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+        AnalyzeResult,
     },
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -128,8 +129,7 @@ impl DynProofPlan {
     }
 
     /// Creates a new union plan.
-    #[must_use]
-    pub fn new_union(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
-        Self::Union(UnionExec::new(inputs, schema))
+    pub fn try_new_union(inputs: Vec<DynProofPlan>) -> AnalyzeResult<Self> {
+        UnionExec::try_new(inputs).map(Self::Union)
     }
 }
