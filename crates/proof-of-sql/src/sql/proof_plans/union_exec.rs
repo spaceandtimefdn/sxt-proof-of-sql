@@ -163,21 +163,17 @@ impl ProverEvaluate for UnionExec {
                 input.final_round_evaluate(builder, alloc, table_map, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let input_lengths = inputs.iter().map(Table::num_rows).collect::<Vec<_>>();
-        let input_columns: Vec<Vec<Column<'a, S>>> = inputs
-            .iter()
-            .map(|table| table.columns().copied().collect::<Vec<_>>())
-            .collect::<Vec<_>>();
         // Produce the proof for the union
-        let c_stars = input_lengths
+        let c_stars = inputs
             .iter()
-            .zip(input_columns.iter())
-            .map(|(&input_length, input_table)| {
+            .map(|table| {
+                let input_length = table.num_rows();
+                let input_table = table.columns().copied().collect::<Vec<_>>();
                 // Indicator vector for the input table
                 let chi_n_i = alloc.alloc_slice_fill_copy(input_length, true);
 
                 let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
-                fold_columns(c_fold, gamma, beta, input_table);
+                fold_columns(c_fold, gamma, beta, &input_table);
 
                 let c_star = alloc.alloc_slice_copy(c_fold);
                 slice_ops::add_const::<S, S>(c_star, One::one());
