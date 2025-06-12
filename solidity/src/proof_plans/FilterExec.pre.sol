@@ -222,14 +222,12 @@ library FilterExec {
             function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
                 plan_ptr_out,
                 c_fold,
                 d_fold,
                 evaluations_ptr
             {
-                let beta := builder_consume_challenge(builder_ptr)
-
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
@@ -245,6 +243,7 @@ library FilterExec {
 
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
+                let beta := builder_consume_challenge(builder_ptr)
 
                 let input_chi_eval :=
                     builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
@@ -254,7 +253,8 @@ library FilterExec {
                 plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 let c_fold, d_fold
-                plan_ptr, c_fold, d_fold, evaluations_ptr := compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval)
+                plan_ptr, c_fold, d_fold, evaluations_ptr :=
+                    compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)
                 output_chi_eval := builder_consume_chi_evaluation(builder_ptr)

@@ -175,7 +175,7 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL FilterExec.pre.sol
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
                 plan_ptr_out,
                 c_fold,
                 d_fold,
