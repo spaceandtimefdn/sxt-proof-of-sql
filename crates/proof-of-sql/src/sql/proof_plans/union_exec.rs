@@ -175,8 +175,6 @@ impl ProverEvaluate for UnionExec {
         });
         let output_length = res.num_rows();
         // Produce the proof for the union
-        // Number of `ProofPlan`s should be a constant
-        assert_eq!(input_columns.len(), input_lengths.len());
         let c_stars = input_lengths
             .iter()
             .zip(input_columns.iter())
