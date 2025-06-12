@@ -58,14 +58,12 @@ where
     ) -> Result<TableEvaluation<S>, ProofError> {
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
-        let input_table_evals = self
+        let c_star_evals = self
             .inputs
             .iter()
-            .map(|input| input.verifier_evaluate(builder, accessor, None, chi_eval_map, params))
-            .collect::<Result<Vec<_>, _>>()?;
-        let c_star_evals = input_table_evals
-            .iter()
-            .map(|table_evaluation| -> Result<_, ProofError> {
+            .map(|input| -> Result<_, ProofError> {
+                let table_evaluation =
+                    input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
                 let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
                 let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
                 // c_star + c_fold * c_star - chi_n_i = 0
@@ -156,17 +154,12 @@ impl ProverEvaluate for UnionExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         let gamma = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
-        let inputs = self
+        // Produce the proof for the union
+        let (inputs, c_stars): (Vec<_>, Vec<_>) = self
             .inputs
             .iter()
-            .map(|input| -> PlaceholderResult<Table<'a, S>> {
-                input.final_round_evaluate(builder, alloc, table_map, params)
-            })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
-        // Produce the proof for the union
-        let c_stars = inputs
-            .iter()
-            .map(|table| {
+            .map(|input| -> PlaceholderResult<_> {
+                let table = input.final_round_evaluate(builder, alloc, table_map, params)?;
                 let input_length = table.num_rows();
                 let input_table = table.columns().copied().collect::<Vec<_>>();
                 // Indicator vector for the input table
@@ -193,9 +186,11 @@ impl ProverEvaluate for UnionExec {
                         (-S::one(), vec![Box::new(chi_n_i as &[_])]),
                     ],
                 );
-                c_star_copy
+                Ok((table, c_star_copy))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .unzip();
         let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
         let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
         // Produce intermediate MLEs for the union
