@@ -45,6 +45,10 @@ impl UnionExec {
             .then_some(Self { inputs })
             .ok_or(AnalyzeError::NotEnoughInputPlans)
     }
+
+    pub(crate) fn input_plans(&self) -> &[DynProofPlan] {
+        &self.inputs
+    }
 }
 
 impl ProofPlan for UnionExec
