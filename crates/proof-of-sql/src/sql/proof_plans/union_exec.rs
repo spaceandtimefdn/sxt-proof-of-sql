@@ -66,49 +66,7 @@ where
         let chi_m_eval = builder.try_consume_chi_evaluation()?;
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
-        verify_union(
-            builder,
-            gamma,
-            beta,
-            &input_table_evals,
-            &output_column_evals,
-            chi_m_eval,
-        )?;
-        Ok(TableEvaluation::new(output_column_evals, chi_m_eval))
-    }
-
-    fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.schema.clone()
-    }
-
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        self.inputs
-            .iter()
-            .flat_map(ProofPlan::get_column_references)
-            .collect()
-    }
-
-    fn get_table_references(&self) -> IndexSet<TableRef> {
-        self.inputs
-            .iter()
-            .flat_map(ProofPlan::get_table_references)
-            .collect()
-    }
-}
-
-/// Verifies the union of tables.
-///
-/// # Panics
-/// Should never panic if the code is correct.
-fn verify_union<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    gamma: S,
-    beta: S,
-    input_table_evals: &[TableEvaluation<S>],
-    output_column_evals: &[S],
-    chi_m_eval: S,
-) -> Result<(), ProofError> {
-    let c_star_evals = input_table_evals
+        let c_star_evals = input_table_evals
         .iter()
         .map(|table_evaluation| -> Result<_, ProofError> {
             let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
@@ -143,7 +101,26 @@ fn verify_union<S: Scalar>(
         zero_sum_terms_eval,
         1,
     )?;
-    Ok(())
+        Ok(TableEvaluation::new(output_column_evals, chi_m_eval))
+    }
+
+    fn get_column_result_fields(&self) -> Vec<ColumnField> {
+        self.schema.clone()
+    }
+
+    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+        self.inputs
+            .iter()
+            .flat_map(ProofPlan::get_column_references)
+            .collect()
+    }
+
+    fn get_table_references(&self) -> IndexSet<TableRef> {
+        self.inputs
+            .iter()
+            .flat_map(ProofPlan::get_table_references)
+            .collect()
+    }
 }
 
 impl ProverEvaluate for UnionExec {
@@ -198,36 +175,7 @@ impl ProverEvaluate for UnionExec {
         });
         let output_length = res.num_rows();
         // Produce the proof for the union
-        prove_union(
-            builder,
-            alloc,
-            gamma,
-            beta,
-            &input_columns,
-            &output_columns,
-            &input_lengths,
-            output_length,
-        );
-        Ok(res)
-    }
-}
-
-/// Proves the union of tables.
-///
-/// # Panics
-/// Should never panic if the code is correct.
-#[expect(clippy::too_many_arguments)]
-fn prove_union<'a, S: Scalar + 'a>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    alloc: &'a Bump,
-    gamma: S,
-    beta: S,
-    input_columns: &[Vec<Column<'a, S>>],
-    output_columns: &[Column<'a, S>],
-    input_lengths: &[usize],
-    output_length: usize,
-) {
-    // Number of `ProofPlan`s should be a constant
+        // Number of `ProofPlan`s should be a constant
     assert_eq!(input_columns.len(), input_lengths.len());
     let c_stars = input_lengths
         .iter()
@@ -298,4 +246,6 @@ fn prove_union<'a, S: Scalar + 'a>(
             }))
             .collect(),
     );
+        Ok(res)
+    }
 }
