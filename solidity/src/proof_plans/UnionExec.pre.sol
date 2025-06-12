@@ -90,11 +90,24 @@ library TableExec {
                     plan_ptr, c_star, num_evaluations_to_compare :=
                         evaluate_plan_and_apply_fold_constraint_for_union(plan_ptr, builder_ptr, gamma, beta)
                     // TODO: Add error type
-                    if sub(num_evaluations, num_evaluations_to_compare) {revert(0,0)}
+                    if sub(num_evaluations, num_evaluations_to_compare) { revert(0, 0) }
                     star_sum := addmod_bn254(star_sum, c_star)
                 }
-                
+
+                let d_bar_fold
+                let output_evaluations
+                d_bar_fold, output_evaluations := fold_final_round_mles(builder_ptr, num_evaluations, beta)
+                let d_star := builder_consume_final_round_mle(builder_ptr)
+
                 let chi_m_eval := builder_consume_chi_evaluation(builder_ptr)
+
+                // d_star + d_bar_fold * d_star - chi_m = 0
+                builder_produce_identity_constraint(
+                    builder_ptr, addmod_bn254(d_star, submod_bn254(mulmod_bn254(d_bar_fold, d_star), chi_m_eval)), 2
+                )
+
+                // sum (sum c_star) - d_star = 0
+                builder_produce_zerosum_constraint(builder_ptr, submod_bn254(star_sum, d_star), 1)
             }
 
             let __planOutOffset
