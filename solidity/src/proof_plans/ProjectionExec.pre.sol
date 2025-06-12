@@ -6,48 +6,58 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 
-/// @title ProofPlan
-/// @dev Library for handling proof plans
-library ProofPlan {
-    enum PlanVariant {
-        Filter,
-        Empty,
-        Table,
-        Projection
-    }
-
-    /// @notice Evaluates a proof plan
+/// @title ProjectionExec
+/// @dev Library for handling projection execution plans
+library ProjectionExec {
+    /// @notice Evaluates a projection execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
+    /// projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval
     /// ```
     /// ##### Parameters
-    /// * `plan_ptr` - calldata pointer to the proof plan
+    /// * `plan_ptr` - calldata pointer to the projection execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
-    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the proof plan
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the projection execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
-    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length output
-    /// @dev Evaluates a proof plan by dispatching to the appropriate sub-plan evaluator
-    /// @param __plan The proof plan data
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
+    /// * Outputs: \\(D_1,\ldots,D_\ell=\texttt{d}\\) with length \\(m\\), and thus \\(\chi_{[0,m)}=\texttt{output_chi_eval}\\).
+    /// * Hints: No hints
+    /// * Challenges: No challenges
+    /// * Helpers: No helpers
+    /// * Constraints: No constraints
+    /// @notice ##### Proof of Correctness:
+    /// TODO
+    /// @notice **Completeness Proof:**
+    /// TODO
+    /// @notice **Soundness Proof:**
+    /// TODO
+    /// ##### Proof Plan Encoding
+    /// The projection plan is encoded as follows:
+    /// 1. the input proof plan
+    /// 2. The number of input/output columns (64 bit integer)
+    /// 3. The input column expressions, in order
+    /// @dev Evaluates a projection execution plan
+    /// @param __plan The projection execution plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
-    /// @return __builderOut The updated verification builder
-    /// @return __evaluations The evaluations pointer
+    /// @return __builderOut The verification builder result
+    /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputChiEvaluation The output chi evaluation
-    function __proofPlanEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __projectionExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
         returns (
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
-            uint256[] memory __evaluations,
+            uint256[] memory __evaluationsPtr,
             uint256 __outputChiEvaluation
         )
     {
+        uint256[] memory __evaluations;
         assembly {
             // IMPORT-YUL ../base/Errors.sol
             function err(code) {
@@ -67,10 +77,6 @@ library ProofPlan {
             }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.pre.sol
-            function dequeue_uint512(queue_ptr) -> value {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -93,6 +99,10 @@ library ProofPlan {
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
             function case_const(lhs, rhs) {
                 revert(0, 0)
@@ -103,6 +113,27 @@ library ProofPlan {
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL FilterExec.pre.sol
+            function compute_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+                plan_ptr_out,
+                c_fold,
+                d_fold,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL EmptyExec.pre.sol
+            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL FilterExec.pre.sol
+            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL TableExec.pre.sol
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/ColumnExpr.pre.sol
@@ -118,15 +149,15 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/AddExpr.pre.sol
-            function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/SubtractExpr.pre.sol
-            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/MultiplyExpr.pre.sol
-            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/AndExpr.pre.sol
@@ -143,6 +174,10 @@ library ProofPlan {
             }
             // IMPORT-YUL ../proof_exprs/CastExpr.pre.sol
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> value {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -163,46 +198,8 @@ library ProofPlan {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
-            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
-            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
-                revert(0, 0)
-            }
-            // IMPORT-YUL FilterExec.pre.sol
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
-                plan_ptr_out,
-                c_fold,
-                d_fold,
-                evaluations_ptr
-            {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL EmptyExec.pre.sol
-            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL FilterExec.pre.sol
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ProjectionExec.pre.sol
-            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
-            {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ProjectionExec.pre.sol
-            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol
+            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/DataType.pre.sol
@@ -217,42 +214,47 @@ library ProofPlan {
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
-            // IMPORT-YUL TableExec.pre.sol
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
 
-            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT32_SIZE)
+            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
+            {
+                let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                switch proof_plan_variant
-                case 0 {
-                    case_const(0, FILTER_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := filter_exec_evaluate(plan_ptr, builder_ptr)
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(evaluations_ptr, column_count)
+                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
+
+                for { let i := column_count } i { i := sub(i, 1) } {
+                    let evaluation
+                    plan_ptr, evaluation := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
+
+                    mstore(evaluations_ptr, evaluation)
+                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
-                case 1 {
-                    case_const(1, EMPTY_EXEC_VARIANT)
-                    evaluations_ptr, output_chi_eval := empty_exec_evaluate(builder_ptr)
-                    plan_ptr_out := plan_ptr
-                }
-                case 2 {
-                    case_const(2, TABLE_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := table_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                case 3 {
-                    case_const(3, PROJECTION_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := projection_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
+                plan_ptr_out := plan_ptr
+            }
+
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                let input_evaluations_ptr, input_chi_eval
+                plan_ptr, input_evaluations_ptr, input_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
+
+                plan_ptr_out, evaluations_ptr := get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval)
+                output_chi_eval := input_chi_eval
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := proof_plan_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputChiEvaluation := projection_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
         }
+        __evaluationsPtr = __evaluations;
         __builderOut = __builder;
     }
 }
