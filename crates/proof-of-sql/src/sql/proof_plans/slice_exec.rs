@@ -12,8 +12,11 @@ use crate::{
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
     },
-    sql::proof::{
-        FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
+    sql::{
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
+        },
+        proof_plans::fold_vals,
     },
     utils::log,
 };
@@ -95,15 +98,16 @@ where
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
 
+        let c_fold_eval = alpha * fold_vals(beta, columns_evals);
+        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
+
         verify_filter(
             builder,
-            alpha,
-            beta,
+            c_fold_eval,
+            d_fold_eval,
             input_table_eval.chi_eval(),
             output_chi_eval,
-            columns_evals,
             selection_eval,
-            &filtered_columns_evals,
         )?;
         Ok(TableEvaluation::new(
             filtered_columns_evals,
