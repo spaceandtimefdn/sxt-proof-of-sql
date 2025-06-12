@@ -105,7 +105,7 @@ fn verify_union<S: Scalar>(
     gamma: S,
     beta: S,
     input_table_evals: &[TableEvaluation<S>],
-    output_eval: &[S],
+    output_column_evals: &[S],
     chi_m_eval: S,
 ) -> Result<(), ProofError> {
     let c_star_evals = input_table_evals
@@ -123,7 +123,7 @@ fn verify_union<S: Scalar>(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let d_bar_fold_eval = gamma * fold_vals(beta, output_eval);
+    let d_bar_fold_eval = gamma * fold_vals(beta, output_column_evals);
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
     // d_star + d_bar_fold * d_star - chi_m = 0
@@ -196,6 +196,7 @@ impl ProverEvaluate for UnionExec {
         output_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
+        let output_length = res.num_rows();
         // Produce the proof for the union
         prove_union(
             builder,
@@ -205,7 +206,7 @@ impl ProverEvaluate for UnionExec {
             &input_columns,
             &output_columns,
             &input_lengths,
-            res.num_rows(),
+            output_length,
         );
         Ok(res)
     }
@@ -221,16 +222,16 @@ fn prove_union<'a, S: Scalar + 'a>(
     alloc: &'a Bump,
     gamma: S,
     beta: S,
-    input_tables: &[Vec<Column<'a, S>>],
-    output_table: &[Column<'a, S>],
+    input_columns: &[Vec<Column<'a, S>>],
+    output_columns: &[Column<'a, S>],
     input_lengths: &[usize],
     output_length: usize,
 ) {
     // Number of `ProofPlan`s should be a constant
-    assert_eq!(input_tables.len(), input_lengths.len());
+    assert_eq!(input_columns.len(), input_lengths.len());
     let c_stars = input_lengths
         .iter()
-        .zip(input_tables.iter())
+        .zip(input_columns.iter())
         .map(|(&input_length, input_table)| {
             // Indicator vector for the input table
             let chi_n_i = alloc.alloc_slice_fill_copy(input_length, true);
@@ -262,7 +263,7 @@ fn prove_union<'a, S: Scalar + 'a>(
     // No need to produce intermediate MLEs for `d_fold` because it is
     // the sum of `c_fold`
     let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
-    fold_columns(d_fold, gamma, beta, output_table);
+    fold_columns(d_fold, gamma, beta, output_columns);
 
     let d_star = alloc.alloc_slice_copy(d_fold);
     slice_ops::add_const::<S, S>(d_star, One::one());
