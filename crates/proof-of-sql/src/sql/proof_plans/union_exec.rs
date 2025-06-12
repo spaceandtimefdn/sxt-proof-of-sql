@@ -96,6 +96,56 @@ where
     }
 }
 
+/// Verifies the union of tables.
+///
+/// # Panics
+/// Should never panic if the code is correct.
+fn verify_union<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
+    gamma: S,
+    beta: S,
+    input_table_evals: &[TableEvaluation<S>],
+    output_eval: &[S],
+    chi_m_eval: S,
+) -> Result<(), ProofError> {
+    let c_star_evals = input_table_evals
+        .iter()
+        .map(|table_evaluation| -> Result<_, ProofError> {
+            let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
+            let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+            // c_star + c_fold * c_star - chi_n_i = 0
+            builder.try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                c_star_eval + c_fold_eval * c_star_eval - table_evaluation.chi_eval(),
+                2,
+            )?;
+            Ok(c_star_eval)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let d_bar_fold_eval = gamma * fold_vals(beta, output_eval);
+    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+
+    // d_star + d_bar_fold * d_star - chi_m = 0
+    builder.try_produce_sumcheck_subpolynomial_evaluation(
+        SumcheckSubpolynomialType::Identity,
+        d_star_eval + d_bar_fold_eval * d_star_eval - chi_m_eval,
+        2,
+    )?;
+
+    // sum (sum c_star) - d_star = 0
+    let zero_sum_terms_eval = c_star_evals
+        .into_iter()
+        .chain(core::iter::once(-d_star_eval))
+        .sum::<S>();
+    builder.try_produce_sumcheck_subpolynomial_evaluation(
+        SumcheckSubpolynomialType::ZeroSum,
+        zero_sum_terms_eval,
+        1,
+    )?;
+    Ok(())
+}
+
 impl ProverEvaluate for UnionExec {
     #[tracing::instrument(name = "UnionExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
@@ -159,56 +209,6 @@ impl ProverEvaluate for UnionExec {
         );
         Ok(res)
     }
-}
-
-/// Verifies the union of tables.
-///
-/// # Panics
-/// Should never panic if the code is correct.
-fn verify_union<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    gamma: S,
-    beta: S,
-    input_table_evals: &[TableEvaluation<S>],
-    output_eval: &[S],
-    chi_m_eval: S,
-) -> Result<(), ProofError> {
-    let c_star_evals = input_table_evals
-        .iter()
-        .map(|table_evaluation| -> Result<_, ProofError> {
-            let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
-            let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-            // c_star + c_fold * c_star - chi_n_i = 0
-            builder.try_produce_sumcheck_subpolynomial_evaluation(
-                SumcheckSubpolynomialType::Identity,
-                c_star_eval + c_fold_eval * c_star_eval - table_evaluation.chi_eval(),
-                2,
-            )?;
-            Ok(c_star_eval)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let d_bar_fold_eval = gamma * fold_vals(beta, output_eval);
-    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    // d_star + d_bar_fold * d_star - chi_m = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        d_star_eval + d_bar_fold_eval * d_star_eval - chi_m_eval,
-        2,
-    )?;
-
-    // sum (sum c_star) - d_star = 0
-    let zero_sum_terms_eval = c_star_evals
-        .into_iter()
-        .chain(core::iter::once(-d_star_eval))
-        .sum::<S>();
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::ZeroSum,
-        zero_sum_terms_eval,
-        1,
-    )?;
-    Ok(())
 }
 
 /// Proves the union of tables.
