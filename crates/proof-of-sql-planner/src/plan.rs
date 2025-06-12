@@ -447,14 +447,12 @@ pub fn logical_plan_to_proof_plan(
             Ok(DynProofPlan::new_slice(input_plan, *skip, *fetch))
         }
         // Union
-        LogicalPlan::Union(Union { inputs, schema }) => {
+        LogicalPlan::Union(Union { inputs, schema: _ }) => {
             let input_plans = inputs
                 .iter()
                 .map(|input| logical_plan_to_proof_plan(input, schema_accessor))
                 .collect::<PlannerResult<Vec<_>>>()?;
-            let column_fields =
-                schema_to_column_fields(try_get_schema_as_vec_from_df_schema(schema)?);
-            Ok(DynProofPlan::new_union(input_plans, column_fields))
+            Ok(DynProofPlan::try_new_union(input_plans)?)
         }
         LogicalPlan::Join(join) => join_to_proof_plan(join, schema_accessor, plan),
         _ => Err(PlannerError::UnsupportedLogicalPlan {
@@ -1691,95 +1689,90 @@ mod tests {
         });
         let schemas = UNION_SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
-        let expected = DynProofPlan::new_union(
-            vec![
-                DynProofPlan::new_projection(
+        let expected = DynProofPlan::try_new_union(vec![
+            DynProofPlan::new_projection(
+                vec![
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(None, "table1"),
+                            "a1".into(),
+                            ColumnType::BigInt,
+                        )),
+                        alias: "a".into(),
+                    },
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(None, "table1"),
+                            "b1".into(),
+                            ColumnType::Int,
+                        )),
+                        alias: "b".into(),
+                    },
+                ],
+                DynProofPlan::new_table(
+                    TableRef::from_names(None, "table1"),
                     vec![
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(None, "table1"),
-                                "a1".into(),
-                                ColumnType::BigInt,
-                            )),
-                            alias: "a".into(),
-                        },
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(None, "table1"),
-                                "b1".into(),
-                                ColumnType::Int,
-                            )),
-                            alias: "b".into(),
-                        },
+                        ColumnField::new("a1".into(), ColumnType::BigInt),
+                        ColumnField::new("b1".into(), ColumnType::Int),
                     ],
-                    DynProofPlan::new_table(
-                        TableRef::from_names(None, "table1"),
-                        vec![
-                            ColumnField::new("a1".into(), ColumnType::BigInt),
-                            ColumnField::new("b1".into(), ColumnType::Int),
-                        ],
-                    ),
                 ),
-                DynProofPlan::new_projection(
+            ),
+            DynProofPlan::new_projection(
+                vec![
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(None, "table2"),
+                            "a2".into(),
+                            ColumnType::BigInt,
+                        )),
+                        alias: "a".into(),
+                    },
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(None, "table2"),
+                            "b2".into(),
+                            ColumnType::Int,
+                        )),
+                        alias: "b".into(),
+                    },
+                ],
+                DynProofPlan::new_table(
+                    TableRef::from_names(None, "table2"),
                     vec![
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(None, "table2"),
-                                "a2".into(),
-                                ColumnType::BigInt,
-                            )),
-                            alias: "a".into(),
-                        },
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(None, "table2"),
-                                "b2".into(),
-                                ColumnType::Int,
-                            )),
-                            alias: "b".into(),
-                        },
+                        ColumnField::new("a2".into(), ColumnType::BigInt),
+                        ColumnField::new("b2".into(), ColumnType::Int),
                     ],
-                    DynProofPlan::new_table(
-                        TableRef::from_names(None, "table2"),
-                        vec![
-                            ColumnField::new("a2".into(), ColumnType::BigInt),
-                            ColumnField::new("b2".into(), ColumnType::Int),
-                        ],
-                    ),
                 ),
-                DynProofPlan::new_projection(
+            ),
+            DynProofPlan::new_projection(
+                vec![
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(Some("schema"), "table3"),
+                            "a3".into(),
+                            ColumnType::BigInt,
+                        )),
+                        alias: "a".into(),
+                    },
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(Some("schema"), "table3"),
+                            "b3".into(),
+                            ColumnType::Int,
+                        )),
+                        alias: "b".into(),
+                    },
+                ],
+                DynProofPlan::new_table(
+                    TableRef::from_names(Some("schema"), "table3"),
                     vec![
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(Some("schema"), "table3"),
-                                "a3".into(),
-                                ColumnType::BigInt,
-                            )),
-                            alias: "a".into(),
-                        },
-                        AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(ColumnRef::new(
-                                TableRef::from_names(Some("schema"), "table3"),
-                                "b3".into(),
-                                ColumnType::Int,
-                            )),
-                            alias: "b".into(),
-                        },
+                        ColumnField::new("a3".into(), ColumnType::BigInt),
+                        ColumnField::new("b3".into(), ColumnType::Int),
                     ],
-                    DynProofPlan::new_table(
-                        TableRef::from_names(Some("schema"), "table3"),
-                        vec![
-                            ColumnField::new("a3".into(), ColumnType::BigInt),
-                            ColumnField::new("b3".into(), ColumnType::Int),
-                        ],
-                    ),
                 ),
-            ],
-            vec![
-                ColumnField::new("a".into(), ColumnType::BigInt),
-                ColumnField::new("b".into(), ColumnType::Int),
-            ],
-        );
+            ),
+        ])
+        .unwrap();
         assert_eq!(result, expected);
     }
 
