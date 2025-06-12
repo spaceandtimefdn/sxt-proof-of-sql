@@ -353,6 +353,10 @@ library Verifier {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
                 revert(0, 0)
