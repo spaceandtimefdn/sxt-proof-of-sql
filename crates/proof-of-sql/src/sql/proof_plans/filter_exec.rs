@@ -84,6 +84,9 @@ where
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
+
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
@@ -111,20 +114,18 @@ where
             builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
         assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
+
+        let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
+        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
 
         verify_filter(
             builder,
-            alpha,
-            beta,
+            c_fold_eval,
+            d_fold_eval,
             input_chi_eval,
             output_chi_eval,
-            &columns_evals,
             selection_eval,
-            &filtered_columns_evals,
         )?;
         Ok(TableEvaluation::new(
             filtered_columns_evals,
@@ -220,6 +221,8 @@ impl ProverEvaluate for FilterExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
 
         let table = table_map
             .get(&self.table.table_ref)
@@ -250,9 +253,6 @@ impl ProverEvaluate for FilterExec {
             builder.produce_intermediate_mle(column);
         });
 
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
         prove_filter::<S>(
             builder,
             alloc,
@@ -279,19 +279,15 @@ impl ProverEvaluate for FilterExec {
     }
 }
 
-#[expect(clippy::too_many_arguments, clippy::similar_names)]
+#[expect(clippy::similar_names)]
 pub(super) fn verify_filter<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
-    alpha: S,
-    beta: S,
+    c_fold_eval: S,
+    d_fold_eval: S,
     chi_n_eval: S,
     chi_m_eval: S,
-    c_evals: &[S],
     s_eval: S,
-    d_evals: &[S],
 ) -> Result<(), ProofError> {
-    let c_fold_eval = alpha * fold_vals(beta, c_evals);
-    let d_fold_eval = alpha * fold_vals(beta, d_evals);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
