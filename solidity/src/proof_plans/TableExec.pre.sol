@@ -69,7 +69,7 @@ library TableExec {
             }
 
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                let table_number := shr(UINT64_PADDING_BITS, mload(plan_ptr))
+                let table_number := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
                 output_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_number)
 
