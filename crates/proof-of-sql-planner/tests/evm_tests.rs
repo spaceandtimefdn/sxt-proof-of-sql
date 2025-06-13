@@ -485,7 +485,7 @@ fn we_can_verify_a_simple_projection_exec_and_table_exec_using_the_evm() {
         &ps[..],
     );
     let statements =
-        Parser::parse_sql(&GenericDialect {}, "SELECT b FROM namespace.table").unwrap();
+        Parser::parse_sql(&GenericDialect {}, "SELECT a, b FROM namespace.table").unwrap();
     let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
     let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
         &EVMProofPlan::new(plan.clone()),
