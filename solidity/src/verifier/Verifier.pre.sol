@@ -336,8 +336,16 @@ library Verifier {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
-            function compute_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval) ->
                 plan_ptr_out,
                 c_fold,
                 d_fold,
