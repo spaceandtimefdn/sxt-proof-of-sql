@@ -184,7 +184,7 @@ library SliceExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
-            function fold_final_round_mles(builder_ptr, column_count, beta) -> fold, evaluations_ptr {
+            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
             // IMPORT-YUL ProjectionExec.pre.sol
@@ -253,7 +253,7 @@ library SliceExec {
                     let alpha := builder_consume_challenge(builder_ptr)
                     let beta := builder_consume_challenge(builder_ptr)
                     c_fold := mulmod_bn254(alpha, compute_fold(beta, input_evaluations))
-                    d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, mload(input_evaluations), beta)
+                    d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, mload(input_evaluations))
                     d_fold := mulmod_bn254(alpha, d_fold)
                 }
                 verify_filter(builder_ptr, c_fold, d_fold, input_chi_evaluation, output_chi_eval, selection_eval)
