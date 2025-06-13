@@ -103,7 +103,7 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
-            function dequeue_uint512(queue_ptr) -> value {
+            function dequeue_uint512(queue_ptr) -> upper, lower {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/SwitchUtil.pre.sol
@@ -144,6 +144,14 @@ library Verifier {
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_chi_evaluations(builder_ptr) -> values_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_rho_evaluation(builder_ptr) -> value {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -251,6 +259,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_check_aggregate_evaluation(builder_ptr) {
                 revert(0, 0)
             }
@@ -276,6 +288,27 @@ library Verifier {
             }
             // IMPORT-YUL ../hyperkzg/HyperKZGVerifier.pre.sol
             function verify_hyperkzg(proof_ptr, transcript_ptr, commitment_ptr, x, y) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
+            function compute_shift_identity_constraint(star, chi_plus_one, fold) -> constraint {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
+            function compute_shift_fold(alpha, beta, eval, rho) -> fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/Monotonic.pre.sol
+            function monotonic_verify(builder_ptr, alpha, beta, column_eval, chi_eval, strict, asc) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/ColumnExpr.pre.sol
@@ -318,14 +351,6 @@ library Verifier {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
-            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
-                revert(0, 0)
-            }
             // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
             function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
@@ -353,10 +378,6 @@ library Verifier {
             {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
-                revert(0, 0)
-            }
             // IMPORT-YUL ../proof_plans/EmptyExec.pre.sol
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
                 revert(0, 0)
@@ -367,6 +388,21 @@ library Verifier {
             }
             // IMPORT-YUL ../proof_plans/TableExec.pre.sol
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function compute_groupby_folds(plan_ptr, builder_ptr, beta, input_chi_eval) ->
+                plan_ptr_out,
+                g_in_fold,
+                g_out_fold,
+                sum_in_fold,
+                sum_out_fold,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol

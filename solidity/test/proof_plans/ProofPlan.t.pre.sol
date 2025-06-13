@@ -78,9 +78,100 @@ contract ProofPlanTest is Test {
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
+    // function testGroupByExecVariant() public pure {
+    //     bytes memory plan = abi.encodePacked(
+    //         GROUP_BY_EXEC_VARIANT,
+    //         uint64(0), // table_number
+    //         abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
+    //         uint64(2), // group_by_count
+    //         abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(102)), // group_by_expr[0]
+    //         abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(103)), // group_by_expr[1]
+    //         uint64(2), // sum_count
+    //         abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(104)), // sum_expr[0]
+    //         abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(105)), // sum_expr[1]
+    //         uint64(64), // count_alias_length (unused in verification)
+    //         hex"abcdef"
+    //     );
+    //     VerificationBuilder.Builder memory builder;
+    //     builder.maxDegree = 3;
+    //     builder.finalRoundMLEs = new uint256[](7);
+    //     builder.finalRoundMLEs[0] = 202; // g_out_evals[0]
+    //     builder.finalRoundMLEs[1] = 203; // g_out_evals[1]
+    //     builder.finalRoundMLEs[2] = 204; // sum_out_evals[0]
+    //     builder.finalRoundMLEs[3] = 205; // sum_out_evals[1]
+    //     builder.finalRoundMLEs[4] = 206; // count_out_eval
+    //     builder.finalRoundMLEs[5] = 207; // g_in_star_eval
+    //     builder.finalRoundMLEs[6] = 208; // g_out_star_eval
+    //     builder.constraintMultipliers = new uint256[](3);
+    //     builder.constraintMultipliers[0] = 401;
+    //     builder.constraintMultipliers[1] = 402;
+    //     builder.constraintMultipliers[2] = 403;
+    //     builder.challenges = new uint256[](2);
+    //     builder.challenges[0] = 501; // alpha
+    //     builder.challenges[1] = 502; // beta
+    //     builder.aggregateEvaluation = 0;
+    //     builder.rowMultipliersEvaluation = 601;
+    //     builder.chiEvaluations = new uint256[](1);
+    //     builder.chiEvaluations[0] = 701; // output_chi_eval
+    //     builder.tableChiEvaluations = new uint256[](1);
+    //     builder.tableChiEvaluations[0] = 801; // input_chi_eval
+
+    //     uint256[] memory evals;
+    //     (plan, builder, evals) = ProofPlan.__proofPlanEvaluate(plan, builder);
+
+    //     // g_in_fold = alpha * (g_in_evals[0] + g_in_evals[1] * beta)
+    //     FF g_in_fold = FF.wrap(501) * (FF.wrap(102 * 801) + FF.wrap(103 * 801) * FF.wrap(502));
+
+    //     // g_out_fold = alpha * (g_out_evals[0] + g_out_evals[1] * beta)
+    //     FF g_out_fold = FF.wrap(501) * (FF.wrap(202) + FF.wrap(203) * FF.wrap(502));
+
+    //     // sum_in_fold = input_chi_eval + beta * (sum_in_evals[0] + sum_in_evals[1] * beta)
+    //     FF sum_in_fold = FF.wrap(801) + FF.wrap(502) * (FF.wrap(104 * 801) + FF.wrap(105 * 801) * FF.wrap(502));
+
+    //     // sum_out_fold = count_out_eval + beta * (sum_out_evals[0] + sum_out_evals[1] * beta)
+    //     FF sum_out_fold = FF.wrap(206) + FF.wrap(502) * (FF.wrap(204) + FF.wrap(205) * FF.wrap(502));
+
+    //     // First constraint: g_in_star * sel_in * sum_in_fold - g_out_star * sum_out_fold = 0
+    //     FF zeroSumConstraint = FF.wrap(207) * FF.wrap(101 * 801) * sum_in_fold - FF.wrap(208) * sum_out_fold;
+
+    //     // Second constraint: g_in_star + g_in_star * g_in_fold - input_chi_eval = 0
+    //     FF identityConstraint1 = FF.wrap(207) + FF.wrap(207) * g_in_fold - FF.wrap(801);
+
+    //     // Third constraint: g_out_star + g_out_star * g_out_fold - output_chi_eval = 0
+    //     FF identityConstraint2 = FF.wrap(208) + FF.wrap(208) * g_out_fold - FF.wrap(701);
+
+    //     FF expectedAggregateEvaluation = zeroSumConstraint * FF.wrap(401) + identityConstraint1 * FF.wrap(402 * 601)
+    //         + identityConstraint2 * FF.wrap(403 * 601);
+
+    //     // Verify evaluations
+    //     assert(evals.length == 5);
+    //     assert(evals[0] == 202); // group_by result column 1
+    //     assert(evals[1] == 203); // group_by result column 2
+    //     assert(evals[2] == 204); // sum result column 1
+    //     assert(evals[3] == 205); // sum result column 2
+    //     assert(evals[4] == 206); // count result column
+
+    //     // Verify aggregate evaluation
+    //     assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());
+
+    //     // Verify MLEs are consumed
+    //     assert(builder.finalRoundMLEs.length == 0);
+
+    //     // Verify constraint multipliers are consumed
+    //     assert(builder.constraintMultipliers.length == 0);
+
+    //     // Verify plan is advanced correctly
+    //     bytes memory expectedExprOut = hex"abcdef";
+    //     assert(plan.length == expectedExprOut.length);
+    //     uint256 exprOutLength = plan.length;
+    //     for (uint256 i = 0; i < exprOutLength; ++i) {
+    //         assert(plan[i] == expectedExprOut[i]);
+    //     }
+    // }
+
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
-        bytes memory plan = abi.encodePacked(uint32(4), hex"abcdef");
+        bytes memory plan = abi.encodePacked(uint32(100), hex"abcdef");
         vm.expectRevert(Errors.UnsupportedProofPlanVariant.selector);
         ProofPlan.__proofPlanEvaluate(plan, builder);
     }
@@ -139,5 +230,6 @@ contract ProofPlanTest is Test {
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Table) == TABLE_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.GroupBy) == GROUP_BY_EXEC_VARIANT);
     }
 }

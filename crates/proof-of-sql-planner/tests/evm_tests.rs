@@ -65,24 +65,27 @@ fn evm_verifier_with_extra_args(
     let result_bytes =
         bincode::serde::encode_to_vec(&verifiable_result.result, bincode_options).unwrap();
 
-    std::process::Command::new("../../solidity/scripts/pre_forge.sh")
-        .arg("script")
-        .arg("-vvvvv")
-        .args(extra_args)
-        .args(["--tc", "VerifierTest"])
-        .args(["--sig", "verify(bytes,bytes,bytes,uint256[],uint256[])"])
-        .arg("./test/verifier/Verifier.t.post.sol")
-        .args([
-            dbg!(hex::encode(&result_bytes)),
-            dbg!(hex::encode(&query_bytes)),
-            dbg!(hex::encode(&proof_bytes)),
-        ])
-        .arg(dbg!(format!("[{table_lengths}]")))
-        .arg(dbg!(format!("[{commitments}]")))
-        .output()
-        .unwrap()
-        .status
-        .success()
+    dbg!(
+        std::process::Command::new("../../solidity/scripts/pre_forge.sh")
+            .arg("script")
+            .arg("-vvvvv")
+            .args(extra_args)
+            .args(["--tc", "VerifierTest"])
+            .args(["--sig", "verify(bytes,bytes,bytes,uint256[],uint256[])"])
+            .arg("--via-ir")
+            .arg("./test/verifier/Verifier.t.post.sol")
+            .args([
+                dbg!(hex::encode(&result_bytes)),
+                dbg!(hex::encode(&query_bytes)),
+                dbg!(hex::encode(&proof_bytes)),
+            ])
+            .arg(dbg!(format!("[{table_lengths}]")))
+            .arg(dbg!(format!("[{commitments}]")))
+            .output()
+    )
+    .unwrap()
+    .status
+    .success()
 }
 fn evm_verifier_all(
     plan: &DynProofPlan,
@@ -450,6 +453,44 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
     let statements = Parser::parse_sql(
         &GenericDialect {},
         "SELECT b,c FROM namespace.table WHERE (a + b = d) and (b = a * c)",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_group_by_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        TableRef::new("namespace", "table"),
+        owned_table([
+            bigint("a", [5, 3, 2, 5, 3, 2, 102, 104, 107, 108]),
+            bigint("b", [0, 1, 2, 3, 4, 5, 33, 44, 55, 6]),
+            bigint("c", [4, 4, 4, 4, 4, 4, 4, 15, 73, 23]),
+        ]),
+        0,
+        &ps[..],
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT a, sum(b) as sum_b, count(*) as d FROM namespace.table WHERE c = 4 GROUP BY a",
     )
     .unwrap();
     let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
