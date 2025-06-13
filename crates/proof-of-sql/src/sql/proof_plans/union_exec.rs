@@ -11,9 +11,12 @@ use crate::{
         scalar::Scalar,
         slice_ops,
     },
-    sql::proof::{
-        FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, SumcheckSubpolynomialType,
-        VerificationBuilder,
+    sql::{
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckSubpolynomialType, VerificationBuilder,
+        },
+        AnalyzeError, AnalyzeResult,
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -34,13 +37,14 @@ use sqlparser::ast::Ident;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct UnionExec {
     pub(super) inputs: Vec<DynProofPlan>,
-    pub(super) schema: Vec<ColumnField>,
 }
 
 impl UnionExec {
-    /// Creates a new union execution plan.
-    pub fn new(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
-        Self { inputs, schema }
+    /// Tries to create a new union execution plan.
+    pub fn try_new(inputs: Vec<DynProofPlan>) -> AnalyzeResult<Self> {
+        (inputs.len() > 1)
+            .then_some(Self { inputs })
+            .ok_or(AnalyzeError::NotEnoughInputPlans)
     }
 }
 
@@ -61,8 +65,13 @@ where
             .iter()
             .map(|input| input.verifier_evaluate(builder, accessor, None, chi_eval_map, params))
             .collect::<Result<Vec<_>, _>>()?;
-        let output_column_evals =
-            builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
+        let output_column_evals = builder.try_consume_final_round_mle_evaluations(
+            input_table_evals
+                .first()
+                .expect("Input plans should be non-empty")
+                .column_evals()
+                .len(),
+        )?;
         let chi_m_eval = builder.try_consume_chi_evaluation()?;
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
@@ -105,7 +114,10 @@ where
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.schema.clone()
+        self.inputs
+            .first()
+            .expect("Union inputs should not be empty")
+            .get_column_result_fields()
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
@@ -139,7 +151,7 @@ impl ProverEvaluate for UnionExec {
                 input.first_round_evaluate(builder, alloc, table_map, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
         builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(res.num_rows());
         Ok(res)
@@ -161,7 +173,7 @@ impl ProverEvaluate for UnionExec {
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         let input_lengths = inputs.iter().map(Table::num_rows).collect::<Vec<_>>();
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
         let gamma = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
         let input_columns: Vec<Vec<Column<'a, S>>> = inputs
