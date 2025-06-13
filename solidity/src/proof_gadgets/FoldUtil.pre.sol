@@ -161,7 +161,7 @@ library FoldUtil {
             // slither-disable-end cyclomatic-complexity
             function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
                 fold := 0
-                for { } column_count { column_count := sub(column_count, 1) } {
+                for {} column_count { column_count := sub(column_count, 1) } {
                     let expr_eval
                     plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
                     fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
@@ -188,8 +188,8 @@ library FoldUtil {
     /// ```
     /// ##### Parameters
     /// * `builder_ptr` - memory pointer to the verification builder
-    /// * `column_count` - number of columns to process
     /// * `beta` - challenge value
+    /// * `column_count` - number of columns to process
     /// ##### Return Values
     /// * `fold` - computed fold value
     /// * `evaluations_ptr` - pointer to the evaluations array
@@ -229,18 +229,17 @@ library FoldUtil {
 
             function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
-                let free_ptr := evaluations_ptr
-                mstore(free_ptr , column_count)
-                evaluations_ptr := add(free_ptr , WORD_SIZE)
+                mstore(evaluations_ptr, column_count)
+                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 fold := 0
-                for { } column_count { column_count := sub(column_count, 1) } {
+                for { let i := column_count } i { i := sub(i, 1) } {
                     let mle := builder_consume_final_round_mle(builder_ptr)
-                    mstore(free_ptr , mle)
-                    free_ptr := add(evaluations_ptr, WORD_SIZE)
-                    
                     fold := addmod_bn254(mulmod_bn254(fold, beta), mle)
+                    mstore(evaluations_ptr, mle)
+                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
-                mstore(FREE_PTR, free_ptr)
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
             }
 
             let __evaluationsPtr

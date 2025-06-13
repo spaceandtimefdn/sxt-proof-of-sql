@@ -202,7 +202,7 @@ contract FoldUtilTest is Test {
         uint256 fold;
         uint256[] memory evaluations;
 
-        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, mlesLength, beta);
+        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, beta, mlesLength);
 
         // Verify evaluations match input MLEs
         assert(evaluations.length == mlesLength);
