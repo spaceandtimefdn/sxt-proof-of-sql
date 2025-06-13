@@ -823,6 +823,32 @@ library VerificationBuilder {
         }
     }
 
+    /// @notice Sets the byte distributions in the verification builder. Errors if the length is non-zero.
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_set_byte_distributions(builder_ptr, values_ptr)
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// * `values_ptr` - pointer to the array in memory
+    /// @dev Always reverts with Errors.UnsupportedProof if length is non-zero
+    /// @param __builder The builder struct
+    /// @param __values The byte distributions array
+    function __setByteDistributions(Builder memory __builder, uint256[] memory __values) internal pure {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            function builder_set_byte_distributions(builder_ptr, values_ptr) {
+                if mload(values_ptr) { err(ERR_UNSUPPORTED_PROOF) }
+            }
+            builder_set_byte_distributions(__builder, __values)
+        }
+    }
+
     /// @notice Gets the chi column evaluations array from the verification builder
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
