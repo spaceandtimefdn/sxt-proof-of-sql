@@ -13,7 +13,8 @@ library ProofPlan {
         Filter,
         Empty,
         Table,
-        Projection
+        Projection,
+        Slice
     }
 
     /// @notice Evaluates a proof plan
@@ -63,6 +64,10 @@ library ProofPlan {
             }
             // IMPORT-YUL ../base/MathUtil.pre.sol
             function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
@@ -225,6 +230,14 @@ library ProofPlan {
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL SliceExec.pre.sol
+            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
 
             function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
@@ -247,6 +260,10 @@ library ProofPlan {
                 case 3 {
                     case_const(3, PROJECTION_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_chi_eval := projection_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 4 {
+                    case_const(4, SLICE_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_chi_eval := slice_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }

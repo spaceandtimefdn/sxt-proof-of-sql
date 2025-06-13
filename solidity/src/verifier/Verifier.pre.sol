@@ -98,6 +98,10 @@ library Verifier {
             function log2_up(value) -> exponent {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -393,6 +397,14 @@ library Verifier {
                 expected_evaluation,
                 degree
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol

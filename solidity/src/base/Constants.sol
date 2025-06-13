@@ -114,6 +114,8 @@ uint32 constant EMPTY_EXEC_VARIANT = 1;
 uint32 constant TABLE_EXEC_VARIANT = 2;
 /// @dev Projection variant constant for proof plans
 uint32 constant PROJECTION_EXEC_VARIANT = 3;
+/// @dev Slice variant constant for proof plans
+uint32 constant SLICE_EXEC_VARIANT = 4;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;
