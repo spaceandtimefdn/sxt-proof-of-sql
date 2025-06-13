@@ -63,6 +63,8 @@ uint32 constant ERR_INVALID_VARYING_BITS = 0x76d56a3d;
 uint32 constant ERR_MONOTONY_CHECK_FAILED = 0x976f97b8;
 /// @dev Error thrown when there is an internal error.
 uint32 constant ERR_INTERNAL = 0xfe835e35;
+/// @dev Error code for unprovable group by error.
+uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -126,6 +128,8 @@ library Errors {
     error MonotonyCheckFailed();
     /// @notice Error thrown when there is an internal error.
     error InternalError();
+    /// @notice Error thrown for unprovable group by error.
+    error UnprovableGroupBy();
 
     function __err(uint32 __code) internal pure {
         assembly {
