@@ -8,7 +8,7 @@ use crate::{
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
-        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, SubtractExpr,
+        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, SubtractExpr,
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -640,6 +640,29 @@ impl EVMCastExpr {
     }
 }
 
+/// Represents a placeholder expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMPlaceholderExpr {
+    index: usize,
+    column_type: ColumnType,
+}
+
+impl EVMPlaceholderExpr {
+    /// Create an `EVMPlaceholderExpr` from a `PlaceholderExpr`.
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn from_proof_expr(expr: &PlaceholderExpr) -> Self {
+        EVMPlaceholderExpr {
+            index: expr.index(),
+            column_type: expr.column_type(),
+        }
+    }
+
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn to_proof_expr(&self) -> PlaceholderExpr {
+        PlaceholderExpr::new_from_index(self.index, self.column_type)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1223,6 +1246,38 @@ mod tests {
             evm_cast_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
         );
+    }
+
+    // EVMPlaceholderExpr
+    #[test]
+    fn we_can_convert_placeholderexpr_to_and_from_evm_compatible_plan() {
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
+
+        let evm_placeholder_expr = EVMPlaceholderExpr::from_proof_expr(&placeholder_expr);
+        assert_eq!(
+            evm_placeholder_expr,
+            EVMPlaceholderExpr {
+                index: 0, // PlaceholderExpr stores index as id - 1
+                column_type: ColumnType::Boolean,
+            }
+        );
+
+        // Roundtrip
+        let roundtripped = evm_placeholder_expr.to_proof_expr();
+        assert_eq!(roundtripped, placeholder_expr);
+    }
+
+    #[test]
+    fn we_can_convert_bigint_placeholderexpr_to_and_from_evm_compatible_plan() {
+        // Test with BigInt
+        let placeholder_expr = PlaceholderExpr::try_new(42, ColumnType::BigInt).unwrap();
+        let evm_placeholder_expr = EVMPlaceholderExpr::from_proof_expr(&placeholder_expr);
+        assert_eq!(evm_placeholder_expr.index, 41); // 42 - 1
+        assert_eq!(evm_placeholder_expr.column_type, ColumnType::BigInt);
+
+        // Test roundtrip
+        let roundtripped = evm_placeholder_expr.to_proof_expr();
+        assert_eq!(roundtripped, placeholder_expr);
     }
 
     // EVMInequalityExpr

@@ -43,7 +43,6 @@ impl PlaceholderExpr {
     ///
     /// This is an infallible constructor that takes the internal index representation
     /// (0-based) rather than the PostgreSQL-style ID (1-based).
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn new_from_index(index: usize, column_type: ColumnType) -> Self {
         Self { index, column_type }
     }
