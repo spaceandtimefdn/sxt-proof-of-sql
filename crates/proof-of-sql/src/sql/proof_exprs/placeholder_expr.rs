@@ -25,6 +25,11 @@ pub struct PlaceholderExpr {
 
 impl PlaceholderExpr {
     /// Creates a new `PlaceholderExpr`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PlaceholderError::ZeroPlaceholderId`] if `id` is 0.
+    /// Placeholder IDs must be greater than 0 following `PostgreSQL` convention.
     pub fn try_new(id: usize, column_type: ColumnType) -> PlaceholderResult<Self> {
         (id > 0)
             .then(|| Self {
@@ -32,6 +37,15 @@ impl PlaceholderExpr {
                 column_type,
             })
             .ok_or(PlaceholderError::ZeroPlaceholderId)
+    }
+
+    /// Creates a new `PlaceholderExpr` from an index directly.
+    ///
+    /// This is an infallible constructor that takes the internal index representation
+    /// (0-based) rather than the PostgreSQL-style ID (1-based).
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn new_from_index(index: usize, column_type: ColumnType) -> Self {
+        Self { index, column_type }
     }
 
     /// Get the id of the placeholder
@@ -143,6 +157,13 @@ mod tests {
     fn we_cannot_create_a_placeholder_with_zero_id() {
         let res = PlaceholderExpr::try_new(0, ColumnType::Boolean);
         assert!(matches!(res, Err(PlaceholderError::ZeroPlaceholderId)));
+    }
+
+    #[test]
+    fn we_can_create_a_placeholder_from_index() {
+        let placeholder = PlaceholderExpr::new_from_index(5, ColumnType::BigInt);
+        assert_eq!(placeholder.index(), 5);
+        assert_eq!(placeholder.column_type(), ColumnType::BigInt);
     }
 
     // interpolate
