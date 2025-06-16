@@ -56,19 +56,14 @@ where
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let input_table_evals = self
-            .inputs
-            .iter()
-            .map(|input| input.verifier_evaluate(builder, accessor, None, chi_eval_map, params))
-            .collect::<Result<Vec<_>, _>>()?;
-        let output_column_evals =
-            builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
-        let chi_m_eval = builder.try_consume_chi_evaluation()?;
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
-        let c_star_evals = input_table_evals
+        let c_star_evals = self
+            .inputs
             .iter()
-            .map(|table_evaluation| -> Result<_, ProofError> {
+            .map(|input| -> Result<_, ProofError> {
+                let table_evaluation =
+                    input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
                 let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
                 let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
                 // c_star + c_fold * c_star - chi_n_i = 0
@@ -81,8 +76,12 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let output_column_evals =
+            builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
+
         let d_bar_fold_eval = gamma * fold_vals(beta, &output_column_evals);
         let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+        let chi_m_eval = builder.try_consume_chi_evaluation()?;
 
         // d_star + d_bar_fold * d_star - chi_m = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -132,6 +131,7 @@ impl ProverEvaluate for UnionExec {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
+        builder.request_post_result_challenges(2);
         let inputs = self
             .inputs
             .iter()
@@ -140,7 +140,6 @@ impl ProverEvaluate for UnionExec {
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
-        builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(res.num_rows());
         Ok(res)
     }
@@ -153,37 +152,21 @@ impl ProverEvaluate for UnionExec {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let inputs = self
-            .inputs
-            .iter()
-            .map(|input| -> PlaceholderResult<Table<'a, S>> {
-                input.final_round_evaluate(builder, alloc, table_map, params)
-            })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
-        let input_lengths = inputs.iter().map(Table::num_rows).collect::<Vec<_>>();
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
         let gamma = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
-        let input_columns: Vec<Vec<Column<'a, S>>> = inputs
-            .iter()
-            .map(|table| table.columns().copied().collect::<Vec<_>>())
-            .collect::<Vec<_>>();
-        let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
-        // Produce intermediate MLEs for the union
-        output_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
-        let output_length = res.num_rows();
         // Produce the proof for the union
-        let c_stars = input_lengths
+        let (inputs, c_stars): (Vec<_>, Vec<_>) = self
+            .inputs
             .iter()
-            .zip(input_columns.iter())
-            .map(|(&input_length, input_table)| {
+            .map(|input| -> PlaceholderResult<_> {
+                let table = input.final_round_evaluate(builder, alloc, table_map, params)?;
+                let input_length = table.num_rows();
+                let input_table = table.columns().copied().collect::<Vec<_>>();
                 // Indicator vector for the input table
                 let chi_n_i = alloc.alloc_slice_fill_copy(input_length, true);
 
                 let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
-                fold_columns(c_fold, gamma, beta, input_table);
+                fold_columns(c_fold, gamma, beta, &input_table);
 
                 let c_star = alloc.alloc_slice_copy(c_fold);
                 slice_ops::add_const::<S, S>(c_star, One::one());
@@ -203,9 +186,18 @@ impl ProverEvaluate for UnionExec {
                         (-S::one(), vec![Box::new(chi_n_i as &[_])]),
                     ],
                 );
-                c_star_copy
+                Ok((table, c_star_copy))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .unzip();
+        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
+        // Produce intermediate MLEs for the union
+        output_columns.iter().copied().for_each(|column| {
+            builder.produce_intermediate_mle(column);
+        });
+        let output_length = res.num_rows();
         // No need to produce intermediate MLEs for `d_fold` because it is
         // the sum of `c_fold`
         let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
