@@ -84,6 +84,9 @@ where
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
+
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
@@ -110,9 +113,6 @@ where
         let filtered_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
         assert!(filtered_columns_evals.len() == self.aliased_results.len());
-
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
@@ -220,6 +220,8 @@ impl ProverEvaluate for FilterExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
 
         let table = table_map
             .get(&self.table.table_ref)
@@ -249,9 +251,6 @@ impl ProverEvaluate for FilterExec {
         filtered_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
-
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
 
         prove_filter::<S>(
             builder,
