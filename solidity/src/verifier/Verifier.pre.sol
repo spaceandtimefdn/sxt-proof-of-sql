@@ -199,6 +199,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_byte_distributions(builder_ptr, values_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_set_challenges(builder_ptr, challenges_ptr) {
                 revert(0, 0)
             }
@@ -410,6 +414,9 @@ library Verifier {
 
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
                 builder_set_first_round_commitments(builder_ptr, array_ptr)
+
+                proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
+                builder_set_byte_distributions(builder_ptr, array_ptr)
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))
             }
