@@ -81,7 +81,7 @@ where
 
         let d_bar_fold_eval = gamma * fold_vals(beta, &output_column_evals);
         let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-        let chi_m_eval = builder.try_consume_chi_evaluation()?;
+        let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
 
         // d_star + d_bar_fold * d_star - chi_m = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(

@@ -108,7 +108,7 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
         let beta = builder.try_consume_post_result_challenge()?;
         // Get evaluations
         let column_eval = builder.try_consume_final_round_mle_evaluation()?;
-        let chi_eval = builder.try_consume_chi_evaluation()?;
+        let chi_eval = builder.try_consume_chi_evaluation()?.0;
         // Evaluate the verifier
         verify_monotonic::<S, STRICT, ASC>(builder, alpha, beta, column_eval, chi_eval)?;
         Ok(TableEvaluation::new(vec![], S::zero()))

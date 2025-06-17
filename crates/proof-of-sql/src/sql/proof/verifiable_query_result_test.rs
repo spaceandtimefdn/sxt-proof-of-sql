@@ -76,7 +76,7 @@ impl ProofPlan for EmptyTestQueryExpr {
         );
         Ok(TableEvaluation::new(
             vec![S::ZERO; self.columns],
-            builder.try_consume_chi_evaluation()?,
+            builder.try_consume_chi_evaluation()?.0,
         ))
     }
 
