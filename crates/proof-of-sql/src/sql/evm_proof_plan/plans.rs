@@ -700,16 +700,13 @@ mod tests {
         // Create a Union of two empty execs which is not supported in EVM
         let empty_exec1 = EmptyExec::new();
         let empty_exec2 = EmptyExec::new();
-        let schema: Vec<ColumnField> = Vec::new();
 
         // Create a union plan with two empty execs
-        let plan = DynProofPlan::new_union(
-            vec![
-                DynProofPlan::Empty(empty_exec1),
-                DynProofPlan::Empty(empty_exec2),
-            ],
-            schema,
-        );
+        let plan = DynProofPlan::try_new_union(vec![
+            DynProofPlan::Empty(empty_exec1),
+            DynProofPlan::Empty(empty_exec2),
+        ])
+        .unwrap();
 
         let table_refs = indexset![];
         let column_refs = indexset![];

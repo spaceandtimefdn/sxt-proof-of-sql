@@ -11,9 +11,12 @@ use crate::{
         scalar::Scalar,
         slice_ops,
     },
-    sql::proof::{
-        FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, SumcheckSubpolynomialType,
-        VerificationBuilder,
+    sql::{
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckSubpolynomialType, VerificationBuilder,
+        },
+        AnalyzeError, AnalyzeResult,
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -34,13 +37,14 @@ use sqlparser::ast::Ident;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct UnionExec {
     pub(super) inputs: Vec<DynProofPlan>,
-    pub(super) schema: Vec<ColumnField>,
 }
 
 impl UnionExec {
-    /// Creates a new union execution plan.
-    pub fn new(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
-        Self { inputs, schema }
+    /// Tries to create a new union execution plan.
+    pub fn try_new(inputs: Vec<DynProofPlan>) -> AnalyzeResult<Self> {
+        (inputs.len() > 1)
+            .then_some(Self { inputs })
+            .ok_or(AnalyzeError::NotEnoughInputPlans)
     }
 }
 
@@ -58,13 +62,16 @@ where
     ) -> Result<TableEvaluation<S>, ProofError> {
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
+        let mut num_mle_evaluations = None;
         let c_star_evals = self
             .inputs
             .iter()
             .map(|input| -> Result<_, ProofError> {
                 let table_evaluation =
                     input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-                let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
+                let column_evals = table_evaluation.column_evals();
+                num_mle_evaluations = num_mle_evaluations.or(Some(column_evals.len()));
+                let c_fold_eval = gamma * fold_vals(beta, column_evals);
                 let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
                 // c_star + c_fold * c_star - chi_n_i = 0
                 builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -76,8 +83,9 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let output_column_evals =
-            builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
+        let output_column_evals = builder.try_consume_final_round_mle_evaluations(
+            num_mle_evaluations.expect("union should have multiple inputs"),
+        )?;
 
         let d_bar_fold_eval = gamma * fold_vals(beta, &output_column_evals);
         let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
@@ -104,7 +112,10 @@ where
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.schema.clone()
+        self.inputs
+            .first()
+            .expect("Union inputs should not be empty")
+            .get_column_result_fields()
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
@@ -139,7 +150,7 @@ impl ProverEvaluate for UnionExec {
                 input.first_round_evaluate(builder, alloc, table_map, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
         builder.produce_chi_evaluation_length(res.num_rows());
         Ok(res)
     }
@@ -191,7 +202,7 @@ impl ProverEvaluate for UnionExec {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .unzip();
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
         let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
         // Produce intermediate MLEs for the union
         output_columns.iter().copied().for_each(|column| {
