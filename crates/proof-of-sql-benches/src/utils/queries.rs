@@ -446,9 +446,9 @@ impl BaseEntry for Join {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT bench_table.a, bench_table_2.a \
-         FROM bench_table \
-         JOIN bench_table_2 on bench_table.a=bench_table_2.a;"
+        r"SELECT bench_table.a, bench_table_2.a
+          FROM bench_table
+          JOIN bench_table_2 on bench_table.a=bench_table_2.a;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -485,9 +485,9 @@ impl BaseEntry for UnionAll {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT column1 FROM bench_table_1 WHERE column1 >= $1 AND column1 <= $2 \
-         UNION ALL \
-         SELECT column2 FROM bench_table_2 WHERE column2 >= $1 AND column2 <= $2;"
+        r"SELECT column1 FROM bench_table_1 WHERE column1 >= $1 AND column1 <= $2
+          UNION ALL
+          SELECT column2 FROM bench_table_2 WHERE column2 >= $1 AND column2 <= $2;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -547,9 +547,9 @@ impl BaseEntry for Not {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT a, b, (a != b) AS comparison_result, NOT(a != b) AS inverse_result \
-         FROM bench_table \
-         WHERE NOT(a != b) AND a > $1;"
+        r"SELECT a, b, (a != b) AS comparison_result, NOT(a != b) AS inverse_result
+          FROM bench_table
+          WHERE NOT(a != b) AND a > $1;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
