@@ -1,0 +1,123 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Sign Expression Gadget}
+\author{MakeInfinite Inc}
+\date{June 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Given an integer $B\in [0,255)$ and a column $C=(c_{i})$ of length $n$ of integers such that $-2^B\leq c_i<2^B$ for all integers $i\in[0,n)$. Define $s_B$ as 
+$$s_B(c_i) = 
+\begin{cases} 
+0 & \text{if } 0\leq c_i<2^B\\
+1 & \text{if } -2^B\leq c_i<0
+\end{cases}$$
+The column $S=(s_i)$ is equal to $(s_B(c_i))$ if and only if the following constraints are satisfied.
+\section{Constraints}
+\begin{itemize}
+    \item Plan values: None
+    \item Assumptions: Arithmetic is modular arithmetic with a modulus at least as big as $2^{B+1}$. The function $\chi_n$ is known and verified.
+    \item Inputs: $C$, $\chi_n$
+    \item Outputs: $S$
+    \item Hints: A collection $(D_j)$ of $256$ columns $D_j=(d_{j,i})$. There is a reasonably efficient way to encode these 256 columns of data, explained later.
+    \item Constraints:
+    Given integers $i, j$ such that $0\leq i<n$ and $0\leq j<256$, the following must hold:
+    \begin{eqnarray}
+d_{j,i} - d_{j,i}\cdot d_{j,i}&=&0 \\
+c_i+2^{255}&=&\sum_{k=0}^{255} 2^k\cdot d_{k,i} \\
+s_i&=&d_{B,i}, d_{B+1,i},\ldots, d_{254,i}\\
+s_i&=&1-d_{255,i}
+\end{eqnarray}
+
+
+\end{itemize}
+
+\section{Completeness}
+Given an integer $i\in[0, n)$ such that $s_i = s_B(c_i)$. Let $l_i$ where $l_i=c_i+2^{255}$. 
+For any integer $j\in [0, 255)$, we define $d_{j,i}$ to be the bit in the $jth$ index of the binary representation of $l_i$, 
+where the trail (rightmost) bit is the $0$th index. Since every $d_{j,i}$ is either $0$ or $1$, 
+we immediately have $d_{j,i} - d_{j,i}\cdot d_{j,i}=0$ for every relevant $j$. By our definition of $d_{j,i}$,
+\begin{eqnarray*}
+l_i&=&\sum_{j=0}^{255} 2^j\cdot d_{j,i}\\
+c_i + 2^{255}&=&\sum_{j=0}^{255} 2^j\cdot d_{j,i}
+\end{eqnarray*}
+Finally, consider the two cases for $c_i$:\\
+Nonnegative: 
+\begin{eqnarray*}
+0\leq& c_i&<2^B\\
+2^{255}\leq& l_i&<2^B+2^{255}\\
+\end{eqnarray*}
+Thus, $d_{255,i} = 1$ and $d_{B,i},\ldots,d_{254,i}=0$. So $s_i=d_{B,i},\ldots, d_{254,i},1-d_{255,i}$.\\
+Negative:
+\begin{eqnarray*}
+-2^B&\leq& c_i<0\\
+2^{255}-2^B&\leq& l_i<2^{255}\\
+\sum_{k=B}^{254} 2^k&\leq& l_i<2^{255}
+\end{eqnarray*}
+Therefore, $d_{255,i}=0$ and $d_{B,i},\ldots,d_{254,i}=1$. Ergo, $s_i=d_{B,i},\ldots, d_{254,i},1-d_{255,i}$.
+
+\section{Soundness}
+Assume the constraints hold for all relevant $i,j$. 
+The constraint $d_{j,i} - d_{j,i}\cdot d_{j,i}=0$ guarantees us that all $d_{j,i}$'s are either $0$ or $1$. 
+So we have two cases for $d_{255,i}$:\\
+Case $d_{255,i}=0$: Then
+\begin{eqnarray*}
+0\leq&\sum_{j=0}^{B-1} 2^j\cdot d_{j,i}&<2^B\\
+0\leq&-(2^{255}-2^B)+\sum_{j=0}^{255} 2^j\cdot d_{j,i}&<2^B\\
+-2^B\leq&-2^{255}+\sum_{j=0}^{255} 2^j\cdot d_{j,i}&<0\\
+-2^B\leq&-2^{255}+c_i + 2^{255}&<0\\
+-2^B\leq&c_i&<0
+\end{eqnarray*}
+So $s_B(c_i)=1=s_i$.\\
+Case $d_{255,i}=1$: Then
+\begin{eqnarray*}
+0\leq&\sum_{j=0}^{B-1} 2^j\cdot d_{j,i}&<2^B\\
+0\leq&-2^{255}+\sum_{j=0}^{255} 2^j\cdot d_{j,i}&<2^B\\
+0\leq&-2^{255}+c_i + 2^{255}&<2^B\\
+0\leq&c_i&<2^B
+\end{eqnarray*}
+So $s_B(c_i)=0=s_i$.
+\section{Bit Decomposition}
+For our column of $D_j$'s, very frequently many of the columns will be identical or the row-wise inverse of the leading bit column. 
+Therefore, instead of committing all of the 256 columns, it makes sense to only commit the columns that are not determined by the lead bit column (i.e. varying columns), 
+along with 2 256-bit values: the first to indicate which bit indices vary (the vary mask), 
+and another to dictate which constant columns mimic the lead bit (the leading bit mask). 
+The lead bits of both of these values have a slightly different meaning from the others. 
+A couple examples should be helpful. If $C=(1, 3, -1)$, then $R=(r_i)=(2^{255}+1,2^{255}+3,2^{255}-2)$. 
+The binary representation of this column is:
+$$\begin{array}{cccccccc}
+1 & 0 & 0 & \ldots & 0 & 0 & 0 & 1\\
+1 & 0 & 0 & \ldots & 0 & 0 & 1 & 1\\
+0 & 1 & 1 & \ldots & 1 & 1 & 1 & 0
+\end{array}$$
+Let's calculate the vary mask. The lead bit of the vary mask dictates if the lead bit column of the matrix varies. 
+In our case, it does. All of the columns $(0,0,1)$ are the row-wise inverse of the lead bit column $(1,1,0)$. 
+Therefore, they do not vary. Because the trail column $(1,1,0)$ is the same as the lead column, 
+it does not vary either. That leaves only the $1$st index as a varying column. So the vary mask, 
+in binary, is $1000\ldots00010$. The leading bit mask is easy. The $0th$ column is the only non lead column that is the same as the lead column. 
+So the leading bit mask is $00\ldots0001$ or $10\ldots0001$. The lead bit has no meaning if the lead column varies. 
+The columns we would need to commit would be $D_{1}=(0,1,1)$ and $D_{255}=(1,1,0)$\\
+If $C=(1,3)$, we would have a very similar situation, with two changes. The lead bit column would be constant, 
+so the vary mask would be $00\ldots0010$. The lead bit of the leading bit mask indicates the value of the constant leading column. 
+So the leading bit mask is $10\ldots0001$. The only column we would need to commit would be $D_{1}=(0,1,1)$.
+\end{document}
