@@ -369,6 +369,10 @@ library Verifier {
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
