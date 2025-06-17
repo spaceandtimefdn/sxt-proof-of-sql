@@ -164,7 +164,8 @@ fn test_simple_filter_queries() {
     let sql = "select id, name from cats where age > 2;
     select * from cats;
     select name == $1 as name_eq from cats;
-    select 2 * age as double_age from cats";
+    select 2 * age as double_age from cats;
+    select id, name from cats where age <> 2";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "cats") => table(
             vec![
@@ -186,6 +187,10 @@ fn test_simple_filter_queries() {
         ]),
         owned_table([boolean("name_eq", [false, false, true, false, false])]),
         owned_table([decimal75("double_age", 39, 0, [26_i8, 4, 0, 8, 8])]),
+        owned_table([
+            int("id", [1, 3, 4, 5]),
+            varchar("name", ["Chloe", "Katy", "Lucy", "Prudence"]),
+        ]),
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
