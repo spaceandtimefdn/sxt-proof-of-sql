@@ -400,17 +400,17 @@ impl BaseEntry for Coin {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT \
-         SUM( \
-         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint)) \
-         * value * CAST(timestamp AS bigint) \
-         ) AS weighted_value, \
-         SUM( \
-         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint)) \
-         * value \
-         ) AS total_balance, \
-         COUNT(1) AS num_transactions \
-         FROM bench_table;"
+        r#"SELECT
+         SUM(
+         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint))
+         * value * CAST(timestamp AS bigint)
+         ) AS weighted_value,
+         SUM(
+         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint))
+         * value
+         ) AS total_balance,
+         COUNT(1) AS num_transactions
+         FROM bench_table;"#
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
