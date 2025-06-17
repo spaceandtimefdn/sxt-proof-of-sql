@@ -400,7 +400,7 @@ impl BaseEntry for Coin {
     }
 
     fn sql(&self) -> &'static str {
-        r#"SELECT
+        r"SELECT
          SUM(
          (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint))
          * value * CAST(timestamp AS bigint)
@@ -410,7 +410,7 @@ impl BaseEntry for Coin {
          * value
          ) AS total_balance,
          COUNT(1) AS num_transactions
-         FROM bench_table;"#
+         FROM bench_table;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
