@@ -232,4 +232,123 @@ contract FoldUtilTest is Test {
         assert(evaluations.length == 0);
         assert(builder.finalRoundMLEs.length == 0);
     }
+
+    function testFoldColumnExprEvalsWithSingleColumn() public pure {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory columnEvals = new uint256[](2);
+        columnEvals[0] = 42;
+        columnEvals[1] = 84;
+        builder.columnEvaluations = columnEvals;
+
+        bytes memory plan = abi.encodePacked(uint64(1), hex"abcdef");
+        bytes memory expectedPlanOut = hex"abcdef";
+        uint256 beta = 5;
+        uint256 columnCount = 1;
+        uint256 fold;
+
+        (plan, builder, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+
+        assert(fold == 84); // Column 1 evaluation
+        assert(plan.length == expectedPlanOut.length);
+        uint256 planOutLength = plan.length;
+        for (uint256 i = 0; i < planOutLength; ++i) {
+            assert(plan[i] == expectedPlanOut[i]);
+        }
+    }
+
+    function testFoldColumnExprEvalsWithMultipleColumns() public pure {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory columnEvals = new uint256[](3);
+        columnEvals[0] = 10;
+        columnEvals[1] = 20;
+        columnEvals[2] = 30;
+        builder.columnEvaluations = columnEvals;
+
+        bytes memory plan = abi.encodePacked(uint64(0), uint64(2), hex"abcdef");
+        bytes memory expectedPlanOut = hex"abcdef";
+        uint256 beta = 7;
+        uint256 columnCount = 2;
+        uint256 fold;
+
+        (plan, builder, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+
+        // Fold calculation: 10 * 7 + 30 = 70 + 30 = 100
+        assert(fold == 100);
+        assert(plan.length == expectedPlanOut.length);
+        uint256 planOutLength = plan.length;
+        for (uint256 i = 0; i < planOutLength; ++i) {
+            assert(plan[i] == expectedPlanOut[i]);
+        }
+    }
+
+    function testFuzzFoldColumnExprEvals(uint256[] memory columnEvals, uint256 beta) public pure {
+        vm.assume(columnEvals.length > 0);
+        vm.assume(columnEvals.length < 6); // Reasonable limit for testing
+        vm.assume(beta != 0);
+        vm.assume(beta < MODULUS);
+        uint256 columnEvalsLength = columnEvals.length;
+
+        // Ensure all evaluations are valid field elements
+        for (uint256 i = 0; i < columnEvalsLength; ++i) {
+            vm.assume(columnEvals[i] < MODULUS);
+        }
+
+        VerificationBuilder.Builder memory builder;
+        builder.columnEvaluations = columnEvals;
+
+        // Create plan with column expressions referencing each column
+        bytes memory plan = hex"";
+        for (uint256 i = 0; i < columnEvalsLength; ++i) {
+            plan = abi.encodePacked(plan, uint64(i));
+        }
+        plan = abi.encodePacked(plan, hex"abcdef");
+
+        bytes memory expectedPlanOut = hex"abcdef";
+        uint256 fold;
+
+        (plan, builder, fold) = FoldUtil.__foldColumnExprEvals({
+            __plan: plan,
+            __builder: builder,
+            __beta: beta,
+            __columnCount: columnEvalsLength
+        });
+
+        // Calculate expected fold: sum of (columnEvals[i] * beta^(n-1-i))
+        int64 zero = 0;
+        FF expectedFold = F.from(zero);
+        for (uint256 i = 0; i < columnEvalsLength; ++i) {
+            expectedFold = expectedFold * F.from(beta) + F.from(columnEvals[i]);
+        }
+
+        assert(fold == expectedFold.into());
+        assert(plan.length == expectedPlanOut.length);
+        uint256 planOutLength = plan.length;
+        for (uint256 i = 0; i < planOutLength; ++i) {
+            assert(plan[i] == expectedPlanOut[i]);
+        }
+    }
+
+    function testEmptyFoldColumnExprEvals() public pure {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory columnEvals = new uint256[](0);
+        builder.columnEvaluations = columnEvals;
+
+        bytes memory plan = hex"abcdef";
+        bytes memory expectedPlanOut = hex"abcdef";
+        uint256 beta = 5;
+        uint256 columnCount = 0;
+        uint256 fold;
+
+        (plan, builder, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+
+        assert(fold == 0);
+        assert(plan.length == expectedPlanOut.length);
+        uint256 planOutLength = plan.length;
+        for (uint256 i = 0; i < planOutLength; ++i) {
+            assert(plan[i] == expectedPlanOut[i]);
+        }
+    }
 }

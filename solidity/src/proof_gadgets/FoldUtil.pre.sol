@@ -248,4 +248,78 @@ library FoldUtil {
         }
         __builderOut = __builder;
     }
+
+    /// @notice Folds column expression evaluations with beta challenge
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold
+    /// ```
+    /// ##### Parameters
+    /// * `plan_ptr` - calldata pointer to the plan
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `beta` - challenge value
+    /// * `column_count` - number of columns to process
+    /// ##### Return Values
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming
+    /// * `fold` - computed fold value
+    /// @param __plan The plan data
+    /// @param __builder The verification builder
+    /// @param __beta The beta challenge value
+    /// @param __columnCount The number of columns
+    /// @return __planOut The remaining plan after processing
+    /// @return __builderOut The updated verification builder
+    /// @return __fold The computed fold value
+    function __foldColumnExprEvals( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __plan, VerificationBuilder.Builder memory __builder, uint256 __beta, uint256 __columnCount)
+        external
+        pure
+        returns (bytes calldata __planOut, VerificationBuilder.Builder memory __builderOut, uint256 __fold)
+    {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_array_element(arr_ptr, index) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_column_evaluation(builder_ptr, column_num) -> eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/ColumnExpr.pre.sol
+            function column_expr_evaluate(expr_ptr, builder_ptr) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+
+            function fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold {
+                fold := 0
+                for {} column_count { column_count := sub(column_count, 1) } {
+                    let expr_eval
+                    plan_ptr, expr_eval := column_expr_evaluate(plan_ptr, builder_ptr)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
+                }
+                plan_ptr_out := plan_ptr
+            }
+
+            let __planOutOffset
+            __planOutOffset, __fold := fold_column_expr_evals(__plan.offset, __builder, __beta, __columnCount)
+            // slither-disable-start write-after-write
+            __planOut.offset := __planOutOffset
+            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            // slither-disable-end write-after-write
+        }
+        __builderOut = __builder;
+    }
 }
