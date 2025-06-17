@@ -116,6 +116,8 @@ uint32 constant EMPTY_EXEC_VARIANT = 1;
 uint32 constant TABLE_EXEC_VARIANT = 2;
 /// @dev Projection variant constant for proof plans
 uint32 constant PROJECTION_EXEC_VARIANT = 3;
+/// @dev Slice variant constant for proof plans
+uint32 constant SLICE_EXEC_VARIANT = 4;
 /// @dev Group By variant constant for proof plans
 uint32 constant GROUP_BY_EXEC_VARIANT = 5;
 
