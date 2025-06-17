@@ -31,6 +31,16 @@ pub fn generate_random_columns<'a, S: Scalar>(
                     (ColumnType::Boolean, _) => {
                         Column::Boolean(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
+                    (ColumnType::Uint8, None) => {
+                        Column::Uint8(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
+                    }
+                    (ColumnType::Uint8, Some(b)) => {
+                        Column::Uint8(alloc.alloc_slice_fill_with(num_rows, |_| {
+                            let b_value = b(num_rows);
+                            let clamped_b_value = b_value.clamp(0, i64::from(u8::MAX)) as u8;
+                            rng.gen_range(0..=clamped_b_value)
+                        }))
+                    }
                     (ColumnType::TinyInt, None) => {
                         Column::TinyInt(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
