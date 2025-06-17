@@ -28,6 +28,7 @@ fn binary_expr_to_proof_expr(
 
     let (left_proof_expr, right_proof_expr) = match op {
         Operator::Eq
+        | Operator::NotEq
         | Operator::Lt
         | Operator::Gt
         | Operator::LtEq
@@ -51,6 +52,11 @@ fn binary_expr_to_proof_expr(
             left_proof_expr,
             right_proof_expr,
         )?),
+        Operator::NotEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_equals(
+            left_proof_expr,
+            right_proof_expr,
+        )?)
+        .expect("An equality expression must have a boolean data type...")),
         Operator::Lt => Ok(DynProofExpr::try_new_inequality(
             left_proof_expr,
             right_proof_expr,
@@ -544,6 +550,36 @@ mod tests {
         assert_eq!(
             expr_to_proof_expr(&expr, &schema).unwrap(),
             DynProofExpr::try_new_or(COLUMN1_BOOLEAN(), COLUMN2_BOOLEAN()).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_logical_not_eq_to_proof_expr() {
+        let schema = vec![
+            ("column1".into(), ColumnType::BigInt),
+            ("column2".into(), ColumnType::BigInt),
+        ];
+
+        let expr = df_column("namespace.table_name", "column1")
+            .not_eq(df_column("namespace.table_name", "column2"));
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_not(
+                DynProofExpr::try_new_equals(
+                    DynProofExpr::new_column(ColumnRef::new(
+                        TableRef::from_names(Some("namespace"), "table_name"),
+                        "column1".into(),
+                        ColumnType::BigInt,
+                    )),
+                    DynProofExpr::new_column(ColumnRef::new(
+                        TableRef::from_names(Some("namespace"), "table_name"),
+                        "column2".into(),
+                        ColumnType::BigInt,
+                    ))
+                )
+                .unwrap()
+            )
+            .unwrap()
         );
     }
 
