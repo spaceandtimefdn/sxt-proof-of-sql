@@ -231,7 +231,7 @@ impl BaseEntry for BooleanFilter {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT * FROM bench_table WHERE c = $1 and b = $2 or a = $3;"
+        "SELECT * FROM bench_table WHERE c = $1 AND b = $2 OR a = $3;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
