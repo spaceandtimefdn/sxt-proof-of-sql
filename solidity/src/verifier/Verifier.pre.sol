@@ -98,6 +98,10 @@ library Verifier {
             function log2_up(value) -> exponent {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -353,6 +357,10 @@ library Verifier {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
                 revert(0, 0)
@@ -369,6 +377,15 @@ library Verifier {
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../sumcheck/Sumcheck.pre.sol
             function process_round(proof_ptr, degree, challenge) -> proof_ptr_out, round_evaluation, actual_sum {
                 revert(0, 0)
@@ -380,6 +397,14 @@ library Verifier {
                 expected_evaluation,
                 degree
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol
