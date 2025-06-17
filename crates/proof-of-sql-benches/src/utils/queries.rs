@@ -484,6 +484,104 @@ impl BaseEntry for Join {
     }
 }
 
+/// Union All query.
+pub struct UnionAll;
+impl BaseEntry for UnionAll {
+    fn title(&self) -> &'static str {
+        "Union All"
+    }
+
+    fn sql(&self) -> &'static str {
+        "SELECT column1 FROM bench_table_1 WHERE column1 >= $1 AND column1 <= $2
+        UNION ALL
+        SELECT column2 FROM bench_table_2 WHERE column2 >= $1 AND column2 <= $2;"
+    }
+
+    fn tables(&self) -> Vec<TableDefinition> {
+        vec![
+            TableDefinition {
+                name: "bench_table_1",
+                columns: vec![(
+                    "column1",
+                    ColumnType::Int128,
+                    Some(|size| (size / 10 * size).max(10) as i64),
+                )],
+            },
+            TableDefinition {
+                name: "bench_table_2",
+                columns: vec![(
+                    "column2",
+                    ColumnType::Int128,
+                    Some(|size| (size / 10 * size).max(10) as i64),
+                )],
+            },
+        ]
+    }
+
+    fn params(&self) -> Vec<LiteralValue> {
+        vec![LiteralValue::Int128(0), LiteralValue::Int128(1_000_000)]
+    }
+}
+
+/// Limit Offset query.
+pub struct LimitOffset;
+impl BaseEntry for LimitOffset {
+    fn title(&self) -> &'static str {
+        "Limit Offset"
+    }
+
+    fn sql(&self) -> &'static str {
+        "SELECT column FROM bench_table LIMIT 10 OFFSET 5;"
+    }
+
+    fn tables(&self) -> Vec<TableDefinition> {
+        vec![TableDefinition {
+            name: "bench_table",
+            columns: vec![(
+                "column",
+                ColumnType::Uint8,
+                Some(|size| (size / 10).max(10) as i64),
+            )],
+        }]
+    }
+}
+
+/// Not query.
+pub struct Not;
+impl BaseEntry for Not {
+    fn title(&self) -> &'static str {
+        "Not"
+    }
+
+    fn sql(&self) -> &'static str {
+        "SELECT a, b, (a != b) AS comparison_result, NOT(a != b) AS inverse_result
+        FROM bench_table
+        WHERE NOT(a != b) AND a > $1"
+    }
+
+    fn tables(&self) -> Vec<TableDefinition> {
+        vec![TableDefinition {
+            name: "bench_table",
+            columns: vec![
+                (
+                    "a",
+                    ColumnType::Int,
+                    Some(|size| (size / 10).max(10) as i64),
+                ),
+                (
+                    "b",
+                    ColumnType::Int,
+                    Some(|size| (size / 10).max(10) as i64),
+                ),
+            ],
+        }]
+    }
+
+    fn params(&self) -> Vec<LiteralValue> {
+        vec![LiteralValue::Int(5)]
+    }
+}
+
 /// Retrieves all available queries.
 pub fn all_queries() -> Vec<QueryEntry> {
     vec![
@@ -498,6 +596,9 @@ pub fn all_queries() -> Vec<QueryEntry> {
         SumCount.entry(),
         Coin.entry(),
         Join.entry(),
+        UnionAll.entry(),
+        LimitOffset.entry(),
+        Not.entry(),
     ]
 }
 
