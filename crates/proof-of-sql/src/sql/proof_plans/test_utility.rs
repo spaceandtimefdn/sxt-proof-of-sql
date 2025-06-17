@@ -55,8 +55,8 @@ pub fn slice_exec(input: DynProofPlan, skip: usize, fetch: Option<usize>) -> Dyn
     DynProofPlan::Slice(SliceExec::new(Box::new(input), skip, fetch))
 }
 
-pub fn union_exec(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> DynProofPlan {
-    DynProofPlan::Union(UnionExec::new(inputs, schema))
+pub fn union_exec(inputs: Vec<DynProofPlan>) -> DynProofPlan {
+    DynProofPlan::Union(UnionExec::try_new(inputs).unwrap())
 }
 
 pub fn sort_merge_join(
