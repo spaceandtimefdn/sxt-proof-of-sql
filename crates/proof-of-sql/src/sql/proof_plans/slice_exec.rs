@@ -82,12 +82,12 @@ where
         let input_table_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let columns_evals = input_table_eval.column_evals();
         // 2. selection
         // The selected range is (offset_index, max_index]
-        let offset_chi_eval = builder.try_consume_chi_evaluation()?;
-        let max_chi_eval = builder.try_consume_chi_evaluation()?;
+        let offset_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let max_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let selection_eval = max_chi_eval - offset_chi_eval;
         // 3. filtered_columns
         let filtered_columns_evals =

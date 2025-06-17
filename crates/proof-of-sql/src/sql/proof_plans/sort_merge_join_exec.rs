@@ -144,8 +144,8 @@ where
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let res_chi_eval = builder.try_consume_chi_evaluation()?;
-        let u_chi_eval = builder.try_consume_chi_evaluation()?;
+        let res_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
         // 3. alpha, beta

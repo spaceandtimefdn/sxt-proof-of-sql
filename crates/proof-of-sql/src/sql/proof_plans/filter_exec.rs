@@ -114,7 +114,7 @@ where
             builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
         assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        let output_chi_eval = builder.try_consume_chi_evaluation()?;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         verify_filter(
             builder,
