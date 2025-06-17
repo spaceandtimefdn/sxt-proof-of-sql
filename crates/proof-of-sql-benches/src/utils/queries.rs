@@ -52,7 +52,7 @@ impl BaseEntry for Filter {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT b FROM bench_table WHERE a = $1"
+        "SELECT b FROM bench_table WHERE a = $1;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -86,7 +86,7 @@ impl BaseEntry for ComplexFilter {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT * FROM bench_table WHERE (((a = $1) AND (b = $2)) OR ((c = $3) AND (d = $4)))"
+        "SELECT * FROM bench_table WHERE (((a = $1) AND (b = $2)) OR ((c = $3) AND (d = $4)));"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -127,7 +127,7 @@ impl BaseEntry for Arithmetic {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT a + b AS r0, a * b - $1 AS r1, c FROM bench_table WHERE a <= b AND a >= $2"
+        "SELECT a + b AS r0, a * b - $1 AS r1, c FROM bench_table WHERE a <= b AND a >= $2;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -162,7 +162,7 @@ impl BaseEntry for GroupBy {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT SUM(a), COUNT(*) FROM bench_table WHERE a = $1 GROUP BY b"
+        "SELECT SUM(a), COUNT(*) FROM bench_table WHERE a = $1 GROUP BY b;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -196,7 +196,7 @@ impl BaseEntry for Aggregate {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT SUM(a) AS foo, COUNT(1) AS values FROM bench_table WHERE a = b OR c = $1"
+        "SELECT SUM(a) AS foo, COUNT(1) AS values FROM bench_table WHERE a = b OR c = $1;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -231,7 +231,7 @@ impl BaseEntry for BooleanFilter {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT * FROM bench_table WHERE c = $1 and b = $2 or a = $3"
+        "SELECT * FROM bench_table WHERE c = $1 and b = $2 or a = $3;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -266,7 +266,7 @@ impl BaseEntry for LargeColumnSet {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT * FROM bench_table WHERE b = d"
+        "SELECT * FROM bench_table WHERE b = d;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -313,7 +313,7 @@ impl BaseEntry for ComplexCondition {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT * FROM bench_table WHERE (a > c * c AND b < c + $1) OR (d = $2)"
+        "SELECT * FROM bench_table WHERE (a > c * c AND b < c + $1) OR (d = $2);"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -356,7 +356,7 @@ impl BaseEntry for SumCount {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT SUM(a*b*c) AS foo, SUM(a*b) AS bar, COUNT(1) FROM bench_table WHERE a = $1 OR c-b = $2 AND d = $3"
+        "SELECT SUM(a*b*c) AS foo, SUM(a*b) AS bar, COUNT(1) FROM bench_table WHERE a = $1 OR c-b = $2 AND d = $3;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -400,24 +400,17 @@ impl BaseEntry for Coin {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT 
-        SUM( 
-        (
-            CAST (to_address = $1 as bigint)
-            - CAST (from_address = $1 as bigint)
-        )
-        * value
-        * CAST(timestamp AS bigint)
-        ) AS weighted_value,
-        SUM( 
-        (
-            CAST (to_address = $1 as bigint)
-            - CAST (from_address = $1 as bigint)
-        )
-        * value
-        ) AS total_balance,
-        COUNT(1) AS num_transactions
-        FROM bench_table;"
+        "SELECT \
+         SUM( \
+         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint)) \
+         * value * CAST(timestamp AS bigint) \
+         ) AS weighted_value, \
+         SUM( \
+         (CAST (to_address = $1 as bigint) - CAST (from_address = $1 as bigint)) \
+         * value \
+         ) AS total_balance, \
+         COUNT(1) AS num_transactions \
+         FROM bench_table;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -453,9 +446,9 @@ impl BaseEntry for Join {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT bench_table.a, bench_table_2.a
-         FROM bench_table
-         JOIN bench_table_2 on bench_table.a=bench_table_2.a"
+        "SELECT bench_table.a, bench_table_2.a \
+         FROM bench_table \
+         JOIN bench_table_2 on bench_table.a=bench_table_2.a;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -492,9 +485,9 @@ impl BaseEntry for UnionAll {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT column1 FROM bench_table_1 WHERE column1 >= $1 AND column1 <= $2
-        UNION ALL
-        SELECT column2 FROM bench_table_2 WHERE column2 >= $1 AND column2 <= $2;"
+        "SELECT column1 FROM bench_table_1 WHERE column1 >= $1 AND column1 <= $2 \
+         UNION ALL \
+         SELECT column2 FROM bench_table_2 WHERE column2 >= $1 AND column2 <= $2;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
@@ -554,9 +547,9 @@ impl BaseEntry for Not {
     }
 
     fn sql(&self) -> &'static str {
-        "SELECT a, b, (a != b) AS comparison_result, NOT(a != b) AS inverse_result
-        FROM bench_table
-        WHERE NOT(a != b) AND a > $1"
+        "SELECT a, b, (a != b) AS comparison_result, NOT(a != b) AS inverse_result \
+         FROM bench_table \
+         WHERE NOT(a != b) AND a > $1;"
     }
 
     fn tables(&self) -> Vec<TableDefinition> {
