@@ -370,11 +370,113 @@ contract ProofPlanTest is Test {
         }
     }
 
+    function testSliceExecVariant() public pure {
+        bytes memory plan = abi.encodePacked(
+            SLICE_EXEC_VARIANT,
+            TABLE_EXEC_VARIANT,
+            uint64(0), // table_number
+            uint64(2), // column_count
+            uint64(0), // column1_index
+            uint64(1), // column2_index
+            uint64(1), // skip 1
+            true, // fetch set
+            uint64(2), // fetch 2
+            hex"abcdef"
+        );
+
+        VerificationBuilder.Builder memory builder;
+
+        // column evaluations
+        builder.columnEvaluations = new uint256[](2);
+        uint256[2][4] memory column =
+            [[uint256(1), MODULUS_MINUS_ONE], [uint256(3), 7], [MODULUS_MINUS_ONE, 0], [uint256(400), 1]];
+
+        // chi evals
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 4;
+        builder.tableChiEvaluations[1] = 1;
+        builder.chiEvaluations = new uint256[](24); // 3 chi evaluations times 4 rows times 2 slots per element
+        {
+            uint256[4] memory outputChiEval = [uint256(1), 1, 0, 0]; // This has length 2 because there are 2 rows selected
+            uint256[4] memory offsetChiEval = [uint256(1), 0, 0, 0]; // This has length 1 because 1 row is skipped
+            uint256[4] memory maxChiEval = [uint256(1), 1, 1, 0]; // This has length 3 because 1 row is skipped and 2 are fetched
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.chiEvaluations[i * 6] = 2;
+                builder.chiEvaluations[i * 6 + 1] = outputChiEval[i];
+                builder.chiEvaluations[i * 6 + 2] = 1;
+                builder.chiEvaluations[i * 6 + 3] = offsetChiEval[i];
+                builder.chiEvaluations[i * 6 + 4] = 3;
+                builder.chiEvaluations[i * 6 + 5] = maxChiEval[i];
+            }
+        }
+
+        // challenges
+        builder.challenges = new uint256[](8);
+        builder.challenges[0] = 3; // alpha
+        builder.challenges[1] = 8; // beta
+        builder.challenges[2] = 3; // alpha
+        builder.challenges[3] = 8; // beta
+        builder.challenges[4] = 3; // alpha
+        builder.challenges[5] = 8; // beta
+        builder.challenges[6] = 3; // alpha
+        builder.challenges[7] = 8; // beta
+
+        // max degree and row multipliers
+        builder.maxDegree = 3;
+        builder.rowMultipliersEvaluation = 1;
+
+        // constraint multipliers
+        builder.constraintMultipliers = new uint256[](16); // 4 constraints times 4 rows
+        for (uint8 i = 0; i < 16; ++i) {
+            builder.constraintMultipliers[i] = 1;
+        }
+
+        // first round mles
+        builder.firstRoundMLEs = new uint256[](8); // 2 mle times 4 rows
+        for (uint8 i = 0; i < 4; ++i) {
+            uint256[4] memory filteredColumn1 = [column[1][0], column[2][0], 0, 0];
+            uint256[4] memory filteredColumn2 = [column[1][1], column[2][1], 0, 0];
+            builder.firstRoundMLEs[i * 2] = filteredColumn1[i];
+            builder.firstRoundMLEs[i * 2 + 1] = filteredColumn2[i];
+        }
+
+        // final round mles
+        builder.finalRoundMLEs = new uint256[](8); // 2 mles times 4 rows
+        {
+            uint256 inv22 = 14923801958072233106077094826311778469464793909374568870703321036301687610648;
+            uint256 inv94 = 12806950616501703587484599106267554573086808957690232860674481172996483694244;
+            uint256 invNegative23 = 13323278269815211004845638279721819619116395721992368730946732983133100823419;
+            uint256 inv9604 = 11712169941522494311445676710212113356939821392517492762626517213120895445541;
+            uint256[4] memory cStarColumn = [inv22, inv94, invNegative23, inv9604];
+            uint256[4] memory dStarColumn = [cStarColumn[1], cStarColumn[2], 0, 0];
+
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.finalRoundMLEs[i * 2] = cStarColumn[i];
+                builder.finalRoundMLEs[i * 2 + 1] = dStarColumn[i];
+            }
+        }
+        builder.aggregateEvaluation = 0;
+
+        for (uint8 i = 0; i < 4; ++i) {
+            bytes memory planOutput;
+            uint256[] memory evals;
+            uint256 length;
+            uint256 outputChiEval;
+            builder.columnEvaluations[0] = column[i][0];
+            builder.columnEvaluations[1] = column[i][1];
+            (planOutput, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+            assert(planOutput.length == 3);
+        }
+
+        assert(builder.aggregateEvaluation == 0);
+    }
+
     function testVariantsMatchEnum() public pure {
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Table) == TABLE_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Projection) == PROJECTION_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Slice) == SLICE_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.GroupBy) == GROUP_BY_EXEC_VARIANT);
     }
 }
