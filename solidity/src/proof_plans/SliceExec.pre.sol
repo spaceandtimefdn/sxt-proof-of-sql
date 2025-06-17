@@ -6,49 +6,48 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 
-/// @title ProofPlan
-/// @dev Library for handling proof plans
-library ProofPlan {
-    enum PlanVariant {
-        Filter,
-        Empty,
-        Table,
-        Projection,
-        Slice
-    }
-
-    /// @notice Evaluates a proof plan
+/// @title SliceExec
+/// @dev Library for handling slice execution plans
+library SliceExec {
+    /// @notice Evaluates a slice execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
+    /// slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval
     /// ```
     /// ##### Parameters
-    /// * `plan_ptr` - calldata pointer to the proof plan
+    /// * `plan_ptr` - calldata pointer to the slice execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
-    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the proof plan
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the slice execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
-    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length output
-    /// @dev Evaluates a proof plan by dispatching to the appropriate sub-plan evaluator
-    /// @param __plan The proof plan data
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
+    /// @notice Evaluates a slice execution plan
+    /// ##### Proof Plan Encoding
+    /// The slice plan is encoded as follows:
+    /// 1. The input plan
+    /// 2. The number of rows to skip
+    /// 3. The number of rows to fetch
+    /// @dev Evaluates a slice execution plan
+    /// @param __plan The slice execution plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
-    /// @return __builderOut The updated verification builder
-    /// @return __evaluations The evaluations pointer
+    /// @return __builderOut The verification builder result
+    /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputChiEvaluation The output chi evaluation
-    function __proofPlanEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __sliceExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
         returns (
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
-            uint256[] memory __evaluations,
+            uint256[] memory __evaluationsPtr,
             uint256 __outputChiEvaluation
         )
     {
+        uint256[] memory __evaluations;
         assembly {
             // IMPORT-YUL ../base/Errors.sol
             function err(code) {
@@ -64,10 +63,6 @@ library ProofPlan {
             }
             // IMPORT-YUL ../base/MathUtil.pre.sol
             function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
-            function compute_fold(beta, evals) -> fold {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
@@ -123,15 +118,15 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/AddExpr.pre.sol
-            function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/SubtractExpr.pre.sol
-            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/MultiplyExpr.pre.sol
-            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/AndExpr.pre.sol
@@ -168,6 +163,18 @@ library ProofPlan {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_binary(result_ptr) -> result_ptr_out, entry {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_data_type(ptr) -> ptr_out, data_type {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
@@ -180,8 +187,13 @@ library ProofPlan {
             function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
-            // IMPORT-YUL FilterExec.pre.sol
-            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+            // IMPORT-YUL ProjectionExec.pre.sol
+            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ProjectionExec.pre.sol
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL FilterExec.pre.sol
@@ -191,6 +203,14 @@ library ProofPlan {
                 d_fold,
                 evaluations_ptr
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL FilterExec.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL TableExec.pre.sol
+            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -205,75 +225,48 @@ library ProofPlan {
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ProjectionExec.pre.sol
-            function get_proof_expr_evaluations(plan_ptr, builder_ptr, input_chi_eval) -> plan_ptr_out, evaluations_ptr
-            {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ProjectionExec.pre.sol
-            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_binary(result_ptr) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
-            // IMPORT-YUL TableExec.pre.sol
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL SliceExec.pre.sol
-            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
-                revert(0, 0)
-            }
-            // IMPORT-YUL SliceExec.pre.sol
-            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-
+            // IMPORT-YUL ProofPlan.pre.sol
             function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT32_SIZE)
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
+            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                let is_populated := shr(BOOLEAN_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, BOOLEAN_SIZE)
+                if is_populated { plan_ptr := add(plan_ptr, UINT64_SIZE) }
+                plan_ptr_out := plan_ptr
+            }
 
-                switch proof_plan_variant
-                case 0 {
-                    case_const(0, FILTER_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := filter_exec_evaluate(plan_ptr, builder_ptr)
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                let input_evaluations, input_chi_evaluation
+                plan_ptr, input_evaluations, input_chi_evaluation := proof_plan_evaluate(plan_ptr, builder_ptr)
+                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                let selection_eval := builder_consume_chi_evaluation(builder_ptr)
+                selection_eval := submod_bn254(builder_consume_chi_evaluation(builder_ptr), selection_eval)
+
+                let c_fold, d_fold
+                {
+                    let alpha := builder_consume_challenge(builder_ptr)
+                    let beta := builder_consume_challenge(builder_ptr)
+                    c_fold := mulmod_bn254(alpha, compute_fold(beta, input_evaluations))
+                    d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, mload(input_evaluations))
+                    d_fold := mulmod_bn254(alpha, d_fold)
                 }
-                case 1 {
-                    case_const(1, EMPTY_EXEC_VARIANT)
-                    evaluations_ptr, output_chi_eval := empty_exec_evaluate(builder_ptr)
-                    plan_ptr_out := plan_ptr
-                }
-                case 2 {
-                    case_const(2, TABLE_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := table_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                case 3 {
-                    case_const(3, PROJECTION_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := projection_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                case 4 {
-                    case_const(4, SLICE_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := slice_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
+                verify_filter(builder_ptr, c_fold, d_fold, input_chi_evaluation, output_chi_eval, selection_eval)
+                plan_ptr_out := skip_unused_slice_fields(plan_ptr)
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := proof_plan_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputChiEvaluation := slice_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
         }
+        __evaluationsPtr = __evaluations;
         __builderOut = __builder;
     }
 }

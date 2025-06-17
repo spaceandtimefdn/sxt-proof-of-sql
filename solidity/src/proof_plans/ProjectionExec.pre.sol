@@ -75,6 +75,10 @@ library ProjectionExec {
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -115,8 +119,28 @@ library ProjectionExec {
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL FilterExec.pre.sol
-            function compute_folds(plan_ptr, builder_ptr, input_chi_eval) ->
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SliceExec.pre.sol
+            function skip_unused_slice_fields(plan_ptr) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL FilterExec.pre.sol
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval) ->
                 plan_ptr_out,
                 c_fold,
                 d_fold,
