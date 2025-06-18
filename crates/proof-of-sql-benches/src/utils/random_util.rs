@@ -31,14 +31,22 @@ pub fn generate_random_columns<'a, S: Scalar>(
                     (ColumnType::Boolean, _) => {
                         Column::Boolean(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
+                    (ColumnType::Uint8, None) => {
+                        Column::Uint8(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
+                    }
+                    (ColumnType::Uint8, Some(b)) => {
+                        let clamped_b_value = b(num_rows).clamp(0, i64::from(u8::MAX)) as u8;
+                        Column::Uint8(alloc.alloc_slice_fill_with(num_rows, |_| {
+                            rng.gen_range(0..=clamped_b_value)
+                        }))
+                    }
                     (ColumnType::TinyInt, None) => {
                         Column::TinyInt(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
                     (ColumnType::TinyInt, Some(b)) => {
+                        let clamped_b_value =
+                            b(num_rows).clamp(i64::from(i8::MIN), i64::from(i8::MAX)) as i8;
                         Column::TinyInt(alloc.alloc_slice_fill_with(num_rows, |_| {
-                            let b_value = b(num_rows);
-                            let clamped_b_value =
-                                b_value.clamp(i64::from(i8::MIN), i64::from(i8::MAX)) as i8;
                             rng.gen_range(-clamped_b_value..=clamped_b_value)
                         }))
                     }
@@ -46,10 +54,9 @@ pub fn generate_random_columns<'a, S: Scalar>(
                         Column::SmallInt(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
                     (ColumnType::SmallInt, Some(b)) => {
+                        let clamped_b_value =
+                            b(num_rows).clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
                         Column::SmallInt(alloc.alloc_slice_fill_with(num_rows, |_| {
-                            let b_value = b(num_rows);
-                            let clamped_b_value =
-                                b_value.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
                             rng.gen_range(-clamped_b_value..=clamped_b_value)
                         }))
                     }
@@ -57,10 +64,9 @@ pub fn generate_random_columns<'a, S: Scalar>(
                         Column::Int(alloc.alloc_slice_fill_with(num_rows, |_| rng.gen()))
                     }
                     (ColumnType::Int, Some(b)) => {
+                        let clamped_b_value =
+                            b(num_rows).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
                         Column::Int(alloc.alloc_slice_fill_with(num_rows, |_| {
-                            let b_value = b(num_rows);
-                            let clamped_b_value =
-                                b_value.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
                             rng.gen_range(-clamped_b_value..=clamped_b_value)
                         }))
                     }

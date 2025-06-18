@@ -112,6 +112,12 @@ enum Query {
     Coin,
     /// Join query
     Join,
+    /// Union all query
+    UnionAll,
+    /// Limit Offset query
+    LimitOffset,
+    /// Not query
+    Not,
 }
 
 impl Query {
@@ -130,6 +136,9 @@ impl Query {
             Query::SumCount => "Sum Count",
             Query::Coin => "Coin",
             Query::Join => "Join",
+            Query::UnionAll => "Union All",
+            Query::LimitOffset => "Limit Offset",
+            Query::Not => "Not",
         }
     }
 }
