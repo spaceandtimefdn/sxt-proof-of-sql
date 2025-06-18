@@ -195,4 +195,59 @@ library LagrangeBasisEvaluation {
                 )
         }
     }
+
+    /// @notice Computes the weighted sum of Lagrange basis polynomials evaluated at a given point.
+    /// @notice This is a wrapper around the `compute_rho_eval` Yul function.
+    /// This wrapper is only intended to be used for testing.
+    /// @param __length The length of the evaluation vector.
+    /// @param __x The point at which to evaluate the Lagrange basis.
+    /// @return __result The weighted sum of the Lagrange basis polynomials evaluated at the given point.
+    /// @dev This function computes \\[ \sum_{i=0}^{\ell-1} i \cdot \chi_i(x_0,\ldots,x_{\nu-1},0,\ldots),\\]
+    /// where \\(\ell = \texttt{length}\\) and \\(\nu = \texttt{num_vars} = \texttt{__x.length}\\).
+    /// @dev This is equivalent to creating an evaluation vector, multiplying each element by its index, and summing.
+    function __computeRhoEval(uint256 __length, uint256[] memory __x)
+        internal
+        pure
+        returns (uint256 __result)
+    {
+        assembly {
+            function compute_rho_eval(length, x_ptr, num_vars) -> result {
+                // Allocate memory for the evaluation vector
+                let eval_vec_ptr := mload(FREE_PTR)
+                mstore(FREE_PTR, add(eval_vec_ptr, mul(length, WORD_SIZE)))
+                
+                // Initialize evaluation vector with ones
+                for { let i := 0 } lt(i, length) { i := add(i, 1) } {
+                    mstore(add(eval_vec_ptr, mul(i, WORD_SIZE)), 1)
+                }
+                
+                // Check if length exceeds maximum possible for num_vars
+                if gt(length, shl(num_vars, 1)) { err(ERR_EVALUATION_LENGTH_TOO_LARGE) }
+                
+                // Compute evaluation vector using the same algorithm as compute_evaluation_vec
+                for { let len := 1 } num_vars { num_vars := sub(num_vars, 1) } {
+                    let x := mod(mload(add(x_ptr, mul(sub(num_vars, 1), WORD_SIZE))), MODULUS)
+                    let one_minus_x := sub(MODULUS_PLUS_ONE, x)
+                    len := mul(len, 2)
+                    if gt(len, length) { len := length }
+                    for { let l := len } l {} {
+                        l := sub(l, 1)
+                        let to_ptr := add(eval_vec_ptr, mul(l, WORD_SIZE))
+                        let from_ptr := add(eval_vec_ptr, mul(shr(1, l), WORD_SIZE))
+                        switch mod(l, 2)
+                        case 0 { mstore(to_ptr, mulmod(mload(from_ptr), one_minus_x, MODULUS)) }
+                        case 1 { mstore(to_ptr, mulmod(mload(from_ptr), x, MODULUS)) }
+                    }
+                }
+                
+                // Compute weighted sum: sum(i * eval_vec[i])
+                result := 0
+                for { let i := 0 } lt(i, length) { i := add(i, 1) } {
+                    let eval_val := mload(add(eval_vec_ptr, mul(i, WORD_SIZE)))
+                    result := addmod(result, mulmod(i, eval_val, MODULUS), MODULUS)
+                }
+            }
+            __result := compute_rho_eval(__length, add(__x, WORD_SIZE), mload(__x))
+        }
+    }
 }

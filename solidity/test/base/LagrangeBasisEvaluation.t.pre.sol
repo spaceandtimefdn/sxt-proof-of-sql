@@ -51,6 +51,47 @@ contract LagrangeBasisEvaluationTest is Test {
         assert(LagrangeBasisEvaluation.__computeTruncatedLagrangeBasisSum(0, point) == 0);
     }
 
+    function testComputeRhoEvalGivesCorrectValuesWith0Variables() public pure {
+        uint256[] memory point = new uint256[](0);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(1, point) == 0);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(0, point) == 0);
+    }
+
+    function testComputeRhoEvalGivesCorrectValuesWith1Variables() public pure {
+        uint256[] memory point = new uint256[](1);
+        point[0] = 2;
+        assert(LagrangeBasisEvaluation.__computeRhoEval(2, point) == 2);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(1, point) == 0);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(0, point) == 0);
+    }
+
+    function testComputeRhoEvalGivesCorrectValuesWith2Variables() public pure {
+        uint256[] memory point = new uint256[](2);
+        point[0] = 2;
+        point[1] = 5;
+        assert(LagrangeBasisEvaluation.__computeRhoEval(4, point) == 12);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(3, point) == MODULUS - 18);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(2, point) == MODULUS - 8);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(1, point) == 0);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(0, point) == 0);
+    }
+
+    function testComputeRhoEvalGivesCorrectValuesWith3Variables() public pure {
+        uint256[] memory point = new uint256[](3);
+        point[0] = 2;
+        point[1] = 5;
+        point[2] = 7;
+        assert(LagrangeBasisEvaluation.__computeRhoEval(8, point) == 40);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(7, point) == MODULUS - 450);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(6, point) == MODULUS - 240);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(5, point) == 40);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(4, point) == MODULUS - 72);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(3, point) == 108);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(2, point) == 48);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(1, point) == 0);
+        assert(LagrangeBasisEvaluation.__computeRhoEval(0, point) == 0);
+    }
+
     function testComputeTruncatedLagrangeBasisInnerProductGivesCorrectValuesWith0Variables() public pure {
         uint256[] memory a = new uint256[](0);
         uint256[] memory b = new uint256[](0);
@@ -150,6 +191,34 @@ contract LagrangeBasisEvaluationTest is Test {
 
             assert(LagrangeBasisEvaluation.__computeTruncatedLagrangeBasisInnerProduct(i, a, b) == sum.into());
             sum = sum + product;
+        }
+    }
+
+    function testFuzzComputeRhoEval(uint256[] memory rand) public pure {
+        uint256 numVars = rand.length;
+        if (numVars > _MAX_FUZZ_POINT_LENGTH) {
+            numVars = _MAX_FUZZ_POINT_LENGTH;
+        }
+        uint256[] memory point = new uint256[](numVars);
+        for (uint256 i = 0; i < numVars; ++i) {
+            point[i] = rand[i];
+        }
+
+        FF sum = F.ZERO;
+        for (uint256 i = 0; i < (1 << numVars) + _EXTRA_FUZZ_LENGTH; ++i) {
+            FF product = F.ONE;
+            for (uint256 j = 0; j < numVars; ++j) {
+                FF term = F.from(point[j]);
+                if ((i >> j) & 1 == 0) {
+                    term = F.ONE - term;
+                }
+                product = product * term;
+            }
+            if (i >> numVars != 0) {
+                product = F.ZERO;
+            }
+            assert(LagrangeBasisEvaluation.__computeRhoEval(i, point) == sum.into());
+            sum = sum + F.from(i) * product;
         }
     }
 
