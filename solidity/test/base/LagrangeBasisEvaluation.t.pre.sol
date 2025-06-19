@@ -298,4 +298,35 @@ contract LagrangeBasisEvaluationTest is Test {
             assert(evaluations[i] == expectedSums[i].into());
         }
     }
+
+    function testSimpleComputeRhoEvaluations() public pure {
+        uint256[] memory point = new uint256[](3);
+        point[0] = 2;
+        point[1] = 5;
+        point[2] = 7;
+
+        uint256[] memory evaluations = new uint256[](9);
+        for (uint256 i = 0; i < 9; ++i) {
+            evaluations[i] = i;
+        }
+
+        // These values were retrieved using the rust test
+        // `compute_rho_eval_gives_correct_values_with_3_variables`
+        uint256[] memory expectedEvaluations = new uint256[](9);
+        expectedEvaluations[0] = 0;
+        expectedEvaluations[1] = 0;
+        expectedEvaluations[2] = 48;
+        expectedEvaluations[3] = 108;
+        expectedEvaluations[4] = MODULUS - 72;
+        expectedEvaluations[5] = 40;
+        expectedEvaluations[6] = MODULUS - 240;
+        expectedEvaluations[7] = MODULUS - 450;
+        expectedEvaluations[8] = 40;
+
+        LagrangeBasisEvaluation.__computeRhoEvaluations(point, evaluations);
+
+        for (uint256 i = 0; i < 2; ++i) {
+            assert(evaluations[i] == expectedEvaluations[i]);
+        }
+    }
 }
