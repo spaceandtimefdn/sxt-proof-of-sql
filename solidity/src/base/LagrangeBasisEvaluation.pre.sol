@@ -132,6 +132,49 @@ library LagrangeBasisEvaluation {
         }
     }
 
+    /// @notice Computes evaluations of Lagrange basis polynomials for a given evaluation point and array.
+    /// @notice This is a wrapper around the `compute_evaluations` Yul function. Note that the function
+    /// does not return the evaluations, but rather modifies the input array in place.
+    /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
+    /// @param __array The array of lengths to evaluate.
+    /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
+    function __computeRhoEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
+        assembly {
+            // IMPORT-YUL LagrangeBasisEvaluation.pre.sol
+            function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL MathUtil.pre.sol
+            function addmod_bn254(lhs, rhs) -> sum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL MathUtil.pre.sol
+            function mulmod_bn254(lhs, rhs) -> product {
+                revert(0, 0)
+            }
+            // IMPORT-YUL Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
+                let array_len := mload(array_ptr)
+                for {} array_len { array_len := sub(array_len, 1) } {
+                    array_ptr := add(array_ptr, WORD_SIZE)
+                    let length := mload(array_ptr)
+                    let evaluation_vec := compute_evaluation_vec(length, evaluation_point_ptr)
+                    let product := 0
+                    for {} length {} {
+                        let i := sub(length, 1)
+                        product := addmod_bn254(product, mulmod_bn254(i, mload(add(evaluation_vec, mul(i, WORD_SIZE)))))
+                        length := i
+                    }
+                    mstore(array_ptr, product)
+                }
+            }
+            compute_rho_evaluations(__evaluationPoint, __array)
+        }
+    }
+
     /// @notice Computes the inner product of the Lagrange basis polynomials evaluated at two given points.
     /// @notice Reverts if `__x` and `__y` have different lengths.
     /// @notice This is a wrapper around the `compute_truncated_lagrange_basis_inner_product` Yul function.
