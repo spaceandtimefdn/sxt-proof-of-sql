@@ -41,8 +41,9 @@ contract ProofPlanTest is Test {
         builder.challenges[1] = 502;
         builder.aggregateEvaluation = 0;
         builder.rowMultipliersEvaluation = 601;
-        builder.chiEvaluations = new uint256[](1);
-        builder.chiEvaluations[0] = 701;
+        builder.chiEvaluations = new uint256[](2);
+        builder.chiEvaluations[0] = 1;
+        builder.chiEvaluations[1] = 701;
         builder.tableChiEvaluations = new uint256[](1);
         builder.tableChiEvaluations[0] = 801;
 

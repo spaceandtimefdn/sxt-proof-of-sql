@@ -146,7 +146,7 @@ impl ProofPlan for PermutationCheckTestPlan {
         let candidate_permutation_evals =
             builder.try_consume_final_round_mle_evaluations(num_columns)?;
         // Get the chi evaluations
-        let chi_eval = builder.try_consume_chi_evaluation()?;
+        let chi_eval = builder.try_consume_chi_evaluation()?.0;
         // Evaluate the verifier
         verify_permutation_check(
             builder,

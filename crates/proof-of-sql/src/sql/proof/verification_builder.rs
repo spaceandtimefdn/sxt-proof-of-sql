@@ -5,7 +5,7 @@ use core::iter;
 
 pub trait VerificationBuilder<S: Scalar> {
     /// Consume the evaluation of a chi evaluation
-    fn try_consume_chi_evaluation(&mut self) -> Result<S, ProofSizeMismatch>;
+    fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch>;
 
     /// Consume the evaluation of a rho evaluation
     fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch>;
@@ -123,7 +123,7 @@ impl<'a, S: Scalar> VerificationBuilderImpl<'a, S> {
 }
 
 impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
-    fn try_consume_chi_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+    fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
         let index = self.consumed_chi_evaluations;
         let length = self
             .chi_evaluation_length_queue
@@ -131,11 +131,14 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
             .copied()
             .ok_or(ProofSizeMismatch::TooFewChiLengths)?;
         self.consumed_chi_evaluations += 1;
-        Ok(*self
-            .mle_evaluations
-            .chi_evaluations
-            .get(&length)
-            .ok_or(ProofSizeMismatch::ChiLengthNotFound)?)
+        Ok((
+            *self
+                .mle_evaluations
+                .chi_evaluations
+                .get(&length)
+                .ok_or(ProofSizeMismatch::ChiLengthNotFound)?,
+            length,
+        ))
     }
 
     fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {

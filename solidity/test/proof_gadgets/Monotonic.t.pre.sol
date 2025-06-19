@@ -49,10 +49,13 @@ contract MonotonicTest is Test {
         builder.rhoEvaluations[3] = 1;
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
-        builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 1; // shifted_chi_eval
-        builder.chiEvaluations[1] = 1;
-        builder.chiEvaluations[2] = 1;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1; // shifted_chi_eval
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
 
         uint256[] memory bitDistribution = new uint256[](6);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000000;
@@ -129,9 +132,13 @@ contract MonotonicTest is Test {
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
         builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 1; // shifted_chi_eval
-        builder.chiEvaluations[1] = 1;
-        builder.chiEvaluations[2] = 1;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1; // shifted_chi_eval
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
 
         uint256[] memory bitDistribution = new uint256[](6);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000001;
@@ -206,9 +213,13 @@ contract MonotonicTest is Test {
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
         builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 1; // shifted_chi_eval
-        builder.chiEvaluations[1] = 1;
-        builder.chiEvaluations[2] = 1;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1; // shifted_chi_eval
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
 
         uint256[] memory bitDistribution = new uint256[](6);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000000;
@@ -285,9 +296,13 @@ contract MonotonicTest is Test {
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
         builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 1; // shifted_chi_eval
-        builder.chiEvaluations[1] = 1;
-        builder.chiEvaluations[2] = 1;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1; // shifted_chi_eval
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
 
         uint256[] memory bitDistribution = new uint256[](6);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000001;
@@ -363,9 +378,13 @@ contract MonotonicTest is Test {
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
         builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 1; // shifted_chi_eval
-        builder.chiEvaluations[1] = 1;
-        builder.chiEvaluations[2] = 1;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1; // shifted_chi_eval
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
 
         uint256[] memory bitDistribution = new uint256[](6);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000000;

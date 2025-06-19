@@ -86,7 +86,7 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
 ) -> Result<(), ProofError> {
     // 1. Verify that `shifted_column` is a shift of `column`
     let shifted_column_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let shifted_chi_eval = builder.try_consume_chi_evaluation()?;
+    let shifted_chi_eval = builder.try_consume_chi_evaluation()?.0;
     verify_shift(
         builder,
         alpha,

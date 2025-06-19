@@ -150,7 +150,7 @@ impl ProofPlan for GroupByExec {
 
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
         verify_group_by(
