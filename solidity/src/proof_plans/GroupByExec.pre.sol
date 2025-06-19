@@ -175,10 +175,12 @@ library GroupByExec {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // slither-disable-start cyclomatic-complexity
             // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // slither-disable-end cyclomatic-complexity
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
@@ -250,7 +252,7 @@ library GroupByExec {
                 plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 // Process group by columns
-                let g_in_fold := 0
+                let g_in_fold
                 plan_ptr, g_in_fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count)
                 g_in_fold := mulmod_bn254(g_in_fold, alpha)
                 // Get the g_in_star and g_out_star evaluations
@@ -397,6 +399,7 @@ library GroupByExec {
                     build_groupby_constraints(
                         plan_ptr, builder_ptr, alpha, beta, input_chi_eval, output_chi_eval, evaluations_ptr
                     )
+                // slither-disable-next-line write-after-write
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(total_column_count, WORD_SIZE))))
                 plan_ptr_out := plan_ptr
