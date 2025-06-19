@@ -39,8 +39,9 @@ contract FilterExecTest is Test {
         builder.challenges[1] = 502;
         builder.aggregateEvaluation = 0;
         builder.rowMultipliersEvaluation = 601;
-        builder.chiEvaluations = new uint256[](1);
-        builder.chiEvaluations[0] = 701;
+        builder.chiEvaluations = new uint256[](2);
+        builder.chiEvaluations[0] = 1;
+        builder.chiEvaluations[1] = 701;
         builder.tableChiEvaluations = new uint256[](1);
         builder.tableChiEvaluations[0] = 801;
 
@@ -113,7 +114,7 @@ contract FilterExecTest is Test {
             dFold = dFold * beta + F.from(builder.finalRoundMLEs[i]);
         }
         FF dStar = F.from(builder.finalRoundMLEs[inputEvaluationsLength + 1]);
-        identityConstraint2 = (F.ONE + alpha * dFold) * dStar - F.from(builder.chiEvaluations[0]);
+        identityConstraint2 = (F.ONE + alpha * dFold) * dStar - F.from(builder.chiEvaluations[1]);
     }
 
     function _computeEqualsExprIdentityConstraint3(
@@ -127,7 +128,7 @@ contract FilterExecTest is Test {
         for (uint256 i = 0; i < inputEvaluationsLength; ++i) {
             dFold = dFold * beta + F.from(builder.finalRoundMLEs[i]);
         }
-        identityConstraint3 = alpha * dFold * (F.from(builder.chiEvaluations[0]) - F.ONE);
+        identityConstraint3 = alpha * dFold * (F.from(builder.chiEvaluations[1]) - F.ONE);
     }
 
     function _computeEqualsExprAggregateEvaluation(
@@ -176,7 +177,7 @@ contract FilterExecTest is Test {
         vm.assume(builder.finalRoundMLEs.length > inputsLength + 1);
         vm.assume(builder.constraintMultipliers.length > 3);
         vm.assume(builder.challenges.length > 1);
-        vm.assume(builder.chiEvaluations.length > 0);
+        vm.assume(builder.chiEvaluations.length > 1);
         vm.assume(builder.tableChiEvaluations.length > tableNumber);
 
         FF[] memory inputEvaluations = new FF[](inputsLength);
