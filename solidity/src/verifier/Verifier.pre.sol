@@ -366,6 +366,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            function fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
             function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
@@ -399,7 +403,7 @@ library Verifier {
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
             function get_and_check_group_by_output_columns(
                 builder_ptr, alpha, beta, column_count, output_chi_eval, evaluations_ptr
-            ) -> g_eval, g_out_star_eval, evaluations_ptr_out {
+            ) -> g_out_star_eval, evaluations_ptr_out {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
@@ -412,6 +416,26 @@ library Verifier {
             function get_and_check_sum_output_columns(
                 builder_ptr, output_chi_eval, beta, column_count, g_out_star_eval, evaluations_ptr
             ) -> constraint_rhs, evaluations_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function build_groupby_zerosum_constraint(
+                plan_ptr,
+                builder_ptr,
+                alpha,
+                beta,
+                input_chi_eval,
+                output_chi_eval,
+                g_star_selected_eval,
+                g_out_star_eval,
+                evaluations_ptr
+            ) -> plan_ptr_out, evaluations_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function build_groupby_constraints(
+                plan_ptr, builder_ptr, alpha, beta, input_chi_eval, output_chi_eval, evaluations_ptr
+            ) -> plan_ptr_out, evaluations_ptr_out {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol

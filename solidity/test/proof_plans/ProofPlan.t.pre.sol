@@ -77,48 +77,13 @@ contract ProofPlanTest is Test {
         }
     }
 
-    function testGroupByExecVariant() public pure {
-        bytes memory plan = abi.encodePacked(
-            GROUP_BY_EXEC_VARIANT,
-            uint64(0), // table_number
-            uint64(2), // total_column_count
-            uint64(1), // group_by_count
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
-            uint64(0), // group_by_expr[0] - column 0
-            uint64(0), // sum_count
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
-        );
-        VerificationBuilder.Builder memory builder;
-
-        // column evaluations
-        builder.columnEvaluations = new uint256[](1);
-
-        uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
-        uint256[4] memory gOut = [MODULUS_MINUS_ONE, 1, 0, 0];
-        uint256[4] memory count = [uint256(2), 2, 0, 0];
-        // Check that (-1, 1) is strictly increasing hence the group by is valid
-        uint256[4] memory shiftedGOut = [uint256(0), MODULUS_MINUS_ONE, 1, 0];
-        // cStar = 1 / (1 + alpha * (column + beta * (rho + chi)))
-        uint256[4] memory cStarEval = [
-            uint256(14923801958072233106077094826311778469464793909374568870703321036301687610648),
-            21467315124303904544895513327079250567614742008100341375550161798372427563009,
-            1,
-            0
-        ];
-        // dStar = 1 / (1 + alpha * (shiftedColumn + beta * rhoPlusOne))
-        uint256[4] memory dStarEval = [
-            uint256(1),
-            14923801958072233106077094826311778469464793909374568870703321036301687610648,
-            21467315124303904544895513327079250567614742008100341375550161798372427563009,
-            0
-        ];
-        uint256[4] memory sign = [uint256(1), 0, 1, 0]; //Sign of [1, -2, 1];
-
-        // chi evals
+    function _configureBuilderForGroupByExec(VerificationBuilder.Builder memory builder)
+        internal pure returns (VerificationBuilder.Builder memory configuredBuilder) {
+        // table chi evals
         builder.tableChiEvaluations = new uint256[](1);
         builder.tableChiEvaluations[0] = 1;
 
+        // rho and chi evals
         builder.rhoEvaluations = new uint256[](8);
         builder.rhoEvaluations[0] = 0;
         builder.rhoEvaluations[1] = 0;
@@ -138,6 +103,7 @@ contract ProofPlanTest is Test {
         builder.chiEvaluations[6] = 0;
         builder.chiEvaluations[7] = 0;
 
+        // bit distributions
         uint256[] memory bitDistribution = new uint256[](8);
         bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000000;
         bitDistribution[1] = 1;
@@ -170,6 +136,37 @@ contract ProofPlanTest is Test {
             builder.constraintMultipliers[i] = 1;
         }
 
+        // Aggregate evaluation
+        builder.aggregateEvaluation = 0;
+        configuredBuilder = builder;
+    }
+
+    function _configureForMinimalGroupByExec(
+        VerificationBuilder.Builder memory builder
+    ) internal pure returns (VerificationBuilder.Builder memory configuredBuilder) {
+        // column evaluations
+        builder.columnEvaluations = new uint256[](1);
+
+        uint256[4] memory gOut = [MODULUS_MINUS_ONE, 1, 0, 0];
+        uint256[4] memory count = [uint256(2), 2, 0, 0];
+        // Check that (-1, 1) is strictly increasing hence the group by is valid
+        uint256[4] memory shiftedGOut = [uint256(0), MODULUS_MINUS_ONE, 1, 0];
+        // cStar = 1 / (1 + alpha * (column + beta * (rho + chi)))
+        uint256[4] memory cStarEval = [
+            uint256(14923801958072233106077094826311778469464793909374568870703321036301687610648),
+            21467315124303904544895513327079250567614742008100341375550161798372427563009,
+            1,
+            0
+        ];
+        // dStar = 1 / (1 + alpha * (shiftedColumn + beta * rhoPlusOne))
+        uint256[4] memory dStarEval = [
+            uint256(1),
+            14923801958072233106077094826311778469464793909374568870703321036301687610648,
+            21467315124303904544895513327079250567614742008100341375550161798372427563009,
+            0
+        ];
+        uint256[4] memory sign = [uint256(1), 0, 1, 0]; //Sign of [1, -2, 1];
+        
         // final round mles
         builder.finalRoundMLEs = new uint256[](32); // 8 mles times 4 rows
         {
@@ -180,19 +177,36 @@ contract ProofPlanTest is Test {
 
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 8] = gInStarColumn[i];
-                builder.finalRoundMLEs[i * 8 + 1] = gOut[i];
-                builder.finalRoundMLEs[i * 8 + 2] = gOutStarColumn[i];
-                builder.finalRoundMLEs[i * 8 + 3] = count[i];
                 // Monotonicity check
-                builder.finalRoundMLEs[i * 8 + 4] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 8 + 5] = cStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 6] = dStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 7] = sign[i];
+                builder.finalRoundMLEs[i * 8 + 1] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 8 + 2] = cStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 3] = dStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 4] = sign[i];
+                // Continue with group by output
+                builder.finalRoundMLEs[i * 8 + 5] = gOut[i];
+                builder.finalRoundMLEs[i * 8 + 6] = gOutStarColumn[i];
+                builder.finalRoundMLEs[i * 8 + 7] = count[i];
             }
         }
+        configuredBuilder = builder;
+    }
 
-        builder.aggregateEvaluation = 0;
-
+    function testGroupByExecVariant() public pure {
+        bytes memory plan = abi.encodePacked(
+            GROUP_BY_EXEC_VARIANT,
+            uint64(0), // table_number
+            uint64(2), // total_column_count
+            uint64(1), // group_by_count
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
+            uint64(0), // group_by_expr[0] - column 0
+            uint64(0), // sum_count
+            uint64(7), // count_alias_length (unused in verification)
+            "count_0" // count_alias (unused in verification)
+        );
+        VerificationBuilder.Builder memory builder;
+        uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
+        builder = _configureBuilderForGroupByExec(builder);
+        builder = _configureForMinimalGroupByExec(builder);
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
             uint256 outputChiEval;
