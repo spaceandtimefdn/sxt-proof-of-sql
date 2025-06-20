@@ -26,7 +26,7 @@ use rand_core::SeedableRng;
 fn we_can_get_id_and_type_of_placeholder_expr() {
     let expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
     assert_eq!(expr.data_type(), ColumnType::Boolean);
-    assert_eq!(expr.id(), 1);
+    assert_eq!(expr.index(), 0);
 }
 
 fn test_random_tables_with_given_offset(offset: usize) {
@@ -184,7 +184,7 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     );
     assert!(matches!(
         VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[],),
-        Err(PlaceholderError::InvalidPlaceholderId { .. })
+        Err(PlaceholderError::InvalidPlaceholderIndex { .. })
     ));
 }
 

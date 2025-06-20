@@ -63,20 +63,20 @@ pub enum ProofSizeMismatch {
 /// Errors related to placeholders
 #[derive(Snafu, Debug, PartialEq, Eq)]
 pub enum PlaceholderError {
-    #[snafu(display("Invalid placeholder id: {id}, number of params: {num_params}"))]
+    #[snafu(display("Invalid placeholder index: {index}, number of params: {num_params}"))]
     /// Placeholder id is invalid
-    InvalidPlaceholderId {
-        /// The invalid placeholder id
-        id: usize,
+    InvalidPlaceholderIndex {
+        /// The invalid placeholder index
+        index: usize,
         /// The number of parameters
         num_params: usize,
     },
 
-    #[snafu(display("Invalid placeholder type: {id}, expected: {expected}, actual: {actual}"))]
+    #[snafu(display("Invalid placeholder type: {index}, expected: {expected}, actual: {actual}"))]
     /// Placeholder type is invalid
     InvalidPlaceholderType {
         /// The invalid placeholder id
-        id: usize,
+        index: usize,
         /// The expected type
         expected: ColumnType,
         /// The actual type

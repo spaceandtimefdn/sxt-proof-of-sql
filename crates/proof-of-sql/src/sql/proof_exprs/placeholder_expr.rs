@@ -19,21 +19,37 @@ use sqlparser::ast::Ident;
 ///    select $1, $2 from T
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaceholderExpr {
-    id: usize,
+    index: usize,
     column_type: ColumnType,
 }
 
 impl PlaceholderExpr {
     /// Creates a new `PlaceholderExpr`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PlaceholderError::ZeroPlaceholderId`] if `id` is 0.
+    /// Placeholder IDs must be greater than 0 following `PostgreSQL` convention.
     pub fn try_new(id: usize, column_type: ColumnType) -> PlaceholderResult<Self> {
         (id > 0)
-            .then_some(Self { id, column_type })
+            .then(|| Self {
+                index: id - 1,
+                column_type,
+            })
             .ok_or(PlaceholderError::ZeroPlaceholderId)
     }
 
+    /// Creates a new `PlaceholderExpr` from an index directly.
+    ///
+    /// This is an infallible constructor that takes the internal index representation
+    /// (0-based) rather than the PostgreSQL-style ID (1-based).
+    pub(crate) fn new_from_index(index: usize, column_type: ColumnType) -> Self {
+        Self { index, column_type }
+    }
+
     /// Get the id of the placeholder
-    pub fn id(&self) -> usize {
-        self.id
+    pub fn index(&self) -> usize {
+        self.index
     }
 
     /// Get the column type of the placeholder
@@ -52,16 +68,16 @@ impl PlaceholderExpr {
         &self,
         params: &'a [LiteralValue],
     ) -> Result<&'a LiteralValue, PlaceholderError> {
-        let pos = self.id - 1;
+        let pos = self.index;
         let param_value = params
             .get(pos)
-            .ok_or(PlaceholderError::InvalidPlaceholderId {
-                id: self.id,
+            .ok_or(PlaceholderError::InvalidPlaceholderIndex {
+                index: self.index,
                 num_params: params.len(),
             })?;
         if param_value.column_type() != self.column_type {
             return Err(PlaceholderError::InvalidPlaceholderType {
-                id: self.id,
+                index: self.index,
                 expected: self.column_type,
                 actual: param_value.column_type(),
             });
@@ -142,6 +158,13 @@ mod tests {
         assert!(matches!(res, Err(PlaceholderError::ZeroPlaceholderId)));
     }
 
+    #[test]
+    fn we_can_create_a_placeholder_from_index() {
+        let placeholder = PlaceholderExpr::new_from_index(5, ColumnType::BigInt);
+        assert_eq!(placeholder.index(), 5);
+        assert_eq!(placeholder.column_type(), ColumnType::BigInt);
+    }
+
     // interpolate
     #[test]
     fn we_cannot_interpolate_placeholder_if_id_is_out_of_bounds() {
@@ -151,7 +174,7 @@ mod tests {
         let res = placeholder_expr.interpolate(&params);
         assert!(matches!(
             res,
-            Err(PlaceholderError::InvalidPlaceholderId { .. })
+            Err(PlaceholderError::InvalidPlaceholderIndex { .. })
         ));
 
         // Params exist but not enough of them
@@ -160,7 +183,7 @@ mod tests {
         let res = placeholder_expr.interpolate(&params);
         assert!(matches!(
             res,
-            Err(PlaceholderError::InvalidPlaceholderId { .. })
+            Err(PlaceholderError::InvalidPlaceholderIndex { .. })
         ));
     }
 
