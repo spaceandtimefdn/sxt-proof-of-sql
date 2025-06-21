@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
         try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     sql::{
@@ -18,16 +18,13 @@ fn we_cannot_generate_serialized_proof_plan_for_unsupported_plan() {
     // Create a Union of two empty execs which is not supported in EVM
     let empty_exec1 = EmptyExec::new();
     let empty_exec2 = EmptyExec::new();
-    let schema: Vec<ColumnField> = Vec::new();
 
     // Create a union plan with two empty execs
-    let plan = DynProofPlan::new_union(
-        vec![
-            DynProofPlan::Empty(empty_exec1),
-            DynProofPlan::Empty(empty_exec2),
-        ],
-        schema,
-    );
+    let plan = DynProofPlan::try_new_union(vec![
+        DynProofPlan::Empty(empty_exec1),
+        DynProofPlan::Empty(empty_exec2),
+    ])
+    .unwrap();
 
     try_standard_binary_serialization(EVMProofPlan::new(plan)).unwrap_err();
 }
