@@ -184,6 +184,69 @@ library Array {
         __array = __arrayTmp;
     }
 
+    /// @notice Reads a uint64 array from calldata and stores each entry as two words
+    /// @custom:yul-function
+    /// #### Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// read_uint64_array_as_uint512_array(source_ptr) -> source_ptr_out, array_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `source_ptr` - calldata pointer to array length followed by array elements
+    /// ##### Return Values
+    /// * `source_ptr_out` - pointer to remaining calldata after consuming the array
+    /// * `array_ptr` - pointer to the array in memory containing [length, elements...]
+    /// @dev Reads a word array by first reading length as uint64, then copying that many uint64 values as two words a piece.
+    /// @param __source The input source containing the array
+    /// @return __sourceOut The remaining source after consuming the array
+    /// @return __array The decoded array of two-word elements
+    function __readUint64ArrayAsUint512Array(bytes calldata __source)
+        external
+        pure
+        returns (bytes calldata __sourceOut, uint256[2][] memory __array)
+    {
+        assembly {
+            function read_uint64_array_as_uint512_array(source_ptr) -> source_ptr_out, array_ptr {
+                array_ptr := mload(FREE_PTR)
+
+                let length := shr(UINT64_PADDING_BITS, calldataload(source_ptr))
+                mstore(array_ptr, length)
+                source_ptr := add(source_ptr, UINT64_SIZE)
+                let target_ptr := add(array_ptr, WORD_SIZE)
+
+                for {} length { length := sub(length, 1) } {
+                    mstore(target_ptr, shr(UINT64_PADDING_BITS, calldataload(source_ptr)))
+                    mstore(add(target_ptr, WORD_SIZE), 0)
+                    source_ptr := add(source_ptr, UINT64_SIZE)
+                    target_ptr := add(target_ptr, WORDX2_SIZE)
+                }
+
+                mstore(FREE_PTR, target_ptr)
+
+                source_ptr_out := source_ptr
+            }
+
+            let __sourceOutOffset
+            __sourceOutOffset, __array := read_uint64_array_as_uint512_array(__source.offset)
+            __sourceOut.offset := __sourceOutOffset
+            // slither-disable-next-line write-after-write
+            __sourceOut.length := sub(__source.length, sub(__sourceOutOffset, __source.offset))
+        }
+        // __array is a flat array of uint256 values, so we need to convert it to an array of uint256[2],
+        // This is because uint256[2] is a reference type, so the assembly format is not a solidity type
+        uint256 arrayLength = __array.length;
+        uint256[2][] memory __arrayTmp = new uint256[2][](arrayLength);
+        for (uint256 i = 0; i < arrayLength; ++i) {
+            uint256[2] memory __arrayElement;
+            uint256 offset = (i * 2 + 1) * WORD_SIZE;
+            assembly {
+                __arrayElement := add(__array, offset)
+            }
+            __arrayTmp[i] = __arrayElement;
+        }
+        __array = __arrayTmp;
+    }
+
     /// @notice Reads an array of two-word elements from calldata
     /// @custom:yul-function
     /// #### Yul Function
