@@ -41,8 +41,9 @@ contract ProofPlanTest is Test {
         builder.challenges[1] = 502;
         builder.aggregateEvaluation = 0;
         builder.rowMultipliersEvaluation = 601;
-        builder.chiEvaluations = new uint256[](1);
-        builder.chiEvaluations[0] = 701;
+        builder.chiEvaluations = new uint256[](2);
+        builder.chiEvaluations[0] = 1;
+        builder.chiEvaluations[1] = 701;
         builder.tableChiEvaluations = new uint256[](1);
         builder.tableChiEvaluations[0] = 801;
 
@@ -96,15 +97,23 @@ contract ProofPlanTest is Test {
         builder.rhoEvaluations[5] = 2;
         builder.rhoEvaluations[6] = 0;
         builder.rhoEvaluations[7] = 0;
-        builder.chiEvaluations = new uint256[](8);
-        builder.chiEvaluations[0] = 1; // output_chi_eval
-        builder.chiEvaluations[1] = 1; // shifted_output_chi_eval
-        builder.chiEvaluations[2] = 1;
-        builder.chiEvaluations[3] = 1;
-        builder.chiEvaluations[4] = 0;
+        builder.chiEvaluations = new uint256[](16);
+        builder.chiEvaluations[0] = 4;
+        builder.chiEvaluations[1] = 1; // output_chi_eval
+        builder.chiEvaluations[2] = 4;
+        builder.chiEvaluations[3] = 1; // shifted_output_chi_eval
+        builder.chiEvaluations[4] = 4;
         builder.chiEvaluations[5] = 1;
-        builder.chiEvaluations[6] = 0;
-        builder.chiEvaluations[7] = 0;
+        builder.chiEvaluations[6] = 4;
+        builder.chiEvaluations[7] = 1;
+        builder.chiEvaluations[8] = 4;
+        builder.chiEvaluations[9] = 0;
+        builder.chiEvaluations[10] = 4;
+        builder.chiEvaluations[11] = 1;
+        builder.chiEvaluations[12] = 4;
+        builder.chiEvaluations[13] = 0;
+        builder.chiEvaluations[14] = 4;
+        builder.chiEvaluations[15] = 0;
 
         // bit distributions
         uint256[] memory bitDistribution = new uint256[](8);

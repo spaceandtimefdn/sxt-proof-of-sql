@@ -132,6 +132,41 @@ library LagrangeBasisEvaluation {
         }
     }
 
+    /// @notice Computes evaluations of Lagrange basis polynomials for a given evaluation point and array.
+    /// @notice This is a wrapper around the `compute_evaluations_with_length` Yul function. Note that the function
+    /// does not return the evaluations, but rather modifies the input array in place.
+    /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
+    /// @param __array The array of lengths to evaluate.
+    /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
+    function __computeEvaluationsWithLength(uint256[] memory __evaluationPoint, uint256[] memory __array)
+        internal
+        pure
+    {
+        assembly {
+            // IMPORT-YUL Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL LagrangeBasisEvaluation.pre.sol
+            function compute_truncated_lagrange_basis_sum(length, x_ptr, num_vars) -> result {
+                revert(0, 0)
+            }
+            function compute_evaluations_with_length(evaluation_point_ptr, array_ptr) {
+                let num_vars := mload(evaluation_point_ptr)
+                let x := add(evaluation_point_ptr, WORD_SIZE)
+                let array_len := mload(array_ptr)
+                array_ptr := add(array_ptr, WORD_SIZE)
+                for {} array_len { array_len := sub(array_len, 1) } {
+                    mstore(
+                        add(array_ptr, WORD_SIZE), compute_truncated_lagrange_basis_sum(mload(array_ptr), x, num_vars)
+                    )
+                    array_ptr := add(array_ptr, WORDX2_SIZE)
+                }
+            }
+            compute_evaluations_with_length(__evaluationPoint, __array)
+        }
+    }
+
     /// @notice Computes rho evaluations for a given evaluation point and array.
     /// @notice This is a wrapper around the `compute_rho_evaluations` Yul function. Note that the function
     /// does not return the evaluations, but rather modifies the input array in place.
