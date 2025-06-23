@@ -314,10 +314,11 @@ impl EVMSliceExec {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMGroupByExec {
     table_number: usize,
+    total_column_count: usize,
     group_by_exprs: Vec<usize>,
+    where_clause: EVMDynProofExpr,
     sum_expr: Vec<EVMDynProofExpr>,
     count_alias_name: String,
-    where_clause: EVMDynProofExpr,
 }
 
 impl EVMGroupByExec {
@@ -342,7 +343,8 @@ impl EVMGroupByExec {
             table_number: table_refs
                 .get_index_of(&plan.table().table_ref)
                 .ok_or(EVMProofPlanError::TableNotFound)?,
-            group_by_exprs,
+            group_by_exprs: group_by_exprs.clone(),
+            total_column_count: group_by_exprs.len() + plan.sum_expr().len() + 1, // +1 for the count alias
             sum_expr: plan
                 .sum_expr()
                 .iter()
@@ -402,6 +404,10 @@ impl EVMGroupByExec {
             }
         } else {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
+        }
+
+        if self.total_column_count != group_by_exprs.len() + sum_expr.len() + 1 {
+            return Err(EVMProofPlanError::InconsistentGroupByColumnCounts);
         }
 
         Ok(GroupByExec::new(
@@ -770,6 +776,7 @@ mod tests {
             EVMDynProofExpr::Column(_)
         ));
         assert_eq!(evm_group_by_exec.count_alias_name, count_alias);
+        assert_eq!(evm_group_by_exec.total_column_count, 3); // 1 group by + 1 sum + 1 count
         assert!(matches!(
             evm_group_by_exec.where_clause,
             EVMDynProofExpr::Equals(_)
@@ -1070,6 +1077,45 @@ mod tests {
         assert!(matches!(
             result,
             Err(EVMProofPlanError::InvalidOutputColumnName)
+        ));
+    }
+
+    #[test]
+    fn group_by_exec_fails_with_inconsistent_column_counts_into_proof_plan() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let sum_alias = "sum_b".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        let evm_group_by_exec = EVMGroupByExec {
+            table_number: 0,
+            group_by_exprs: vec![0],
+            total_column_count: 4, // Wrong count
+            sum_expr: vec![EVMDynProofExpr::Column(EVMColumnExpr::new(1))],
+            count_alias_name: count_alias.clone(),
+            where_clause: EVMDynProofExpr::Equals(EVMEqualsExpr::new(
+                EVMDynProofExpr::Column(EVMColumnExpr::new(0)),
+                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)),
+            )),
+        };
+        // Try to convert back with inconsistent column counts
+        let result = EVMGroupByExec::try_into_proof_plan(
+            &evm_group_by_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            &indexset![
+                ident_a.value.clone(),
+                sum_alias.clone(),
+                count_alias.clone()
+            ],
+        );
+        assert!(matches!(
+            result,
+            Err(EVMProofPlanError::InconsistentGroupByColumnCounts)
         ));
     }
 }
