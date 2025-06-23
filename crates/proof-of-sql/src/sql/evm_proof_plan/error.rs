@@ -19,6 +19,9 @@ pub(crate) enum EVMProofPlanError {
     /// Error indicating that the output column name is invalid or missing.
     #[snafu(display("invalid or missing output column name"))]
     InvalidOutputColumnName,
+    /// Error indicating that the column counts in group by plans are inconsistent.
+    #[snafu(display("column counts in group by plans are inconsistent"))]
+    InconsistentGroupByColumnCounts,
     /// Analyze error
     #[snafu(transparent)]
     AnalyzeError {
