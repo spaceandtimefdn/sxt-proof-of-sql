@@ -48,6 +48,27 @@ contract ArrayTest is Test {
         }
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testGetUint512ArrayElement() public pure {
+        uint256[] memory array = new uint256[](4);
+        array[0] = 1;
+        array[1] = 2;
+        array[2] = 3;
+        array[3] = 4;
+        assembly {
+            mstore(array, 2)
+        }
+        uint256[][1] memory wrappedArray = [array];
+        uint256 upper;
+        uint256 lower;
+        (upper, lower) = Array.__getUint512ArrayElement(wrappedArray, 0);
+        assert(upper == 1);
+        assert(lower == 2);
+        (upper, lower) = Array.__getUint512ArrayElement(wrappedArray, 1);
+        assert(upper == 3);
+        assert(lower == 4);
+    }
+
     function testEmptyReadUint64Array() public pure {
         bytes memory source = abi.encodePacked(uint64(0), hex"abcdef");
 
