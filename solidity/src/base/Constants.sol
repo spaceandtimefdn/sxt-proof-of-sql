@@ -135,6 +135,8 @@ uint32 constant DATA_TYPE_VARCHAR_VARIANT = 7;
 uint32 constant DATA_TYPE_DECIMAL75_VARIANT = 8;
 /// @dev Timestamp variant constant for column types
 uint32 constant DATA_TYPE_TIMESTAMP_VARIANT = 9;
+/// @dev Scalar variant constant for column types
+uint32 constant DATA_TYPE_SCALAR_VARIANT = 10;
 /// @dev Varbinary variant constant for column types
 uint32 constant DATA_TYPE_VARBINARY_VARIANT = 11;
 

@@ -189,10 +189,12 @@ library GroupByExec {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
+            // slither-disable-start cyclomatic-complexity
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
             }
+            // slither-disable-end cyclomatic-complexity
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 revert(0, 0)

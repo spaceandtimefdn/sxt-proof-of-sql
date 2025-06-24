@@ -221,6 +221,18 @@ contract DataTypeTest is Test {
         }
     }
 
+    function testReadScalarEntryExpr() public pure {
+        bytes memory exprIn = abi.encodePacked(MODULUS_MINUS_ONE, hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        (bytes memory exprOut, uint256 entry) = DataType.__readEntry(exprIn, DATA_TYPE_SCALAR_VARIANT);
+        assert(entry == MODULUS_MINUS_ONE);
+        assert(exprOut.length == expectedExprOut.length);
+        uint256 exprOutLength = exprOut.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(exprOut[i] == expectedExprOut[i]);
+        }
+    }
+
     function testReadVarbinaryEntryExpr() public pure {
         bytes memory exprIn = abi.encodePacked(uint64(3), bytes("\x01\x02\x03"), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
@@ -264,7 +276,7 @@ contract DataTypeTest is Test {
     }
 
     function testReadFuzzSimpleDataType(uint32 dataType) public pure {
-        vm.assume((dataType < 6 && dataType != 1) || dataType == 7 || dataType == 11);
+        vm.assume((dataType < 6 && dataType != 1) || dataType == 7 || dataType == 10 || dataType == 11);
         bytes memory exprIn = abi.encodePacked(dataType, hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
         (bytes memory exprOut, uint32 actualDataType) = DataType.__readDataType(exprIn);
