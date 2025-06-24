@@ -207,4 +207,55 @@ contract ArrayTest is Test {
             assert(sourceOut[i - 8 - length * 64] == source[i]);
         }
     }
+
+    function testEmptyReadUint64ArrayAsUint512Array() public pure {
+        bytes memory source = abi.encodePacked(uint64(0), hex"abcdef");
+
+        (bytes memory sourceOut, uint256[2][] memory array) = Array.__readUint64ArrayAsUint512Array(source);
+
+        assert(array.length == 0);
+        assert(sourceOut.length == 3);
+        assert(sourceOut[0] == 0xab);
+        assert(sourceOut[1] == 0xcd);
+        assert(sourceOut[2] == 0xef);
+    }
+
+    function testSimpleUint64ArrayAsUint512Array() public pure {
+        // Create test data with two words per element
+        bytes memory source = abi.encodePacked(
+            uint64(2), // length
+            uint64(1), // first element
+            uint64(2), // second element
+            hex"abcdef" // remainder
+        );
+
+        (bytes memory sourceOut, uint256[2][] memory array) = Array.__readUint64ArrayAsUint512Array(source);
+
+        assert(array.length == 2);
+        assert(array[0][0] == 1);
+        assert(array[0][1] == 0);
+        assert(array[1][0] == 2);
+        assert(array[1][1] == 0);
+        assert(sourceOut.length == 3);
+        assert(sourceOut[0] == 0xab);
+        assert(sourceOut[1] == 0xcd);
+        assert(sourceOut[2] == 0xef);
+    }
+
+    function testFuzzReadUint64ArrayAsUint512Array(bytes calldata source) public pure {
+        uint256 sourceLength = source.length;
+        vm.assume(sourceLength > 7);
+        uint256 length = uint256(uint64(bytes8(source[0:8])));
+        vm.assume(sourceLength > 7 + length * 32);
+
+        (bytes memory sourceOut, uint256[2][] memory array) = Array.__readUint64ArrayAsUint512Array(source);
+
+        for (uint256 i = 0; i < length; ++i) {
+            assert(array[i][0] == uint256(bytes32(source[8 + i * 32:40 + i * 32])));
+            assert(array[i][1] == 0);
+        }
+        for (uint256 i = 8 + length * 32; i < sourceLength; ++i) {
+            assert(sourceOut[i - 8 - length * 32] == source[i]);
+        }
+    }
 }
