@@ -268,8 +268,8 @@ mod tests {
             // Get the columns
             let column_eval = builder.try_consume_final_round_mle_evaluation()?;
             let candidate_shift_eval = builder.try_consume_final_round_mle_evaluation()?;
-            let chi_n_eval = builder.try_consume_chi_evaluation()?;
-            let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?;
+            let chi_n_eval = builder.try_consume_chi_evaluation()?.0;
+            let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?.0;
             // Evaluate the verifier
             verify_shift(
                 builder,

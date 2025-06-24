@@ -299,6 +299,56 @@ contract LagrangeBasisEvaluationTest is Test {
         }
     }
 
+    function testSimpleComputeEvaluationsWithLength() public pure {
+        uint256[] memory point = new uint256[](3);
+        point[0] = 2;
+        point[1] = 3;
+        point[2] = 5;
+        FF a = F.from(point[0]);
+        FF b = F.from(point[1]);
+        FF c = F.from(point[2]);
+        FF[] memory expectedEvaluations = new FF[](8);
+        expectedEvaluations[0] = ((F.ONE - a) * (F.ONE - b) * (F.ONE - c));
+        expectedEvaluations[1] = (a * (F.ONE - b) * (F.ONE - c));
+        expectedEvaluations[2] = ((F.ONE - a) * b * (F.ONE - c));
+        expectedEvaluations[3] = (a * b * (F.ONE - c));
+        expectedEvaluations[4] = ((F.ONE - a) * (F.ONE - b) * c);
+        expectedEvaluations[5] = (a * (F.ONE - b) * c);
+        expectedEvaluations[6] = ((F.ONE - a) * b * c);
+        expectedEvaluations[7] = (a * b * c);
+
+        FF[] memory expectedSums = new FF[](12);
+        for (uint256 i = 0; i < 8; ++i) {
+            for (uint256 j = 0; j < i; ++j) {
+                expectedSums[i] = expectedSums[i] + expectedEvaluations[j];
+            }
+        }
+
+        for (uint256 i = 8; i < 12; ++i) {
+            expectedSums[i] = F.ONE;
+        }
+
+        uint256[] memory evaluations = new uint256[](24);
+        for (uint256 i = 0; i < 12; ++i) {
+            evaluations[2 * i] = i;
+            evaluations[2 * i + 1] = 0;
+        }
+
+        assembly {
+            mstore(evaluations, 12)
+        }
+
+        LagrangeBasisEvaluation.__computeEvaluationsWithLength(point, evaluations);
+
+        assembly {
+            mstore(evaluations, 24)
+        }
+
+        for (uint256 i = 0; i < 12; ++i) {
+            assert(evaluations[2 * i + 1] == expectedSums[i].into());
+        }
+    }
+
     function testSimpleComputeRhoEvaluations() public pure {
         uint256[] memory point = new uint256[](3);
         point[0] = 2;

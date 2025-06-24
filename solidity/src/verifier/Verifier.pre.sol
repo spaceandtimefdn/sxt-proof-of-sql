@@ -31,6 +31,10 @@ library Verifier {
             function read_wordx2_array(proof_ptr_init) -> proof_ptr, array_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function read_uint64_array_as_uint512_array(source_ptr) -> source_ptr_out, array_ptr {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/ECPrecompiles.pre.sol
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
@@ -496,7 +500,7 @@ library Verifier {
 
                 let array_ptr
 
-                proof_ptr, array_ptr := read_uint64_array(proof_ptr)
+                proof_ptr, array_ptr := read_uint64_array_as_uint512_array(proof_ptr)
                 builder_set_chi_evaluations(builder_ptr, array_ptr)
 
                 proof_ptr, array_ptr := read_uint64_array(proof_ptr)
@@ -540,6 +544,10 @@ library Verifier {
             }
             // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
             function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
+            function compute_evaluations_with_length(evaluation_point_ptr, array_ptr) {
                 revert(0, 0)
             }
             function read_pcs_evaluations(proof_ptr_init, transcript_ptr, builder_ptr) -> proof_ptr {
@@ -682,7 +690,7 @@ library Verifier {
                 verify_pcs_evaluations(proof_ptr, commitments_ptr, transcript_ptr, builder_ptr, evaluation_point_ptr)
 
                 compute_chi_evaluations(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
-                compute_chi_evaluations(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
+                compute_evaluations_with_length(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
                 builder_set_singleton_chi_evaluation(
                     builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
                 )

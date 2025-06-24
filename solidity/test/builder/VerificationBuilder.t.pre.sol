@@ -306,15 +306,18 @@ contract VerificationBuilderTest is Test {
 
     function testSetChiEvaluations() public pure {
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
-        uint256[] memory values = new uint256[](3);
-        values[0] = 0x12345678;
-        values[1] = 0x23456789;
-        values[2] = 0x3456789A;
+        uint256[] memory values = new uint256[](6);
+        values[0] = 1;
+        values[1] = 0x12345678;
+        values[2] = 1;
+        values[3] = 0x23456789;
+        values[4] = 1;
+        values[5] = 0x3456789A;
         VerificationBuilder.__setChiEvaluations(builder, values);
-        assert(builder.chiEvaluations.length == 3);
-        assert(builder.chiEvaluations[0] == 0x12345678);
-        assert(builder.chiEvaluations[1] == 0x23456789);
-        assert(builder.chiEvaluations[2] == 0x3456789A);
+        assert(builder.chiEvaluations.length == 6);
+        assert(builder.chiEvaluations[1] == 0x12345678);
+        assert(builder.chiEvaluations[3] == 0x23456789);
+        assert(builder.chiEvaluations[5] == 0x3456789A);
     }
 
     function testFuzzSetChiEvaluations(uint256[] memory values) public pure {
@@ -338,10 +341,17 @@ contract VerificationBuilderTest is Test {
     /// forge-config: default.allow_internal_expect_revert = true
     function testConsumeChiEvaluations() public {
         VerificationBuilder.Builder memory builder;
-        builder.chiEvaluations = new uint256[](3);
-        builder.chiEvaluations[0] = 0x12345678;
-        builder.chiEvaluations[1] = 0x23456789;
-        builder.chiEvaluations[2] = 0x3456789A;
+        uint256[] memory chiEvals = new uint256[](6);
+        chiEvals[0] = 1;
+        chiEvals[1] = 0x12345678;
+        chiEvals[2] = 2;
+        chiEvals[3] = 0x23456789;
+        chiEvals[4] = 3;
+        chiEvals[5] = 0x3456789A;
+        assembly {
+            mstore(chiEvals, 3)
+        }
+        builder.chiEvaluations = chiEvals;
         assert(VerificationBuilder.__consumeChiEvaluation(builder) == 0x12345678);
         assert(VerificationBuilder.__consumeChiEvaluation(builder) == 0x23456789);
         assert(VerificationBuilder.__consumeChiEvaluation(builder) == 0x3456789A);
@@ -351,17 +361,74 @@ contract VerificationBuilderTest is Test {
 
     /// forge-config: default.allow_internal_expect_revert = true
     function testFuzzConsumeChiEvaluations(uint256[] memory values) public {
+        vm.assume(values.length % 2 == 0);
         VerificationBuilder.Builder memory builder;
         uint256 valuesLength = values.length;
-        builder.chiEvaluations = new uint256[](valuesLength);
+        uint256[] memory chiEvaluations = new uint256[](values.length);
         for (uint256 i = 0; i < valuesLength; ++i) {
-            builder.chiEvaluations[i] = values[i];
+            chiEvaluations[i] = values[i];
         }
-        for (uint256 i = 0; i < valuesLength; ++i) {
-            assert(VerificationBuilder.__consumeChiEvaluation(builder) == values[i]);
+        assembly {
+            let length := mload(chiEvaluations)
+            mstore(chiEvaluations, div(length, 2))
+        }
+        builder.chiEvaluations = chiEvaluations;
+        for (uint256 i = 0; i < valuesLength / 2; ++i) {
+            assert(VerificationBuilder.__consumeChiEvaluation(builder) == values[2 * i + 1]);
         }
         vm.expectRevert(Errors.EmptyQueue.selector);
         VerificationBuilder.__consumeChiEvaluation(builder);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testConsumeChiEvaluationsWithLength() public {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory chiEvals = new uint256[](6);
+        chiEvals[0] = 1;
+        chiEvals[1] = 0x12345678;
+        chiEvals[2] = 2;
+        chiEvals[3] = 0x23456789;
+        chiEvals[4] = 3;
+        chiEvals[5] = 0x3456789A;
+        assembly {
+            mstore(chiEvals, 3)
+        }
+        builder.chiEvaluations = chiEvals;
+        uint256 length;
+        uint256 chiEval;
+        (length, chiEval) = VerificationBuilder.__consumeChiEvaluationWithLength(builder);
+        assert(chiEval == 0x12345678);
+        (length, chiEval) = VerificationBuilder.__consumeChiEvaluationWithLength(builder);
+        assert(chiEval == 0x23456789);
+        (length, chiEval) = VerificationBuilder.__consumeChiEvaluationWithLength(builder);
+        assert(chiEval == 0x3456789A);
+        vm.expectRevert(Errors.EmptyQueue.selector);
+        VerificationBuilder.__consumeChiEvaluationWithLength(builder);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testFuzzConsumeChiEvaluationsWithLength(uint256[] memory values) public {
+        vm.assume(values.length % 2 == 0);
+        VerificationBuilder.Builder memory builder;
+        uint256 valuesLength = values.length;
+        uint256[] memory chiEvaluations = new uint256[](values.length);
+        for (uint256 i = 0; i < valuesLength; ++i) {
+            chiEvaluations[i] = values[i];
+        }
+        assembly {
+            let length := mload(chiEvaluations)
+            mstore(chiEvaluations, div(length, 2))
+        }
+        builder.chiEvaluations = chiEvaluations;
+        uint256 length;
+        uint256 chiEval;
+        for (uint256 i = 0; i < valuesLength / 2; ++i) {
+            (length, chiEval) = VerificationBuilder.__consumeChiEvaluationWithLength(builder);
+            assert(length == values[2 * i]);
+            assert(chiEval == values[2 * i + 1]);
+        }
+        vm.expectRevert(Errors.EmptyQueue.selector);
+        VerificationBuilder.__consumeChiEvaluationWithLength(builder);
     }
 
     function testSetZeroRhoEvaluations() public pure {

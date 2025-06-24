@@ -307,13 +307,51 @@ library VerificationBuilder {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
-            function dequeue(queue_ptr) -> value {
+            function dequeue_uint512(queue_ptr) -> upper, lower {
                 revert(0, 0)
             }
             function builder_consume_chi_evaluation(builder_ptr) -> value {
-                value := dequeue(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
+                let length
+                length, value := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
             }
             __value := builder_consume_chi_evaluation(__builder)
+        }
+    }
+
+    /// @notice Consumes a chi column length and evaluation from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// ##### Return Values
+    /// * `length` - the length of the column of ones
+    /// * `chi_eval` - the consumed chi evaluation value
+    /// @dev Dequeues and returns a chi column length and evaluation value. Reverts with Errors.EmptyQueue if no values remain
+    /// @param __builder The builder struct
+    /// @return __length The length of the column of ones
+    /// @return __chiEval The consumed chi column evaluation value
+    function __consumeChiEvaluationWithLength(Builder memory __builder)
+        internal
+        pure
+        returns (uint256 __length, uint256 __chiEval)
+    {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> upper, lower {
+                revert(0, 0)
+            }
+            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
+                length, chi_eval := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
+            }
+            __length, __chiEval := builder_consume_chi_evaluation_with_length(__builder)
         }
     }
 

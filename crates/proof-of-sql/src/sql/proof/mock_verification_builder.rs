@@ -32,7 +32,7 @@ pub struct MockVerificationBuilder<S: Scalar> {
 }
 
 impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
-    fn try_consume_chi_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+    fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
         let length = self
             .chi_evaluation_length_queue
             .get(self.consumed_chi_evaluations)
@@ -40,9 +40,9 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
             .ok_or(ProofSizeMismatch::TooFewChiLengths)?;
         self.consumed_chi_evaluations += 1;
         Ok(if self.evaluation_row_index < length {
-            S::ONE
+            (S::ONE, length)
         } else {
-            S::ZERO
+            (S::ZERO, length)
         })
     }
 
@@ -426,13 +426,13 @@ mod tests {
                 vec![2],
                 Vec::new(),
             );
-        let one = verification_builder.try_consume_chi_evaluation().unwrap();
+        let one = verification_builder.try_consume_chi_evaluation().unwrap().0;
         assert_eq!(one, TestScalar::ONE);
         verification_builder.increment_row_index();
-        let one = verification_builder.try_consume_chi_evaluation().unwrap();
+        let one = verification_builder.try_consume_chi_evaluation().unwrap().0;
         assert_eq!(one, TestScalar::ONE);
         verification_builder.increment_row_index();
-        let zero = verification_builder.try_consume_chi_evaluation().unwrap();
+        let zero = verification_builder.try_consume_chi_evaluation().unwrap().0;
         assert_eq!(zero, TestScalar::ZERO);
     }
 
@@ -448,7 +448,7 @@ mod tests {
                 vec![3],
                 Vec::new(),
             );
-        let one = verification_builder.try_consume_chi_evaluation().unwrap();
+        let one = verification_builder.try_consume_chi_evaluation().unwrap().0;
         assert_eq!(one, TestScalar::ONE);
         let err = verification_builder
             .try_consume_chi_evaluation()

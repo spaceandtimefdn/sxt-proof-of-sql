@@ -239,7 +239,7 @@ pub(crate) fn verifier_evaluate_range_check<S: Scalar>(
 ) -> Result<(), ProofSizeMismatch> {
     // Retrieve the post-result challenge α
     let alpha = builder.try_consume_post_result_challenge()?;
-    let chi_256_eval = builder.try_consume_chi_evaluation()?;
+    let chi_256_eval = builder.try_consume_chi_evaluation()?.0;
 
     // We will accumulate ∑(wᵢ * 256ⁱ) in `sum`.
     // Additionally, we'll collect all (wᵢ + α)⁻¹ evaluations in `w_plus_alpha_inv_evals`
