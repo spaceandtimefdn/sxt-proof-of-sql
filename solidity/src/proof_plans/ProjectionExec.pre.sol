@@ -136,6 +136,10 @@ library ProjectionExec {
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
             // IMPORT-YUL FilterExec.pre.sol
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)

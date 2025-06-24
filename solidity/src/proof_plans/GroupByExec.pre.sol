@@ -237,6 +237,10 @@ library GroupByExec {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
             // IMPORT-YUL FilterExec.pre.sol
             function filter_exec_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
