@@ -90,7 +90,7 @@ contract ConstantsTest is Test {
     }
 
     function testVerificationBuilderOffsetsAreValid() public pure {
-        uint256[15] memory offsets = [
+        uint256[16] memory offsets = [
             BUILDER_CHALLENGES_OFFSET,
             BUILDER_FIRST_ROUND_MLES_OFFSET,
             BUILDER_FINAL_ROUND_MLES_OFFSET,
@@ -102,6 +102,7 @@ contract ConstantsTest is Test {
             BUILDER_ROW_MULTIPLIERS_EVALUATION_OFFSET,
             BUILDER_COLUMN_EVALUATIONS_OFFSET,
             BUILDER_TABLE_CHI_EVALUATIONS_OFFSET,
+            BUILDER_PLACEHOLDER_PARAMETERS_OFFSET,
             BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET,
             BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET,
             BUILDER_SINGLETON_CHI_EVALUATION_OFFSET,

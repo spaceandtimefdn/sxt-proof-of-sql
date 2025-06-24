@@ -125,6 +125,14 @@ library OrExpr {
             function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL PlaceholderExpr.pre.sol
+            function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)

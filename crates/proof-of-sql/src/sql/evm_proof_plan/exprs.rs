@@ -28,6 +28,7 @@ pub(crate) enum EVMDynProofExpr {
     Not(EVMNotExpr),
     Cast(EVMCastExpr),
     Inequality(EVMInequalityExpr),
+    Placeholder(EVMPlaceholderExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -35,6 +36,7 @@ impl EVMDynProofExpr {
         expr: &DynProofExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        #[expect(clippy::match_wildcard_for_single_variants)]
         match expr {
             DynProofExpr::Column(column_expr) => {
                 EVMColumnExpr::try_from_proof_expr(column_expr, column_refs).map(Self::Column)
@@ -70,6 +72,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Cast(cast_expr) => {
                 EVMCastExpr::try_from_proof_expr(cast_expr, column_refs).map(Self::Cast)
             }
+            DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
+                EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
+            )),
             _ => Err(EVMProofPlanError::NotSupported),
         }
     }
@@ -112,6 +117,9 @@ impl EVMDynProofExpr {
             EVMDynProofExpr::Cast(cast_expr) => Ok(DynProofExpr::Cast(
                 cast_expr.try_into_proof_expr(column_refs)?,
             )),
+            EVMDynProofExpr::Placeholder(placeholder_expr) => {
+                Ok(DynProofExpr::Placeholder(placeholder_expr.to_proof_expr()))
+            }
         }
     }
 }
@@ -649,7 +657,6 @@ pub(crate) struct EVMPlaceholderExpr {
 
 impl EVMPlaceholderExpr {
     /// Create an `EVMPlaceholderExpr` from a `PlaceholderExpr`.
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn from_proof_expr(expr: &PlaceholderExpr) -> Self {
         EVMPlaceholderExpr {
             index: expr.index(),
@@ -657,7 +664,6 @@ impl EVMPlaceholderExpr {
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn to_proof_expr(&self) -> PlaceholderExpr {
         PlaceholderExpr::new_from_index(self.index, self.column_type)
     }
@@ -1278,6 +1284,19 @@ mod tests {
         // Test roundtrip
         let roundtripped = evm_placeholder_expr.to_proof_expr();
         assert_eq!(roundtripped, placeholder_expr);
+    }
+
+    // EVMDynProofExpr with placeholder
+    #[test]
+    fn we_can_convert_dynproofexpr_placeholderexpr_to_and_from_evm_compatible_plan() {
+        let expr = DynProofExpr::try_new_placeholder(1, ColumnType::Int).unwrap();
+        let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! {}).unwrap();
+        let expected = EVMDynProofExpr::Placeholder(EVMPlaceholderExpr {
+            index: 0,
+            column_type: ColumnType::Int,
+        });
+        assert_eq!(evm, expected);
+        assert_eq!(evm.try_into_proof_expr(&indexset! {}).unwrap(), expr);
     }
 
     // EVMInequalityExpr

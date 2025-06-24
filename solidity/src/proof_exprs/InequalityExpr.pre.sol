@@ -132,6 +132,14 @@ library InequalityExpr {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
+            // IMPORT-YUL PlaceholderExpr.pre.sol
+            function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/DataType.pre.sol
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
