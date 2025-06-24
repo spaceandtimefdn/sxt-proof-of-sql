@@ -58,7 +58,7 @@ impl ProofPlan for ProjectionExec {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // For projections input and output have the same length and hence the same chi eval

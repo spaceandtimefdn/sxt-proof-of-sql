@@ -113,12 +113,13 @@ impl ProofPlan for GroupByExec {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let input_chi_eval = *chi_eval_map
+        let input_chi_eval = chi_eval_map
             .get(&self.table.table_ref)
-            .expect("Chi eval not found");
+            .expect("Chi eval not found")
+            .0;
         let accessor = accessor
             .get(&self.table.table_ref)
             .cloned()

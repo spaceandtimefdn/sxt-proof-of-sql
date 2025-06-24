@@ -130,7 +130,7 @@ where
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // 1. columns
