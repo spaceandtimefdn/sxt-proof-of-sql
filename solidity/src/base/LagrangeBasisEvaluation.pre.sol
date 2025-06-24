@@ -132,8 +132,8 @@ library LagrangeBasisEvaluation {
         }
     }
 
-    /// @notice Computes evaluations of Lagrange basis polynomials for a given evaluation point and array.
-    /// @notice This is a wrapper around the `compute_evaluations` Yul function. Note that the function
+    /// @notice Computes rho evaluations for a given evaluation point and array.
+    /// @notice This is a wrapper around the `compute_rho_evaluations` Yul function. Note that the function
     /// does not return the evaluations, but rather modifies the input array in place.
     /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
     /// @param __array The array of lengths to evaluate.
