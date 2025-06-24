@@ -315,6 +315,27 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testPlaceholderExprVariant() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory placeholderParams = new uint256[](5);
+        placeholderParams[3] = 42; // Set parameter for index 3
+        builder.placeholderParameters = placeholderParams;
+
+        // Encode a placeholder expression: index=3 (uint64), column_type=4 (INT, uint32)
+        bytes memory expr = abi.encodePacked(PLACEHOLDER_EXPR_VARIANT, uint64(3), uint32(4), hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 5);
+
+        assert(eval == (42 * 5) % MODULUS); // placeholder_param * chi_eval
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
@@ -335,5 +356,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Not) == NOT_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Cast) == CAST_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.Placeholder) == PLACEHOLDER_EXPR_VARIANT);
     }
 }

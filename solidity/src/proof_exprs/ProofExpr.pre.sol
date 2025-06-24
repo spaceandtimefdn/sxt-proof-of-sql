@@ -20,7 +20,8 @@ library ProofExpr {
         Or,
         Not,
         Cast,
-        Inequality
+        Inequality,
+        Placeholder
     }
 
     /// @notice Evaluates a proof expression
@@ -107,6 +108,10 @@ library ProofExpr {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
@@ -166,6 +171,10 @@ library ProofExpr {
             function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL PlaceholderExpr.pre.sol
+            function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
 
             // slither-disable-next-line cyclomatic-complexity
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
@@ -216,6 +225,10 @@ library ProofExpr {
                 case 10 {
                     case_const(10, INEQUALITY_EXPR_VARIANT)
                     expr_ptr_out, eval := inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 11 {
+                    case_const(11, PLACEHOLDER_EXPR_VARIANT)
+                    expr_ptr_out, eval := placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }
