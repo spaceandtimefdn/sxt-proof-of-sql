@@ -1012,6 +1012,31 @@ contract VerificationBuilderTest is Test {
         }
     }
 
+    function testGetRhoEvaluations() public pure {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory values = new uint256[](3);
+        values[0] = 0x12345678;
+        values[1] = 0x23456789;
+        values[2] = 0x3456789A;
+        builder.rhoEvaluations = values;
+        uint256[] memory result = VerificationBuilder.__getRhoEvaluations(builder);
+        assert(result.length == 3);
+        assert(result[0] == 0x12345678);
+        assert(result[1] == 0x23456789);
+        assert(result[2] == 0x3456789A);
+    }
+
+    function testFuzzGetRhoEvaluations(uint256[] memory values) public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        builder.rhoEvaluations = values;
+        uint256[] memory result = VerificationBuilder.__getRhoEvaluations(builder);
+        assert(result.length == values.length);
+        uint256 valuesLength = values.length;
+        for (uint256 i = 0; i < valuesLength; ++i) {
+            assert(result[i] == values[i]);
+        }
+    }
+
     function testSetSingletonChiEvaluation() public pure {
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
         VerificationBuilder.__setSingletonChiEvaluation(builder, 42);

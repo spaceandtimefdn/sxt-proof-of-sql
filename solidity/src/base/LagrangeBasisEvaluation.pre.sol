@@ -106,19 +106,19 @@ library LagrangeBasisEvaluation {
         }
     }
 
-    /// @notice Computes evaluations of Lagrange basis polynomials for a given evaluation point and array.
-    /// @notice This is a wrapper around the `compute_evaluations` Yul function. Note that the function
+    /// @notice Computes chi evaluations for a given evaluation point and array.
+    /// @notice This is a wrapper around the `compute_chi_evaluations` Yul function. Note that the function
     /// does not return the evaluations, but rather modifies the input array in place.
     /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
     /// @param __array The array of lengths to evaluate.
     /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
-    function __computeEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
+    function __computeChiEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
         assembly {
             // IMPORT-YUL LagrangeBasisEvaluation.pre.sol
             function compute_truncated_lagrange_basis_sum(length, x_ptr, num_vars) -> result {
                 revert(0, 0)
             }
-            function compute_evaluations(evaluation_point_ptr, array_ptr) {
+            function compute_chi_evaluations(evaluation_point_ptr, array_ptr) {
                 let num_vars := mload(evaluation_point_ptr)
                 let x := add(evaluation_point_ptr, WORD_SIZE)
                 let array_len := mload(array_ptr)
@@ -128,12 +128,12 @@ library LagrangeBasisEvaluation {
                     array_ptr := add(array_ptr, WORD_SIZE)
                 }
             }
-            compute_evaluations(__evaluationPoint, __array)
+            compute_chi_evaluations(__evaluationPoint, __array)
         }
     }
 
-    /// @notice Computes evaluations of Lagrange basis polynomials for a given evaluation point and array.
-    /// @notice This is a wrapper around the `compute_evaluations` Yul function. Note that the function
+    /// @notice Computes rho evaluations for a given evaluation point and array.
+    /// @notice This is a wrapper around the `compute_rho_evaluations` Yul function. Note that the function
     /// does not return the evaluations, but rather modifies the input array in place.
     /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
     /// @param __array The array of lengths to evaluate.

@@ -215,7 +215,7 @@ contract LagrangeBasisEvaluationTest is Test {
         LagrangeBasisEvaluation.__computeEvaluationVec(maxLength + 1, point);
     }
 
-    function testSimpleComputeEvaluations() public pure {
+    function testSimpleComputeChiEvaluations() public pure {
         uint256[] memory point = new uint256[](3);
         point[0] = 2;
         point[1] = 3;
@@ -249,7 +249,7 @@ contract LagrangeBasisEvaluationTest is Test {
             evaluations[i] = i;
         }
 
-        LagrangeBasisEvaluation.__computeEvaluations(point, evaluations);
+        LagrangeBasisEvaluation.__computeChiEvaluations(point, evaluations);
 
         for (uint256 i = 0; i < 12; ++i) {
             assert(evaluations[i] == expectedSums[i].into());
@@ -257,7 +257,7 @@ contract LagrangeBasisEvaluationTest is Test {
     }
 
     // solhint-disable-next-line code-complexity
-    function testFuzzComputeEvaluations(uint256[] memory point) public pure {
+    function testFuzzComputeChiEvaluations(uint256[] memory point) public pure {
         uint256 numVars = point.length;
         // If the point is too long, we will run out of memory
         vm.assume(numVars < _MAX_FUZZ_POINT_LENGTH + 1);
@@ -292,7 +292,7 @@ contract LagrangeBasisEvaluationTest is Test {
             evaluations[i] = i;
         }
 
-        LagrangeBasisEvaluation.__computeEvaluations(point, evaluations);
+        LagrangeBasisEvaluation.__computeChiEvaluations(point, evaluations);
 
         for (uint256 i = 0; i < maxLength; ++i) {
             assert(evaluations[i] == expectedSums[i].into());

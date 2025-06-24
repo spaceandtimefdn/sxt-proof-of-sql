@@ -152,6 +152,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_rho_evaluations(builder_ptr) -> values_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_rho_evaluation(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -531,7 +535,11 @@ library Verifier {
                 builder_set_max_degree(builder_ptr, sumcheck_degree)
             }
             // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
-            function compute_evaluations(evaluation_point_ptr, array_ptr) {
+            function compute_chi_evaluations(evaluation_point_ptr, array_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
+            function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
                 revert(0, 0)
             }
             function read_pcs_evaluations(proof_ptr_init, transcript_ptr, builder_ptr) -> proof_ptr {
@@ -673,11 +681,12 @@ library Verifier {
 
                 verify_pcs_evaluations(proof_ptr, commitments_ptr, transcript_ptr, builder_ptr, evaluation_point_ptr)
 
-                compute_evaluations(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
-                compute_evaluations(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
+                compute_chi_evaluations(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
+                compute_chi_evaluations(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
                 builder_set_singleton_chi_evaluation(
                     builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
                 )
+                compute_rho_evaluations(evaluation_point_ptr, builder_get_rho_evaluations(builder_ptr))
 
                 builder_set_row_multipliers_evaluation(
                     builder_ptr,

@@ -868,6 +868,28 @@ library VerificationBuilder {
         }
     }
 
+    /// @notice Gets the rho column evaluations array from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_get_rho_evaluations(builder_ptr) -> values_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// ##### Return Values
+    /// * `values_ptr` - pointer to the array in memory
+    /// @param __builder The builder struct
+    /// @return __values The rho evaluations array
+    function __getRhoEvaluations(Builder memory __builder) internal pure returns (uint256[] memory __values) {
+        assembly {
+            function builder_get_rho_evaluations(builder_ptr) -> values_ptr {
+                values_ptr := mload(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
+            }
+            __values := builder_get_rho_evaluations(__builder)
+        }
+    }
+
     /// @notice Checks if the aggregate evaluation is non-zero and triggers an error if so
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
