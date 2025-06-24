@@ -21,6 +21,11 @@ use tracing::{span, Level};
 /// Panics if `bits.last()` is `None` or if `result.len()` does not match `table_length`.
 ///
 /// todo! make this more efficient and targeted at just the sign bit rather than all bits to create a proof
+#[tracing::instrument(
+    name = "SignExpr::first_round_evaluate_sign",
+    level = "debug",
+    skip_all
+)]
 pub fn first_round_evaluate_sign<'a, S: Scalar>(
     table_length: usize,
     alloc: &'a Bump,
