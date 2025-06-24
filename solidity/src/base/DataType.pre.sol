@@ -84,6 +84,7 @@ library DataType {
                 result_ptr_out := add(result_ptr, len)
             }
 
+            // slither-disable-next-line cyclomatic-complexity
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 result_ptr_out := result_ptr
                 switch data_type_variant
