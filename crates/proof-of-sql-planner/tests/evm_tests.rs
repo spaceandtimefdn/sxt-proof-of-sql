@@ -253,6 +253,48 @@ fn we_can_verify_a_simple_filter_using_the_evm() {
 
     assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 }
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_simple_filter_with_a_parameter_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        TableRef::new("namespace", "table"),
+        owned_table([
+            bigint("a", [5, 3, 2, 5, 3, 2]),
+            bigint("b", [0, 1, 2, 3, 4, 5]),
+        ]),
+        0,
+        &ps[..],
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT b FROM namespace.table WHERE a = $1",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[LiteralValue::BigInt(5)],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(
+            &EVMProofPlan::new(plan.clone()),
+            &accessor,
+            &&vk,
+            &[LiteralValue::BigInt(5)],
+        )
+        .unwrap();
+
+    assert!(evm_verifier_all(plan, "[5]", &verifiable_result, &accessor));
+}
 
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
