@@ -415,6 +415,10 @@ library Verifier {
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_plans/ProjectionExec.pre.sol
+            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
             function get_and_check_group_by_input_columns(
                 plan_ptr, builder_ptr, alpha, beta, column_count, input_chi_eval

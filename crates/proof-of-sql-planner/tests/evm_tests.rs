@@ -521,7 +521,7 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
 #[expect(clippy::missing_panics_doc)]
-fn we_can_verify_a_simple_table_exec_using_the_evm() {
+fn we_can_verify_a_simple_projection_exec_and_table_exec_using_the_evm() {
     let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
@@ -534,27 +534,27 @@ fn we_can_verify_a_simple_table_exec_using_the_evm() {
         &ps[..],
     );
     let statements =
-        Parser::parse_sql(&GenericDialect {}, "SELECT b FROM namespace.table").unwrap();
+        Parser::parse_sql(&GenericDialect {}, "SELECT a, b, a+b FROM namespace.table").unwrap();
     let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
-    if let DynProofPlan::Projection(projection) = plan {
-        let plan = projection.input();
-        let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
-            &EVMProofPlan::new(plan.clone()),
-            &accessor,
-            &&ps[..],
-            &[],
-        )
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 
-        verifiable_result
-            .clone()
-            .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
-            .unwrap();
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 
-        assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
-    } else {
-        panic!("Plan should be a projection");
-    }
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
 }
 
 #[ignore = "This test requires the forge binary to be present"]
