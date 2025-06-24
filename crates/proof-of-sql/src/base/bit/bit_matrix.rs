@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use bnum::types::U256;
 use bumpalo::Bump;
 use core::ops::Shl;
+use tracing::{span, Level};
 
 /// Let `x1, ..., xn` denote the values of a data column. Let
 /// `b1, ..., bk` denote the bit positions of `abs(x1), ..., abs(xn)`
@@ -12,16 +13,24 @@ use core::ops::Shl;
 /// `compute_varying_bit_matrix` returns the matrix M where
 ///   `M_ij = abs(xi) & (1 << bj) == 1`
 /// The last column of M corresponds to the sign bit if it varies.
+#[tracing::instrument(
+    name = "BitMatrix::compute_varying_bit_matrix",
+    level = "debug",
+    skip_all
+)]
 pub fn compute_varying_bit_matrix<'a, S: Scalar>(
     alloc: &'a Bump,
     vals: &[S],
     dist: &BitDistribution,
 ) -> Vec<&'a [bool]> {
+    let span = span!(Level::DEBUG, "allocate").entered();
     let number_of_scalars = vals.len();
     let num_varying_bits = dist.num_varying_bits();
     let data: &'a mut [bool] = alloc.alloc_slice_fill_default(number_of_scalars * num_varying_bits);
+    span.exit();
 
     // decompose
+    let span = span!(Level::DEBUG, "decompose").entered();
     for (scalar_index, val) in vals.iter().enumerate() {
         let mask = make_bit_mask(*val);
         for (vary_index, bit_index) in dist.vary_mask_iter().enumerate() {
@@ -29,6 +38,7 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
                 (mask & U256::ONE.shl(bit_index)) != U256::ZERO;
         }
     }
+    span.exit();
 
     // make result
     let mut res = Vec::with_capacity(num_varying_bits);
