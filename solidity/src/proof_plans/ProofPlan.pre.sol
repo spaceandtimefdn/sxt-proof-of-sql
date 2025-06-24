@@ -280,7 +280,11 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL GroupByExec.pre.sol
-            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) -> plan_ptr_out, evaluations_ptr {
+            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_chi_eval
+            {
                 revert(0, 0)
             }
             // IMPORT-YUL GroupByExec.pre.sol

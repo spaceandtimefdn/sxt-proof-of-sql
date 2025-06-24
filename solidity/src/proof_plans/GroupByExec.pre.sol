@@ -393,13 +393,17 @@ library GroupByExec {
                     )
             }
 
-            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) -> plan_ptr_out, evaluations_ptr {
+            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_chi_eval
+            {
                 // Table input
                 let input_chi_eval :=
                     builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
                 // Get chi evaluation
-                let output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
                 // Read the number of result columns
                 let total_column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
@@ -419,7 +423,8 @@ library GroupByExec {
             function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
-                plan_ptr, evaluations_ptr := check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta)
+                plan_ptr, evaluations_ptr, output_chi_eval :=
+                    check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta)
                 {
                     // Skip the count alias (we don't need to parse it for verification)
                     let count_alias
