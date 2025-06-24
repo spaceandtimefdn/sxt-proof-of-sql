@@ -895,6 +895,73 @@ contract VerificationBuilderTest is Test {
         assert(leadingBitMask == 0x12345677);
     }
 
+    function testSetZeroPlaceholderParameters() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory placeholderParams = new uint256[](0);
+        VerificationBuilder.__setPlaceholderParameters(builder, placeholderParams);
+        assert(builder.placeholderParameters.length == 0);
+    }
+
+    function testSetPlaceholderParameters() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory placeholderParams = new uint256[](3);
+        placeholderParams[0] = 0x12345678;
+        placeholderParams[1] = 0x23456789;
+        placeholderParams[2] = 0x3456789A;
+        VerificationBuilder.__setPlaceholderParameters(builder, placeholderParams);
+        assert(builder.placeholderParameters.length == 3);
+        assert(builder.placeholderParameters[0] == 0x12345678);
+        assert(builder.placeholderParameters[1] == 0x23456789);
+        assert(builder.placeholderParameters[2] == 0x3456789A);
+    }
+
+    function testFuzzSetPlaceholderParameters(uint256[] memory values) public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        VerificationBuilder.__setPlaceholderParameters(builder, values);
+        assert(builder.placeholderParameters.length == values.length);
+        uint256 valuesLength = values.length;
+        for (uint256 i = 0; i < valuesLength; ++i) {
+            assert(builder.placeholderParameters[i] == values[i]);
+        }
+    }
+
+    function testGetPlaceholderParameterValidIndex() public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory placeholderParams = new uint256[](3);
+        placeholderParams[0] = 0x12345678;
+        placeholderParams[1] = 0x23456789;
+        placeholderParams[2] = 0x3456789A;
+        VerificationBuilder.__setPlaceholderParameters(builder, placeholderParams);
+
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 0) == 0x12345678);
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 1) == 0x23456789);
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 2) == 0x3456789A);
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 2) == 0x3456789A);
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 0) == 0x12345678);
+        assert(VerificationBuilder.__getPlaceholderParameter(builder, 1) == 0x23456789);
+    }
+
+    function testFuzzGetPlaceholderParameter(uint256[] memory values) public pure {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        VerificationBuilder.__setPlaceholderParameters(builder, values);
+        uint256 valuesLength = values.length;
+        for (uint256 i = 0; i < valuesLength; ++i) {
+            assert(VerificationBuilder.__getPlaceholderParameter(builder, i) == values[i]);
+        }
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testGetPlaceholderParameterInvalidIndex() public {
+        VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
+        uint256[] memory placeholderParams = new uint256[](2);
+        placeholderParams[0] = 0x12345678;
+        placeholderParams[1] = 0x23456789;
+        VerificationBuilder.__setPlaceholderParameters(builder, placeholderParams);
+
+        vm.expectRevert(Errors.InvalidIndex.selector);
+        VerificationBuilder.__getPlaceholderParameter(builder, 2);
+    }
+
     function testGetChiEvaluations() public pure {
         VerificationBuilder.Builder memory builder;
         uint256[] memory values = new uint256[](3);

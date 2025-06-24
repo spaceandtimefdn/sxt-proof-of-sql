@@ -21,6 +21,7 @@ library VerificationBuilder {
         uint256 rowMultipliersEvaluation;
         uint256[] columnEvaluations;
         uint256[] tableChiEvaluations;
+        uint256[] placeholderParameters;
         uint256 firstRoundCommitmentsPtr;
         uint256 finalRoundCommitmentsPtr;
         uint256 singletonChiEvaluation;
@@ -925,6 +926,69 @@ library VerificationBuilder {
                 value := mload(add(builder_ptr, BUILDER_SINGLETON_CHI_EVALUATION_OFFSET))
             }
             __value := builder_get_singleton_chi_evaluation(__builder)
+        }
+    }
+
+    /// @notice Sets the placeholder parameters in the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_set_placeholder_parameters(builder_ptr, values_ptr)
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// * `values_ptr` - pointer to the array in memory. In Solidity memory layout,
+    ///   this points to where the array length is stored, followed by the array elements
+    /// @dev Stores the placeholder parameters array pointer in the builder structure.
+    /// @param __builder The builder struct
+    /// @param __placeholderParameters The placeholder parameters array (already converted to scalars)
+    function __setPlaceholderParameters(Builder memory __builder, uint256[] memory __placeholderParameters)
+        internal
+        pure
+    {
+        assembly {
+            function builder_set_placeholder_parameters(builder_ptr, values_ptr) {
+                mstore(add(builder_ptr, BUILDER_PLACEHOLDER_PARAMETERS_OFFSET), values_ptr)
+            }
+            builder_set_placeholder_parameters(__builder, __placeholderParameters)
+        }
+    }
+
+    /// @notice Gets a placeholder parameter value from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_get_placeholder_parameter(builder_ptr, index) -> value
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// * `index` - the index of the placeholder parameter to retrieve
+    /// ##### Return Values
+    /// * `value` - the placeholder parameter value at the given index
+    /// @dev Gets a placeholder parameter by index. Reverts if index is out of bounds
+    /// @param __builder The builder struct
+    /// @param __index The index of the placeholder parameter
+    /// @return __value The placeholder parameter value
+    function __getPlaceholderParameter(Builder memory __builder, uint256 __index)
+        internal
+        pure
+        returns (uint256 __value)
+    {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_array_element(arr_ptr, index) -> value {
+                revert(0, 0)
+            }
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                value := get_array_element(add(builder_ptr, BUILDER_PLACEHOLDER_PARAMETERS_OFFSET), index)
+            }
+            __value := builder_get_placeholder_parameter(__builder, __index)
         }
     }
 }
