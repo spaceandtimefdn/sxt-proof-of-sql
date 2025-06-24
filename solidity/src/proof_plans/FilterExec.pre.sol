@@ -246,6 +246,24 @@ library FilterExec {
                 plan_ptr_out := plan_ptr
             }
 
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                let c_star := builder_consume_final_round_mle(builder_ptr)
+                let d_star := builder_consume_final_round_mle(builder_ptr)
+
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
+                )
+                builder_produce_identity_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval), 2
+                )
+                builder_produce_identity_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval), 2
+                )
+                builder_produce_identity_constraint(
+                    builder_ptr, mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)), 2
+                )
+            }
+
             // IMPORT-YUL TableExec.pre.sol
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
@@ -253,38 +271,30 @@ library FilterExec {
 
             function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
-                let beta := builder_consume_challenge(builder_ptr)
+                let input_chi_eval, selection_eval, c_fold, d_fold
+                {
+                    let beta := builder_consume_challenge(builder_ptr)
 
-                let input_chi_eval :=
-                    builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                    input_chi_eval :=
+                        builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
+                    plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                let selection_eval
-                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
+                    plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
-                let c_fold, d_fold
-                plan_ptr, c_fold, d_fold, evaluations_ptr :=
-                    compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
-                let c_star := builder_consume_final_round_mle(builder_ptr)
-                let d_star := builder_consume_final_round_mle(builder_ptr)
+                    plan_ptr, c_fold, d_fold, evaluations_ptr :=
+                        compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
+                }
                 output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
 
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
-                )
-                builder_produce_identity_constraint(
+                verify_filter(
                     builder_ptr,
-                    submod_bn254(mulmod_bn254(add(1, mulmod_bn254(alpha, c_fold)), c_star), input_chi_eval),
-                    2
+                    mulmod_bn254(alpha, c_fold),
+                    mulmod_bn254(alpha, d_fold),
+                    input_chi_eval,
+                    output_chi_eval,
+                    selection_eval
                 )
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    submod_bn254(mulmod_bn254(add(1, mulmod_bn254(alpha, d_fold)), d_star), output_chi_eval),
-                    2
-                )
-                builder_produce_identity_constraint(
-                    builder_ptr, mulmod_bn254(mulmod_bn254(alpha, d_fold), submod_bn254(output_chi_eval, 1)), 2
-                )
+
                 plan_ptr_out := plan_ptr
             }
 
