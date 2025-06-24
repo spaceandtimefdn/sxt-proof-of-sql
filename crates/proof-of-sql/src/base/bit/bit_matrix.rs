@@ -1,5 +1,8 @@
 use super::bit_mask_utils::make_bit_mask;
-use crate::base::{bit::BitDistribution, scalar::Scalar};
+use crate::{
+    base::{bit::BitDistribution, scalar::Scalar},
+    utils::log,
+};
 use alloc::vec::Vec;
 use bnum::types::U256;
 use bumpalo::Bump;
@@ -23,6 +26,8 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
     vals: &[S],
     dist: &BitDistribution,
 ) -> Vec<&'a [bool]> {
+    log::log_memory_usage("Start");
+
     let span = span!(Level::DEBUG, "allocate").entered();
     let number_of_scalars = vals.len();
     let num_varying_bits = dist.num_varying_bits();
@@ -47,5 +52,8 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
         let last = number_of_scalars * (bit_index + 1);
         res.push(&data[first..last]);
     }
+
+    log::log_memory_usage("Stop");
+
     res
 }
