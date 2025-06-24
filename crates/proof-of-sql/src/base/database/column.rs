@@ -38,20 +38,20 @@ pub enum Column<'a, S: Scalar> {
     BigInt(&'a [i64]),
     /// i128 columns
     Int128(&'a [i128]),
-    /// Decimal columns with a max width of 252 bits
-    ///  - the backing store maps to the type `S`
-    Decimal75(Precision, i8, &'a [S]),
-    /// Scalar columns
-    Scalar(&'a [S]),
     /// String columns
     ///  - the first element maps to the str values.
     ///  - the second element maps to the str hashes (see [`crate::base::scalar::Scalar`]).
     VarChar((&'a [&'a str], &'a [S])),
+    /// Decimal columns with a max width of 252 bits
+    ///  - the backing store maps to the type `S`
+    Decimal75(Precision, i8, &'a [S]),
     /// Timestamp columns with timezone
     /// - the first element maps to the stored `TimeUnit`
     /// - the second element maps to a timezone
     /// - the third element maps to columns of timeunits since unix epoch
     TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, &'a [i64]),
+    /// Scalar columns
+    Scalar(&'a [S]),
     /// Variable length binary columns
     VarBinary((&'a [&'a [u8]], &'a [S])),
 }

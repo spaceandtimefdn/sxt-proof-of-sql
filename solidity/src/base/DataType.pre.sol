@@ -139,6 +139,12 @@ library DataType {
                     result_ptr_out := add(result_ptr, INT64_SIZE)
                     entry := mod(entry, MODULUS)
                 }
+                case 10 {
+                    case_const(10, DATA_TYPE_SCALAR_VARIANT)
+                    entry := calldataload(result_ptr)
+                    result_ptr_out := add(result_ptr, WORD_SIZE)
+                    entry := mod(entry, MODULUS)
+                }
                 case 11 {
                     case_const(11, DATA_TYPE_VARBINARY_VARIANT)
                     result_ptr_out, entry := read_binary(result_ptr)
@@ -200,6 +206,7 @@ library DataType {
                     ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
                     ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
                 }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
                 case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
