@@ -9,6 +9,7 @@ library Verifier {
     function __verify(
         bytes calldata __result,
         bytes calldata __plan,
+        uint256[] memory __placeholderParameters,
         bytes calldata __proof,
         uint256[] memory __tableLengths,
         uint256[] memory __commitments
@@ -187,6 +188,10 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_new() -> builder_ptr {
                 revert(0, 0)
             }
@@ -256,6 +261,10 @@ library Verifier {
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_set_table_chi_evaluations(builder_ptr, values_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_placeholder_parameters(builder_ptr, values_ptr) {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -628,13 +637,13 @@ library Verifier {
                 mstore(transcript_ptr, keccak256(mload(FREE_PTR), add(UINT64_SIZE, WORD_SIZE)))
             }
 
-            function verify_proof(result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr) ->
-                evaluation_point_ptr,
-                evaluations_ptr
-            {
+            function verify_proof(
+                result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr, placeholder_params_ptr
+            ) -> evaluation_point_ptr, evaluations_ptr {
                 let transcript_ptr := make_transcript(result_ptr, plan_ptr, table_lengths_ptr, commitments_ptr)
                 let builder_ptr := builder_new()
                 builder_set_table_chi_evaluations(builder_ptr, table_lengths_ptr)
+                builder_set_placeholder_parameters(builder_ptr, placeholder_params_ptr)
 
                 let range_length
                 {
@@ -682,9 +691,13 @@ library Verifier {
                 builder_check_aggregate_evaluation(builder_ptr)
             }
 
-            function verify_query(result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr) {
+            function verify_query(
+                result_ptr, plan_ptr, placeholder_params_ptr, proof_ptr, table_lengths_ptr, commitments_ptr
+            ) {
                 let evaluation_point_ptr, evaluations_ptr :=
-                    verify_proof(result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr)
+                    verify_proof(
+                        result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr, placeholder_params_ptr
+                    )
                 verify_result_evaluations(result_ptr, evaluation_point_ptr, evaluations_ptr)
             }
 
@@ -692,7 +705,9 @@ library Verifier {
             let commitments_len := mload(__commitments)
             if mod(commitments_len, 2) { err(ERR_COMMITMENT_ARRAY_ODD_LENGTH) }
             mstore(__commitments, div(commitments_len, 2))
-            verify_query(__result.offset, __plan.offset, __proof.offset, __tableLengths, __commitments)
+            verify_query(
+                __result.offset, __plan.offset, __placeholderParameters, __proof.offset, __tableLengths, __commitments
+            )
         }
     }
 }

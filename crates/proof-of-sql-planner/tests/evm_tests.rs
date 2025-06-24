@@ -32,6 +32,7 @@ use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
 #[expect(clippy::missing_panics_doc)]
 fn evm_verifier_with_extra_args(
     plan: &DynProofPlan,
+    params: &str,
     verifiable_result: &VerifiableQueryResult<HyperKZGCommitmentEvaluationProof>,
     accessor: &impl CommitmentAccessor<HyperKZGCommitment>,
     extra_args: &[&'static str],
@@ -70,11 +71,15 @@ fn evm_verifier_with_extra_args(
         .arg("-vvvvv")
         .args(extra_args)
         .args(["--tc", "VerifierTest"])
-        .args(["--sig", "verify(bytes,bytes,bytes,uint256[],uint256[])"])
+        .args([
+            "--sig",
+            "verify(bytes,bytes,uint256[],bytes,uint256[],uint256[])",
+        ])
         .arg("./test/verifier/Verifier.t.post.sol")
         .args([
             dbg!(hex::encode(&result_bytes)),
             dbg!(hex::encode(&query_bytes)),
+            dbg!(params.to_string()),
             dbg!(hex::encode(&proof_bytes)),
         ])
         .arg(dbg!(format!("[{table_lengths}]")))
@@ -86,14 +91,16 @@ fn evm_verifier_with_extra_args(
 }
 fn evm_verifier_all(
     plan: &DynProofPlan,
+    params: &str,
     verifiable_result: &VerifiableQueryResult<HyperKZGCommitmentEvaluationProof>,
     accessor: &impl CommitmentAccessor<HyperKZGCommitment>,
 ) -> bool {
-    evm_verifier_with_extra_args(plan, verifiable_result, accessor, &[])
-        && evm_verifier_with_extra_args(plan, verifiable_result, accessor, &["--via-ir"])
-        && evm_verifier_with_extra_args(plan, verifiable_result, accessor, &["--optimize"])
+    evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &[])
+        && evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &["--via-ir"])
+        && evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &["--optimize"])
         && evm_verifier_with_extra_args(
             plan,
+            params,
             verifiable_result,
             accessor,
             &["--optimize", "--via-ir"],
@@ -200,7 +207,7 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
         )
         .unwrap();
 
-        assert!(evm_verifier_all(&plan, &verifiable_result, &accessor));
+        assert!(evm_verifier_all(&plan, "[]", &verifiable_result, &accessor));
 
         verifiable_result
             .clone()
@@ -244,7 +251,7 @@ fn we_can_verify_a_simple_filter_using_the_evm() {
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 }
 
 #[ignore = "This test requires the forge binary to be present"]
@@ -276,7 +283,7 @@ fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 
     verifiable_result
         .clone()
@@ -319,7 +326,7 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 }
 
 #[ignore = "This test requires the forge binary to be present"]
@@ -368,7 +375,7 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(&plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(&plan, "[]", &verifiable_result, &accessor));
 
     verifiable_result
         .clone()
@@ -422,7 +429,7 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(&plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(&plan, "[]", &verifiable_result, &accessor));
 
     verifiable_result
         .clone()
@@ -461,7 +468,7 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 
     verifiable_result
         .clone()
@@ -502,7 +509,7 @@ fn we_can_verify_a_simple_table_exec_using_the_evm() {
             .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
             .unwrap();
 
-        assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+        assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
     } else {
         panic!("Plan should be a projection");
     }
@@ -534,7 +541,7 @@ fn we_can_verify_simple_inequality_filter_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 
     verifiable_result
         .clone()
@@ -558,5 +565,5 @@ fn we_can_verify_a_empty_exec_using_the_evm() {
     )
     .unwrap();
 
-    assert!(evm_verifier_all(plan, &verifiable_result, &accessor));
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
 }
