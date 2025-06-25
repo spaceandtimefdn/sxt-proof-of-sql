@@ -280,16 +280,7 @@ impl ProverEvaluate for GroupByExec {
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
-        // 1. selection
-        let selection_column: Column<'a, S> = self
-            .where_clause
-            .first_round_evaluate(alloc, table, params)?;
-
-        let selection = selection_column
-            .as_boolean()
-            .expect("selection is not boolean");
-
-        // 2. columns
+        // 1. columns
         let group_by_columns = self
             .group_by_exprs
             .iter()
@@ -297,6 +288,13 @@ impl ProverEvaluate for GroupByExec {
                 expr.first_round_evaluate(alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        // 2. selection
+        let selection_column: Column<'a, S> = self
+            .where_clause
+            .first_round_evaluate(alloc, table, params)?;
+        let selection = selection_column
+            .as_boolean()
+            .expect("selection is not boolean");
         let sum_columns = self
             .sum_expr
             .iter()
