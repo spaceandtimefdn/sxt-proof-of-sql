@@ -257,7 +257,9 @@ library ProjectionExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
-            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, chi_eval) ->
+                shifted_expr_eval,
+                chi_plus_one_eval
             {
                 revert(0, 0)
             }
