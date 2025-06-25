@@ -29,13 +29,23 @@ contract ShiftTest is Test {
         builder.rhoEvaluations[3] = 1;
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
-        builder.finalRoundMLEs = new uint256[](6);
-        builder.finalRoundMLEs[0] = 17222184509042479139574583720503606563789583659997933845959245835272824378669;
-        builder.finalRoundMLEs[1] = 1;
-        builder.finalRoundMLEs[2] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
-        builder.finalRoundMLEs[3] = 17222184509042479139574583720503606563789583659997933845959245835272824378669;
-        builder.finalRoundMLEs[4] = 1;
-        builder.finalRoundMLEs[5] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1;
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
+        builder.finalRoundMLEs = new uint256[](9);
+        builder.finalRoundMLEs[0] = shiftedColumn[0];
+        builder.finalRoundMLEs[1] = 17222184509042479139574583720503606563789583659997933845959245835272824378669;
+        builder.finalRoundMLEs[2] = 1;
+        builder.finalRoundMLEs[3] = shiftedColumn[1];
+        builder.finalRoundMLEs[4] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
+        builder.finalRoundMLEs[5] = 17222184509042479139574583720503606563789583659997933845959245835272824378669;
+        builder.finalRoundMLEs[6] = shiftedColumn[2];
+        builder.finalRoundMLEs[7] = 1;
+        builder.finalRoundMLEs[8] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
 
         for (uint8 i = 0; i < 3; ++i) {
             uint256 chiEval = chi[i];
@@ -44,9 +54,7 @@ contract ShiftTest is Test {
                 __alpha: alpha,
                 __beta: beta,
                 __exprEval: F.from(column[i]).into(),
-                __shiftedExprEval: F.from(shiftedColumn[i]).into(),
-                __chiEval: chiEval,
-                __chiPlusOneEval: 1
+                __chiEval: chiEval
             });
         }
         assert(builder.aggregateEvaluation == 0);
