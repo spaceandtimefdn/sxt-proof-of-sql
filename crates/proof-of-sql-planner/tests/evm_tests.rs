@@ -521,7 +521,45 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
 #[expect(clippy::missing_panics_doc)]
-fn we_can_verify_a_simple_projection_exec_and_table_exec_using_the_evm() {
+fn we_can_verify_a_groupby_query_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        TableRef::new("namespace", "table"),
+        owned_table([
+            bigint("a", [5, 3, 2, 5, 3]),
+            bigint("b", [0, 1, 2, 3, 4]),
+            bigint("c", [0, 2, 2, 1, 2]),
+        ]),
+        0,
+        &ps[..],
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT a, sum(b) as sum_b, count(1) as count_0 FROM namespace.table WHERE c = 2 GROUP BY a",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_simple_table_exec_using_the_evm() {
     let (ps, vk) = load_small_setup_for_testing();
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
