@@ -411,18 +411,26 @@ library GroupByExec {
                 // Get chi evaluation
                 output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
                 // Read the number of result columns
-                let total_column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-                evaluations_ptr := mload(FREE_PTR)
-                mstore(evaluations_ptr, total_column_count)
-                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                plan_ptr, evaluations_ptr :=
-                    build_groupby_constraints(
-                        plan_ptr, builder_ptr, alpha, beta, input_chi_eval, output_chi_eval, evaluations_ptr
-                    )
-                // slither-disable-next-line write-after-write
-                evaluations_ptr := mload(FREE_PTR)
-                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(total_column_count, WORD_SIZE))))
+                {
+                    let total_column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                    plan_ptr := add(plan_ptr, UINT64_SIZE)
+                    evaluations_ptr := mload(FREE_PTR)
+                    mstore(evaluations_ptr, total_column_count)
+                    mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(total_column_count, WORD_SIZE))))
+                }
+                {
+                    let evaluations_ptr_out
+                    plan_ptr, evaluations_ptr_out :=
+                        build_groupby_constraints(
+                            plan_ptr,
+                            builder_ptr,
+                            alpha,
+                            beta,
+                            input_chi_eval,
+                            output_chi_eval,
+                            add(evaluations_ptr, WORD_SIZE)
+                        )
+                }
                 plan_ptr_out := plan_ptr
             }
 
