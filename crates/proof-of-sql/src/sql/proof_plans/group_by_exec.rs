@@ -107,6 +107,7 @@ impl GroupByExec {
 }
 
 impl ProofPlan for GroupByExec {
+    #[expect(clippy::too_many_lines)]
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -153,20 +154,47 @@ impl ProofPlan for GroupByExec {
         let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
-        verify_group_by(
-            builder,
-            alpha,
-            beta,
-            input_chi_eval,
-            output_chi_eval,
-            (group_by_evals, aggregate_evals, where_eval),
-            (
-                group_by_result_columns_evals.clone(),
-                sum_result_columns_evals.clone(),
-                count_column_eval,
-            ),
-            is_uniqueness_provable,
+        let g_in_fold_eval = alpha * fold_vals(beta, &group_by_evals);
+        let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
+        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
+        let sum_out_fold_eval =
+            count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
+
+        let g_in_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+        let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::ZeroSum,
+            g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
+            3,
         )?;
+
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            g_in_star_eval + g_in_star_eval * g_in_fold_eval - input_chi_eval,
+            2,
+        )?;
+
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
+            2,
+        )?;
+
+        if is_uniqueness_provable {
+            assert_eq!(
+                group_by_result_columns_evals.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            verify_monotonic::<S, true, true>(
+                builder,
+                alpha,
+                beta,
+                group_by_result_columns_evals[0],
+                output_chi_eval,
+            )?;
+        }
         match (is_uniqueness_provable, result) {
             (true, _) => (),
             (false, Some(table)) => {
@@ -310,6 +338,7 @@ impl ProverEvaluate for GroupByExec {
     }
 
     #[tracing::instrument(name = "GroupByExec::final_round_evaluate", level = "debug", skip_all)]
+    #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -379,188 +408,96 @@ impl ProverEvaluate for GroupByExec {
         }
         // 6. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
-        prove_group_by(
-            builder,
-            alloc,
-            alpha,
-            beta,
-            (&group_by_columns, &sum_columns, selection),
-            (&group_by_result_columns, &sum_result_columns, count_column),
-            table.num_rows(),
-            check_uniqueness,
+        let n = table.num_rows();
+        let m = count_column.len();
+        let chi_n = alloc.alloc_slice_fill_copy(n, true);
+        let chi_m = alloc.alloc_slice_fill_copy(m, true);
+
+        let g_in_fold = alloc.alloc_slice_fill_copy(n, Zero::zero());
+        fold_columns(g_in_fold, alpha, beta, &group_by_columns);
+
+        let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
+        fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
+
+        let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
+        fold_columns(sum_in_fold, beta, beta, &sum_columns);
+
+        let sum_out_fold = alloc.alloc_slice_fill_default(m);
+        slice_ops::slice_cast_mut(count_column, sum_out_fold);
+        fold_columns(sum_out_fold, beta, beta, &sum_result_columns);
+
+        let g_in_star = alloc.alloc_slice_copy(g_in_fold);
+        slice_ops::add_const::<S, S>(g_in_star, One::one());
+        slice_ops::batch_inversion(g_in_star);
+
+        let g_out_star = alloc.alloc_slice_copy(g_out_fold);
+        slice_ops::add_const::<S, S>(g_out_star, One::one());
+        slice_ops::batch_inversion(g_out_star);
+
+        builder.produce_intermediate_mle(g_in_star as &[_]);
+        builder.produce_intermediate_mle(g_out_star as &[_]);
+
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::ZeroSum,
+            vec![
+                (
+                    S::one(),
+                    vec![
+                        Box::new(g_in_star as &[_]),
+                        Box::new(selection),
+                        Box::new(sum_in_fold as &[_]),
+                    ],
+                ),
+                (
+                    -S::one(),
+                    vec![Box::new(g_out_star as &[_]), Box::new(sum_out_fold as &[_])],
+                ),
+            ],
         );
+
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(g_in_star as &[_])]),
+                (
+                    S::one(),
+                    vec![Box::new(g_in_star as &[_]), Box::new(g_in_fold as &[_])],
+                ),
+                (-S::one(), vec![Box::new(chi_n as &[_])]),
+            ],
+        );
+
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(g_out_star as &[_])]),
+                (
+                    S::one(),
+                    vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
+                ),
+                (-S::one(), vec![Box::new(chi_m as &[_])]),
+            ],
+        );
+
+        if check_uniqueness {
+            assert_eq!(
+                group_by_result_columns.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            let g_out_scalars = group_by_result_columns[0].to_scalar();
+            let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
+            final_round_evaluate_monotonic::<S, true, true>(
+                builder,
+                alloc,
+                alpha,
+                beta,
+                alloc_g_out_scalars,
+            );
+        }
 
         log::log_memory_usage("End");
 
         Ok(res)
-    }
-}
-
-/// # Panics
-/// Panics if `g_out_evals` has more than one column
-#[expect(clippy::too_many_arguments)]
-fn verify_group_by<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    alpha: S,
-    beta: S,
-    input_chi_eval: S,
-    output_chi_eval: S,
-    (g_in_evals, sum_in_evals, sel_in_eval): (Vec<S>, Vec<S>, S),
-    (g_out_evals, sum_out_evals, count_out_eval): (Vec<S>, Vec<S>, S),
-    check_uniqueness: bool,
-) -> Result<(), ProofError> {
-    // g_in_fold = alpha * sum beta^j * g_in[j]
-    let g_in_fold_eval = alpha * fold_vals(beta, &g_in_evals);
-    // g_out_fold = alpha * sum beta^j * g_out[j]
-    let g_out_fold_eval = alpha * fold_vals(beta, &g_out_evals);
-    // sum_in_fold = chi_n + sum beta^(j+1) * sum_in[j]
-    let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &sum_in_evals);
-    // sum_out_fold = count_out + sum beta^(j+1) * sum_out[j]
-    let sum_out_fold_eval = count_out_eval + beta * fold_vals(beta, &sum_out_evals);
-
-    let g_in_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    // sum g_in_star * sel_in * sum_in_fold - g_out_star * sum_out_fold = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::ZeroSum,
-        g_in_star_eval * sel_in_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
-        3,
-    )?;
-
-    // g_in_star + g_in_star * g_in_fold - chi_n = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        g_in_star_eval + g_in_star_eval * g_in_fold_eval - input_chi_eval,
-        2,
-    )?;
-
-    // g_out_star + g_out_star * g_out_fold - chi_m = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
-        2,
-    )?;
-
-    // Verify result uniqueness
-    if check_uniqueness {
-        assert_eq!(
-            g_out_evals.len(),
-            1,
-            "Expected exactly one group by column for uniqueness check"
-        );
-        verify_monotonic::<S, true, true>(builder, alpha, beta, g_out_evals[0], output_chi_eval)?;
-    }
-    Ok(())
-}
-
-/// # Panics
-/// Panics if `g_out` has more than one column
-#[expect(clippy::too_many_arguments)]
-pub fn prove_group_by<'a, S: Scalar>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    alloc: &'a Bump,
-    alpha: S,
-    beta: S,
-    (g_in, sum_in, sel_in): (&[Column<S>], &[Column<S>], &'a [bool]),
-    (g_out, sum_out, count_out): (&[Column<S>], &[&'a [S]], &'a [i64]),
-    n: usize,
-    check_uniqueness: bool,
-) {
-    let m = count_out.len();
-    let chi_n = alloc.alloc_slice_fill_copy(n, true);
-    let chi_m = alloc.alloc_slice_fill_copy(m, true);
-
-    // g_in_fold = alpha * sum beta^j * g_in[j]
-    let g_in_fold = alloc.alloc_slice_fill_copy(n, Zero::zero());
-    fold_columns(g_in_fold, alpha, beta, g_in);
-
-    // g_out_fold = alpha * sum beta^j * g_out[j]
-    let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
-    fold_columns(g_out_fold, alpha, beta, g_out);
-
-    // sum_in_fold = 1 + sum beta^(j+1) * sum_in[j]
-    let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
-    fold_columns(sum_in_fold, beta, beta, sum_in);
-
-    // sum_out_fold = count_out + sum beta^(j+1) * sum_out[j]
-    let sum_out_fold = alloc.alloc_slice_fill_default(m);
-    slice_ops::slice_cast_mut(count_out, sum_out_fold);
-    fold_columns(sum_out_fold, beta, beta, sum_out);
-
-    // g_in_star = (1 + g_in_fold)^(-1)
-    let g_in_star = alloc.alloc_slice_copy(g_in_fold);
-    slice_ops::add_const::<S, S>(g_in_star, One::one());
-    slice_ops::batch_inversion(g_in_star);
-
-    // g_out_star = (1 + g_out_fold)^(-1)
-    let g_out_star = alloc.alloc_slice_copy(g_out_fold);
-    slice_ops::add_const::<S, S>(g_out_star, One::one());
-    slice_ops::batch_inversion(g_out_star);
-
-    builder.produce_intermediate_mle(g_in_star as &[_]);
-    builder.produce_intermediate_mle(g_out_star as &[_]);
-
-    // sum g_in_star * sel_in * sum_in_fold - g_out_star * sum_out_fold = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::ZeroSum,
-        vec![
-            (
-                S::one(),
-                vec![
-                    Box::new(g_in_star as &[_]),
-                    Box::new(sel_in),
-                    Box::new(sum_in_fold as &[_]),
-                ],
-            ),
-            (
-                -S::one(),
-                vec![Box::new(g_out_star as &[_]), Box::new(sum_out_fold as &[_])],
-            ),
-        ],
-    );
-
-    // g_in_star + g_in_star * g_in_fold - chi_n = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(g_in_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(g_in_star as &[_]), Box::new(g_in_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
-        ],
-    );
-
-    // g_out_star + g_out_star * g_out_fold - chi_m = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(g_out_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_m as &[_])]),
-        ],
-    );
-
-    // Prove result uniqueness
-    if check_uniqueness {
-        assert_eq!(
-            g_out.len(),
-            1,
-            "Expected exactly one group by column for uniqueness check"
-        );
-        let g_out_scalars = g_out[0].to_scalar();
-        let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
-        final_round_evaluate_monotonic::<S, true, true>(
-            builder,
-            alloc,
-            alpha,
-            beta,
-            alloc_g_out_scalars,
-        );
     }
 }
