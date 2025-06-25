@@ -13,6 +13,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bnum::types::U256;
 use bumpalo::Bump;
 use core::ops::Shl;
+use tracing::{span, Level};
 
 /// Compute the sign bit for a column of scalars.
 ///
@@ -20,6 +21,11 @@ use core::ops::Shl;
 /// Panics if `bits.last()` is `None` or if `result.len()` does not match `table_length`.
 ///
 /// todo! make this more efficient and targeted at just the sign bit rather than all bits to create a proof
+#[tracing::instrument(
+    name = "SignExpr::first_round_evaluate_sign",
+    level = "debug",
+    skip_all
+)]
 pub fn first_round_evaluate_sign<'a, S: Scalar>(
     table_length: usize,
     alloc: &'a Bump,
@@ -46,14 +52,21 @@ pub fn first_round_evaluate_sign<'a, S: Scalar>(
 ///
 /// Note: We can only prove the sign bit for non-zero scalars, and we restict
 /// the range of non-zero scalar so that there is a unique sign representation.
+#[tracing::instrument(
+    name = "SignExpr::final_round_evaluate_sign",
+    level = "debug",
+    skip_all
+)]
 pub fn final_round_evaluate_sign<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
     expr: &'a [S],
 ) -> &'a [bool] {
+    let span = span!(Level::DEBUG, "produce_bit_distribution").entered();
     // bit_distribution
     let dist = BitDistribution::new::<S, _>(expr);
     builder.produce_bit_distribution(dist.clone());
+    span.exit();
 
     if dist.num_varying_bits() > 0 {
         // prove that the bits are binary
@@ -62,12 +75,14 @@ pub fn final_round_evaluate_sign<'a, S: Scalar>(
     }
 
     // This might panic if `bits.last()` returns `None`.
-
+    let span = span!(Level::DEBUG, "signs").entered();
     let signs = expr
         .iter()
         .map(|s| make_bit_mask(*s))
         .map(is_bit_mask_negative_representation)
         .collect::<Vec<_>>();
+    span.exit();
+
     alloc.alloc_slice_copy(&signs)
 }
 
