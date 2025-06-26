@@ -187,6 +187,10 @@ library Verifier {
             function builder_get_first_round_mles(builder_ptr) -> values_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
@@ -703,7 +707,7 @@ library Verifier {
 
                 verify_pcs_evaluations(proof_ptr, commitments_ptr, transcript_ptr, builder_ptr, evaluation_point_ptr)
 
-                compute_chi_evaluations(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
+                compute_evaluations_with_length(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
                 compute_evaluations_with_length(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
                 builder_set_singleton_chi_evaluation(
                     builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)

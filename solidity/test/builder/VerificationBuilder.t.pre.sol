@@ -845,10 +845,13 @@ contract VerificationBuilderTest is Test {
 
     function testGetTableChiEvaluation() public pure {
         VerificationBuilder.Builder memory builder;
-        uint256[] memory values = new uint256[](3);
-        values[0] = 0x12345678;
-        values[1] = 0x23456789;
-        values[2] = 0x3456789A;
+        uint256[] memory values = new uint256[](6);
+        values[0] = 0;
+        values[1] = 0x12345678;
+        values[2] = 0;
+        values[3] = 0x23456789;
+        values[4] = 0;
+        values[5] = 0x3456789A;
         builder.tableChiEvaluations = values;
         assert(VerificationBuilder.__getTableChiEvaluation(builder, 0) == 0x12345678);
         assert(VerificationBuilder.__getTableChiEvaluation(builder, 1) == 0x23456789);
@@ -859,12 +862,69 @@ contract VerificationBuilderTest is Test {
     }
 
     function testFuzzGetTableChiEvaluation(uint256[] memory values) public pure {
-        vm.assume(values.length > 0);
+        vm.assume(values.length > 1);
+        vm.assume(values.length % 2 == 0);
         VerificationBuilder.Builder memory builder;
         builder.tableChiEvaluations = values;
-        uint256 valuesLength = values.length;
+        uint256 valuesLength = values.length / 2;
         for (uint256 i = 0; i < valuesLength; ++i) {
-            assert(VerificationBuilder.__getTableChiEvaluation(builder, i) == values[i]);
+            assert(VerificationBuilder.__getTableChiEvaluation(builder, i) == values[i * 2 + 1]);
+        }
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testGetTableChiEvaluationWithLengthInvalidIndex() public {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory values = new uint256[](2);
+        builder.tableChiEvaluations = values;
+        vm.expectRevert(Errors.InvalidIndex.selector);
+        VerificationBuilder.__getTableChiEvaluationWithLength(builder, 2);
+    }
+
+    function testGetTableChiEvaluationWithLength() public pure {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory values = new uint256[](6);
+        values[0] = 0;
+        values[1] = 0x12345678;
+        values[2] = 0;
+        values[3] = 0x23456789;
+        values[4] = 0;
+        values[5] = 0x3456789A;
+        builder.tableChiEvaluations = values;
+        uint256 length;
+        uint256 eval;
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 0);
+        assert(length == 0);
+        assert(eval == 0x12345678);
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 1);
+        assert(length == 0);
+        assert(eval == 0x23456789);
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 2);
+        assert(length == 0);
+        assert(eval == 0x3456789A);
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 2);
+        assert(length == 0);
+        assert(eval == 0x3456789A);
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 0);
+        assert(length == 0);
+        assert(eval == 0x12345678);
+        (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, 1);
+        assert(length == 0);
+        assert(eval == 0x23456789);
+    }
+
+    function testFuzzGetTableChiEvaluationWithLength(uint256[] memory values) public pure {
+        vm.assume(values.length > 1);
+        vm.assume(values.length % 2 == 0);
+        VerificationBuilder.Builder memory builder;
+        builder.tableChiEvaluations = values;
+        uint256 valuesLength = values.length / 2;
+        uint256 length;
+        uint256 eval;
+        for (uint256 i = 0; i < valuesLength; ++i) {
+            (length, eval) = VerificationBuilder.__getTableChiEvaluationWithLength(builder, i);
+            assert(length == values[i * 2]);
+            assert(eval == values[i * 2 + 1]);
         }
     }
 

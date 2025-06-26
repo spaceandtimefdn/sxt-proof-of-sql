@@ -63,6 +63,10 @@ library TableExec {
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 revert(0, 0)

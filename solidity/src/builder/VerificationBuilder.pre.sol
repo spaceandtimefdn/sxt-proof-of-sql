@@ -702,13 +702,54 @@ library VerificationBuilder {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Array.pre.sol
-            function get_array_element(arr_ptr, index) -> value {
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
                 revert(0, 0)
             }
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
-                value := get_array_element(add(builder_ptr, BUILDER_TABLE_CHI_EVALUATIONS_OFFSET), table_num)
+                let length
+                length, value :=
+                    get_uint512_array_element(add(builder_ptr, BUILDER_TABLE_CHI_EVALUATIONS_OFFSET), table_num)
             }
             __value := builder_get_table_chi_evaluation(__builder, __tableNum)
+        }
+    }
+
+    /// @notice Gets a table chi length and evaluation by table number
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// * `table_num` - the table number to get evaluation for
+    /// ##### Return Values
+    /// * `length` - the length of the column of ones
+    /// * `chi_eval` - the table chi evaluation
+    /// @param __builder The builder struct
+    /// @param __tableNum The table number
+    /// @return __length The length of the column of ones
+    /// @return __chiEval The consumed chi column evaluation value
+    function __getTableChiEvaluationWithLength(Builder memory __builder, uint256 __tableNum)
+        internal
+        pure
+        returns (uint256 __length, uint256 __chiEval)
+    {
+        assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
+                revert(0, 0)
+            }
+            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
+                length, chi_eval :=
+                    get_uint512_array_element(add(builder_ptr, BUILDER_TABLE_CHI_EVALUATIONS_OFFSET), table_num)
+            }
+            __length, __chiEval := builder_get_table_chi_evaluation_with_length(__builder, __tableNum)
         }
     }
 

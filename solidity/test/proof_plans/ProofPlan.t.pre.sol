@@ -44,8 +44,9 @@ contract ProofPlanTest is Test {
         builder.chiEvaluations = new uint256[](2);
         builder.chiEvaluations[0] = 1;
         builder.chiEvaluations[1] = 701;
-        builder.tableChiEvaluations = new uint256[](1);
-        builder.tableChiEvaluations[0] = 801;
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations[1] = 801;
 
         uint256[] memory evals;
         uint256 outputChiEval;
@@ -150,8 +151,9 @@ contract ProofPlanTest is Test {
         returns (VerificationBuilder.Builder memory configuredBuilder)
     {
         // table chi evals
-        builder.tableChiEvaluations = new uint256[](1);
-        builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 4;
+        builder.tableChiEvaluations[1] = 1;
 
         // rho and chi evals
         builder.rhoEvaluations = new uint256[](8);
@@ -337,8 +339,9 @@ contract ProofPlanTest is Test {
         );
 
         VerificationBuilder.Builder memory builder;
-        builder.tableChiEvaluations = new uint256[](1);
-        builder.tableChiEvaluations[0] = 801;
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations[1] = 801;
         builder.columnEvaluations = new uint256[](3);
         builder.columnEvaluations[0] = 101;
         builder.columnEvaluations[1] = 102;

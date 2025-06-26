@@ -220,6 +220,10 @@ library FilterExec {
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
