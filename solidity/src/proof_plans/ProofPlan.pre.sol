@@ -287,6 +287,49 @@ library ProofPlan {
             ) -> plan_ptr_out, evaluations_ptr_out {
                 revert(0, 0)
             }
+
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                g_in_star_eval_times_selection_eval,
+                num_group_by_columns
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                sum_in_fold_eval,
+                num_sum_columns
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_g_out_star_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
+            ) -> g_out_star_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_sum_out_fold_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr
+            ) -> sum_out_fold_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function read_input_evals(builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr) ->
+                sum_out_fold_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function read_output_evals(builder_ptr, alpha, beta, num_group_by_columns, num_sum_columns, constraint_lhs)
+                -> evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_selection_eval(plan_ptr, builder_ptr, input_chi_eval) -> selection_eval {
+                revert(0, 0)
+            }
+
             // IMPORT-YUL GroupByExec.pre.sol
             function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) ->
                 plan_ptr_out,
