@@ -39,7 +39,8 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
     // decompose
     let span = span!(Level::DEBUG, "decompose").entered();
     let masks: Vec<U256> = if_rayon!(vals.par_iter(), vals.iter())
-        .map(|val| make_bit_mask(*val))
+        .copied()
+        .map(make_bit_mask)
         .collect();
 
     let shifted_masks: Vec<U256> = dist
