@@ -144,10 +144,10 @@ impl ProofPlan for GroupByExec {
             .collect::<Result<Vec<_>, _>>()?;
         // 3. filtered_columns
         let group_by_result_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
+            builder.try_consume_first_round_mle_evaluations(self.group_by_exprs.len())?;
         let sum_result_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
-        let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
+            builder.try_consume_first_round_mle_evaluations(self.sum_expr.len())?;
+        let count_column_eval = builder.try_consume_first_round_mle_evaluation()?;
 
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
@@ -313,19 +313,21 @@ impl ProverEvaluate for GroupByExec {
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
+        let columns = group_by_result_columns
+            .clone()
+            .into_iter()
+            .chain(sum_result_columns_iter)
+            .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
             self.get_column_result_fields()
                 .into_iter()
                 .map(|field| field.name())
-                .zip(
-                    group_by_result_columns
-                        .iter()
-                        .copied()
-                        .chain(sum_result_columns_iter)
-                        .chain(iter::once(Column::BigInt(count_column))),
-                ),
+                .zip(columns.clone()),
         )
         .expect("Failed to create table from column references");
+        for column in columns {
+            builder.produce_intermediate_mle(column);
+        }
         builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(count_column.len());
         // Prove result uniqueness if possible
@@ -400,23 +402,20 @@ impl ProverEvaluate for GroupByExec {
 
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
-        let columns = group_by_result_columns
-            .clone()
-            .into_iter()
-            .chain(sum_result_columns_iter)
-            .chain(iter::once(Column::BigInt(count_column)));
-        let res = Table::<'a, S>::try_from_iter(
+        let res: Table<'a, S> = Table::<'a, S>::try_from_iter(
             self.get_column_result_fields()
                 .into_iter()
                 .map(|field| field.name())
-                .zip(columns.clone()),
+                .zip(
+                    group_by_result_columns
+                        .clone()
+                        .into_iter()
+                        .chain(sum_result_columns_iter)
+                        .chain(iter::once(Column::BigInt(count_column))),
+                ),
         )
         .expect("Failed to create table from column references");
-        // 5. Produce MLEs
-        for column in columns {
-            builder.produce_intermediate_mle(column);
-        }
-        // 6. Prove group by
+        // 5. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
         let n = table.num_rows();
         let m = count_column.len();
