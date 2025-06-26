@@ -152,34 +152,11 @@ impl ProofPlan for GroupByExec {
                     .verifier_evaluate(builder, &accessor, input_chi_eval, params)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        // 3. filtered_columns
+        // 3. get_and_check_group_by_output_columns
         let group_by_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
-        let sum_result_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
-        let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
-
+        // Monotonicity
         let is_uniqueness_provable = self.is_uniqueness_provable();
-        let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
-        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
-        let sum_out_fold_eval =
-            count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
-
-        
-        let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::ZeroSum,
-            g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
-            3,
-        )?;
-
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
-            2,
-        )?;
-
         if is_uniqueness_provable {
             assert_eq!(
                 group_by_result_columns_evals.len(),
@@ -194,6 +171,28 @@ impl ProofPlan for GroupByExec {
                 output_chi_eval,
             )?;
         }
+        let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
+        let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
+            2,
+        )?;
+        
+        let sum_result_columns_evals =
+            builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
+        let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
+
+        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
+        let sum_out_fold_eval =
+            count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
+
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::ZeroSum,
+            g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
+            3,
+        )?;
+
         match (is_uniqueness_provable, result) {
             (true, _) => (),
             (false, Some(table)) => {
@@ -386,6 +385,53 @@ impl ProverEvaluate for GroupByExec {
             ],
         );
 
+        // 3. get_and_check_group_by_output_columns
+        let AggregatedColumns {
+            group_by_columns: group_by_result_columns,
+            count_column,
+            ..
+        } = aggregate_columns(alloc, &group_by_columns, &[], &[], &[], selection)
+            .expect("columns should be aggregatable");
+        for column in &group_by_result_columns {
+            let alloc_column = alloc.alloc_slice_copy(&column.to_scalar());
+            builder.produce_intermediate_mle(alloc_column as &[_]);
+        }
+        if self.is_uniqueness_provable() {
+            assert_eq!(
+                group_by_result_columns.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            let g_out_scalars = group_by_result_columns[0].to_scalar();
+            let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
+            final_round_evaluate_monotonic::<S, true, true>(
+                builder,
+                alloc,
+                alpha,
+                beta,
+                alloc_g_out_scalars,
+            );
+        }
+        let m = count_column.len();
+        let chi_m = alloc.alloc_slice_fill_copy(m, true);
+        let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
+        fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
+        let g_out_star = alloc.alloc_slice_copy(g_out_fold);
+        slice_ops::add_const::<S, S>(g_out_star, One::one());
+        slice_ops::batch_inversion(g_out_star);
+        builder.produce_intermediate_mle(g_out_star as &[_]);
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(g_out_star as &[_])]),
+                (
+                    S::one(),
+                    vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
+                ),
+                (-S::one(), vec![Box::new(chi_m as &[_])]),
+            ],
+        );
+
         let sum_columns = self
             .sum_expr
             .iter()
@@ -426,22 +472,12 @@ impl ProverEvaluate for GroupByExec {
         let check_uniqueness = self.is_uniqueness_provable();
         let m = count_column.len();
         let chi_m = alloc.alloc_slice_fill_copy(m, true);        
-
-        let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
-        fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
-
         let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
         fold_columns(sum_in_fold, beta, beta, &sum_columns);
 
         let sum_out_fold = alloc.alloc_slice_fill_default(m);
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
         fold_columns(sum_out_fold, beta, beta, &sum_result_columns);
-
-        let g_out_star = alloc.alloc_slice_copy(g_out_fold);
-        slice_ops::add_const::<S, S>(g_out_star, One::one());
-        slice_ops::batch_inversion(g_out_star);
-
-        builder.produce_intermediate_mle(g_out_star as &[_]);
 
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::ZeroSum,
