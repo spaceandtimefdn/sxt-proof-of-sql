@@ -124,7 +124,7 @@ library ProjectionExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
-            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+            function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
             // IMPORT-YUL FilterExec.pre.sol

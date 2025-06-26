@@ -23,12 +23,13 @@ contract FilterExecTest is Test {
         );
         VerificationBuilder.Builder memory builder;
         builder.maxDegree = 3;
-        builder.finalRoundMLEs = new uint256[](5);
-        builder.finalRoundMLEs[0] = 202;
-        builder.finalRoundMLEs[1] = 203;
-        builder.finalRoundMLEs[2] = 204;
-        builder.finalRoundMLEs[3] = 301;
-        builder.finalRoundMLEs[4] = 302;
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](2);
+        builder.firstRoundMLEs[0] = 202;
+        builder.firstRoundMLEs[1] = 203;
+        builder.firstRoundMLEs[2] = 204;
+        builder.finalRoundMLEs[0] = 301;
+        builder.finalRoundMLEs[1] = 302;
         builder.constraintMultipliers = new uint256[](4);
         builder.constraintMultipliers[0] = 401;
         builder.constraintMultipliers[1] = 402;
@@ -76,13 +77,13 @@ contract FilterExecTest is Test {
         }
     }
 
-    function _computeEqualsExprZeroSumConstraint0(
-        VerificationBuilder.Builder memory builder,
-        FF whereEvaluation,
-        FF[] memory inputEvaluations
-    ) internal pure returns (FF zeroSumConstraint0) {
-        FF cStar = F.from(builder.finalRoundMLEs[inputEvaluations.length]);
-        FF dStar = F.from(builder.finalRoundMLEs[inputEvaluations.length + 1]);
+    function _computeEqualsExprZeroSumConstraint0(VerificationBuilder.Builder memory builder, FF whereEvaluation)
+        internal
+        pure
+        returns (FF zeroSumConstraint0)
+    {
+        FF cStar = F.from(builder.finalRoundMLEs[0]);
+        FF dStar = F.from(builder.finalRoundMLEs[1]);
         zeroSumConstraint0 = cStar * whereEvaluation - dStar;
     }
 
@@ -98,7 +99,7 @@ contract FilterExecTest is Test {
         for (uint256 i = 0; i < inputEvaluationsLength; ++i) {
             cFold = cFold * beta + inputEvaluations[i];
         }
-        FF cStar = F.from(builder.finalRoundMLEs[inputEvaluationsLength]);
+        FF cStar = F.from(builder.finalRoundMLEs[0]);
         identityConstraint1 = (F.ONE + alpha * cFold) * cStar - F.from(builder.tableChiEvaluations[tableNumber]);
     }
 
@@ -111,9 +112,9 @@ contract FilterExecTest is Test {
         FF dFold = F.ZERO;
         uint256 inputEvaluationsLength = inputEvaluations.length;
         for (uint256 i = 0; i < inputEvaluationsLength; ++i) {
-            dFold = dFold * beta + F.from(builder.finalRoundMLEs[i]);
+            dFold = dFold * beta + F.from(builder.firstRoundMLEs[i]);
         }
-        FF dStar = F.from(builder.finalRoundMLEs[inputEvaluationsLength + 1]);
+        FF dStar = F.from(builder.finalRoundMLEs[1]);
         identityConstraint2 = (F.ONE + alpha * dFold) * dStar - F.from(builder.chiEvaluations[1]);
     }
 
@@ -126,7 +127,7 @@ contract FilterExecTest is Test {
         FF dFold = F.ZERO;
         uint256 inputEvaluationsLength = inputEvaluations.length;
         for (uint256 i = 0; i < inputEvaluationsLength; ++i) {
-            dFold = dFold * beta + F.from(builder.finalRoundMLEs[i]);
+            dFold = dFold * beta + F.from(builder.firstRoundMLEs[i]);
         }
         identityConstraint3 = alpha * dFold * (F.from(builder.chiEvaluations[1]) - F.ONE);
     }
@@ -138,8 +139,7 @@ contract FilterExecTest is Test {
         uint64 tableNumber
     ) internal pure returns (FF aggregateEvaluation) {
         aggregateEvaluation = F.from(builder.aggregateEvaluation)
-            + F.from(builder.constraintMultipliers[0])
-                * _computeEqualsExprZeroSumConstraint0(builder, whereEvaluation, inputEvaluations)
+            + F.from(builder.constraintMultipliers[0]) * _computeEqualsExprZeroSumConstraint0(builder, whereEvaluation)
             + F.from(builder.constraintMultipliers[1]) * F.from(builder.rowMultipliersEvaluation)
                 * _computeEqualsExprIdentityConstraint1(builder, inputEvaluations, tableNumber)
             + F.from(builder.constraintMultipliers[2]) * F.from(builder.rowMultipliersEvaluation)
@@ -154,7 +154,7 @@ contract FilterExecTest is Test {
     ) internal pure returns (uint256[] memory resultEvaluations) {
         resultEvaluations = new uint256[](inputEvaluationsLength);
         for (uint256 i = 0; i < inputEvaluationsLength; ++i) {
-            resultEvaluations[i] = builder.finalRoundMLEs[i];
+            resultEvaluations[i] = builder.firstRoundMLEs[i];
         }
     }
 
@@ -174,7 +174,9 @@ contract FilterExecTest is Test {
         plan = abi.encodePacked(plan, hex"abcdef");
 
         vm.assume(builder.maxDegree > 2);
-        vm.assume(builder.finalRoundMLEs.length > inputsLength + 1);
+        vm.assume(inputsLength > 0);
+        vm.assume(builder.firstRoundMLEs.length > inputsLength - 1);
+        vm.assume(builder.finalRoundMLEs.length > 1);
         vm.assume(builder.constraintMultipliers.length > 3);
         vm.assume(builder.challenges.length > 1);
         vm.assume(builder.chiEvaluations.length > 1);
