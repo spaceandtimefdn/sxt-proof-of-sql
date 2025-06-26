@@ -30,12 +30,13 @@ contract MonotonicTest is Test {
         ];
         uint256[3] memory sign = [uint256(1), 0, 1]; //Sign of [1, -2, 1];
 
-        builder.finalRoundMLEs = new uint256[](12);
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](9);
         for (uint8 i = 0; i < 3; ++i) {
-            builder.finalRoundMLEs[i * 4] = shiftedColumn[i];
-            builder.finalRoundMLEs[i * 4 + 1] = cStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 2] = dStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 3] = sign[i];
+            builder.firstRoundMLEs[i] = shiftedColumn[i];
+            builder.finalRoundMLEs[i * 3] = cStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 1] = dStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 2] = sign[i];
         }
 
         builder.constraintMultipliers = new uint256[](12);
@@ -111,13 +112,14 @@ contract MonotonicTest is Test {
         uint256[3] memory trail = [uint256(1), 0, 1]; //Trailing bit of bit mask of [1, 0, -1];
         uint256[3] memory sign = [uint256(1), 1, 0]; //Sign of [1, 0, -1];
 
-        builder.finalRoundMLEs = new uint256[](15);
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](12);
         for (uint8 i = 0; i < 3; ++i) {
-            builder.finalRoundMLEs[i * 5] = shiftedColumn[i];
-            builder.finalRoundMLEs[i * 5 + 1] = cStarEval[i];
-            builder.finalRoundMLEs[i * 5 + 2] = dStarEval[i];
-            builder.finalRoundMLEs[i * 5 + 3] = trail[i];
-            builder.finalRoundMLEs[i * 5 + 4] = sign[i];
+            builder.firstRoundMLEs[i] = shiftedColumn[i];
+            builder.finalRoundMLEs[i * 4] = cStarEval[i];
+            builder.finalRoundMLEs[i * 4 + 1] = dStarEval[i];
+            builder.finalRoundMLEs[i * 4 + 2] = trail[i];
+            builder.finalRoundMLEs[i * 4 + 3] = sign[i];
         }
 
         builder.constraintMultipliers = new uint256[](15);
@@ -193,12 +195,13 @@ contract MonotonicTest is Test {
         ];
         uint256[3] memory sign = [uint256(1), 0, 1]; //Sign of [1, -2, 1];
 
-        builder.finalRoundMLEs = new uint256[](12);
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](9);
         for (uint8 i = 0; i < 3; ++i) {
-            builder.finalRoundMLEs[i * 4] = shiftedColumn[i];
-            builder.finalRoundMLEs[i * 4 + 1] = cStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 2] = dStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 3] = sign[i];
+            builder.firstRoundMLEs[i] = shiftedColumn[i];
+            builder.finalRoundMLEs[i * 3] = cStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 1] = dStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 2] = sign[i];
         }
 
         builder.constraintMultipliers = new uint256[](12);
@@ -275,13 +278,14 @@ contract MonotonicTest is Test {
         uint256[3] memory trail = [uint256(1), 0, 1]; //Trailing bit of bit mask of [-1, 0, 1];
         uint256[3] memory sign = [uint256(0), 1, 1]; //Sign of [-1, 0, 1];
 
-        builder.finalRoundMLEs = new uint256[](15);
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](12);
         for (uint8 i = 0; i < 3; ++i) {
-            builder.finalRoundMLEs[i * 5] = shiftedColumn[i];
-            builder.finalRoundMLEs[i * 5 + 1] = cStarEval[i];
-            builder.finalRoundMLEs[i * 5 + 2] = dStarEval[i];
-            builder.finalRoundMLEs[i * 5 + 3] = trail[i];
-            builder.finalRoundMLEs[i * 5 + 4] = sign[i];
+            builder.firstRoundMLEs[i] = shiftedColumn[i];
+            builder.finalRoundMLEs[i * 4] = cStarEval[i];
+            builder.finalRoundMLEs[i * 4 + 1] = dStarEval[i];
+            builder.finalRoundMLEs[i * 4 + 2] = trail[i];
+            builder.finalRoundMLEs[i * 4 + 3] = sign[i];
         }
 
         builder.constraintMultipliers = new uint256[](15);
@@ -358,12 +362,13 @@ contract MonotonicTest is Test {
         ];
         uint256[3] memory sign = [uint256(1), 0, 1]; //Sign of [1, -2, 1];
 
-        builder.finalRoundMLEs = new uint256[](12);
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.finalRoundMLEs = new uint256[](9);
         for (uint8 i = 0; i < 3; ++i) {
-            builder.finalRoundMLEs[i * 4] = shiftedColumn[i];
-            builder.finalRoundMLEs[i * 4 + 1] = cStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 2] = dStarEval[i];
-            builder.finalRoundMLEs[i * 4 + 3] = sign[i];
+            builder.firstRoundMLEs[i] = shiftedColumn[i];
+            builder.finalRoundMLEs[i * 3] = cStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 1] = dStarEval[i];
+            builder.finalRoundMLEs[i * 3 + 2] = sign[i];
         }
 
         builder.constraintMultipliers = new uint256[](12);

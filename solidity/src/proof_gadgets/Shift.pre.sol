@@ -63,6 +63,10 @@ library Shift {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -108,7 +112,7 @@ library Shift {
                 chi_plus_one_eval
             {
                 chi_plus_one_eval := builder_consume_chi_evaluation(builder_ptr)
-                shifted_expr_eval := builder_consume_final_round_mle(builder_ptr)
+                shifted_expr_eval := builder_consume_first_round_mle(builder_ptr)
                 let rho_eval := builder_consume_rho_evaluation(builder_ptr)
                 let rho_plus_one_eval := builder_consume_rho_evaluation(builder_ptr)
                 let c_star_eval := builder_consume_final_round_mle(builder_ptr)
