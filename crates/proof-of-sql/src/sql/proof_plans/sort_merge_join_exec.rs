@@ -27,10 +27,7 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bumpalo::{
-    collections::{CollectIn, Vec as BumpVec},
-    Bump,
-};
+use bumpalo::Bump;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
@@ -165,7 +162,7 @@ where
         let num_columns_res_hat = num_columns_left + num_columns_right - num_columns_u + 2;
         // `\hat{J}` in the protocol
         let res_hat_column_evals =
-            builder.try_consume_final_round_mle_evaluations(num_columns_res_hat)?;
+            builder.try_consume_first_round_mle_evaluations(num_columns_res_hat)?;
         // 5. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
         let rho_bar_left_eval = res_hat_column_evals[num_columns_left];
@@ -304,6 +301,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
+    #[expect(clippy::too_many_lines)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -334,7 +332,7 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .copied()
                 .unzip();
         // `\hat{J}` in the protocol
-        let res_hat = apply_sort_merge_join_indexes(
+        let raw_res_hat = apply_sort_merge_join_indexes(
             &left_hat,
             &right_hat,
             &self.left_join_column_indexes,
@@ -344,6 +342,10 @@ impl ProverEvaluate for SortMergeJoinExec {
             alloc,
         )
         .expect("Can not do sort merge join");
+        let res_hat = alloc.alloc_slice_copy(raw_res_hat.as_slice());
+        for column in res_hat {
+            builder.produce_intermediate_mle(*column);
+        }
         let num_rows_res = left_row_indexes.len();
 
         let i = left_row_indexes
@@ -387,11 +389,11 @@ impl ProverEvaluate for SortMergeJoinExec {
         let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
             .expect("Indexes can not be out of bounds");
         // `J_l` in the protocol
-        let res_left_columns = res_hat[0..=num_columns_left].to_vec();
+        let res_left_columns = raw_res_hat[0..=num_columns_left].to_vec();
         // `J_r` in the protocol
-        let res_right_columns: Vec<_> = res_hat[0..num_columns_u]
+        let res_right_columns: Vec<_> = raw_res_hat[0..num_columns_u]
             .iter()
-            .chain(&res_hat[num_columns_left + 1..])
+            .chain(&raw_res_hat[num_columns_left + 1..])
             .copied()
             .collect();
         first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &res_left_columns);
@@ -413,7 +415,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let res_column_indexes = (0..num_columns_left)
             .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
             .collect::<Vec<_>>();
-        let res_columns = apply_slice_to_indexes(&res_hat, &res_column_indexes)
+        let res_columns = apply_slice_to_indexes(&raw_res_hat, &res_column_indexes)
             .expect("Indexes can not be out of bounds");
         let tab = Table::try_from_iter_with_options(
             self.result_idents.iter().cloned().zip_eq(res_columns),
@@ -510,14 +512,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        // 4. Produce MLEs for `res_hat`
-        // We can reference `res_hat` safely because it's bump-allocated.
-        let alloc_res_hat = res_hat.iter().collect_in::<BumpVec<_>>(alloc);
-        for column in &alloc_res_hat {
-            builder.produce_intermediate_mle(*column);
-        }
-
-        // 5. Membership checks
+        // 4. Membership checks
         let hat_left_column_indexes = self
             .left_join_column_indexes
             .iter()
