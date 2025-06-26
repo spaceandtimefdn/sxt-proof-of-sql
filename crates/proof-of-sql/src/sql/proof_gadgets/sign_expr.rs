@@ -35,10 +35,9 @@ pub fn first_round_evaluate_sign<'a, S: Scalar>(
     expr: &'a [S],
 ) -> &'a [bool] {
     assert_eq!(table_length, expr.len());
-    let signs = expr
-        .iter()
-        .map(|s| make_bit_mask(*s))
-        .map(is_bit_mask_negative_representation)
+    let signs = if_rayon!(expr.par_iter(), expr.iter())
+        .copied()
+        .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))
         .collect::<Vec<_>>();
     assert_eq!(table_length, signs.len());
     alloc.alloc_slice_copy(&signs)
