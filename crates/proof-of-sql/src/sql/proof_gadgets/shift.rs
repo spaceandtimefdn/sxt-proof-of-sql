@@ -12,21 +12,53 @@ use bumpalo::Bump;
 use num_traits::{One, Zero};
 
 /// Perform first round evaluation of downward shift.
-pub(crate) fn first_round_evaluate_shift<S: Scalar>(
-    builder: &mut FirstRoundBuilder<'_, S>,
-    num_rows: usize,
+pub(crate) fn first_round_evaluate_shift<'a, S: Scalar>(
+    builder: &mut FirstRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    column: &'a [S],
 ) {
-    // Note that we don't produce chi eval lengths here
-    // since it needs to be done in uniqueness check which uses shifts.
+    let num_rows = column.len();
+    let shifted_column =
+        alloc.alloc_slice_fill_with(
+            num_rows + 1,
+            |i| {
+                if i == 0 {
+                    S::ZERO
+                } else {
+                    column[i - 1]
+                }
+            },
+        );
+    builder.produce_intermediate_mle(shifted_column as &[_]);
+    builder.produce_chi_evaluation_length(num_rows + 1);
     builder.produce_rho_evaluation_length(num_rows);
     builder.produce_rho_evaluation_length(num_rows + 1);
+}
+
+/// Perform final round evaluation of downward shift.
+pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    alpha: S,
+    beta: S,
+    column: &'a [S],
+) -> &'a [S] {
+    let shifted_column = alloc.alloc_slice_fill_with(column.len() + 1, |i| {
+        if i == 0 {
+            S::ZERO
+        } else {
+            column[i - 1]
+        }
+    });
+    final_round_evaluate_shift_base(builder, alloc, alpha, beta, column, shifted_column);
+    shifted_column
 }
 
 /// Perform final round evaluation of downward shift.
 ///
 /// # Panics
 /// Panics if `column.len() != shifted_column.len() - 1` which should always hold for shifts.
-pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
+fn final_round_evaluate_shift_base<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
     alpha: S,
@@ -103,10 +135,10 @@ pub(crate) fn verify_shift<S: Scalar>(
     alpha: S,
     beta: S,
     column_eval: S,
-    shifted_column_eval: S,
     chi_n_eval: S,
-    chi_n_plus_1_eval: S,
-) -> Result<(), ProofError> {
+) -> Result<(S, S), ProofError> {
+    let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?.0;
+    let shifted_column_eval = builder.try_consume_first_round_mle_evaluation()?;
     let rho_n_eval = builder.try_consume_rho_evaluation()?;
     let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?;
     let c_fold_eval = alpha * fold_vals(beta, &[rho_n_eval + chi_n_eval, column_eval]);
@@ -135,12 +167,12 @@ pub(crate) fn verify_shift<S: Scalar>(
         2,
     )?;
 
-    Ok(())
+    Ok((shifted_column_eval, chi_n_plus_1_eval))
 }
 
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
-    use super::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
+    use super::{final_round_evaluate_shift_base, verify_shift};
     use crate::{
         base::{
             database::{
@@ -174,15 +206,27 @@ mod tests {
         fn first_round_evaluate<'a, S: Scalar>(
             &self,
             builder: &mut FirstRoundBuilder<'a, S>,
-            _alloc: &'a Bump,
-            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            alloc: &'a Bump,
+            table_map: &IndexMap<TableRef, Table<'a, S>>,
             _params: &[LiteralValue],
         ) -> PlaceholderResult<Table<'a, S>> {
             builder.request_post_result_challenges(2);
             builder.produce_chi_evaluation_length(self.column_length);
             builder.produce_chi_evaluation_length(self.column_length + 1);
+            let candidate_table = table_map
+                .get(&self.candidate_shifted_column.table_ref())
+                .expect("Table not found");
+            let candidate_column: Vec<S> = candidate_table
+                .inner_table()
+                .get(&self.candidate_shifted_column.column_id())
+                .expect("Column not found in table")
+                .to_scalar();
+            let alloc_candidate_column = alloc.alloc_slice_copy(&candidate_column);
+            builder.produce_intermediate_mle(alloc_candidate_column as &[_]);
             // Evaluate the first round
-            first_round_evaluate_shift(builder, self.column_length);
+            builder.produce_chi_evaluation_length(self.column_length + 1);
+            builder.produce_rho_evaluation_length(self.column_length);
+            builder.produce_rho_evaluation_length(self.column_length + 1);
             // This is just a dummy table, the actual data is not used
             Ok(Table::try_new_with_options(
                 IndexMap::default(),
@@ -219,10 +263,9 @@ mod tests {
                 .expect("Column not found in table")
                 .to_scalar();
             let alloc_candidate_column = alloc.alloc_slice_copy(&candidate_column);
-            builder.produce_intermediate_mle(alloc_candidate_column as &[_]);
             let alpha = builder.consume_post_result_challenge();
             let beta = builder.consume_post_result_challenge();
-            final_round_evaluate_shift(
+            final_round_evaluate_shift_base(
                 builder,
                 alloc,
                 alpha,
@@ -267,19 +310,9 @@ mod tests {
             let beta = builder.try_consume_post_result_challenge()?;
             // Get the columns
             let column_eval = builder.try_consume_final_round_mle_evaluation()?;
-            let candidate_shift_eval = builder.try_consume_final_round_mle_evaluation()?;
             let chi_n_eval = builder.try_consume_chi_evaluation()?.0;
-            let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?.0;
             // Evaluate the verifier
-            verify_shift(
-                builder,
-                alpha,
-                beta,
-                column_eval,
-                candidate_shift_eval,
-                chi_n_eval,
-                chi_n_plus_1_eval,
-            )?;
+            verify_shift(builder, alpha, beta, column_eval, chi_n_eval)?;
             Ok(TableEvaluation::new(vec![], S::zero()))
         }
     }

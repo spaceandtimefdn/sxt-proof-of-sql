@@ -345,6 +345,13 @@ impl ProverEvaluate for SortMergeJoinExec {
         )
         .expect("Can not do sort merge join");
         let num_rows_res = left_row_indexes.len();
+
+        let i = left_row_indexes
+            .iter()
+            .zip_eq(right_row_indexes.iter())
+            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
+            .collect::<Vec<_>>();
+        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
         // 2. Get and commit the strictly increasing columns, `U`
         // ordered set union `U`
         let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
@@ -397,8 +404,8 @@ impl ProverEvaluate for SortMergeJoinExec {
         first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
         // 5. Monotonicity checks
-        first_round_evaluate_monotonic(builder, num_rows_res);
-        first_round_evaluate_monotonic(builder, num_rows_u);
+        first_round_evaluate_monotonic(builder, alloc, alloc_i);
+        first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
         // 6. Request post-result challenges
         builder.request_post_result_challenges(2);
         // 7. Return join result

@@ -92,6 +92,10 @@ library GroupByExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -212,7 +216,9 @@ library GroupByExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
-            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, chi_eval) ->
+                shifted_expr_eval,
+                chi_plus_one_eval
             {
                 revert(0, 0)
             }
@@ -288,7 +294,7 @@ library GroupByExec {
             ) -> g_out_star_eval, evaluations_ptr_out {
                 let g_out_fold := 0
                 for {} column_count { column_count := sub(column_count, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     g_out_fold := addmod_bn254(mulmod_bn254(g_out_fold, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
@@ -324,13 +330,13 @@ library GroupByExec {
                 let sum_out_fold
                 sum_out_fold := 0
                 for {} column_count { column_count := sub(column_count, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     sum_out_fold := addmod_bn254(mulmod_bn254(sum_out_fold, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
                 // Consume count column evaluation
-                let count_out_eval := builder_consume_final_round_mle(builder_ptr)
+                let count_out_eval := builder_consume_first_round_mle(builder_ptr)
                 mstore(evaluations_ptr, count_out_eval)
                 evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 sum_out_fold := addmod_bn254(mulmod_bn254(sum_out_fold, beta), count_out_eval)

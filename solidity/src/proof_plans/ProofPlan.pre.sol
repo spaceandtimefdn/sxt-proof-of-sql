@@ -84,6 +84,10 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -206,7 +210,9 @@ library ProofPlan {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
-            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, chi_eval) ->
+                shifted_expr_eval,
+                chi_plus_one_eval
             {
                 revert(0, 0)
             }

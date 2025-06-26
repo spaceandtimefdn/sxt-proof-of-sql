@@ -29,6 +29,17 @@ contract ShiftTest is Test {
         builder.rhoEvaluations[3] = 1;
         builder.rhoEvaluations[4] = 0;
         builder.rhoEvaluations[5] = 2;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1;
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
+        builder.firstRoundMLEs = new uint256[](3);
+        builder.firstRoundMLEs[0] = shiftedColumn[0];
+        builder.firstRoundMLEs[1] = shiftedColumn[1];
+        builder.firstRoundMLEs[2] = shiftedColumn[2];
         builder.finalRoundMLEs = new uint256[](6);
         builder.finalRoundMLEs[0] = 17222184509042479139574583720503606563789583659997933845959245835272824378669;
         builder.finalRoundMLEs[1] = 1;
@@ -44,9 +55,7 @@ contract ShiftTest is Test {
                 __alpha: alpha,
                 __beta: beta,
                 __exprEval: F.from(column[i]).into(),
-                __shiftedExprEval: F.from(shiftedColumn[i]).into(),
-                __chiEval: chiEval,
-                __chiPlusOneEval: 1
+                __chiEval: chiEval
             });
         }
         assert(builder.aggregateEvaluation == 0);
