@@ -461,6 +461,13 @@ library GroupByExec {
                 revert(0, 0)
             }
 
+            function get_evaluations_ptr(num_group_by_columns, num_sum_columns) -> evaluations_ptr {
+                let num_total_columns := add(num_group_by_columns, add(num_sum_columns, 1))
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(evaluations_ptr, num_total_columns)
+                mstore(FREE_PTR, mul(add(num_total_columns, 1), WORD_SIZE))
+            }
+
             function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
                 plan_ptr_out,
                 constraint_lhs,
@@ -469,68 +476,71 @@ library GroupByExec {
             {
                 // Read input chi evaluation
                 let input_chi_eval
-                {
-                    let table_num := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                    input_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_num)
-                    plan_ptr := add(plan_ptr, UINT64_SIZE)
-                }
+                // {
+                //     let table_num := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                //     input_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_num)
+                //     plan_ptr := add(plan_ptr, UINT64_SIZE)
+                // }
 
-                // Read/eval group by inputs, selection inputs, and fold and dlog them
+                // // Read/eval group by inputs, selection inputs, and fold and dlog them
                 let g_in_star_eval_times_selection_eval
-                g_in_star_eval_times_selection_eval, num_group_by_columns :=
-                    compute_g_in_star_eval_times_selection_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                // g_in_star_eval_times_selection_eval, num_group_by_columns :=
+                //     compute_g_in_star_eval_times_selection_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
 
-                // Read/eval sum inputs and fold them
+                // // Read/eval sum inputs and fold them
                 let sum_in_fold_eval
-                sum_in_fold_eval, num_sum_columns :=
-                    compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                // sum_in_fold_eval, num_sum_columns :=
+                //     compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
 
-                constraint_lhs := mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
+                ///constraint_lhs := mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
 
-                // Read count alias
-                let count_alias
-                plan_ptr, count_alias := read_binary(plan_ptr)
+                // // Read count alias
+                // {
+                //     let count_alias
+                //     plan_ptr, count_alias := read_binary(plan_ptr)
+                // }
 
                 plan_ptr_out := plan_ptr
+            }
+
+            function read_output_evals(builder_ptr, alpha, beta, num_group_by_columns, num_sum_columns, evaluations_ptr)
+                -> constraint_rhs, output_chi_eval {
+                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+
+                let g_out_star_eval :=
+                    compute_g_out_star_eval(
+                        builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, add(evaluations_ptr, WORD_SIZE)
+                    )
+
+                let sum_out_fold_eval :=
+                    compute_sum_out_fold_eval(
+                        builder_ptr,
+                        alpha,
+                        beta,
+                        output_chi_eval,
+                        num_sum_columns,
+                        add(evaluations_ptr, mul(add(num_group_by_columns, 1), WORD_SIZE))
+                    )
+
+                constraint_rhs := mulmod_bn254(g_out_star_eval, sum_out_fold_eval)
             }
 
             function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
-                let constraint_lhs
+                let constraint_lhs, constraint_rhs
                 let num_group_by_columns, num_sum_columns
 
                 plan_ptr_out, constraint_lhs, num_group_by_columns, num_sum_columns :=
                     read_input_evals(plan_ptr, builder_ptr, alpha, beta)
 
                 // Allocate memory for evaluations
-                {
-                    let num_total_columns := add(num_group_by_columns, add(num_sum_columns, 1))
-                    evaluations_ptr := mload(FREE_PTR)
-                    mstore(evaluations_ptr, num_total_columns)
-                    mstore(FREE_PTR, mul(add(num_total_columns, 1), WORD_SIZE))
-                }
+                evaluations_ptr := get_evaluations_ptr(num_group_by_columns, num_sum_columns)
 
                 // Read output data
+                constraint_rhs, output_chi_eval :=
+                    read_output_evals(builder_ptr, alpha, beta, num_group_by_columns, num_sum_columns, evaluations_ptr)
                 {
-                    output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
-
-                    let g_out_star_eval :=
-                        compute_g_out_star_eval(
-                            builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, add(evaluations_ptr, WORD_SIZE)
-                        )
-
-                    let sum_out_fold_eval :=
-                        compute_sum_out_fold_eval(
-                            builder_ptr,
-                            alpha,
-                            beta,
-                            output_chi_eval,
-                            num_sum_columns,
-                            add(evaluations_ptr, mul(add(num_group_by_columns, 1), WORD_SIZE))
-                        )
-
-                    let constraint_rhs := mulmod_bn254(g_out_star_eval, sum_out_fold_eval)
                     builder_produce_zerosum_constraint(builder_ptr, submod_bn254(constraint_lhs, constraint_rhs), 3)
                 }
             }

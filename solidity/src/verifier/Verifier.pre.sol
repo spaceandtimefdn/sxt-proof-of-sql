@@ -403,9 +403,18 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function get_evaluations_ptr(num_group_by_columns, num_sum_columns) -> evaluations_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
             function read_input_evals(builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr) ->
                 sum_out_fold_eval
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
+            function read_output_evals(builder_ptr, alpha, beta, num_group_by_columns, num_sum_columns, evaluations_ptr)
+                -> constraint_rhs, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_exprs/PlaceholderExpr.pre.sol
