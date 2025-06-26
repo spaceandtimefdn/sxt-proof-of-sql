@@ -127,16 +127,15 @@ impl ProofPlan for GroupByExec {
             .get(&self.table.table_ref)
             .cloned()
             .unwrap_or_else(|| [].into_iter().collect());
-        // 1. selection
-        let where_eval =
-            self.where_clause
-                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
-        // 2. columns
+        // 2. get_and_check_group_by_input_columns
         let group_by_evals = self
             .group_by_exprs
             .iter()
             .map(|expr| expr.verifier_evaluate(builder, &accessor, input_chi_eval, params))
             .collect::<Result<Vec<_>, _>>()?;
+        let where_eval =
+            self.where_clause
+                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
         let aggregate_evals = self
             .sum_expr
             .iter()
@@ -354,15 +353,8 @@ impl ProverEvaluate for GroupByExec {
             .expect("Table not found");
         let n = table.num_rows();
         let chi_n = alloc.alloc_slice_fill_copy(n, true);
-        // 1. selection
-        let selection_column: Column<'a, S> = self
-            .where_clause
-            .final_round_evaluate(builder, alloc, table, params)?;
-        let selection = selection_column
-            .as_boolean()
-            .expect("selection is not boolean");
 
-        // 2. columns
+        // 2. get_and_check_group_by_input_columns
         let group_by_columns = self
             .group_by_exprs
             .iter()
@@ -370,6 +362,12 @@ impl ProverEvaluate for GroupByExec {
                 expr.final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        let selection_column: Column<'a, S> = self
+            .where_clause
+            .final_round_evaluate(builder, alloc, table, params)?;
+        let selection = selection_column
+            .as_boolean()
+            .expect("selection is not boolean");
         let sum_columns = self
             .sum_expr
             .iter()
