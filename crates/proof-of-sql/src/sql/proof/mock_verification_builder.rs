@@ -144,6 +144,15 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
         Ok(*challenge)
     }
 
+    fn try_consume_first_round_mle_evaluations(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<S>, ProofSizeMismatch> {
+        iter::repeat_with(|| self.try_consume_first_round_mle_evaluation())
+            .take(count)
+            .collect()
+    }
+
     fn try_consume_final_round_mle_evaluations(
         &mut self,
         count: usize,
@@ -555,6 +564,27 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(error, ProofSizeMismatch::SumcheckProofTooSmall));
+    }
+
+    #[test]
+    fn we_can_get_first_round_mle_evaluations() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                vec![
+                    vec![TestScalar::ONE, TestScalar::TWO],
+                    vec![-TestScalar::ONE, -TestScalar::TWO],
+                ],
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        let result = verification_builder
+            .try_consume_first_round_mle_evaluations(2)
+            .unwrap();
+        assert_eq!(result, vec![TestScalar::ONE, TestScalar::TWO]);
     }
 
     #[test]
