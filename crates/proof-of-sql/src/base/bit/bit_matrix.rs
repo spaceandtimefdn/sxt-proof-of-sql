@@ -1,12 +1,14 @@
 use super::bit_mask_utils::make_bit_mask;
 use crate::{
-    base::{bit::BitDistribution, scalar::Scalar},
+    base::{bit::BitDistribution, if_rayon, scalar::Scalar},
     utils::log,
 };
 use alloc::vec::Vec;
 use bnum::types::U256;
 use bumpalo::Bump;
 use core::ops::Shl;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::{span, Level};
 
 /// Let `x1, ..., xn` denote the values of a data column. Let
@@ -36,13 +38,24 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
 
     // decompose
     let span = span!(Level::DEBUG, "decompose").entered();
-    for (scalar_index, val) in vals.iter().enumerate() {
-        let mask = make_bit_mask(*val);
-        for (vary_index, bit_index) in dist.vary_mask_iter().enumerate() {
+    let masks: Vec<U256> = if_rayon!(vals.par_iter(), vals.iter())
+        .copied()
+        .map(make_bit_mask)
+        .collect();
+
+    let shifted_masks: Vec<U256> = dist
+        .vary_mask_iter()
+        .map(|bit_index| U256::ONE.shl(bit_index))
+        .collect();
+
+    let span_fill_data = span!(Level::DEBUG, "fill data").entered();
+    for (scalar_index, mask) in masks.into_iter().enumerate() {
+        for (vary_index, shifted_mask) in shifted_masks.iter().enumerate() {
             data[scalar_index + vary_index * number_of_scalars] =
-                (mask & U256::ONE.shl(bit_index)) != U256::ZERO;
+                (mask & shifted_mask) != U256::ZERO;
         }
     }
+    span_fill_data.exit();
     span.exit();
 
     // make result
