@@ -42,6 +42,64 @@ library Array {
         }
     }
 
+    /// @notice Reads a word array from memory and stores each entry as two words
+    /// @custom:yul-function
+    /// #### Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// read_word_array_as_uint512_array(input_array_ptr) -> array_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `input_array_ptr` - in memory array
+    /// ##### Return Values
+    /// * `array_ptr` - pointer to the array in memory containing [length, elements...], where each element has size of two words
+    /// @dev Reads a word array by first reading length as uint256, then copying that many uint256 values as two words a piece.
+    /// @param __inputArray The input source containing the array
+    /// @return __array The decoded array of two-word elements
+    function __readWordArrayAsUint512Array(uint256[] memory __inputArray)
+        external
+        pure
+        returns (uint256[2][] memory __array)
+    {
+        assembly {
+            // IMPORT-YUL Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            function read_word_array_as_uint512_array(input_array_ptr) -> array_ptr {
+                array_ptr := mload(FREE_PTR)
+
+                let length := mload(input_array_ptr)
+                mstore(array_ptr, length)
+                input_array_ptr := add(input_array_ptr, WORD_SIZE)
+                let target_ptr := add(array_ptr, WORD_SIZE)
+
+                for {} length { length := sub(length, 1) } {
+                    mstore(target_ptr, mload(input_array_ptr))
+                    mstore(add(target_ptr, WORD_SIZE), 0)
+                    input_array_ptr := add(input_array_ptr, WORD_SIZE)
+                    target_ptr := add(target_ptr, WORDX2_SIZE)
+                }
+
+                mstore(FREE_PTR, target_ptr)
+            }
+
+            __array := read_word_array_as_uint512_array(__inputArray)
+        }
+
+        uint256 arrayLength = __array.length;
+        uint256[2][] memory __arrayTmp = new uint256[2][](arrayLength);
+        for (uint256 i = 0; i < arrayLength; ++i) {
+            uint256[2] memory __arrayElement;
+            uint256 offset = (i * 2 + 1) * WORD_SIZE;
+            assembly {
+                __arrayElement := add(__array, offset)
+            }
+            __arrayTmp[i] = __arrayElement;
+        }
+        __array = __arrayTmp;
+    }
+
     /// @notice Gets two uint256 values from an array
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function

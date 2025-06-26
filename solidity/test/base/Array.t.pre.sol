@@ -48,6 +48,22 @@ contract ArrayTest is Test {
         }
     }
 
+    function testReadWordArrayAsUint512Array() public pure {
+        uint256[] memory inputArray = new uint256[](3);
+        inputArray[0] = 0x12345678;
+        inputArray[1] = 0x23456789;
+        inputArray[2] = 0x3456789A;
+
+        uint256[2][] memory outputArray = Array.__readWordArrayAsUint512Array(inputArray);
+
+        assert(outputArray[0][0] == 0x12345678);
+        assert(outputArray[0][1] == 0);
+        assert(outputArray[1][0] == 0x23456789);
+        assert(outputArray[1][1] == 0);
+        assert(outputArray[2][0] == 0x3456789A);
+        assert(outputArray[2][1] == 0);
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testGetUint512ArrayElement() public pure {
         uint256[] memory array = new uint256[](4);
