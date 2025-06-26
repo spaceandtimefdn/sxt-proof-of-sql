@@ -421,7 +421,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
-    #[expect(clippy::too_many_lines, unused_variables)]
+    #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -495,7 +495,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
         let u_0 = u[0].to_scalar();
         let num_rows_u = u[0].len();
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 

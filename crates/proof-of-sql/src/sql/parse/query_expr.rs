@@ -64,7 +64,7 @@ impl QueryExpr {
                 .visit_where_expr(where_expr)?
                 .visit_order_by_exprs(ast.order_by.into_iter().map(Into::into).collect())?
                 .visit_slice_expr(ast.slice)
-                .build()?,
+                .build(),
         };
         let result_aliased_exprs = context.get_aliased_result_exprs()?.to_vec();
         let group_by = context.get_group_by_exprs();

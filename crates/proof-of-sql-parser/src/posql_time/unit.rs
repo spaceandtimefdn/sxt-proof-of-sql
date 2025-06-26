@@ -63,12 +63,11 @@ mod time_unit_tests {
     use chrono::{TimeZone, Utc};
 
     #[test]
-    #[expect(clippy::unnecessary_fallible_conversions)]
     fn test_u64_conversion() {
-        assert_eq!(PoSQLTimeUnit::Second.try_into(), Ok(0));
-        assert_eq!(PoSQLTimeUnit::Millisecond.try_into(), Ok(3));
-        assert_eq!(PoSQLTimeUnit::Microsecond.try_into(), Ok(6));
-        assert_eq!(PoSQLTimeUnit::Nanosecond.try_into(), Ok(9));
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
     }
 
     #[test]

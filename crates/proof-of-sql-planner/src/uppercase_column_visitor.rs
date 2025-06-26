@@ -4,7 +4,6 @@ use std::ops::ControlFlow;
 /// Returns an uppercased version of Ident
 /// Leaving this as public because the sdk also uses this function
 #[must_use]
-#[expect(clippy::needless_pass_by_value)]
 pub fn uppercase_identifier(ident: Ident) -> Ident {
     let value = ident.value.to_uppercase();
     Ident { value, ..ident }
