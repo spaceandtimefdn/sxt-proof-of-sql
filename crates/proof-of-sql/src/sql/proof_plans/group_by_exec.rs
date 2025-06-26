@@ -143,15 +143,6 @@ impl ProofPlan for GroupByExec {
             g_in_star_eval + g_in_star_eval * g_in_fold_eval - input_chi_eval,
             2,
         )?;
-        let aggregate_evals = self
-            .sum_expr
-            .iter()
-            .map(|aliased_expr| {
-                aliased_expr
-                    .expr
-                    .verifier_evaluate(builder, &accessor, input_chi_eval, params)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
         // 3. get_and_check_group_by_output_columns
         let group_by_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
@@ -178,21 +169,27 @@ impl ProofPlan for GroupByExec {
             g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
             2,
         )?;
-        
+        // 4. build_groupby_zerosum_constraint
+        let aggregate_evals = self
+            .sum_expr
+            .iter()
+            .map(|aliased_expr| {
+                aliased_expr
+                    .expr
+                    .verifier_evaluate(builder, &accessor, input_chi_eval, params)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
         let sum_out_fold_eval =
             count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
-
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::ZeroSum,
             g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
             3,
         )?;
-
         match (is_uniqueness_provable, result) {
             (true, _) => (),
             (false, Some(table)) => {
@@ -343,7 +340,6 @@ impl ProverEvaluate for GroupByExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
-
         // 1. Preparation
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
@@ -352,7 +348,6 @@ impl ProverEvaluate for GroupByExec {
             .expect("Table not found");
         let n = table.num_rows();
         let chi_n = alloc.alloc_slice_fill_copy(n, true);
-
         // 2. get_and_check_group_by_input_columns
         let group_by_columns = self
             .group_by_exprs
@@ -384,7 +379,6 @@ impl ProverEvaluate for GroupByExec {
                 (-S::one(), vec![Box::new(chi_n as &[_])]),
             ],
         );
-
         // 3. get_and_check_group_by_output_columns
         let AggregatedColumns {
             group_by_columns: group_by_result_columns,
@@ -431,7 +425,7 @@ impl ProverEvaluate for GroupByExec {
                 (-S::one(), vec![Box::new(chi_m as &[_])]),
             ],
         );
-
+        // 4. build_groupby_zerosum_constraint
         let sum_columns = self
             .sum_expr
             .iter()
@@ -441,44 +435,20 @@ impl ProverEvaluate for GroupByExec {
                     .final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        // 3. Compute filtered_columns
         let AggregatedColumns {
-            group_by_columns: group_by_result_columns,
             sum_columns: sum_result_columns,
-            count_column,
             ..
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
-
-        // 4. Tally results
-        let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
-        let columns = group_by_result_columns
-            .clone()
-            .into_iter()
-            .chain(sum_result_columns_iter)
-            .chain(iter::once(Column::BigInt(count_column)));
-        let res = Table::<'a, S>::try_from_iter(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|field| field.name())
-                .zip(columns.clone()),
-        )
-        .expect("Failed to create table from column references");
-        // 5. Produce MLEs
-        for column in columns {
-            builder.produce_intermediate_mle(column);
-        }
-        // 6. Prove group by
-        let check_uniqueness = self.is_uniqueness_provable();
-        let m = count_column.len();
-        let chi_m = alloc.alloc_slice_fill_copy(m, true);        
         let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
         fold_columns(sum_in_fold, beta, beta, &sum_columns);
-
         let sum_out_fold = alloc.alloc_slice_fill_default(m);
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
         fold_columns(sum_out_fold, beta, beta, &sum_result_columns);
-
+        for column in &sum_result_columns {
+            builder.produce_intermediate_mle(*column);
+        }
+        builder.produce_intermediate_mle(Column::BigInt(count_column));
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::ZeroSum,
             vec![
@@ -496,35 +466,20 @@ impl ProverEvaluate for GroupByExec {
                 ),
             ],
         );
-
-        builder.produce_sumcheck_subpolynomial(
-            SumcheckSubpolynomialType::Identity,
-            vec![
-                (S::one(), vec![Box::new(g_out_star as &[_])]),
-                (
-                    S::one(),
-                    vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
-                ),
-                (-S::one(), vec![Box::new(chi_m as &[_])]),
-            ],
-        );
-
-        if check_uniqueness {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
-            let g_out_scalars = group_by_result_columns[0].to_scalar();
-            let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
-            final_round_evaluate_monotonic::<S, true, true>(
-                builder,
-                alloc,
-                alpha,
-                beta,
-                alloc_g_out_scalars,
-            );
-        }
+        // 5. Tally results
+        let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
+        let columns = group_by_result_columns
+            .clone()
+            .into_iter()
+            .chain(sum_result_columns_iter)
+            .chain(iter::once(Column::BigInt(count_column)));
+        let res = Table::<'a, S>::try_from_iter(
+            self.get_column_result_fields()
+                .into_iter()
+                .map(|field| field.name())
+                .zip(columns.clone()),
+        )
+        .expect("Failed to create table from column references");
 
         log::log_memory_usage("End");
 
