@@ -114,7 +114,7 @@ where
         );
         // 3. filtered_columns
         let filtered_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
+            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
         assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
@@ -199,6 +199,10 @@ impl ProverEvaluate for FilterExec {
 
         // Compute filtered_columns and indexes
         let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
+        // 3. Produce MLEs
+        filtered_columns.iter().copied().for_each(|column| {
+            builder.produce_intermediate_mle(column);
+        });
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.aliased_results
                 .iter()
@@ -251,10 +255,6 @@ impl ProverEvaluate for FilterExec {
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
-        // 3. Produce MLEs
-        filtered_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
 
         prove_filter::<S>(
             builder,
