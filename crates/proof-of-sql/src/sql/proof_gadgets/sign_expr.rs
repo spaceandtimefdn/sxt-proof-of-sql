@@ -4,6 +4,7 @@ use crate::{
             bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask},
             compute_varying_bit_matrix, BitDistribution, BitDistributionError,
         },
+        if_rayon,
         proof::ProofError,
         scalar::{Scalar, ScalarExt},
     },
@@ -13,6 +14,8 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bnum::types::U256;
 use bumpalo::Bump;
 use core::ops::Shl;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::{span, Level};
 
 /// Compute the sign bit for a column of scalars.
@@ -76,10 +79,9 @@ pub fn final_round_evaluate_sign<'a, S: Scalar>(
 
     // This might panic if `bits.last()` returns `None`.
     let span = span!(Level::DEBUG, "signs").entered();
-    let signs = expr
-        .iter()
-        .map(|s| make_bit_mask(*s))
-        .map(is_bit_mask_negative_representation)
+    let signs = if_rayon!(expr.par_iter(), expr.iter())
+        .copied()
+        .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))
         .collect::<Vec<_>>();
     span.exit();
 
