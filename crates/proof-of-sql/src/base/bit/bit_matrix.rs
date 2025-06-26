@@ -48,13 +48,12 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
         .collect();
 
     let span_fill_data = span!(Level::DEBUG, "fill data").entered();
-    (0..masks.len()).for_each(|scalar_index| {
-        let mask = &masks[scalar_index];
+    for (scalar_index, mask) in masks.into_iter().enumerate() {
         for (vary_index, shifted_mask) in shifted_masks.iter().enumerate() {
             data[scalar_index + vary_index * number_of_scalars] =
-                (*mask & shifted_mask) != U256::ZERO;
+                (mask & shifted_mask) != U256::ZERO;
         }
-    });
+    }
     span_fill_data.exit();
     span.exit();
 
