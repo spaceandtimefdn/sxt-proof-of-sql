@@ -116,9 +116,13 @@ impl ProofPlan for GroupByExec {
         chi_eval_map: &IndexMap<TableRef, S>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        // 1. Preparation
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let accessor = accessor
             .get(&self.table.table_ref)
             .cloned()
@@ -148,10 +152,6 @@ impl ProofPlan for GroupByExec {
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
         let g_in_fold_eval = alpha * fold_vals(beta, &group_by_evals);
@@ -346,9 +346,14 @@ impl ProverEvaluate for GroupByExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
+        // 1. Preparation
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
+        let n = table.num_rows();
+        let chi_n = alloc.alloc_slice_fill_copy(n, true);
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
@@ -383,9 +388,6 @@ impl ProverEvaluate for GroupByExec {
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
 
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
         let columns = group_by_result_columns
@@ -406,9 +408,7 @@ impl ProverEvaluate for GroupByExec {
         }
         // 6. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
-        let n = table.num_rows();
         let m = count_column.len();
-        let chi_n = alloc.alloc_slice_fill_copy(n, true);
         let chi_m = alloc.alloc_slice_fill_copy(m, true);
 
         let g_in_fold = alloc.alloc_slice_fill_copy(n, Zero::zero());
