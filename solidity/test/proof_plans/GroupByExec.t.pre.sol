@@ -32,8 +32,9 @@ contract GroupByExecTest is Test {
         builder.rowMultipliersEvaluation = 601;
         builder.chiEvaluations = new uint256[](1);
         builder.chiEvaluations[0] = 701; // output_chi_eval
-        builder.tableChiEvaluations = new uint256[](1);
-        builder.tableChiEvaluations[0] = 801; // input_chi_eval
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations[1] = 801; // input_chi_eval
         // Define column evaluations for ColumnExpr
         builder.columnEvaluations = new uint256[](2);
         builder.columnEvaluations[0] = 102;
@@ -52,8 +53,9 @@ contract GroupByExecTest is Test {
         returns (VerificationBuilder.Builder memory configuredBuilder)
     {
         // table chi evals
-        builder.tableChiEvaluations = new uint256[](1);
+        builder.tableChiEvaluations = new uint256[](2);
         builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations[1] = 1;
 
         // rho and chi evals
         builder.rhoEvaluations = new uint256[](8);

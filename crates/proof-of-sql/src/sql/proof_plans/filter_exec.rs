@@ -81,7 +81,7 @@ where
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let alpha = builder.try_consume_post_result_challenge()?;
@@ -97,15 +97,18 @@ where
         // 1. selection
         let selection_eval =
             self.where_clause
-                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
+                .verifier_evaluate(builder, &accessor, input_chi_eval.0, params)?;
         // 2. columns
         let columns_evals = Vec::from_iter(
             self.aliased_results
                 .iter()
                 .map(|aliased_expr| {
-                    aliased_expr
-                        .expr
-                        .verifier_evaluate(builder, &accessor, input_chi_eval, params)
+                    aliased_expr.expr.verifier_evaluate(
+                        builder,
+                        &accessor,
+                        input_chi_eval.0,
+                        params,
+                    )
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
@@ -123,7 +126,7 @@ where
             builder,
             c_fold_eval,
             d_fold_eval,
-            input_chi_eval,
+            input_chi_eval.0,
             output_chi_eval,
             selection_eval,
         )?;

@@ -67,7 +67,7 @@ impl ProofPlan for EmptyTestQueryExpr {
         builder: &mut impl VerificationBuilder<S>,
         _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         assert_eq!(

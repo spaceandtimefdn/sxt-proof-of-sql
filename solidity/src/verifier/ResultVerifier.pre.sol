@@ -72,6 +72,10 @@ library ResultVerifier {
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Array.pre.sol
+            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_plans/TableExec.pre.sol
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)

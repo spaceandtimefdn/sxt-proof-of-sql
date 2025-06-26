@@ -458,9 +458,14 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             &self.pcs_proof_evaluations.first_round,
             &self.pcs_proof_evaluations.final_round,
         );
-        let chi_eval_map: IndexMap<TableRef, CP::Scalar> = table_length_map
+        let chi_eval_map: IndexMap<TableRef, (CP::Scalar, usize)> = table_length_map
             .into_iter()
-            .map(|(table_ref, length)| (table_ref, sumcheck_evaluations.chi_evaluations[&length]))
+            .map(|(table_ref, length)| {
+                (
+                    table_ref,
+                    (sumcheck_evaluations.chi_evaluations[&length], length),
+                )
+            })
             .collect();
         let mut builder = VerificationBuilderImpl::new(
             sumcheck_evaluations,

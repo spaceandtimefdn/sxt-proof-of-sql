@@ -42,8 +42,9 @@ contract FilterExecTest is Test {
         builder.chiEvaluations = new uint256[](2);
         builder.chiEvaluations[0] = 1;
         builder.chiEvaluations[1] = 701;
-        builder.tableChiEvaluations = new uint256[](1);
-        builder.tableChiEvaluations[0] = 801;
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 1;
+        builder.tableChiEvaluations[1] = 801;
 
         uint256[] memory evals;
         uint256 outputChiEval;
@@ -164,6 +165,8 @@ contract FilterExecTest is Test {
         int64[] memory inputs,
         uint64 tableNumber
     ) public pure {
+        vm.assume(tableNumber < 100);
+        uint64 tableIndex = tableNumber * 2 + 1;
         uint64 inputsLength = uint64(inputs.length);
         bytes memory plan = abi.encodePacked(
             tableNumber, abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, where), inputsLength
@@ -178,15 +181,15 @@ contract FilterExecTest is Test {
         vm.assume(builder.constraintMultipliers.length > 3);
         vm.assume(builder.challenges.length > 1);
         vm.assume(builder.chiEvaluations.length > 1);
-        vm.assume(builder.tableChiEvaluations.length > tableNumber);
+        vm.assume(builder.tableChiEvaluations.length > tableIndex);
 
         FF[] memory inputEvaluations = new FF[](inputsLength);
         for (uint256 i = 0; i < inputsLength; ++i) {
-            inputEvaluations[i] = F.from(inputs[i]) * F.from(builder.tableChiEvaluations[tableNumber]);
+            inputEvaluations[i] = F.from(inputs[i]) * F.from(builder.tableChiEvaluations[tableIndex]);
         }
 
         uint256 expectedAggregateEvaluation = _computeEqualsExprAggregateEvaluation(
-            builder, F.from(where) * F.from(builder.tableChiEvaluations[tableNumber]), inputEvaluations, tableNumber
+            builder, F.from(where) * F.from(builder.tableChiEvaluations[tableIndex]), inputEvaluations, tableIndex
         ).into();
         uint256[] memory expectedResultEvaluations = _computeFilterExecResultEvaluations(builder, inputsLength);
 

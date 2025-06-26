@@ -90,7 +90,7 @@ impl ProofPlan for TrivialTestProofPlan {
         builder: &mut impl VerificationBuilder<S>,
         _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         assert_eq!(builder.try_consume_final_round_mle_evaluation()?, S::ZERO);
@@ -307,7 +307,7 @@ impl ProofPlan for SquareTestProofPlan {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = S::from(self.anchored_commit_multiplier)
@@ -500,7 +500,7 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = *accessor
@@ -703,7 +703,7 @@ impl ProofPlan for ChallengeTestProofPlan {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let alpha = builder.try_consume_post_result_challenge()?;
@@ -844,7 +844,7 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        _chi_eval_map: &IndexMap<TableRef, S>,
+        _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let x_eval = S::from(self.anchored_commit_multiplier)

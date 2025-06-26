@@ -164,17 +164,17 @@ impl ProofPlan for RangeCheckTestPlan {
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
         _result: Option<&OwnedTable<S>>,
-        chi_eval_map: &IndexMap<TableRef, S>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let input_column_eval = accessor[&self.column.table_ref()][&self.column.column_id()];
         let chi_n_eval = chi_eval_map[&self.column.table_ref()];
 
-        verifier_evaluate_range_check(builder, input_column_eval, chi_n_eval)?;
+        verifier_evaluate_range_check(builder, input_column_eval, chi_n_eval.0)?;
 
         Ok(TableEvaluation::new(
             vec![accessor[&self.column.table_ref()][&self.column.column_id()]],
-            chi_eval_map[&self.column.table_ref()],
+            chi_eval_map[&self.column.table_ref()].0,
         ))
     }
 }
