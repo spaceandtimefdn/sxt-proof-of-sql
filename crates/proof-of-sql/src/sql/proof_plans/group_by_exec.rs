@@ -319,7 +319,8 @@ impl ProverEvaluate for GroupByExec {
                 .map(|field| field.name())
                 .zip(
                     group_by_result_columns
-                        .into_iter()
+                        .iter()
+                        .copied()
                         .chain(sum_result_columns_iter)
                         .chain(iter::once(Column::BigInt(count_column))),
                 ),
@@ -329,7 +330,16 @@ impl ProverEvaluate for GroupByExec {
         builder.produce_chi_evaluation_length(count_column.len());
         // Prove result uniqueness if possible
         if self.is_uniqueness_provable() {
-            first_round_evaluate_monotonic(builder, res.num_rows());
+            assert_eq!(
+                group_by_result_columns.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            first_round_evaluate_monotonic(
+                builder,
+                alloc,
+                alloc.alloc_slice_copy(&group_by_result_columns[0].to_scalar()),
+            );
         }
 
         log::log_memory_usage("End");
