@@ -18,7 +18,7 @@ use crate::{
             test_utility::{cols_expr_plan, column, const_int128, equal, tab},
             ProofExpr,
         },
-        proof_gadgets::filter_base::prove_filter,
+        proof_gadgets::filter_base::final_round_evaluate_filter,
     },
     utils::log,
 };
@@ -129,7 +129,7 @@ impl ProverEvaluate for DishonestFilterExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        prove_filter(
+        final_round_evaluate_filter(
             builder,
             alloc,
             alpha,
