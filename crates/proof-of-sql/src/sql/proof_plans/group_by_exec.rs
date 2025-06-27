@@ -135,16 +135,15 @@ impl ProofPlan for GroupByExec {
             .collect::<Result<Vec<_>, _>>()?;
         let g_in_fold_eval = alpha * fold_vals(beta, &group_by_evals);
         let g_in_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+        let where_eval =
+            self.where_clause
+                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
             g_in_star_eval + g_in_star_eval * g_in_fold_eval - input_chi_eval,
             2,
         )?;
         // End compute g_in_star
-
-        let where_eval =
-            self.where_clause
-                .verifier_evaluate(builder, &accessor, input_chi_eval, params)?;
 
         let aggregate_evals = self
             .sum_expr
@@ -294,15 +293,13 @@ impl ProverEvaluate for GroupByExec {
                 expr.first_round_evaluate(alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        // End compute g_in_star
-
         let selection_column: Column<'a, S> = self
             .where_clause
             .first_round_evaluate(alloc, table, params)?;
-
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
+        // End compute g_in_star
 
         let sum_columns = self
             .sum_expr
@@ -378,7 +375,12 @@ impl ProverEvaluate for GroupByExec {
         slice_ops::add_const::<S, S>(g_in_star, One::one());
         slice_ops::batch_inversion(g_in_star);
         builder.produce_intermediate_mle(g_in_star as &[_]);
-
+        let selection_column: Column<'a, S> = self
+            .where_clause
+            .final_round_evaluate(builder, alloc, table, params)?;
+        let selection = selection_column
+            .as_boolean()
+            .expect("selection is not boolean");
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::Identity,
             vec![
@@ -391,13 +393,6 @@ impl ProverEvaluate for GroupByExec {
             ],
         );
         // End compute g_in_star
-
-        let selection_column: Column<'a, S> = self
-            .where_clause
-            .final_round_evaluate(builder, alloc, table, params)?;
-        let selection = selection_column
-            .as_boolean()
-            .expect("selection is not boolean");
 
         let sum_columns = self
             .sum_expr
