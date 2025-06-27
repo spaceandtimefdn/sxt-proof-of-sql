@@ -356,6 +356,10 @@ impl ProverEvaluate for GroupByExec {
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
+
+        let n = table.num_rows();
+        let chi_n = alloc.alloc_slice_fill_copy(n, true);
+
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
@@ -410,9 +414,7 @@ impl ProverEvaluate for GroupByExec {
         }
         // 6. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
-        let n = table.num_rows();
         let m = count_column.len();
-        let chi_n = alloc.alloc_slice_fill_copy(n, true);
         let chi_m = alloc.alloc_slice_fill_copy(m, true);
 
         let g_in_fold = alloc.alloc_slice_fill_copy(n, Zero::zero());
