@@ -262,20 +262,25 @@ library GroupByExec {
                 revert(0, 0)
             }
 
-            function get_and_check_group_by_input_columns(
-                plan_ptr, builder_ptr, alpha, beta, column_count, input_chi_eval
-            ) -> plan_ptr_out, g_star_selected_eval {
+            function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                plan_ptr_out,
+                g_in_star_eval_times_selection_eval,
+                num_group_by_columns
+            {
+                num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                // We can not prove uniqueness for multiple columns yet
+                if iszero(eq(num_group_by_columns, 1)) { err(ERR_UNPROVABLE_GROUP_BY) }
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+
                 // Process group by columns
                 let g_in_fold
-                plan_ptr, g_in_fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count)
+                plan_ptr, g_in_fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, num_group_by_columns)
                 g_in_fold := mulmod_bn254(g_in_fold, alpha)
-
-                // Where clause evaluation
-                let selection_eval
-                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 // Get the g_in_star and g_out_star evaluations
                 let g_in_star_eval := builder_consume_final_round_mle(builder_ptr)
+                let selection_eval
+                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 // First constraint: g_in_star + g_in_star * g_in_fold - input_chi_eval = 0
                 builder_produce_identity_constraint(
@@ -283,15 +288,27 @@ library GroupByExec {
                     submod_bn254(addmod_bn254(g_in_star_eval, mulmod_bn254(g_in_star_eval, g_in_fold)), input_chi_eval),
                     2
                 )
-                g_star_selected_eval := mulmod_bn254(g_in_star_eval, selection_eval)
+                g_in_star_eval_times_selection_eval := mulmod_bn254(g_in_star_eval, selection_eval)
                 plan_ptr_out := plan_ptr
             }
 
-            function get_and_check_group_by_output_columns(
-                builder_ptr, alpha, beta, column_count, output_chi_eval, evaluations_ptr
-            ) -> g_out_star_eval, evaluations_ptr_out {
+            function compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                plan_ptr_out,
+                sum_in_fold_eval,
+                num_sum_columns
+            {
+                num_sum_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                plan_ptr, sum_in_fold_eval :=
+                    fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, num_sum_columns)
+                sum_in_fold_eval := addmod_bn254(mulmod_bn254(sum_in_fold_eval, beta), input_chi_eval)
+                plan_ptr_out := plan_ptr
+            }
+            function compute_g_out_star_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
+            ) -> g_out_star_eval {
                 let g_out_fold := 0
-                for {} column_count { column_count := sub(column_count, 1) } {
+                for {} num_group_by_columns { num_group_by_columns := sub(num_group_by_columns, 1) } {
                     let mle := builder_consume_final_round_mle(builder_ptr)
                     g_out_fold := addmod_bn254(mulmod_bn254(g_out_fold, beta), mle)
                     mstore(evaluations_ptr, mle)
@@ -309,146 +326,119 @@ library GroupByExec {
                     ),
                     2
                 )
-                evaluations_ptr_out := evaluations_ptr
             }
-
-            function get_and_check_sum_input_columns(
-                plan_ptr, builder_ptr, input_chi_eval, beta, column_count, g_star_selected_eval
-            ) -> plan_ptr_out, constraint_lhs {
-                let sum_in_fold
-                plan_ptr, sum_in_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
-                sum_in_fold := addmod_bn254(mulmod_bn254(sum_in_fold, beta), input_chi_eval)
-                constraint_lhs := mulmod_bn254(g_star_selected_eval, sum_in_fold)
-                plan_ptr_out := plan_ptr
-            }
-
-            function get_and_check_sum_output_columns(
-                builder_ptr, output_chi_eval, beta, column_count, g_out_star_eval, evaluations_ptr
-            ) -> constraint_rhs, evaluations_ptr_out {
-                let sum_out_fold
-                sum_out_fold := 0
-                for {} column_count { column_count := sub(column_count, 1) } {
+            function compute_sum_out_fold_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr
+            ) -> sum_out_fold_eval {
+                sum_out_fold_eval := 0
+                for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
                     let mle := builder_consume_final_round_mle(builder_ptr)
-                    sum_out_fold := addmod_bn254(mulmod_bn254(sum_out_fold, beta), mle)
+                    sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
                 // Consume count column evaluation
                 let count_out_eval := builder_consume_final_round_mle(builder_ptr)
                 mstore(evaluations_ptr, count_out_eval)
-                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                sum_out_fold := addmod_bn254(mulmod_bn254(sum_out_fold, beta), count_out_eval)
-                constraint_rhs := mulmod_bn254(g_out_star_eval, sum_out_fold)
-                evaluations_ptr_out := evaluations_ptr
+                sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), count_out_eval)
             }
 
-            function build_groupby_zerosum_constraint(
-                plan_ptr,
-                builder_ptr,
-                alpha,
-                beta,
-                input_chi_eval,
-                output_chi_eval,
-                g_star_selected_eval,
-                g_out_star_eval,
-                evaluations_ptr
-            ) -> plan_ptr_out, evaluations_ptr_out {
-                // Now read the number of sum columns
-                let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-                let constraint_lhs
-                plan_ptr, constraint_lhs :=
-                    get_and_check_sum_input_columns(
-                        plan_ptr, builder_ptr, input_chi_eval, beta, column_count, g_star_selected_eval
-                    )
-                let constraint_rhs
-                constraint_rhs, evaluations_ptr :=
-                    get_and_check_sum_output_columns(
-                        builder_ptr, output_chi_eval, beta, column_count, g_out_star_eval, evaluations_ptr
-                    )
-                // Third constraint: sum g_in_star * sel_in * sum_in_fold - g_out_star * sum_out_fold = 0
-                builder_produce_zerosum_constraint(builder_ptr, submod_bn254(constraint_lhs, constraint_rhs), 3)
+            function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
+                plan_ptr_out,
+                partial_dlog_zero_sum_constraint_eval,
+                num_group_by_columns,
+                num_sum_columns
+            {
+                // Read input chi evaluation
+                let input_chi_eval
+                {
+                    let table_num := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                    input_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_num)
+                    plan_ptr := add(plan_ptr, UINT64_SIZE)
+                }
+
+                // Read/eval group by inputs, selection inputs, and fold and dlog them
+                let g_in_star_eval_times_selection_eval
+                plan_ptr, g_in_star_eval_times_selection_eval, num_group_by_columns :=
+                    compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+
+                // Read/eval sum inputs and fold them
+                let sum_in_fold_eval
+                plan_ptr, sum_in_fold_eval, num_sum_columns :=
+                    compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+
+                partial_dlog_zero_sum_constraint_eval :=
+                    mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
+
+                // Read count alias
+                {
+                    let count_alias
+                    plan_ptr, count_alias := read_binary(plan_ptr)
+                }
+
                 plan_ptr_out := plan_ptr
-                evaluations_ptr_out := evaluations_ptr
             }
 
-            function build_groupby_constraints(
-                plan_ptr, builder_ptr, alpha, beta, input_chi_eval, output_chi_eval, evaluations_ptr
-            ) -> plan_ptr_out, evaluations_ptr_out {
-                // Now read the number of group by columns
-                let groupby_column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                if iszero(eq(groupby_column_count, 1)) { err(ERR_UNPROVABLE_GROUP_BY) }
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-                let g_star_selected_eval
-                let g_out_star_eval
-                plan_ptr, g_star_selected_eval :=
-                    get_and_check_group_by_input_columns(
-                        plan_ptr, builder_ptr, alpha, beta, groupby_column_count, input_chi_eval
+            function read_output_evals(
+                builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
+            ) -> evaluations_ptr, output_chi_eval {
+                // Allocate memory for evaluations
+                {
+                    evaluations_ptr := mload(FREE_PTR)
+                    mstore(evaluations_ptr, add(num_group_by_columns, add(num_sum_columns, 1)))
+                    mstore(
+                        FREE_PTR,
+                        add(evaluations_ptr, mul(add(num_group_by_columns, add(num_sum_columns, 2)), WORD_SIZE))
                     )
-                g_out_star_eval, evaluations_ptr :=
-                    get_and_check_group_by_output_columns(
-                        builder_ptr, alpha, beta, groupby_column_count, output_chi_eval, evaluations_ptr
+                }
+
+                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+
+                let g_out_star_eval :=
+                    compute_g_out_star_eval(
+                        builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, add(evaluations_ptr, WORD_SIZE)
                     )
-                plan_ptr_out, evaluations_ptr_out :=
-                    build_groupby_zerosum_constraint(
-                        plan_ptr,
+
+                let sum_out_fold_eval :=
+                    compute_sum_out_fold_eval(
                         builder_ptr,
                         alpha,
                         beta,
-                        input_chi_eval,
                         output_chi_eval,
-                        g_star_selected_eval,
-                        g_out_star_eval,
-                        evaluations_ptr
+                        num_sum_columns,
+                        add(evaluations_ptr, mul(add(num_group_by_columns, 1), WORD_SIZE))
                     )
-            }
 
-            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) ->
-                plan_ptr_out,
-                evaluations_ptr,
-                output_chi_eval
-            {
-                // Table input
-                let input_chi_eval :=
-                    builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-                // Get chi evaluation
-                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
-                // Read the number of result columns
-                {
-                    let total_column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                    plan_ptr := add(plan_ptr, UINT64_SIZE)
-                    evaluations_ptr := mload(FREE_PTR)
-                    mstore(evaluations_ptr, total_column_count)
-                    mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(total_column_count, WORD_SIZE))))
-                }
-                {
-                    let evaluations_ptr_out
-                    plan_ptr, evaluations_ptr_out :=
-                        build_groupby_constraints(
-                            plan_ptr,
-                            builder_ptr,
-                            alpha,
-                            beta,
-                            input_chi_eval,
-                            output_chi_eval,
-                            add(evaluations_ptr, WORD_SIZE)
-                        )
-                }
-                plan_ptr_out := plan_ptr
+                builder_produce_zerosum_constraint(
+                    builder_ptr,
+                    submod_bn254(
+                        partial_dlog_zero_sum_constraint_eval, mulmod_bn254(g_out_star_eval, sum_out_fold_eval)
+                    ),
+                    3
+                )
             }
 
             function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
-                plan_ptr, evaluations_ptr, output_chi_eval :=
-                    check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta)
-                {
-                    // Skip the count alias (we don't need to parse it for verification)
-                    let count_alias
-                    plan_ptr, count_alias := read_binary(plan_ptr)
+
+                let partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
+                plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns :=
+                    read_input_evals(plan_ptr, builder_ptr, alpha, beta)
+
+                // Read output
+                evaluations_ptr, output_chi_eval :=
+                    read_output_evals(
+                        builder_ptr,
+                        alpha,
+                        beta,
+                        partial_dlog_zero_sum_constraint_eval,
+                        num_group_by_columns,
+                        num_sum_columns
+                    )
+                if iszero(eq(add(num_group_by_columns, add(num_sum_columns, 1)), mload(evaluations_ptr))) {
+                    err(ERR_HYPER_KZG_EMPTY_POINT)
                 }
-                plan_ptr_out := plan_ptr
             }
 
             let __planOutOffset
