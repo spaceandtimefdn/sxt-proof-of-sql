@@ -89,12 +89,35 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder.produce_intermediate_mle(c_star as &[_]);
     builder.produce_intermediate_mle(d_star as &[_]);
 
+    final_round_filter_constraints(
+        builder,
+        c_star as &[_],
+        d_star as &[_],
+        s,
+        c_fold as &[_],
+        d_fold as &[_],
+        chi_n,
+        chi_m,
+    );
+}
+
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    c_star: &'a [S],
+    d_star: &'a [S],
+    selection: &'a [bool],
+    c_fold: &'a [S],
+    d_fold: &'a [S],
+    input_chi: &'a [bool],
+    output_chi: &'a [bool],
+) {
     // sum c_star * s - d_star = 0
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::ZeroSum,
         vec![
-            (S::one(), vec![Box::new(c_star as &[_]), Box::new(s)]),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
+            (S::one(), vec![Box::new(c_star), Box::new(selection)]),
+            (-S::one(), vec![Box::new(d_star)]),
         ],
     );
 
@@ -102,12 +125,9 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
         vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
+            (S::one(), vec![Box::new(c_star)]),
+            (S::one(), vec![Box::new(c_star), Box::new(c_fold)]),
+            (-S::one(), vec![Box::new(input_chi)]),
         ],
     );
 
@@ -115,12 +135,9 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
         vec![
-            (S::one(), vec![Box::new(d_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_m as &[_])]),
+            (S::one(), vec![Box::new(d_star)]),
+            (S::one(), vec![Box::new(d_star), Box::new(d_fold)]),
+            (-S::one(), vec![Box::new(output_chi)]),
         ],
     );
 
@@ -128,11 +145,8 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
         vec![
-            (
-                S::one(),
-                vec![Box::new(d_fold as &[_]), Box::new(chi_m as &[_])],
-            ),
-            (-S::one(), vec![Box::new(d_fold as &[_])]),
+            (S::one(), vec![Box::new(d_fold), Box::new(output_chi)]),
+            (-S::one(), vec![Box::new(d_fold)]),
         ],
     );
 }
