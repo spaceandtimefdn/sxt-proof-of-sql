@@ -145,6 +145,7 @@ impl ProofPlan for GroupByExec {
         )?;
         // End compute g_in_star
 
+        // Compute sum_in_fold
         let aggregate_evals = self
             .sum_expr
             .iter()
@@ -154,6 +155,9 @@ impl ProofPlan for GroupByExec {
                     .verifier_evaluate(builder, &accessor, input_chi_eval, params)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
+        // End compute sum_in_fold
+
         // 3. filtered_columns
         let group_by_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
@@ -165,7 +169,6 @@ impl ProofPlan for GroupByExec {
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
         let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
-        let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
         let sum_out_fold_eval =
             count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
 
@@ -301,6 +304,7 @@ impl ProverEvaluate for GroupByExec {
             .expect("selection is not boolean");
         // End compute g_in_star
 
+        // Compute sum_in_fold
         let sum_columns = self
             .sum_expr
             .iter()
@@ -308,6 +312,8 @@ impl ProverEvaluate for GroupByExec {
                 aliased_expr.expr.first_round_evaluate(alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        // End compute sum_in_fold
+
         // Compute filtered_columns
         let AggregatedColumns {
             group_by_columns: group_by_result_columns,
@@ -394,6 +400,7 @@ impl ProverEvaluate for GroupByExec {
         );
         // End compute g_in_star
 
+        // Compute sum_in_fold
         let sum_columns = self
             .sum_expr
             .iter()
@@ -403,6 +410,10 @@ impl ProverEvaluate for GroupByExec {
                     .final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
+        fold_columns(sum_in_fold, beta, beta, &sum_columns);
+        // End compute sum_in_fold
+
         // 3. Compute filtered_columns
         let AggregatedColumns {
             group_by_columns: group_by_result_columns,
@@ -437,9 +448,6 @@ impl ProverEvaluate for GroupByExec {
 
         let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
         fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
-
-        let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
-        fold_columns(sum_in_fold, beta, beta, &sum_columns);
 
         let sum_out_fold = alloc.alloc_slice_fill_default(m);
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
