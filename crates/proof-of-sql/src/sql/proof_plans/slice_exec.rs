@@ -13,7 +13,7 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_gadgets::filter_base::{prove_filter, verify_filter},
+        proof_gadgets::filter_base::{final_round_evaluate_filter, verify_evaluate_filter},
         proof_plans::fold_vals,
     },
     utils::log,
@@ -121,7 +121,7 @@ where
         let c_fold_eval = alpha * fold_vals(beta, columns_evals);
         let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
 
-        verify_filter(
+        verify_evaluate_filter(
             builder,
             c_fold_eval,
             d_fold_eval,
@@ -223,7 +223,7 @@ impl ProverEvaluate for SliceExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        prove_filter::<S>(
+        final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,

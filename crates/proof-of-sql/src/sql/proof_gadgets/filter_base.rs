@@ -10,7 +10,7 @@ use ark_ff::{One, Zero};
 use bumpalo::Bump;
 
 #[expect(clippy::similar_names)]
-pub(crate) fn verify_filter<S: Scalar>(
+pub(crate) fn verify_evaluate_filter<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
     c_fold_eval: S,
     d_fold_eval: S,
@@ -59,7 +59,7 @@ pub(crate) fn verify_filter<S: Scalar>(
 /// `m = output_length`
 #[expect(clippy::too_many_arguments)]
 #[tracing::instrument(level = "debug", skip_all)]
-pub(crate) fn prove_filter<'a, S: Scalar + 'a>(
+pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
     alpha: S,
