@@ -1,4 +1,4 @@
-use super::{filter_exec::prove_filter, DynProofPlan};
+use super::DynProofPlan;
 use crate::{
     base::{
         database::{
@@ -13,7 +13,7 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_gadgets::filter_base::verify_filter,
+        proof_gadgets::filter_base::{prove_filter, verify_filter},
         proof_plans::fold_vals,
     },
     utils::log,

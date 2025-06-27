@@ -1,4 +1,4 @@
-use super::{fold_columns, fold_vals};
+use super::fold_vals;
 use crate::{
     base::{
         database::{
@@ -8,22 +8,20 @@ use crate::{
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
-        slice_ops,
     },
     sql::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, HonestProver, ProofPlan, ProverEvaluate,
-            ProverHonestyMarker, SumcheckSubpolynomialType, VerificationBuilder,
+            ProverHonestyMarker, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
-        proof_gadgets::filter_base::verify_filter,
+        proof_gadgets::filter_base::{prove_filter, verify_filter},
     },
     utils::log,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::vec::Vec;
 use bumpalo::Bump;
 use core::marker::PhantomData;
-use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -281,89 +279,4 @@ impl ProverEvaluate for FilterExec {
 
         Ok(res)
     }
-}
-
-/// Below are the mappings between the names of the parameters in the math and the code
-/// `c = columns`
-/// `d = filtered_columns`
-/// `n = input_length`
-/// `m = output_length`
-#[expect(clippy::too_many_arguments)]
-#[tracing::instrument(level = "debug", skip_all)]
-pub(super) fn prove_filter<'a, S: Scalar + 'a>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    alloc: &'a Bump,
-    alpha: S,
-    beta: S,
-    columns: &[Column<S>],
-    s: &'a [bool],
-    filtered_columns: &[Column<S>],
-    input_length: usize,
-    output_length: usize,
-) {
-    let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
-    let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
-
-    let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
-    fold_columns(c_fold, alpha, beta, columns);
-    let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
-    fold_columns(d_fold, alpha, beta, filtered_columns);
-
-    let c_star = alloc.alloc_slice_copy(c_fold);
-    slice_ops::add_const::<S, S>(c_star, One::one());
-    slice_ops::batch_inversion(c_star);
-
-    let d_star = alloc.alloc_slice_copy(d_fold);
-    slice_ops::add_const::<S, S>(d_star, One::one());
-    slice_ops::batch_inversion(d_star);
-
-    builder.produce_intermediate_mle(c_star as &[_]);
-    builder.produce_intermediate_mle(d_star as &[_]);
-
-    // sum c_star * s - d_star = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::ZeroSum,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_]), Box::new(s)]),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
-        ],
-    );
-
-    // c_star + c_fold * c_star - chi_n = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
-        ],
-    );
-
-    // d_star + d_fold * d_star - chi_m = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(d_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_m as &[_])]),
-        ],
-    );
-
-    // d_fold * chi_m - d_fold = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (
-                S::one(),
-                vec![Box::new(d_fold as &[_]), Box::new(chi_m as &[_])],
-            ),
-            (-S::one(), vec![Box::new(d_fold as &[_])]),
-        ],
-    );
 }
