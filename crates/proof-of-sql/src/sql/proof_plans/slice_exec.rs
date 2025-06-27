@@ -13,7 +13,7 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_gadgets::filter_base::{final_round_evaluate_filter, verify_evaluate_filter},
+        proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
         proof_plans::fold_vals,
     },
     utils::log,
