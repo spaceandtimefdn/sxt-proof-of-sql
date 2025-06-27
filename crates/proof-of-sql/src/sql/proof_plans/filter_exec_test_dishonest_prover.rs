@@ -8,6 +8,7 @@ use crate::{
         map::IndexMap,
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
+        slice_ops,
     },
     sql::{
         proof::{
@@ -18,10 +19,12 @@ use crate::{
             test_utility::{cols_expr_plan, column, const_int128, equal, tab},
             ProofExpr,
         },
-        proof_gadgets::final_round_evaluate_filter,
+        proof_gadgets::final_round_filter_constraints,
+        proof_plans::fold_columns,
     },
     utils::log,
 };
+use ark_ff::{One, Zero};
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
@@ -107,7 +110,6 @@ impl ProverEvaluate for DishonestFilterExec {
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
-        let output_length = selection.iter().filter(|b| **b).count();
         // 2. columns
         let columns: Vec<_> = self
             .aliased_results()
@@ -119,7 +121,7 @@ impl ProverEvaluate for DishonestFilterExec {
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
+        let (filtered_columns, output_length) = filter_columns(alloc, &columns, selection);
         let filtered_columns = tamper_column(alloc, filtered_columns);
         // 3. Produce MLEs
         filtered_columns.iter().copied().for_each(|column| {
@@ -129,16 +131,29 @@ impl ProverEvaluate for DishonestFilterExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        final_round_evaluate_filter(
-            builder,
-            alloc,
-            alpha,
-            beta,
-            &columns,
-            selection,
-            &filtered_columns,
-            table.num_rows(),
-            result_len,
+        let input_length = table.num_rows();
+
+        let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
+        let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
+
+        let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
+        fold_columns(c_fold, alpha, beta, &columns);
+        let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
+        fold_columns(d_fold, alpha, beta, &filtered_columns);
+
+        let c_star = alloc.alloc_slice_copy(c_fold);
+        slice_ops::add_const::<S, S>(c_star, One::one());
+        slice_ops::batch_inversion(c_star);
+
+        let d_star = alloc.alloc_slice_copy(d_fold);
+        slice_ops::add_const::<S, S>(d_star, One::one());
+        slice_ops::batch_inversion(d_star);
+
+        builder.produce_intermediate_mle(c_star as &[_]);
+        builder.produce_intermediate_mle(d_star as &[_]);
+
+        final_round_filter_constraints(
+            builder, c_star, d_star, selection, c_fold, d_fold, chi_n, chi_m,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.aliased_results()

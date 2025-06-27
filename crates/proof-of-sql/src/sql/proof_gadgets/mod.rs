@@ -2,6 +2,8 @@
 #[cfg(test)]
 mod divide_and_modulo_expr;
 mod filter_base;
+#[cfg(test)]
+pub(crate) use filter_base::final_round_filter_constraints;
 pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter};
 mod membership_check;
 mod monotonic;
