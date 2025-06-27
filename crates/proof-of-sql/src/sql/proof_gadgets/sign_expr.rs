@@ -21,7 +21,7 @@ use tracing::{span, Level};
 /// Compute the sign bit for a column of scalars.
 ///
 /// # Panics
-/// Panics if `bits.last()` is `None` or if `result.len()` does not match `table_length`.
+/// Panics if `table_length` does not match `expr.len()`.
 ///
 /// todo! make this more efficient and targeted at just the sign bit rather than all bits to create a proof
 #[tracing::instrument(
@@ -35,25 +35,17 @@ pub fn first_round_evaluate_sign<'a, S: Scalar>(
     expr: &'a [S],
 ) -> &'a [bool] {
     assert_eq!(table_length, expr.len());
-    let signs = if_rayon!(expr.par_iter(), expr.iter())
-        .copied()
-        .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))
-        .collect::<Vec<_>>();
-    assert_eq!(table_length, signs.len());
-    alloc.alloc_slice_copy(&signs)
+    alloc_signs(alloc, expr)
 }
 
 /// Prove the sign decomposition for a column of scalars.
-///
-/// # Panics
-/// Panics if `bits.last()` is `None`.
 ///
 /// If x1, ..., xn denotes the data, prove the column of
 /// booleans, i.e. sign bits, s1, ..., sn where si == 1 if xi > MID and
 /// `si == 1` if `xi <= MID` and `MID` is defined in `base/bit/abs_bit_mask.rs`
 ///
-/// Note: We can only prove the sign bit for non-zero scalars, and we restict
-/// the range of non-zero scalar so that there is a unique sign representation.
+/// Note: We can only prove the sign bit for non-zero scalars, and we restrict
+/// the range of non-zero scalars so that there is a unique sign representation.
 #[tracing::instrument(
     name = "SignExpr::final_round_evaluate_sign",
     level = "debug",
@@ -76,15 +68,7 @@ pub fn final_round_evaluate_sign<'a, S: Scalar>(
         prove_bits_are_binary(builder, &bits);
     }
 
-    // This might panic if `bits.last()` returns `None`.
-    let span = span!(Level::DEBUG, "signs").entered();
-    let signs = if_rayon!(expr.par_iter(), expr.iter())
-        .copied()
-        .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))
-        .collect::<Vec<_>>();
-    span.exit();
-
-    alloc.alloc_slice_copy(&signs)
+    alloc_signs(alloc, expr)
 }
 
 /// Verify the sign decomposition for a column of scalars.
@@ -140,6 +124,17 @@ pub fn verifier_evaluate_sign<S: Scalar>(
     Ok((rhs == eval && is_eval_correct_number_of_bits)
         .then_some(chi_eval - sign_eval)
         .ok_or(BitDistributionError::Verification)?)
+}
+
+/// Allocate a vector of signs for a column of scalars.
+#[tracing::instrument(name = "SignExpr::alloc_signs", level = "debug", skip_all)]
+fn alloc_signs<'a, S: Scalar>(alloc: &'a Bump, expr: &'a [S]) -> &'a [bool] {
+    let signs = if_rayon!(expr.par_iter(), expr.iter())
+        .copied()
+        .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))
+        .collect::<Vec<_>>();
+
+    alloc.alloc_slice_copy(&signs)
 }
 
 fn prove_bits_are_binary<'a, S: Scalar>(
