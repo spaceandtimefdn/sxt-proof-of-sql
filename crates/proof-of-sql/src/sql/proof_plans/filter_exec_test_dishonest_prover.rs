@@ -1,4 +1,4 @@
-use super::{filter_exec::prove_filter, OstensibleFilterExec};
+use super::OstensibleFilterExec;
 use crate::{
     base::{
         database::{
@@ -18,6 +18,7 @@ use crate::{
             test_utility::{cols_expr_plan, column, const_int128, equal, tab},
             ProofExpr,
         },
+        proof_gadgets::filter_base::prove_filter,
     },
     utils::log,
 };
