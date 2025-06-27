@@ -116,6 +116,8 @@ impl ProofPlan for GroupByExec {
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
         let input_chi_eval = chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found")
@@ -150,8 +152,6 @@ impl ProofPlan for GroupByExec {
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
 
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
         let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
@@ -278,6 +278,8 @@ impl ProverEvaluate for GroupByExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
+        builder.request_post_result_challenges(2);
+
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
@@ -326,7 +328,6 @@ impl ProverEvaluate for GroupByExec {
                 ),
         )
         .expect("Failed to create table from column references");
-        builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(count_column.len());
         // Prove result uniqueness if possible
         if self.is_uniqueness_provable() {
@@ -348,6 +349,9 @@ impl ProverEvaluate for GroupByExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
+
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
 
         let table = table_map
             .get(&self.table.table_ref)
@@ -385,9 +389,6 @@ impl ProverEvaluate for GroupByExec {
             ..
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
-
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
 
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
