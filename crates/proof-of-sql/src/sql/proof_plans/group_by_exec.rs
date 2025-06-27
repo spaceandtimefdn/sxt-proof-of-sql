@@ -180,6 +180,13 @@ impl ProofPlan for GroupByExec {
                 output_chi_eval,
             )?;
         }
+        let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
+            2,
+        )?;
 
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
@@ -188,18 +195,10 @@ impl ProofPlan for GroupByExec {
         let sum_out_fold_eval =
             count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
 
-        let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::ZeroSum,
             g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
             3,
-        )?;
-
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
-            2,
         )?;
 
         match (is_uniqueness_provable, result) {
@@ -453,6 +452,23 @@ impl ProverEvaluate for GroupByExec {
                 alloc_g_out_scalars,
             );
         }
+        let g_out_star = alloc.alloc_slice_copy(g_out_fold);
+        slice_ops::add_const::<S, S>(g_out_star, One::one());
+        slice_ops::batch_inversion(g_out_star);
+
+        builder.produce_intermediate_mle(g_out_star as &[_]);
+
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(g_out_star as &[_])]),
+                (
+                    S::one(),
+                    vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
+                ),
+                (-S::one(), vec![Box::new(chi_m as &[_])]),
+            ],
+        );
 
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
@@ -478,12 +494,6 @@ impl ProverEvaluate for GroupByExec {
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
         fold_columns(sum_out_fold, beta, beta, &sum_result_columns);
 
-        let g_out_star = alloc.alloc_slice_copy(g_out_fold);
-        slice_ops::add_const::<S, S>(g_out_star, One::one());
-        slice_ops::batch_inversion(g_out_star);
-
-        builder.produce_intermediate_mle(g_out_star as &[_]);
-
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::ZeroSum,
             vec![
@@ -499,18 +509,6 @@ impl ProverEvaluate for GroupByExec {
                     -S::one(),
                     vec![Box::new(g_out_star as &[_]), Box::new(sum_out_fold as &[_])],
                 ),
-            ],
-        );
-
-        builder.produce_sumcheck_subpolynomial(
-            SumcheckSubpolynomialType::Identity,
-            vec![
-                (S::one(), vec![Box::new(g_out_star as &[_])]),
-                (
-                    S::one(),
-                    vec![Box::new(g_out_star as &[_]), Box::new(g_out_fold as &[_])],
-                ),
-                (-S::one(), vec![Box::new(chi_m as &[_])]),
             ],
         );
 
