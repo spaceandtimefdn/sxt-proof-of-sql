@@ -158,14 +158,14 @@ impl ProofPlan for GroupByExec {
         let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
         // End compute sum_in_fold
 
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
+
         // 3. filtered_columns
         let group_by_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
         let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
@@ -322,6 +322,9 @@ impl ProverEvaluate for GroupByExec {
             ..
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
+
+        builder.produce_chi_evaluation_length(count_column.len());
+
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
         let res = Table::<'a, S>::try_from_iter(
             self.get_column_result_fields()
@@ -335,7 +338,6 @@ impl ProverEvaluate for GroupByExec {
                 ),
         )
         .expect("Failed to create table from column references");
-        builder.produce_chi_evaluation_length(count_column.len());
         // Prove result uniqueness if possible
         if self.is_uniqueness_provable() {
             first_round_evaluate_monotonic(builder, res.num_rows());
@@ -423,6 +425,9 @@ impl ProverEvaluate for GroupByExec {
         } = aggregate_columns(alloc, &group_by_columns, &sum_columns, &[], &[], selection)
             .expect("columns should be aggregatable");
 
+        let m = count_column.len();
+        let chi_m = alloc.alloc_slice_fill_copy(m, true);
+
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
         let columns = group_by_result_columns
@@ -443,8 +448,6 @@ impl ProverEvaluate for GroupByExec {
         }
         // 6. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
-        let m = count_column.len();
-        let chi_m = alloc.alloc_slice_fill_copy(m, true);
 
         let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
         fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
