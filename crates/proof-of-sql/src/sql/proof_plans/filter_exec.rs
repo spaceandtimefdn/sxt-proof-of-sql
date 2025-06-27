@@ -15,7 +15,7 @@ use crate::{
             ProverHonestyMarker, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
-        proof_gadgets::filter_base::{prove_filter, verify_filter},
+        proof_gadgets::filter_base::{final_round_evaluate_filter, verify_evaluate_filter},
     },
     utils::log,
 };
@@ -121,7 +121,7 @@ where
         let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
         let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
 
-        verify_filter(
+        verify_evaluate_filter(
             builder,
             c_fold_eval,
             d_fold_eval,
@@ -255,7 +255,7 @@ impl ProverEvaluate for FilterExec {
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
 
-        prove_filter::<S>(
+        final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,
