@@ -18,7 +18,7 @@ use crate::{
             test_utility::{cols_expr_plan, column, const_int128, equal, tab},
             ProofExpr,
         },
-        proof_gadgets::filter_base::final_round_evaluate_filter,
+        proof_gadgets::final_round_evaluate_filter,
     },
     utils::log,
 };
