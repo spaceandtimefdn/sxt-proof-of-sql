@@ -165,11 +165,26 @@ impl ProofPlan for GroupByExec {
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
         let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
 
+        let is_uniqueness_provable = self.is_uniqueness_provable();
+        if is_uniqueness_provable {
+            assert_eq!(
+                group_by_result_columns_evals.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            verify_monotonic::<S, true, true>(
+                builder,
+                alpha,
+                beta,
+                group_by_result_columns_evals[0],
+                output_chi_eval,
+            )?;
+        }
+
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
 
-        let is_uniqueness_provable = self.is_uniqueness_provable();
         let sum_out_fold_eval =
             count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
 
@@ -187,20 +202,6 @@ impl ProofPlan for GroupByExec {
             2,
         )?;
 
-        if is_uniqueness_provable {
-            assert_eq!(
-                group_by_result_columns_evals.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
-            verify_monotonic::<S, true, true>(
-                builder,
-                alpha,
-                beta,
-                group_by_result_columns_evals[0],
-                output_chi_eval,
-            )?;
-        }
         match (is_uniqueness_provable, result) {
             (true, _) => (),
             (false, Some(table)) => {
@@ -435,6 +436,24 @@ impl ProverEvaluate for GroupByExec {
         let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
         fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
 
+        let check_uniqueness = self.is_uniqueness_provable();
+        if check_uniqueness {
+            assert_eq!(
+                group_by_result_columns.len(),
+                1,
+                "Expected exactly one group by column for uniqueness check"
+            );
+            let g_out_scalars = group_by_result_columns[0].to_scalar();
+            let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
+            final_round_evaluate_monotonic::<S, true, true>(
+                builder,
+                alloc,
+                alpha,
+                beta,
+                alloc_g_out_scalars,
+            );
+        }
+
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
         let columns = group_by_result_columns
@@ -454,7 +473,6 @@ impl ProverEvaluate for GroupByExec {
             builder.produce_intermediate_mle(column);
         }
         // 6. Prove group by
-        let check_uniqueness = self.is_uniqueness_provable();
 
         let sum_out_fold = alloc.alloc_slice_fill_default(m);
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
@@ -495,23 +513,6 @@ impl ProverEvaluate for GroupByExec {
                 (-S::one(), vec![Box::new(chi_m as &[_])]),
             ],
         );
-
-        if check_uniqueness {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
-            let g_out_scalars = group_by_result_columns[0].to_scalar();
-            let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
-            final_round_evaluate_monotonic::<S, true, true>(
-                builder,
-                alloc,
-                alpha,
-                beta,
-                alloc_g_out_scalars,
-            );
-        }
 
         log::log_memory_usage("End");
 
