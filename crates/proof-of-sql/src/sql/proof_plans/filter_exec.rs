@@ -183,7 +183,6 @@ impl ProverEvaluate for FilterExec {
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
-        let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
         let columns: Vec<_> = self
@@ -196,14 +195,14 @@ impl ProverEvaluate for FilterExec {
 
         builder.request_post_result_challenges(2);
         // Compute filtered_columns and indexes
-        let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
-        builder.produce_chi_evaluation_length(output_length);
+        let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
+        builder.produce_chi_evaluation_length(result_len);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.aliased_results
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
+            TableOptions::new(Some(result_len)),
         )
         .expect("Failed to create table from iterator");
 
@@ -250,7 +249,6 @@ impl ProverEvaluate for FilterExec {
         filtered_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
-        let output_length = selection.iter().filter(|b| **b).count();
 
         final_round_evaluate_filter::<S>(
             builder,
@@ -268,7 +266,7 @@ impl ProverEvaluate for FilterExec {
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
+            TableOptions::new(Some(result_len)),
         )
         .expect("Failed to create table from iterator");
 

@@ -152,17 +152,16 @@ impl ProverEvaluate for SliceExec {
         };
         builder.produce_chi_evaluation_length(offset_index);
         builder.produce_chi_evaluation_length(max_index);
-        let output_length = max_index - offset_index;
         builder.request_post_result_challenges(2);
         // Compute filtered_columns
-        let (filtered_columns, _) = filter_columns(alloc, &columns, &select);
-        builder.produce_chi_evaluation_length(output_length);
+        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
+        builder.produce_chi_evaluation_length(result_len);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.get_column_result_fields()
                 .into_iter()
                 .map(|expr| expr.name())
                 .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
+            TableOptions::new(Some(result_len)),
         )
         .expect("Failed to create table from iterator");
 
@@ -197,7 +196,6 @@ impl ProverEvaluate for SliceExec {
         filtered_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
-        let output_length = select.iter().filter(|b| **b).count();
 
         final_round_evaluate_filter::<S>(
             builder,
@@ -215,7 +213,7 @@ impl ProverEvaluate for SliceExec {
                 .into_iter()
                 .map(|expr| expr.name())
                 .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
+            TableOptions::new(Some(result_len)),
         )
         .expect("Failed to create table from iterator");
 
