@@ -13,7 +13,9 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
+        proof_gadgets::{
+            final_round_evaluate_filter, first_round_evaluate_filter, verify_evaluate_filter,
+        },
     },
     utils::log,
 };
@@ -93,7 +95,6 @@ where
         // 3. filtered_columns
         let filtered_columns_evals =
             builder.try_consume_final_round_mle_evaluations(columns_evals.len())?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         verify_evaluate_filter(
             builder,
@@ -102,13 +103,8 @@ where
             &columns_evals,
             &filtered_columns_evals,
             input_table_eval.chi_eval(),
-            output_chi_eval,
             selection_eval,
-        )?;
-        Ok(TableEvaluation::new(
-            filtered_columns_evals,
-            output_chi_eval,
-        ))
+        )
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -155,7 +151,7 @@ impl ProverEvaluate for SliceExec {
         builder.request_post_result_challenges(2);
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
-        builder.produce_chi_evaluation_length(result_len);
+        first_round_evaluate_filter(builder, result_len);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.get_column_result_fields()
                 .into_iter()

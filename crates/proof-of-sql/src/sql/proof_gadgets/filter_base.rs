@@ -1,7 +1,14 @@
 use crate::{
-    base::{database::Column, proof::ProofError, scalar::Scalar, slice_ops},
+    base::{
+        database::{Column, TableEvaluation},
+        proof::ProofError,
+        scalar::Scalar,
+        slice_ops,
+    },
     sql::{
-        proof::{FinalRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder},
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder,
+        },
         proof_plans::{fold_columns, fold_vals},
     },
 };
@@ -17,9 +24,9 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
     column_evals: &[S],
     filtered_columns_evals: &[S],
     chi_n_eval: S,
-    chi_m_eval: S,
     s_eval: S,
-) -> Result<(), ProofError> {
+) -> Result<TableEvaluation<S>, ProofError> {
+    let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
     let c_fold_eval = alpha * fold_vals(beta, column_evals);
     let d_fold_eval = alpha * fold_vals(beta, filtered_columns_evals);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
@@ -53,7 +60,18 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
         2,
     )?;
 
-    Ok(())
+    Ok(TableEvaluation::new(
+        filtered_columns_evals.to_vec(),
+        chi_m_eval,
+    ))
+}
+
+#[expect(clippy::missing_panics_doc)]
+pub(crate) fn first_round_evaluate_filter<S: Scalar>(
+    builder: &mut FirstRoundBuilder<S>,
+    output_length: usize,
+) {
+    builder.produce_chi_evaluation_length(output_length);
 }
 
 /// Below are the mappings between the names of the parameters in the math and the code
