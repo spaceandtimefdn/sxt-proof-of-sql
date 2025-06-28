@@ -2,8 +2,7 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table,
-            TableEvaluation, TableRef,
+            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -90,18 +89,10 @@ where
         let offset_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let max_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let selection_eval = max_chi_eval - offset_chi_eval;
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(columns_evals.len())?;
 
         verify_evaluate_filter(
             builder,
-            alpha,
-            beta,
-            &columns_evals,
-            &filtered_columns_evals,
+            columns_evals,
             input_table_eval.chi_eval(),
             selection_eval,
         )
@@ -138,7 +129,8 @@ impl ProverEvaluate for SliceExec {
         let input_length = input.num_rows();
         let columns = input.columns().copied().collect::<Vec<_>>();
         // 2. select
-        let select = get_slice_select(input_length, self.skip, self.fetch);
+        let selection =
+            alloc.alloc_slice_copy(&get_slice_select(input_length, self.skip, self.fetch));
         // The selected range is (offset_index, max_index]
         let offset_index = self.skip.min(input_length);
         let max_index = if let Some(fetch) = self.fetch {
@@ -146,17 +138,15 @@ impl ProverEvaluate for SliceExec {
         } else {
             input_length
         };
-        builder.produce_chi_evaluation_length(offset_index);
-        builder.produce_chi_evaluation_length(max_index);
-        builder.request_post_result_challenges(2);
-        // Compute filtered_columns
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
         let output_idents = self
             .get_column_result_fields()
             .into_iter()
             .map(|expr| expr.name())
-            .collect::<Vec<_>>();
-        let res = first_round_evaluate_filter(builder, result_len, output_idents, filtered_columns);
+            .collect();
+        builder.produce_chi_evaluation_length(offset_index);
+        builder.produce_chi_evaluation_length(max_index);
+
+        let res = first_round_evaluate_filter(builder, alloc, selection, &columns, output_idents);
 
         log::log_memory_usage("End");
 
@@ -180,31 +170,20 @@ impl ProverEvaluate for SliceExec {
         let columns = input.columns().copied().collect::<Vec<_>>();
         // 2. select
         let select = get_slice_select(input.num_rows(), self.skip, self.fetch);
-        let select_ref: &'a [_] = alloc.alloc_slice_copy(&select);
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-        // Compute filtered_columns and indexes
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
-        // 3. Produce MLEs
-        filtered_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
+        let selection: &'a [_] = alloc.alloc_slice_copy(&select);
         let output_idents = self
             .get_column_result_fields()
             .into_iter()
             .map(|expr| expr.name())
-            .collect::<Vec<_>>();
-        let res = final_round_evaluate_filter::<S>(
+            .collect();
+
+        let res = final_round_evaluate_filter(
             builder,
             alloc,
-            alpha,
-            beta,
             &columns,
             output_idents,
-            select_ref,
-            filtered_columns,
+            selection,
             input.num_rows(),
-            result_len,
         );
 
         log::log_memory_usage("End");

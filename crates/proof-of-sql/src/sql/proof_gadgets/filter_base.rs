@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{Column, Table, TableEvaluation, TableOptions},
+        database::{filter_util::filter_columns, Column, Table, TableEvaluation, TableOptions},
         proof::ProofError,
         scalar::Scalar,
         slice_ops,
@@ -12,24 +12,26 @@ use crate::{
         proof_plans::{fold_columns, fold_vals},
     },
 };
-use alloc::{boxed::Box, vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use ark_ff::{One, Zero};
 use bumpalo::Bump;
 use sqlparser::ast::Ident;
 
-#[expect(clippy::similar_names)]
+#[expect(clippy::missing_panics_doc)]
 pub(crate) fn verify_evaluate_filter<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
-    alpha: S,
-    beta: S,
     column_evals: &[S],
-    filtered_columns_evals: &[S],
     chi_n_eval: S,
     s_eval: S,
 ) -> Result<TableEvaluation<S>, ProofError> {
+    let alpha = builder.try_consume_post_result_challenge()?;
+    let beta = builder.try_consume_post_result_challenge()?;
+    let filtered_columns_evals =
+        builder.try_consume_final_round_mle_evaluations(column_evals.len())?;
+    assert_eq!(column_evals.len(), filtered_columns_evals.len());
     let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
     let c_fold_eval = alpha * fold_vals(beta, column_evals);
-    let d_fold_eval = alpha * fold_vals(beta, filtered_columns_evals);
+    let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
@@ -70,15 +72,16 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
 #[expect(clippy::missing_panics_doc)]
 pub(crate) fn first_round_evaluate_filter<'a, S: Scalar>(
     builder: &mut FirstRoundBuilder<S>,
-    output_length: usize,
+    alloc: &'a Bump,
+    selection: &'a [bool],
+    columns: &[Column<'a, S>],
     output_idents: Vec<Ident>,
-    filtered_columns: Vec<Column<'a, S>>,
 ) -> Table<'a, S> {
+    builder.request_post_result_challenges(2);
+    let (filtered_columns, output_length) = filter_columns(alloc, columns, selection);
     builder.produce_chi_evaluation_length(output_length);
     Table::<'a, S>::try_from_iter_with_options(
-        output_idents
-            .into_iter()
-            .zip(filtered_columns.into_iter().clone()),
+        output_idents.into_iter().zip(filtered_columns),
         TableOptions::new(Some(output_length)),
     )
     .expect("Failed to create table from iterator")
@@ -89,20 +92,22 @@ pub(crate) fn first_round_evaluate_filter<'a, S: Scalar>(
 /// `d = filtered_columns`
 /// `n = input_length`
 /// `m = output_length`
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::missing_panics_doc)]
 #[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
-    alpha: S,
-    beta: S,
-    columns: &[Column<S>],
+    columns: &[Column<'a, S>],
     output_idents: Vec<Ident>,
     s: &'a [bool],
-    filtered_columns: Vec<Column<'a, S>>,
     input_length: usize,
-    output_length: usize,
 ) -> Table<'a, S> {
+    let alpha = builder.consume_post_result_challenge();
+    let beta = builder.consume_post_result_challenge();
+    let (filtered_columns, output_length) = filter_columns(alloc, columns, s);
+    filtered_columns.iter().copied().for_each(|column| {
+        builder.produce_intermediate_mle(column);
+    });
     let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
     let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
 
@@ -134,9 +139,7 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     );
 
     Table::<'a, S>::try_from_iter_with_options(
-        output_idents
-            .into_iter()
-            .zip(filtered_columns.into_iter().clone()),
+        output_idents.into_iter().zip(filtered_columns),
         TableOptions::new(Some(output_length)),
     )
     .expect("Failed to create table from iterator")

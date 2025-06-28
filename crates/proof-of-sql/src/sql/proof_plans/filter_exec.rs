@@ -1,8 +1,8 @@
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, OwnedTable,
-            Table, TableEvaluation, TableRef,
+            Column, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -110,22 +110,7 @@ where
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
-
-        verify_evaluate_filter(
-            builder,
-            alpha,
-            beta,
-            &columns_evals,
-            &filtered_columns_evals,
-            input_chi_eval.0,
-            selection_eval,
-        )
+        verify_evaluate_filter(builder, &columns_evals, input_chi_eval.0, selection_eval)
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -180,23 +165,21 @@ impl ProverEvaluate for FilterExec {
             .expect("selection is not boolean");
 
         // 2. columns
-        let columns: Vec<_> = self
+        let (columns, output_idents): (Vec<_>, Vec<_>) = self
             .aliased_results
             .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr.expr.first_round_evaluate(alloc, table, params)
+            .map(|aliased_expr| {
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, table, params)
+                    .map(|col| (col, aliased_expr.alias.clone()))
             })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
+            .collect::<PlaceholderResult<Vec<_>>>()?
+            .into_iter()
+            .unzip();
 
-        builder.request_post_result_challenges(2);
         // Compute filtered_columns and indexes
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
-        let output_idents = self
-            .aliased_results
-            .iter()
-            .map(|expr| expr.alias.clone())
-            .collect::<Vec<_>>();
-        let res = first_round_evaluate_filter(builder, result_len, output_idents, filtered_columns);
+        let res = first_round_evaluate_filter(builder, alloc, selection, &columns, output_idents);
 
         log::log_memory_usage("End");
 
@@ -224,40 +207,26 @@ impl ProverEvaluate for FilterExec {
             .expect("selection is not boolean");
 
         // 2. columns
-        let columns: Vec<_> = self
+        let (columns, output_idents): (Vec<_>, Vec<_>) = self
             .aliased_results
             .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
+            .map(|aliased_expr| -> PlaceholderResult<_> {
                 aliased_expr
                     .expr
                     .final_round_evaluate(builder, alloc, table, params)
+                    .map(|col| (col, aliased_expr.alias.clone()))
             })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-        // Compute filtered_columns
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
-        // 3. Produce MLEs
-        filtered_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
+            .collect::<PlaceholderResult<Vec<_>>>()?
+            .into_iter()
+            .unzip();
 
-        let output_idents = self
-            .aliased_results
-            .iter()
-            .map(|expr| expr.alias.clone())
-            .collect::<Vec<_>>();
-        let res = final_round_evaluate_filter::<S>(
+        let res = final_round_evaluate_filter(
             builder,
             alloc,
-            alpha,
-            beta,
             &columns,
             output_idents,
             selection,
-            filtered_columns,
             table.num_rows(),
-            result_len,
         );
 
         log::log_memory_usage("End");
