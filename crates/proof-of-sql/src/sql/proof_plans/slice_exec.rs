@@ -83,7 +83,6 @@ where
         let input_table_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let columns_evals = input_table_eval.column_evals();
         // 2. selection
         // The selected range is (offset_index, max_index]
@@ -95,6 +94,7 @@ where
         // 3. filtered_columns
         let filtered_columns_evals =
             builder.try_consume_final_round_mle_evaluations(columns_evals.len())?;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
         let c_fold_eval = alpha * fold_vals(beta, columns_evals);
         let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
@@ -152,10 +152,13 @@ impl ProverEvaluate for SliceExec {
         } else {
             input_length
         };
+        builder.produce_chi_evaluation_length(offset_index);
+        builder.produce_chi_evaluation_length(max_index);
         let output_length = max_index - offset_index;
         builder.request_post_result_challenges(2);
         // Compute filtered_columns
         let (filtered_columns, _) = filter_columns(alloc, &columns, &select);
+        builder.produce_chi_evaluation_length(output_length);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.get_column_result_fields()
                 .into_iter()
@@ -164,9 +167,6 @@ impl ProverEvaluate for SliceExec {
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");
-        builder.produce_chi_evaluation_length(output_length);
-        builder.produce_chi_evaluation_length(offset_index);
-        builder.produce_chi_evaluation_length(max_index);
 
         log::log_memory_usage("End");
 
@@ -191,7 +191,6 @@ impl ProverEvaluate for SliceExec {
         // 2. select
         let select = get_slice_select(input.num_rows(), self.skip, self.fetch);
         let select_ref: &'a [_] = alloc.alloc_slice_copy(&select);
-        let output_length = select.iter().filter(|b| **b).count();
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
         // Compute filtered_columns and indexes
@@ -200,6 +199,7 @@ impl ProverEvaluate for SliceExec {
         filtered_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
+        let output_length = select.iter().filter(|b| **b).count();
 
         final_round_evaluate_filter::<S>(
             builder,
