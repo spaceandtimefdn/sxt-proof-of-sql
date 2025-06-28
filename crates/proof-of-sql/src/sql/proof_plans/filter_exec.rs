@@ -1,4 +1,3 @@
-use super::fold_vals;
 use crate::{
     base::{
         database::{
@@ -118,13 +117,12 @@ where
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
 
-        let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
         verify_evaluate_filter(
             builder,
-            c_fold_eval,
-            d_fold_eval,
+            alpha,
+            beta,
+            &columns_evals,
+            &filtered_columns_evals,
             input_chi_eval.0,
             output_chi_eval,
             selection_eval,
