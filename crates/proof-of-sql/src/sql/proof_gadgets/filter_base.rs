@@ -15,6 +15,7 @@ use crate::{
 use alloc::{boxed::Box, vec};
 use ark_ff::{One, Zero};
 use bumpalo::Bump;
+use sqlparser::ast::Ident;
 
 #[expect(clippy::similar_names)]
 pub(crate) fn verify_evaluate_filter<S: Scalar>(
@@ -70,6 +71,8 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
 pub(crate) fn first_round_evaluate_filter<S: Scalar>(
     builder: &mut FirstRoundBuilder<S>,
     output_length: usize,
+    _output_idents: Vec<Ident>,
+    _filtered_columns: &[Column<S>],
 ) {
     builder.produce_chi_evaluation_length(output_length);
 }
@@ -87,6 +90,7 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     alpha: S,
     beta: S,
     columns: &[Column<S>],
+    _output_idents: Vec<Ident>,
     s: &'a [bool],
     filtered_columns: &[Column<S>],
     input_length: usize,

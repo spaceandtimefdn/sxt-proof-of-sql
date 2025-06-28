@@ -191,7 +191,12 @@ impl ProverEvaluate for FilterExec {
         builder.request_post_result_challenges(2);
         // Compute filtered_columns and indexes
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
-        first_round_evaluate_filter(builder, result_len);
+        let output_idents = self
+            .aliased_results
+            .iter()
+            .map(|expr| expr.alias.clone())
+            .collect::<Vec<_>>();
+        first_round_evaluate_filter(builder, result_len, output_idents, &filtered_columns);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.aliased_results
                 .iter()
@@ -245,12 +250,18 @@ impl ProverEvaluate for FilterExec {
             builder.produce_intermediate_mle(column);
         });
 
+        let output_idents = self
+            .aliased_results
+            .iter()
+            .map(|expr| expr.alias.clone())
+            .collect::<Vec<_>>();
         final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,
             beta,
             &columns,
+            output_idents,
             selection,
             &filtered_columns,
             table.num_rows(),

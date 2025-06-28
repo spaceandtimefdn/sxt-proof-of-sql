@@ -151,7 +151,12 @@ impl ProverEvaluate for SliceExec {
         builder.request_post_result_challenges(2);
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
-        first_round_evaluate_filter(builder, result_len);
+        let output_idents = self
+            .get_column_result_fields()
+            .into_iter()
+            .map(|expr| expr.name())
+            .collect::<Vec<_>>();
+        first_round_evaluate_filter(builder, result_len, output_idents, &filtered_columns);
         let res = Table::<'a, S>::try_from_iter_with_options(
             self.get_column_result_fields()
                 .into_iter()
@@ -192,13 +197,18 @@ impl ProverEvaluate for SliceExec {
         filtered_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
-
+        let output_idents = self
+            .get_column_result_fields()
+            .into_iter()
+            .map(|expr| expr.name())
+            .collect::<Vec<_>>();
         final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,
             beta,
             &columns,
+            output_idents,
             select_ref,
             &filtered_columns,
             input.num_rows(),
