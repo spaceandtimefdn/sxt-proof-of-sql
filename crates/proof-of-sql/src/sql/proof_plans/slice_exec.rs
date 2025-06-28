@@ -3,7 +3,7 @@ use crate::{
     base::{
         database::{
             filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table,
-            TableEvaluation, TableOptions, TableRef,
+            TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -156,15 +156,7 @@ impl ProverEvaluate for SliceExec {
             .into_iter()
             .map(|expr| expr.name())
             .collect::<Vec<_>>();
-        first_round_evaluate_filter(builder, result_len, output_idents, &filtered_columns);
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|expr| expr.name())
-                .zip(filtered_columns),
-            TableOptions::new(Some(result_len)),
-        )
-        .expect("Failed to create table from iterator");
+        let res = first_round_evaluate_filter(builder, result_len, output_idents, filtered_columns);
 
         log::log_memory_usage("End");
 
@@ -202,7 +194,7 @@ impl ProverEvaluate for SliceExec {
             .into_iter()
             .map(|expr| expr.name())
             .collect::<Vec<_>>();
-        final_round_evaluate_filter::<S>(
+        let res = final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,
@@ -210,18 +202,10 @@ impl ProverEvaluate for SliceExec {
             &columns,
             output_idents,
             select_ref,
-            &filtered_columns,
+            filtered_columns,
             input.num_rows(),
             result_len,
         );
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|expr| expr.name())
-                .zip(filtered_columns),
-            TableOptions::new(Some(result_len)),
-        )
-        .expect("Failed to create table from iterator");
 
         log::log_memory_usage("End");
 

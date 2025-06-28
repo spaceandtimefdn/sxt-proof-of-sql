@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{Column, TableEvaluation},
+        database::{Column, Table, TableEvaluation, TableOptions},
         proof::ProofError,
         scalar::Scalar,
         slice_ops,
@@ -68,13 +68,20 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
 }
 
 #[expect(clippy::missing_panics_doc)]
-pub(crate) fn first_round_evaluate_filter<S: Scalar>(
+pub(crate) fn first_round_evaluate_filter<'a, S: Scalar>(
     builder: &mut FirstRoundBuilder<S>,
     output_length: usize,
-    _output_idents: Vec<Ident>,
-    _filtered_columns: &[Column<S>],
-) {
+    output_idents: Vec<Ident>,
+    filtered_columns: Vec<Column<'a, S>>,
+) -> Table<'a, S> {
     builder.produce_chi_evaluation_length(output_length);
+    Table::<'a, S>::try_from_iter_with_options(
+        output_idents
+            .into_iter()
+            .zip(filtered_columns.into_iter().clone()),
+        TableOptions::new(Some(output_length)),
+    )
+    .expect("Failed to create table from iterator")
 }
 
 /// Below are the mappings between the names of the parameters in the math and the code
@@ -90,19 +97,19 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
     alpha: S,
     beta: S,
     columns: &[Column<S>],
-    _output_idents: Vec<Ident>,
+    output_idents: Vec<Ident>,
     s: &'a [bool],
-    filtered_columns: &[Column<S>],
+    filtered_columns: Vec<Column<'a, S>>,
     input_length: usize,
     output_length: usize,
-) {
+) -> Table<'a, S> {
     let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
     let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
 
     let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
     fold_columns(c_fold, alpha, beta, columns);
     let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
-    fold_columns(d_fold, alpha, beta, filtered_columns);
+    fold_columns(d_fold, alpha, beta, &filtered_columns);
 
     let c_star = alloc.alloc_slice_copy(c_fold);
     slice_ops::add_const::<S, S>(c_star, One::one());
@@ -125,6 +132,14 @@ pub(crate) fn final_round_evaluate_filter<'a, S: Scalar + 'a>(
         chi_n,
         chi_m,
     );
+
+    Table::<'a, S>::try_from_iter_with_options(
+        output_idents
+            .into_iter()
+            .zip(filtered_columns.into_iter().clone()),
+        TableOptions::new(Some(output_length)),
+    )
+    .expect("Failed to create table from iterator")
 }
 
 #[expect(clippy::too_many_arguments)]

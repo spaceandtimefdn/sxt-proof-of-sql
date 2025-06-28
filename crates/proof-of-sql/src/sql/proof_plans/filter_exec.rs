@@ -2,7 +2,7 @@ use crate::{
     base::{
         database::{
             filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, OwnedTable,
-            Table, TableEvaluation, TableOptions, TableRef,
+            Table, TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -196,15 +196,7 @@ impl ProverEvaluate for FilterExec {
             .iter()
             .map(|expr| expr.alias.clone())
             .collect::<Vec<_>>();
-        first_round_evaluate_filter(builder, result_len, output_idents, &filtered_columns);
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
-            TableOptions::new(Some(result_len)),
-        )
-        .expect("Failed to create table from iterator");
+        let res = first_round_evaluate_filter(builder, result_len, output_idents, filtered_columns);
 
         log::log_memory_usage("End");
 
@@ -255,7 +247,7 @@ impl ProverEvaluate for FilterExec {
             .iter()
             .map(|expr| expr.alias.clone())
             .collect::<Vec<_>>();
-        final_round_evaluate_filter::<S>(
+        let res = final_round_evaluate_filter::<S>(
             builder,
             alloc,
             alpha,
@@ -263,18 +255,10 @@ impl ProverEvaluate for FilterExec {
             &columns,
             output_idents,
             selection,
-            &filtered_columns,
+            filtered_columns,
             table.num_rows(),
             result_len,
         );
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
-            TableOptions::new(Some(result_len)),
-        )
-        .expect("Failed to create table from iterator");
 
         log::log_memory_usage("End");
 
