@@ -83,9 +83,6 @@ where
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
@@ -111,6 +108,9 @@ where
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
+
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
         // 3. filtered_columns
         let filtered_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
@@ -196,6 +196,7 @@ impl ProverEvaluate for FilterExec {
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
 
+        builder.request_post_result_challenges(2);
         // Compute filtered_columns and indexes
         let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
         let res = Table::<'a, S>::try_from_iter_with_options(
@@ -206,7 +207,6 @@ impl ProverEvaluate for FilterExec {
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");
-        builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(output_length);
 
         log::log_memory_usage("End");
@@ -223,9 +223,6 @@ impl ProverEvaluate for FilterExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
@@ -248,6 +245,8 @@ impl ProverEvaluate for FilterExec {
                     .final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
         // 3. Produce MLEs
