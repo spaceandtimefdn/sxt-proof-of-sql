@@ -163,12 +163,13 @@ impl ProofPlan for GroupByExec {
         // 3. filtered_columns
         let group_by_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.group_by_exprs.len())?;
+        let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
+
         let sum_result_columns_evals =
             builder.try_consume_final_round_mle_evaluations(self.sum_expr.len())?;
         let count_column_eval = builder.try_consume_final_round_mle_evaluation()?;
 
         let is_uniqueness_provable = self.is_uniqueness_provable();
-        let g_out_fold_eval = alpha * fold_vals(beta, &group_by_result_columns_evals);
         let sum_out_fold_eval =
             count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
 
@@ -428,12 +429,18 @@ impl ProverEvaluate for GroupByExec {
         let m = count_column.len();
         let chi_m = alloc.alloc_slice_fill_copy(m, true);
 
+        for column in &group_by_result_columns {
+            builder.produce_intermediate_mle(*column);
+        }
+        let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
+        fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
+
         // 4. Tally results
         let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
         let columns = group_by_result_columns
             .clone()
             .into_iter()
-            .chain(sum_result_columns_iter)
+            .chain(sum_result_columns_iter.clone())
             .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
             self.get_column_result_fields()
@@ -443,14 +450,11 @@ impl ProverEvaluate for GroupByExec {
         )
         .expect("Failed to create table from column references");
         // 5. Produce MLEs
-        for column in columns {
+        for column in sum_result_columns_iter.chain(iter::once(Column::BigInt(count_column))) {
             builder.produce_intermediate_mle(column);
         }
         // 6. Prove group by
         let check_uniqueness = self.is_uniqueness_provable();
-
-        let g_out_fold = alloc.alloc_slice_fill_copy(m, Zero::zero());
-        fold_columns(g_out_fold, alpha, beta, &group_by_result_columns);
 
         let sum_out_fold = alloc.alloc_slice_fill_default(m);
         slice_ops::slice_cast_mut(count_column, sum_out_fold);
