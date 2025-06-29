@@ -384,12 +384,13 @@ library GroupByExec {
             ) -> evaluations_ptr, output_chi_eval {
                 // Allocate memory for evaluations
                 {
-                    evaluations_ptr := mload(FREE_PTR)
-                    mstore(evaluations_ptr, add(num_group_by_columns, add(num_sum_columns, 1)))
-                    mstore(
-                        FREE_PTR,
-                        add(evaluations_ptr, mul(add(num_group_by_columns, add(num_sum_columns, 2)), WORD_SIZE))
-                    )
+                    let free_ptr := mload(FREE_PTR)
+                    evaluations_ptr := free_ptr
+                    let num_evals := add(num_group_by_columns, add(num_sum_columns, 1))
+                    mstore(free_ptr, num_evals)
+                    free_ptr := add(free_ptr, WORD_SIZE)
+                    free_ptr := add(free_ptr, mul(num_evals, WORD_SIZE))
+                    mstore(FREE_PTR, free_ptr)
                 }
 
                 output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
