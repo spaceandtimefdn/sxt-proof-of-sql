@@ -269,7 +269,7 @@ library GroupByExec {
             {
                 num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 // We can not prove uniqueness for multiple columns yet
-                if iszero(eq(num_group_by_columns, 1)) { err(ERR_UNPROVABLE_GROUP_BY) }
+                if sub(num_group_by_columns, 1) { err(ERR_UNPROVABLE_GROUP_BY) }
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 // Process group by columns
@@ -436,9 +436,6 @@ library GroupByExec {
                         num_group_by_columns,
                         num_sum_columns
                     )
-                if iszero(eq(add(num_group_by_columns, add(num_sum_columns, 1)), mload(evaluations_ptr))) {
-                    err(ERR_HYPER_KZG_EMPTY_POINT)
-                }
             }
 
             let __planOutOffset
