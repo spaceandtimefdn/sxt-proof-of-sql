@@ -6,6 +6,8 @@ pragma solidity ^0.8.28;
 uint256 constant MODULUS = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000001;
 /// @dev The largest mask that can be applied to a 256-bit number in order to enforce that it is less than the modulus.
 uint256 constant MODULUS_MASK = 0x1FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF;
+/// @dev A mask that can be applied to a bit distributions vary mask to see if it is valid, given the modulus.
+uint256 constant MODULUS_INVALID_VARY_MASK = 0x60000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000;
 /// @dev MODULUS + 1. Needs to be explicit for Yul usage.
 uint256 constant MODULUS_PLUS_ONE = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000002;
 /// @dev MODULUS - 1. Needs to be explicit for Yul usage.
@@ -99,9 +101,23 @@ uint32 constant AND_EXPR_VARIANT = 6;
 uint32 constant OR_EXPR_VARIANT = 7;
 /// @dev Not variant constant for proof expressions
 uint32 constant NOT_EXPR_VARIANT = 8;
+/// @dev Cast variant constant for proof expressions
+uint32 constant CAST_EXPR_VARIANT = 9;
+/// @dev Inequality variant constant for proof expressions
+uint32 constant INEQUALITY_EXPR_VARIANT = 10;
+/// @dev Placeholder variant constant for proof expressions
+uint32 constant PLACEHOLDER_EXPR_VARIANT = 11;
 
 /// @dev Filter variant constant for proof plans
 uint32 constant FILTER_EXEC_VARIANT = 0;
+/// @dev Empty variant constant for proof plans
+uint32 constant EMPTY_EXEC_VARIANT = 1;
+/// @dev Table variant constant for proof plans
+uint32 constant TABLE_EXEC_VARIANT = 2;
+/// @dev Projection variant constant for proof plans
+uint32 constant PROJECTION_EXEC_VARIANT = 3;
+/// @dev Group By variant constant for proof plans
+uint32 constant GROUP_BY_EXEC_VARIANT = 5;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;
@@ -113,10 +129,16 @@ uint32 constant DATA_TYPE_SMALLINT_VARIANT = 3;
 uint32 constant DATA_TYPE_INT_VARIANT = 4;
 /// @dev BigInt variant constant for column types
 uint32 constant DATA_TYPE_BIGINT_VARIANT = 5;
+/// @dev Varchar variant constant for column types
+uint32 constant DATA_TYPE_VARCHAR_VARIANT = 7;
 /// @dev Decimal75 variant constant for column types
 uint32 constant DATA_TYPE_DECIMAL75_VARIANT = 8;
 /// @dev Timestamp variant constant for column types
 uint32 constant DATA_TYPE_TIMESTAMP_VARIANT = 9;
+/// @dev Scalar variant constant for column types
+uint32 constant DATA_TYPE_SCALAR_VARIANT = 10;
+/// @dev Varbinary variant constant for column types
+uint32 constant DATA_TYPE_VARBINARY_VARIANT = 11;
 
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;
@@ -168,7 +190,7 @@ uint256 constant VK_TAU_HY_REAL = 0x2bad9a374aec49d329ec66e8f530f68509313450580c
 uint256 constant VK_TAU_HY_IMAG = 0x219edfceee1723de674f5b2f6fdb69d9e32dd53b15844956a630d3c7cdaa6ed9;
 
 /// @dev Size of the verification builder in bytes.
-uint256 constant VERIFICATION_BUILDER_SIZE = 0x20 * 13;
+uint256 constant VERIFICATION_BUILDER_SIZE = 0x20 * 16;
 /// @dev Offset of the pointer to the challenge queue in the verification builder.
 uint256 constant BUILDER_CHALLENGES_OFFSET = 0x20 * 0;
 /// @dev Offset of the pointer to the first round MLEs in the verification builder.
@@ -191,10 +213,16 @@ uint256 constant BUILDER_ROW_MULTIPLIERS_EVALUATION_OFFSET = 0x20 * 8;
 uint256 constant BUILDER_COLUMN_EVALUATIONS_OFFSET = 0x20 * 9;
 /// @dev Offset of the pointer to the table chi evaluations in the verification builder.
 uint256 constant BUILDER_TABLE_CHI_EVALUATIONS_OFFSET = 0x20 * 10;
+/// @dev Offset of the placeholder parameters in the verification builder.
+uint256 constant BUILDER_PLACEHOLDER_PARAMETERS_OFFSET = 0x20 * 11;
 /// @dev Offset of the pointer to the first round commitments in the verification builder.
-uint256 constant BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET = 0x20 * 11;
+uint256 constant BUILDER_FIRST_ROUND_COMMITMENTS_OFFSET = 0x20 * 12;
 /// @dev Offset of the pointer to the final round commitments in the verification builder.
-uint256 constant BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET = 0x20 * 12;
+uint256 constant BUILDER_FINAL_ROUND_COMMITMENTS_OFFSET = 0x20 * 13;
+/// @dev Offset of the singleton chi evaluation in the verification builder.
+uint256 constant BUILDER_SINGLETON_CHI_EVALUATION_OFFSET = 0x20 * 14;
+/// @dev Offset of the pointer to the final round bit distributions in the verification builder.
+uint256 constant BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET = 0x20 * 15;
 
 /// @dev The initial transcript state. This is the hash of the empty string.
 uint256 constant INITIAL_TRANSCRIPT_STATE = 0x7c26f909f37b2c61df0bb3b19f76296469cb4d07b582a215c4e2b1f7a05527c3;
