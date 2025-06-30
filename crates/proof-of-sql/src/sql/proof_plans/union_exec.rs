@@ -1,4 +1,4 @@
-use super::{fold_columns, fold_vals, DynProofPlan};
+use super::DynProofPlan;
 use crate::{
     base::{
         database::{
@@ -9,16 +9,17 @@ use crate::{
         polynomial::MultilinearExtension,
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
-        slice_ops,
     },
-    sql::proof::{
-        FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, SumcheckSubpolynomialType,
-        VerificationBuilder,
+    sql::{
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckSubpolynomialType, VerificationBuilder,
+        },
+        proof_gadgets::fold_log_expr::FoldLogExpr,
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bumpalo::Bump;
-use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -58,37 +59,29 @@ where
     ) -> Result<TableEvaluation<S>, ProofError> {
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
+        let fold_log_gadget = FoldLogExpr::new(gamma, beta);
         let c_star_evals = self
             .inputs
             .iter()
             .map(|input| -> Result<_, ProofError> {
                 let table_evaluation =
                     input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-                let c_fold_eval = gamma * fold_vals(beta, table_evaluation.column_evals());
-                let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-                // c_star + c_fold * c_star - chi_n_i = 0
-                builder.try_produce_sumcheck_subpolynomial_evaluation(
-                    SumcheckSubpolynomialType::Identity,
-                    c_star_eval + c_fold_eval * c_star_eval - table_evaluation.chi_eval(),
-                    2,
-                )?;
-                Ok(c_star_eval)
+                fold_log_gadget
+                    .verify_evaluate(
+                        builder,
+                        table_evaluation.column_evals(),
+                        table_evaluation.chi_eval(),
+                    )
+                    .map(|(star, _fold)| star)
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         let output_column_evals =
             builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
-
-        let d_bar_fold_eval = gamma * fold_vals(beta, &output_column_evals);
-        let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
         let chi_m = builder.try_consume_chi_evaluation()?;
 
-        // d_star + d_bar_fold * d_star - chi_m = 0
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            d_star_eval + d_bar_fold_eval * d_star_eval - chi_m.0,
-            2,
-        )?;
+        let (d_star_eval, _) =
+            fold_log_gadget.verify_evaluate(builder, &output_column_evals, chi_m.0)?;
 
         // sum (sum c_star) - d_star = 0
         let zero_sum_terms_eval = c_star_evals
@@ -154,39 +147,21 @@ impl ProverEvaluate for UnionExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         let gamma = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
+        let fold_log_gadget = FoldLogExpr::new(gamma, beta);
         // Produce the proof for the union
         let (inputs, c_stars): (Vec<_>, Vec<_>) = self
             .inputs
             .iter()
             .map(|input| -> PlaceholderResult<_> {
                 let table = input.final_round_evaluate(builder, alloc, table_map, params)?;
-                let input_length = table.num_rows();
                 let input_table = table.columns().copied().collect::<Vec<_>>();
-                // Indicator vector for the input table
-                let chi_n_i = alloc.alloc_slice_fill_copy(input_length, true);
-
-                let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
-                fold_columns(c_fold, gamma, beta, &input_table);
-
-                let c_star = alloc.alloc_slice_copy(c_fold);
-                slice_ops::add_const::<S, S>(c_star, One::one());
-                slice_ops::batch_inversion(&mut c_star[..input_length]);
-                let c_star_copy = alloc.alloc_slice_copy(c_star);
-                builder.produce_intermediate_mle(c_star as &[_]);
-
-                // c_star + c_fold * c_star - chi_n_i = 0
-                builder.produce_sumcheck_subpolynomial(
-                    SumcheckSubpolynomialType::Identity,
-                    vec![
-                        (S::one(), vec![Box::new(c_star as &[_])]),
-                        (
-                            S::one(),
-                            vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-                        ),
-                        (-S::one(), vec![Box::new(chi_n_i as &[_])]),
-                    ],
+                let (c_star, _) = fold_log_gadget.final_round_evaluate(
+                    builder,
+                    alloc,
+                    &input_table,
+                    table.num_rows(),
                 );
-                Ok((table, c_star_copy))
+                Ok((table, c_star))
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
@@ -197,29 +172,10 @@ impl ProverEvaluate for UnionExec {
         output_columns.iter().copied().for_each(|column| {
             builder.produce_intermediate_mle(column);
         });
-        let output_length = res.num_rows();
         // No need to produce intermediate MLEs for `d_fold` because it is
         // the sum of `c_fold`
-        let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
-        fold_columns(d_fold, gamma, beta, &output_columns);
-
-        let d_star = alloc.alloc_slice_copy(d_fold);
-        slice_ops::add_const::<S, S>(d_star, One::one());
-        slice_ops::batch_inversion(d_star);
-        builder.produce_intermediate_mle(d_star as &[_]);
-        // d_star + d_fold * d_star - chi_m = 0
-        let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
-        builder.produce_sumcheck_subpolynomial(
-            SumcheckSubpolynomialType::Identity,
-            vec![
-                (S::one(), vec![Box::new(d_star as &[_])]),
-                (
-                    S::one(),
-                    vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-                ),
-                (-S::one(), vec![Box::new(chi_m as &[_])]),
-            ],
-        );
+        let (d_star, _) =
+            fold_log_gadget.final_round_evaluate(builder, alloc, &output_columns, res.num_rows());
 
         // sum (sum c_star) - d_star = 0
         builder.produce_sumcheck_subpolynomial(
