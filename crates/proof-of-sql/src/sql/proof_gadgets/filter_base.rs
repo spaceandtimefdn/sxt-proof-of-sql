@@ -29,7 +29,7 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
     let filtered_columns_evals =
         builder.try_consume_final_round_mle_evaluations(column_evals.len())?;
     assert_eq!(column_evals.len(), filtered_columns_evals.len());
-    let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
+    let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
     let c_fold_eval = alpha * fold_vals(beta, column_evals);
     let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
@@ -52,20 +52,20 @@ pub(crate) fn verify_evaluate_filter<S: Scalar>(
     // d_star + d_fold * d_star - chi_m = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
-        d_star_eval + d_fold_eval * d_star_eval - chi_m_eval,
+        d_star_eval + d_fold_eval * d_star_eval - output_chi_eval,
         2,
     )?;
 
     // d_fold * chi_m - d_fold = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
-        d_fold_eval * (chi_m_eval - S::ONE),
+        d_fold_eval * (output_chi_eval - S::ONE),
         2,
     )?;
 
     Ok(TableEvaluation::new(
-        filtered_columns_evals.to_vec(),
-        chi_m_eval,
+        filtered_columns_evals,
+        output_chi_eval,
     ))
 }
 
