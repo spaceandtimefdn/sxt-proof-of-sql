@@ -277,7 +277,6 @@ contract ProofPlanTest is Test {
         bytes memory plan = abi.encodePacked(
             GROUP_BY_EXEC_VARIANT,
             uint64(0), // table_number
-            uint64(2), // total_column_count
             uint64(1), // group_by_count
             uint64(0), // group_by_expr[0] - column 0
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause

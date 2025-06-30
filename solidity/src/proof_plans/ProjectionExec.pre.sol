@@ -119,6 +119,51 @@ library ProjectionExec {
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 revert(0, 0)
             }
+
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                plan_ptr_out,
+                g_in_fold,
+                g_in_star_eval_times_selection_eval,
+                num_group_by_columns
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+                plan_ptr_out,
+                sum_in_fold_eval,
+                num_sum_columns
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_g_out_star_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
+            ) -> g_out_star_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function compute_sum_out_fold_eval(
+                builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr
+            ) -> sum_out_fold_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
+                plan_ptr_out,
+                partial_dlog_zero_sum_constraint_eval,
+                num_group_by_columns,
+                num_sum_columns
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL GroupByExec.pre.sol
+            function read_output_evals(
+                builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
+            ) -> evaluations_ptr, output_chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
             function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
                 revert(0, 0)
@@ -267,54 +312,6 @@ library ProjectionExec {
             }
             // IMPORT-YUL ../proof_gadgets/Monotonic.pre.sol
             function monotonic_verify(builder_ptr, alpha, beta, column_eval, chi_eval, strict, asc) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function get_and_check_group_by_input_columns(
-                plan_ptr, builder_ptr, alpha, beta, column_count, input_chi_eval
-            ) -> plan_ptr_out, g_star_selected_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function get_and_check_group_by_output_columns(
-                builder_ptr, alpha, beta, column_count, output_chi_eval, evaluations_ptr
-            ) -> g_out_star_eval, evaluations_ptr_out {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function get_and_check_sum_input_columns(
-                plan_ptr, builder_ptr, input_chi_eval, beta, column_count, g_star_selected_eval
-            ) -> plan_ptr_out, constraint_lhs {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function get_and_check_sum_output_columns(
-                builder_ptr, output_chi_eval, beta, column_count, g_out_star_eval, evaluations_ptr
-            ) -> constraint_rhs, evaluations_ptr_out {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function build_groupby_zerosum_constraint(
-                plan_ptr,
-                builder_ptr,
-                alpha,
-                beta,
-                input_chi_eval,
-                output_chi_eval,
-                g_star_selected_eval,
-                g_out_star_eval,
-                evaluations_ptr
-            ) -> plan_ptr_out, evaluations_ptr_out {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function build_groupby_constraints(
-                plan_ptr, builder_ptr, alpha, beta, input_chi_eval, output_chi_eval, evaluations_ptr
-            ) -> plan_ptr_out, evaluations_ptr_out {
-                revert(0, 0)
-            }
-            // IMPORT-YUL GroupByExec.pre.sol
-            function check_groupby_constraints(plan_ptr, builder_ptr, alpha, beta) -> plan_ptr_out, evaluations_ptr {
                 revert(0, 0)
             }
             // IMPORT-YUL GroupByExec.pre.sol
