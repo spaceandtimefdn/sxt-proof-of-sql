@@ -16,7 +16,6 @@ use bumpalo::Bump;
 use core::ops::Shl;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use tracing::{span, Level};
 
 /// Compute the sign bit for a column of scalars.
 ///
@@ -56,11 +55,9 @@ pub fn final_round_evaluate_sign<'a, S: Scalar>(
     alloc: &'a Bump,
     expr: &'a [S],
 ) -> &'a [bool] {
-    let span = span!(Level::DEBUG, "produce_bit_distribution").entered();
     // bit_distribution
     let dist = BitDistribution::new::<S, _>(expr);
     builder.produce_bit_distribution(dist.clone());
-    span.exit();
 
     if dist.num_varying_bits() > 0 {
         // prove that the bits are binary
