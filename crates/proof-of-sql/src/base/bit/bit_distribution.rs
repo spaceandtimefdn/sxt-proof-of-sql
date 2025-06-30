@@ -1,5 +1,6 @@
 use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
 use crate::base::{
+    if_rayon,
     proof::ProofError,
     scalar::{Scalar, ScalarExt},
 };
@@ -10,8 +11,12 @@ use core::{
     convert::Into,
     ops::{Shl, Shr},
 };
-use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tracing::{span, Level};
 
 fn serialize_limbs<S: Serializer>(limbs: &[u64; 4], serializer: S) -> Result<S::Ok, S::Error> {
     [limbs[3], limbs[2], limbs[1], limbs[0]].serialize(serializer)
@@ -62,24 +67,61 @@ impl From<BitDistributionError> for ProofError {
 }
 
 impl BitDistribution {
-    pub fn new<S: Scalar, T: Into<S> + Clone>(data: &[T]) -> Self {
-        let bit_masks = data.iter().cloned().map(Into::<S>::into).map(make_bit_mask);
-        let (sign_mask, inverse_sign_mask) =
-            bit_masks
-                .clone()
-                .fold((U256::MAX, U256::MAX), |acc, bit_mask| {
-                    let bit_mask = if is_bit_mask_negative_representation(bit_mask) {
-                        bit_mask ^ U256::MAX.shr(1)
+    #[tracing::instrument(name = "BitDistribution::new", level = "debug", skip_all)]
+    pub fn new<S: Scalar, T: Into<S> + Clone + Send + Sync>(data: &[T]) -> Self {
+        // Pre-calculate constant to avoid repeated computation
+        let max_u256_shr_1 = U256::MAX.shr(1);
+
+        // Collect bit masks into a vector for parallel processing
+        let span = span!(Level::DEBUG, "create bit_masks vec").entered();
+        let bit_masks: Vec<U256> = if_rayon!(data.par_iter(), data.iter())
+            .cloned()
+            .map(Into::<S>::into)
+            .map(make_bit_mask)
+            .collect();
+        span.exit();
+
+        let span = span!(Level::DEBUG, "create negative_flags vec").entered();
+        let negative_flags: Vec<bool> = if_rayon!(bit_masks.par_iter(), bit_masks.iter())
+            .map(|&mask| is_bit_mask_negative_representation(mask))
+            .collect();
+        span.exit();
+
+        // Pre-compute transformed masks for folding
+        let span = span!(Level::DEBUG, "create transformed_masks vec").entered();
+        let transformed_masks: Vec<U256> =
+            if_rayon!(bit_masks.into_par_iter(), bit_masks.into_iter())
+                .zip(if_rayon!(negative_flags.par_iter(), negative_flags.iter()))
+                .map(|(mask, &is_negative)| {
+                    if is_negative {
+                        mask ^ max_u256_shr_1
                     } else {
-                        bit_mask
-                    };
-                    (acc.0 & bit_mask, acc.1 & !bit_mask)
-                });
-        let vary_mask_bit = U256::from(
-            !bit_masks
-                .map(is_bit_mask_negative_representation)
-                .all_equal(),
-        ) << 255;
+                        mask
+                    }
+                })
+                .collect();
+        span.exit();
+
+        let span = span!(Level::DEBUG, "fold transformed_masks").entered();
+        let (sign_mask, inverse_sign_mask) = transformed_masks
+            .iter()
+            .fold((U256::MAX, U256::MAX), |acc, &transformed| {
+                (acc.0 & transformed, acc.1 & !transformed)
+            });
+        span.exit();
+
+        // Check if all signs are equal
+        let span = span!(Level::DEBUG, "check equality of all bits").entered();
+        let all_equal = if_rayon!(
+            match negative_flags.first() {
+                Some(&first) => negative_flags.into_par_iter().all(|flag| flag == first),
+                None => true,
+            },
+            negative_flags.into_iter().all_equal()
+        );
+        span.exit();
+
+        let vary_mask_bit = U256::from(!all_equal) << 255;
         let vary_mask: U256 = !(sign_mask | inverse_sign_mask) | vary_mask_bit;
 
         Self {
