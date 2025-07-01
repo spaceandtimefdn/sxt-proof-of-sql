@@ -262,13 +262,13 @@ contract ProofPlanTest is Test {
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 8] = gInStarColumn[i];
                 builder.finalRoundMLEs[i * 8 + 1] = gOut[i];
+                builder.finalRoundMLEs[i * 8 + 2] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.finalRoundMLEs[i * 8 + 2] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 8 + 3] = cStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 4] = dStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 5] = sign[i];
+                builder.finalRoundMLEs[i * 8 + 3] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 8 + 4] = cStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 5] = dStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 6] = sign[i];
                 // Continue with group by output
-                builder.finalRoundMLEs[i * 8 + 6] = gOutStarColumn[i];
                 builder.finalRoundMLEs[i * 8 + 7] = count[i];
             }
         }
