@@ -80,12 +80,24 @@ library ResultVerifier {
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/Queue.pre.sol
+            function dequeue_uint512(queue_ptr) -> upper, lower {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
                 revert(0, 0)
             }
 

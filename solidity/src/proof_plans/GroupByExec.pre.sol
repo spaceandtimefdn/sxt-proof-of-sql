@@ -22,6 +22,7 @@ library GroupByExec {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the group by execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
     /// @notice Evaluates expressions for group by operation and verifies the aggregation constraints
     /// @notice ##### Constraints
@@ -49,6 +50,7 @@ library GroupByExec {
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
     function __groupByExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
@@ -58,6 +60,7 @@ library GroupByExec {
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
             uint256[] memory __evaluationsPtr,
+            uint256 __outputLength,
             uint256 __outputChiEvaluation
         )
     {
@@ -125,6 +128,10 @@ library GroupByExec {
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -264,10 +271,9 @@ library GroupByExec {
 
             function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
                 plan_ptr_out,
-                g_in_star_eval_times_selection_eval,
-                num_group_by_columns
+                g_in_star_eval_times_selection_eval
             {
-                num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                let num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 // We can not prove uniqueness for multiple columns yet
                 if sub(num_group_by_columns, 1) { err(ERR_UNPROVABLE_GROUP_BY) }
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
@@ -346,7 +352,6 @@ library GroupByExec {
             function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
                 plan_ptr_out,
                 partial_dlog_zero_sum_constraint_eval,
-                num_group_by_columns,
                 num_sum_columns
             {
                 // Read input chi evaluation
@@ -359,7 +364,7 @@ library GroupByExec {
 
                 // Read/eval group by inputs, selection inputs, and fold and dlog them
                 let g_in_star_eval_times_selection_eval
-                plan_ptr, g_in_star_eval_times_selection_eval, num_group_by_columns :=
+                plan_ptr, g_in_star_eval_times_selection_eval :=
                     compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
 
                 // Read/eval sum inputs and fold them
@@ -381,7 +386,7 @@ library GroupByExec {
 
             function read_output_evals(
                 builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
-            ) -> evaluations_ptr, output_chi_eval {
+            ) -> evaluations_ptr, output_length, output_chi_eval {
                 // Allocate memory for evaluations
                 {
                     let free_ptr := mload(FREE_PTR)
@@ -393,7 +398,7 @@ library GroupByExec {
                     mstore(FREE_PTR, free_ptr)
                 }
 
-                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
                 let g_out_star_eval :=
                     compute_g_out_star_eval(
@@ -419,28 +424,29 @@ library GroupByExec {
                 )
             }
 
-            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
 
-                let partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
-                plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns :=
+                let partial_dlog_zero_sum_constraint_eval, num_sum_columns
+                plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_sum_columns :=
                     read_input_evals(plan_ptr, builder_ptr, alpha, beta)
 
                 // Read output
-                evaluations_ptr, output_chi_eval :=
-                    read_output_evals(
-                        builder_ptr,
-                        alpha,
-                        beta,
-                        partial_dlog_zero_sum_constraint_eval,
-                        num_group_by_columns,
-                        num_sum_columns
-                    )
+                // For now, we can assume the number of group by columns is 1,
+                // because the function would have errored by this point otherwise
+                evaluations_ptr, output_length, output_chi_eval :=
+                    read_output_evals(builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, 1, num_sum_columns)
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := group_by_exec_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
+                group_by_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

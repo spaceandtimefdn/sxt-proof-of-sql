@@ -22,6 +22,7 @@ library FilterExec {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the filter execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
     /// @notice Evaluates two sub-expressions and produces identity constraints checking their equality
     /// @notice ##### Constraints
@@ -70,6 +71,7 @@ library FilterExec {
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
     function __filterExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
@@ -79,6 +81,7 @@ library FilterExec {
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
             uint256[] memory __evaluationsPtr,
+            uint256 __outputLength,
             uint256 __outputChiEvaluation
         )
     {
@@ -184,6 +187,10 @@ library FilterExec {
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
             function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)
@@ -226,6 +233,10 @@ library FilterExec {
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
@@ -273,10 +284,15 @@ library FilterExec {
                 revert(0, 0)
             }
 
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                let alpha := builder_consume_challenge(builder_ptr)
+            function filter_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let input_chi_eval, selection_eval, c_fold, d_fold
                 {
+                    let alpha := builder_consume_challenge(builder_ptr)
                     let beta := builder_consume_challenge(builder_ptr)
 
                     input_chi_eval :=
@@ -287,23 +303,19 @@ library FilterExec {
 
                     plan_ptr, c_fold, d_fold, evaluations_ptr :=
                         compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
+                    c_fold := mulmod_bn254(alpha, c_fold)
+                    d_fold := mulmod_bn254(alpha, d_fold)
                 }
-                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
-                verify_filter(
-                    builder_ptr,
-                    mulmod_bn254(alpha, c_fold),
-                    mulmod_bn254(alpha, d_fold),
-                    input_chi_eval,
-                    output_chi_eval,
-                    selection_eval
-                )
+                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
 
                 plan_ptr_out := plan_ptr
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := filter_exec_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
+                filter_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

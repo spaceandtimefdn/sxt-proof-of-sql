@@ -57,7 +57,7 @@ contract ProjectionExecTest is Test {
 
         uint256[] memory evals;
         uint256 outputChiEval;
-        (plan, builder, evals, outputChiEval) = ProjectionExec.__projectionExecEvaluate(plan, builder);
+        (plan, builder, evals,, outputChiEval) = ProjectionExec.__projectionExecEvaluate(plan, builder);
 
         assert(evals.length == 3);
         assert(evals[0] == 71502);

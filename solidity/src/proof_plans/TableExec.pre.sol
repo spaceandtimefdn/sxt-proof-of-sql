@@ -22,6 +22,7 @@ library TableExec {
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the table execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
     /// @notice Evaluates a table execution plan
     /// @notice ##### Table execution plan
@@ -33,6 +34,7 @@ library TableExec {
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
     function __tableExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
@@ -42,6 +44,7 @@ library TableExec {
             bytes calldata __planOut,
             VerificationBuilder.Builder memory __builderOut,
             uint256[] memory __evaluationsPtr,
+            uint256 __outputLength,
             uint256 __outputChiEvaluation
         )
     {
@@ -71,11 +74,21 @@ library TableExec {
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
+                revert(0, 0)
+            }
 
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function table_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let table_number := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
-                output_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_number)
+                output_length, output_chi_eval :=
+                    builder_get_table_chi_evaluation_with_length(builder_ptr, table_number)
 
                 // Get the number of columns in the schema
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
@@ -109,7 +122,8 @@ library TableExec {
             }
 
             let __planOutOffset
-            __planOutOffset, __evaluations, __outputChiEvaluation := table_exec_evaluate(__plan.offset, __builder)
+            __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
+                table_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

@@ -47,8 +47,9 @@ contract FilterExecTest is Test {
         builder.tableChiEvaluations[1] = 801;
 
         uint256[] memory evals;
+        uint256 length;
         uint256 outputChiEval;
-        (plan, builder, evals, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
 
         FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
         FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);
@@ -195,7 +196,7 @@ contract FilterExecTest is Test {
 
         uint256[] memory evals;
         uint256 outputChiEval;
-        (plan, builder, evals, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
+        (plan, builder, evals,, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
 
         uint256 evalsLength = evals.length;
         assert(evalsLength == expectedResultEvaluations.length);
