@@ -28,7 +28,7 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
     vals: &[S],
     dist: &BitDistribution,
 ) -> Vec<&'a [bool]> {
-    log::log_memory_usage("Start");
+    log::start();
 
     let span = span!(Level::DEBUG, "allocate").entered();
     let number_of_scalars = vals.len();
@@ -68,7 +68,7 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
         res.push(&data[first..last]);
     }
 
-    log::log_memory_usage("Stop");
+    log::stop();
 
     res
 }
