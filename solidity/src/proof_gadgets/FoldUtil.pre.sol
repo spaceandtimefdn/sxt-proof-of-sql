@@ -185,12 +185,12 @@ library FoldUtil {
         __builderOut = __builder;
     }
 
-    /// @notice Folds final round MLEs with beta challenge
+    /// @notice Folds first round MLEs with beta challenge
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// fold_final_round_mles(builder_ptr, column_count, beta) -> fold, evaluations_ptr
+    /// fold_first_round_mles(builder_ptr, column_count, beta) -> fold, evaluations_ptr
     /// ```
     /// ##### Parameters
     /// * `builder_ptr` - memory pointer to the verification builder
@@ -205,7 +205,7 @@ library FoldUtil {
     /// @return __builderOut The updated verification builder
     /// @return __fold The computed fold value
     /// @return __evaluations The evaluations array
-    function __foldFinalRoundMles( // solhint-disable-line gas-calldata-parameters
+    function __foldFirstRoundMles( // solhint-disable-line gas-calldata-parameters
     VerificationBuilder.Builder memory __builder, uint256 __beta, uint256 __columnCount)
         external
         pure
@@ -229,17 +229,17 @@ library FoldUtil {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
-            function builder_consume_final_round_mle(builder_ptr) -> value {
+            function builder_consume_first_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
 
-            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+            function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(evaluations_ptr, column_count)
                 evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 fold := 0
                 for { let i := column_count } i { i := sub(i, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     fold := addmod_bn254(mulmod_bn254(fold, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
@@ -249,7 +249,7 @@ library FoldUtil {
             }
 
             let __evaluationsPtr
-            __fold, __evaluationsPtr := fold_final_round_mles(__builder, __beta, __columnCount)
+            __fold, __evaluationsPtr := fold_first_round_mles(__builder, __beta, __columnCount)
             __evaluations := __evaluationsPtr
         }
         __builderOut = __builder;

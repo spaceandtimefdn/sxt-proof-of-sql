@@ -101,40 +101,41 @@ contract FoldUtilTest is Test {
         }
     }
 
-    function testFoldFinalRoundMlesWithSingleColumn() public pure {
+    function testFoldFirstRoundMlesWithSingleColumn() public pure {
         VerificationBuilder.Builder memory builder;
-        uint256[] memory finalRoundMLEs = new uint256[](1);
-        finalRoundMLEs[0] = 123;
-        builder.finalRoundMLEs = finalRoundMLEs;
+        uint256[] memory firstRoundMLEs = new uint256[](1);
+        firstRoundMLEs[0] = 123;
+        builder.firstRoundMLEs = firstRoundMLEs;
 
         uint256 columnCount = 1;
         uint256 beta = 7;
         uint256 fold;
         uint256[] memory evaluations;
 
-        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, beta, columnCount);
+        (builder, fold, evaluations) = FoldUtil.__foldFirstRoundMles(builder, beta, columnCount);
+        (builder, beta, columnCount);
 
         assert(fold == 123);
         assert(evaluations.length == 1);
         assert(evaluations[0] == 123);
         // Builder should be updated after consuming MLE
-        assert(builder.finalRoundMLEs.length == 0);
+        assert(builder.firstRoundMLEs.length == 0);
     }
 
-    function testFoldFinalRoundMlesWithMultipleColumns() public pure {
+    function testFoldFirstRoundMlesWithMultipleColumns() public pure {
         VerificationBuilder.Builder memory builder;
-        uint256[] memory finalRoundMLEs = new uint256[](3);
-        finalRoundMLEs[0] = 10;
-        finalRoundMLEs[1] = 20;
-        finalRoundMLEs[2] = 30;
-        builder.finalRoundMLEs = finalRoundMLEs;
+        uint256[] memory firstRoundMLEs = new uint256[](3);
+        firstRoundMLEs[0] = 10;
+        firstRoundMLEs[1] = 20;
+        firstRoundMLEs[2] = 30;
+        builder.firstRoundMLEs = firstRoundMLEs;
 
         uint256 columnCount = 3;
         uint256 beta = 5;
         uint256 fold;
         uint256[] memory evaluations;
 
-        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, beta, columnCount);
+        (builder, fold, evaluations) = FoldUtil.__foldFirstRoundMles(builder, beta, columnCount);
 
         // Fold calculation: 10 * 5^2 + 20 * 5 + 30 = 10 * 25 + 20 * 5 + 30 = 250 + 100 + 30 = 380
         assert(fold == 380);
@@ -142,7 +143,7 @@ contract FoldUtilTest is Test {
         assert(evaluations[0] == 10);
         assert(evaluations[1] == 20);
         assert(evaluations[2] == 30);
-        assert(builder.finalRoundMLEs.length == 0); // All MLEs consumed
+        assert(builder.firstRoundMLEs.length == 0); // All MLEs consumed
     }
 
     function testFuzzFoldExprEvalsWithLiterals(int64 value1, int64 value2, uint256 chiEval, uint256 beta) public pure {
@@ -185,7 +186,7 @@ contract FoldUtilTest is Test {
         }
     }
 
-    function testFuzzFoldFinalRoundMles(uint256[] memory mles, uint256 beta) public pure {
+    function testFuzzFoldFirstRoundMles(uint256[] memory mles, uint256 beta) public pure {
         vm.assume(mles.length > 0);
         vm.assume(mles.length < 11); // Reasonable limit for testing
         vm.assume(beta != 0);
@@ -198,11 +199,11 @@ contract FoldUtilTest is Test {
         }
 
         VerificationBuilder.Builder memory builder;
-        builder.finalRoundMLEs = mles;
+        builder.firstRoundMLEs = mles;
         uint256 fold;
         uint256[] memory evaluations;
 
-        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, beta, mlesLength);
+        (builder, fold, evaluations) = FoldUtil.__foldFirstRoundMles(builder, beta, mlesLength);
 
         // Verify evaluations match input MLEs
         assert(evaluations.length == mlesLength);
@@ -213,24 +214,24 @@ contract FoldUtilTest is Test {
         }
 
         assert(fold == expectedFold.into());
-        assert(builder.finalRoundMLEs.length == 0); // All MLEs consumed
+        assert(builder.firstRoundMLEs.length == 0); // All MLEs consumed
     }
 
-    function testEmptyFoldFinalRoundMles() public pure {
+    function testEmptyFoldFirstRoundMles() public pure {
         VerificationBuilder.Builder memory builder;
         uint256[] memory emptyMLEs = new uint256[](0);
-        builder.finalRoundMLEs = emptyMLEs;
+        builder.firstRoundMLEs = emptyMLEs;
 
         uint256 columnCount = 0;
         uint256 beta = 5;
         uint256 fold;
         uint256[] memory evaluations;
 
-        (builder, fold, evaluations) = FoldUtil.__foldFinalRoundMles(builder, beta, columnCount);
+        (builder, fold, evaluations) = FoldUtil.__foldFirstRoundMles(builder, beta, columnCount);
 
         assert(fold == 0);
         assert(evaluations.length == 0);
-        assert(builder.finalRoundMLEs.length == 0);
+        assert(builder.firstRoundMLEs.length == 0);
     }
 
     function testFoldColumnExprEvalsWithSingleColumn() public pure {

@@ -116,6 +116,10 @@ library FilterExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
@@ -244,7 +248,7 @@ library FilterExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
-            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+            function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
             function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
@@ -257,7 +261,7 @@ library FilterExec {
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
-                d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, column_count)
+                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
                 plan_ptr_out := plan_ptr
             }
 
