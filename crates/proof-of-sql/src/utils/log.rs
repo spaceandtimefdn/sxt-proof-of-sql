@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature = "std")]
 use sysinfo::System;
