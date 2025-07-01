@@ -1,28 +1,28 @@
-use super::{fold_columns, fold_vals};
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, OwnedTable,
-            Table, TableEvaluation, TableOptions, TableRef,
+            Column, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
-        slice_ops,
     },
     sql::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, HonestProver, ProofPlan, ProverEvaluate,
-            ProverHonestyMarker, SumcheckSubpolynomialType, VerificationBuilder,
+            ProverHonestyMarker, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
+        proof_gadgets::{
+            final_round_evaluate_filter, first_round_evaluate_filter, verify_evaluate_filter,
+        },
     },
     utils::log,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::vec::Vec;
 use bumpalo::Bump;
 use core::marker::PhantomData;
-use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -84,9 +84,6 @@ where
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
@@ -112,28 +109,8 @@ where
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
-        // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
-
-        let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
-        verify_filter(
-            builder,
-            c_fold_eval,
-            d_fold_eval,
-            input_chi_eval.0,
-            output_chi_eval,
-            selection_eval,
-        )?;
-        Ok(TableEvaluation::new(
-            filtered_columns_evals,
-            output_chi_eval,
-        ))
+        verify_evaluate_filter(builder, &columns_evals, input_chi_eval.0, selection_eval)
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -186,29 +163,23 @@ impl ProverEvaluate for FilterExec {
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
-        let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
+        let (columns, output_idents): (Vec<_>, Vec<_>) = self
             .aliased_results
             .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr.expr.first_round_evaluate(alloc, table, params)
+            .map(|aliased_expr| {
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, table, params)
+                    .map(|col| (col, aliased_expr.alias.clone()))
             })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
+            .collect::<PlaceholderResult<Vec<_>>>()?
+            .into_iter()
+            .unzip();
 
         // Compute filtered_columns and indexes
-        let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
-        )
-        .expect("Failed to create table from iterator");
-        builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(output_length);
+        let res = first_round_evaluate_filter(builder, alloc, selection, &columns, output_idents);
 
         log::log_memory_usage("End");
 
@@ -224,9 +195,6 @@ impl ProverEvaluate for FilterExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
@@ -237,175 +205,32 @@ impl ProverEvaluate for FilterExec {
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
-        let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
+        let (columns, output_idents): (Vec<_>, Vec<_>) = self
             .aliased_results
             .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
+            .map(|aliased_expr| -> PlaceholderResult<_> {
                 aliased_expr
                     .expr
                     .final_round_evaluate(builder, alloc, table, params)
+                    .map(|col| (col, aliased_expr.alias.clone()))
             })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
-        // Compute filtered_columns
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
-        // 3. Produce MLEs
-        filtered_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
+            .collect::<PlaceholderResult<Vec<_>>>()?
+            .into_iter()
+            .unzip();
 
-        prove_filter::<S>(
+        let res = final_round_evaluate_filter(
             builder,
             alloc,
-            alpha,
-            beta,
             &columns,
+            output_idents,
             selection,
-            &filtered_columns,
             table.num_rows(),
-            result_len,
         );
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
-        )
-        .expect("Failed to create table from iterator");
 
         log::log_memory_usage("End");
 
         Ok(res)
     }
-}
-
-#[expect(clippy::similar_names)]
-pub(super) fn verify_filter<S: Scalar>(
-    builder: &mut impl VerificationBuilder<S>,
-    c_fold_eval: S,
-    d_fold_eval: S,
-    chi_n_eval: S,
-    chi_m_eval: S,
-    s_eval: S,
-) -> Result<(), ProofError> {
-    let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    // sum c_star * s - d_star = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::ZeroSum,
-        c_star_eval * s_eval - d_star_eval,
-        2,
-    )?;
-
-    // c_star + c_fold * c_star - chi_n = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        c_star_eval + c_fold_eval * c_star_eval - chi_n_eval,
-        2,
-    )?;
-
-    // d_star + d_fold * d_star - chi_m = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        d_star_eval + d_fold_eval * d_star_eval - chi_m_eval,
-        2,
-    )?;
-
-    // d_fold * chi_m - d_fold = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        d_fold_eval * (chi_m_eval - S::ONE),
-        2,
-    )?;
-
-    Ok(())
-}
-
-/// Below are the mappings between the names of the parameters in the math and the code
-/// `c = columns`
-/// `d = filtered_columns`
-/// `n = input_length`
-/// `m = output_length`
-#[expect(clippy::too_many_arguments)]
-#[tracing::instrument(level = "debug", skip_all)]
-pub(super) fn prove_filter<'a, S: Scalar + 'a>(
-    builder: &mut FinalRoundBuilder<'a, S>,
-    alloc: &'a Bump,
-    alpha: S,
-    beta: S,
-    columns: &[Column<S>],
-    s: &'a [bool],
-    filtered_columns: &[Column<S>],
-    input_length: usize,
-    output_length: usize,
-) {
-    let chi_n = alloc.alloc_slice_fill_copy(input_length, true);
-    let chi_m = alloc.alloc_slice_fill_copy(output_length, true);
-
-    let c_fold = alloc.alloc_slice_fill_copy(input_length, Zero::zero());
-    fold_columns(c_fold, alpha, beta, columns);
-    let d_fold = alloc.alloc_slice_fill_copy(output_length, Zero::zero());
-    fold_columns(d_fold, alpha, beta, filtered_columns);
-
-    let c_star = alloc.alloc_slice_copy(c_fold);
-    slice_ops::add_const::<S, S>(c_star, One::one());
-    slice_ops::batch_inversion(c_star);
-
-    let d_star = alloc.alloc_slice_copy(d_fold);
-    slice_ops::add_const::<S, S>(d_star, One::one());
-    slice_ops::batch_inversion(d_star);
-
-    builder.produce_intermediate_mle(c_star as &[_]);
-    builder.produce_intermediate_mle(d_star as &[_]);
-
-    // sum c_star * s - d_star = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::ZeroSum,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_]), Box::new(s)]),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
-        ],
-    );
-
-    // c_star + c_fold * c_star - chi_n = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
-        ],
-    );
-
-    // d_star + d_fold * d_star - chi_m = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(d_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_m as &[_])]),
-        ],
-    );
-
-    // d_fold * chi_m - d_fold = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (
-                S::one(),
-                vec![Box::new(d_fold as &[_]), Box::new(chi_m as &[_])],
-            ),
-            (-S::one(), vec![Box::new(d_fold as &[_])]),
-        ],
-    );
 }

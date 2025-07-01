@@ -1,12 +1,8 @@
-use super::{
-    filter_exec::{prove_filter, verify_filter},
-    DynProofPlan,
-};
+use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table,
-            TableEvaluation, TableOptions, TableRef,
+            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -16,7 +12,9 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_plans::fold_vals,
+        proof_gadgets::{
+            final_round_evaluate_filter, first_round_evaluate_filter, verify_evaluate_filter,
+        },
     },
     utils::log,
 };
@@ -85,34 +83,19 @@ where
         let input_table_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let columns_evals = input_table_eval.column_evals();
         // 2. selection
         // The selected range is (offset_index, max_index]
         let offset_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let max_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let selection_eval = max_chi_eval - offset_chi_eval;
-        // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_final_round_mle_evaluations(columns_evals.len())?;
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
 
-        let c_fold_eval = alpha * fold_vals(beta, columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
-        verify_filter(
+        verify_evaluate_filter(
             builder,
-            c_fold_eval,
-            d_fold_eval,
+            columns_evals,
             input_table_eval.chi_eval(),
-            output_chi_eval,
             selection_eval,
-        )?;
-        Ok(TableEvaluation::new(
-            filtered_columns_evals,
-            output_chi_eval,
-        ))
+        )
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -146,7 +129,8 @@ impl ProverEvaluate for SliceExec {
         let input_length = input.num_rows();
         let columns = input.columns().copied().collect::<Vec<_>>();
         // 2. select
-        let select = get_slice_select(input_length, self.skip, self.fetch);
+        let selection =
+            alloc.alloc_slice_copy(&get_slice_select(input_length, self.skip, self.fetch));
         // The selected range is (offset_index, max_index]
         let offset_index = self.skip.min(input_length);
         let max_index = if let Some(fetch) = self.fetch {
@@ -154,21 +138,15 @@ impl ProverEvaluate for SliceExec {
         } else {
             input_length
         };
-        let output_length = max_index - offset_index;
-        // Compute filtered_columns
-        let (filtered_columns, _) = filter_columns(alloc, &columns, &select);
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|expr| expr.name())
-                .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
-        )
-        .expect("Failed to create table from iterator");
-        builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(output_length);
+        let output_idents = self
+            .get_column_result_fields()
+            .into_iter()
+            .map(|expr| expr.name())
+            .collect();
         builder.produce_chi_evaluation_length(offset_index);
         builder.produce_chi_evaluation_length(max_index);
+
+        let res = first_round_evaluate_filter(builder, alloc, selection, &columns, output_idents);
 
         log::log_memory_usage("End");
 
@@ -192,36 +170,21 @@ impl ProverEvaluate for SliceExec {
         let columns = input.columns().copied().collect::<Vec<_>>();
         // 2. select
         let select = get_slice_select(input.num_rows(), self.skip, self.fetch);
-        let select_ref: &'a [_] = alloc.alloc_slice_copy(&select);
-        let output_length = select.iter().filter(|b| **b).count();
-        // Compute filtered_columns and indexes
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
-        // 3. Produce MLEs
-        filtered_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
+        let selection: &'a [_] = alloc.alloc_slice_copy(&select);
+        let output_idents = self
+            .get_column_result_fields()
+            .into_iter()
+            .map(|expr| expr.name())
+            .collect();
 
-        prove_filter::<S>(
+        let res = final_round_evaluate_filter(
             builder,
             alloc,
-            alpha,
-            beta,
             &columns,
-            select_ref,
-            &filtered_columns,
+            output_idents,
+            selection,
             input.num_rows(),
-            result_len,
         );
-        let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|expr| expr.name())
-                .zip(filtered_columns),
-            TableOptions::new(Some(output_length)),
-        )
-        .expect("Failed to create table from iterator");
 
         log::log_memory_usage("End");
 
