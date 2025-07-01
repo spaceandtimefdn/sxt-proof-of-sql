@@ -218,7 +218,11 @@ mod tests {
         start();
 
         // Make an allocation that will trigger the log message
-        log_vector("test_start", &vec![1, 2, 3]);
+        let mut vec = Vec::with_capacity(10);
+        vec.push(1u32);
+        vec.push(2u32);
+        vec.push(3u32);
+        log_vector("test_start", &vec);
 
         // Verify the log message contains the expected parts
         assert!(logs_contain("Allocation #1"));
