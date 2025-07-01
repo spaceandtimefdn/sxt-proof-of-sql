@@ -122,6 +122,7 @@ pub fn log_vector<T>(name: &str, vec: &Vec<T>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tracing_test::traced_test;
 
     fn we_can_reset_allocation_tracking() {
         // Make some allocations first
@@ -193,6 +194,46 @@ mod tests {
         assert_eq!(bytes_u64, 80, "Should record 80 bytes for 10 u64s");
     }
 
+    #[traced_test]
+    fn we_can_verify_log_messages() {
+        AllocationTracker::reset();
+
+        // Make an allocation that will trigger the log message
+        AllocationTracker::record_allocation::<u32>("test_log", 5, 10);
+
+        // Verify the log message contains the expected parts
+        assert!(logs_contain("Allocation #1"));
+        assert!(logs_contain("test_log of 5 elements"));
+        assert!(logs_contain("capacity of 10"));
+        assert!(logs_contain("type u32"));
+        assert!(logs_contain("(40 bytes)"));
+
+        // Test the report function's logging
+        let _ = AllocationTracker::report();
+        assert!(logs_contain("Total allocations: 1 with"));
+    }
+
+    #[traced_test]
+    fn we_can_start_and_stop_tracking() {
+        start();
+
+        // Make an allocation that will trigger the log message
+        log_vector("test_start", &vec![1, 2, 3]);
+
+        // Verify the log message contains the expected parts
+        assert!(logs_contain("Allocation #1"));
+        assert!(logs_contain("test_start of 3 elements"));
+        assert!(logs_contain("capacity of 10"));
+        assert!(logs_contain("type u32"));
+        assert!(logs_contain("(40 bytes)"));
+
+        // Test the report function's logging
+        let _ = AllocationTracker::report();
+        assert!(logs_contain("Total allocations: 1 with"));
+
+        stop();
+    }
+
     // Test sequentially to ensure we don't clear the static
     // values during the parallel execution of tests.
     #[test]
@@ -202,5 +243,7 @@ mod tests {
         we_can_calcuate_allocation_bytes();
         we_can_allocate_track_a_vec();
         we_can_track_allocations_of_different_types_of_vecs();
+        we_can_verify_log_messages();
+        we_can_start_and_stop_tracking();
     }
 }
