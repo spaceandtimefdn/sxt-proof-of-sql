@@ -312,19 +312,15 @@ library GroupByExec {
                 sum_in_fold_eval := addmod_bn254(mulmod_bn254(sum_in_fold_eval, beta), input_chi_eval)
                 plan_ptr_out := plan_ptr
             }
-            function compute_g_out_star_eval(
-                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
-            ) -> g_out_star_eval {
-                let g_out_fold := 0
-                for {} num_group_by_columns { num_group_by_columns := sub(num_group_by_columns, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
-                    g_out_fold := addmod_bn254(mulmod_bn254(g_out_fold, beta), mle)
-                    mstore(evaluations_ptr, mle)
-                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                }
+            function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
+                g_out_star_eval
+            {
+                let mle := builder_consume_final_round_mle(builder_ptr)
+                mstore(evaluations_ptr, mle)
+                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 // Uniqueness constraint, currently only for single group by column using monotonicity
-                monotonic_verify(builder_ptr, alpha, beta, g_out_fold, output_chi_eval, 1, 1)
-                g_out_fold := mulmod_bn254(g_out_fold, alpha)
+                monotonic_verify(builder_ptr, alpha, beta, mle, output_chi_eval, 1, 1)
+                let g_out_fold := mulmod_bn254(mle, alpha)
                 g_out_star_eval := builder_consume_final_round_mle(builder_ptr)
                 // Second constraint: g_out_star + g_out_star * g_out_fold - output_chi_eval = 0
                 builder_produce_identity_constraint(
@@ -403,9 +399,7 @@ library GroupByExec {
                 output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
                 let g_out_star_eval :=
-                    compute_g_out_star_eval(
-                        builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, add(evaluations_ptr, WORD_SIZE)
-                    )
+                    compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, add(evaluations_ptr, WORD_SIZE))
 
                 let sum_out_fold_eval :=
                     compute_sum_out_fold_eval(
