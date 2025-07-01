@@ -294,13 +294,6 @@ pub(super) fn verify_filter<S: Scalar>(
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
-    // sum c_star * s - d_star = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::ZeroSum,
-        c_star_eval * s_eval - d_star_eval,
-        2,
-    )?;
-
     // c_star + c_fold * c_star - chi_n = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
@@ -312,6 +305,13 @@ pub(super) fn verify_filter<S: Scalar>(
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
         d_star_eval + d_fold_eval * d_star_eval - chi_m_eval,
+        2,
+    )?;
+
+    // sum c_star * s - d_star = 0
+    builder.try_produce_sumcheck_subpolynomial_evaluation(
+        SumcheckSubpolynomialType::ZeroSum,
+        c_star_eval * s_eval - d_star_eval,
         2,
     )?;
 
@@ -362,15 +362,6 @@ pub(super) fn prove_filter<'a, S: Scalar + 'a>(
     builder.produce_intermediate_mle(c_star as &[_]);
     builder.produce_intermediate_mle(d_star as &[_]);
 
-    // sum c_star * s - d_star = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::ZeroSum,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_]), Box::new(s)]),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
-        ],
-    );
-
     // c_star + c_fold * c_star - chi_n = 0
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
@@ -394,6 +385,15 @@ pub(super) fn prove_filter<'a, S: Scalar + 'a>(
                 vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
             ),
             (-S::one(), vec![Box::new(chi_m as &[_])]),
+        ],
+    );
+
+    // sum c_star * s - d_star = 0
+    builder.produce_sumcheck_subpolynomial(
+        SumcheckSubpolynomialType::ZeroSum,
+        vec![
+            (S::one(), vec![Box::new(c_star as &[_]), Box::new(s)]),
+            (-S::one(), vec![Box::new(d_star as &[_])]),
         ],
     );
 

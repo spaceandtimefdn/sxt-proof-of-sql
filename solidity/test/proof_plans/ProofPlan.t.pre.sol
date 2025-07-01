@@ -32,9 +32,9 @@ contract ProofPlanTest is Test {
         builder.finalRoundMLEs[3] = 301;
         builder.finalRoundMLEs[4] = 302;
         builder.constraintMultipliers = new uint256[](4);
-        builder.constraintMultipliers[0] = 401;
-        builder.constraintMultipliers[1] = 402;
-        builder.constraintMultipliers[2] = 403;
+        builder.constraintMultipliers[0] = 402;
+        builder.constraintMultipliers[1] = 403;
+        builder.constraintMultipliers[2] = 401;
         builder.constraintMultipliers[3] = 404;
         builder.challenges = new uint256[](2);
         builder.challenges[0] = 501;
