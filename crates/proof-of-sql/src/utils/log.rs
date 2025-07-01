@@ -42,10 +42,12 @@ impl AllocationTracker {
     }
 
     /// Get the current allocation statistics
+    #[expect(clippy::cast_precision_loss)]
     pub fn report() -> (usize, usize) {
         let count = ALLOCATION_COUNT.load(Ordering::SeqCst);
         let bytes = ALLOCATION_BYTES.load(Ordering::SeqCst);
-        trace!("Total allocations: {} with {} bytes", count, bytes);
+        let megabytes = bytes as f64 / (1024.0 * 1024.0);
+        trace!("Total allocations: {} with {:.2} MB", count, megabytes);
         (count, bytes)
     }
 }
