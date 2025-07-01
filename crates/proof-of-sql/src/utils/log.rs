@@ -50,6 +50,22 @@ impl AllocationTracker {
     }
 }
 
+/// Starts memory and allocation tracking at the TRACE level.
+pub fn start() {
+    if tracing::level_enabled!(Level::TRACE) {
+        AllocationTracker::reset();
+        log_memory_usage("Start");
+    }
+}
+
+/// Stops memory and allocation tracking.
+pub fn stop() {
+    if tracing::level_enabled!(Level::TRACE) {
+        log_memory_usage("Stop");
+        AllocationTracker::report();
+    }
+}
+
 /// Logs the memory usage of the system at the TRACE level.
 ///
 /// This function logs the available memory, used memory, and the percentage of memory used.
@@ -62,8 +78,6 @@ impl AllocationTracker {
 pub fn log_memory_usage(name: &str) {
     #[cfg(feature = "std")]
     if tracing::level_enabled!(Level::TRACE) {
-        AllocationTracker::reset();
-
         let mut system = System::new_all();
         system.refresh_memory();
 
