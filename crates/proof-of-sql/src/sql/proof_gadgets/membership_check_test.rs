@@ -181,14 +181,14 @@ impl ProofPlan for MembershipCheckTestPlan {
         let candidate_subset_evals =
             builder.try_consume_final_round_mle_evaluations(num_columns)?;
         // Get the chi evaluations
-        let chi_n_eval = builder.try_consume_chi_evaluation()?.0;
+        let chi_n_eval = builder.try_consume_chi_evaluation()?;
         let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
         // Evaluate the verifier
         let multiplicities_eval = verify_membership_check(
             builder,
             alpha,
             beta,
-            chi_n_eval,
+            chi_n_eval.0,
             chi_m_eval,
             &column_evals,
             &candidate_subset_evals,

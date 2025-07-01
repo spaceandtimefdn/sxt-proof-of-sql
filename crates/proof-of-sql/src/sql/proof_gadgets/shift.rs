@@ -280,7 +280,7 @@ mod tests {
                 chi_n_eval,
                 chi_n_plus_1_eval,
             )?;
-            Ok(TableEvaluation::new(vec![], S::zero()))
+            Ok(TableEvaluation::new(vec![], (S::zero(), 0)))
         }
     }
 

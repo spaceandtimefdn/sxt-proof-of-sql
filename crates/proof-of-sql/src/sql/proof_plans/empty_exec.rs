@@ -48,7 +48,7 @@ impl ProofPlan for EmptyExec {
     ) -> Result<TableEvaluation<S>, ProofError> {
         Ok(TableEvaluation::new(
             Vec::<S>::new(),
-            builder.singleton_chi_evaluation(),
+            (builder.singleton_chi_evaluation(), 1),
         ))
     }
 

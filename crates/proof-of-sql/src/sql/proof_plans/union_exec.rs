@@ -81,12 +81,12 @@ where
 
         let d_bar_fold_eval = gamma * fold_vals(beta, &output_column_evals);
         let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-        let chi_m_eval = builder.try_consume_chi_evaluation()?.0;
+        let chi_m = builder.try_consume_chi_evaluation()?;
 
         // d_star + d_bar_fold * d_star - chi_m = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
-            d_star_eval + d_bar_fold_eval * d_star_eval - chi_m_eval,
+            d_star_eval + d_bar_fold_eval * d_star_eval - chi_m.0,
             2,
         )?;
 
@@ -100,7 +100,7 @@ where
             zero_sum_terms_eval,
             1,
         )?;
-        Ok(TableEvaluation::new(output_column_evals, chi_m_eval))
+        Ok(TableEvaluation::new(output_column_evals, chi_m))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {

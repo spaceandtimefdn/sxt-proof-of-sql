@@ -117,7 +117,7 @@ where
             builder.try_consume_final_round_mle_evaluations(self.aliased_results.len())?;
         assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
         let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
         let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
@@ -127,7 +127,7 @@ where
             c_fold_eval,
             d_fold_eval,
             input_chi_eval.0,
-            output_chi_eval,
+            output_chi_eval.0,
             selection_eval,
         )?;
         Ok(TableEvaluation::new(

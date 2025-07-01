@@ -158,7 +158,7 @@ impl ProofPlan for GroupByExec {
         let sum_in_fold_eval = input_chi_eval + beta * fold_vals(beta, &aggregate_evals);
         // End compute sum_in_fold
 
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
         // 3. filtered_columns
         let group_by_result_columns_evals =
@@ -177,14 +177,14 @@ impl ProofPlan for GroupByExec {
                 alpha,
                 beta,
                 group_by_result_columns_evals[0],
-                output_chi_eval,
+                output_chi_eval.0,
             )?;
         }
         let g_out_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
-            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval,
+            g_out_star_eval + g_out_star_eval * g_out_fold_eval - output_chi_eval.0,
             2,
         )?;
 

@@ -174,7 +174,7 @@ impl ProofPlan for RangeCheckTestPlan {
 
         Ok(TableEvaluation::new(
             vec![accessor[&self.column.table_ref()][&self.column.column_id()]],
-            chi_eval_map[&self.column.table_ref()].0,
+            chi_eval_map[&self.column.table_ref()],
         ))
     }
 }

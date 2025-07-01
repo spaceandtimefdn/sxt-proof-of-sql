@@ -144,7 +144,7 @@ where
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let res_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let res_chi = builder.try_consume_chi_evaluation()?;
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
@@ -189,7 +189,7 @@ where
             alpha,
             beta,
             left_chi_eval,
-            res_chi_eval,
+            res_chi.0,
             &hat_left_column_evals,
             &res_left_column_evals,
         )?;
@@ -198,7 +198,7 @@ where
             alpha,
             beta,
             right_chi_eval,
-            res_chi_eval,
+            res_chi.0,
             &hat_right_column_evals,
             &res_right_column_evals,
         )?;
@@ -227,13 +227,13 @@ where
             &right_join_column_evals,
         )?;
         // 7. Monotonicity checks
-        verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi_eval)?;
+        verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi.0)?;
         verify_monotonic::<S, true, true>(builder, alpha, beta, u_column_eval, u_chi_eval)?;
         // 8. Prove that sum w_l * w_r = chi_m
         // sum w_l * w_r - chi_m = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::ZeroSum,
-            w_l_eval * w_r_eval - res_chi_eval,
+            w_l_eval * w_r_eval - res_chi.0,
             2,
         )?;
         // 9. Return the result
@@ -243,7 +243,7 @@ where
             .collect::<Vec<_>>();
         let res_column_evals = apply_slice_to_indexes(&res_hat_column_evals, &res_column_indexes)
             .expect("Indexes can not be out of bounds");
-        Ok(TableEvaluation::new(res_column_evals, res_chi_eval))
+        Ok(TableEvaluation::new(res_column_evals, res_chi))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {

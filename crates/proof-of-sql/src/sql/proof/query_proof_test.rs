@@ -102,7 +102,7 @@ impl ProofPlan for TrivialTestProofPlan {
         let _ = builder.try_consume_bit_distribution()?;
         Ok(TableEvaluation::new(
             vec![S::ZERO],
-            builder.try_consume_chi_evaluation()?.0,
+            builder.try_consume_chi_evaluation()?,
         ))
     }
     ///
@@ -324,7 +324,7 @@ impl ProofPlan for SquareTestProofPlan {
         )?;
         Ok(TableEvaluation::new(
             vec![res_eval],
-            builder.try_consume_chi_evaluation()?.0,
+            builder.try_consume_chi_evaluation()?,
         ))
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -526,7 +526,7 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         )?;
         Ok(TableEvaluation::new(
             vec![res_eval],
-            builder.try_consume_chi_evaluation()?.0,
+            builder.try_consume_chi_evaluation()?,
         ))
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -721,7 +721,7 @@ impl ProofPlan for ChallengeTestProofPlan {
         )?;
         Ok(TableEvaluation::new(
             vec![res_eval],
-            builder.try_consume_chi_evaluation()?.0,
+            builder.try_consume_chi_evaluation()?,
         ))
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
@@ -863,7 +863,7 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         )?;
         Ok(TableEvaluation::new(
             vec![final_round_res_eval],
-            builder.try_consume_chi_evaluation()?.0,
+            builder.try_consume_chi_evaluation()?,
         ))
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
