@@ -38,3 +38,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - name: Conventional Changelog Action
+        if: github.ref_name == 'main'
+        id: conventional-changelog
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          skip-git-pull: true
+          skip-version-file: true
+          git-push: false
+          skip-on-empty: false # Always create commit
+      - name: Set VERSION for main branch
+        if: github.ref_name == 'main'
+        run: solidity/scripts/git_commit_proof_of_sql.sh ${{ steps.conventional-changelog.outputs.version }} evm-artifact
