@@ -250,6 +250,17 @@ library GroupByExec {
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/EvaluationUtil.pre.sol
+            function evaluate_proof_exprs(plan_ptr, builder_ptr, input_chi_eval, column_count) ->
+                plan_ptr_out,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
             // IMPORT-YUL FilterExec.pre.sol
             function filter_exec_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)

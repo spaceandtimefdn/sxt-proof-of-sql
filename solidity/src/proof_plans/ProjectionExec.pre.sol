@@ -336,6 +336,17 @@ library ProjectionExec {
             function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/EvaluationUtil.pre.sol
+            function evaluate_proof_exprs(plan_ptr, builder_ptr, input_chi_eval, column_count) ->
+                plan_ptr_out,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
 
             function projection_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
@@ -350,19 +361,8 @@ library ProjectionExec {
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                evaluations_ptr := mload(FREE_PTR)
-                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
-                let target_ptr := evaluations_ptr
-                mstore(target_ptr, column_count)
-
-                for {} column_count { column_count := sub(column_count, 1) } {
-                    target_ptr := add(target_ptr, WORD_SIZE)
-                    let evaluation
-                    plan_ptr, evaluation := proof_expr_evaluate(plan_ptr, builder_ptr, output_chi_eval)
-
-                    mstore(target_ptr, evaluation)
-                }
-                plan_ptr_out := plan_ptr
+                plan_ptr_out, evaluations_ptr :=
+                    evaluate_proof_exprs(plan_ptr, builder_ptr, output_chi_eval, column_count)
             }
 
             let __planOutOffset

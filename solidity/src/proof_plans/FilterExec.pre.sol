@@ -103,6 +103,10 @@ library FilterExec {
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -247,6 +251,14 @@ library FilterExec {
             function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/EvaluationUtil.pre.sol
+            function evaluate_proof_exprs(plan_ptr, builder_ptr, input_chi_eval, column_count) ->
+                plan_ptr_out,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+
             function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
                 plan_ptr_out,
                 c_fold,
@@ -255,8 +267,13 @@ library FilterExec {
             {
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
+                {
+                    let expr_evaluations
+                    plan_ptr, expr_evaluations :=
+                        evaluate_proof_exprs(plan_ptr, builder_ptr, input_chi_eval, column_count)
+                    c_fold := compute_fold(beta, expr_evaluations)
+                }
 
-                plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
                 d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, column_count)
                 plan_ptr_out := plan_ptr
             }
