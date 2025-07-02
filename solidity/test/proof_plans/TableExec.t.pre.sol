@@ -30,8 +30,9 @@ contract TableExecTest is Test {
 
         // Execute table_exec_evaluate
         uint256[] memory evals;
+        uint256 length;
         uint256 chiEval;
-        (plan, builder, evals, chiEval) = TableExec.__tableExecEvaluate(plan, builder);
+        (plan, builder, evals, length, chiEval) = TableExec.__tableExecEvaluate(plan, builder);
 
         // Verify the expected results
         assert(evals.length == 3);
@@ -74,8 +75,9 @@ contract TableExecTest is Test {
 
         // Execute the function under test
         uint256[] memory evals;
+        uint256 length;
         uint256 chiEval;
-        (plan, builder, evals, chiEval) = TableExec.__tableExecEvaluate(plan, builder);
+        (plan, builder, evals, length, chiEval) = TableExec.__tableExecEvaluate(plan, builder);
 
         // Verify results
         assert(evals.length == columnIndicesLength);

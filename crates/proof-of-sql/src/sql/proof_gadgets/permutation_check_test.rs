@@ -156,7 +156,7 @@ impl ProofPlan for PermutationCheckTestPlan {
             &column_evals,
             &candidate_permutation_evals,
         )?;
-        Ok(TableEvaluation::new(vec![], S::ZERO))
+        Ok(TableEvaluation::new(vec![], (S::ZERO, 0)))
     }
 }
 

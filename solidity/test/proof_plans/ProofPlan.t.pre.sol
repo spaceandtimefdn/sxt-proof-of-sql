@@ -49,8 +49,9 @@ contract ProofPlanTest is Test {
         builder.tableChiEvaluations[1] = 801;
 
         uint256[] memory evals;
+        uint256 length;
         uint256 outputChiEval;
-        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
         FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);
@@ -128,8 +129,9 @@ contract ProofPlanTest is Test {
         );
 
         uint256[] memory evals;
+        uint256 length;
         uint256 outputChiEval;
-        (plan, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         assert(evals.length == 3);
         assert(evals[0] == 71502);
@@ -290,6 +292,7 @@ contract ProofPlanTest is Test {
         builder = _configureForMinimalGroupByExec(builder);
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
+            uint256 length;
             uint256 outputChiEval;
             bytes memory planOut;
             if (i == 0) {
@@ -298,7 +301,7 @@ contract ProofPlanTest is Test {
                 builder.singletonChiEvaluation = 0;
             }
             builder.columnEvaluations[0] = gIn[i];
-            (planOut, builder, evals, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
         assert(builder.aggregateEvaluation == 0);
@@ -316,8 +319,9 @@ contract ProofPlanTest is Test {
         VerificationBuilder.Builder memory builder;
         bytes memory plan = abi.encodePacked(EMPTY_EXEC_VARIANT, hex"abcdef");
         uint256[] memory evals;
+        uint256 length;
         uint256 chiEval;
-        (plan, builder, evals, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        (plan, builder, evals, length, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
         assert(evals.length == 0);
         bytes memory expectedExprOut = hex"abcdef";
         uint256 exprOutLength = plan.length;
@@ -347,8 +351,9 @@ contract ProofPlanTest is Test {
         builder.columnEvaluations[2] = 103;
 
         uint256[] memory evals;
+        uint256 length;
         uint256 chiEval;
-        (plan, builder, evals, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+        (plan, builder, evals, length, chiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
 
         assert(evals.length == 3);
         assert(evals[0] == 101);

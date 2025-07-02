@@ -69,10 +69,9 @@ impl ProofPlan for TableExec {
                     .expect("Column does not exist")
             })
             .collect::<Vec<_>>();
-        let chi_eval = chi_eval_map
+        let chi_eval = *chi_eval_map
             .get(&self.table_ref)
-            .expect("Chi eval not found")
-            .0;
+            .expect("Chi eval not found");
         Ok(TableEvaluation::new(column_evals, chi_eval))
     }
 

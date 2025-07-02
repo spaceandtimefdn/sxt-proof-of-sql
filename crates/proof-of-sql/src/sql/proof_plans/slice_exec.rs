@@ -85,7 +85,7 @@ where
         let input_table_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let output_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let output_chi = builder.try_consume_chi_evaluation()?;
         let columns_evals = input_table_eval.column_evals();
         // 2. selection
         // The selected range is (offset_index, max_index]
@@ -106,13 +106,10 @@ where
             c_fold_eval,
             d_fold_eval,
             input_table_eval.chi_eval(),
-            output_chi_eval,
+            output_chi.0,
             selection_eval,
         )?;
-        Ok(TableEvaluation::new(
-            filtered_columns_evals,
-            output_chi_eval,
-        ))
+        Ok(TableEvaluation::new(filtered_columns_evals, output_chi))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {

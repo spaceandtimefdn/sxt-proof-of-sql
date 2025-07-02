@@ -306,18 +306,15 @@ contract VerificationBuilderTest is Test {
 
     function testSetChiEvaluations() public pure {
         VerificationBuilder.Builder memory builder = VerificationBuilder.__builderNew();
-        uint256[] memory values = new uint256[](6);
-        values[0] = 1;
-        values[1] = 0x12345678;
-        values[2] = 1;
-        values[3] = 0x23456789;
-        values[4] = 1;
-        values[5] = 0x3456789A;
+        uint256[] memory values = new uint256[](3);
+        values[0] = 0x12345678;
+        values[1] = 0x23456789;
+        values[2] = 0x3456789A;
         VerificationBuilder.__setChiEvaluations(builder, values);
-        assert(builder.chiEvaluations.length == 6);
-        assert(builder.chiEvaluations[1] == 0x12345678);
-        assert(builder.chiEvaluations[3] == 0x23456789);
-        assert(builder.chiEvaluations[5] == 0x3456789A);
+        assert(builder.chiEvaluations.length == 3);
+        assert(builder.chiEvaluations[0] == 0x12345678);
+        assert(builder.chiEvaluations[1] == 0x23456789);
+        assert(builder.chiEvaluations[2] == 0x3456789A);
     }
 
     function testFuzzSetChiEvaluations(uint256[] memory values) public pure {

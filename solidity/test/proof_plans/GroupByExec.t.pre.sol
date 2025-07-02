@@ -40,9 +40,10 @@ contract GroupByExecTest is Test {
         builder.columnEvaluations[1] = 103;
 
         uint256[] memory evals;
+        uint256 length;
         uint256 outputChiEval;
         vm.expectRevert(Errors.UnprovableGroupBy.selector);
-        (plan, builder, evals, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
     }
 
     // Shared configuration for the builder in different tests
@@ -300,6 +301,7 @@ contract GroupByExecTest is Test {
         uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
+            uint256 length;
             uint256 outputChiEval;
             bytes memory planOut;
             if (i == 0) {
@@ -308,7 +310,7 @@ contract GroupByExecTest is Test {
                 builder.singletonChiEvaluation = 0;
             }
             builder.columnEvaluations[0] = gIn[i];
-            (planOut, builder, evals, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
         assert(builder.aggregateEvaluation == 0);
@@ -332,6 +334,7 @@ contract GroupByExecTest is Test {
         uint256[4] memory sumIn = [MODULUS_MINUS_ONE, 2, 3, MODULUS_MINUS_ONE];
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
+            uint256 length;
             uint256 outputChiEval;
             bytes memory planOut;
             if (i == 0) {
@@ -341,7 +344,7 @@ contract GroupByExecTest is Test {
             }
             builder.columnEvaluations[0] = gIn[i];
             builder.columnEvaluations[1] = sumIn[i];
-            (planOut, builder, evals, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
         assert(builder.aggregateEvaluation == 0);
@@ -367,6 +370,7 @@ contract GroupByExecTest is Test {
         uint256[4] memory sumIn1 = [MODULUS_MINUS_ONE, 5, 7, MODULUS_MINUS_ONE];
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
+            uint256 length;
             uint256 outputChiEval;
             bytes memory planOut;
             if (i == 0) {
@@ -377,7 +381,7 @@ contract GroupByExecTest is Test {
             builder.columnEvaluations[0] = gIn[i];
             builder.columnEvaluations[1] = sumIn0[i];
             builder.columnEvaluations[2] = sumIn1[i];
-            (planOut, builder, evals, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
     }

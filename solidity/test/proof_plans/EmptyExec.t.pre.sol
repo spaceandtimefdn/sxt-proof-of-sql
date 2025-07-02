@@ -11,9 +11,11 @@ contract EmptyExecTest is Test {
         VerificationBuilder.Builder memory builder;
         builder.singletonChiEvaluation = 1;
         uint256[] memory evaluations;
+        uint256 one;
         uint256 singleton;
-        (builder, evaluations, singleton) = EmptyExec.__emptyExecEvaluate(builder);
+        (builder, evaluations, one, singleton) = EmptyExec.__emptyExecEvaluate(builder);
         assert(evaluations.length == 0);
+        assert(one == 1);
         assert(singleton == 1);
     }
 }

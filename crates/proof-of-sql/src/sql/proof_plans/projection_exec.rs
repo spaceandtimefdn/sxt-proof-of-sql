@@ -65,7 +65,7 @@ impl ProofPlan for ProjectionExec {
         let input_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let chi_eval = input_eval.chi_eval();
+        let chi = input_eval.chi();
         // Build new accessors
         // TODO: Make this work with inputs with multiple tables such as join
         // and union results
@@ -81,10 +81,10 @@ impl ProofPlan for ProjectionExec {
             .map(|aliased_expr| {
                 aliased_expr
                     .expr
-                    .verifier_evaluate(builder, &current_accessor, chi_eval, params)
+                    .verifier_evaluate(builder, &current_accessor, chi.0, params)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(TableEvaluation::new(output_column_evals, chi_eval))
+        Ok(TableEvaluation::new(output_column_evals, chi))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
