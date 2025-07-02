@@ -210,7 +210,7 @@ fn rng(cli: &Cli) -> StdRng {
 
 /// Returns the size of the table based on the query type.
 fn table_size(cli: &Cli, query: &str) -> usize {
-    if query == Query::Join.to_string() {
+    if query == Query::Join.to_string() || query == Query::UnionAll.to_string() {
         cli.table_size.div_ceil(2)
     } else {
         cli.table_size
