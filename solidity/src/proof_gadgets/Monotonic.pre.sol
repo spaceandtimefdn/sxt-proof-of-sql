@@ -107,7 +107,9 @@ library Monotonic {
                 revert(0, 0)
             }
             // IMPORT-YUL ./Shift.pre.sol
-            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, chi_eval) ->
+                shifted_expr_eval,
+                chi_plus_one_eval
             {
                 revert(0, 0)
             }
@@ -118,10 +120,8 @@ library Monotonic {
 
             function monotonic_verify(builder_ptr, alpha, beta, column_eval, chi_eval, strict, asc) {
                 // 1. Verify that `shifted_column` is a shift of `column`
-                let shifted_column_eval := builder_consume_final_round_mle(builder_ptr)
-                let shifted_chi_eval := builder_consume_chi_evaluation(builder_ptr)
-
-                shift_evaluate(builder_ptr, alpha, beta, column_eval, shifted_column_eval, chi_eval, shifted_chi_eval)
+                let shifted_column_eval, shifted_chi_eval :=
+                    shift_evaluate(builder_ptr, alpha, beta, column_eval, chi_eval)
 
                 // 2. Compute indicator evaluation based on strictness and direction
                 let ind_eval
