@@ -408,9 +408,9 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol
-            function compute_g_out_star_eval(
-                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
-            ) -> g_out_star_eval {
+            function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
+                g_out_star_eval
+            {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/GroupByExec.pre.sol

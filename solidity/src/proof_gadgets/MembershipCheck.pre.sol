@@ -103,11 +103,6 @@ library MembershipCheck {
                 let c_star_eval := builder_consume_final_round_mle(builder_ptr)
                 let d_star_eval := builder_consume_final_round_mle(builder_ptr)
 
-                // sum c_star * multiplicity_eval - d_star = 0
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star_eval, multiplicity_eval), d_star_eval), 2
-                )
-
                 // c_star + c_fold * c_star - chi_n = 0
                 builder_produce_identity_constraint(
                     builder_ptr,
@@ -120,6 +115,11 @@ library MembershipCheck {
                     builder_ptr,
                     submod_bn254(addmod_bn254(d_star_eval, mulmod_bn254(d_fold, d_star_eval)), chi_m_eval),
                     2
+                )
+
+                // sum c_star * multiplicity_eval - d_star = 0
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star_eval, multiplicity_eval), d_star_eval), 2
                 )
             }
 

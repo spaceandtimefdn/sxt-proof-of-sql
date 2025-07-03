@@ -162,13 +162,13 @@ contract GroupByExecTest is Test {
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 8] = gInStarColumn[i];
                 builder.finalRoundMLEs[i * 8 + 1] = gOut[i];
+                builder.finalRoundMLEs[i * 8 + 2] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.finalRoundMLEs[i * 8 + 2] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 8 + 3] = cStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 4] = dStarEval[i];
-                builder.finalRoundMLEs[i * 8 + 5] = sign[i];
+                builder.finalRoundMLEs[i * 8 + 3] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 8 + 4] = cStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 5] = dStarEval[i];
+                builder.finalRoundMLEs[i * 8 + 6] = sign[i];
                 // Continue with group by output
-                builder.finalRoundMLEs[i * 8 + 6] = gOutStarColumn[i];
                 builder.finalRoundMLEs[i * 8 + 7] = count[i];
             }
         }
@@ -215,13 +215,13 @@ contract GroupByExecTest is Test {
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 9] = gInStarColumn[i];
                 builder.finalRoundMLEs[i * 9 + 1] = gOut[i];
+                builder.finalRoundMLEs[i * 9 + 2] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.finalRoundMLEs[i * 9 + 2] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 9 + 3] = cStarEval[i];
-                builder.finalRoundMLEs[i * 9 + 4] = dStarEval[i];
-                builder.finalRoundMLEs[i * 9 + 5] = sign[i];
+                builder.finalRoundMLEs[i * 9 + 3] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 9 + 4] = cStarEval[i];
+                builder.finalRoundMLEs[i * 9 + 5] = dStarEval[i];
+                builder.finalRoundMLEs[i * 9 + 6] = sign[i];
                 // Continue with group by output
-                builder.finalRoundMLEs[i * 9 + 6] = gOutStarColumn[i];
                 builder.finalRoundMLEs[i * 9 + 7] = sumOut[i];
                 builder.finalRoundMLEs[i * 9 + 8] = count[i];
             }
@@ -270,13 +270,13 @@ contract GroupByExecTest is Test {
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 10] = gInStarColumn[i];
                 builder.finalRoundMLEs[i * 10 + 1] = gOut[i];
+                builder.finalRoundMLEs[i * 10 + 2] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.finalRoundMLEs[i * 10 + 2] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 10 + 3] = cStarEval[i];
-                builder.finalRoundMLEs[i * 10 + 4] = dStarEval[i];
-                builder.finalRoundMLEs[i * 10 + 5] = sign[i];
+                builder.finalRoundMLEs[i * 10 + 3] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 10 + 4] = cStarEval[i];
+                builder.finalRoundMLEs[i * 10 + 5] = dStarEval[i];
+                builder.finalRoundMLEs[i * 10 + 6] = sign[i];
                 // Continue with group by output
-                builder.finalRoundMLEs[i * 10 + 6] = gOutStarColumn[i];
                 builder.finalRoundMLEs[i * 10 + 7] = sumOut0[i];
                 builder.finalRoundMLEs[i * 10 + 8] = sumOut1[i];
                 builder.finalRoundMLEs[i * 10 + 9] = count[i];

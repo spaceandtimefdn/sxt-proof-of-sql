@@ -265,14 +265,14 @@ library FilterExec {
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)
 
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
-                )
                 builder_produce_identity_constraint(
                     builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval), 2
                 )
                 builder_produce_identity_constraint(
                     builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval), 2
+                )
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
                 )
                 builder_produce_identity_constraint(
                     builder_ptr, mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)), 2

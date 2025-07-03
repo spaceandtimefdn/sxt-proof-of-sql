@@ -30,9 +30,9 @@ contract FilterExecTest is Test {
         builder.finalRoundMLEs[3] = 301;
         builder.finalRoundMLEs[4] = 302;
         builder.constraintMultipliers = new uint256[](4);
-        builder.constraintMultipliers[0] = 401;
-        builder.constraintMultipliers[1] = 402;
-        builder.constraintMultipliers[2] = 403;
+        builder.constraintMultipliers[0] = 402;
+        builder.constraintMultipliers[1] = 403;
+        builder.constraintMultipliers[2] = 401;
         builder.constraintMultipliers[3] = 404;
         builder.challenges = new uint256[](2);
         builder.challenges[0] = 501;
@@ -140,12 +140,12 @@ contract FilterExecTest is Test {
         uint64 tableNumber
     ) internal pure returns (FF aggregateEvaluation) {
         aggregateEvaluation = F.from(builder.aggregateEvaluation)
-            + F.from(builder.constraintMultipliers[0])
-                * _computeEqualsExprZeroSumConstraint0(builder, whereEvaluation, inputEvaluations)
-            + F.from(builder.constraintMultipliers[1]) * F.from(builder.rowMultipliersEvaluation)
+            + F.from(builder.constraintMultipliers[0]) * F.from(builder.rowMultipliersEvaluation)
                 * _computeEqualsExprIdentityConstraint1(builder, inputEvaluations, tableNumber)
-            + F.from(builder.constraintMultipliers[2]) * F.from(builder.rowMultipliersEvaluation)
+            + F.from(builder.constraintMultipliers[1]) * F.from(builder.rowMultipliersEvaluation)
                 * _computeEqualsExprIdentityConstraint2(builder, inputEvaluations)
+            + F.from(builder.constraintMultipliers[2])
+                * _computeEqualsExprZeroSumConstraint0(builder, whereEvaluation, inputEvaluations)
             + F.from(builder.constraintMultipliers[3]) * F.from(builder.rowMultipliersEvaluation)
                 * _computeEqualsExprIdentityConstraint3(builder, inputEvaluations);
     }
