@@ -65,7 +65,7 @@ contract ArrayTest is Test {
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
-    function testGetUint512ArrayElement() public pure {
+    function testGetUint512ArrayElement() public {
         uint256[] memory array = new uint256[](4);
         array[0] = 1;
         array[1] = 2;
@@ -83,6 +83,8 @@ contract ArrayTest is Test {
         (upper, lower) = Array.__getUint512ArrayElement(wrappedArray, 1);
         assert(upper == 3);
         assert(lower == 4);
+        vm.expectRevert(Errors.InvalidIndex.selector);
+        (upper, lower) = Array.__getUint512ArrayElement(wrappedArray, 2);
     }
 
     function testEmptyReadUint64Array() public pure {
