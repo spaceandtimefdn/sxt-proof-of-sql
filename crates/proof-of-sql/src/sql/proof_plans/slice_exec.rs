@@ -85,12 +85,34 @@ where
         let input_table_eval =
             self.input
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let output_chi = builder.try_consume_chi_evaluation()?;
+        let (input_eval, input_length) = input_table_eval.chi();
+        let (output_chi_eval, output_length) = builder.try_consume_chi_evaluation()?;
         let columns_evals = input_table_eval.column_evals();
         // 2. selection
         // The selected range is (offset_index, max_index]
-        let offset_chi_eval = builder.try_consume_chi_evaluation()?.0;
-        let max_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let (offset_chi_eval, offset) = builder.try_consume_chi_evaluation()?;
+        let (max_chi_eval, max) = builder.try_consume_chi_evaluation()?;
+
+        if output_length != max - offset {
+            return Err(ProofError::VerificationError {
+                error: "output length does not match selection length",
+            });
+        }
+        if self.skip.min(input_length) != offset {
+            return Err(ProofError::VerificationError {
+                error: "offset length does not match plan value",
+            });
+        }
+        if max
+            != self
+                .fetch
+                .map_or(input_length, |f| (f + self.skip).min(input_length))
+        {
+            return Err(ProofError::VerificationError {
+                error: "max length does not match expected value",
+            });
+        }
+
         let selection_eval = max_chi_eval - offset_chi_eval;
         // 3. filtered_columns
         let filtered_columns_evals =
@@ -105,11 +127,14 @@ where
             builder,
             c_fold_eval,
             d_fold_eval,
-            input_table_eval.chi_eval(),
-            output_chi.0,
+            input_eval,
+            output_chi_eval,
             selection_eval,
         )?;
-        Ok(TableEvaluation::new(filtered_columns_evals, output_chi))
+        Ok(TableEvaluation::new(
+            filtered_columns_evals,
+            (output_chi_eval, output_length),
+        ))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
