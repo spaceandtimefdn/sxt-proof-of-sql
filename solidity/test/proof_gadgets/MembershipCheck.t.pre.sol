@@ -19,7 +19,8 @@ contract MembershipCheckTest is Test {
         uint256[8] memory chiN = [uint256(1), 1, 1, 1, 1, 1, 1, 1];
         uint256[8] memory candidate = [uint256(300), 300, 0, 1, 1, 0, 0, 0];
         uint256[8] memory chiM = [uint256(1), 1, 1, 1, 1, 0, 0, 0];
-        builder.finalRoundMLEs = new uint256[](24);
+        builder.firstRoundMLEs = new uint256[](8);
+        builder.finalRoundMLEs = new uint256[](16);
         {
             uint256 inv901 = 6340545382408491490573043173709377134418560608777563777697260036288885701838;
             uint256 inv4 = 16416182153879456416684804308942956316411273300312025757773653139931856371713;
@@ -28,9 +29,9 @@ contract MembershipCheckTest is Test {
             uint256[8] memory cStar = [inv901, inv4, inv4, inv4, inv4, inv4, 1, inv7];
             uint256[8] memory dStar = [inv901, inv901, 1, inv4, inv4, 0, 0, 0];
             for (uint8 i = 0; i < 8; ++i) {
-                builder.finalRoundMLEs[i * 3] = multiplicity[i];
-                builder.finalRoundMLEs[i * 3 + 1] = cStar[i];
-                builder.finalRoundMLEs[i * 3 + 2] = dStar[i];
+                builder.firstRoundMLEs[i] = multiplicity[i];
+                builder.finalRoundMLEs[i * 2] = cStar[i];
+                builder.finalRoundMLEs[i * 2 + 1] = dStar[i];
             }
         }
 
@@ -84,7 +85,8 @@ contract MembershipCheckTest is Test {
             [uint256(0), 0]
         ];
         uint256[8] memory chiM = [uint256(1), 1, 1, 1, 1, 0, 0, 0];
-        builder.finalRoundMLEs = new uint256[](24);
+        builder.firstRoundMLEs = new uint256[](8);
+        builder.finalRoundMLEs = new uint256[](16);
         {
             uint256 inv7207 = 5767416846624501685451078744310193616366497016288337618798791418108430738612;
             uint256 inv28 = 11725844395628183154774860220673540226008052357365732684124037957094183122652;
@@ -95,9 +97,9 @@ contract MembershipCheckTest is Test {
             uint256[8] memory cStar = [inv7207, inv28, invNegative14, inv28, invNegative14, inv28, inv121, inv52];
             uint256[8] memory dStar = [inv7207, invNegative14, inv121, inv28, inv28, 0, 0, 0];
             for (uint8 i = 0; i < 8; ++i) {
-                builder.finalRoundMLEs[i * 3] = multiplicity[i];
-                builder.finalRoundMLEs[i * 3 + 1] = cStar[i];
-                builder.finalRoundMLEs[i * 3 + 2] = dStar[i];
+                builder.firstRoundMLEs[i] = multiplicity[i];
+                builder.finalRoundMLEs[i * 2] = cStar[i];
+                builder.finalRoundMLEs[i * 2 + 1] = dStar[i];
             }
         }
 
