@@ -3,18 +3,16 @@ use crate::{
         database::{join_util::get_multiplicities, Column},
         proof::ProofError,
         scalar::Scalar,
-        slice_ops,
     },
     sql::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder,
         },
-        proof_plans::{fold_columns, fold_vals},
+        proof_gadgets::fold_log_expr::FoldLogExpr,
     },
 };
 use alloc::{boxed::Box, vec};
 use bumpalo::Bump;
-use num_traits::{One, Zero};
 
 /// Perform first round evaluation of the membership check.
 ///
@@ -68,58 +66,17 @@ pub(crate) fn final_round_evaluate_membership_check<'a, S: Scalar>(
     );
     let multiplicities = get_multiplicities::<S>(candidate_subset, columns, alloc);
 
-    // Fold the columns
-    let c_fold = alloc.alloc_slice_fill_copy(chi_n.len(), Zero::zero());
-    fold_columns(c_fold, alpha, beta, columns);
-    let d_fold = alloc.alloc_slice_fill_copy(chi_m.len(), Zero::zero());
-    fold_columns(d_fold, alpha, beta, candidate_subset);
-
-    let c_star = alloc.alloc_slice_copy(c_fold);
-    slice_ops::add_const::<S, S>(c_star, One::one());
-    slice_ops::batch_inversion(c_star);
-
-    let d_star = alloc.alloc_slice_copy(d_fold);
-    slice_ops::add_const::<S, S>(d_star, One::one());
-    slice_ops::batch_inversion(d_star);
-
-    builder.produce_intermediate_mle(c_star as &[_]);
-    builder.produce_intermediate_mle(d_star as &[_]);
-
-    // c_star + c_fold * c_star - chi_n = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_n as &[_])]),
-        ],
-    );
-
-    // d_star + d_fold * d_star - chi_m = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(d_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi_m as &[_])]),
-        ],
-    );
+    let fold_gadget = FoldLogExpr::new(alpha, beta);
+    let (c_star, _) = fold_gadget.final_round_evaluate(builder, alloc, columns, chi_n.len());
+    let (d_star, _) =
+        fold_gadget.final_round_evaluate(builder, alloc, candidate_subset, chi_m.len());
 
     // sum c_star * multiplicities - d_star = 0
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::ZeroSum,
         vec![
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(multiplicities as &[_])],
-            ),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
+            (S::one(), vec![Box::new(c_star), Box::new(multiplicities)]),
+            (-S::one(), vec![Box::new(d_star)]),
         ],
     );
     multiplicities
@@ -142,24 +99,9 @@ pub(crate) fn verify_membership_check<S: Scalar>(
         });
     }
     let multiplicity_eval = builder.try_consume_first_round_mle_evaluation()?;
-    let c_fold_eval = fold_vals(beta, column_evals);
-    let d_fold_eval = fold_vals(beta, candidate_evals);
-    let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    // c_star + c_fold * c_star - chi_n = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        (S::ONE + alpha * c_fold_eval) * c_star_eval - chi_n_eval,
-        2,
-    )?;
-
-    // d_star + d_fold * d_star - chi_m = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        (S::ONE + alpha * d_fold_eval) * d_star_eval - chi_m_eval,
-        2,
-    )?;
+    let fold_gadget = FoldLogExpr::new(alpha, beta);
+    let (c_star_eval, _) = fold_gadget.verify_evaluate(builder, column_evals, chi_n_eval)?;
+    let (d_star_eval, _) = fold_gadget.verify_evaluate(builder, candidate_evals, chi_m_eval)?;
 
     // sum c_star * multiplicities - d_star = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(

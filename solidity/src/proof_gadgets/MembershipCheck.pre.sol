@@ -90,6 +90,10 @@ library MembershipCheck {
             function compute_fold(beta, evals) -> fold {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                revert(0, 0)
+            }
 
             function membership_check_evaluate(
                 builder_ptr, alpha, beta, chi_n_eval, chi_m_eval, column_evals, candidate_evals
@@ -97,25 +101,9 @@ library MembershipCheck {
                 let num_columns := mload(column_evals)
                 let num_candidate_columns := mload(candidate_evals)
                 if sub(num_columns, num_candidate_columns) { err(ERR_INTERNAL) }
-                let c_fold := mulmod_bn254(compute_fold(beta, column_evals), alpha)
-                let d_fold := mulmod_bn254(compute_fold(beta, candidate_evals), alpha)
                 multiplicity_eval := builder_consume_final_round_mle(builder_ptr)
-                let c_star_eval := builder_consume_final_round_mle(builder_ptr)
-                let d_star_eval := builder_consume_final_round_mle(builder_ptr)
-
-                // c_star + c_fold * c_star - chi_n = 0
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    submod_bn254(addmod_bn254(c_star_eval, mulmod_bn254(c_fold, c_star_eval)), chi_n_eval),
-                    2
-                )
-
-                // d_star + d_fold * d_star - chi_m = 0
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    submod_bn254(addmod_bn254(d_star_eval, mulmod_bn254(d_fold, d_star_eval)), chi_m_eval),
-                    2
-                )
+                let c_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_n_eval)
+                let d_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, candidate_evals, chi_m_eval)
 
                 // sum c_star * multiplicity_eval - d_star = 0
                 builder_produce_zerosum_constraint(
