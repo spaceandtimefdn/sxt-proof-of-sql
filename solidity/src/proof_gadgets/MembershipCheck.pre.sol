@@ -63,6 +63,10 @@ library MembershipCheck {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
@@ -99,7 +103,7 @@ library MembershipCheck {
                 if sub(num_columns, num_candidate_columns) { err(ERR_INTERNAL) }
                 let c_fold := mulmod_bn254(compute_fold(beta, column_evals), alpha)
                 let d_fold := mulmod_bn254(compute_fold(beta, candidate_evals), alpha)
-                multiplicity_eval := builder_consume_final_round_mle(builder_ptr)
+                multiplicity_eval := builder_consume_first_round_mle(builder_ptr)
                 let c_star_eval := builder_consume_final_round_mle(builder_ptr)
                 let d_star_eval := builder_consume_final_round_mle(builder_ptr)
 
