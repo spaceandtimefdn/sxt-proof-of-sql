@@ -77,7 +77,7 @@ where
             .collect::<Result<Vec<_>, _>>()?;
 
         let output_column_evals =
-            builder.try_consume_final_round_mle_evaluations(self.schema.len())?;
+            builder.try_consume_first_round_mle_evaluations(self.schema.len())?;
         let chi_m = builder.try_consume_chi_evaluation()?;
 
         let (d_star_eval, _) =
@@ -133,6 +133,11 @@ impl ProverEvaluate for UnionExec {
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+
+        // Produce intermediate MLEs for the union
+        res.columns().copied().for_each(|column| {
+            builder.produce_intermediate_mle(column);
+        });
         builder.produce_chi_evaluation_length(res.num_rows());
         Ok(res)
     }
@@ -168,10 +173,6 @@ impl ProverEvaluate for UnionExec {
             .unzip();
         let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
         let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
-        // Produce intermediate MLEs for the union
-        output_columns.iter().copied().for_each(|column| {
-            builder.produce_intermediate_mle(column);
-        });
         // No need to produce intermediate MLEs for `d_fold` because it is
         // the sum of `c_fold`
         let (d_star, _) =
