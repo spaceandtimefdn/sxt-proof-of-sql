@@ -216,6 +216,16 @@ library ProofPlan {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_column_exprs(
+                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/Shift.pre.sol
             function compute_shift_identity_constraint(star, chi_plus_one, fold) -> constraint {
                 revert(0, 0)

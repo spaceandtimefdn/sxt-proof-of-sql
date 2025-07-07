@@ -274,6 +274,16 @@ library GroupByExec {
             function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_column_exprs(
+                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
 
             function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
                 plan_ptr_out,
@@ -284,20 +294,13 @@ library GroupByExec {
                 if sub(num_group_by_columns, 1) { err(ERR_UNPROVABLE_GROUP_BY) }
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                // Process group by columns
-                let g_in_fold
-                plan_ptr, g_in_fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, num_group_by_columns)
-                g_in_fold := mulmod_bn254(g_in_fold, alpha)
-
                 // Get the g_in_star and g_out_star evaluations
-                let g_in_star_eval := builder_consume_final_round_mle(builder_ptr)
+                let g_in_star_eval
 
-                // First constraint: g_in_star + g_in_star * g_in_fold - input_chi_eval = 0
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    submod_bn254(addmod_bn254(g_in_star_eval, mulmod_bn254(g_in_star_eval, g_in_fold)), input_chi_eval),
-                    2
-                )
+                plan_ptr, g_in_star_eval :=
+                    fold_log_star_evaluate_from_column_exprs(
+                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval
+                    )
 
                 let selection_eval
                 plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
