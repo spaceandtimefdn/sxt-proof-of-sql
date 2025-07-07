@@ -71,14 +71,17 @@ library FoldLogExpr {
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
-            // slither-disable-end cyclomatic-complexity
-            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
-                let fold := mulmod_bn254(alpha, compute_fold(beta, column_evals))
+            function fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval) -> star {
                 star := builder_consume_final_round_mle(builder_ptr)
                 // star + fold * star - chi = 0
                 builder_produce_identity_constraint(
                     builder_ptr, submod_bn254(addmod_bn254(star, mulmod_bn254(fold, star)), chi_eval), 2
                 )
+            }
+            // slither-disable-end cyclomatic-complexity
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                let fold := mulmod_bn254(alpha, compute_fold(beta, column_evals))
+                star := fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval)
             }
 
             __star := fold_log_star_evaluate(__builder, __alpha, __beta, __columnEvals, __chiEval)
