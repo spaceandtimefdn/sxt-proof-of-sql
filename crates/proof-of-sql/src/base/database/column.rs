@@ -54,6 +54,10 @@ pub enum Column<'a, S: Scalar> {
     Scalar(&'a [S]),
     /// Variable length binary columns
     VarBinary((&'a [&'a [u8]], &'a [S])),
+    /// Nullable columns
+    /// - the first element is the underlying column data
+    /// - the second element is a bitmap where true means non-null, false means null
+    Nullable(Box<Column<'a, S>>, &'a [bool]),
 }
 
 impl<'a, S: Scalar> Column<'a, S> {
@@ -75,6 +79,7 @@ impl<'a, S: Scalar> Column<'a, S> {
                 ColumnType::TimestampTZ(*time_unit, *timezone)
             }
             Self::VarBinary(..) => ColumnType::VarBinary,
+            Self::Nullable(inner_col, _) => ColumnType::Nullable(Box::new(inner_col.column_type())),
         }
     }
     /// Returns the length of the column.
@@ -99,6 +104,10 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             Self::Int128(col) => col.len(),
             Self::Scalar(col) | Self::Decimal75(_, _, col) => col.len(),
+            Self::Nullable(inner_col, null_bitmap) => {
+                assert_eq!(inner_col.len(), null_bitmap.len());
+                null_bitmap.len()
+            }
         }
     }
     /// Returns `true` if the column has no elements.
@@ -158,6 +167,12 @@ impl<'a, S: Scalar> Column<'a, S> {
                     alloc.alloc_slice_fill_copy(length, S::from_byte_slice_via_hash(bytes));
 
                 Column::VarBinary((bytes_slice, scalars))
+            }
+            LiteralValue::Null => {
+                // Create a nullable column with all null values (using boolean as default inner type)
+                let inner_col = Column::Boolean(alloc.alloc_slice_fill_copy(length, false));
+                let null_bitmap = alloc.alloc_slice_fill_copy(length, false); // all null
+                Column::Nullable(Box::new(inner_col), null_bitmap)
             }
         }
     }
@@ -387,37 +402,43 @@ pub enum ColumnType {
     /// Mapped to [u8]
     #[serde(alias = "BINARY", alias = "BINARY")]
     VarBinary,
+    /// Nullable version of any column type
+    #[serde(alias = "NULLABLE", alias = "nullable")]
+    #[cfg_attr(test, proptest(skip))]
+    Nullable(Box<ColumnType>),
 }
 
 impl ColumnType {
     /// Returns true if this column is numeric and false otherwise
     #[must_use]
     pub fn is_numeric(&self) -> bool {
-        matches!(
-            self,
+        match self {
             ColumnType::Uint8
-                | ColumnType::TinyInt
-                | ColumnType::SmallInt
-                | ColumnType::Int
-                | ColumnType::BigInt
-                | ColumnType::Int128
-                | ColumnType::Scalar
-                | ColumnType::Decimal75(_, _)
-        )
+            | ColumnType::TinyInt
+            | ColumnType::SmallInt
+            | ColumnType::Int
+            | ColumnType::BigInt
+            | ColumnType::Int128
+            | ColumnType::Scalar
+            | ColumnType::Decimal75(_, _) => true,
+            ColumnType::Nullable(inner) => inner.is_numeric(),
+            _ => false,
+        }
     }
 
     /// Returns true if this column is an integer and false otherwise
     #[must_use]
     pub fn is_integer(&self) -> bool {
-        matches!(
-            self,
+        match self {
             ColumnType::Uint8
-                | ColumnType::TinyInt
-                | ColumnType::SmallInt
-                | ColumnType::Int
-                | ColumnType::BigInt
-                | ColumnType::Int128
-        )
+            | ColumnType::TinyInt
+            | ColumnType::SmallInt
+            | ColumnType::Int
+            | ColumnType::BigInt
+            | ColumnType::Int128 => true,
+            ColumnType::Nullable(inner) => inner.is_integer(),
+            _ => false,
+        }
     }
 
     /// Returns the floor of the sqrt of the negative min integer.
@@ -433,6 +454,7 @@ impl ColumnType {
             ColumnType::Int => Some(46_340),
             ColumnType::BigInt => Some(3_037_000_499),
             ColumnType::Int128 => Some(13_043_817_825_332_782_212),
+            ColumnType::Nullable(inner) => inner.sqrt_negative_min(),
             _ => None,
         }
     }
@@ -445,6 +467,7 @@ impl ColumnType {
             ColumnType::Int => Some(32),
             ColumnType::BigInt => Some(64),
             ColumnType::Int128 => Some(128),
+            ColumnType::Nullable(inner) => inner.to_integer_bits(),
             _ => None,
         }
     }
@@ -519,6 +542,7 @@ impl ColumnType {
             // so that they do not cause errors when used in comparisons.
             Self::Scalar => Some(0_u8),
             Self::Boolean | Self::VarChar | Self::VarBinary => None,
+            Self::Nullable(inner) => inner.precision_value(),
         }
     }
     /// Returns scale of a [`ColumnType`] if it is convertible to a decimal wrapped in `Some()`. Otherwise return None.
@@ -540,6 +564,7 @@ impl ColumnType {
                 PoSQLTimeUnit::Microsecond => Some(6),
                 PoSQLTimeUnit::Nanosecond => Some(9),
             },
+            Self::Nullable(inner) => inner.scale(),
         }
     }
 
@@ -557,6 +582,7 @@ impl ColumnType {
             Self::Scalar | Self::Decimal75(_, _) | Self::VarBinary | Self::VarChar => {
                 size_of::<[u64; 4]>()
             }
+            Self::Nullable(inner) => inner.byte_size() + size_of::<bool>(), // Add space for null bitmap
         }
     }
 
@@ -569,7 +595,7 @@ impl ColumnType {
 
     /// Returns if the column type supports signed values.
     #[must_use]
-    pub const fn is_signed(&self) -> bool {
+    pub fn is_signed(&self) -> bool {
         match self {
             Self::TinyInt
             | Self::SmallInt
@@ -583,6 +609,7 @@ impl ColumnType {
             | Self::VarChar
             | Self::Boolean
             | Self::Uint8 => false,
+            Self::Nullable(inner) => inner.is_signed(),
         }
     }
 

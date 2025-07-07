@@ -51,6 +51,11 @@ pub enum OwnedColumn<S: Scalar> {
     Scalar(Vec<S>),
     /// Variable length binary columns
     VarBinary(Vec<Vec<u8>>),
+    /// Nullable columns
+    /// - the first element is the underlying column data
+    /// - the second element is a bitmap where true means non-null, false means null
+    #[cfg_attr(test, proptest(skip))]
+    Nullable(Box<OwnedColumn<S>>, Vec<bool>),
 }
 
 impl<S: Scalar> OwnedColumn<S> {
@@ -71,6 +76,11 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => {
                 inner_product_ref_cast(col, vec)
             }
+            OwnedColumn::Nullable(inner_col, _null_bitmap) => {
+                // For now, we compute inner product on the underlying column
+                // TODO: Handle nulls properly in cryptographic computations
+                inner_col.inner_product(vec)
+            }
         }
     }
 
@@ -88,6 +98,10 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::VarBinary(col) => col.len(),
             OwnedColumn::Int128(col) => col.len(),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => col.len(),
+            OwnedColumn::Nullable(inner_col, null_bitmap) => {
+                assert_eq!(inner_col.len(), null_bitmap.len());
+                null_bitmap.len()
+            }
         }
     }
 
@@ -109,6 +123,12 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::Scalar(col) => OwnedColumn::Scalar(permutation.try_apply(col)?),
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, permutation.try_apply(col)?)
+            }
+            OwnedColumn::Nullable(inner_col, null_bitmap) => {
+                OwnedColumn::Nullable(
+                    Box::new(inner_col.try_permute(permutation)?),
+                    permutation.try_apply(null_bitmap)?,
+                )
             }
         })
     }
@@ -133,6 +153,12 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, col[start..end].to_vec())
             }
+            OwnedColumn::Nullable(inner_col, null_bitmap) => {
+                OwnedColumn::Nullable(
+                    Box::new(inner_col.slice(start, end)),
+                    null_bitmap[start..end].to_vec(),
+                )
+            }
         }
     }
 
@@ -150,6 +176,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::VarBinary(col) => col.is_empty(),
             OwnedColumn::Int128(col) => col.is_empty(),
             OwnedColumn::Scalar(col) | OwnedColumn::Decimal75(_, _, col) => col.is_empty(),
+            OwnedColumn::Nullable(inner_col, null_bitmap) => inner_col.is_empty() && null_bitmap.is_empty(),
         }
     }
     /// Returns the type of the column.
@@ -170,6 +197,9 @@ impl<S: Scalar> OwnedColumn<S> {
                 ColumnType::Decimal75(*precision, *scale)
             }
             OwnedColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            OwnedColumn::Nullable(inner_col, _) => {
+                ColumnType::Nullable(Box::new(inner_col.column_type()))
+            }
         }
     }
 

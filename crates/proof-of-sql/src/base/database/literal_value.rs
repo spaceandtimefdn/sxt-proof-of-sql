@@ -45,6 +45,8 @@ pub enum LiteralValue {
     /// `TimeStamp` defined over a unit (s, ms, ns, etc) and timezone with backing store
     /// mapped to i64, which is time units since unix epoch
     TimeStampTZ(PoSQLTimeUnit, PoSQLTimeZone, i64),
+    /// Null value
+    Null,
 }
 
 impl LiteralValue {
@@ -64,6 +66,7 @@ impl LiteralValue {
             Self::Scalar(_) => ColumnType::Scalar,
             Self::Decimal75(precision, scale, _) => ColumnType::Decimal75(*precision, *scale),
             Self::TimeStampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            Self::Null => ColumnType::Nullable(Box::new(ColumnType::Boolean)), // Default to nullable boolean for null literals
         }
     }
 
@@ -82,6 +85,12 @@ impl LiteralValue {
             Self::Int128(i) => i.into(),
             Self::Scalar(limbs) => (*limbs).into(),
             Self::TimeStampTZ(_, _, time) => time.into(),
+            Self::Null => S::from(0), // Null values represented as 0 in scalar form
         }
+    }
+    
+    /// Returns true if this literal is null
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
     }
 }
