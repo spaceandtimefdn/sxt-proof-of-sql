@@ -503,7 +503,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         let span = span!(Level::DEBUG, "allocate slices").entered();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         span.exit();
 
         // 3. Get post-result challenges
