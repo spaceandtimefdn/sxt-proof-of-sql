@@ -11,7 +11,7 @@ use crate::{
             TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
-        proof::{PlaceholderResult, ProofError},
+        proof::{PlaceholderResult, ProofError, ProofSizeMismatch},
         scalar::Scalar,
     },
     sql::{
@@ -102,10 +102,11 @@ fn get_hat_column_indices(join_column_indices: &[usize], num_columns: usize) -> 
 
 #[expect(clippy::missing_panics_doc)]
 fn compute_hat_column_evals<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
     eval: &TableEvaluation<S>,
-    rho_eval: S,
     join_column_indexes: &[usize],
-) -> (Vec<S>, Vec<S>, usize) {
+) -> Result<(Vec<S>, Vec<S>, usize), ProofSizeMismatch> {
+    let rho_eval = builder.try_consume_rho_evaluation()?;
     let column_evals = eval.column_evals();
     let num_columns = column_evals.len();
     let column_and_rho_evals = column_evals
@@ -118,7 +119,7 @@ fn compute_hat_column_evals<S: Scalar>(
         .expect("Indexes can not be out of bounds");
     let join_column_evals = apply_slice_to_indexes(&column_and_rho_evals, join_column_indexes)
         .expect("Indexes can not be out of bounds");
-    (hat_column_evals, join_column_evals, num_columns)
+    Ok((hat_column_evals, join_column_evals, num_columns))
 }
 
 fn compute_hat_columns<'a, S: Scalar>(
@@ -160,13 +161,11 @@ where
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let left_rho_eval = builder.try_consume_rho_evaluation()?;
-        let right_rho_eval = builder.try_consume_rho_evaluation()?;
         // 3. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
-            compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
+            compute_hat_column_evals(builder, &left_eval, &self.left_join_column_indexes)?;
         let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
-            compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
+            compute_hat_column_evals(builder, &right_eval, &self.right_join_column_indexes)?;
         let num_columns_u = self.left_join_column_indexes.len();
         if num_columns_u != 1 {
             return Err(ProofError::VerificationError {
