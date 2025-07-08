@@ -141,8 +141,6 @@ where
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let res_chi = builder.try_consume_chi_evaluation()?;
-        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
         // 3. alpha, beta
@@ -181,6 +179,8 @@ where
         let res_right_column_evals =
             apply_slice_to_indexes(&res_hat_column_evals, &res_right_column_indexes)
                 .expect("Indexes can not be out of bounds");
+        let res_chi = builder.try_consume_chi_evaluation()?;
+        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         verify_membership_check(
             builder,
             alpha,
@@ -359,8 +359,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         // 3. Chi eval and rho eval
-        builder.produce_chi_evaluation_length(num_rows_res);
-        builder.produce_chi_evaluation_length(num_rows_u);
         builder.produce_rho_evaluation_length(num_rows_left);
         builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
@@ -388,6 +386,8 @@ impl ProverEvaluate for SortMergeJoinExec {
             .chain(&raw_res_hat[num_columns_left + 1..])
             .copied()
             .collect();
+        builder.produce_chi_evaluation_length(num_rows_res);
+        builder.produce_chi_evaluation_length(num_rows_u);
         first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &res_left_columns);
         first_round_evaluate_membership_check(
             builder,
@@ -474,9 +474,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         // Store in bump, `\hat{J}` in the protocol
         let res_hat = alloc.alloc_slice_copy(raw_res_hat.as_slice());
 
-        let num_rows_res = left_row_indexes.len();
-        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
-
         // 2. Get the strictly increasing columns, `i` and `u`
         // i = left_row_index * 2^64 + right_row_index
         // which is strictly increasing
@@ -495,9 +492,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             "Join on multiple columns not supported yet"
         );
         let u_0 = u[0].to_scalar();
-        let num_rows_u = u[0].len();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
-        let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 
         // 3. Get post-result challenges
@@ -530,6 +525,10 @@ impl ProverEvaluate for SortMergeJoinExec {
             .copied()
             .collect();
 
+        let num_rows_res = left_row_indexes.len();
+        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
+        let num_rows_u = u[0].len();
+        let chi_u: &mut [bool] = alloc.alloc_slice_fill_copy(num_rows_u, true);
         final_round_evaluate_membership_check(
             builder,
             alloc,
