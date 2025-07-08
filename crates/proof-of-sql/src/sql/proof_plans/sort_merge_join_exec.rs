@@ -493,7 +493,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         // ordered set union `U`
         let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
 
-        let span = span!(Level::DEBUG, "ordered_set_union").entered();
         let num_columns_u = u.len();
         assert!(
             (num_columns_u == 1),
@@ -501,6 +500,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
         let u_0 = u[0].to_scalar();
         let num_rows_u = u[0].len();
+        let span = span!(Level::DEBUG, "allocate slices").entered();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
