@@ -129,11 +129,11 @@ fn compute_hat_columns<'a, S: Scalar>(
 ) -> (Table<'a, S>, Vec<Column<'a, S>>, Vec<Column<'a, S>>, usize) {
     let num_columns = columns.num_columns();
     let hat = columns.add_rho_column(alloc);
-    let hat_column_indices = get_hat_column_indices(&join_column_indexes, num_columns);
+    let hat_column_indices = get_hat_column_indices(join_column_indexes, num_columns);
     let hat_columns =
         get_columns_of_table(&hat, &hat_column_indices).expect("Indexes can not be out of bounds");
     let join_columns =
-        get_columns_of_table(&hat, &join_column_indexes).expect("Indexes can not be out of bounds");
+        get_columns_of_table(&hat, join_column_indexes).expect("Indexes can not be out of bounds");
     (hat, hat_columns, join_columns, num_columns)
 }
 
