@@ -41,6 +41,7 @@ impl<S: Scalar> ProvableResultColumn for Column<'_, S> {
             Column::Decimal75(_, _, col) | Column::Scalar(col) => col.num_bytes(length),
             Column::VarChar((col, _)) => col.num_bytes(length),
             Column::VarBinary((col, _)) => col.num_bytes(length),
+            Column::Nullable(inner_col, _) => inner_col.num_bytes(length),
         }
     }
 
@@ -56,6 +57,7 @@ impl<S: Scalar> ProvableResultColumn for Column<'_, S> {
             Column::Decimal75(_, _, col) | Column::Scalar(col) => col.write(out, length),
             Column::VarChar((col, _)) => col.write(out, length),
             Column::VarBinary((col, _)) => col.write(out, length),
+            Column::Nullable(inner_col, _) => inner_col.write(out, length),
         }
     }
 }

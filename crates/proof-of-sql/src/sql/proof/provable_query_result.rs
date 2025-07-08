@@ -127,6 +127,7 @@ impl ProvableQueryResult {
                     ColumnType::TimestampTZ(_, _) => {
                         decode_and_convert::<i64, S>(&self.data[offset..])
                     }
+                    ColumnType::Nullable(_) => todo!("Nullable column types not yet supported in provable query results"),
                 }?;
                 val += *entry * x;
                 offset += sz;
@@ -228,6 +229,7 @@ impl ProvableQueryResult {
                         offset += num_read;
                         Ok((field.name(), OwnedColumn::TimestampTZ(tu, tz, col)))
                     }
+                    ColumnType::Nullable(_) => todo!("Nullable column types not yet supported in provable query results"),
                 })
                 .collect::<Result<_, QueryError>>()?,
         )?;
