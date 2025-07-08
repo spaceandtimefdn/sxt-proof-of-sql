@@ -487,7 +487,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
         let u_0 = u[0].to_scalar();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 
         // 3. Membership checks
         let hat_left_column_indexes =
