@@ -39,15 +39,19 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     span.exit();
     //2. Sort and deduplicate the raw union by indexes
     // Allowed because we already checked that the columns aren't empty
+    let span = span!(Level::DEBUG, "ordered_set_union::indexes").entered();
     let indexes: Vec<usize> = (0..raw_union[0].len())
         .sorted_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
         .dedup_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b) == Ordering::Equal)
         .collect();
+    span.exit();
     //3. Apply the deduplicated indexes to the raw union
+    let span = span!(Level::DEBUG, "ordered_set_union::result").entered();
     let result = raw_union
         .into_iter()
         .map(|column| apply_column_to_indexes(&column, alloc, &indexes))
         .collect::<ColumnOperationResult<Vec<_>>>()?;
+    span.exit();
     Ok(result)
 }
 
@@ -193,6 +197,11 @@ pub(crate) fn get_columns_of_table<'a, S: Scalar>(
 /// The results are sorted by (`left_index`, `right_index`).
 /// # Panics
 /// The function panics if we feed in incorrect data (e.g. Num of rows in `left` and some column of `left_on` being different).
+#[tracing::instrument(
+    name = "JoinUtil::get_sort_merge_join_indexes",
+    level = "debug",
+    skip_all
+)]
 pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
     left_on: &'a [Column<'a, S>],
     right_on: &'a [Column<'a, S>],
@@ -274,6 +283,11 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
 /// 3. Other columns from the right table
 /// # Panics
 /// The function panics if we feed in incorrect data (e.g. Num of rows in `left` and some column of `left_on` being different).
+#[tracing::instrument(
+    name = "JoinUtil::apply_sort_merge_join_indexes",
+    level = "debug",
+    skip_all
+)]
 pub fn apply_sort_merge_join_indexes<'a, S: Scalar>(
     left: &Table<'a, S>,
     right: &Table<'a, S>,

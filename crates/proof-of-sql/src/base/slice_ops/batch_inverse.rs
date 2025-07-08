@@ -28,6 +28,7 @@ use rayon::prelude::*;
 /// # Panics
 /// - Panics if the inversion of `tmp` fails, which can happen if `tmp` is zero,
 ///   although this case is guaranteed to be non-zero based on the preceding logic.
+#[tracing::instrument(name = "BatchInversion::batch_inversion", level = "debug", skip_all)]
 pub fn batch_inversion<F>(v: &mut [F])
 where
     F: One + Zero + MulAssign + Inv<Output = Option<F>> + Mul<Output = F> + Send + Sync + Copy,
@@ -35,6 +36,11 @@ where
     batch_inversion_and_mul(v, F::one());
 }
 
+#[tracing::instrument(
+    name = "BatchInversion::batch_inversion_and_mul",
+    level = "debug",
+    skip_all
+)]
 pub fn batch_inversion_and_mul<F>(v: &mut [F], coeff: F)
 where
     F: One + Zero + MulAssign + Inv<Output = Option<F>> + Mul<Output = F> + Send + Sync + Copy,

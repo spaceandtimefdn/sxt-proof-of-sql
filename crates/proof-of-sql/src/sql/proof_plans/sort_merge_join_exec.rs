@@ -31,6 +31,7 @@ use bumpalo::Bump;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
+use tracing::{span, Level};
 
 /// `ProofPlan` for queries of the form
 /// ```ignore
@@ -356,7 +357,9 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
         let u_0 = u[0].to_scalar();
         let num_rows_u = u[0].len();
+        let span = span!(Level::DEBUG, "allocate u_0").entered();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
+        span.exit();
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         // 3. Chi eval and rho eval
         builder.produce_chi_evaluation_length(num_rows_res);
@@ -489,6 +492,8 @@ impl ProverEvaluate for SortMergeJoinExec {
 
         // ordered set union `U`
         let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
+
+        let span = span!(Level::DEBUG, "ordered_set_union").entered();
         let num_columns_u = u.len();
         assert!(
             (num_columns_u == 1),
@@ -499,6 +504,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
+        span.exit();
 
         // 3. Get post-result challenges
         let alpha = builder.consume_post_result_challenge();
