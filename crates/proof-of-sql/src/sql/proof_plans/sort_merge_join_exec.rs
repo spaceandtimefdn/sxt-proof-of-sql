@@ -143,10 +143,7 @@ where
         let right_chi_eval = right_eval.chi_eval();
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
-        // 3. alpha, beta
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        // 4. column evals
+        // 3. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
             compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
         let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
@@ -161,14 +158,14 @@ where
         // `\hat{J}` in the protocol
         let res_hat_column_evals =
             builder.try_consume_first_round_mle_evaluations(num_columns_res_hat)?;
-        // 5. First round MLE evaluations: `i` and `U`
+        // 4. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
         let rho_bar_left_eval = res_hat_column_evals[num_columns_left];
         let rho_bar_right_eval = res_hat_column_evals[num_columns_res_hat - 1];
         let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
             + rho_bar_right_eval;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
-        // 6. Membership checks
+        // 5. Membership checks
         let res_left_column_indexes = (0..=num_columns_left).collect::<Vec<_>>();
         let res_right_column_indexes = (0..num_columns_u)
             .chain(num_columns_left + 1..num_columns_res_hat)
@@ -179,6 +176,8 @@ where
         let res_right_column_evals =
             apply_slice_to_indexes(&res_hat_column_evals, &res_right_column_indexes)
                 .expect("Indexes can not be out of bounds");
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
         let res_chi = builder.try_consume_chi_evaluation()?;
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         verify_membership_check(
@@ -386,6 +385,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             .chain(&raw_res_hat[num_columns_left + 1..])
             .copied()
             .collect();
+        builder.request_post_result_challenges(2);
         builder.produce_chi_evaluation_length(num_rows_res);
         builder.produce_chi_evaluation_length(num_rows_u);
         first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &res_left_columns);
@@ -400,9 +400,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         // 5. Monotonicity checks
         first_round_evaluate_monotonic(builder, num_rows_res);
         first_round_evaluate_monotonic(builder, num_rows_u);
-        // 6. Request post-result challenges
-        builder.request_post_result_challenges(2);
-        // 7. Return join result
+        // 6. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
         let res_column_indexes = (0..num_columns_left)
             .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
@@ -495,11 +493,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 
-        // 3. Get post-result challenges
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
-        // 4. Membership checks
+        // 3. Membership checks
         let hat_left_column_indexes = self
             .left_join_column_indexes
             .iter()
@@ -525,6 +519,8 @@ impl ProverEvaluate for SortMergeJoinExec {
             .copied()
             .collect();
 
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
         let num_rows_res = left_row_indexes.len();
         let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
         let num_rows_u = u[0].len();
