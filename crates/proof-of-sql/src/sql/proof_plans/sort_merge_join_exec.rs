@@ -334,6 +334,9 @@ impl ProverEvaluate for SortMergeJoinExec {
             .first_round_evaluate(builder, alloc, table_map, params)?;
         let num_rows_left = left.num_rows();
         let num_rows_right = right.num_rows();
+
+        builder.produce_rho_evaluation_length(num_rows_left);
+        builder.produce_rho_evaluation_length(num_rows_right);
         let (left_hat, hat_left_columns, c_l, num_columns_left) =
             compute_hat_columns(alloc, left, &self.left_join_column_indexes);
         let (right_hat, hat_right_columns, c_r, num_columns_right) =
@@ -372,9 +375,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_rows_u = u[0].len();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
-        // 3. Chi eval and rho eval
-        builder.produce_rho_evaluation_length(num_rows_left);
-        builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
         // `J_l` in the protocol
         let res_left_columns = raw_res_hat[0..=num_columns_left].to_vec();
