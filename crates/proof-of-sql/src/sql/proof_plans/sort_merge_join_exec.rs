@@ -323,6 +323,14 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_columns_right = right.num_columns();
         let left_hat = left.add_rho_column(alloc);
         let right_hat = right.add_rho_column(alloc);
+        let hat_left_column_indexes =
+            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
+        let hat_right_column_indexes =
+            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
+        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
+            .expect("Indexes can not be out of bounds");
+        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
+            .expect("Indexes can not be out of bounds");
         let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
             .expect("Indexes can not be out of bounds");
         let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
@@ -365,14 +373,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.produce_rho_evaluation_length(num_rows_left);
         builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
-        let hat_left_column_indexes =
-            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
-        let hat_right_column_indexes =
-            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
         // `J_l` in the protocol
         let res_left_columns = raw_res_hat[0..=num_columns_left].to_vec();
         // `J_r` in the protocol
@@ -416,7 +416,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
-    #[expect(clippy::too_many_lines, unused_variables)]
+    #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -440,6 +440,16 @@ impl ProverEvaluate for SortMergeJoinExec {
 
         let left_hat = left.add_rho_column(alloc);
         let right_hat = right.add_rho_column(alloc);
+
+        let hat_left_column_indexes =
+            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
+        let hat_right_column_indexes =
+            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
+
+        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
+            .expect("Indexes can not be out of bounds");
+        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
+            .expect("Indexes can not be out of bounds");
 
         let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
             .expect("Indexes can not be out of bounds");
@@ -489,16 +499,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 
         // 3. Membership checks
-        let hat_left_column_indexes =
-            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
-        let hat_right_column_indexes =
-            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
-
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-
         let res_left_columns = res_hat[0..=num_columns_left].to_vec();
         let res_right_columns: Vec<_> = res_hat[0..num_columns_u] // rho col is right after left columns
             .iter()
