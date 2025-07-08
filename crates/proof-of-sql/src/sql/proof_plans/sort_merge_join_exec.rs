@@ -7,8 +7,8 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions,
-            TableRef,
+            Column, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation,
+            TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -119,6 +119,21 @@ fn compute_hat_column_evals<S: Scalar>(
     let join_column_evals = apply_slice_to_indexes(&column_and_rho_evals, join_column_indexes)
         .expect("Indexes can not be out of bounds");
     (hat_column_evals, join_column_evals, num_columns)
+}
+
+fn compute_hat_columns<'a, S: Scalar>(
+    alloc: &'a Bump,
+    columns: Table<'a, S>,
+    join_column_indexes: &[usize],
+) -> (Table<'a, S>, Vec<Column<'a, S>>, Vec<Column<'a, S>>, usize) {
+    let num_columns = columns.num_columns();
+    let hat = columns.add_rho_column(alloc);
+    let hat_column_indices = get_hat_column_indices(&join_column_indexes, num_columns);
+    let hat_columns =
+        get_columns_of_table(&hat, &hat_column_indices).expect("Indexes can not be out of bounds");
+    let join_columns =
+        get_columns_of_table(&hat, &join_column_indexes).expect("Indexes can not be out of bounds");
+    (hat, hat_columns, join_columns, num_columns)
 }
 
 impl ProofPlan for SortMergeJoinExec
@@ -319,22 +334,10 @@ impl ProverEvaluate for SortMergeJoinExec {
             .first_round_evaluate(builder, alloc, table_map, params)?;
         let num_rows_left = left.num_rows();
         let num_rows_right = right.num_rows();
-        let num_columns_left = left.num_columns();
-        let num_columns_right = right.num_columns();
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-        let hat_left_column_indexes =
-            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
-        let hat_right_column_indexes =
-            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let (left_hat, hat_left_columns, c_l, num_columns_left) =
+            compute_hat_columns(alloc, left, &self.left_join_column_indexes);
+        let (right_hat, hat_right_columns, c_r, num_columns_right) =
+            compute_hat_columns(alloc, right, &self.right_join_column_indexes);
         // 1. Conduct the join
         let (left_row_indexes, right_row_indexes): (Vec<usize>, Vec<usize>) =
             get_sort_merge_join_indexes(&c_l, &c_r, num_rows_left, num_rows_right)
@@ -432,29 +435,14 @@ impl ProverEvaluate for SortMergeJoinExec {
             .final_round_evaluate(builder, alloc, table_map, params)?;
         let num_rows_left = left.num_rows();
         let num_rows_right = right.num_rows();
-        let num_columns_left = left.num_columns();
-        let num_columns_right = right.num_columns();
 
         let chi_m_l = alloc.alloc_slice_fill_copy(num_rows_left, true);
         let chi_m_r = alloc.alloc_slice_fill_copy(num_rows_right, true);
 
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-
-        let hat_left_column_indexes =
-            get_hat_column_indices(&self.left_join_column_indexes, num_columns_left);
-        let hat_right_column_indexes =
-            get_hat_column_indices(&self.right_join_column_indexes, num_columns_right);
-
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let (left_hat, hat_left_columns, c_l, num_columns_left) =
+            compute_hat_columns(alloc, left, &self.left_join_column_indexes);
+        let (right_hat, hat_right_columns, c_r, num_columns_right) =
+            compute_hat_columns(alloc, right, &self.right_join_column_indexes);
 
         // 1. Conduct the join
         let (left_row_indexes, right_row_indexes): (Vec<usize>, Vec<usize>) =
