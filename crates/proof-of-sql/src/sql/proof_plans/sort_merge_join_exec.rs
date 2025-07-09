@@ -7,11 +7,11 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions,
-            TableRef,
+            Column, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation,
+            TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
-        proof::{PlaceholderResult, ProofError},
+        proof::{PlaceholderResult, ProofError, ProofSizeMismatch},
         scalar::Scalar,
     },
     sql::{
@@ -92,12 +92,21 @@ impl SortMergeJoinExec {
     }
 }
 
+fn get_hat_column_indices(join_column_indices: &[usize], num_columns: usize) -> Vec<usize> {
+    join_column_indices
+        .iter()
+        .copied()
+        .chain((0..=num_columns).filter(|i| !join_column_indices.contains(i)))
+        .collect()
+}
+
 #[expect(clippy::missing_panics_doc)]
 fn compute_hat_column_evals<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
     eval: &TableEvaluation<S>,
-    rho_eval: S,
     join_column_indexes: &[usize],
-) -> (Vec<S>, Vec<S>, usize) {
+) -> Result<(Vec<S>, Vec<S>, usize), ProofSizeMismatch> {
+    let rho_eval = builder.try_consume_rho_evaluation()?;
     let column_evals = eval.column_evals();
     let num_columns = column_evals.len();
     let column_and_rho_evals = column_evals
@@ -105,16 +114,27 @@ fn compute_hat_column_evals<S: Scalar>(
         .chain(core::iter::once(&rho_eval))
         .copied()
         .collect::<Vec<_>>();
-    let hat_column_indexes = join_column_indexes
-        .iter()
-        .copied()
-        .chain((0..=num_columns).filter(|i| !join_column_indexes.contains(i)))
-        .collect::<Vec<_>>();
+    let hat_column_indexes = get_hat_column_indices(join_column_indexes, num_columns);
     let hat_column_evals = apply_slice_to_indexes(&column_and_rho_evals, &hat_column_indexes)
         .expect("Indexes can not be out of bounds");
     let join_column_evals = apply_slice_to_indexes(&column_and_rho_evals, join_column_indexes)
         .expect("Indexes can not be out of bounds");
-    (hat_column_evals, join_column_evals, num_columns)
+    Ok((hat_column_evals, join_column_evals, num_columns))
+}
+
+fn compute_hat_columns<'a, S: Scalar>(
+    alloc: &'a Bump,
+    columns: Table<'a, S>,
+    join_column_indexes: &[usize],
+) -> (Table<'a, S>, Vec<Column<'a, S>>, Vec<Column<'a, S>>, usize) {
+    let num_columns = columns.num_columns();
+    let hat = columns.add_rho_column(alloc);
+    let hat_column_indices = get_hat_column_indices(join_column_indexes, num_columns);
+    let hat_columns =
+        get_columns_of_table(&hat, &hat_column_indices).expect("Indexes can not be out of bounds");
+    let join_columns =
+        get_columns_of_table(&hat, join_column_indexes).expect("Indexes can not be out of bounds");
+    (hat, hat_columns, join_columns, num_columns)
 }
 
 impl ProofPlan for SortMergeJoinExec
@@ -141,46 +161,36 @@ where
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let res_chi = builder.try_consume_chi_evaluation()?;
-        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
-        let left_rho_eval = builder.try_consume_rho_evaluation()?;
-        let right_rho_eval = builder.try_consume_rho_evaluation()?;
-        // 3. alpha, beta
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-        // 4. column evals
+        // 3. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
-            compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
+            compute_hat_column_evals(builder, &left_eval, &self.left_join_column_indexes)?;
         let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
-            compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
+            compute_hat_column_evals(builder, &right_eval, &self.right_join_column_indexes)?;
         let num_columns_u = self.left_join_column_indexes.len();
         if num_columns_u != 1 {
             return Err(ProofError::VerificationError {
                 error: "Join on multiple columns not supported yet",
             });
         }
-        let num_columns_res_hat = num_columns_left + num_columns_right - num_columns_u + 2;
         // `\hat{J}` in the protocol
-        let res_hat_column_evals =
-            builder.try_consume_first_round_mle_evaluations(num_columns_res_hat)?;
+        let res_u_column_evals = builder.try_consume_final_round_mle_evaluations(num_columns_u)?;
+        let res_left_column_evals =
+            builder.try_consume_final_round_mle_evaluations(num_columns_left - num_columns_u)?;
+        let rho_bar_left_eval = builder.try_consume_final_round_mle_evaluation()?;
+        let res_right_column_evals =
+            builder.try_consume_final_round_mle_evaluations(num_columns_right - num_columns_u)?;
+        let rho_bar_right_eval = builder.try_consume_final_round_mle_evaluation()?;
+
         // 5. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
-        let rho_bar_left_eval = res_hat_column_evals[num_columns_left];
-        let rho_bar_right_eval = res_hat_column_evals[num_columns_res_hat - 1];
         let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
             + rho_bar_right_eval;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
-        // 6. Membership checks
-        let res_left_column_indexes = (0..=num_columns_left).collect::<Vec<_>>();
-        let res_right_column_indexes = (0..num_columns_u)
-            .chain(num_columns_left + 1..num_columns_res_hat)
-            .collect::<Vec<_>>();
-        let res_left_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
-        let res_right_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_right_column_indexes)
-                .expect("Indexes can not be out of bounds");
+        // 5. Membership checks
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
+        let res_chi = builder.try_consume_chi_evaluation()?;
+        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         verify_membership_check(
             builder,
             alpha,
@@ -188,7 +198,12 @@ where
             left_chi_eval,
             res_chi.0,
             &hat_left_column_evals,
-            &res_left_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_left_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_left_eval))
+                .collect::<Vec<_>>(),
         )?;
         verify_membership_check(
             builder,
@@ -197,7 +212,12 @@ where
             right_chi_eval,
             res_chi.0,
             &hat_right_column_evals,
-            &res_right_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_right_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_right_eval))
+                .collect::<Vec<_>>(),
         )?;
         //TODO: Relax to allow multiple columns
         if left_join_column_evals.len() != 1 || right_join_column_evals.len() != 1 {
@@ -235,11 +255,11 @@ where
         )?;
         // 9. Return the result
         // Drop the two rho columns of `\hat{J}` to get `J`
-        let res_column_indexes = (0..num_columns_left)
-            .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
-            .collect::<Vec<_>>();
-        let res_column_evals = apply_slice_to_indexes(&res_hat_column_evals, &res_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let res_column_evals = res_u_column_evals
+            .into_iter()
+            .chain(res_left_column_evals.into_iter())
+            .chain(res_right_column_evals.into_iter())
+            .collect();
         Ok(TableEvaluation::new(res_column_evals, res_chi))
     }
 
@@ -316,14 +336,13 @@ impl ProverEvaluate for SortMergeJoinExec {
             .first_round_evaluate(builder, alloc, table_map, params)?;
         let num_rows_left = left.num_rows();
         let num_rows_right = right.num_rows();
-        let num_columns_left = left.num_columns();
-        let num_columns_right = right.num_columns();
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
+
+        builder.produce_rho_evaluation_length(num_rows_left);
+        builder.produce_rho_evaluation_length(num_rows_right);
+        let (left_hat, hat_left_columns, c_l, num_columns_left) =
+            compute_hat_columns(alloc, left, &self.left_join_column_indexes);
+        let (right_hat, hat_right_columns, c_r, num_columns_right) =
+            compute_hat_columns(alloc, right, &self.right_join_column_indexes);
         // 1. Conduct the join
         let (left_row_indexes, right_row_indexes): (Vec<usize>, Vec<usize>) =
             get_sort_merge_join_indexes(&c_l, &c_r, num_rows_left, num_rows_right)
@@ -358,28 +377,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_rows_u = u[0].len();
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
-        // 3. Chi eval and rho eval
-        builder.produce_chi_evaluation_length(num_rows_res);
-        builder.produce_chi_evaluation_length(num_rows_u);
-        builder.produce_rho_evaluation_length(num_rows_left);
-        builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
-        let hat_left_column_indexes = self
-            .left_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-        let hat_right_column_indexes = self
-            .right_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
         // `J_l` in the protocol
         let res_left_columns = raw_res_hat[0..=num_columns_left].to_vec();
         // `J_r` in the protocol
@@ -388,6 +386,9 @@ impl ProverEvaluate for SortMergeJoinExec {
             .chain(&raw_res_hat[num_columns_left + 1..])
             .copied()
             .collect();
+        builder.request_post_result_challenges(2);
+        builder.produce_chi_evaluation_length(num_rows_res);
+        builder.produce_chi_evaluation_length(num_rows_u);
         first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &res_left_columns);
         first_round_evaluate_membership_check(
             builder,
@@ -400,9 +401,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         // 5. Monotonicity checks
         first_round_evaluate_monotonic(builder, num_rows_res);
         first_round_evaluate_monotonic(builder, num_rows_u);
-        // 6. Request post-result challenges
-        builder.request_post_result_challenges(2);
-        // 7. Return join result
+        // 6. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
         let res_column_indexes = (0..num_columns_left)
             .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
@@ -422,7 +421,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
-    #[expect(clippy::too_many_lines, unused_variables)]
+    #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -438,19 +437,14 @@ impl ProverEvaluate for SortMergeJoinExec {
             .final_round_evaluate(builder, alloc, table_map, params)?;
         let num_rows_left = left.num_rows();
         let num_rows_right = right.num_rows();
-        let num_columns_left = left.num_columns();
-        let num_columns_right = right.num_columns();
 
         let chi_m_l = alloc.alloc_slice_fill_copy(num_rows_left, true);
         let chi_m_r = alloc.alloc_slice_fill_copy(num_rows_right, true);
 
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let (left_hat, hat_left_columns, c_l, num_columns_left) =
+            compute_hat_columns(alloc, left, &self.left_join_column_indexes);
+        let (right_hat, hat_right_columns, c_r, num_columns_right) =
+            compute_hat_columns(alloc, right, &self.right_join_column_indexes);
 
         // 1. Conduct the join
         let (left_row_indexes, right_row_indexes): (Vec<usize>, Vec<usize>) =
@@ -474,9 +468,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         // Store in bump, `\hat{J}` in the protocol
         let res_hat = alloc.alloc_slice_copy(raw_res_hat.as_slice());
 
-        let num_rows_res = left_row_indexes.len();
-        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
-
         // 2. Get the strictly increasing columns, `i` and `u`
         // i = left_row_index * 2^64 + right_row_index
         // which is strictly increasing
@@ -495,34 +486,9 @@ impl ProverEvaluate for SortMergeJoinExec {
             "Join on multiple columns not supported yet"
         );
         let u_0 = u[0].to_scalar();
-        let num_rows_u = u[0].len();
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
-        let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
 
-        // 3. Get post-result challenges
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
-        // 4. Membership checks
-        let hat_left_column_indexes = self
-            .left_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-        let hat_right_column_indexes = self
-            .right_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
-
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-
+        // 3. Membership checks
         let res_left_columns = res_hat[0..=num_columns_left].to_vec();
         let res_right_columns: Vec<_> = res_hat[0..num_columns_u] // rho col is right after left columns
             .iter()
@@ -530,6 +496,12 @@ impl ProverEvaluate for SortMergeJoinExec {
             .copied()
             .collect();
 
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
+        let num_rows_res = left_row_indexes.len();
+        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
+        let num_rows_u = u[0].len();
+        let chi_u: &mut [bool] = alloc.alloc_slice_fill_copy(num_rows_u, true);
         final_round_evaluate_membership_check(
             builder,
             alloc,
