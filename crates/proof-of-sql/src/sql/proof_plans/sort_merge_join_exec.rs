@@ -172,28 +172,21 @@ where
                 error: "Join on multiple columns not supported yet",
             });
         }
-        let num_columns_res_hat = num_columns_left + num_columns_right - num_columns_u + 2;
         // `\hat{J}` in the protocol
-        let res_hat_column_evals =
-            builder.try_consume_first_round_mle_evaluations(num_columns_res_hat)?;
-        // 4. First round MLE evaluations: `i` and `U`
+        let res_u_column_evals = builder.try_consume_final_round_mle_evaluations(num_columns_u)?;
+        let res_left_column_evals =
+            builder.try_consume_final_round_mle_evaluations(num_columns_left - num_columns_u)?;
+        let rho_bar_left_eval = builder.try_consume_final_round_mle_evaluation()?;
+        let res_right_column_evals =
+            builder.try_consume_final_round_mle_evaluations(num_columns_right - num_columns_u)?;
+        let rho_bar_right_eval = builder.try_consume_final_round_mle_evaluation()?;
+
+        // 5. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
-        let rho_bar_left_eval = res_hat_column_evals[num_columns_left];
-        let rho_bar_right_eval = res_hat_column_evals[num_columns_res_hat - 1];
         let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
             + rho_bar_right_eval;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 5. Membership checks
-        let res_left_column_indexes = (0..=num_columns_left).collect::<Vec<_>>();
-        let res_right_column_indexes = (0..num_columns_u)
-            .chain(num_columns_left + 1..num_columns_res_hat)
-            .collect::<Vec<_>>();
-        let res_left_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
-        let res_right_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_right_column_indexes)
-                .expect("Indexes can not be out of bounds");
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         let res_chi = builder.try_consume_chi_evaluation()?;
@@ -205,7 +198,12 @@ where
             left_chi_eval,
             res_chi.0,
             &hat_left_column_evals,
-            &res_left_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_left_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_left_eval))
+                .collect::<Vec<_>>(),
         )?;
         verify_membership_check(
             builder,
@@ -214,7 +212,12 @@ where
             right_chi_eval,
             res_chi.0,
             &hat_right_column_evals,
-            &res_right_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_right_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_right_eval))
+                .collect::<Vec<_>>(),
         )?;
         //TODO: Relax to allow multiple columns
         if left_join_column_evals.len() != 1 || right_join_column_evals.len() != 1 {
@@ -252,11 +255,11 @@ where
         )?;
         // 9. Return the result
         // Drop the two rho columns of `\hat{J}` to get `J`
-        let res_column_indexes = (0..num_columns_left)
-            .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
-            .collect::<Vec<_>>();
-        let res_column_evals = apply_slice_to_indexes(&res_hat_column_evals, &res_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let res_column_evals = res_u_column_evals
+            .into_iter()
+            .chain(res_left_column_evals.into_iter())
+            .chain(res_right_column_evals.into_iter())
+            .collect();
         Ok(TableEvaluation::new(res_column_evals, res_chi))
     }
 
