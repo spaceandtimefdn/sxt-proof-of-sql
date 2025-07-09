@@ -361,20 +361,18 @@ library SortMergeJoinExec {
                 plan_ptr_out,
                 hat_evals,
                 join_evals,
-                chi_eval,
-                num_columns,
-                num_join_columns
+                chi_eval
             {
                 // Evaluate input plan
                 let evaluations, length
                 plan_ptr, evaluations, length, chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
 
                 // Determine total number of evaluations
-                num_columns := mload(evaluations)
+                let num_columns := mload(evaluations)
                 evaluations := add(evaluations, WORD_SIZE)
 
                 // Determine number of columns to join on
-                num_join_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                let num_join_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 // We need a collection to record which indices are not join indices.
@@ -441,8 +439,9 @@ library SortMergeJoinExec {
                 mstore(add(u_column_eval_array, WORD_SIZE), u_column_eval)
             }
             function evaluate_and_membership_check_left_column_evals(
-                builder_ptr, alpha, beta, num_columns, num_join_columns, hat_evals, res_chi_eval, chi_eval
+                builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval
             ) -> res_column_evals, rho_eval {
+                let num_columns := sub(mload(hat_evals), 1)
                 res_column_evals := mload(FREE_PTR)
                 mstore(res_column_evals, add(num_columns, 1))
                 let left_column_evals := add(res_column_evals, mul(add(num_columns, 2), WORD_SIZE))
@@ -478,26 +477,30 @@ library SortMergeJoinExec {
                 )
             }
             function evaluate_and_check_left_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval) ->
+                plan_ptr_out,
                 join_evals,
                 chi_eval,
                 res_column_evals,
                 i_eval
             {
-                let hat_evals, num_columns, num_join_columns
-                plan_ptr, hat_evals, join_evals, chi_eval, num_columns, num_join_columns :=
-                    evaluate_input_plans(plan_ptr, builder_ptr)
-                res_column_evals, i_eval :=
-                    evaluate_and_membership_check_left_column_evals(
-                        builder_ptr, alpha, beta, num_columns, num_join_columns, hat_evals, res_chi_eval, chi_eval
-                    )
+                {
+                    let hat_evals
+                    plan_ptr, hat_evals, join_evals, chi_eval :=
+                        evaluate_input_plans(plan_ptr, builder_ptr)
+                    res_column_evals, i_eval :=
+                        evaluate_and_membership_check_left_column_evals(
+                            builder_ptr, alpha, beta, mload(join_evals), hat_evals, res_chi_eval, chi_eval
+                        )
+                }
+                plan_ptr_out := plan_ptr
             }
             function evaluate_and_check_left_side(
                 plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, res_chi_eval
             ) -> plan_ptr_out, res_column_evals, i_eval, w_eval {
                 {
                     let join_evals, chi_eval
-                    join_evals, chi_eval, res_column_evals, i_eval :=
-                    evaluate_and_check_left_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval)
+                    plan_ptr, join_evals, chi_eval, res_column_evals, i_eval :=
+                        evaluate_and_check_left_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval)
                 }
                 plan_ptr_out := plan_ptr
             }
