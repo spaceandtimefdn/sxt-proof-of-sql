@@ -426,6 +426,10 @@ library SortMergeJoinExec {
                 output_length,
                 output_chi_eval
             {
+                {
+                    let u_column_eval := builder_consume_final_round_mle(builder_ptr)
+                    
+                }
                 let
                     left_hat_evals,
                     left_join_evals,
