@@ -32,6 +32,14 @@ pub(crate) fn compare_indexes_by_columns<S: Scalar>(
             Column::Scalar(col) => col[i].cmp(&col[j]),
             Column::VarChar((col, _)) => col[i].cmp(col[j]),
             Column::VarBinary((col, _)) => col[i].cmp(col[j]),
+            Column::Nullable(inner_col, null_bitmap) => {
+                match (null_bitmap[i], null_bitmap[j]) {
+                    (true, true) => compare_column_at_indices(inner_col, i, j),
+                    (false, true) => Ordering::Less, // null < non-null
+                    (true, false) => Ordering::Greater, // non-null > null
+                    (false, false) => Ordering::Equal, // null == null
+                }
+            }
         })
         .find(|&ord| ord != Ordering::Equal)
         .unwrap_or(Ordering::Equal)
@@ -149,6 +157,14 @@ pub(crate) fn compare_indexes_by_owned_columns_with_direction<S: Scalar>(
                 OwnedColumn::Scalar(col) => col[i].cmp(&col[j]),
                 OwnedColumn::VarChar(col) => col[i].cmp(&col[j]),
                 OwnedColumn::VarBinary(col) => col[i].cmp(&col[j]),
+                OwnedColumn::Nullable(inner_col, null_bitmap) => {
+                    match (null_bitmap[i], null_bitmap[j]) {
+                        (true, true) => compare_owned_column_at_indices(inner_col, i, j),
+                        (false, true) => Ordering::Less, // null < non-null
+                        (true, false) => Ordering::Greater, // non-null > null
+                        (false, false) => Ordering::Equal, // null == null
+                    }
+                }
             };
             match is_asc {
                 true => ordering,
