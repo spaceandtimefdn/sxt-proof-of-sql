@@ -34,12 +34,14 @@ fn end_timer(instant: Instant) {
 }
 
 /// Creates a nullable integer column with some null values
-fn create_nullable_bigint_column(values: Vec<Option<i64>>) -> OwnedColumn<impl proof_of_sql::base::scalar::Scalar> {
+fn create_nullable_bigint_column(
+    values: Vec<Option<i64>>,
+) -> OwnedColumn<impl proof_of_sql::base::scalar::Scalar> {
     use proof_of_sql::base::scalar::test_scalar::TestScalar;
-    
+
     let mut data = Vec::new();
     let mut null_bitmap = Vec::new();
-    
+
     for value in values {
         match value {
             Some(v) => {
@@ -52,18 +54,20 @@ fn create_nullable_bigint_column(values: Vec<Option<i64>>) -> OwnedColumn<impl p
             }
         }
     }
-    
+
     let inner_col = OwnedColumn::BigInt(data);
     OwnedColumn::Nullable(Box::new(inner_col), null_bitmap)
 }
 
 /// Creates a nullable varchar column with some null values
-fn create_nullable_varchar_column(values: Vec<Option<&str>>) -> OwnedColumn<impl proof_of_sql::base::scalar::Scalar> {
+fn create_nullable_varchar_column(
+    values: Vec<Option<&str>>,
+) -> OwnedColumn<impl proof_of_sql::base::scalar::Scalar> {
     use proof_of_sql::base::scalar::test_scalar::TestScalar;
-    
+
     let mut data = Vec::new();
     let mut null_bitmap = Vec::new();
-    
+
     for value in values {
         match value {
             Some(v) => {
@@ -76,7 +80,7 @@ fn create_nullable_varchar_column(values: Vec<Option<&str>>) -> OwnedColumn<impl
             }
         }
     }
-    
+
     let inner_col = OwnedColumn::VarChar(data);
     OwnedColumn::Nullable(Box::new(inner_col), null_bitmap)
 }
@@ -92,56 +96,65 @@ fn create_nullable_varchar_column(values: Vec<Option<&str>>) -> OwnedColumn<impl
 /// - Will panic if printing fails during error handling.
 fn main() {
     println!("=== Nullable Column Support Proof of Concept ===");
-    
+
     #[cfg(feature = "blitzar")]
     {
         let timer = start_timer("Warming up GPU");
         proof_of_sql::base::commitment::init_backend();
         end_timer(timer);
     }
-    
+
     let timer = start_timer("Setting up cryptographic parameters");
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     end_timer(timer);
-    
+
     let timer = start_timer("Creating nullable columns");
-    
+
     // Demonstration of nullable column types
     println!("Creating nullable column types:");
-    
+
     // Test nullable column type creation
     let nullable_bigint_type = ColumnType::Nullable(Box::new(ColumnType::BigInt));
     let nullable_varchar_type = ColumnType::Nullable(Box::new(ColumnType::VarChar));
-    
+
     println!("  - Nullable BigInt: {:?}", nullable_bigint_type);
     println!("  - Nullable VarChar: {:?}", nullable_varchar_type);
-    
+
     // Test that nullable types inherit properties correctly
-    println!("  - Nullable BigInt is_numeric: {}", nullable_bigint_type.is_numeric());
-    println!("  - Nullable BigInt is_integer: {}", nullable_bigint_type.is_integer());
-    println!("  - Nullable VarChar is_numeric: {}", nullable_varchar_type.is_numeric());
-    
+    println!(
+        "  - Nullable BigInt is_numeric: {}",
+        nullable_bigint_type.is_numeric()
+    );
+    println!(
+        "  - Nullable BigInt is_integer: {}",
+        nullable_bigint_type.is_integer()
+    );
+    println!(
+        "  - Nullable VarChar is_numeric: {}",
+        nullable_varchar_type.is_numeric()
+    );
+
     // Test null literal
     let null_literal = LiteralValue::Null;
     println!("  - Null literal type: {:?}", null_literal.column_type());
     println!("  - Is null: {}", null_literal.is_null());
-    
+
     end_timer(timer);
-    
+
     println!("\n=== Summary ===");
     println!("✅ Nullable column types implemented");
     println!("✅ Null literal value implemented");
     println!("✅ Type system supports nullable columns");
     println!("✅ Nullable columns inherit properties from inner types");
-    
+
     println!("\n🎯 This proof of concept demonstrates:");
     println!("   1. Adding Nullable wrapper to ColumnType enum");
     println!("   2. Adding Null variant to LiteralValue enum");
     println!("   3. Nullable columns in OwnedColumn with null bitmaps");
     println!("   4. Type system methods that work with nullable columns");
-    
+
     println!("\n📋 Next steps for full implementation:");
     println!("   - Update all expression evaluators to handle nullable columns");
     println!("   - Implement proper null semantics (NULL + anything = NULL)");

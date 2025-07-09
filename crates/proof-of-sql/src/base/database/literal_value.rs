@@ -88,7 +88,7 @@ impl LiteralValue {
             Self::Null => S::from(0), // Null values represented as 0 in scalar form
         }
     }
-    
+
     /// Returns true if this literal is null
     pub fn is_null(&self) -> bool {
         matches!(self, Self::Null)

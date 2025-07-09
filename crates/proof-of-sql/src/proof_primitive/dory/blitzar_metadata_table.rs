@@ -42,6 +42,9 @@ pub const fn min_as_f(column_type: ColumnType) -> F {
         | ColumnType::VarChar
         | ColumnType::VarBinary
         | ColumnType::Boolean => MontFp!("0"),
+        ColumnType::Nullable(_) => {
+            todo!("Nullable column types not yet supported in blitzar metadata")
+        }
     }
 }
 
