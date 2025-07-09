@@ -347,17 +347,24 @@ library SortMergeJoinExec {
             {
                 revert(0, 0)
             }
-            function evaluate_input_plans(plan_ptr, builder_ptr) -> plan_ptr_out, hat_evals, join_evals, chi_eval {
+            function evaluate_input_plans(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                hat_evals,
+                join_evals,
+                chi_eval,
+                num_columns,
+                num_join_columns
+            {
                 // Evaluate input plan
                 let evaluations, length
                 plan_ptr, evaluations, length, chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
 
                 // Determine total number of evaluations
-                let num_columns := mload(evaluations)
+                num_columns := mload(evaluations)
                 evaluations := add(evaluations, WORD_SIZE)
 
                 // Determine number of columns to join on
-                let num_join_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                num_join_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 // We need a collection to record which indices are not join indices.
@@ -423,11 +430,9 @@ library SortMergeJoinExec {
                     left_hat_evals,
                     left_join_evals,
                     left_chi_eval,
-                    right_hat_evals,
-                    right_join_evals,
-                    right_chi_eval
-                plan_ptr, left_hat_evals, left_join_evals, left_chi_eval := evaluate_input_plans(plan_ptr, builder_ptr)
-                plan_ptr_out, right_hat_evals, right_join_evals, right_chi_eval :=
+                    left_num_columns,
+                    left_join_columns
+                plan_ptr, left_hat_evals, left_join_evals, left_chi_eval, left_num_columns, left_join_columns :=
                     evaluate_input_plans(plan_ptr, builder_ptr)
             }
 
