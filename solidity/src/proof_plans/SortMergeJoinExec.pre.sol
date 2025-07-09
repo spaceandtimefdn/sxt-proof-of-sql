@@ -456,27 +456,47 @@ library SortMergeJoinExec {
                 mstore(res_column_evals, num_columns)
             }
             function evaluate_and_membership_check_right_column_evals(
-                builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval
-            ) -> res_column_evals, rho_eval {
-                let num_columns := sub(mload(hat_evals), 1)
-                res_column_evals := mload(FREE_PTR)
-                mstore(res_column_evals, add(num_columns, 1))
-                let left_column_evals := add(res_column_evals, mul(add(num_columns, 2), WORD_SIZE))
+                builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, res_column_evals
+            ) -> res_column_evals_out, rho_eval {
+                let num_columns := mload(hat_evals)
+                let right_column_evals := mload(FREE_PTR)
+                mstore(right_column_evals, num_columns)
+                res_column_evals_out := add(right_column_evals, mul(add(num_columns, 1), WORD_SIZE))
                 num_columns := sub(num_columns, num_join_columns)
-                mstore(FREE_PTR, add(left_column_evals, mul(add(num_columns, 2), WORD_SIZE)))
-                mstore(left_column_evals, add(num_columns, 1))
-
                 for { let i := 0 } lt(i, num_join_columns) { i := add(i, 1) } {
-                    let eval := builder_consume_final_round_mle(builder_ptr)
-                    mstore(add(res_column_evals, add(res_column_evals, mul(add(i, 1), WORD_SIZE))), eval)
+                    let eval := mload(add(res_column_evals, mul(add(i, 1), WORD_SIZE)))
+                    mstore(add(right_column_evals, mul(add(i, 1), WORD_SIZE)), eval)
+                    mstore(add(res_column_evals_out, mul(add(i, 1), WORD_SIZE)), eval)
                 }
+                {
+                    let res_column_length := mload(res_column_evals)
+                    for { let i := num_join_columns } lt(i, res_column_length) { i := add(i, 1) } {
+                        mstore(
+                            add(res_column_evals_out, mul(add(i, 1), WORD_SIZE)),
+                            mload(add(res_column_evals, mul(add(i, 1), WORD_SIZE)))
+                        )
+                    }
+                    res_column_length := add(res_column_length, num_columns)
+                    mstore(FREE_PTR, add(res_column_evals_out, mul(res_column_length, WORD_SIZE)))
+                    mstore(res_column_evals_out, sub(res_column_length, 1))
+                }
+
                 for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
                     let eval := builder_consume_final_round_mle(builder_ptr)
                     mstore(
-                        add(res_column_evals, add(res_column_evals, mul(add(num_join_columns, add(i, 1)), WORD_SIZE))),
+                        add(
+                            right_column_evals,
+                            add(right_column_evals, mul(add(num_join_columns, add(i, 1)), WORD_SIZE))
+                        ),
                         eval
                     )
-                    mstore(add(left_column_evals, add(res_column_evals, mul(add(i, 1), WORD_SIZE))), eval)
+                    mstore(
+                        add(
+                            res_column_evals_out,
+                            add(res_column_evals_out, mul(add(mload(res_column_evals), add(i, 1)), WORD_SIZE))
+                        ),
+                        eval
+                    )
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
                 mstore(
@@ -486,10 +506,16 @@ library SortMergeJoinExec {
                     ),
                     rho_eval
                 )
-                mstore(add(left_column_evals, add(res_column_evals, mul(add(num_columns, 1), WORD_SIZE))), rho_eval)
+                mstore(
+                    add(
+                        right_column_evals,
+                        add(right_column_evals, mul(add(add(num_join_columns, num_columns), 1), WORD_SIZE))
+                    ),
+                    rho_eval
+                )
                 pop(
                     membership_check_evaluate(
-                        builder_ptr, alpha, beta, chi_eval, res_chi_eval, hat_evals, left_column_evals
+                        builder_ptr, alpha, beta, chi_eval, res_chi_eval, hat_evals, right_column_evals
                     )
                 )
             }
@@ -523,7 +549,7 @@ library SortMergeJoinExec {
 
             function evaluate_and_check_right_side(
                 plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, res_chi_eval
-            ) {}
+            ) -> plan_ptr_out, res_column_evals, i_eval, w_eval {}
 
             function evaluate_with_all_checks(plan_ptr, builder_ptr, alpha, beta, output_chi_eval) ->
                 plan_ptr_out,
