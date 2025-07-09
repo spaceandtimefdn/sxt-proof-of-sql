@@ -455,6 +455,23 @@ library SortMergeJoinExec {
                 )
                 mstore(res_column_evals, num_columns)
             }
+            function consume_right_evals(builder_ptr, right_column_evals, num_join_columns, res_column_evals_out, num_other_left_columns){
+                let eval := builder_consume_final_round_mle(builder_ptr)
+                    mstore(
+                        add(
+                            right_column_evals,
+                            add(right_column_evals, mul(num_join_columns, WORD_SIZE))
+                        ),
+                        eval
+                    )
+                    mstore(
+                        add(
+                            res_column_evals_out,
+                            add(res_column_evals_out, mul(num_other_left_columns, WORD_SIZE))
+                        ),
+                        eval
+                    )
+            }
             function evaluate_and_membership_check_right_column_evals(
                 builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, res_column_evals
             ) -> res_column_evals_out, rho_eval {
@@ -482,21 +499,7 @@ library SortMergeJoinExec {
                 }
 
                 for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
-                    let eval := builder_consume_final_round_mle(builder_ptr)
-                    mstore(
-                        add(
-                            right_column_evals,
-                            add(right_column_evals, mul(add(num_join_columns, add(i, 1)), WORD_SIZE))
-                        ),
-                        eval
-                    )
-                    mstore(
-                        add(
-                            res_column_evals_out,
-                            add(res_column_evals_out, mul(add(mload(res_column_evals), add(i, 1)), WORD_SIZE))
-                        ),
-                        eval
-                    )
+                    consume_right_evals(builder_ptr, right_column_evals, add(num_join_columns, add(i, 1)), res_column_evals_out, add(mload(res_column_evals), add(i, 1)))
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
                 mstore(
