@@ -455,22 +455,14 @@ library SortMergeJoinExec {
                 )
                 mstore(res_column_evals, num_columns)
             }
-            function consume_right_evals(builder_ptr, right_column_evals, num_join_columns, res_column_evals_out, num_other_left_columns){
+            function consume_right_evals(
+                builder_ptr, right_column_evals, num_join_columns, res_column_evals_out, num_other_left_columns
+            ) {
                 let eval := builder_consume_final_round_mle(builder_ptr)
-                    mstore(
-                        add(
-                            right_column_evals,
-                            add(right_column_evals, mul(num_join_columns, WORD_SIZE))
-                        ),
-                        eval
-                    )
-                    mstore(
-                        add(
-                            res_column_evals_out,
-                            add(res_column_evals_out, mul(num_other_left_columns, WORD_SIZE))
-                        ),
-                        eval
-                    )
+                mstore(add(right_column_evals, add(right_column_evals, mul(num_join_columns, WORD_SIZE))), eval)
+                mstore(
+                    add(res_column_evals_out, add(res_column_evals_out, mul(num_other_left_columns, WORD_SIZE))), eval
+                )
             }
             function evaluate_and_membership_check_right_column_evals(
                 builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, res_column_evals
@@ -499,7 +491,13 @@ library SortMergeJoinExec {
                 }
 
                 for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
-                    consume_right_evals(builder_ptr, right_column_evals, add(num_join_columns, add(i, 1)), res_column_evals_out, add(mload(res_column_evals), add(i, 1)))
+                    consume_right_evals(
+                        builder_ptr,
+                        right_column_evals,
+                        add(num_join_columns, add(i, 1)),
+                        res_column_evals_out,
+                        add(mload(res_column_evals), add(i, 1))
+                    )
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
                 mstore(
@@ -537,6 +535,20 @@ library SortMergeJoinExec {
                     )
                 plan_ptr_out := plan_ptr
             }
+            function evaluate_and_check_right_join_evals(
+                plan_ptr, builder_ptr, alpha, beta, res_chi_eval, res_column_evals
+            ) -> plan_ptr_out, join_evals, chi_eval, res_column_evals_out, i_eval {
+                {
+                    let hat_evals
+                    plan_ptr, hat_evals, join_evals, chi_eval := evaluate_input_plans(plan_ptr, builder_ptr)
+                    res_column_evals, i_eval :=
+                        evaluate_and_membership_check_right_column_evals(
+                            builder_ptr, alpha, beta, mload(join_evals), hat_evals, res_chi_eval, chi_eval, res_column_evals
+                        )
+                }
+                res_column_evals_out := res_column_evals
+                plan_ptr_out := plan_ptr
+            }
             function evaluate_and_check_left_side(
                 plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, res_chi_eval
             ) -> plan_ptr_out, res_column_evals, i_eval, w_eval {
@@ -551,8 +563,19 @@ library SortMergeJoinExec {
             }
 
             function evaluate_and_check_right_side(
-                plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, res_chi_eval
-            ) -> plan_ptr_out, res_column_evals, i_eval, w_eval {}
+                plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, res_chi_eval, res_column_evals
+            ) -> plan_ptr_out, res_column_evals_out, i_eval, w_eval {
+                let join_evals
+                // res_column_evals_out is being used to hold chi_eval, for lack of variable space
+                plan_ptr, join_evals, res_column_evals_out, res_column_evals, i_eval :=
+                    evaluate_and_check_right_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval, res_column_evals)
+                w_eval :=
+                    membership_check_evaluate(
+                        builder_ptr, alpha, beta, u_chi_eval, res_column_evals_out, u_column_eval_array, join_evals
+                    )
+                res_column_evals_out := res_column_evals
+                plan_ptr_out := plan_ptr
+            }
 
             function evaluate_with_all_checks(plan_ptr, builder_ptr, alpha, beta, output_chi_eval) ->
                 plan_ptr_out,
@@ -566,6 +589,21 @@ library SortMergeJoinExec {
                         evaluate_and_check_left_side(
                             plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, output_chi_eval
                         )
+                    let i_right_eval
+                    // We can use u_chi_eval now because it is no longer needed at this point
+                    plan_ptr, res_column_evals, i_right_eval, u_chi_eval :=
+                        evaluate_and_check_right_side(
+                            plan_ptr,
+                            builder_ptr,
+                            alpha,
+                            beta,
+                            u_column_eval_array,
+                            u_chi_eval,
+                            output_chi_eval,
+                            res_column_evals
+                        )
+                    i_eval := mul(i_eval, i_right_eval)
+                    w_eval := mul(w_eval, u_chi_eval)
                 }
             }
 
