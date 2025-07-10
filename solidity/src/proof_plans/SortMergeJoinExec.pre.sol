@@ -605,6 +605,9 @@ library SortMergeJoinExec {
                     i_eval := mul(i_eval, i_right_eval)
                     w_eval := mul(w_eval, u_chi_eval)
                 }
+                monotonic_verify(builder_ptr, alpha, beta, i_eval, output_chi_eval, 1, 1)
+                builder_produce_zerosum_constraint(builder_ptr, submod_bn254(w_eval, output_chi_eval), 2)
+                plan_ptr_out := plan_ptr
             }
 
             function sort_merge_join_evaluate(plan_ptr, builder_ptr) ->
