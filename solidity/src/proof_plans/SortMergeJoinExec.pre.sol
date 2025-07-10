@@ -510,7 +510,9 @@ library SortMergeJoinExec {
                     res_column_evals_out := sub(res_column_evals_out, mul(add(rho_eval, 1), WORD_SIZE))
                 }
                 for {} num_columns { num_columns := sub(num_columns, 1) } {
-                    consume_right_evals(builder_consume_final_round_mle(builder_ptr), target_right_ptr, num_join_columns)
+                    consume_right_evals(
+                        builder_consume_final_round_mle(builder_ptr), target_right_ptr, num_join_columns
+                    )
                     num_join_columns := add(num_join_columns, WORD_SIZE)
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
