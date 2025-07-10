@@ -425,34 +425,48 @@ library SortMergeJoinExec {
             }
             function evaluate_u_column_with_monotony_check(builder_ptr, alpha, beta) -> u_column_eval_array, u_chi_eval
             {
+                // The length of the u eval collection is 1
                 u_column_eval_array := mload(FREE_PTR)
                 mstore(FREE_PTR, add(u_column_eval_array, WORDX2_SIZE))
                 mstore(u_column_eval_array, 1)
+
+                // We run our monotony check on u eval, before wrapping it in the collection
                 u_chi_eval := builder_consume_chi_evaluation(builder_ptr)
                 let u_column_eval := builder_consume_final_round_mle(builder_ptr)
                 monotonic_verify(builder_ptr, alpha, beta, u_column_eval, u_chi_eval, 1, 1)
+
+                // Store the u eval in the collection
                 mstore(add(u_column_eval_array, WORD_SIZE), u_column_eval)
             }
-            function evaluate_and_membership_check_left_column_evals(
+            function consume_and_membership_check_left_column_evals(
                 builder_ptr, alpha, beta, hat_evals, res_chi_eval, chi_eval
             ) -> res_column_evals, rho_eval {
+                // Initially we set the length of res_column_evals to include the rho eval
+                // This will allow us to check the left evals against the hat evals without needing to load a second,
+                // almost identical collection
                 let num_columns := mload(hat_evals)
                 res_column_evals := mload(FREE_PTR)
                 mstore(res_column_evals, num_columns)
                 mstore(FREE_PTR, add(res_column_evals, mul(add(num_columns, 1), WORD_SIZE)))
+
+                // We decrement num_columns for convenience.
                 num_columns := sub(num_columns, 1)
 
-                for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
+                let target_ptr := add(res_column_evals, WORD_SIZE)
+                for { let i := num_columns } i { i := sub(i, 1) } {
                     let eval := builder_consume_final_round_mle(builder_ptr)
-                    mstore(add(res_column_evals, add(res_column_evals, mul(add(i, 1), WORD_SIZE))), eval)
+                    mstore(target_ptr, eval)
+                    target_ptr := add(target_ptr, WORD_SIZE)
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
-                mstore(add(res_column_evals, add(res_column_evals, mul(add(num_columns, 1), WORD_SIZE))), rho_eval)
+                mstore(target_ptr, rho_eval)
                 pop(
                     membership_check_evaluate(
                         builder_ptr, alpha, beta, chi_eval, res_chi_eval, hat_evals, res_column_evals
                     )
                 )
+                // We now shorten the length of the collection. Rho is still in the same place in memory,
+                // but the length effectively indicates that it isn't actually a part of the collection anymore
                 mstore(res_column_evals, num_columns)
             }
             function consume_right_evals(
@@ -520,7 +534,7 @@ library SortMergeJoinExec {
                     )
                 )
             }
-            function evaluate_and_check_left_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval) ->
+            function evaluate_consume_and_check_left_column_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval) ->
                 plan_ptr_out,
                 join_evals,
                 chi_eval,
@@ -530,7 +544,7 @@ library SortMergeJoinExec {
                 let hat_evals
                 plan_ptr, hat_evals, join_evals, chi_eval := evaluate_input_plans(plan_ptr, builder_ptr)
                 res_column_evals, i_eval :=
-                    evaluate_and_membership_check_left_column_evals(
+                    consume_and_membership_check_left_column_evals(
                         builder_ptr, alpha, beta, hat_evals, res_chi_eval, chi_eval
                     )
                 plan_ptr_out := plan_ptr
@@ -554,7 +568,7 @@ library SortMergeJoinExec {
             ) -> plan_ptr_out, res_column_evals, i_eval, w_eval {
                 let join_evals, chi_eval
                 plan_ptr, join_evals, chi_eval, res_column_evals, i_eval :=
-                    evaluate_and_check_left_join_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval)
+                    evaluate_consume_and_check_left_column_evals(plan_ptr, builder_ptr, alpha, beta, res_chi_eval)
                 w_eval :=
                     membership_check_evaluate(
                         builder_ptr, alpha, beta, u_chi_eval, chi_eval, u_column_eval_array, join_evals
@@ -583,14 +597,19 @@ library SortMergeJoinExec {
             {
                 let i_eval, w_eval
                 {
+                    // We need u eval and u chi in order to run the checks on the left and right sides
                     let u_column_eval_array, u_chi_eval :=
                         evaluate_u_column_with_monotony_check(builder_ptr, alpha, beta)
+
+                    // We run all our checks on the left side.
                     plan_ptr, res_column_evals, i_eval, w_eval :=
                         evaluate_and_check_left_side(
                             plan_ptr, builder_ptr, alpha, beta, u_column_eval_array, u_chi_eval, output_chi_eval
                         )
-                    let i_right_eval
+                    // We run all our checks on the right side.
+                    // Because we are running out of local variables, we use u_chi_eval instead of new variable w_right_eval
                     // We can use u_chi_eval now because it is no longer needed at this point
+                    let i_right_eval
                     plan_ptr, res_column_evals, i_right_eval, u_chi_eval :=
                         evaluate_and_check_right_side(
                             plan_ptr,
@@ -602,7 +621,7 @@ library SortMergeJoinExec {
                             output_chi_eval,
                             res_column_evals
                         )
-                    i_eval := mul(i_eval, i_right_eval)
+                    i_eval := add(mulmod_bn254(i_eval, shl(64, 1)), i_right_eval)
                     w_eval := mul(w_eval, u_chi_eval)
                 }
                 monotonic_verify(builder_ptr, alpha, beta, i_eval, output_chi_eval, 1, 1)
@@ -619,6 +638,7 @@ library SortMergeJoinExec {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
                 output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                // We don't use output length for any of our checks
                 plan_ptr_out, evaluations_ptr :=
                     evaluate_with_all_checks(plan_ptr, builder_ptr, alpha, beta, output_chi_eval)
             }
