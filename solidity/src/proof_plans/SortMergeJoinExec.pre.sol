@@ -619,8 +619,8 @@ library SortMergeJoinExec {
                             output_chi_eval,
                             res_column_evals
                         )
-                    i_eval := add(mulmod_bn254(i_eval, shl(64, 1)), i_right_eval)
-                    w_eval := mul(w_eval, u_chi_eval)
+                    i_eval := addmod_bn254(mulmod_bn254(i_eval, shl(64, 1)), i_right_eval)
+                    w_eval := mulmod_bn254(w_eval, u_chi_eval)
                 }
                 monotonic_verify(builder_ptr, alpha, beta, i_eval, output_chi_eval, 1, 1)
                 builder_produce_zerosum_constraint(builder_ptr, submod_bn254(w_eval, output_chi_eval), 2)
