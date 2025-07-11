@@ -523,8 +523,8 @@ library SortMergeJoinExec {
 
                 // We drop the pointers back to their starting places
                 right_column_evals := sub(right_column_evals, num_columns)
-                right_column_evals :=
-                    sub(right_column_evals, add(res_column_length, sub(num_columns, num_join_columns)))
+                res_column_evals_out :=
+                    sub(res_column_evals_out, add(res_column_length, sub(num_columns, num_join_columns)))
 
                 // Finally, we can do our membership check
                 pop(
