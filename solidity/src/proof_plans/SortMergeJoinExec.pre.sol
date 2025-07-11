@@ -477,47 +477,40 @@ library SortMergeJoinExec {
             function evaluate_and_membership_check_right_column_evals(
                 builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, res_column_evals
             ) -> res_column_evals_out, rho_eval {
+                let res_column_length := mload(res_column_evals)
+                res_column_evals := add(res_column_evals, WORD_SIZE)
                 let num_columns := mload(hat_evals)
                 let right_column_evals := mload(FREE_PTR)
                 mstore(right_column_evals, num_columns)
                 res_column_evals_out := add(right_column_evals, mul(add(num_columns, 1), WORD_SIZE))
+                mstore(FREE_PTR, add(res_column_evals_out, add(res_column_length, sub(num_columns, num_join_columns))))
+                num_columns := sub(num_columns, 1)
+                mstore(res_column_evals_out, add(res_column_length, sub(num_columns, num_join_columns)))
+                right_column_evals := add(right_column_evals, WORD_SIZE)
                 res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
-                let target_right_ptr := add(right_column_evals, WORD_SIZE)
-                // rho is not used yet at this point, so we will hijack it to temporarily store the length of res_column_evals
-                rho_eval := mload(res_column_evals)
-                res_column_evals := add(res_column_evals, WORD_SIZE)
-                num_columns := sub(num_columns, num_join_columns)
-                {
-                    for {} num_join_columns { num_join_columns := sub(num_join_columns, 1) } {
-                        consume_right_evals(mload(res_column_evals), target_right_ptr, res_column_evals_out)
-                        res_column_evals := add(res_column_evals, WORD_SIZE)
-                        res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
-                        target_right_ptr := add(target_right_ptr, WORD_SIZE)
-                    }
+                for { rho_eval := num_join_columns } rho_eval { rho_eval := sub(rho_eval, 1) } {
+                    consume_right_evals(mload(res_column_evals), right_column_evals, res_column_evals_out)
+                    res_column_evals := add(res_column_evals, WORD_SIZE)
+                    res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
+                    right_column_evals := add(right_column_evals, WORD_SIZE)
                 }
-                {
-                    let res_column_length := rho_eval
-                    mstore(FREE_PTR, add(res_column_evals_out, mul(res_column_length, WORD_SIZE)))
-                    res_column_length := add(res_column_length, num_columns)
-                    mstore(res_column_evals_out, sub(res_column_length, 1))
-                    for {} res_column_length { res_column_length := sub(res_column_length, 1) } {
-                        mstore(res_column_evals_out, mload(res_column_evals))
-                        res_column_evals := add(res_column_evals, WORD_SIZE)
-                        res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
-                    }
-                    // num_join_columns is no longer needed, so we can hijack it
-                    num_join_columns := res_column_evals_out
-                    res_column_evals_out := sub(res_column_evals_out, mul(add(rho_eval, 1), WORD_SIZE))
+                for { rho_eval := sub(res_column_length, num_join_columns) } rho_eval { rho_eval := sub(rho_eval, 1) } {
+                    mstore(res_column_evals_out, mload(res_column_evals))
+                    res_column_evals := add(res_column_evals, WORD_SIZE)
+                    res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                 }
-                for {} num_columns { num_columns := sub(num_columns, 1) } {
+                for { rho_eval := sub(num_columns, num_join_columns) } rho_eval { rho_eval := sub(rho_eval, 1) } {
                     consume_right_evals(
-                        builder_consume_final_round_mle(builder_ptr), target_right_ptr, num_join_columns
+                        builder_consume_final_round_mle(builder_ptr), right_column_evals, res_column_evals_out
                     )
-                    num_join_columns := add(num_join_columns, WORD_SIZE)
+                    res_column_evals := add(res_column_evals, WORD_SIZE)
+                    res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                 }
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
-                mstore(target_right_ptr, rho_eval)
-                mstore(num_join_columns, rho_eval)
+                mstore(right_column_evals, rho_eval)
+                right_column_evals := sub(right_column_evals, num_columns)
+                right_column_evals :=
+                    sub(right_column_evals, add(res_column_length, sub(num_columns, num_join_columns)))
                 pop(
                     membership_check_evaluate(
                         builder_ptr, alpha, beta, chi_eval, res_chi_eval, hat_evals, right_column_evals
@@ -537,7 +530,6 @@ library SortMergeJoinExec {
                     consume_and_membership_check_left_column_evals(
                         builder_ptr, alpha, beta, hat_evals, res_chi_eval, chi_eval
                     )
-                plan_ptr_out := plan_ptr
             }
             function evaluate_and_check_right_join_evals(
                 plan_ptr, builder_ptr, alpha, beta, res_chi_eval, res_column_evals
