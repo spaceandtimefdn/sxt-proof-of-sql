@@ -469,7 +469,7 @@ library SortMergeJoinExec {
                 // but the length effectively indicates that it isn't actually a part of the collection anymore
                 mstore(res_column_evals, num_columns)
             }
-            function consume_right_evals(eval, right_column_evals, res_column_evals_out) {
+            function populate_right_evals(eval, right_column_evals, res_column_evals_out) {
                 // We store the output in two collections. One output collection and one to compare with the hat evals
                 mstore(right_column_evals, eval)
                 mstore(res_column_evals_out, eval)
@@ -477,40 +477,56 @@ library SortMergeJoinExec {
             function evaluate_and_membership_check_right_column_evals(
                 builder_ptr, alpha, beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, res_column_evals
             ) -> res_column_evals_out, rho_eval {
+                // Load length of incoming res_column_evals
                 let res_column_length := mload(res_column_evals)
-                res_column_evals := add(res_column_evals, WORD_SIZE)
+
+                // The length of hat_evals is the length of the collection which will be used in the membership check
                 let num_columns := mload(hat_evals)
                 let right_column_evals := mload(FREE_PTR)
                 mstore(right_column_evals, num_columns)
                 res_column_evals_out := add(right_column_evals, mul(add(num_columns, 1), WORD_SIZE))
+
+                // The length of the outgoing collection should be
+                // the incoming length plus the number of right hat evals less the common columns
                 mstore(FREE_PTR, add(res_column_evals_out, add(res_column_length, sub(num_columns, num_join_columns))))
                 num_columns := sub(num_columns, 1)
                 mstore(res_column_evals_out, add(res_column_length, sub(num_columns, num_join_columns)))
-                right_column_evals := add(right_column_evals, WORD_SIZE)
-                res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
+
+                // The first num_join_columns entries in the res_column_evals collection are the common evals.
+                // Both res_column_evals_out and right_column_evals need them.
+                // We can use rho_eval as an indexing value until it's time to consume. This saves a local variable.
                 for { rho_eval := num_join_columns } rho_eval { rho_eval := sub(rho_eval, 1) } {
-                    consume_right_evals(mload(res_column_evals), right_column_evals, res_column_evals_out)
+                    // We increment before reading and writing because we did not increment after handling the lenghts.
                     res_column_evals := add(res_column_evals, WORD_SIZE)
                     res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                     right_column_evals := add(right_column_evals, WORD_SIZE)
+                    populate_right_evals(mload(res_column_evals), right_column_evals, res_column_evals_out)
                 }
+                // We copy over the remaining res_column_evals to res_column_evals_out
                 for { rho_eval := sub(res_column_length, num_join_columns) } rho_eval { rho_eval := sub(rho_eval, 1) } {
-                    mstore(res_column_evals_out, mload(res_column_evals))
                     res_column_evals := add(res_column_evals, WORD_SIZE)
                     res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
+                    mstore(res_column_evals_out, mload(res_column_evals))
                 }
+                // We consume the non rho, non common right evals and populate right_column_evals and res_column_evals_out
                 for { rho_eval := sub(num_columns, num_join_columns) } rho_eval { rho_eval := sub(rho_eval, 1) } {
-                    consume_right_evals(
+                    right_column_evals := add(right_column_evals, WORD_SIZE)
+                    res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
+                    populate_right_evals(
                         builder_consume_final_round_mle(builder_ptr), right_column_evals, res_column_evals_out
                     )
-                    res_column_evals := add(res_column_evals, WORD_SIZE)
-                    res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                 }
+                // We populate the final entry in right_column_evals with rho_eval
+                right_column_evals := add(right_column_evals, WORD_SIZE)
                 rho_eval := builder_consume_final_round_mle(builder_ptr)
                 mstore(right_column_evals, rho_eval)
+
+                // We drop the pointers back to their starting places
                 right_column_evals := sub(right_column_evals, num_columns)
                 right_column_evals :=
                     sub(right_column_evals, add(res_column_length, sub(num_columns, num_join_columns)))
+
+                // Finally, we can do our membership check
                 pop(
                     membership_check_evaluate(
                         builder_ptr, alpha, beta, chi_eval, res_chi_eval, hat_evals, right_column_evals
