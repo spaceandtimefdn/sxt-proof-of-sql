@@ -78,25 +78,24 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
         return alloc.alloc_slice_fill_copy(num_unique_rows, 0_i128);
     }
 
-    let span = span!(
-        Level::DEBUG,
-        "join_util::get_multiplicities::find_multiplicities"
-    )
-    .entered();
-
     // Sort the indexes of the unique and data tables
     let mut unique_indices: Vec<usize> = (0..unique[0].len()).collect();
+    let span = span!(Level::DEBUG, "sort unique_indices").entered();
     unique_indices.sort_by(|&i, &j| {
         compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
     });
+    span.exit();
 
     let num_rows = data[0].len();
 
     let mut data_indices: Vec<usize> = (0..num_rows).collect();
+    let span = span!(Level::DEBUG, "sort data_indices").entered();
     data_indices.sort_by(|&i, &j| {
         compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
     });
+    span.exit();
 
+    let span = span!(Level::DEBUG, "find unique row matches").entered();
     let mut multiplicities = vec![0i128; num_unique_rows];
     let mut i = 0;
     let mut j = 0;
