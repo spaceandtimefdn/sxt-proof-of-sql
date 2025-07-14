@@ -70,11 +70,13 @@ output/
 
 *.post.sol
 
-**/dependencies
+**/dependencies/**
 
 solidity/lcov.info
 solidity/coverage-report
+.gitmodules
 solidity/docs
 autogen_logs/
 _autocoder/
 prompts/
+
