@@ -68,22 +68,32 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
         shifted_column.len(),
         "Shifted column length mismatch"
     );
+
+    let span = span!(Level::DEBUG, "allocation").entered();
     let rho_plus_chi_n =
         alloc.alloc_slice_fill_with(num_rows, |i| S::from(i as u64 + 1_u64)) as &[_];
     let rho_n_plus_1 = alloc.alloc_slice_fill_with(num_rows + 1, |i| S::from(i as u64)) as &[_];
     let chi_n_plus_1 = alloc.alloc_slice_fill_copy(num_rows + 1, true);
 
     let c_fold = alloc.alloc_slice_fill_copy(num_rows, Zero::zero());
+    span.exit();
     fold_columns(c_fold, alpha, beta, &[rho_plus_chi_n, column]);
+
+    let span = span!(Level::DEBUG, "allocation c").entered();
     let c_fold_extended = alloc.alloc_slice_fill_copy(num_rows + 1, Zero::zero());
     c_fold_extended[..num_rows].copy_from_slice(c_fold);
     let c_star = alloc.alloc_slice_copy(c_fold_extended);
+    span.exit();
+
     slice_ops::add_const::<S, S>(c_star, One::one());
     slice_ops::batch_inversion(c_star);
 
+    let span = span!(Level::DEBUG, "allocation d").entered();
     let d_fold = alloc.alloc_slice_fill_copy(num_rows + 1, Zero::zero());
     fold_columns(d_fold, alpha, beta, &[rho_n_plus_1, shifted_column]);
     let d_star = alloc.alloc_slice_copy(d_fold);
+    span.exit();
+
     slice_ops::add_const::<S, S>(d_star, One::one());
     slice_ops::batch_inversion(d_star);
 
