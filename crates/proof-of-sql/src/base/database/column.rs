@@ -323,6 +323,7 @@ impl<'a, S: Scalar> Column<'a, S> {
     }
 
     /// Convert a column to a vector of Scalar values
+    #[tracing::instrument(name = "Column::to_scalar", level = "debug", skip_all)]
     pub(crate) fn to_scalar(self) -> Vec<S> {
         match self {
             Self::Boolean(col) => slice_cast_with(col, |b| S::from(b)),

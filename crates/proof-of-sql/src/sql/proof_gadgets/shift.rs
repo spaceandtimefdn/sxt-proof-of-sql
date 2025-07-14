@@ -10,6 +10,7 @@ use crate::{
 use alloc::{boxed::Box, vec};
 use bumpalo::Bump;
 use num_traits::{One, Zero};
+use tracing::{span, Level};
 
 /// Perform first round evaluation of downward shift.
 pub(crate) fn first_round_evaluate_shift<S: Scalar>(
@@ -22,6 +23,7 @@ pub(crate) fn first_round_evaluate_shift<S: Scalar>(
 }
 
 /// Perform final round evaluation of downward shift.
+#[tracing::instrument(name = "Shift::final_round_evaluate_shift", level = "debug", skip_all)]
 pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -29,6 +31,7 @@ pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
     beta: S,
     column: &'a [S],
 ) -> &'a [S] {
+    let span = span!(Level::DEBUG, "allocate shifted_column").entered();
     let shifted_column = alloc.alloc_slice_fill_with(column.len() + 1, |i| {
         if i == 0 {
             S::ZERO
@@ -36,6 +39,7 @@ pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
             column[i - 1]
         }
     });
+    span.exit();
     builder.produce_intermediate_mle(shifted_column as &[_]);
     final_round_evaluate_shift_base(builder, alloc, alpha, beta, column, shifted_column);
     shifted_column
@@ -45,6 +49,11 @@ pub(crate) fn final_round_evaluate_shift<'a, S: Scalar>(
 ///
 /// # Panics
 /// Panics if `column.len() != shifted_column.len() - 1` which should always hold for shifts.
+#[tracing::instrument(
+    name = "Shift::final_round_evaluate_shift_base",
+    level = "debug",
+    skip_all
+)]
 fn final_round_evaluate_shift_base<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,

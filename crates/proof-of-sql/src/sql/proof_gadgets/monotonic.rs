@@ -9,6 +9,7 @@ use crate::{
 };
 use alloc::vec;
 use bumpalo::Bump;
+use tracing::{span, Level};
 
 /// Perform first round evaluation of monotonicity.
 pub(crate) fn first_round_evaluate_monotonic<S: Scalar>(
@@ -19,6 +20,11 @@ pub(crate) fn first_round_evaluate_monotonic<S: Scalar>(
 }
 
 /// Perform final round evaluation of monotonicity.
+#[tracing::instrument(
+    name = "Monotonic::final_round_evaluate_monotonic",
+    level = "debug",
+    skip_all
+)]
 pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, const ASC: bool>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -30,6 +36,7 @@ pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, 
     // 1. Prove that `shifted_column` is a shift of `column`
     let shifted_column = final_round_evaluate_shift(builder, alloc, alpha, beta, column);
     // 2. Construct an indicator `diff = column - shifted_column`
+    let span = span!(Level::DEBUG, "allocate diff").entered();
     let diff = if num_rows >= 1 {
         alloc.alloc_slice_fill_with(num_rows + 1, |i| {
             if i == num_rows {
@@ -41,6 +48,8 @@ pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, 
     } else {
         alloc.alloc_slice_fill_copy(1, S::ZERO)
     };
+    span.exit();
+
     // Since sign expr which we uses for the sign proof only distinguishes between nonnegative
     // and negative integers we need to transform the indicator to be either ind < 0 or ind >= 0
     //
@@ -55,10 +64,12 @@ pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, 
     // column <= shifted_column => shifted_column - column >= 0
     //
     // This is why ind is constructed as below
+    let span = span!(Level::DEBUG, "allocate ind").entered();
     let ind = match (STRICT, ASC) {
         (true, true) | (false, false) => alloc.alloc_slice_fill_with(num_rows + 1, |i| -diff[i]),
         _ => diff as &[_],
     };
+    span.exit();
 
     // 3. Prove the sign of `ind`
     final_round_evaluate_sign(builder, alloc, ind);

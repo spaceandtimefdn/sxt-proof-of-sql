@@ -7,6 +7,7 @@ use crate::base::{polynomial::MultilinearExtension, scalar::Scalar};
 /// where each column is padded with 0s as needed.
 ///
 /// This is similar to adding `mul * fold_vals(beta,...)` on each row.
+#[tracing::instrument(name = "FoldUtil::fold_columns", level = "debug", skip_all)]
 pub fn fold_columns<S: Scalar>(
     res: &mut [S],
     mul: S,

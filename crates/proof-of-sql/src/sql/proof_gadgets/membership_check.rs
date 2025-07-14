@@ -15,12 +15,18 @@ use crate::{
 use alloc::{boxed::Box, vec};
 use bumpalo::Bump;
 use num_traits::{One, Zero};
+use tracing::{span, Level};
 
 /// Perform first round evaluation of the membership check.
 ///
 /// # Panics
 /// Panics if the number of source and candidate columns are not equal
 /// or if the number of columns is zero.
+#[tracing::instrument(
+    name = "MembershipChecks::first_round_evaluate_membership_check",
+    level = "debug",
+    skip_all
+)]
 pub(crate) fn first_round_evaluate_membership_check<'a, S: Scalar>(
     builder: &mut FirstRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -47,6 +53,11 @@ pub(crate) fn first_round_evaluate_membership_check<'a, S: Scalar>(
 /// Panics if the number of source and candidate columns are not equal
 /// or if the number of columns is zero.
 #[expect(clippy::too_many_arguments)]
+#[tracing::instrument(
+    name = "MembershipChecks::final_round_evaluate_membership_check",
+    level = "debug",
+    skip_all
+)]
 pub(crate) fn final_round_evaluate_membership_check<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -69,16 +80,24 @@ pub(crate) fn final_round_evaluate_membership_check<'a, S: Scalar>(
     let multiplicities = get_multiplicities::<S>(candidate_subset, columns, alloc);
 
     // Fold the columns
+    let span = span!(Level::DEBUG, "c_fold alloc").entered();
     let c_fold = alloc.alloc_slice_fill_copy(chi_n.len(), Zero::zero());
+    span.exit();
     fold_columns(c_fold, alpha, beta, columns);
+    let span = span!(Level::DEBUG, "d_fold alloc").entered();
     let d_fold = alloc.alloc_slice_fill_copy(chi_m.len(), Zero::zero());
+    span.exit();
     fold_columns(d_fold, alpha, beta, candidate_subset);
 
+    let span = span!(Level::DEBUG, "c_star alloc").entered();
     let c_star = alloc.alloc_slice_copy(c_fold);
+    span.exit();
     slice_ops::add_const::<S, S>(c_star, One::one());
     slice_ops::batch_inversion(c_star);
 
+    let span = span!(Level::DEBUG, "d_star alloc").entered();
     let d_star = alloc.alloc_slice_copy(d_fold);
+    span.exit();
     slice_ops::add_const::<S, S>(d_star, One::one());
     slice_ops::batch_inversion(d_star);
 
