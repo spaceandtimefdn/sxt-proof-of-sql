@@ -1,4 +1,4 @@
-use super::{filter_exec::prove_filter, OstensibleFilterExec};
+use super::OstensibleFilterExec;
 use crate::{
     base::{
         database::{
@@ -18,6 +18,7 @@ use crate::{
             test_utility::{cols_expr_plan, column, const_int128, equal, tab},
             ProofExpr,
         },
+        proof_gadgets::final_round_evaluate_filter,
     },
     utils::log,
 };
@@ -128,7 +129,7 @@ impl ProverEvaluate for DishonestFilterExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        prove_filter(
+        final_round_evaluate_filter(
             builder,
             alloc,
             alpha,
