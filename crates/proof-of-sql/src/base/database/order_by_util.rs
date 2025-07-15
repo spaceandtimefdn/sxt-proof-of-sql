@@ -54,21 +54,15 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
 ) -> TableOperationResult<Ordering> {
     // Should never happen
     assert_eq!(left.len(), right.len());
-    left.iter()
-        .zip(right.iter())
-        .try_for_each(|(left_col, right_col)| {
-            if left_col.column_type() != right_col.column_type() {
-                return Err(TableOperationError::JoinIncompatibleTypes {
-                    left_type: left_col.column_type(),
-                    right_type: right_col.column_type(),
-                });
-            }
-            Ok(())
-        })?;
-    Ok(left
-        .iter()
-        .zip(right.iter())
-        .map(|(left_col, right_col)| match (left_col, right_col) {
+    for (left_col, right_col) in left.iter().zip(right.iter()) {
+        if left_col.column_type() != right_col.column_type() {
+            return Err(TableOperationError::JoinIncompatibleTypes {
+                left_type: left_col.column_type(),
+                right_type: right_col.column_type(),
+            });
+        }
+
+        let ordering = match (left_col, right_col) {
             (Column::Boolean(left_col), Column::Boolean(right_col)) => {
                 left_col[left_row_index].cmp(&right_col[right_row_index])
             }
@@ -102,9 +96,14 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
             }
             // Should never happen since we checked the column types
             _ => unreachable!(),
-        })
-        .find(|&ord| ord != Ordering::Equal)
-        .unwrap_or(Ordering::Equal))
+        };
+
+        if ordering != Ordering::Equal {
+            return Ok(ordering);
+        }
+    }
+
+    Ok(Ordering::Equal)
 }
 
 /// Compares the tuples `(order_by[0][i], order_by[1][i], ...)` and
