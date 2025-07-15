@@ -68,6 +68,7 @@ contract FilterExecTest is Test {
         assert(evals[1] == 203);
         assert(evals[2] == 204);
         assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());
+        assert(builder.firstRoundMLEs.length == 0);
         assert(builder.finalRoundMLEs.length == 0);
         assert(builder.constraintMultipliers.length == 0);
 
