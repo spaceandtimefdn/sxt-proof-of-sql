@@ -59,6 +59,17 @@ library MathUtilTest {
         assert(MathUtil.__mulModBN254(MODULUS_MINUS_ONE, 2) == MODULUS_MINUS_ONE - 1);
     }
 
+    function testMin() public pure {
+        assert(MathUtil.__min(0, 0) == 0);
+        assert(MathUtil.__min(0, 1) == 0);
+        assert(MathUtil.__min(1, 0) == 0);
+        assert(MathUtil.__min(1, 2) == 1);
+        assert(MathUtil.__min(2, 1) == 1);
+        assert(MathUtil.__min(2, 2) == 2);
+        assert(MathUtil.__min(MODULUS_MINUS_ONE, MODULUS_MINUS_ONE - 1) == MODULUS_MINUS_ONE - 1);
+        assert(MathUtil.__min(2, MODULUS_MINUS_ONE) == 2);
+    }
+
     function testSimpleFold() public pure {
         uint256 beta = 4;
         uint256[] memory evals = new uint256[](3);
