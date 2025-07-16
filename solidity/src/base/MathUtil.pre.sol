@@ -96,6 +96,21 @@ library MathUtil {
         }
     }
 
+    /// @notice Computes `min(a, b)`
+    /// @dev The minimum of two uint256 values.
+    /// @param __a The first value
+    /// @param __b The second value
+    /// @return __minimum The minimum of the two values
+    function __min(uint256 __a, uint256 __b) internal pure returns (uint256 __minimum) {
+        assembly {
+            function min(a, b) -> minimum {
+                minimum := a
+                if lt(b, a) { minimum := b }
+            }
+            __minimum := min(__a, __b)
+        }
+    }
+
     /// @notice Computes `compute_fold(beta, evals)`
     /// @dev The sum of a collection of vales with some mulitplier for each term.
     /// @param __beta The generator of the multipliers for each term in the fold
