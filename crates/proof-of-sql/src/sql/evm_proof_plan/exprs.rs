@@ -224,6 +224,7 @@ impl EVMLiteralExpr {
             LiteralValue::TimeStampTZ(unit, timezone, value) => {
                 EVMLiteralExpr::TimeStampTZ(*unit, *timezone, *value)
             }
+            LiteralValue::Null => todo!("Null literals not yet supported in EVM proof plans"),
         }
     }
 
