@@ -1,6 +1,6 @@
 use super::{
-    EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec, TableExec,
-    UnionExec,
+    AggregateExec, EmptyExec, FilterExec, GeneralizedFilterExec, GroupByExec, ProjectionExec,
+    SliceExec, SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::{
@@ -46,11 +46,28 @@ pub enum DynProofPlan {
     ///     GROUP BY <group_by_expr1>, ..., <group_by_exprM>
     /// ```
     GroupBy(GroupByExec),
+    /// Provable expressions for queries of the form
+    /// ```ignore
+    ///     SELECT <group_by_expr1>.expr as <group_by_expr1>.alias, ..., <group_by_exprM>.expr as <group_by_exprM>.alias,
+    ///         SUM(<sum_expr1>.expr) as <sum_expr1>.alias, ..., SUM(<sum_exprN>.expr) as <sum_exprN>.alias,
+    ///         COUNT(*) as <count_alias>
+    ///     FROM <input>
+    ///     WHERE <where_clause>
+    ///     GROUP BY <group_by_expr1>.expr, ..., <group_by_exprM>.expr
+    /// ```
+    /// Similar to GroupBy but accepts a DynProofPlan as input
+    Aggregate(AggregateExec),
     /// Provable expressions for queries of the form, where the result is sent in a dense form
     /// ```ignore
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
     /// ```
     Filter(FilterExec),
+    /// Provable expressions for queries of the form, where the result is sent in a dense form
+    /// ```ignore
+    ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
+    /// ```
+    /// Similar to Filter but accepts a DynProofPlan as input
+    GeneralizedFilter(GeneralizedFilterExec),
     /// `ProofPlan` for queries of the form
     /// ```ignore
     ///     <ProofPlan> LIMIT <fetch> [OFFSET <skip>]
@@ -121,6 +138,26 @@ impl DynProofPlan {
         ))
     }
 
+    /// Creates a new aggregate plan.
+    #[must_use]
+    pub fn new_aggregate(
+        group_by_exprs: Vec<AliasedDynProofExpr>,
+        sum_exprs: Vec<AliasedDynProofExpr>,
+        input: DynProofPlan,
+        where_clause: DynProofExpr,
+        count_alias: Ident,
+        is_top_level: bool,
+    ) -> Self {
+        Self::Aggregate(AggregateExec::new(
+            group_by_exprs,
+            sum_exprs,
+            Box::new(input),
+            where_clause,
+            count_alias,
+            is_top_level,
+        ))
+    }
+
     /// Creates a new slice plan.
     #[must_use]
     pub fn new_slice(input: DynProofPlan, skip: usize, fetch: Option<usize>) -> Self {
@@ -131,5 +168,19 @@ impl DynProofPlan {
     #[must_use]
     pub fn new_union(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
         Self::Union(UnionExec::new(inputs, schema))
+    }
+
+    /// Creates a new generalized filter plan.
+    #[must_use]
+    pub fn new_generalized_filter(
+        aliased_results: Vec<AliasedDynProofExpr>,
+        input: DynProofPlan,
+        filter_expr: DynProofExpr,
+    ) -> Self {
+        Self::GeneralizedFilter(GeneralizedFilterExec::new(
+            aliased_results,
+            Box::new(input),
+            filter_expr,
+        ))
     }
 }
