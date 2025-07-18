@@ -28,6 +28,9 @@ pub(crate) enum EVMProofPlanError {
         /// The underlying source error
         source: AnalyzeError,
     },
+    /// Incorrect scaling factor
+    #[snafu(display("incorrect scaling factor"))]
+    IncorrectScalingFactor,
 }
 
 /// Result type for EVM proof plan operations.
