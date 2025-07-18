@@ -41,6 +41,21 @@ impl ScalingCastExpr {
                 right_type: to_type.to_string(),
             })
     }
+
+    /// Returns the from expression
+    pub fn get_from_expr(&self) -> &DynProofExpr {
+        &self.from_expr
+    }
+
+    /// Returns the to type
+    pub fn to_type(&self) -> &ColumnType {
+        &self.to_type
+    }
+
+    /// Returns the scaling factor
+    pub fn scaling_factor(&self) -> [u64; 4] {
+        self.scaling_factor
+    }
 }
 
 impl ProofExpr for ScalingCastExpr {
