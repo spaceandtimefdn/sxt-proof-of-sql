@@ -64,7 +64,7 @@ impl From<BitDistributionError> for ProofError {
 }
 
 impl BitDistribution {
-    pub fn new<S: Scalar, T: Into<S> + Clone + Send + Sync>(data: &[T]) -> Self {
+    pub fn new<S: Scalar, T: Into<S> + Clone + Sync>(data: &[T]) -> Self {
         #[cfg(feature = "rayon")]
         let (sign_mask, inverse_sign_mask) = data
             .par_iter()
