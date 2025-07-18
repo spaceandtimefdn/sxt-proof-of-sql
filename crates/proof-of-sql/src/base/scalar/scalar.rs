@@ -83,4 +83,6 @@ pub trait Scalar:
     const CHALLENGE_MASK: U256;
     /// The largest n such that 2^n <=p
     const MAX_BITS: u8;
+    /// A U256 representation of the largest signed value in the field.
+    const MAX_SIGNED_U256: U256;
 }
