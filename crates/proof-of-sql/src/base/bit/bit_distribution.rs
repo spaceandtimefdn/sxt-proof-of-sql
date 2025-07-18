@@ -1,6 +1,5 @@
 use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
 use crate::base::{
-    if_rayon,
     proof::ProofError,
     scalar::{Scalar, ScalarExt},
 };
@@ -66,7 +65,9 @@ impl From<BitDistributionError> for ProofError {
 
 impl BitDistribution {
     pub fn new<S: Scalar, T: Into<S> + Clone + Send + Sync>(data: &[T]) -> Self {
-        let (sign_mask, inverse_sign_mask) = if_rayon!(data.par_iter(), data.iter())
+        #[cfg(feature = "rayon")]
+        let (sign_mask, inverse_sign_mask) = data
+            .par_iter()
             .map(|item| {
                 let scalar: S = item.clone().into();
                 let bit_mask = make_bit_mask(scalar);
@@ -87,6 +88,20 @@ impl BitDistribution {
             );
 
         let bit_masks = data.iter().cloned().map(Into::<S>::into).map(make_bit_mask);
+        #[cfg(not(feature = "rayon"))]
+        let (sign_mask, inverse_sign_mask) = bit_masks
+            .clone()
+            .map(|bit_mask| {
+                let adjusted_mask = if is_bit_mask_negative_representation(bit_mask) {
+                    bit_mask ^ U256::MAX.shr(1)
+                } else {
+                    bit_mask
+                };
+                (adjusted_mask, !adjusted_mask)
+            })
+            .reduce(|acc, item| (acc.0 & item.0, acc.1 & item.1))
+            .unwrap_or((U256::MAX, U256::MAX));
+
         let vary_mask_bit = U256::from(
             !bit_masks
                 .map(is_bit_mask_negative_representation)
