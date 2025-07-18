@@ -6,9 +6,7 @@ use core::ops::Shl;
 pub fn make_bit_mask<S: ScalarExt>(x: S) -> U256 {
     let x_as_u256 = x.into_u256_wrapping();
     if x > S::MAX_SIGNED {
-        x_as_u256 - S::into_u256_wrapping(S::MAX_SIGNED) + (U256::ONE.shl(255))
-            - S::into_u256_wrapping(S::MAX_SIGNED)
-            - U256::ONE
+        x_as_u256 - S::MAX_SIGNED_U256 + (U256::ONE.shl(255)) - S::MAX_SIGNED_U256 - U256::ONE
     } else {
         x_as_u256 + (U256::ONE.shl(255))
     }
