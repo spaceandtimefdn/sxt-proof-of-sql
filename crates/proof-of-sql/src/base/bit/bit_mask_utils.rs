@@ -17,5 +17,5 @@ pub fn make_bit_mask<S: ScalarExt>(x: S) -> U256 {
 
 #[inline]
 pub fn is_bit_mask_negative_representation(bit_mask: U256) -> bool {
-    bit_mask < MSB_MASK
+    bit_mask & MSB_MASK == U256::ZERO
 }
