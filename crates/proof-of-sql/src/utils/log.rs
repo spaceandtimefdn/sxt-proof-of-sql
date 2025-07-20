@@ -30,3 +30,65 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_log_memory_usage_does_not_panic() {
+        // Test that the function doesn't panic when called
+        log_memory_usage("Test");
+        log_memory_usage("");
+        log_memory_usage("Test with spaces and symbols !@#$%");
+    }
+
+    #[test]
+    fn test_log_memory_usage_with_various_names() {
+        // Test with different name formats
+        let test_names = [
+            "Start",
+            "End", 
+            "Middle", 
+            "Process Step 1",
+            "UTF-8 ñáme",
+            "Name with numbers 123",
+            "UPPERCASE",
+            "lowercase",
+            "MixedCase",
+        ];
+
+        for name in &test_names {
+            log_memory_usage(name);
+        }
+    }
+
+    #[test]
+    fn test_log_memory_usage_empty_string() {
+        // Test with empty string - should not panic
+        log_memory_usage("");
+    }
+
+    #[test]
+    fn test_log_memory_usage_long_string() {
+        // Test with a very long string
+        let long_name = "a".repeat(1000);
+        log_memory_usage(&long_name);
+    }
+
+    #[test]
+    fn test_log_memory_usage_special_characters() {
+        // Test with special characters that might cause issues in logs
+        log_memory_usage("Test\nwith\nnewlines");
+        log_memory_usage("Test\twith\ttabs");
+        log_memory_usage("Test with \"quotes\"");
+        log_memory_usage("Test with 'single quotes'");
+        log_memory_usage("Test with backslash \\");
+    }
+
+    // Note: We can't easily test the actual logging output without mocking the tracing system,
+    // but we can at least ensure the function doesn't panic under various conditions.
+    // The function is designed to only log when TRACE level is enabled, which may not be
+    // the case during testing, so the main thing to verify is that it handles various
+    // input strings gracefully.
+}
