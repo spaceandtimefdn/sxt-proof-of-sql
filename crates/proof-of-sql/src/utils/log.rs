@@ -86,9 +86,5 @@ mod tests {
         log_memory_usage("Test with backslash \\");
     }
 
-    // Note: We can't easily test the actual logging output without mocking the tracing system,
-    // but we can at least ensure the function doesn't panic under various conditions.
-    // The function is designed to only log when TRACE level is enabled, which may not be
-    // the case during testing, so the main thing to verify is that it handles various
-    // input strings gracefully.
+    
 }
