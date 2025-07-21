@@ -16,6 +16,7 @@ use crate::{
             SumcheckSubpolynomialType, VerificationBuilder,
         },
         proof_gadgets::fold_log_expr::FoldLogExpr,
+        AnalyzeError, AnalyzeResult,
     },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -35,13 +36,14 @@ use sqlparser::ast::Ident;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct UnionExec {
     pub(super) inputs: Vec<DynProofPlan>,
-    pub(super) schema: Vec<ColumnField>,
 }
 
 impl UnionExec {
-    /// Creates a new union execution plan.
-    pub fn new(inputs: Vec<DynProofPlan>, schema: Vec<ColumnField>) -> Self {
-        Self { inputs, schema }
+    /// Tries to create a new union execution plan.
+    pub fn try_new(inputs: Vec<DynProofPlan>) -> AnalyzeResult<Self> {
+        (inputs.len() > 1)
+            .then_some(Self { inputs })
+            .ok_or(AnalyzeError::NotEnoughInputPlans)
     }
 }
 
@@ -60,24 +62,24 @@ where
         let gamma = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         let fold_log_gadget = FoldLogExpr::new(gamma, beta);
+        let mut num_mle_evaluations = None;
         let c_star_evals = self
             .inputs
             .iter()
             .map(|input| -> Result<_, ProofError> {
                 let table_evaluation =
                     input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+                let column_evals = table_evaluation.column_evals();
+                num_mle_evaluations = num_mle_evaluations.or(Some(column_evals.len()));
                 fold_log_gadget
-                    .verify_evaluate(
-                        builder,
-                        table_evaluation.column_evals(),
-                        table_evaluation.chi_eval(),
-                    )
+                    .verify_evaluate(builder, column_evals, table_evaluation.chi_eval())
                     .map(|(star, _fold)| star)
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let output_column_evals =
-            builder.try_consume_first_round_mle_evaluations(self.schema.len())?;
+        let output_column_evals = builder.try_consume_first_round_mle_evaluations(
+            num_mle_evaluations.expect("union should have multiple inputs"),
+        )?;
         let chi_m = builder.try_consume_chi_evaluation()?;
 
         let (d_star_eval, _) =
@@ -97,7 +99,10 @@ where
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.schema.clone()
+        self.inputs
+            .first()
+            .expect("Union inputs should not be empty")
+            .get_column_result_fields()
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
@@ -132,7 +137,7 @@ impl ProverEvaluate for UnionExec {
                 input.first_round_evaluate(builder, alloc, table_map, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
 
         // Produce intermediate MLEs for the union
         res.columns().copied().for_each(|column| {
@@ -171,7 +176,7 @@ impl ProverEvaluate for UnionExec {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .unzip();
-        let res = table_union(&inputs, alloc, self.schema.clone()).expect("Failed to union tables");
+        let res = table_union(&inputs, alloc).expect("Failed to union tables");
         let output_columns: Vec<Column<'a, S>> = res.columns().copied().collect::<Vec<_>>();
         // No need to produce intermediate MLEs for `d_fold` because it is
         // the sum of `c_fold`

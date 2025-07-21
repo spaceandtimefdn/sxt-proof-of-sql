@@ -201,20 +201,21 @@ pub fn column_union<'a, S: Scalar>(
 }
 
 /// Union multiple tables with compatible schemas into a single table
-///
-/// # Panics
-/// This function should never panic as long as it is written correctly
+#[expect(clippy::missing_panics_doc)]
 pub fn table_union<'a, S: Scalar>(
     tables: &[Table<'a, S>],
     alloc: &'a Bump,
-    schema: Vec<ColumnField>,
 ) -> TableOperationResult<Table<'a, S>> {
     // Check schema equality
-    let possible_bad_schema = tables
-        .iter()
-        .filter(|&table| (!are_schemas_compatible(&schema, &table.schema())))
-        .map(|table| table.schema().clone())
-        .next();
+    let mut tables_iter = tables.iter();
+    let schema = tables_iter
+        .next()
+        .ok_or(TableOperationError::UnionNotEnoughTables)?
+        .schema();
+    let possible_bad_schema = tables_iter.find_map(|table| {
+        let candidate_schema = table.schema();
+        (!are_schemas_compatible(&schema, &candidate_schema)).then_some(candidate_schema)
+    });
     if let Some(bad_schema) = possible_bad_schema {
         return Err(TableOperationError::UnionIncompatibleSchemas {
             actual_schema: bad_schema.clone(),
@@ -292,17 +293,10 @@ mod tests {
     }
 
     #[test]
-    fn we_can_union_no_tables() {
+    fn we_cannot_union_no_tables() {
         let alloc = Bump::new();
-        let result = table_union::<TestScalar>(&[], &alloc, vec![]).unwrap();
-        assert_eq!(
-            result,
-            Table::<'_, TestScalar>::try_new_with_options(
-                IndexMap::default(),
-                TableOptions::new(Some(0))
-            )
-            .unwrap()
-        );
+        let result = table_union::<TestScalar>(&[], &alloc).unwrap_err();
+        assert!(matches!(result, TableOperationError::UnionNotEnoughTables));
     }
 
     #[test]
@@ -323,7 +317,7 @@ mod tests {
             TableOptions::new(Some(0)),
         )
         .unwrap();
-        let result = table_union(&[table0, table1, table2], &alloc, vec![]).unwrap();
+        let result = table_union(&[table0, table1, table2], &alloc).unwrap();
         assert_eq!(
             result,
             Table::<'_, TestScalar>::try_new_with_options(
@@ -354,21 +348,13 @@ mod tests {
             TableOptions::new(Some(3)),
         )
         .unwrap();
-        let result = table_union(
-            &[table0, table1],
-            &alloc,
-            vec![
-                ColumnField::new("e".into(), ColumnType::BigInt),
-                ColumnField::new("f".into(), ColumnType::BigInt),
-            ],
-        )
-        .unwrap();
+        let result = table_union(&[table0, table1], &alloc).unwrap();
         assert_eq!(
             result,
             Table::<'_, TestScalar>::try_new_with_options(
                 IndexMap::from_iter(vec![
-                    ("e".into(), Column::BigInt(&[1, 2, 3, 7, 8, 9])),
-                    ("f".into(), Column::BigInt(&[4, 5, 6, 10, 11, 12])),
+                    ("a".into(), Column::BigInt(&[1, 2, 3, 7, 8, 9])),
+                    ("b".into(), Column::BigInt(&[4, 5, 6, 10, 11, 12])),
                 ]),
                 TableOptions::new(Some(6)),
             )
@@ -392,19 +378,12 @@ mod tests {
         let table1 = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::from_iter(vec![
                 ("c".into(), Column::BigInt(&[7, 8, 9])),
-                ("d".into(), Column::BigInt(&[10, 11, 12])),
+                ("d".into(), Column::Int(&[10, 11, 12])),
             ]),
             TableOptions::new(Some(3)),
         )
         .unwrap();
-        let result = table_union(
-            &[table0, table1],
-            &alloc,
-            vec![
-                ColumnField::new("e".into(), ColumnType::BigInt),
-                ColumnField::new("f".into(), ColumnType::Int),
-            ],
-        );
+        let result = table_union(&[table0, table1], &alloc);
         assert!(matches!(
             result,
             Err(TableOperationError::UnionIncompatibleSchemas { .. })
@@ -478,11 +457,7 @@ mod tests {
         )
         .unwrap();
 
-        let schema = vec![ColumnField::new(
-            "doesnt_matter".into(),
-            ColumnType::VarBinary,
-        )];
-        let result = table_union(&[table0, table1], &alloc, schema.clone()).unwrap();
+        let result = table_union(&[table0, table1], &alloc).unwrap();
 
         let expected_raw = [
             b"foo".as_ref(),
@@ -497,7 +472,7 @@ mod tests {
 
         let expected = Table::try_new_with_options(
             IndexMap::from_iter(vec![(
-                "doesnt_matter".into(),
+                "vb".into(),
                 Column::VarBinary((expected_raw.as_slice(), expected_scalars.as_slice())),
             )]),
             TableOptions::new(Some(4)),

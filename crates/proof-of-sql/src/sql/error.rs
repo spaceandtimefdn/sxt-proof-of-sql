@@ -49,6 +49,10 @@ pub enum AnalyzeError {
         /// The underlying source error
         source: PlaceholderError,
     },
+
+    #[snafu(display("Not enough input plans"))]
+    /// Error for when there are not enough input plans (for a union for example)
+    NotEnoughInputPlans,
 }
 
 impl From<AnalyzeError> for String {
