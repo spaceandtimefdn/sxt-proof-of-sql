@@ -402,6 +402,7 @@ where
         );
         255 - T::MODULUS.0[3].leading_zeros() as u8
     };
+    const MAX_SIGNED_U256: U256 = U256::from_digits(T::MODULUS.divide_by_2_round_down().0);
 }
 
 impl<T> TryFrom<MontScalar<T>> for bool

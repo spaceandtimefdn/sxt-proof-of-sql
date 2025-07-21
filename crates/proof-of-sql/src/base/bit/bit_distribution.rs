@@ -11,6 +11,8 @@ use core::{
     ops::{Shl, Shr},
 };
 use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 fn serialize_limbs<S: Serializer>(limbs: &[u64; 4], serializer: S) -> Result<S::Ok, S::Error> {
@@ -62,19 +64,44 @@ impl From<BitDistributionError> for ProofError {
 }
 
 impl BitDistribution {
-    pub fn new<S: Scalar, T: Into<S> + Clone>(data: &[T]) -> Self {
+    pub fn new<S: Scalar, T: Into<S> + Clone + Sync>(data: &[T]) -> Self {
+        #[cfg(feature = "rayon")]
+        let (sign_mask, inverse_sign_mask) = data
+            .par_iter()
+            .map(|item| {
+                let scalar: S = item.clone().into();
+                let bit_mask = make_bit_mask(scalar);
+
+                let adjusted_mask = if is_bit_mask_negative_representation(bit_mask) {
+                    bit_mask ^ U256::MAX.shr(1)
+                } else {
+                    bit_mask
+                };
+
+                (adjusted_mask, !adjusted_mask)
+            })
+            .reduce(
+                || (U256::MAX, U256::MAX),
+                |(acc_sign, acc_inverse), (mask, inverse_mask)| {
+                    (acc_sign & mask, acc_inverse & inverse_mask)
+                },
+            );
+
         let bit_masks = data.iter().cloned().map(Into::<S>::into).map(make_bit_mask);
-        let (sign_mask, inverse_sign_mask) =
-            bit_masks
-                .clone()
-                .fold((U256::MAX, U256::MAX), |acc, bit_mask| {
-                    let bit_mask = if is_bit_mask_negative_representation(bit_mask) {
-                        bit_mask ^ U256::MAX.shr(1)
-                    } else {
-                        bit_mask
-                    };
-                    (acc.0 & bit_mask, acc.1 & !bit_mask)
-                });
+        #[cfg(not(feature = "rayon"))]
+        let (sign_mask, inverse_sign_mask) = bit_masks
+            .clone()
+            .map(|bit_mask| {
+                let adjusted_mask = if is_bit_mask_negative_representation(bit_mask) {
+                    bit_mask ^ U256::MAX.shr(1)
+                } else {
+                    bit_mask
+                };
+                (adjusted_mask, !adjusted_mask)
+            })
+            .reduce(|acc, item| (acc.0 & item.0, acc.1 & item.1))
+            .unwrap_or((U256::MAX, U256::MAX));
+
         let vary_mask_bit = U256::from(
             !bit_masks
                 .map(is_bit_mask_negative_representation)
