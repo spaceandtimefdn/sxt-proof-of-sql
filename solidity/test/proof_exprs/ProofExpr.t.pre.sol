@@ -243,6 +243,30 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testScalingCastExprVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory expr = abi.encodePacked(
+            SCALING_CAST_EXPR_VARIANT,
+            DATA_TYPE_DECIMAL75_VARIANT,
+            uint8(20),
+            int8(2),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_INT_VARIANT, int32(2)),
+            uint256(100), // scaling factor
+            hex"abcdef"
+        );
+        bytes memory expectedExprOut = hex"abcdef";
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 3);
+
+        assert(eval == 600); // 2 * 3 * 100
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
     function testInequalityExprVariant() public pure {
         bytes memory expr = abi.encodePacked(
             INEQUALITY_EXPR_VARIANT,
@@ -357,5 +381,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Cast) == CAST_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Placeholder) == PLACEHOLDER_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.ScalingCast) == SCALING_CAST_EXPR_VARIANT);
     }
 }

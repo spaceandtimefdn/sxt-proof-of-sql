@@ -168,6 +168,10 @@ library SliceExec {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
                 revert(0, 0)

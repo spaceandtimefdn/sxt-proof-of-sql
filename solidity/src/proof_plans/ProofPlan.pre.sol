@@ -174,6 +174,10 @@ library ProofPlan {
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
             function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)

@@ -374,6 +374,44 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
 #[ignore = "This test requires the forge binary to be present"]
 #[test]
 #[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_filter_with_arithmetic_with_scaling_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        TableRef::new("namespace", "table"),
+        owned_table([
+            bigint("a", [5, 3, 2, 5, 3, 2]),
+            decimal75("b", 20, 2, [250, 150, 200, 300, 400, 500]),
+        ]),
+        0,
+        &ps[..],
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT a, b FROM namespace.table WHERE a = b + b",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_cast_using_the_evm() {
     let (ps, vk) = load_small_setup_for_testing();
 
