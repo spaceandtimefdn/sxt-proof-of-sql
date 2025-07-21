@@ -12,11 +12,12 @@ use bumpalo::Bump;
 use tracing::{span, Level};
 
 /// Perform first round evaluation of monotonicity.
-pub(crate) fn first_round_evaluate_monotonic<S: Scalar>(
-    builder: &mut FirstRoundBuilder<'_, S>,
-    num_rows: usize,
+pub(crate) fn first_round_evaluate_monotonic<'a, S: Scalar>(
+    builder: &mut FirstRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    column: &'a [S],
 ) {
-    first_round_evaluate_shift(builder, num_rows);
+    first_round_evaluate_shift(builder, alloc, column);
 }
 
 /// Perform final round evaluation of monotonicity.
