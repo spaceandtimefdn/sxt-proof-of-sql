@@ -6,35 +6,36 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
 
-/// @title SubtractExpr
-/// @dev Library for handling subtracting two proof expressions
-library SubtractExpr {
-    /// @notice Evaluates an subtract expression by subtracting one sub-expression from the other
+/// @title ScalingCastExpr
+/// @dev Library for handling scaling cast of a proof expression
+library ScalingCastExpr {
+    /// @notice Evaluates a scaling cast expression by scaling and casting a sub-expression
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
     /// ```
     /// ##### Parameters
     /// * `expr_ptr` - calldata pointer to the expression data
     /// * `builder_ptr` - memory pointer to the verification builder
     /// * `chi_eval` - the chi value for evaluation
     /// ##### Return Values
-    /// * `expr_ptr_out` - pointer to the remaining expression after consuming both sub-expressions
+    /// * `expr_ptr_out` - pointer to the remaining expression after consuming the sub-expression
     /// * `eval` - the evaluation result from the builder's final round MLE
-    /// @notice Evaluates two sub-expressions and subtract one from the other
+    /// @notice Evaluates a sub-expression and applies scaling cast
     /// ##### Proof Plan Encoding
-    /// The subtract expression is encoded as follows:
-    /// 1. The left hand side expression
-    /// 2. The right hand side expression
-    /// @param __expr The subtract expression data
+    /// The scaling cast expression is encoded as follows:
+    /// 1. The target data type
+    /// 2. The input expression
+    /// 3. The scaling factor (as a uint256)
+    /// @param __expr The scaling cast expression data
     /// @param __builder The verification builder
     /// @param __chiEval The chi value for evaluation
     /// @return __exprOut The remaining expression after processing
     /// @return __builderOut The verification builder result
     /// @return __eval The evaluated result
-    function __subtractExprEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __scalingCastExprEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
         external
         pure
@@ -77,6 +78,20 @@ library SubtractExpr {
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
+            // slither-disable-start cyclomatic-complexity
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
+                revert(0, 0)
+            }
+            // slither-disable-end cyclomatic-complexity
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_binary(result_ptr) -> result_ptr_out, entry {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_data_type(ptr) -> ptr_out, data_type {
+                revert(0, 0)
+            }
             // IMPORT-YUL ColumnExpr.pre.sol
             function column_expr_evaluate(expr_ptr, builder_ptr) -> expr_ptr_out, eval {
                 revert(0, 0)
@@ -91,6 +106,10 @@ library SubtractExpr {
             }
             // IMPORT-YUL AddExpr.pre.sol
             function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SubtractExpr.pre.sol
+            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // IMPORT-YUL MultiplyExpr.pre.sol
@@ -109,12 +128,12 @@ library SubtractExpr {
             function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL CastExpr.pre.sol
-            function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
-                revert(0, 0)
-            }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/CastExpr.pre.sol
+            function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
@@ -127,10 +146,6 @@ library SubtractExpr {
             }
             // IMPORT-YUL PlaceholderExpr.pre.sol
             function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ScalingCastExpr.pre.sol
-            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
@@ -151,34 +166,26 @@ library SubtractExpr {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
-            // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_binary(result_ptr) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.pre.sol
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
 
-            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                let lhs_eval
-                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                let data_type
+                expr_ptr, data_type := read_data_type(expr_ptr)
 
-                let rhs_eval
-                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                // Evaluate the input expression
+                expr_ptr, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
 
-                result_eval := submod_bn254(lhs_eval, rhs_eval)
+                // Read the scaling factor (256 bits)
+                let scaling_factor := calldataload(expr_ptr)
+                expr_ptr := add(expr_ptr, WORD_SIZE)
+
+                // Apply scaling by multiplying with the scaling factor
+                result_eval := mulmod_bn254(result_eval, scaling_factor)
+
                 expr_ptr_out := expr_ptr
             }
 
             let __exprOutOffset
-            __exprOutOffset, __eval := subtract_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOutOffset, __eval := scaling_cast_expr_evaluate(__expr.offset, __builder, __chiEval)
             __exprOut.offset := __exprOutOffset
             // slither-disable-next-line write-after-write
             __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
