@@ -370,6 +370,7 @@ library SortMergeJoinExec {
                 // Determine number of columns to join on
                 let num_join_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
+                if sub(num_join_columns, 1) { err(ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE) }
 
                 // We need a collection to record which indices are not join indices.
                 // The total number of evaluations from the input should be the number of entries in this collection.

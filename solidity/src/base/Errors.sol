@@ -65,6 +65,8 @@ uint32 constant ERR_MONOTONY_CHECK_FAILED = 0x976f97b8;
 uint32 constant ERR_INTERNAL = 0xfe835e35;
 /// @dev Error code for unprovable group by error.
 uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
+/// @dev Error code for when a plan has a number of join columns other than one.
+uint32 constant ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE = 0xf81ffd2a;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -130,6 +132,8 @@ library Errors {
     error InternalError();
     /// @notice Error thrown for unprovable group by error.
     error UnprovableGroupBy();
+    /// @notice Error thrown when a plan has a number of join columns other than one.
+    error NumberOfJoinColumnsNotOne();
 
     function __err(uint32 __code) internal pure {
         assembly {
