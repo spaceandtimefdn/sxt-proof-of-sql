@@ -5,11 +5,13 @@ use super::{
     Column, ColumnOperationResult, ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp, Table,
     TableOperationError, TableOperationResult, TableOptions,
 };
-use crate::base::scalar::Scalar;
+use crate::base::{if_rayon, scalar::Scalar};
 use alloc::{vec, vec::Vec};
 use bumpalo::Bump;
 use core::cmp::Ordering;
 use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::prelude::ParallelSliceMut;
 use tracing::{span, Level};
 
 /// Compute the set union of two slices of columns, deduplicate and sort the result.
@@ -89,9 +91,14 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
         "join_util::get_multiplicities sort unique_indices"
     )
     .entered();
-    unique_indices.sort_by(|&i, &j| {
-        compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
-    });
+    if_rayon!(
+        unique_indices.par_sort_by(|&i, &j| {
+            compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
+        }),
+        unique_indices.sort_by(|&i, &j| {
+            compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
+        })
+    );
     span.exit();
 
     let num_rows = data[0].len();
@@ -102,9 +109,14 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
         "join_util::get_multiplicities sort data_indices"
     )
     .entered();
-    data_indices.sort_by(|&i, &j| {
-        compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
-    });
+    if_rayon!(
+        data_indices.par_sort_by(|&i, &j| {
+            compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
+        }),
+        data_indices.sort_by(|&i, &j| {
+            compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
+        })
+    );
     span.exit();
 
     let span = span!(
