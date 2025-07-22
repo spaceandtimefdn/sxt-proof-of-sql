@@ -46,10 +46,12 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     //2. Sort and deduplicate the raw union by indexes
     // Allowed because we already checked that the columns aren't empty
     let span = span!(Level::DEBUG, "join_util::ordered_set_union create indexes").entered();
-    let indexes: Vec<usize> = (0..raw_union[0].len())
-        .sorted_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
-        .dedup_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b) == Ordering::Equal)
-        .collect();
+    let mut indexes: Vec<usize> = (0..raw_union[0].len()).collect();
+    if_rayon!(
+        indexes.par_sort_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b)),
+        indexes.sort_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
+    );
+    indexes.dedup_by(|a, b| compare_indexes_by_columns(&raw_union, *a, *b) == Ordering::Equal);
     span.exit();
     //3. Apply the deduplicated indexes to the raw union
     let span = span!(Level::DEBUG, "join_util::ordered_set_union create result").entered();
