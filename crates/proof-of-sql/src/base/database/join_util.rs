@@ -30,7 +30,11 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     if left_on.is_empty() {
         return Ok(Vec::new());
     }
-    let span = span!(Level::DEBUG, "ordered_set_union::raw_union").entered();
+    let span = span!(
+        Level::DEBUG,
+        "join_util::ordered_set_union create raw_union"
+    )
+    .entered();
     let raw_union = left_on
         .iter()
         .zip_eq(right_on)
@@ -39,14 +43,14 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     span.exit();
     //2. Sort and deduplicate the raw union by indexes
     // Allowed because we already checked that the columns aren't empty
-    let span = span!(Level::DEBUG, "ordered_set_union::indexes").entered();
+    let span = span!(Level::DEBUG, "join_util::ordered_set_union create indexes").entered();
     let indexes: Vec<usize> = (0..raw_union[0].len())
         .sorted_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
         .dedup_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b) == Ordering::Equal)
         .collect();
     span.exit();
     //3. Apply the deduplicated indexes to the raw union
-    let span = span!(Level::DEBUG, "ordered_set_union::result").entered();
+    let span = span!(Level::DEBUG, "join_util::ordered_set_union create result").entered();
     let result = raw_union
         .into_iter()
         .map(|column| apply_column_to_indexes(&column, alloc, &indexes))
