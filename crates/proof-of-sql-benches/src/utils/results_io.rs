@@ -1,6 +1,5 @@
 use csv::{ReaderBuilder, Writer, WriterBuilder};
-use plotters::prelude::*;
-use plotters::prelude::SeriesLabelPosition::LowerRight;
+use plotters::prelude::{SeriesLabelPosition::LowerRight, *};
 use plotters_bitmap::BitMapBackend;
 use std::{
     collections::{HashMap, HashSet},
@@ -115,7 +114,7 @@ fn calculate_median(data: &mut [f64]) -> f64 {
     if len % 2 == 1 {
         data[len / 2]
     } else {
-        (data[len / 2 - 1] + data[len / 2]) / 2.0
+        f64::midpoint(data[len / 2 - 1], data[len / 2])
     }
 }
 
@@ -332,13 +331,14 @@ fn max_execution_time(scheme: &String, csv_rows: &BenchResult) -> f64 {
 /// * If the data cannot be parsed or processed.
 /// * If the file cannot be opened or created.
 /// * If the CSV writer cannot be created or flushed.
+#[expect(clippy::too_many_lines)]
 pub fn draw_chart_from_csv(
     csv_file_path: &Path,
     graph_file_path: &Path,
     in_seconds: bool,
     with_verify: bool,
 ) -> Result<(), Box<dyn Error>> {
-    println!("Drawing chart from CSV file: {:?}", csv_file_path);
+    println!("Drawing chart from CSV file: {}", csv_file_path.display());
 
     // Read the CSV file into memory
     let mut csv_rows = BenchResult::new();
@@ -358,7 +358,7 @@ pub fn draw_chart_from_csv(
         // Create the file name related to the scheme for the chart
         let scheme_graph_path = graph_file_path.to_path_buf().join(format!("{scheme}.png"));
 
-        println!("Drawing chart for scheme: {:?}", scheme_graph_path);
+        println!("Drawing chart for scheme: {}", scheme_graph_path.display());
 
         // Create the chart root
         let root = BitMapBackend::new(&scheme_graph_path, (1280, 720)).into_drawing_area();
@@ -366,7 +366,6 @@ pub fn draw_chart_from_csv(
 
         // Find the min and max table sizes for the x-axis
         let (min_table_size, max_table_size) = min_max_table_size(scheme, &csv_rows);
-
 
         // Find the min and max execution times and adjust the y-axis label based on the `in_seconds` flag
         let (max_time, y_label) = if in_seconds {
@@ -405,15 +404,15 @@ pub fn draw_chart_from_csv(
             .axis_style(WHITE)
             .disable_mesh()
             .x_labels(16) // Set the number of x-axis labels to 10 (evenly spaced)
-            .x_label_formatter(&|x| format!("{:.0}", x)) // Format x-axis labels as integers
+            .x_label_formatter(&|x| format!("{x:.0}")) // Format x-axis labels as integers
             .draw()?;
 
         let sxt_colors: Vec<RGBColor> = sxt_colors();
         for (i, q) in queries.iter().enumerate() {
             let query_color: RGBColor = sxt_colors[i % sxt_colors.len()];
 
-            println!("index: {:?}", i);
-            println!("Drawing chart for query: {:?}", q);
+            println!("index: {i:?}");
+            println!("Drawing chart for query: {q:?}");
 
             // Vectors to store data for the current query
             let mut generate_median_data = median_time_data(
@@ -428,7 +427,7 @@ pub fn draw_chart_from_csv(
 
             // Convert to seconds
             if in_seconds {
-                for (ts, time) in &mut generate_median_data {
+                for (_, time) in &mut generate_median_data {
                     *time /= 1000_f64;
                 }
 
