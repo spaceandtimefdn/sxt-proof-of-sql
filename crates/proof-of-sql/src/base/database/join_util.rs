@@ -5,11 +5,13 @@ use super::{
     Column, ColumnOperationResult, ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp, Table,
     TableOperationError, TableOperationResult, TableOptions,
 };
-use crate::base::scalar::Scalar;
+use crate::base::{if_rayon, scalar::Scalar};
 use alloc::{vec, vec::Vec};
 use bumpalo::Bump;
 use core::cmp::Ordering;
 use itertools::Itertools;
+#[cfg(feature = "rayon")]
+use rayon::prelude::ParallelSliceMut;
 use tracing::{span, Level};
 
 /// Compute the set union of two slices of columns, deduplicate and sort the result.
@@ -30,7 +32,11 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     if left_on.is_empty() {
         return Ok(Vec::new());
     }
-    let span = span!(Level::DEBUG, "ordered_set_union::raw_union").entered();
+    let span = span!(
+        Level::DEBUG,
+        "join_util::ordered_set_union create raw_union"
+    )
+    .entered();
     let raw_union = left_on
         .iter()
         .zip_eq(right_on)
@@ -39,14 +45,16 @@ pub(crate) fn ordered_set_union<'a, S: Scalar>(
     span.exit();
     //2. Sort and deduplicate the raw union by indexes
     // Allowed because we already checked that the columns aren't empty
-    let span = span!(Level::DEBUG, "ordered_set_union::indexes").entered();
-    let indexes: Vec<usize> = (0..raw_union[0].len())
-        .sorted_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
-        .dedup_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b) == Ordering::Equal)
-        .collect();
+    let span = span!(Level::DEBUG, "join_util::ordered_set_union create indexes").entered();
+    let mut indexes: Vec<usize> = (0..raw_union[0].len()).collect();
+    if_rayon!(
+        indexes.par_sort_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b)),
+        indexes.sort_unstable_by(|&a, &b| compare_indexes_by_columns(&raw_union, a, b))
+    );
+    indexes.dedup_by(|a, b| compare_indexes_by_columns(&raw_union, *a, *b) == Ordering::Equal);
     span.exit();
     //3. Apply the deduplicated indexes to the raw union
-    let span = span!(Level::DEBUG, "ordered_set_union::result").entered();
+    let span = span!(Level::DEBUG, "join_util::ordered_set_union create result").entered();
     let result = raw_union
         .into_iter()
         .map(|column| apply_column_to_indexes(&column, alloc, &indexes))
@@ -85,9 +93,14 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
         "join_util::get_multiplicities sort unique_indices"
     )
     .entered();
-    unique_indices.sort_by(|&i, &j| {
-        compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
-    });
+    if_rayon!(
+        unique_indices.par_sort_by(|&i, &j| {
+            compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
+        }),
+        unique_indices.sort_by(|&i, &j| {
+            compare_single_row_of_tables(unique, unique, i, j).unwrap_or(Ordering::Equal)
+        })
+    );
     span.exit();
 
     let num_rows = data[0].len();
@@ -98,9 +111,14 @@ pub(crate) fn get_multiplicities<'a, S: Scalar>(
         "join_util::get_multiplicities sort data_indices"
     )
     .entered();
-    data_indices.sort_by(|&i, &j| {
-        compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
-    });
+    if_rayon!(
+        data_indices.par_sort_by(|&i, &j| {
+            compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
+        }),
+        data_indices.sort_by(|&i, &j| {
+            compare_single_row_of_tables(data, data, i, j).unwrap_or(Ordering::Equal)
+        })
+    );
     span.exit();
 
     let span = span!(
