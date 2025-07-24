@@ -147,7 +147,7 @@ Then, we run the following 4 queries against these data, prove, and verify the r
 
 The results for the `HyperKZG` commitment scheme are shown in the graphs below for a single and multiple A100 machine.
 
-<p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_200k_2025.05.12.png" alt="Proof Of SQL Benchmarks (200k - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_200k_2025.05.12.png" alt="Proof Of SQL Benchmarks (200k - Multi-A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_2025.05.12.png" alt="Proof Of SQL Benchmarks (10m - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_2025.05.12.png" alt="Proof Of SQL Benchmarks (10m - Multi-A100)" width="50%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_200k_2025.07.22.png" alt="Proof Of SQL Benchmarks (200k - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_200k_2025.07.22.png" alt="Proof Of SQL Benchmarks (200k - Multi-A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_A100_2025.07.22.png" alt="Proof Of SQL Benchmarks (10m - A100)" width="50%"/><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/HyperKZG_multi_A100_2025.07.22.png" alt="Proof Of SQL Benchmarks (10m - Multi-A100)" width="50%"/></p>
 
 ## Supported SQL Syntax
 
