@@ -21,12 +21,12 @@ Proof of SQL uses [sqlparser](https://github.com/apache/datafusion-sqlparser-rs)
 |                          | /                         | ❌        | ❌                  | ✅                 |
 |                          | =, !=                     | ✅        | ✅                  | ✅                 |
 |                          | >, ≥, <, ≤                | ✅        | ✅                  | ✅                 |
-| **Aggregate Functions**[^3]  | SUM                       | ✅        | ❌                  | ✅                 |
-|                          | COUNT                     | ✅        | ❌                  | ✅                 |
+| **Aggregate Functions**[^3]  | SUM                       | ✅        | ✅                  | ✅                 |
+|                          | COUNT                     | ✅        | ✅                  | ✅                 |
 | **SELECT Syntax**[^5]        | WHERE clause              | ✅        | ✅                  | ✅                 |
-|                          | GROUP BY clause           | ✅        | ❌                  | ✅                 |
-|                          | LIMIT clause              | ✅        | ❌                  | ✅                 |
-|                          | OFFSET clause             | ✅        | ❌                  | ✅                 |
+|                          | GROUP BY clause           | ✅        | ✅                  | ✅                 |
+|                          | LIMIT clause              | ✅        | ✅                  | ✅                 |
+|                          | OFFSET clause             | ✅        | ✅                  | ✅                 |
 |                          | UNION ALL operator        | ✅        | ❌                  | ✅                 |
 |                          | JOIN clause[^2]           | ✅        | ❌                  | ✅                 |
 
