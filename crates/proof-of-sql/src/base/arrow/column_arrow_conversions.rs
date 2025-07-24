@@ -21,7 +21,7 @@ impl From<&ColumnType> for DataType {
                 DataType::Decimal256(precision.value(), *scale)
             }
             ColumnType::VarChar => DataType::Utf8,
-            ColumnType::VarBinary => DataType::Binary,
+            ColumnType::VarBinary => DataType::LargeBinary,
             ColumnType::Scalar => unimplemented!("Cannot convert Scalar type to arrow type"),
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 let arrow_timezone = Some(Arc::from(timezone.to_string()));
@@ -66,7 +66,7 @@ impl TryFrom<DataType> for ColumnType {
                 ))
             }
             DataType::Utf8 => Ok(ColumnType::VarChar),
-            DataType::Binary => Ok(ColumnType::VarBinary),
+            DataType::LargeBinary => Ok(ColumnType::VarBinary),
             _ => Err(format!("Unsupported arrow data type {data_type:?}")),
         }
     }

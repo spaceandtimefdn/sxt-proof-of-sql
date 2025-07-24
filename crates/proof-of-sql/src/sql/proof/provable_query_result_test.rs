@@ -11,7 +11,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use arrow::{
-    array::{BinaryArray, Decimal128Array, Decimal256Array, Int64Array, StringArray},
+    array::{Decimal128Array, Decimal256Array, Int64Array, LargeBinaryArray, StringArray},
     datatypes::{i256, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -352,12 +352,12 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_varbinary() {
 
     let schema = Arc::new(Schema::new(vec![Field::new(
         "vb_col",
-        arrow::datatypes::DataType::Binary,
+        arrow::datatypes::DataType::LargeBinary,
         false,
     )]));
     let expected = RecordBatch::try_new(
         schema,
-        vec![Arc::new(BinaryArray::from_vec(vec![
+        vec![Arc::new(LargeBinaryArray::from_vec(vec![
             b"foo".as_slice(),
             b"bar".as_slice(),
         ]))],

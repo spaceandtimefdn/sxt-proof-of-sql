@@ -7,8 +7,8 @@ use crate::base::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, BinaryArray, BooleanArray, Decimal128Array, Decimal256Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, StringArray, TimestampMicrosecondArray,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
+        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
         TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, TimeUnit as ArrowTimeUnit},
@@ -289,8 +289,8 @@ impl ArrayRefExt for ArrayRef {
                     })
                 }
             }
-            DataType::Binary => {
-                if let Some(array) = self.as_any().downcast_ref::<BinaryArray>() {
+            DataType::LargeBinary => {
+                if let Some(array) = self.as_any().downcast_ref::<LargeBinaryArray>() {
                     let vals = alloc
                         .alloc_slice_fill_with(range.end - range.start, |i| -> &'a [u8] {
                             array.value(range.start + i)
@@ -1026,7 +1026,7 @@ mod tests {
             .copied()
             .map(DoryScalar::from_byte_slice_via_hash)
             .collect();
-        let array: ArrayRef = Arc::new(arrow::array::BinaryArray::from(data.clone()));
+        let array: ArrayRef = Arc::new(arrow::array::LargeBinaryArray::from(data.clone()));
         assert_eq!(
             array
                 .to_column::<DoryScalar>(&alloc, &(0..2), None)
@@ -1163,7 +1163,7 @@ mod tests {
             .map(DoryScalar::from_byte_slice_via_hash)
             .collect();
 
-        let array: ArrayRef = Arc::new(arrow::array::BinaryArray::from(data.to_vec()));
+        let array: ArrayRef = Arc::new(arrow::array::LargeBinaryArray::from(data.to_vec()));
         assert_eq!(
             array
                 .to_column::<DoryScalar>(&alloc, &(1..3), None)
@@ -1195,7 +1195,7 @@ mod tests {
             .copied()
             .map(TestScalar::from_byte_slice_via_hash)
             .collect();
-        let array: ArrayRef = Arc::new(arrow::array::BinaryArray::from(data.clone()));
+        let array: ArrayRef = Arc::new(arrow::array::LargeBinaryArray::from(data.clone()));
         assert_eq!(
             array
                 .to_column::<TestScalar>(&alloc, &(0..2), Some(&scals))
@@ -1219,7 +1219,7 @@ mod tests {
     fn we_can_convert_valid_binary_array_refs_into_valid_columns_using_ranges_with_zero_size() {
         let alloc = Bump::new();
         let data = vec![b"ab".as_slice(), b"-f34".as_slice()];
-        let array: ArrayRef = Arc::new(arrow::array::BinaryArray::from(data.clone()));
+        let array: ArrayRef = Arc::new(arrow::array::LargeBinaryArray::from(data.clone()));
         let result = array
             .to_column::<DoryScalar>(&alloc, &(0..0), None)
             .unwrap();
