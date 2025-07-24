@@ -85,7 +85,7 @@ impl EVMDynProofPlan {
                 )?,
             )),
             EVMDynProofPlan::Slice(slice_exec) => Ok(DynProofPlan::Slice(
-                slice_exec.try_into_proof_plan(table_refs, column_refs)?,
+                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
             EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
                 group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
@@ -297,12 +297,13 @@ impl EVMSliceExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<SliceExec> {
         Ok(SliceExec::new(
             Box::new(self.input_plan.try_into_proof_plan(
                 table_refs,
                 column_refs,
-                &IndexSet::default(),
+                &output_column_names,
             )?),
             self.skip,
             self.fetch,
@@ -542,6 +543,7 @@ mod tests {
             &evm_slice_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            &IndexSet::default()
         )
         .unwrap();
 
