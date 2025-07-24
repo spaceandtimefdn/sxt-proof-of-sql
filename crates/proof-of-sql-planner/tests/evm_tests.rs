@@ -11,7 +11,7 @@ use proof_of_sql::{
                 varbinary, varchar,
             },
             ColumnRef, ColumnType, CommitmentAccessor, LiteralValue, OwnedTableTestAccessor,
-            SchemaAccessor, TableRef,
+            SchemaAccessor, TableRef, TestAccessor,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
@@ -713,6 +713,50 @@ fn we_can_verify_simple_slice_exec_using_the_evm() {
     .unwrap();
 
     assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn test_union() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let mut accessor =
+        OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_empty_with_setup(&ps[..]);
+    accessor.add_table(
+        TableRef::from_names(None, "table1"),
+        owned_table([
+            varchar("column1", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"]),
+            bigint("column3", [1, 2, 3, 4, 5]),
+        ]),
+        0,
+    );
+    accessor.add_table(
+        TableRef::from_names(None, "table2"),
+        owned_table([
+            varchar("column2", ["Test", "Some", "Creamy", "Chocolate"]),
+            bigint("column4", [1, 2, 6, 4]),
+        ]),
+        0,
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT column1, column3 FROM table1 UNION ALL SELECT column2, column4 FROM table2",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
 
     verifiable_result
         .clone()
