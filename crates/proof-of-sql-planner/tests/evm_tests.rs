@@ -15,6 +15,7 @@ use proof_of_sql::{
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     proof_primitive::hyperkzg::{
         load_small_setup_for_testing, HyperKZGCommitment, HyperKZGCommitmentEvaluationProof,
@@ -718,4 +719,30 @@ fn we_can_verify_simple_slice_exec_using_the_evm() {
         .clone()
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
+}
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_slice_exec_using_the_evm() {
+    let (ps, _) = load_small_setup_for_testing();
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        TableRef::new("namespace", "table"),
+        owned_table([bigint("a", [5, 3, 2, 5, 3, 2, 102, 104, 107, 108])]),
+        0,
+        &ps[..],
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT COUNT(a) as a_count FROM namespace.table GROUP BY a",
+    )
+    .unwrap();
+    let inner_plan =
+        &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let inner_plan = DynProofPlan::new_slice(inner_plan.clone(), 1, Some(2));
+    let plan = EVMProofPlan::new(inner_plan.clone());
+    let serialized = try_standard_binary_serialization(plan).unwrap();
+    let deserialized: EVMProofPlan = try_standard_binary_deserialization(&serialized).unwrap().0;
+    assert_eq!(inner_plan, deserialized.into_inner());
 }
