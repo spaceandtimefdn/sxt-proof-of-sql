@@ -521,7 +521,7 @@ fn main() {
     // Draw charts if CSV and chart paths are provided.
     if let Some(csv_path) = &cli.csv_path {
         if let Some(chart_path) = &cli.chart_path {
-            if let Err(e) = draw_chart_from_csv(csv_path, chart_path, true, true) {
+            if let Err(e) = draw_chart_from_csv(csv_path, chart_path, true, false) {
                 eprintln!("Error drawing chart: {e}");
             }
         }
