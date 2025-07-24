@@ -381,9 +381,10 @@ pub fn draw_chart_from_csv(
         };
 
         // Create the chart
+        let vm_name = String::from("Multi-A100");
         let mut chart = ChartBuilder::on(&root)
             .caption(
-                format!("Proof of SQL Query Performance - {scheme} - Multi-A100"),
+                format!("Proof of SQL Query Performance - {scheme} - {vm_name}"),
                 ("sans-serif", 30).into_font().color(&WHITE),
             )
             .margin(10)
@@ -394,6 +395,23 @@ pub fn draw_chart_from_csv(
                 (min_table_size..max_table_size).log_scale(),
                 (0.1_f64..max_time).log_scale(),
             )?;
+
+        // 200,000 rows and under
+        /*
+        let mut chart = ChartBuilder::on(&root)
+            .caption(
+                format!("Proof of SQL Query Performance - {scheme} - {vm_name}"),
+                ("sans-serif", 30).into_font().color(&WHITE),
+            )
+            .margin(10)
+            .margin_right(50)
+            .x_label_area_size(50)
+            .y_label_area_size(70)
+            .build_cartesian_2d(
+                min_table_size..max_table_size,
+                0._f64..max_time,
+            )?;
+        */
 
         chart
             .configure_mesh()
