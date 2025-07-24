@@ -7,7 +7,8 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BinaryArray, BooleanArray, Decimal128Array, Float32Array, Int64Array, StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
+        StringArray,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -27,7 +28,7 @@ fn we_can_convert_between_owned_column_and_array_ref_impl(
 
 fn we_can_convert_between_varbinary_owned_column_and_array_ref_impl(data: &[Vec<u8>]) {
     let owned_col = OwnedColumn::<TestScalar>::VarBinary(data.to_owned());
-    let arrow_col = Arc::new(BinaryArray::from(
+    let arrow_col = Arc::new(LargeBinaryArray::from(
         data.iter()
             .map(std::vec::Vec::as_slice)
             .collect::<Vec<&[u8]>>(),

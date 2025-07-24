@@ -23,8 +23,8 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BinaryArray, BooleanArray, Decimal128Array, Decimal256Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, StringArray, TimestampMicrosecondArray,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
+        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
         TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
@@ -96,9 +96,9 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
             }
             OwnedColumn::Scalar(_) => unimplemented!("Cannot convert Scalar type to arrow type"),
             OwnedColumn::VarChar(col) => Arc::new(StringArray::from(col)),
-            OwnedColumn::VarBinary(col) => {
-                Arc::new(BinaryArray::from_iter_values(col.iter().map(Vec::as_slice)))
-            }
+            OwnedColumn::VarBinary(col) => Arc::new(LargeBinaryArray::from_iter_values(
+                col.iter().map(Vec::as_slice),
+            )),
             OwnedColumn::TimestampTZ(time_unit, _, col) => match time_unit {
                 PoSQLTimeUnit::Second => Arc::new(TimestampSecondArray::from(col)),
                 PoSQLTimeUnit::Millisecond => Arc::new(TimestampMillisecondArray::from(col)),
@@ -230,10 +230,10 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                     .map(|s| s.unwrap().to_string())
                     .collect(),
             )),
-            DataType::Binary => Ok(Self::VarBinary(
+            DataType::LargeBinary => Ok(Self::VarBinary(
                 value
                     .as_any()
-                    .downcast_ref::<BinaryArray>()
+                    .downcast_ref::<LargeBinaryArray>()
                     .unwrap()
                     .iter()
                     .map(|s| s.map(<[u8]>::to_vec).unwrap())
