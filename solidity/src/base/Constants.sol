@@ -122,6 +122,8 @@ uint32 constant PROJECTION_EXEC_VARIANT = 3;
 uint32 constant SLICE_EXEC_VARIANT = 4;
 /// @dev Group By variant constant for proof plans
 uint32 constant GROUP_BY_EXEC_VARIANT = 5;
+/// @dev Union variant constant for proof plans
+uint32 constant UNION_EXEC_VARIANT = 6;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;

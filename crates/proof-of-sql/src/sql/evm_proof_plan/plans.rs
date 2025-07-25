@@ -8,6 +8,7 @@ use crate::{
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
             DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, TableExec,
+            UnionExec,
         },
     },
 };
@@ -24,6 +25,7 @@ pub(crate) enum EVMDynProofPlan {
     Projection(EVMProjectionExec),
     Slice(EVMSliceExec),
     GroupBy(EVMGroupByExec),
+    Union(EVMUnionExec),
 }
 
 impl EVMDynProofPlan {
@@ -57,7 +59,11 @@ impl EVMDynProofPlan {
                 EVMGroupByExec::try_from_proof_plan(group_by_exec, table_refs, column_refs)
                     .map(Self::GroupBy)
             }
-            _ => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::Union(union_exec) => {
+                EVMUnionExec::try_from_proof_plan(union_exec, table_refs, column_refs)
+                    .map(Self::Union)
+            }
+            DynProofPlan::SortMergeJoin(_) => Err(EVMProofPlanError::NotSupported),
         }
     }
 
@@ -89,6 +95,9 @@ impl EVMDynProofPlan {
             )),
             EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
                 group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
+            )),
+            EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
+                union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
         }
     }
@@ -420,6 +429,44 @@ impl EVMGroupByExec {
     }
 }
 
+/// Represents a union execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMUnionExec {
+    pub(super) inputs: Vec<EVMDynProofPlan>,
+}
+
+impl EVMUnionExec {
+    /// Try to create a `EVMUnionExec` from a `UnionExec`.
+    pub(crate) fn try_from_proof_plan(
+        plan: &UnionExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        // Map column expressions to their indices in column_refs
+        Ok(Self {
+            inputs: plan
+                .input_plans()
+                .iter()
+                .map(|plan| EVMDynProofPlan::try_from_proof_plan(plan, table_refs, column_refs))
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
+    ) -> EVMProofPlanResult<UnionExec> {
+        Ok(UnionExec::try_new(
+            self.inputs
+                .iter()
+                .map(|plan| plan.try_into_proof_plan(table_refs, column_refs, output_column_names))
+                .collect::<Result<Vec<_>, _>>()?,
+        )?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,8 +477,11 @@ mod tests {
         },
         sql::{
             evm_proof_plan::exprs::{EVMColumnExpr, EVMEqualsExpr, EVMLiteralExpr},
-            proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr},
-            proof_plans::DynProofPlan,
+            proof::ProofPlan,
+            proof_exprs::{
+                AddExpr, AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr,
+            },
+            proof_plans::{DynProofPlan, SortMergeJoinExec},
         },
     };
 
@@ -710,16 +760,26 @@ mod tests {
 
     #[test]
     fn we_cannot_put_unsupported_proof_plan_in_evm() {
-        // Create a Union of two empty execs which is not supported in EVM
-        let empty_exec1 = EmptyExec::new();
-        let empty_exec2 = EmptyExec::new();
-
-        // Create a union plan with two empty execs
-        let plan = DynProofPlan::try_new_union(vec![
-            DynProofPlan::Empty(empty_exec1),
-            DynProofPlan::Empty(empty_exec2),
-        ])
-        .unwrap();
+        // Create a join plan with two projections
+        let plan = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(DynProofPlan::new_projection(
+                vec![AliasedDynProofExpr {
+                    alias: "col1".into(),
+                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
+                }],
+                DynProofPlan::new_empty(),
+            )),
+            Box::new(DynProofPlan::new_projection(
+                vec![AliasedDynProofExpr {
+                    alias: "col1".into(),
+                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
+                }],
+                DynProofPlan::new_empty(),
+            )),
+            vec![0],
+            vec![0],
+            vec!["col1".into()],
+        ));
 
         let table_refs = indexset![];
         let column_refs = indexset![];
@@ -1081,5 +1141,104 @@ mod tests {
             result,
             Err(EVMProofPlanError::InvalidOutputColumnName)
         ));
+    }
+
+    #[test]
+    fn we_can_put_union_exec_in_evm() {
+        let top_table_ref: TableRef = "namespace.top_table".parse().unwrap();
+        let bottom_table_ref: TableRef = "namespace.bottom_table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+
+        let top_column_ref_a =
+            ColumnRef::new(top_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let top_column_ref_b =
+            ColumnRef::new(top_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        let bottom_column_ref_a = ColumnRef::new(
+            bottom_table_ref.clone(),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let bottom_column_ref_b = ColumnRef::new(
+            bottom_table_ref.clone(),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+
+        // Create columns fields to use as the input
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+
+        // Create a union exec
+        let union_exec = UnionExec::try_new(vec![
+            DynProofPlan::Projection(ProjectionExec::new(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::Add(
+                        AddExpr::try_new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                                top_column_ref_a.clone(),
+                            ))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                                top_column_ref_b.clone(),
+                            ))),
+                        )
+                        .unwrap(),
+                    ),
+                    alias: "ab_sum".into(),
+                }],
+                Box::new(DynProofPlan::Table(TableExec::new(
+                    top_table_ref.clone(),
+                    column_fields.clone(),
+                ))),
+            )),
+            DynProofPlan::Projection(ProjectionExec::new(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::Add(
+                        AddExpr::try_new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                                bottom_column_ref_a.clone(),
+                            ))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                                bottom_column_ref_b.clone(),
+                            ))),
+                        )
+                        .unwrap(),
+                    ),
+                    alias: "ab_sum".into(),
+                }],
+                Box::new(DynProofPlan::Table(TableExec::new(
+                    bottom_table_ref.clone(),
+                    column_fields.clone(),
+                ))),
+            )),
+        ])
+        .unwrap();
+        let output_column_names = union_exec
+            .get_column_result_fields()
+            .iter()
+            .map(|cr| cr.name().to_string())
+            .collect();
+
+        let table_refs = &indexset![top_table_ref, bottom_table_ref];
+        let column_refs = &indexset![
+            top_column_ref_a,
+            top_column_ref_b,
+            bottom_column_ref_a,
+            bottom_column_ref_b
+        ];
+
+        // Convert to EVM plan
+        let evm_union_exec =
+            EVMUnionExec::try_from_proof_plan(&union_exec, table_refs, column_refs).unwrap();
+
+        assert_eq!(evm_union_exec.inputs.len(), 2);
+
+        let round_tripped_union_exec = evm_union_exec
+            .try_into_proof_plan(table_refs, column_refs, &output_column_names)
+            .unwrap();
+        assert_eq!(union_exec, round_tripped_union_exec);
     }
 }
