@@ -38,7 +38,7 @@ pub enum LiteralValue {
     /// i128 literals
     Int128(i128),
     /// Decimal literals with a max width of 252 bits
-    ///  - the backing store maps to the type [`crate::base::scalar::Curve25519Scalar`]
+    ///  - the backing store maps to the type [`crate::base::scalar::TestScalar`]
     Decimal75(Precision, i8, I256),
     /// Scalar literals. The underlying `[u64; 4]` is the limbs of the canonical form of the literal
     Scalar([u64; 4]),
@@ -83,5 +83,218 @@ impl LiteralValue {
             Self::Scalar(limbs) => (*limbs).into(),
             Self::TimeStampTZ(_, _, time) => time.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        math::{decimal::Precision, i256::I256},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn test_boolean_literal_value() {
+        let true_val = LiteralValue::Boolean(true);
+        let false_val = LiteralValue::Boolean(false);
+        
+        assert_eq!(true_val.column_type(), ColumnType::Boolean);
+        assert_eq!(false_val.column_type(), ColumnType::Boolean);
+        
+        let true_scalar: TestScalar = true_val.to_scalar();
+        let false_scalar: TestScalar = false_val.to_scalar();
+        assert_ne!(true_scalar, false_scalar);
+    }
+
+    #[test]
+    fn test_integer_literal_values() {
+        let uint8_val = LiteralValue::Uint8(255);
+        let tinyint_val = LiteralValue::TinyInt(-128);
+        let smallint_val = LiteralValue::SmallInt(-32768);
+        let int_val = LiteralValue::Int(-2147483648);
+        let bigint_val = LiteralValue::BigInt(-9223372036854775808);
+        let int128_val = LiteralValue::Int128(-170141183460469231731687303715884105728);
+        
+        assert_eq!(uint8_val.column_type(), ColumnType::Uint8);
+        assert_eq!(tinyint_val.column_type(), ColumnType::TinyInt);
+        assert_eq!(smallint_val.column_type(), ColumnType::SmallInt);
+        assert_eq!(int_val.column_type(), ColumnType::Int);
+        assert_eq!(bigint_val.column_type(), ColumnType::BigInt);
+        assert_eq!(int128_val.column_type(), ColumnType::Int128);
+        
+        // Test scalar conversion
+        let _uint8_scalar: TestScalar = uint8_val.to_scalar();
+        let _tinyint_scalar: TestScalar = tinyint_val.to_scalar();
+        let _smallint_scalar: TestScalar = smallint_val.to_scalar();
+        let _int_scalar: TestScalar = int_val.to_scalar();
+        let _bigint_scalar: TestScalar = bigint_val.to_scalar();
+        let _int128_scalar: TestScalar = int128_val.to_scalar();
+    }
+
+    #[test]
+    fn test_varchar_literal_value() {
+        let varchar_val = LiteralValue::VarChar("test string".to_string());
+        
+        assert_eq!(varchar_val.column_type(), ColumnType::VarChar);
+        
+        let varchar_scalar: TestScalar = varchar_val.to_scalar();
+        let varchar_scalar2: TestScalar = LiteralValue::VarChar("test string".to_string()).to_scalar();
+        let different_varchar_scalar: TestScalar = LiteralValue::VarChar("different string".to_string()).to_scalar();
+        
+        assert_eq!(varchar_scalar, varchar_scalar2);
+        assert_ne!(varchar_scalar, different_varchar_scalar);
+    }
+
+    #[test]
+    fn test_varbinary_literal_value() {
+        let varbinary_val = LiteralValue::VarBinary(vec![1, 2, 3, 4, 5]);
+        
+        assert_eq!(varbinary_val.column_type(), ColumnType::VarBinary);
+        
+        let varbinary_scalar: TestScalar = varbinary_val.to_scalar();
+        let varbinary_scalar2: TestScalar = LiteralValue::VarBinary(vec![1, 2, 3, 4, 5]).to_scalar();
+        let different_varbinary_scalar: TestScalar = LiteralValue::VarBinary(vec![5, 4, 3, 2, 1]).to_scalar();
+        
+        assert_eq!(varbinary_scalar, varbinary_scalar2);
+        assert_ne!(varbinary_scalar, different_varbinary_scalar);
+    }
+
+    #[test]
+    fn test_decimal75_literal_value() {
+        let precision = Precision::new(10).unwrap();
+        let scale = 2;
+        let value = I256::from(12345);
+        let decimal_val = LiteralValue::Decimal75(precision, scale, value);
+        
+        assert_eq!(decimal_val.column_type(), ColumnType::Decimal75(precision, scale));
+        
+        let decimal_scalar: TestScalar = decimal_val.to_scalar();
+        let decimal_scalar2: TestScalar = LiteralValue::Decimal75(precision, scale, value).to_scalar();
+        
+        assert_eq!(decimal_scalar, decimal_scalar2);
+    }
+
+    #[test]
+    fn test_scalar_literal_value() {
+        let limbs = [1, 2, 3, 4];
+        let scalar_val = LiteralValue::Scalar(limbs);
+        
+        assert_eq!(scalar_val.column_type(), ColumnType::Scalar);
+        
+        let scalar_result: TestScalar = scalar_val.to_scalar();
+        let scalar_result2: TestScalar = LiteralValue::Scalar(limbs).to_scalar();
+        
+        assert_eq!(scalar_result, scalar_result2);
+    }
+
+    #[test]
+    fn test_timestamp_literal_value() {
+        let unit = PoSQLTimeUnit::Millisecond;
+        let timezone = PoSQLTimeZone::utc();
+        let timestamp = 1234567890123;
+        let timestamp_val = LiteralValue::TimeStampTZ(unit, timezone, timestamp);
+        
+        assert_eq!(timestamp_val.column_type(), ColumnType::TimestampTZ(unit, timezone));
+        
+        let timestamp_scalar: TestScalar = timestamp_val.to_scalar();
+        let timestamp_scalar2: TestScalar = LiteralValue::TimeStampTZ(unit, timezone, timestamp).to_scalar();
+        
+        assert_eq!(timestamp_scalar, timestamp_scalar2);
+    }
+
+    #[test]
+    fn test_literal_value_equality() {
+        let val1 = LiteralValue::Int(42);
+        let val2 = LiteralValue::Int(42);
+        let val3 = LiteralValue::Int(43);
+        
+        assert_eq!(val1, val2);
+        assert_ne!(val1, val3);
+        
+        let val4 = LiteralValue::VarChar("hello".to_string());
+        let val5 = LiteralValue::VarChar("hello".to_string());
+        let val6 = LiteralValue::VarChar("world".to_string());
+        
+        assert_eq!(val4, val5);
+        assert_ne!(val4, val6);
+    }
+
+    #[test]
+    fn test_literal_value_clone() {
+        let original = LiteralValue::VarChar("clone test".to_string());
+        let cloned = original.clone();
+        
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_literal_value_serialization() {
+        let values = vec![
+            LiteralValue::Boolean(true),
+            LiteralValue::Uint8(255),
+            LiteralValue::TinyInt(-128),
+            LiteralValue::SmallInt(1000),
+            LiteralValue::Int(-50000),
+            LiteralValue::BigInt(9223372036854775807),
+            LiteralValue::VarChar("test".to_string()),
+            LiteralValue::VarBinary(vec![1, 2, 3]),
+            LiteralValue::Int128(123456789),
+            LiteralValue::Scalar([1, 2, 3, 4]),
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 1234567890),
+        ];
+        
+        for value in values {
+            let serialized = serde_json::to_string(&value).unwrap();
+            let deserialized: LiteralValue = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(value, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_literal_value_debug() {
+        let value = LiteralValue::Int(42);
+        let debug_str = format!("{:?}", value);
+        assert!(debug_str.contains("Int"));
+        assert!(debug_str.contains("42"));
+    }
+
+    #[test]
+    fn test_edge_case_values() {
+        // Test boundary values
+        let max_uint8 = LiteralValue::Uint8(u8::MAX);
+        let min_tinyint = LiteralValue::TinyInt(i8::MIN);
+        let max_tinyint = LiteralValue::TinyInt(i8::MAX);
+        let min_smallint = LiteralValue::SmallInt(i16::MIN);
+        let max_smallint = LiteralValue::SmallInt(i16::MAX);
+        let min_int = LiteralValue::Int(i32::MIN);
+        let max_int = LiteralValue::Int(i32::MAX);
+        let min_bigint = LiteralValue::BigInt(i64::MIN);
+        let max_bigint = LiteralValue::BigInt(i64::MAX);
+        
+        // Ensure all can be converted to scalar without panicking
+        let _: TestScalar = max_uint8.to_scalar();
+        let _: TestScalar = min_tinyint.to_scalar();
+        let _: TestScalar = max_tinyint.to_scalar();
+        let _: TestScalar = min_smallint.to_scalar();
+        let _: TestScalar = max_smallint.to_scalar();
+        let _: TestScalar = min_int.to_scalar();
+        let _: TestScalar = max_int.to_scalar();
+        let _: TestScalar = min_bigint.to_scalar();
+        let _: TestScalar = max_bigint.to_scalar();
+    }
+
+    #[test]
+    fn test_empty_string_and_binary() {
+        let empty_string = LiteralValue::VarChar(String::new());
+        let empty_binary = LiteralValue::VarBinary(Vec::new());
+        
+        assert_eq!(empty_string.column_type(), ColumnType::VarChar);
+        assert_eq!(empty_binary.column_type(), ColumnType::VarBinary);
+        
+        // Ensure empty values can be converted to scalar
+        let _: TestScalar = empty_string.to_scalar();
+        let _: TestScalar = empty_binary.to_scalar();
     }
 }
