@@ -485,6 +485,10 @@ library Verifier {
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_length, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
@@ -547,7 +551,30 @@ library Verifier {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
-            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function slice_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/UnionExec.pre.sol
+            function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) ->
+                plan_ptr_out,
+                output_length,
+                num_columns,
+                zerosum_constraint
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/UnionExec.pre.sol
+            function union_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol

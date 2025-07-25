@@ -71,7 +71,6 @@ library FoldLogExpr {
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
-            // slither-disable-end cyclomatic-complexity
             function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
                 let fold := mulmod_bn254(alpha, compute_fold(beta, column_evals))
                 star := builder_consume_final_round_mle(builder_ptr)
