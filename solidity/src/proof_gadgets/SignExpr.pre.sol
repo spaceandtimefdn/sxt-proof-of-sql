@@ -157,7 +157,12 @@ library SignExpr {
                     )
 
                 // Verify the bit recomposition matches the original column evaluation
-                if sub(sum_eval, expr_eval) { err(ERR_BIT_DECOMPOSITION_INVALID) }
+                if sub(sum_eval, expr_eval) {
+                    if eq(expr_eval, 21888242871839275222246405745257275088548364400416034343679757442502098944000) {
+                        revert(0, 0)
+                    }
+                    err(ERR_BIT_DECOMPOSITION_INVALID)
+                }
             }
 
             __eval := sign_expr_evaluate(__exprEval, __builder, __chiEval)
