@@ -160,28 +160,20 @@ where
                 error: "Join on multiple columns not supported yet",
             });
         }
-        let num_columns_res_hat = num_columns_left + num_columns_right - num_columns_u + 2;
         // `\hat{J}` in the protocol
-        let res_hat_column_evals =
-            builder.try_consume_first_round_mle_evaluations(num_columns_res_hat)?;
+        let res_u_column_evals = builder.try_consume_first_round_mle_evaluations(num_columns_u)?;
+        let res_left_column_evals =
+            builder.try_consume_first_round_mle_evaluations(num_columns_left - num_columns_u)?;
+        let rho_bar_left_eval = builder.try_consume_first_round_mle_evaluation()?;
+        let res_right_column_evals =
+            builder.try_consume_first_round_mle_evaluations(num_columns_right - num_columns_u)?;
+        let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 5. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
-        let rho_bar_left_eval = res_hat_column_evals[num_columns_left];
-        let rho_bar_right_eval = res_hat_column_evals[num_columns_res_hat - 1];
         let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
             + rho_bar_right_eval;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 6. Membership checks
-        let res_left_column_indexes = (0..=num_columns_left).collect::<Vec<_>>();
-        let res_right_column_indexes = (0..num_columns_u)
-            .chain(num_columns_left + 1..num_columns_res_hat)
-            .collect::<Vec<_>>();
-        let res_left_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
-        let res_right_column_evals =
-            apply_slice_to_indexes(&res_hat_column_evals, &res_right_column_indexes)
-                .expect("Indexes can not be out of bounds");
         verify_membership_check(
             builder,
             alpha,
@@ -189,7 +181,12 @@ where
             left_chi_eval,
             res_chi.0,
             &hat_left_column_evals,
-            &res_left_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_left_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_left_eval))
+                .collect::<Vec<_>>(),
         )?;
         verify_membership_check(
             builder,
@@ -198,7 +195,12 @@ where
             right_chi_eval,
             res_chi.0,
             &hat_right_column_evals,
-            &res_right_column_evals,
+            &res_u_column_evals
+                .iter()
+                .copied()
+                .chain(res_right_column_evals.iter().copied())
+                .chain(core::iter::once(rho_bar_right_eval))
+                .collect::<Vec<_>>(),
         )?;
         //TODO: Relax to allow multiple columns
         if left_join_column_evals.len() != 1 || right_join_column_evals.len() != 1 {
@@ -236,11 +238,11 @@ where
         )?;
         // 9. Return the result
         // Drop the two rho columns of `\hat{J}` to get `J`
-        let res_column_indexes = (0..num_columns_left)
-            .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
-            .collect::<Vec<_>>();
-        let res_column_evals = apply_slice_to_indexes(&res_hat_column_evals, &res_column_indexes)
-            .expect("Indexes can not be out of bounds");
+        let res_column_evals = res_u_column_evals
+            .into_iter()
+            .chain(res_left_column_evals)
+            .chain(res_right_column_evals)
+            .collect();
         Ok(TableEvaluation::new(res_column_evals, res_chi))
     }
 
@@ -302,6 +304,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
+    #[expect(clippy::too_many_lines)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -347,6 +350,13 @@ impl ProverEvaluate for SortMergeJoinExec {
             builder.produce_intermediate_mle(*column);
         }
         let num_rows_res = left_row_indexes.len();
+
+        let i = left_row_indexes
+            .iter()
+            .zip_eq(right_row_indexes.iter())
+            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
+            .collect::<Vec<_>>();
+        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
         // 2. Get and commit the strictly increasing columns, `U`
         // ordered set union `U`
         let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
@@ -401,8 +411,8 @@ impl ProverEvaluate for SortMergeJoinExec {
         first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
         // 5. Monotonicity checks
-        first_round_evaluate_monotonic(builder, num_rows_res);
-        first_round_evaluate_monotonic(builder, num_rows_u);
+        first_round_evaluate_monotonic(builder, alloc, alloc_i);
+        first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
         // 6. Request post-result challenges
         builder.request_post_result_challenges(2);
         // 7. Return join result

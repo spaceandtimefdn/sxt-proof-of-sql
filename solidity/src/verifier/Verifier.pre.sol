@@ -95,6 +95,10 @@ library Verifier {
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function min(a, b) -> minimum {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/LagrangeBasisEvaluation.pre.sol
             function compute_truncated_lagrange_basis_inner_product(length, x_ptr, y_ptr, num_vars) -> result {
                 revert(0, 0)
@@ -105,6 +109,10 @@ library Verifier {
             }
             // IMPORT-YUL ../base/MathUtil.pre.sol
             function log2_up(value) -> exponent {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
                 revert(0, 0)
             }
             // IMPORT-YUL ../base/Queue.pre.sol
@@ -442,6 +450,10 @@ library Verifier {
             function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
             // slither-disable-start cyclomatic-complexity
             // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
@@ -519,6 +531,23 @@ library Verifier {
                 expected_evaluation,
                 degree
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function get_and_verify_slice_length(plan_ptr, builder_ptr, input_length) ->
+                plan_ptr_out,
+                output_length,
+                output_chi_eval,
+                selection_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/ProofPlan.pre.sol

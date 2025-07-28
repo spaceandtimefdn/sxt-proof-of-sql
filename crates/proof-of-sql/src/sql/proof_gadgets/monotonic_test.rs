@@ -31,7 +31,7 @@ impl<const STRICT: bool, const ASC: bool> ProverEvaluate for MonotonicTestPlan<S
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
-        _alloc: &'a Bump,
+        alloc: &'a Bump,
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
@@ -39,11 +39,16 @@ impl<const STRICT: bool, const ASC: bool> ProverEvaluate for MonotonicTestPlan<S
         let table: &Table<'a, S> = table_map
             .get(&self.column.table_ref())
             .expect("Table not found");
-        let num_rows = table.num_rows();
+        let raw_column: Vec<S> = table
+            .inner_table()
+            .get(&self.column.column_id())
+            .expect("Column not found in table")
+            .to_scalar();
+        let alloc_column = alloc.alloc_slice_copy(&raw_column);
         builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(num_rows);
+        builder.produce_chi_evaluation_length(raw_column.len());
         // Evaluate the first round
-        first_round_evaluate_monotonic(builder, num_rows);
+        first_round_evaluate_monotonic(builder, alloc, alloc_column as &[_]);
         // This is just a dummy table, the actual data is not used
         Ok(
             Table::try_new_with_options(IndexMap::default(), TableOptions { row_count: Some(0) })

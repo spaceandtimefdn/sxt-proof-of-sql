@@ -21,7 +21,8 @@ library ProofExpr {
         Not,
         Cast,
         Inequality,
-        Placeholder
+        Placeholder,
+        ScalingCast
     }
 
     /// @notice Evaluates a proof expression
@@ -177,6 +178,10 @@ library ProofExpr {
             function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
 
             // slither-disable-next-line cyclomatic-complexity
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
@@ -231,6 +236,10 @@ library ProofExpr {
                 case 11 {
                     case_const(11, PLACEHOLDER_EXPR_VARIANT)
                     expr_ptr_out, eval := placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
+                case 12 {
+                    case_const(12, SCALING_CAST_EXPR_VARIANT)
+                    expr_ptr_out, eval := scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }

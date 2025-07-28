@@ -147,6 +147,10 @@ library FoldUtil {
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
             function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)
@@ -155,8 +159,12 @@ library FoldUtil {
             function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/PlaceholderExpr.pre.sol
             function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
             // slither-disable-start cyclomatic-complexity

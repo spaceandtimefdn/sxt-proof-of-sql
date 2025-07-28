@@ -8,7 +8,7 @@ use crate::{
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
-        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, SubtractExpr,
+        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ScalingCastExpr, SubtractExpr,
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -29,6 +29,7 @@ pub(crate) enum EVMDynProofExpr {
     Cast(EVMCastExpr),
     Inequality(EVMInequalityExpr),
     Placeholder(EVMPlaceholderExpr),
+    ScalingCast(EVMScalingCastExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -36,7 +37,6 @@ impl EVMDynProofExpr {
         expr: &DynProofExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
-        #[expect(clippy::match_wildcard_for_single_variants)]
         match expr {
             DynProofExpr::Column(column_expr) => {
                 EVMColumnExpr::try_from_proof_expr(column_expr, column_refs).map(Self::Column)
@@ -72,10 +72,13 @@ impl EVMDynProofExpr {
             DynProofExpr::Cast(cast_expr) => {
                 EVMCastExpr::try_from_proof_expr(cast_expr, column_refs).map(Self::Cast)
             }
+            DynProofExpr::ScalingCast(scaling_cast_expr) => {
+                EVMScalingCastExpr::try_from_proof_expr(scaling_cast_expr, column_refs)
+                    .map(Self::ScalingCast)
+            }
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
-            _ => Err(EVMProofPlanError::NotSupported),
         }
     }
 
@@ -116,6 +119,9 @@ impl EVMDynProofExpr {
             )),
             EVMDynProofExpr::Cast(cast_expr) => Ok(DynProofExpr::Cast(
                 cast_expr.try_into_proof_expr(column_refs)?,
+            )),
+            EVMDynProofExpr::ScalingCast(scaling_cast_expr) => Ok(DynProofExpr::ScalingCast(
+                scaling_cast_expr.try_into_proof_expr(column_refs)?,
             )),
             EVMDynProofExpr::Placeholder(placeholder_expr) => {
                 Ok(DynProofExpr::Placeholder(placeholder_expr.to_proof_expr()))
@@ -645,6 +651,69 @@ impl EVMCastExpr {
             Box::new(self.from_expr.try_into_proof_expr(column_refs)?),
             self.to_type,
         )?)
+    }
+}
+
+/// Represents a scaling CAST expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMScalingCastExpr {
+    to_type: ColumnType,
+    from_expr: Box<EVMDynProofExpr>,
+    scaling_factor: [u64; 4],
+}
+
+impl EVMScalingCastExpr {
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn new(
+        from_expr: EVMDynProofExpr,
+        to_type: ColumnType,
+        scaling_factor: [u64; 4],
+    ) -> Self {
+        Self {
+            to_type,
+            from_expr: Box::new(from_expr),
+            scaling_factor,
+        }
+    }
+
+    /// Try to create an `EVMScalingCastExpr` from a `ScalingCastExpr`.
+    pub(crate) fn try_from_proof_expr(
+        expr: &ScalingCastExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        let scaling_factor = expr.scaling_factor();
+        Ok(EVMScalingCastExpr {
+            from_expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.get_from_expr(),
+                column_refs,
+            )?),
+            to_type: *expr.to_type(),
+            scaling_factor: [
+                scaling_factor[3],
+                scaling_factor[2],
+                scaling_factor[1],
+                scaling_factor[0],
+            ],
+        })
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<ScalingCastExpr> {
+        let expr = ScalingCastExpr::try_new(
+            Box::new(self.from_expr.try_into_proof_expr(column_refs)?),
+            self.to_type,
+        )?;
+        let reversed_scaling_factor = [
+            self.scaling_factor[3],
+            self.scaling_factor[2],
+            self.scaling_factor[1],
+            self.scaling_factor[0],
+        ];
+        (reversed_scaling_factor == expr.scaling_factor())
+            .then_some(expr)
+            .ok_or(EVMProofPlanError::IncorrectScalingFactor)
     }
 }
 
@@ -1336,6 +1405,79 @@ mod tests {
         assert_eq!(roundtripped_add_expr, inequality_expr);
     }
 
+    // EVMScalingCastExpr
+    #[test]
+    fn we_can_put_a_scaling_cast_expr_in_evm() {
+        let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
+        let ident_a = "a".into();
+        let ident_b = "b".into();
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
+
+        let scaling_cast_expr = ScalingCastExpr::try_new(
+            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+        )
+        .unwrap();
+
+        let evm_scaling_cast_expr = EVMScalingCastExpr::try_from_proof_expr(
+            &scaling_cast_expr,
+            &indexset! {column_ref_a.clone(), column_ref_b.clone()},
+        )
+        .unwrap();
+        assert_eq!(
+            evm_scaling_cast_expr,
+            EVMScalingCastExpr {
+                from_expr: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 })),
+                to_type: ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+                scaling_factor: [0, 0, 0, 100],
+            }
+        );
+
+        // Roundtrip
+        let roundtripped_scaling_cast_expr = evm_scaling_cast_expr
+            .try_into_proof_expr(&indexset! {column_ref_a.clone(), column_ref_b.clone()})
+            .unwrap();
+        assert_eq!(roundtripped_scaling_cast_expr, scaling_cast_expr);
+    }
+
+    #[test]
+    fn we_cannot_get_a_scaling_cast_expr_from_evm_if_column_number_out_of_bounds() {
+        let evm_scaling_cast_expr = EVMScalingCastExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+            [0, 0, 0, 100],
+        );
+        let column_refs = IndexSet::<ColumnRef>::default();
+        assert_eq!(
+            evm_scaling_cast_expr
+                .try_into_proof_expr(&column_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+    }
+
+    #[test]
+    fn we_cannot_get_a_scaling_cast_expr_from_evm_if_scaling_factor_incorrect() {
+        let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
+        let ident_a = "a".into();
+        let ident_b = "b".into();
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
+
+        let evm_scaling_cast_expr = EVMScalingCastExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+            [0, 0, 0, 1000],
+        );
+        assert_eq!(
+            evm_scaling_cast_expr
+                .try_into_proof_expr(&indexset! {column_ref_a.clone(), column_ref_b.clone()})
+                .unwrap_err(),
+            EVMProofPlanError::IncorrectScalingFactor
+        );
+    }
+
     // EVMDynProofExpr
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_equals_expr() {
@@ -1518,25 +1660,23 @@ mod tests {
         );
     }
 
-    // Unsupported expressions
     #[test]
-    fn we_cannot_put_a_proof_expr_in_evm_if_not_supported() {
-        let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
-        let ident_a = "a".into();
-        let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Boolean);
+    fn we_can_put_into_evm_a_dyn_proof_expr_scaling_cast_expr() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
 
-        assert!(matches!(
-            EVMDynProofExpr::try_from_proof_expr(
-                &DynProofExpr::try_new_scaling_cast(
-                    DynProofExpr::new_column(column_ref_a.clone()),
-                    ColumnType::Decimal75(Precision::new(15).unwrap(), 1)
-                )
-                .unwrap(),
-                &indexset! {column_ref_a.clone(), column_ref_b.clone()}
-            ),
-            Err(EVMProofPlanError::NotSupported)
-        ));
+        let expr = DynProofExpr::try_new_scaling_cast(
+            DynProofExpr::new_column(c.clone()),
+            ColumnType::Decimal75(Precision::new(30).unwrap(), 2),
+        )
+        .unwrap();
+        let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
+        let expected = EVMDynProofExpr::ScalingCast(EVMScalingCastExpr {
+            from_expr: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 })),
+            to_type: ColumnType::Decimal75(Precision::new(30).unwrap(), 2),
+            scaling_factor: [0, 0, 0, 100],
+        });
+        assert_eq!(evm, expected);
+        assert_eq!(evm.try_into_proof_expr(&indexset! { c }).unwrap(), expr);
     }
 }

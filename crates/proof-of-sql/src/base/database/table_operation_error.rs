@@ -17,6 +17,9 @@ pub enum TableOperationError {
         /// The schema of the table that caused the error
         actual_schema: Vec<ColumnField>,
     },
+    /// Errors related to unioning fewer than 2 tables.
+    #[snafu(display("Cannot union fewer than 2 tables"))]
+    UnionNotEnoughTables,
     /// Errors related to joining tables with different numbers of columns.
     #[snafu(display(
         "Cannot join tables with different numbers of columns: {left_num_columns} and {right_num_columns}"

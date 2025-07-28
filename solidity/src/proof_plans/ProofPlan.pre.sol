@@ -70,6 +70,14 @@ library ProofPlan {
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function min(a, b) -> minimum {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/MathUtil.pre.sol
+            function compute_fold(beta, evals) -> fold {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Queue.pre.sol
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
@@ -164,6 +172,10 @@ library ProofPlan {
             }
             // IMPORT-YUL ../proof_exprs/CastExpr.pre.sol
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
@@ -346,6 +358,28 @@ library ProofPlan {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL SliceExec.pre.sol
+            function get_and_verify_slice_length(plan_ptr, builder_ptr, input_length) ->
+                plan_ptr_out,
+                output_length,
+                output_chi_eval,
+                selection_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SliceExec.pre.sol
+            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SliceExec.pre.sol
+            function slice_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                revert(0, 0)
+            }
 
             function proof_plan_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
@@ -376,6 +410,11 @@ library ProofPlan {
                     case_const(3, PROJECTION_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         projection_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 4 {
+                    case_const(4, SLICE_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        slice_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 5 {
                     case_const(5, GROUP_BY_EXEC_VARIANT)

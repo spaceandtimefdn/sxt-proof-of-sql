@@ -85,7 +85,7 @@ impl EVMDynProofPlan {
                 )?,
             )),
             EVMDynProofPlan::Slice(slice_exec) => Ok(DynProofPlan::Slice(
-                slice_exec.try_into_proof_plan(table_refs, column_refs)?,
+                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
             EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
                 group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
@@ -297,12 +297,13 @@ impl EVMSliceExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<SliceExec> {
         Ok(SliceExec::new(
             Box::new(self.input_plan.try_into_proof_plan(
                 table_refs,
                 column_refs,
-                &IndexSet::default(),
+                output_column_names,
             )?),
             self.skip,
             self.fetch,
@@ -542,6 +543,7 @@ mod tests {
             &evm_slice_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            &IndexSet::default(),
         )
         .unwrap();
 
@@ -552,6 +554,17 @@ mod tests {
             *roundtripped_slice_exec.input(),
             DynProofPlan::Table(_)
         ));
+
+        let evm_dyn_slice_exec = EVMDynProofPlan::Slice(evm_slice_exec);
+        let dyn_slice_exec = evm_dyn_slice_exec
+            .try_into_proof_plan(
+                &indexset![table_ref.clone()],
+                &indexset![column_ref_a.clone(), column_ref_b.clone()],
+                &IndexSet::default(),
+            )
+            .unwrap();
+
+        assert_eq!(dyn_slice_exec, DynProofPlan::Slice(slice_exec));
     }
 
     #[test]
@@ -700,16 +713,13 @@ mod tests {
         // Create a Union of two empty execs which is not supported in EVM
         let empty_exec1 = EmptyExec::new();
         let empty_exec2 = EmptyExec::new();
-        let schema: Vec<ColumnField> = Vec::new();
 
         // Create a union plan with two empty execs
-        let plan = DynProofPlan::new_union(
-            vec![
-                DynProofPlan::Empty(empty_exec1),
-                DynProofPlan::Empty(empty_exec2),
-            ],
-            schema,
-        );
+        let plan = DynProofPlan::try_new_union(vec![
+            DynProofPlan::Empty(empty_exec1),
+            DynProofPlan::Empty(empty_exec2),
+        ])
+        .unwrap();
 
         let table_refs = indexset![];
         let column_refs = indexset![];
