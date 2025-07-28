@@ -263,6 +263,18 @@ contract GroupByExecTest is Test {
 
         // mles
         builder.firstRoundMLEs = new uint256[](20); // 5 mles times 4 rows
+        {
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.firstRoundMLEs[i * 5] = gOut[i];
+                // Monotonicity check
+                builder.firstRoundMLEs[i * 5 + 1] = shiftedGOut[i];
+                // Continue with group by output
+                builder.firstRoundMLEs[i * 5 + 2] = sumOut0[i];
+                builder.firstRoundMLEs[i * 5 + 3] = sumOut1[i];
+                builder.firstRoundMLEs[i * 5 + 4] = count[i];
+            }
+        }
+
         builder.finalRoundMLEs = new uint256[](20); // 5 mles times 4 rows
         {
             uint256 inv4 = 16416182153879456416684804308942956316411273300312025757773653139931856371713;
@@ -272,17 +284,11 @@ contract GroupByExecTest is Test {
 
             for (uint8 i = 0; i < 4; ++i) {
                 builder.finalRoundMLEs[i * 5] = gInStarColumn[i];
-                builder.firstRoundMLEs[i * 5] = gOut[i];
                 builder.finalRoundMLEs[i * 5 + 1] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.firstRoundMLEs[i * 5 + 1] = shiftedGOut[i];
                 builder.finalRoundMLEs[i * 5 + 2] = cStarEval[i];
                 builder.finalRoundMLEs[i * 5 + 3] = dStarEval[i];
                 builder.finalRoundMLEs[i * 5 + 4] = sign[i];
-                // Continue with group by output
-                builder.firstRoundMLEs[i * 5 + 2] = sumOut0[i];
-                builder.firstRoundMLEs[i * 5 + 3] = sumOut1[i];
-                builder.firstRoundMLEs[i * 5 + 4] = count[i];
             }
         }
         configuredBuilder = builder;
