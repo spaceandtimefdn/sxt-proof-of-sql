@@ -324,7 +324,7 @@ library GroupByExec {
             function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
                 g_out_star_eval
             {
-                let mle := builder_consume_final_round_mle(builder_ptr)
+                let mle := builder_consume_first_round_mle(builder_ptr)
                 mstore(evaluations_ptr, mle)
                 evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 let g_out_fold := mulmod_bn254(mle, alpha)
@@ -345,13 +345,13 @@ library GroupByExec {
             ) -> sum_out_fold_eval {
                 sum_out_fold_eval := 0
                 for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
                 // Consume count column evaluation
-                let count_out_eval := builder_consume_final_round_mle(builder_ptr)
+                let count_out_eval := builder_consume_first_round_mle(builder_ptr)
                 mstore(evaluations_ptr, count_out_eval)
                 sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), count_out_eval)
             }
