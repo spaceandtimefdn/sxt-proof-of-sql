@@ -303,6 +303,51 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
     .collect::<Vec<(usize, usize)>>()
 }
 
+pub(crate) struct JoinProverUtilities<'a, S: Scalar> {
+    join_columns: Vec<Column<'a, S>>,
+    remaining_left_columns: Vec<Column<'a, S>>,
+    left_rho_column: Column<'a, S>,
+    remaining_right_columns: Vec<Column<'a, S>>,
+    right_rho_column: Column<'a, S>,
+}
+
+impl<'a, S: Scalar> JoinProverUtilities<'a, S> {
+    pub(crate) fn right_less_join_columns(&self) -> Vec<Column<'a, S>> {
+        self.remaining_right_columns
+            .iter()
+            .copied()
+            .chain(core::iter::once(self.right_rho_column))
+            .collect()
+    }
+
+    pub(crate) fn left_columns(&self) -> Vec<Column<'a, S>> {
+        self.join_columns
+            .iter()
+            .copied()
+            .chain(self.remaining_left_columns.iter().copied())
+            .chain(core::iter::once(self.left_rho_column))
+            .collect()
+    }
+
+    pub(crate) fn right_columns(&self) -> Vec<Column<'a, S>> {
+        self.join_columns
+            .iter()
+            .copied()
+            .chain(self.remaining_right_columns.iter().copied())
+            .chain(core::iter::once(self.right_rho_column))
+            .collect()
+    }
+
+    pub(crate) fn result_columns(&self) -> Vec<Column<'a, S>> {
+        self.join_columns
+            .iter()
+            .copied()
+            .chain(self.remaining_left_columns.iter().copied())
+            .chain(self.remaining_right_columns.iter().copied())
+            .collect()
+    }
+}
+
 /// Apply sort merge join indexes
 ///
 /// Currently we only support INNER JOINs and only support joins on equalities.
@@ -325,14 +370,8 @@ pub fn apply_sort_merge_join_indexes<'a, S: Scalar>(
     left_row_indexes: &[usize],
     right_row_indexes: &[usize],
     alloc: &'a Bump,
-) -> ColumnOperationResult<Vec<Column<'a, S>>> {
-    let left_other_col_indexes = (0..left.num_columns())
-        .filter(|i| !left_join_column_indexes.contains(i))
-        .collect::<Vec<_>>();
-    let right_other_col_indexes = (0..right.num_columns())
-        .filter(|i| !right_join_column_indexes.contains(i))
-        .collect::<Vec<_>>();
-    left_join_column_indexes
+) -> ColumnOperationResult<JoinProverUtilities<'a, S>> {
+    let join_columns = left_join_column_indexes
         .iter()
         .map(|i| -> ColumnOperationResult<_> {
             apply_column_to_indexes(
@@ -343,33 +382,44 @@ pub fn apply_sort_merge_join_indexes<'a, S: Scalar>(
                 left_row_indexes,
             )
         })
-        .chain(
-            left_other_col_indexes
-                .iter()
-                .map(|i| -> ColumnOperationResult<_> {
-                    apply_column_to_indexes(
-                left.column(*i).expect(
-                    "Column definitely exists due to how `left_other_col_indexes` is constructed",
+        .collect::<ColumnOperationResult<Vec<_>>>()?;
+    let remaining_left_columns = (0..left.num_columns())
+        .filter(|i| !left_join_column_indexes.contains(i))
+        .map(|i| -> ColumnOperationResult<_> {
+            apply_column_to_indexes(
+                left.column(i).expect(
+                    "Column definitely exists due to how `left_join_column_indexes` is constructed",
                 ),
                 alloc,
                 left_row_indexes,
             )
-                }),
-        )
-        .chain(
-            right_other_col_indexes
-                .iter()
-                .map(|i| -> ColumnOperationResult<_> {
-                    apply_column_to_indexes(
-                right.column(*i).expect(
-                    "Column definitely exists due to how `right_other_col_indexes` is constructed",
+        })
+        .collect::<ColumnOperationResult<Vec<_>>>()?;
+    let left_rho_column = Column::<S>::Int128(
+        alloc.alloc_slice_fill_iter(left_row_indexes.iter().copied().map(|i| i as i128)),
+    );
+    let remaining_right_columns = (0..right.num_columns())
+        .filter(|i| !right_join_column_indexes.contains(i))
+        .map(|i| -> ColumnOperationResult<_> {
+            apply_column_to_indexes(
+                right.column(i).expect(
+                    "Column definitely exists due to how `right_join_column_indexes` is constructed",
                 ),
                 alloc,
                 right_row_indexes,
             )
-                }),
-        )
-        .collect::<ColumnOperationResult<Vec<_>>>()
+        })
+        .collect::<ColumnOperationResult<Vec<_>>>()?;
+    let right_rho_column = Column::<S>::Int128(
+        alloc.alloc_slice_fill_iter(right_row_indexes.iter().copied().map(|i| i as i128)),
+    );
+    Ok(JoinProverUtilities {
+        join_columns,
+        remaining_left_columns,
+        left_rho_column,
+        remaining_right_columns,
+        right_rho_column,
+    })
 }
 
 #[cfg(test)]
@@ -871,7 +921,7 @@ mod tests {
         let left_row_indexes = vec![3, 1, 1, 4, 4];
         let right_row_indexes = vec![5, 3, 4, 3, 4];
 
-        let result = apply_sort_merge_join_indexes(
+        let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
             &[1],
@@ -882,9 +932,18 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result[0], Column::Int(&[4_i32, 5, 5, 5, 5]));
-        assert_eq!(result[1], Column::SmallInt(&[1_i16, 2, 2, 3, 3]));
-        assert_eq!(result[2], Column::BigInt(&[7_i64, 8, 9, 8, 9]));
+        assert_eq!(
+            join_left_right_columns.join_columns[0],
+            Column::Int(&[4_i32, 5, 5, 5, 5])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_left_columns[0],
+            Column::SmallInt(&[1_i16, 2, 2, 3, 3])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_right_columns[0],
+            Column::BigInt(&[7_i64, 8, 9, 8, 9])
+        );
     }
 
     #[test]
@@ -914,7 +973,7 @@ mod tests {
         let left_row_indexes: Vec<usize> = vec![];
         let right_row_indexes: Vec<usize> = vec![];
 
-        let result = apply_sort_merge_join_indexes(
+        let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
             &[1],
@@ -924,11 +983,21 @@ mod tests {
             &bump,
         )
         .unwrap();
-        assert_eq!(result[0], Column::Int(&[0_i32; 0]));
-        assert_eq!(result[1], Column::SmallInt(&[0_i16; 0]));
-        assert_eq!(result[2], Column::BigInt(&[0_i64; 0]));
+        assert_eq!(
+            join_left_right_columns.join_columns[0],
+            Column::Int(&[0_i32; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_left_columns[0],
+            Column::SmallInt(&[0_i16; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_right_columns[0],
+            Column::BigInt(&[0_i64; 0])
+        );
     }
 
+    #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_apply_sort_merge_join_indexes_tables_with_no_rows() {
         let bump = Bump::new();
@@ -955,7 +1024,7 @@ mod tests {
         .expect("Table creation should not fail");
         let left_row_indexes: Vec<usize> = vec![];
         let right_row_indexes: Vec<usize> = vec![];
-        let result = apply_sort_merge_join_indexes(
+        let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
             &[1],
@@ -965,9 +1034,18 @@ mod tests {
             &bump,
         )
         .unwrap();
-        assert_eq!(result[0], Column::Int(&[0_i32; 0]));
-        assert_eq!(result[1], Column::SmallInt(&[0_i16; 0]));
-        assert_eq!(result[2], Column::BigInt(&[0_i64; 0]));
+        assert_eq!(
+            join_left_right_columns.join_columns[0],
+            Column::Int(&[0_i32; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_left_columns[0],
+            Column::SmallInt(&[0_i16; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_right_columns[0],
+            Column::BigInt(&[0_i64; 0])
+        );
 
         // Left table has no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
@@ -988,7 +1066,7 @@ mod tests {
         .expect("Table creation should not fail");
         let left_row_indexes: Vec<usize> = vec![];
         let right_row_indexes: Vec<usize> = vec![];
-        let result = apply_sort_merge_join_indexes(
+        let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
             &[1],
@@ -998,9 +1076,18 @@ mod tests {
             &bump,
         )
         .unwrap();
-        assert_eq!(result[0], Column::Int(&[0_i32; 0]));
-        assert_eq!(result[1], Column::SmallInt(&[0_i16; 0]));
-        assert_eq!(result[2], Column::BigInt(&[0_i64; 0]));
+        assert_eq!(
+            join_left_right_columns.join_columns[0],
+            Column::Int(&[0_i32; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_left_columns[0],
+            Column::SmallInt(&[0_i16; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_right_columns[0],
+            Column::BigInt(&[0_i64; 0])
+        );
 
         // Both tables have no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
@@ -1021,7 +1108,7 @@ mod tests {
         .expect("Table creation should not fail");
         let left_row_indexes: Vec<usize> = vec![];
         let right_row_indexes: Vec<usize> = vec![];
-        let result = apply_sort_merge_join_indexes(
+        let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
             &[1],
@@ -1031,8 +1118,17 @@ mod tests {
             &bump,
         )
         .unwrap();
-        assert_eq!(result[0], Column::Int(&[0_i32; 0]));
-        assert_eq!(result[1], Column::SmallInt(&[0_i16; 0]));
-        assert_eq!(result[2], Column::BigInt(&[0_i64; 0]));
+        assert_eq!(
+            join_left_right_columns.join_columns[0],
+            Column::Int(&[0_i32; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_left_columns[0],
+            Column::SmallInt(&[0_i16; 0])
+        );
+        assert_eq!(
+            join_left_right_columns.remaining_right_columns[0],
+            Column::BigInt(&[0_i64; 0])
+        );
     }
 }
