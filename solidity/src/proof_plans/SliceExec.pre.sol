@@ -342,6 +342,28 @@ library SliceExec {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL UnionExec.pre.sol
+            function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) ->
+                plan_ptr_out,
+                output_length,
+                num_columns,
+                zerosum_constraint
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL UnionExec.pre.sol
+            function union_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                revert(0, 0)
+            }
             // IMPORT-YUL ProofPlan.pre.sol
             function proof_plan_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
