@@ -148,12 +148,9 @@ where
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
-        let right_rho_eval = builder.try_consume_rho_evaluation()?;
         // 4. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
             compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
-        let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
-            compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
         let num_columns_u = self.left_join_column_indexes.len();
         if num_columns_u != 1 {
             return Err(ProofError::VerificationError {
@@ -179,6 +176,9 @@ where
                 .chain(core::iter::once(rho_bar_left_eval))
                 .collect::<Vec<_>>(),
         )?;
+        let right_rho_eval = builder.try_consume_rho_evaluation()?;
+        let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
+            compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
         let res_right_column_evals =
             builder.try_consume_first_round_mle_evaluations(num_columns_right - num_columns_u)?;
         let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
@@ -360,6 +360,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
                 .expect("Indexes can not be out of bounds");
         first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &left_columns);
+        builder.produce_rho_evaluation_length(num_rows_right);
         let right_less_join_columns = join_left_right_columns.right_less_join_columns();
         for column in right_less_join_columns {
             builder.produce_intermediate_mle(column);
@@ -387,7 +388,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         // 3. Chi eval and rho eval
         builder.produce_chi_evaluation_length(num_rows_u);
-        builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
         let hat_right_column_indexes = self
             .right_join_column_indexes
