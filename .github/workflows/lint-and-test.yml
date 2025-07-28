@@ -194,7 +194,7 @@ jobs:
 
   foundrycheck: # Modified from the foundry book: https://book.getfoundry.sh/config/continuous-integration
     name: Foundry project
-    runs-on: ubuntu-latest
+    runs-on: large-8-core-32gb-22-04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
