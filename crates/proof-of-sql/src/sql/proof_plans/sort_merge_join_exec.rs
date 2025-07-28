@@ -165,15 +165,6 @@ where
         let res_left_column_evals =
             builder.try_consume_first_round_mle_evaluations(num_columns_left - num_columns_u)?;
         let rho_bar_left_eval = builder.try_consume_first_round_mle_evaluation()?;
-        let res_right_column_evals =
-            builder.try_consume_first_round_mle_evaluations(num_columns_right - num_columns_u)?;
-        let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
-        // 5. First round MLE evaluations: `i` and `U`
-        //TODO: Make it possible for `U` to have multiple columns
-        let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
-            + rho_bar_right_eval;
-        let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
-        // 6. Membership checks
         verify_membership_check(
             builder,
             alpha,
@@ -188,6 +179,15 @@ where
                 .chain(core::iter::once(rho_bar_left_eval))
                 .collect::<Vec<_>>(),
         )?;
+        let res_right_column_evals =
+            builder.try_consume_first_round_mle_evaluations(num_columns_right - num_columns_u)?;
+        let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
+        // 5. First round MLE evaluations: `i` and `U`
+        //TODO: Make it possible for `U` to have multiple columns
+        let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
+            + rho_bar_right_eval;
+        let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
+        // 6. Membership checks
         verify_membership_check(
             builder,
             alpha,
@@ -350,6 +350,16 @@ impl ProverEvaluate for SortMergeJoinExec {
         for column in &left_columns {
             builder.produce_intermediate_mle(*column);
         }
+        let hat_left_column_indexes = self
+            .left_join_column_indexes
+            .iter()
+            .copied()
+            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
+            .collect::<Vec<_>>();
+        let hat_left_columns =
+            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &left_columns);
         let right_less_join_columns = join_left_right_columns.right_less_join_columns();
         for column in right_less_join_columns {
             builder.produce_intermediate_mle(column);
@@ -379,25 +389,15 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.produce_chi_evaluation_length(num_rows_u);
         builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
-        let hat_left_column_indexes = self
-            .left_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
         let hat_right_column_indexes = self
             .right_join_column_indexes
             .iter()
             .copied()
             .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
             .collect::<Vec<_>>();
-        let hat_left_columns =
-            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
         let hat_right_columns =
             get_columns_of_table(&right.add_rho_column(alloc), &hat_right_column_indexes)
                 .expect("Indexes can not be out of bounds");
-        first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &left_columns);
         first_round_evaluate_membership_check(
             builder,
             alloc,
@@ -478,6 +478,26 @@ impl ProverEvaluate for SortMergeJoinExec {
         )
         .expect("Can not do sort merge join");
 
+        let hat_left_column_indexes = self
+            .left_join_column_indexes
+            .iter()
+            .copied()
+            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
+            .collect::<Vec<_>>();
+        let hat_left_columns =
+            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        final_round_evaluate_membership_check(
+            builder,
+            alloc,
+            alpha,
+            beta,
+            chi_m_l,
+            chi_res,
+            &hat_left_columns,
+            &join_left_right_columns.left_columns(),
+        );
+
         // 2. Get the strictly increasing columns, `i` and `u`
         // i = left_row_index * 2^64 + right_row_index
         // which is strictly increasing
@@ -504,12 +524,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         span.exit();
 
         // 3. Membership checks
-        let hat_left_column_indexes = self
-            .left_join_column_indexes
-            .iter()
-            .copied()
-            .chain((0..=num_columns_left).filter(|i| !self.left_join_column_indexes.contains(i)))
-            .collect::<Vec<_>>();
         let hat_right_column_indexes = self
             .right_join_column_indexes
             .iter()
@@ -517,23 +531,9 @@ impl ProverEvaluate for SortMergeJoinExec {
             .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
             .collect::<Vec<_>>();
 
-        let hat_left_columns =
-            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
-                .expect("Indexes can not be out of bounds");
         let hat_right_columns =
             get_columns_of_table(&right.add_rho_column(alloc), &hat_right_column_indexes)
                 .expect("Indexes can not be out of bounds");
-
-        final_round_evaluate_membership_check(
-            builder,
-            alloc,
-            alpha,
-            beta,
-            chi_m_l,
-            chi_res,
-            &hat_left_columns,
-            &join_left_right_columns.left_columns(),
-        );
         final_round_evaluate_membership_check(
             builder,
             alloc,
