@@ -110,13 +110,9 @@ impl ProverEvaluate for EmptyExec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        base::{
-            map::IndexMap,
-            scalar::test_scalar::TestScalar,
-        },
-    };
+    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
     use bumpalo::Bump;
+    use std::collections::VecDeque;
 
     #[test]
     fn we_can_create_empty_exec() {
@@ -168,9 +164,11 @@ mod tests {
         let empty_exec = EmptyExec::new();
         let mut builder = crate::sql::proof::FirstRoundBuilder::<TestScalar>::new(0);
         let table_map = IndexMap::default();
-        
-        let result = empty_exec.first_round_evaluate(&mut builder, &alloc, &table_map, &[]).unwrap();
-        
+
+        let result = empty_exec
+            .first_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
         // Should create a table with one row but no columns
         assert_eq!(result.num_rows(), 1);
         assert_eq!(result.column_names().count(), 0);
@@ -180,11 +178,14 @@ mod tests {
     fn empty_exec_final_round_evaluate_creates_single_row_table() {
         let alloc = Bump::new();
         let empty_exec = EmptyExec::new();
-        let mut builder = crate::sql::proof::FinalRoundBuilder::<TestScalar>::new(0, Default::default());
+        let mut builder =
+            crate::sql::proof::FinalRoundBuilder::<TestScalar>::new(0, VecDeque::default());
         let table_map = IndexMap::default();
-        
-        let result = empty_exec.final_round_evaluate(&mut builder, &alloc, &table_map, &[]).unwrap();
-        
+
+        let result = empty_exec
+            .final_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
         // Should create a table with one row but no columns
         assert_eq!(result.num_rows(), 1);
         assert_eq!(result.column_names().count(), 0);
@@ -202,7 +203,7 @@ mod tests {
     #[test]
     fn empty_exec_debug_display() {
         let empty_exec = EmptyExec::new();
-        let debug_str = format!("{:?}", empty_exec);
+        let debug_str = format!("{empty_exec:?}");
         assert!(debug_str.contains("EmptyExec"));
     }
 }

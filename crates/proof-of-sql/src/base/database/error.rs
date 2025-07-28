@@ -22,10 +22,10 @@ mod tests {
         let error = ParseError::InvalidTableReference {
             table_reference: table_ref.clone(),
         };
-        
+
         assert_eq!(
             error.to_string(),
-            format!("Invalid table reference: {}", table_ref)
+            format!("Invalid table reference: {table_ref}")
         );
     }
 
@@ -40,7 +40,7 @@ mod tests {
         let error3 = ParseError::InvalidTableReference {
             table_reference: "different.table".to_string(),
         };
-        
+
         assert_eq!(error1, error2);
         assert_ne!(error1, error3);
     }
@@ -50,8 +50,8 @@ mod tests {
         let error = ParseError::InvalidTableReference {
             table_reference: "test.table".to_string(),
         };
-        
-        let debug_str = format!("{:?}", error);
+
+        let debug_str = format!("{error:?}");
         assert!(debug_str.contains("InvalidTableReference"));
         assert!(debug_str.contains("test.table"));
     }
@@ -61,7 +61,7 @@ mod tests {
         let error = ParseError::InvalidTableReference {
             table_reference: "my.invalid.reference".to_string(),
         };
-        
+
         let display_str = error.to_string();
         assert_eq!(display_str, "Invalid table reference: my.invalid.reference");
     }
@@ -71,7 +71,7 @@ mod tests {
         let error = ParseError::InvalidTableReference {
             table_reference: String::new(),
         };
-        
+
         assert_eq!(error.to_string(), "Invalid table reference: ");
     }
 
@@ -81,10 +81,10 @@ mod tests {
         let error = ParseError::InvalidTableReference {
             table_reference: table_ref.clone(),
         };
-        
+
         assert_eq!(
             error.to_string(),
-            format!("Invalid table reference: {}", table_ref)
+            format!("Invalid table reference: {table_ref}")
         );
     }
 
@@ -94,7 +94,7 @@ mod tests {
             table_reference: "test.table".to_string(),
         };
         let cloned = original.clone();
-        
+
         assert_eq!(original, cloned);
     }
 
@@ -103,11 +103,11 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_parse_error_is_std_error() {
         use std::error::Error;
-        
+
         let error = ParseError::InvalidTableReference {
             table_reference: "test.table".to_string(),
         };
-        
+
         // Should compile if ParseError implements Error
         let _: &dyn Error = &error;
     }

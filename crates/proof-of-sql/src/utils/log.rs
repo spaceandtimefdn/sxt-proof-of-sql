@@ -48,8 +48,8 @@ mod tests {
         // Test with different name formats
         let test_names = [
             "Start",
-            "End", 
-            "Middle", 
+            "End",
+            "Middle",
             "Process Step 1",
             "UTF-8 ñáme",
             "Name with numbers 123",
@@ -85,6 +85,4 @@ mod tests {
         log_memory_usage("Test with 'single quotes'");
         log_memory_usage("Test with backslash \\");
     }
-
-    
 }

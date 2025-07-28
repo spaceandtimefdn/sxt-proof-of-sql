@@ -174,7 +174,7 @@ mod tests {
         let schema_ident = Some(Ident::new("schema"));
         let table_ident = Ident::new("table");
         let table_ref = TableRef::from_idents(schema_ident.clone(), table_ident.clone());
-        
+
         assert_eq!(table_ref.schema_id().unwrap().value, "schema");
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -183,7 +183,7 @@ mod tests {
     fn test_table_ref_from_strs_single_component() {
         let components = ["table"];
         let table_ref = TableRef::from_strs(&components).unwrap();
-        
+
         assert!(table_ref.schema_id().is_none());
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -192,7 +192,7 @@ mod tests {
     fn test_table_ref_from_strs_two_components() {
         let components = ["schema", "table"];
         let table_ref = TableRef::from_strs(&components).unwrap();
-        
+
         assert_eq!(table_ref.schema_id().unwrap().value, "schema");
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -201,7 +201,7 @@ mod tests {
     fn test_table_ref_from_strs_too_many_components() {
         let components = ["db", "schema", "table"];
         let result = TableRef::from_strs(&components);
-        
+
         assert!(result.is_err());
         match result.unwrap_err() {
             ParseError::InvalidTableReference { table_reference } => {
@@ -213,15 +213,15 @@ mod tests {
     #[test]
     fn test_table_ref_from_strs_empty_components() {
         let components: &[&str] = &[];
-        let result = TableRef::from_strs(&components);
-        
+        let result = TableRef::from_strs(components);
+
         assert!(result.is_err());
     }
 
     #[test]
     fn test_table_ref_try_from_str_single_part() {
         let table_ref = TableRef::try_from("table").unwrap();
-        
+
         assert!(table_ref.schema_id().is_none());
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn test_table_ref_try_from_str_two_parts() {
         let table_ref = TableRef::try_from("schema.table").unwrap();
-        
+
         assert_eq!(table_ref.schema_id().unwrap().value, "schema");
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn test_table_ref_try_from_str_too_many_parts() {
         let result = TableRef::try_from("db.schema.table");
-        
+
         assert!(result.is_err());
         match result.unwrap_err() {
             ParseError::InvalidTableReference { table_reference } => {
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_table_ref_from_str() {
         let table_ref: TableRef = "schema.table".parse().unwrap();
-        
+
         assert_eq!(table_ref.schema_id().unwrap().value, "schema");
         assert_eq!(table_ref.table_id().value, "table");
     }
@@ -262,25 +262,25 @@ mod tests {
         let table_ref2 = TableRef::new("schema", "table");
         let table_ref3 = TableRef::new("other_schema", "table");
         let table_ref4 = TableRef::new("schema", "other_table");
-        
-        assert!((&table_ref1).equivalent(&table_ref2));
-        assert!(!(&table_ref1).equivalent(&table_ref3));
-        assert!(!(&table_ref1).equivalent(&table_ref4));
+
+        assert!(table_ref1.equivalent(&table_ref2));
+        assert!(!table_ref1.equivalent(&table_ref3));
+        assert!(!table_ref1.equivalent(&table_ref4));
     }
 
     #[test]
     fn test_table_ref_display_with_schema() {
         let table_ref = TableRef::new("test_schema", "test_table");
-        let display_str = format!("{}", table_ref);
-        
+        let display_str = format!("{table_ref}");
+
         assert_eq!(display_str, "test_schema.test_table");
     }
 
     #[test]
     fn test_table_ref_display_without_schema() {
         let table_ref = TableRef::new("", "test_table");
-        let display_str = format!("{}", table_ref);
-        
+        let display_str = format!("{table_ref}");
+
         assert_eq!(display_str, "test_table");
     }
 
@@ -289,7 +289,7 @@ mod tests {
         let table_ref1 = TableRef::new("schema", "table");
         let table_ref2 = TableRef::new("schema", "table");
         let table_ref3 = TableRef::new("other_schema", "table");
-        
+
         assert_eq!(table_ref1, table_ref2);
         assert_ne!(table_ref1, table_ref3);
     }
@@ -298,7 +298,7 @@ mod tests {
     fn test_table_ref_clone() {
         let original = TableRef::new("schema", "table");
         let cloned = original.clone();
-        
+
         assert_eq!(original, cloned);
         assert_eq!(original.schema_id(), cloned.schema_id());
         assert_eq!(original.table_id(), cloned.table_id());
@@ -307,8 +307,8 @@ mod tests {
     #[test]
     fn test_table_ref_debug() {
         let table_ref = TableRef::new("schema", "table");
-        let debug_str = format!("{:?}", table_ref);
-        
+        let debug_str = format!("{table_ref:?}");
+
         assert!(debug_str.contains("TableRef"));
         assert!(debug_str.contains("schema"));
         assert!(debug_str.contains("table"));
@@ -317,15 +317,15 @@ mod tests {
     #[test]
     fn test_table_ref_hash() {
         use std::collections::HashMap;
-        
+
         let table_ref1 = TableRef::new("schema", "table");
         let table_ref2 = TableRef::new("schema", "table");
         let table_ref3 = TableRef::new("other_schema", "table");
-        
+
         let mut map = HashMap::new();
         map.insert(table_ref1.clone(), "value1");
         map.insert(table_ref3, "value3");
-        
+
         // Should be able to find with equivalent table ref
         assert_eq!(map.get(&table_ref2), Some(&"value1"));
     }
@@ -333,11 +333,11 @@ mod tests {
     #[test]
     fn test_table_ref_serialization() {
         let table_ref = TableRef::new("test_schema", "test_table");
-        
+
         // Test JSON serialization
         let serialized = serde_json::to_string(&table_ref).unwrap();
         let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(table_ref, deserialized);
         assert_eq!(table_ref.schema_id(), deserialized.schema_id());
         assert_eq!(table_ref.table_id(), deserialized.table_id());
@@ -346,11 +346,11 @@ mod tests {
     #[test]
     fn test_table_ref_serialization_no_schema() {
         let table_ref = TableRef::new("", "test_table");
-        
+
         // Test JSON serialization
         let serialized = serde_json::to_string(&table_ref).unwrap();
         let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(table_ref, deserialized);
         assert!(deserialized.schema_id().is_none());
         assert_eq!(table_ref.table_id(), deserialized.table_id());
@@ -361,7 +361,7 @@ mod tests {
         // Empty schema name should result in None schema
         let table_ref = TableRef::new("", "table");
         assert!(table_ref.schema_id().is_none());
-        
+
         // Empty table name should still create an Ident
         let table_ref2 = TableRef::new("schema", "");
         assert_eq!(table_ref2.table_id().value, "");
@@ -370,10 +370,13 @@ mod tests {
     #[test]
     fn test_special_characters_in_names() {
         let table_ref = TableRef::new("schema_with_underscore", "table-with-dash");
-        assert_eq!(table_ref.schema_id().unwrap().value, "schema_with_underscore");
+        assert_eq!(
+            table_ref.schema_id().unwrap().value,
+            "schema_with_underscore"
+        );
         assert_eq!(table_ref.table_id().value, "table-with-dash");
-        
-        let display_str = format!("{}", table_ref);
+
+        let display_str = format!("{table_ref}");
         assert_eq!(display_str, "schema_with_underscore.table-with-dash");
     }
 
@@ -385,7 +388,7 @@ mod tests {
         let table_ref = result.unwrap();
         assert_eq!(table_ref.schema_id().unwrap().value, "schema");
         assert_eq!(table_ref.table_id().value, "");
-        
+
         let result2 = TableRef::try_from(".table");
         assert!(result2.is_ok());
         let table_ref2 = result2.unwrap();
