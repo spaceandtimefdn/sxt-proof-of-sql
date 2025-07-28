@@ -304,7 +304,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         level = "debug",
         skip_all
     )]
-    #[expect(clippy::too_many_lines)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -322,11 +321,9 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_rows_right = right.num_rows();
         let num_columns_left = left.num_columns();
         let num_columns_right = right.num_columns();
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
+        let c_l = get_columns_of_table(&left, &self.left_join_column_indexes)
             .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
+        let c_r = get_columns_of_table(&right, &self.right_join_column_indexes)
             .expect("Indexes can not be out of bounds");
         // 1. Conduct the join
         let (left_row_indexes, right_row_indexes): (Vec<usize>, Vec<usize>) =
@@ -335,9 +332,9 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .copied()
                 .unzip();
         // `\hat{J}` in the protocol
-        let raw_res_hat = apply_sort_merge_join_indexes(
-            &left_hat,
-            &right_hat,
+        let join_left_right_columns = apply_sort_merge_join_indexes(
+            &left,
+            &right,
             &self.left_join_column_indexes,
             &self.right_join_column_indexes,
             &left_row_indexes,
@@ -345,9 +342,13 @@ impl ProverEvaluate for SortMergeJoinExec {
             alloc,
         )
         .expect("Can not do sort merge join");
-        let res_hat = alloc.alloc_slice_copy(raw_res_hat.as_slice());
-        for column in res_hat {
+        let left_columns = join_left_right_columns.left_columns();
+        for column in &left_columns {
             builder.produce_intermediate_mle(*column);
+        }
+        let right_less_join_columns = join_left_right_columns.right_less_join_columns();
+        for column in right_less_join_columns {
+            builder.produce_intermediate_mle(column);
         }
         let num_rows_res = left_row_indexes.len();
 
@@ -389,24 +390,18 @@ impl ProverEvaluate for SortMergeJoinExec {
             .copied()
             .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
             .collect::<Vec<_>>();
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        // `J_l` in the protocol
-        let res_left_columns = raw_res_hat[0..=num_columns_left].to_vec();
-        // `J_r` in the protocol
-        let res_right_columns: Vec<_> = raw_res_hat[0..num_columns_u]
-            .iter()
-            .chain(&raw_res_hat[num_columns_left + 1..])
-            .copied()
-            .collect();
-        first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &res_left_columns);
+        let hat_left_columns =
+            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        let hat_right_columns =
+            get_columns_of_table(&right.add_rho_column(alloc), &hat_right_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        first_round_evaluate_membership_check(builder, alloc, &hat_left_columns, &left_columns);
         first_round_evaluate_membership_check(
             builder,
             alloc,
             &hat_right_columns,
-            &res_right_columns,
+            &join_left_right_columns.right_columns(),
         );
         first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
@@ -417,13 +412,11 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.request_post_result_challenges(2);
         // 7. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
-        let res_column_indexes = (0..num_columns_left)
-            .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
-            .collect::<Vec<_>>();
-        let res_columns = apply_slice_to_indexes(&raw_res_hat, &res_column_indexes)
-            .expect("Indexes can not be out of bounds");
         let tab = Table::try_from_iter_with_options(
-            self.result_idents.iter().cloned().zip_eq(res_columns),
+            self.result_idents
+                .iter()
+                .cloned()
+                .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )
         .expect("Can not create table");
@@ -457,12 +450,9 @@ impl ProverEvaluate for SortMergeJoinExec {
         let chi_m_l = alloc.alloc_slice_fill_copy(num_rows_left, true);
         let chi_m_r = alloc.alloc_slice_fill_copy(num_rows_right, true);
 
-        let left_hat = left.add_rho_column(alloc);
-        let right_hat = right.add_rho_column(alloc);
-
-        let c_l = get_columns_of_table(&left_hat, &self.left_join_column_indexes)
+        let c_l = get_columns_of_table(&left, &self.left_join_column_indexes)
             .expect("Indexes can not be out of bounds");
-        let c_r = get_columns_of_table(&right_hat, &self.right_join_column_indexes)
+        let c_r = get_columns_of_table(&right, &self.right_join_column_indexes)
             .expect("Indexes can not be out of bounds");
 
         // 1. Conduct the join
@@ -474,9 +464,9 @@ impl ProverEvaluate for SortMergeJoinExec {
 
         // Instead of storing the join result in a local `Vec`, we copy it into bump-allocated memory
         // so it will outlive this scope (matching the `'a` lifetime) and avoid borrow issues.
-        let raw_res_hat = apply_sort_merge_join_indexes(
-            &left_hat,
-            &right_hat,
+        let join_left_right_columns = apply_sort_merge_join_indexes(
+            &left,
+            &right,
             &self.left_join_column_indexes,
             &self.right_join_column_indexes,
             &left_row_indexes,
@@ -484,8 +474,6 @@ impl ProverEvaluate for SortMergeJoinExec {
             alloc,
         )
         .expect("Can not do sort merge join");
-        // Store in bump, `\hat{J}` in the protocol
-        let res_hat = alloc.alloc_slice_copy(raw_res_hat.as_slice());
 
         let num_rows_res = left_row_indexes.len();
         let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
@@ -533,17 +521,12 @@ impl ProverEvaluate for SortMergeJoinExec {
             .chain((0..=num_columns_right).filter(|i| !self.right_join_column_indexes.contains(i)))
             .collect::<Vec<_>>();
 
-        let hat_left_columns = get_columns_of_table(&left_hat, &hat_left_column_indexes)
-            .expect("Indexes can not be out of bounds");
-        let hat_right_columns = get_columns_of_table(&right_hat, &hat_right_column_indexes)
-            .expect("Indexes can not be out of bounds");
-
-        let res_left_columns = res_hat[0..=num_columns_left].to_vec();
-        let res_right_columns: Vec<_> = res_hat[0..num_columns_u] // rho col is right after left columns
-            .iter()
-            .chain(&res_hat[num_columns_left + 1..])
-            .copied()
-            .collect();
+        let hat_left_columns =
+            get_columns_of_table(&left.add_rho_column(alloc), &hat_left_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        let hat_right_columns =
+            get_columns_of_table(&right.add_rho_column(alloc), &hat_right_column_indexes)
+                .expect("Indexes can not be out of bounds");
 
         final_round_evaluate_membership_check(
             builder,
@@ -553,7 +536,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             chi_m_l,
             chi_res,
             &hat_left_columns,
-            &res_left_columns,
+            &join_left_right_columns.left_columns(),
         );
         final_round_evaluate_membership_check(
             builder,
@@ -563,7 +546,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             chi_m_r,
             chi_res,
             &hat_right_columns,
-            &res_right_columns,
+            &join_left_right_columns.right_columns(),
         );
         let w_l = final_round_evaluate_membership_check(
             builder, alloc, alpha, beta, chi_u, chi_m_l, &u, &c_l,
@@ -588,14 +571,11 @@ impl ProverEvaluate for SortMergeJoinExec {
 
         // 8. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
-        let res_column_indexes = (0..num_columns_left)
-            .chain(num_columns_left + 1..num_columns_left + 1 + num_columns_right - num_columns_u)
-            .collect::<Vec<_>>();
-        let res_columns = apply_slice_to_indexes(res_hat, &res_column_indexes)
-            .expect("Indexes can not be out of bounds");
-
         Ok(Table::try_from_iter_with_options(
-            self.result_idents.iter().cloned().zip_eq(res_columns),
+            self.result_idents
+                .iter()
+                .cloned()
+                .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )
         .expect("Can not create table"))
