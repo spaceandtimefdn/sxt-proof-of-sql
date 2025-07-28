@@ -132,7 +132,6 @@ where
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // 1. columns
-        // TODO: Make sure `GroupByExec` as self.input is supported
         let left_eval =
             self.left
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
@@ -156,7 +155,6 @@ where
                 error: "Join on multiple columns not supported yet",
             });
         }
-        // `\hat{J}` in the protocol
         let res_u_column_evals = builder.try_consume_first_round_mle_evaluations(num_columns_u)?;
         let res_left_column_evals =
             builder.try_consume_first_round_mle_evaluations(num_columns_left - num_columns_u)?;
@@ -181,9 +179,7 @@ where
         let res_right_column_evals =
             builder.try_consume_first_round_mle_evaluations(num_columns_right - num_columns_u)?;
         let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
-        // 5. First round MLE evaluations: `i` and `U`
-        //TODO: Make it possible for `U` to have multiple columns
-        // 6. Membership checks
+        // 5. Membership checks to verify output columns are subsets of input columns
         verify_membership_check(
             builder,
             alpha,
@@ -204,13 +200,14 @@ where
                 error: "Left and right join columns should have exactly one column",
             });
         }
-        // 7. Monotonicity checks
+        // 6. Monotonicity checks
         let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
             + rho_bar_right_eval;
         verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi.0)?;
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         verify_monotonic::<S, true, true>(builder, alpha, beta, u_column_eval, u_chi_eval)?;
+        // 7. Membership checks to verify join columns
         let w_l_eval = verify_membership_check(
             builder,
             alpha,
@@ -334,8 +331,9 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_rows_res = left_row_indexes.len();
         builder.produce_chi_evaluation_length(num_rows_res);
         builder.request_post_result_challenges(2);
+
+        // 2. Membership checks to verify output columns are subsets of input columns
         builder.produce_rho_evaluation_length(num_rows_left);
-        // `\hat{J}` in the protocol
         let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
             &right,
@@ -366,10 +364,6 @@ impl ProverEvaluate for SortMergeJoinExec {
             builder.produce_intermediate_mle(column);
         }
 
-        // 2. Get and commit the strictly increasing columns, `U`
-        // ordered set union `U`
-
-        // 4. Membership checks
         let hat_right_column_indexes = self
             .right_join_column_indexes
             .iter()
@@ -385,7 +379,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             &hat_right_columns,
             &join_left_right_columns.right_columns(),
         );
-        // 5. Monotonicity checks
+        // 3. Monotonicity checks
         let i = left_row_indexes
             .iter()
             .zip_eq(right_row_indexes.iter())
@@ -407,10 +401,11 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.produce_chi_evaluation_length(num_rows_u);
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
+
+        // 4. Membership checks to prove join columns
         first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
-        // 6. Return join result
-        // Drop the two rho columns of `\hat{J}` to get `J`
+        // 5. Return join result
         let tab = Table::try_from_iter_with_options(
             self.result_idents
                 .iter()
@@ -478,6 +473,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         )
         .expect("Can not do sort merge join");
 
+        // 2. Membership checks to verify output columns are subsets of input columns
         let hat_left_column_indexes = self
             .left_join_column_indexes
             .iter()
@@ -498,13 +494,6 @@ impl ProverEvaluate for SortMergeJoinExec {
             &join_left_right_columns.left_columns(),
         );
 
-        // 2. Get the strictly increasing columns, `i` and `u`
-        // i = left_row_index * 2^64 + right_row_index
-        // which is strictly increasing
-
-        // ordered set union `U`
-
-        // 3. Membership checks
         let hat_right_column_indexes = self
             .right_join_column_indexes
             .iter()
@@ -526,7 +515,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             &join_left_right_columns.right_columns(),
         );
 
-        // 4. Monotonicity checks
+        // 3. Monotonicity checks
         let i = left_row_indexes
             .iter()
             .zip_eq(right_row_indexes.iter())
@@ -548,6 +537,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         span.exit();
         final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_u_0);
+        // 4. Membership checks to prove join columns
         let w_l = final_round_evaluate_membership_check(
             builder, alloc, alpha, beta, chi_u, chi_m_l, &u, &c_l,
         );
@@ -566,7 +556,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
 
         // 6. Return join result
-        // Drop the two rho columns of `\hat{J}` to get `J`
         Ok(Table::try_from_iter_with_options(
             self.result_idents
                 .iter()
