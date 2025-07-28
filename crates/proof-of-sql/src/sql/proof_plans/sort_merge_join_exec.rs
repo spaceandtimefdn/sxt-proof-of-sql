@@ -147,7 +147,6 @@ where
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         // 4. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
             compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
@@ -184,9 +183,6 @@ where
         let rho_bar_right_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 5. First round MLE evaluations: `i` and `U`
         //TODO: Make it possible for `U` to have multiple columns
-        let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
-            + rho_bar_right_eval;
-        let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         // 6. Membership checks
         verify_membership_check(
             builder,
@@ -209,7 +205,11 @@ where
             });
         }
         // 7. Monotonicity checks
+        let i_eval: S = itertools::repeat_n(S::TWO, 64_usize).product::<S>() * rho_bar_left_eval
+            + rho_bar_right_eval;
         verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi.0)?;
+        let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let u_column_eval = builder.try_consume_first_round_mle_evaluation()?;
         verify_monotonic::<S, true, true>(builder, alpha, beta, u_column_eval, u_chi_eval)?;
         let w_l_eval = verify_membership_check(
             builder,
@@ -366,28 +366,9 @@ impl ProverEvaluate for SortMergeJoinExec {
             builder.produce_intermediate_mle(column);
         }
 
-        let i = left_row_indexes
-            .iter()
-            .zip_eq(right_row_indexes.iter())
-            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
-            .collect::<Vec<_>>();
-        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
         // 2. Get and commit the strictly increasing columns, `U`
         // ordered set union `U`
-        let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
-        let num_columns_u = u.len();
-        assert!(
-            (num_columns_u == 1),
-            "Join on multiple columns not supported yet"
-        );
-        let u_0 = u[0].to_scalar();
-        let num_rows_u = u[0].len();
-        let span = span!(Level::DEBUG, "allocate u_0").entered();
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
-        span.exit();
-        builder.produce_intermediate_mle(alloc_u_0 as &[_]);
-        // 3. Chi eval and rho eval
-        builder.produce_chi_evaluation_length(num_rows_u);
+
         // 4. Membership checks
         let hat_right_column_indexes = self
             .right_join_column_indexes
@@ -405,7 +386,26 @@ impl ProverEvaluate for SortMergeJoinExec {
             &join_left_right_columns.right_columns(),
         );
         // 5. Monotonicity checks
+        let i = left_row_indexes
+            .iter()
+            .zip_eq(right_row_indexes.iter())
+            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
+            .collect::<Vec<_>>();
+        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
         first_round_evaluate_monotonic(builder, alloc, alloc_i);
+        let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
+        let num_columns_u = u.len();
+        assert!(
+            (num_columns_u == 1),
+            "Join on multiple columns not supported yet"
+        );
+        let u_0 = u[0].to_scalar();
+        let num_rows_u = u[0].len();
+        let span = span!(Level::DEBUG, "allocate u_0").entered();
+        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
+        span.exit();
+        builder.produce_chi_evaluation_length(num_rows_u);
+        builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
@@ -501,27 +501,8 @@ impl ProverEvaluate for SortMergeJoinExec {
         // 2. Get the strictly increasing columns, `i` and `u`
         // i = left_row_index * 2^64 + right_row_index
         // which is strictly increasing
-        let i = left_row_indexes
-            .iter()
-            .zip_eq(right_row_indexes.iter())
-            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
-            .collect::<Vec<_>>();
-        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
 
         // ordered set union `U`
-        let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
-
-        let num_columns_u = u.len();
-        assert!(
-            (num_columns_u == 1),
-            "Join on multiple columns not supported yet"
-        );
-        let u_0 = u[0].to_scalar();
-        let num_rows_u = u[0].len();
-        let span = span!(Level::DEBUG, "allocate slices").entered();
-        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
-        let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
-        span.exit();
 
         // 3. Membership checks
         let hat_right_column_indexes = self
@@ -546,7 +527,26 @@ impl ProverEvaluate for SortMergeJoinExec {
         );
 
         // 4. Monotonicity checks
+        let i = left_row_indexes
+            .iter()
+            .zip_eq(right_row_indexes.iter())
+            .map(|(l, r)| S::from(*l as u64) * S::TWO_POW_64 + S::from(*r as u64))
+            .collect::<Vec<_>>();
+        let alloc_i = alloc.alloc_slice_copy(i.as_slice());
         final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_i);
+        let u = ordered_set_union(&c_l, &c_r, alloc).unwrap();
+
+        let num_columns_u = u.len();
+        assert!(
+            (num_columns_u == 1),
+            "Join on multiple columns not supported yet"
+        );
+        let u_0 = u[0].to_scalar();
+        let num_rows_u = u[0].len();
+        let span = span!(Level::DEBUG, "allocate slices").entered();
+        let alloc_u_0 = alloc.alloc_slice_copy(u_0.as_slice());
+        let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
+        span.exit();
         final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_u_0);
         let w_l = final_round_evaluate_membership_check(
             builder, alloc, alpha, beta, chi_u, chi_m_l, &u, &c_l,
