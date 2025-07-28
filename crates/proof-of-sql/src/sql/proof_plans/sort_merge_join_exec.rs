@@ -144,10 +144,10 @@ where
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         // 3. Chi evals and rho evals
+        let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
-        let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
         // 4. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
@@ -334,6 +334,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let num_rows_res = left_row_indexes.len();
         builder.produce_chi_evaluation_length(num_rows_res);
         builder.request_post_result_challenges(2);
+        builder.produce_rho_evaluation_length(num_rows_left);
         // `\hat{J}` in the protocol
         let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
@@ -376,7 +377,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         // 3. Chi eval and rho eval
         builder.produce_chi_evaluation_length(num_rows_u);
-        builder.produce_rho_evaluation_length(num_rows_left);
         builder.produce_rho_evaluation_length(num_rows_right);
         // 4. Membership checks
         let hat_left_column_indexes = self
