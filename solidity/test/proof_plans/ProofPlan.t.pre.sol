@@ -254,8 +254,8 @@ contract ProofPlanTest is Test {
         uint256[4] memory sign = [uint256(1), 0, 1, 0]; //Sign of [1, -2, 1];
 
         // mles
-        builder.firstRoundMLEs = new uint256[](4);
-        builder.finalRoundMLEs = new uint256[](28); // 7 mles times 4 rows
+        builder.firstRoundMLEs = new uint256[](12); // 3 mles times 4 rows
+        builder.finalRoundMLEs = new uint256[](20); // 5 mles times 4 rows
         {
             uint256 inv4 = 16416182153879456416684804308942956316411273300312025757773653139931856371713;
             uint256 invNegative2 = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
@@ -263,16 +263,16 @@ contract ProofPlanTest is Test {
             uint256[4] memory gOutStarColumn = [invNegative2, inv4, 0, 0];
 
             for (uint8 i = 0; i < 4; ++i) {
-                builder.finalRoundMLEs[i * 7] = gInStarColumn[i];
-                builder.finalRoundMLEs[i * 7 + 1] = gOut[i];
-                builder.finalRoundMLEs[i * 7 + 2] = gOutStarColumn[i];
+                builder.finalRoundMLEs[i * 5] = gInStarColumn[i];
+                builder.firstRoundMLEs[i * 3] = gOut[i];
+                builder.finalRoundMLEs[i * 5 + 1] = gOutStarColumn[i];
                 // Monotonicity check
-                builder.firstRoundMLEs[i] = shiftedGOut[i];
-                builder.finalRoundMLEs[i * 7 + 3] = cStarEval[i];
-                builder.finalRoundMLEs[i * 7 + 4] = dStarEval[i];
-                builder.finalRoundMLEs[i * 7 + 5] = sign[i];
+                builder.firstRoundMLEs[i * 3 + 1] = shiftedGOut[i];
+                builder.finalRoundMLEs[i * 5 + 2] = cStarEval[i];
+                builder.finalRoundMLEs[i * 5 + 3] = dStarEval[i];
+                builder.finalRoundMLEs[i * 5 + 4] = sign[i];
                 // Continue with group by output
-                builder.finalRoundMLEs[i * 7 + 6] = count[i];
+                builder.firstRoundMLEs[i * 3 + 2] = count[i];
             }
         }
         configuredBuilder = builder;
