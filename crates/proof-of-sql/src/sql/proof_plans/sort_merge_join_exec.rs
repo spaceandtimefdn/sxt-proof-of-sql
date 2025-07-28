@@ -208,6 +208,9 @@ where
                 error: "Left and right join columns should have exactly one column",
             });
         }
+        // 7. Monotonicity checks
+        verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi.0)?;
+        verify_monotonic::<S, true, true>(builder, alpha, beta, u_column_eval, u_chi_eval)?;
         let w_l_eval = verify_membership_check(
             builder,
             alpha,
@@ -226,9 +229,6 @@ where
             &[u_column_eval],
             &right_join_column_evals,
         )?;
-        // 7. Monotonicity checks
-        verify_monotonic::<S, true, true>(builder, alpha, beta, i_eval, res_chi.0)?;
-        verify_monotonic::<S, true, true>(builder, alpha, beta, u_column_eval, u_chi_eval)?;
         // 8. Prove that sum w_l * w_r = chi_m
         // sum w_l * w_r - chi_m = 0
         builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -404,11 +404,11 @@ impl ProverEvaluate for SortMergeJoinExec {
             &hat_right_columns,
             &join_left_right_columns.right_columns(),
         );
-        first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
-        first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
         // 5. Monotonicity checks
         first_round_evaluate_monotonic(builder, alloc, alloc_i);
         first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
+        first_round_evaluate_membership_check(builder, alloc, &u, &c_l);
+        first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
         // 6. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
         let tab = Table::try_from_iter_with_options(
@@ -544,16 +544,16 @@ impl ProverEvaluate for SortMergeJoinExec {
             &hat_right_columns,
             &join_left_right_columns.right_columns(),
         );
+
+        // 4. Monotonicity checks
+        final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_i);
+        final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_u_0);
         let w_l = final_round_evaluate_membership_check(
             builder, alloc, alpha, beta, chi_u, chi_m_l, &u, &c_l,
         );
         let w_r = final_round_evaluate_membership_check(
             builder, alloc, alpha, beta, chi_u, chi_m_r, &u, &c_r,
         );
-
-        // 4. Monotonicity checks
-        final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_i);
-        final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_u_0);
 
         // 5. Prove that sum w_l * w_r = chi_m
         // sum w_l * w_r - chi_m = 0
