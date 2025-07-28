@@ -104,6 +104,26 @@ library Verifier {
                 source_ptr_out := source_ptr
             }
             function exclude_coverage_stop_read_uint64_array_as_uint512_array() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/Array.pre.sol::read_word_array_as_uint512_array
+            function exclude_coverage_start_read_word_array_as_uint512_array() {} // solhint-disable-line no-empty-blocks
+            function read_word_array_as_uint512_array(input_array_ptr) -> array_ptr {
+                array_ptr := mload(FREE_PTR)
+
+                let length := mload(input_array_ptr)
+                mstore(array_ptr, length)
+                input_array_ptr := add(input_array_ptr, WORD_SIZE)
+                let target_ptr := add(array_ptr, WORD_SIZE)
+
+                for {} length { length := sub(length, 1) } {
+                    mstore(target_ptr, mload(input_array_ptr))
+                    mstore(add(target_ptr, WORD_SIZE), 0)
+                    input_array_ptr := add(input_array_ptr, WORD_SIZE)
+                    target_ptr := add(target_ptr, WORDX2_SIZE)
+                }
+
+                mstore(FREE_PTR, target_ptr)
+            }
+            function exclude_coverage_stop_read_word_array_as_uint512_array() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../base/ECPrecompiles.pre.sol::calldata_ec_add_assign
             function exclude_coverage_start_calldata_ec_add_assign() {} // solhint-disable-line no-empty-blocks
             function calldata_ec_add_assign(args_ptr, c_ptr) {
@@ -192,6 +212,13 @@ library Verifier {
                 product := mulmod(lhs, rhs, MODULUS)
             }
             function exclude_coverage_stop_mulmod_bn254() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/MathUtil.pre.sol::min
+            function exclude_coverage_start_min() {} // solhint-disable-line no-empty-blocks
+            function min(a, b) -> minimum {
+                minimum := a
+                if lt(b, a) { minimum := b }
+            }
+            function exclude_coverage_stop_min() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../base/LagrangeBasisEvaluation.pre.sol::compute_truncated_lagrange_basis_inner_product
             function exclude_coverage_start_compute_truncated_lagrange_basis_inner_product() {} // solhint-disable-line no-empty-blocks
             function compute_truncated_lagrange_basis_inner_product(length, x_ptr, y_ptr, num_vars) -> result {
@@ -278,6 +305,17 @@ library Verifier {
                 }
             }
             function exclude_coverage_stop_log2_up() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/MathUtil.pre.sol::compute_fold
+            function exclude_coverage_start_compute_fold() {} // solhint-disable-line no-empty-blocks
+            function compute_fold(beta, evals) -> fold {
+                let num_columns := mload(evals)
+                fold := 0
+                for { let i := 0 } lt(i, num_columns) { i := add(i, 1) } {
+                    evals := add(evals, WORD_SIZE)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), mload(evals))
+                }
+            }
+            function exclude_coverage_stop_compute_fold() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../base/Queue.pre.sol::dequeue
             function exclude_coverage_start_dequeue() {} // solhint-disable-line no-empty-blocks
             function dequeue(queue_ptr) -> value {
@@ -378,6 +416,12 @@ library Verifier {
                 length, value := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
             }
             function exclude_coverage_stop_builder_consume_chi_evaluation() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../builder/VerificationBuilder.pre.sol::builder_consume_first_round_mle
+            function exclude_coverage_start_builder_consume_first_round_mle() {} // solhint-disable-line no-empty-blocks
+            function builder_consume_first_round_mle(builder_ptr) -> value {
+                value := dequeue(add(builder_ptr, BUILDER_FIRST_ROUND_MLES_OFFSET))
+            }
+            function exclude_coverage_stop_builder_consume_first_round_mle() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../builder/VerificationBuilder.pre.sol::builder_consume_final_round_mle
             function exclude_coverage_start_builder_consume_final_round_mle() {} // solhint-disable-line no-empty-blocks
             function builder_consume_final_round_mle(builder_ptr) -> value {
@@ -642,6 +686,19 @@ library Verifier {
                 }
             }
             function exclude_coverage_stop_builder_check_aggregate_evaluation() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../builder/VerificationBuilder.pre.sol::builder_consume_chi_evaluation_with_length
+            function exclude_coverage_start_builder_consume_chi_evaluation_with_length() {} // solhint-disable-line no-empty-blocks
+            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
+                length, chi_eval := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
+            }
+            function exclude_coverage_stop_builder_consume_chi_evaluation_with_length() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../builder/VerificationBuilder.pre.sol::builder_get_table_chi_evaluation_with_length
+            function exclude_coverage_start_builder_get_table_chi_evaluation_with_length() {} // solhint-disable-line no-empty-blocks
+            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
+                length, chi_eval :=
+                    get_uint512_array_element(add(builder_ptr, BUILDER_TABLE_CHI_EVALUATIONS_OFFSET), table_num)
+            }
+            function exclude_coverage_stop_builder_get_table_chi_evaluation_with_length() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../hyperkzg/HyperKZGHelpers.pre.sol::bivariate_evaluation
             function exclude_coverage_start_bivariate_evaluation() {} // solhint-disable-line no-empty-blocks
             function bivariate_evaluation(v_ptr, q, d, ell) -> b {
@@ -830,8 +887,12 @@ library Verifier {
             function exclude_coverage_stop_compute_shift_fold() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_gadgets/Shift.pre.sol::shift_evaluate
             function exclude_coverage_start_shift_evaluate() {} // solhint-disable-line no-empty-blocks
-            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, shifted_expr_eval, chi_eval, chi_plus_one_eval)
+            function shift_evaluate(builder_ptr, alpha, beta, expr_eval, chi_eval) ->
+                shifted_expr_eval,
+                chi_plus_one_eval
             {
+                chi_plus_one_eval := builder_consume_chi_evaluation(builder_ptr)
+                shifted_expr_eval := builder_consume_first_round_mle(builder_ptr)
                 let rho_eval := builder_consume_rho_evaluation(builder_ptr)
                 let rho_plus_one_eval := builder_consume_rho_evaluation(builder_ptr)
                 let c_star_eval := builder_consume_final_round_mle(builder_ptr)
@@ -858,10 +919,8 @@ library Verifier {
             function exclude_coverage_start_monotonic_verify() {} // solhint-disable-line no-empty-blocks
             function monotonic_verify(builder_ptr, alpha, beta, column_eval, chi_eval, strict, asc) {
                 // 1. Verify that `shifted_column` is a shift of `column`
-                let shifted_column_eval := builder_consume_final_round_mle(builder_ptr)
-                let shifted_chi_eval := builder_consume_chi_evaluation(builder_ptr)
-
-                shift_evaluate(builder_ptr, alpha, beta, column_eval, shifted_column_eval, chi_eval, shifted_chi_eval)
+                let shifted_column_eval, shifted_chi_eval :=
+                    shift_evaluate(builder_ptr, alpha, beta, column_eval, chi_eval)
 
                 // 2. Compute indicator evaluation based on strictness and direction
                 let ind_eval
@@ -1137,10 +1196,9 @@ library Verifier {
             function exclude_coverage_start_compute_g_in_star_eval() {} // solhint-disable-line no-empty-blocks
             function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
                 plan_ptr_out,
-                g_in_star_eval_times_selection_eval,
-                num_group_by_columns
+                g_in_star_eval_times_selection_eval
             {
-                num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                let num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 // We can not prove uniqueness for multiple columns yet
                 if sub(num_group_by_columns, 1) { err(ERR_UNPROVABLE_GROUP_BY) }
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
@@ -1152,8 +1210,6 @@ library Verifier {
 
                 // Get the g_in_star and g_out_star evaluations
                 let g_in_star_eval := builder_consume_final_round_mle(builder_ptr)
-                let selection_eval
-                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                 // First constraint: g_in_star + g_in_star * g_in_fold - input_chi_eval = 0
                 builder_produce_identity_constraint(
@@ -1161,6 +1217,9 @@ library Verifier {
                     submod_bn254(addmod_bn254(g_in_star_eval, mulmod_bn254(g_in_star_eval, g_in_fold)), input_chi_eval),
                     2
                 )
+
+                let selection_eval
+                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
                 g_in_star_eval_times_selection_eval := mulmod_bn254(g_in_star_eval, selection_eval)
                 plan_ptr_out := plan_ptr
             }
@@ -1182,19 +1241,13 @@ library Verifier {
             function exclude_coverage_stop_compute_sum_in_fold_eval() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::compute_g_out_star_eval
             function exclude_coverage_start_compute_g_out_star_eval() {} // solhint-disable-line no-empty-blocks
-            function compute_g_out_star_eval(
-                builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, evaluations_ptr
-            ) -> g_out_star_eval {
-                let g_out_fold := 0
-                for {} num_group_by_columns { num_group_by_columns := sub(num_group_by_columns, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
-                    g_out_fold := addmod_bn254(mulmod_bn254(g_out_fold, beta), mle)
-                    mstore(evaluations_ptr, mle)
-                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                }
-                // Uniqueness constraint, currently only for single group by column using monotonicity
-                monotonic_verify(builder_ptr, alpha, beta, g_out_fold, output_chi_eval, 1, 1)
-                g_out_fold := mulmod_bn254(g_out_fold, alpha)
+            function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
+                g_out_star_eval
+            {
+                let mle := builder_consume_first_round_mle(builder_ptr)
+                mstore(evaluations_ptr, mle)
+                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
+                let g_out_fold := mulmod_bn254(mle, alpha)
                 g_out_star_eval := builder_consume_final_round_mle(builder_ptr)
                 // Second constraint: g_out_star + g_out_star * g_out_fold - output_chi_eval = 0
                 builder_produce_identity_constraint(
@@ -1204,6 +1257,8 @@ library Verifier {
                     ),
                     2
                 )
+                // Uniqueness constraint, currently only for single group by column using monotonicity
+                monotonic_verify(builder_ptr, alpha, beta, mle, output_chi_eval, 1, 1)
             }
             function exclude_coverage_stop_compute_g_out_star_eval() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::compute_sum_out_fold_eval
@@ -1213,13 +1268,13 @@ library Verifier {
             ) -> sum_out_fold_eval {
                 sum_out_fold_eval := 0
                 for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
                 // Consume count column evaluation
-                let count_out_eval := builder_consume_final_round_mle(builder_ptr)
+                let count_out_eval := builder_consume_first_round_mle(builder_ptr)
                 mstore(evaluations_ptr, count_out_eval)
                 sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), count_out_eval)
             }
@@ -1229,7 +1284,6 @@ library Verifier {
             function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
                 plan_ptr_out,
                 partial_dlog_zero_sum_constraint_eval,
-                num_group_by_columns,
                 num_sum_columns
             {
                 // Read input chi evaluation
@@ -1242,7 +1296,7 @@ library Verifier {
 
                 // Read/eval group by inputs, selection inputs, and fold and dlog them
                 let g_in_star_eval_times_selection_eval
-                plan_ptr, g_in_star_eval_times_selection_eval, num_group_by_columns :=
+                plan_ptr, g_in_star_eval_times_selection_eval :=
                     compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
 
                 // Read/eval sum inputs and fold them
@@ -1266,7 +1320,7 @@ library Verifier {
             function exclude_coverage_start_read_output_evals() {} // solhint-disable-line no-empty-blocks
             function read_output_evals(
                 builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
-            ) -> evaluations_ptr, output_chi_eval {
+            ) -> evaluations_ptr, output_length, output_chi_eval {
                 // Allocate memory for evaluations
                 {
                     let free_ptr := mload(FREE_PTR)
@@ -1278,12 +1332,10 @@ library Verifier {
                     mstore(FREE_PTR, free_ptr)
                 }
 
-                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
                 let g_out_star_eval :=
-                    compute_g_out_star_eval(
-                        builder_ptr, alpha, beta, output_chi_eval, num_group_by_columns, add(evaluations_ptr, WORD_SIZE)
-                    )
+                    compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, add(evaluations_ptr, WORD_SIZE))
 
                 let sum_out_fold_eval :=
                     compute_sum_out_fold_eval(
@@ -1323,6 +1375,25 @@ library Verifier {
                 expr_ptr_out := expr_ptr
             }
             function exclude_coverage_stop_placeholder_expr_evaluate() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_exprs/ScalingCastExpr.pre.sol::scaling_cast_expr_evaluate
+            function exclude_coverage_start_scaling_cast_expr_evaluate() {} // solhint-disable-line no-empty-blocks
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                let data_type
+                expr_ptr, data_type := read_data_type(expr_ptr)
+
+                // Evaluate the input expression
+                expr_ptr, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+
+                // Read the scaling factor (256 bits)
+                let scaling_factor := calldataload(expr_ptr)
+                expr_ptr := add(expr_ptr, WORD_SIZE)
+
+                // Apply scaling by multiplying with the scaling factor
+                result_eval := mulmod_bn254(result_eval, scaling_factor)
+
+                expr_ptr_out := expr_ptr
+            }
+            function exclude_coverage_stop_scaling_cast_expr_evaluate() {} // solhint-disable-line no-empty-blocks
             // slither-disable-start cyclomatic-complexity
             // IMPORTED-YUL ../proof_exprs/ProofExpr.pre.sol::proof_expr_evaluate
             function exclude_coverage_start_proof_expr_evaluate() {} // solhint-disable-line no-empty-blocks
@@ -1379,6 +1450,10 @@ library Verifier {
                     case_const(11, PLACEHOLDER_EXPR_VARIANT)
                     expr_ptr_out, eval := placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
                 }
+                case 12 {
+                    case_const(12, SCALING_CAST_EXPR_VARIANT)
+                    expr_ptr_out, eval := scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }
             function exclude_coverage_stop_proof_expr_evaluate() {} // solhint-disable-line no-empty-blocks
@@ -1407,15 +1482,15 @@ library Verifier {
                 plan_ptr_out := plan_ptr
             }
             function exclude_coverage_stop_fold_column_expr_evals() {} // solhint-disable-line no-empty-blocks
-            // IMPORTED-YUL ../proof_gadgets/FoldUtil.pre.sol::fold_final_round_mles
-            function exclude_coverage_start_fold_final_round_mles() {} // solhint-disable-line no-empty-blocks
-            function fold_final_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+            // IMPORTED-YUL ../proof_gadgets/FoldUtil.pre.sol::fold_first_round_mles
+            function exclude_coverage_start_fold_first_round_mles() {} // solhint-disable-line no-empty-blocks
+            function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(evaluations_ptr, column_count)
                 evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 fold := 0
                 for { let i := column_count } i { i := sub(i, 1) } {
-                    let mle := builder_consume_final_round_mle(builder_ptr)
+                    let mle := builder_consume_first_round_mle(builder_ptr)
                     fold := addmod_bn254(mulmod_bn254(fold, beta), mle)
                     mstore(evaluations_ptr, mle)
                     evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
@@ -1423,7 +1498,7 @@ library Verifier {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
             }
-            function exclude_coverage_stop_fold_final_round_mles() {} // solhint-disable-line no-empty-blocks
+            function exclude_coverage_stop_fold_first_round_mles() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/FilterExec.pre.sol::compute_filter_folds
             function exclude_coverage_start_compute_filter_folds() {} // solhint-disable-line no-empty-blocks
             function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
@@ -1436,33 +1511,45 @@ library Verifier {
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
-                d_fold, evaluations_ptr := fold_final_round_mles(builder_ptr, beta, column_count)
+                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
                 plan_ptr_out := plan_ptr
             }
             function exclude_coverage_stop_compute_filter_folds() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/EmptyExec.pre.sol::empty_exec_evaluate
             function exclude_coverage_start_empty_exec_evaluate() {} // solhint-disable-line no-empty-blocks
-            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_chi_eval {
+            function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_length, output_chi_eval {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(evaluations_ptr, 0)
                 mstore(FREE_PTR, add(evaluations_ptr, WORD_SIZE))
                 output_chi_eval := builder_get_singleton_chi_evaluation(builder_ptr)
+                output_length := 1
             }
             function exclude_coverage_stop_empty_exec_evaluate() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_gadgets/FoldLogExpr.pre.sol::fold_log_star_evaluate
+            function exclude_coverage_start_fold_log_star_evaluate() {} // solhint-disable-line no-empty-blocks
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                let fold := mulmod_bn254(alpha, compute_fold(beta, column_evals))
+                star := builder_consume_final_round_mle(builder_ptr)
+                // star + fold * star - chi = 0
+                builder_produce_identity_constraint(
+                    builder_ptr, submod_bn254(addmod_bn254(star, mulmod_bn254(fold, star)), chi_eval), 2
+                )
+            }
+            function exclude_coverage_stop_fold_log_star_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/FilterExec.pre.sol::verify_filter
             function exclude_coverage_start_verify_filter() {} // solhint-disable-line no-empty-blocks
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)
 
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
-                )
                 builder_produce_identity_constraint(
                     builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval), 2
                 )
                 builder_produce_identity_constraint(
                     builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval), 2
+                )
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
                 )
                 builder_produce_identity_constraint(
                     builder_ptr, mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)), 2
@@ -1471,10 +1558,15 @@ library Verifier {
             function exclude_coverage_stop_verify_filter() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/FilterExec.pre.sol::filter_exec_evaluate
             function exclude_coverage_start_filter_exec_evaluate() {} // solhint-disable-line no-empty-blocks
-            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                let alpha := builder_consume_challenge(builder_ptr)
+            function filter_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let input_chi_eval, selection_eval, c_fold, d_fold
                 {
+                    let alpha := builder_consume_challenge(builder_ptr)
                     let beta := builder_consume_challenge(builder_ptr)
 
                     input_chi_eval :=
@@ -1485,27 +1577,28 @@ library Verifier {
 
                     plan_ptr, c_fold, d_fold, evaluations_ptr :=
                         compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
+                    c_fold := mulmod_bn254(alpha, c_fold)
+                    d_fold := mulmod_bn254(alpha, d_fold)
                 }
-                output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
-                verify_filter(
-                    builder_ptr,
-                    mulmod_bn254(alpha, c_fold),
-                    mulmod_bn254(alpha, d_fold),
-                    input_chi_eval,
-                    output_chi_eval,
-                    selection_eval
-                )
+                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
 
                 plan_ptr_out := plan_ptr
             }
             function exclude_coverage_stop_filter_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/TableExec.pre.sol::table_exec_evaluate
             function exclude_coverage_start_table_exec_evaluate() {} // solhint-disable-line no-empty-blocks
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function table_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let table_number := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
-                output_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_number)
+                output_length, output_chi_eval :=
+                    builder_get_table_chi_evaluation_with_length(builder_ptr, table_number)
 
                 // Get the number of columns in the schema
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
@@ -1540,9 +1633,15 @@ library Verifier {
             function exclude_coverage_stop_table_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/ProjectionExec.pre.sol::projection_exec_evaluate
             function exclude_coverage_start_projection_exec_evaluate() {} // solhint-disable-line no-empty-blocks
-            function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function projection_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let input_evaluations_ptr
-                plan_ptr, input_evaluations_ptr, output_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
+                plan_ptr, input_evaluations_ptr, output_length, output_chi_eval :=
+                    proof_plan_evaluate(plan_ptr, builder_ptr)
 
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
@@ -1564,24 +1663,24 @@ library Verifier {
             function exclude_coverage_stop_projection_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::group_by_exec_evaluate
             function exclude_coverage_start_group_by_exec_evaluate() {} // solhint-disable-line no-empty-blocks
-            function group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let alpha := builder_consume_challenge(builder_ptr)
                 let beta := builder_consume_challenge(builder_ptr)
 
-                let partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
-                plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns :=
+                let partial_dlog_zero_sum_constraint_eval, num_sum_columns
+                plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_sum_columns :=
                     read_input_evals(plan_ptr, builder_ptr, alpha, beta)
 
                 // Read output
-                evaluations_ptr, output_chi_eval :=
-                    read_output_evals(
-                        builder_ptr,
-                        alpha,
-                        beta,
-                        partial_dlog_zero_sum_constraint_eval,
-                        num_group_by_columns,
-                        num_sum_columns
-                    )
+                // For now, we can assume the number of group by columns is 1,
+                // because the function would have errored by this point otherwise
+                evaluations_ptr, output_length, output_chi_eval :=
+                    read_output_evals(builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, 1, num_sum_columns)
             }
             function exclude_coverage_stop_group_by_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../sumcheck/Sumcheck.pre.sol::process_round
@@ -1637,33 +1736,208 @@ library Verifier {
                 proof_ptr_out := proof_ptr
             }
             function exclude_coverage_stop_verify_sumcheck_proof() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_plans/SliceExec.pre.sol::get_and_verify_slice_length
+            function exclude_coverage_start_get_and_verify_slice_length() {} // solhint-disable-line no-empty-blocks
+            function get_and_verify_slice_length(plan_ptr, builder_ptr, input_length) ->
+                plan_ptr_out,
+                output_length,
+                output_chi_eval,
+                selection_eval
+            {
+                let expected_skip := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                let expected_max_length
+                {
+                    let is_fetch_populated := shr(BOOLEAN_PADDING_BITS, calldataload(plan_ptr))
+                    plan_ptr := add(plan_ptr, BOOLEAN_SIZE)
+                    switch is_fetch_populated
+                    case 0 { expected_max_length := input_length }
+                    default {
+                        let fetch := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                        plan_ptr := add(plan_ptr, UINT64_SIZE)
+                        expected_max_length := min(add(expected_skip, fetch), input_length)
+                    }
+                }
+
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                let actual_skip
+                actual_skip, selection_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                let max_length, max_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                selection_eval := submod_bn254(max_eval, selection_eval)
+
+                if sub(max_length, add(actual_skip, output_length)) { err(ERR_SLICE_OFFSET_SELECTION_SIZE_MISMATCH) }
+                if sub(min(expected_skip, input_length), actual_skip) { err(ERR_SLICE_OFFSET_PLAN_VALUE_MISMATCH) }
+                if sub(max_length, expected_max_length) { err(ERR_SLICE_MAX_LENGTH_MISMATCH) }
+
+                plan_ptr_out := plan_ptr
+            }
+            function exclude_coverage_stop_get_and_verify_slice_length() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_plans/SliceExec.pre.sol::compute_slice_folds
+            function exclude_coverage_start_compute_slice_folds() {} // solhint-disable-line no-empty-blocks
+            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
+                let alpha := builder_consume_challenge(builder_ptr)
+                let beta := builder_consume_challenge(builder_ptr)
+                c_fold := mulmod_bn254(alpha, compute_fold(beta, input_evaluations_ptr))
+                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, mload(input_evaluations_ptr))
+                d_fold := mulmod_bn254(alpha, d_fold)
+            }
+            function exclude_coverage_stop_compute_slice_folds() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_plans/SliceExec.pre.sol::slice_exec_evaluate
+            function exclude_coverage_start_slice_exec_evaluate() {} // solhint-disable-line no-empty-blocks
+            function slice_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                let c_fold, d_fold, input_chi_eval, selection_eval
+                {
+                    let input_length, input_evaluations_ptr
+                    plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
+                        proof_plan_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, output_length, output_chi_eval, selection_eval :=
+                        get_and_verify_slice_length(plan_ptr, builder_ptr, input_length)
+                    c_fold, d_fold, evaluations_ptr := compute_slice_folds(builder_ptr, input_evaluations_ptr)
+                }
+                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
+            }
+            function exclude_coverage_stop_slice_exec_evaluate() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_plans/UnionExec.pre.sol::union_input_evaluate
+            function exclude_coverage_start_union_input_evaluate() {} // solhint-disable-line no-empty-blocks
+            function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) ->
+                plan_ptr_out,
+                output_length,
+                num_columns,
+                zerosum_constraint
+            {
+                let input_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                if lt(input_count, 2) {
+                    // Not enough input plans for union
+                    err(ERR_UNION_NOT_ENOUGH_INPUT_PLANS)
+                }
+
+                // Process each input plan
+                for {} input_count { input_count := sub(input_count, 1) } {
+                    // Recursively evaluate the input plan
+                    let input_evaluations_ptr
+                    let input_length
+                    let input_chi_eval
+                    plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
+                        proof_plan_evaluate(plan_ptr, builder_ptr)
+                    output_length := add(output_length, input_length)
+                    switch num_columns
+                    case 0 {
+                        // If this is the first input, initialize num_columns
+                        num_columns := mload(input_evaluations_ptr)
+                        if iszero(num_columns) {
+                            // No columns in input evaluations
+                            err(ERR_UNION_INVALID_COLUMN_COUNTS)
+                        }
+                    }
+                    default {
+                        // Ensure all inputs have the same number of columns
+                        if iszero(eq(num_columns, mload(input_evaluations_ptr))) {
+                            // Mismatched column counts
+                            err(ERR_UNION_INVALID_COLUMN_COUNTS)
+                        }
+                    }
+                    // Apply FoldLogExpr to get c_star for this input
+                    let c_star :=
+                        fold_log_star_evaluate(builder_ptr, gamma, beta, input_evaluations_ptr, input_chi_eval)
+                    // Add to zero-sum constraint
+                    zerosum_constraint := addmod_bn254(zerosum_constraint, c_star)
+                }
+                plan_ptr_out := plan_ptr
+            }
+            function exclude_coverage_stop_union_input_evaluate() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../proof_plans/UnionExec.pre.sol::union_exec_evaluate
+            function exclude_coverage_start_union_exec_evaluate() {} // solhint-disable-line no-empty-blocks
+            function union_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                // Consume gamma and beta challenges for FoldLogExpr
+                let gamma := builder_consume_challenge(builder_ptr)
+                let beta := builder_consume_challenge(builder_ptr)
+
+                {
+                    let num_columns, zerosum_constraint
+                    plan_ptr, output_length, num_columns, zerosum_constraint :=
+                        union_input_evaluate(plan_ptr, builder_ptr, gamma, beta)
+                    // Consume first-round MLEs for output columns
+                    {
+                        let d_fold
+                        d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, num_columns)
+                        d_fold := mulmod_bn254(gamma, d_fold)
+                        // Consume chi evaluation for output
+                        output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+
+                        let d_star := builder_consume_final_round_mle(builder_ptr)
+                        // d_star + d_fold * d_star - output_chi = 0
+                        builder_produce_identity_constraint(
+                            builder_ptr,
+                            submod_bn254(addmod_bn254(d_star, mulmod_bn254(d_fold, d_star)), output_chi_eval),
+                            2
+                        )
+                        // Generate zero-sum constraint: sum(c_stars) - d_star = 0
+                        zerosum_constraint := submod_bn254(zerosum_constraint, d_star)
+                        builder_produce_zerosum_constraint(builder_ptr, zerosum_constraint, 1)
+                    }
+                }
+
+                // Return output evaluations
+                plan_ptr_out := plan_ptr
+            }
+            function exclude_coverage_stop_union_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/ProofPlan.pre.sol::proof_plan_evaluate
             function exclude_coverage_start_proof_plan_evaluate() {} // solhint-disable-line no-empty-blocks
-            function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
+            function proof_plan_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT32_SIZE)
 
                 switch proof_plan_variant
                 case 0 {
                     case_const(0, FILTER_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := filter_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        filter_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 1 {
                     case_const(1, EMPTY_EXEC_VARIANT)
-                    evaluations_ptr, output_chi_eval := empty_exec_evaluate(builder_ptr)
+                    evaluations_ptr, output_length, output_chi_eval := empty_exec_evaluate(builder_ptr)
                     plan_ptr_out := plan_ptr
                 }
                 case 2 {
                     case_const(2, TABLE_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := table_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        table_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 3 {
                     case_const(3, PROJECTION_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := projection_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        projection_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 4 {
+                    case_const(4, SLICE_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        slice_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 5 {
                     case_const(5, GROUP_BY_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_chi_eval := group_by_exec_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        group_by_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 6 {
+                    case_const(6, UNION_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        union_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
@@ -2162,8 +2436,12 @@ library Verifier {
                 )
 
                 plan_ptr := skip_plan_names(plan_ptr)
-                let output_chi_eval
-                plan_ptr, evaluations_ptr, output_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
+
+                {
+                    let output_length, output_chi_eval
+                    plan_ptr, evaluations_ptr, output_length, output_chi_eval :=
+                        proof_plan_evaluate(plan_ptr, builder_ptr)
+                }
                 builder_check_aggregate_evaluation(builder_ptr)
             }
 

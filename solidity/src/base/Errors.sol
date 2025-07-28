@@ -61,6 +61,16 @@ uint32 constant ERR_BIT_DECOMPOSITION_INVALID = 0xda443b2b;
 uint32 constant ERR_INVALID_VARYING_BITS = 0x76d56a3d;
 /// @dev Error code for when monotony check fails.
 uint32 constant ERR_MONOTONY_CHECK_FAILED = 0x976f97b8;
+/// @dev Error code for when offset and plan value mismatch in slice.
+uint32 constant ERR_SLICE_OFFSET_PLAN_VALUE_MISMATCH = 0x86052984;
+/// @dev Error code for when offset and selection size mismatch in slice.
+uint32 constant ERR_SLICE_OFFSET_SELECTION_SIZE_MISMATCH = 0xd66498ee;
+/// @dev Error code for when the max length is incorrect in slice.
+uint32 constant ERR_SLICE_MAX_LENGTH_MISMATCH = 0xd2e2f4a8;
+/// @dev Error code for when there are not enough input plans in a union.
+uint32 constant ERR_UNION_NOT_ENOUGH_INPUT_PLANS = 0x22d85efe;
+/// @dev Error thrown when the number of column counts in a union is invalid (e.g. zero or inconsistent).
+uint32 constant ERR_UNION_INVALID_COLUMN_COUNTS = 0x2b150620;
 /// @dev Error thrown when there is an internal error.
 uint32 constant ERR_INTERNAL = 0xfe835e35;
 /// @dev Error code for unprovable group by error.
@@ -126,6 +136,16 @@ library Errors {
     error InvalidVaryingBits();
     /// @notice Error thrown when monotony check fails.
     error MonotonyCheckFailed();
+    /// @notice Error code for when offset and plan value mismatch in slice.
+    error SliceOffsetPlanValueMismatch();
+    /// @notice Error thrown when offset and selection size mismatch in slice.
+    error SliceOffsetSelectionSizeMismatch();
+    /// @notice Error thrown when the max length is incorrect in slice.
+    error SliceMaxLengthMismatch();
+    /// @notice Error thrown when there are not enough input plans in a union.
+    error UnionNotEnoughInputPlans();
+    /// @notice Error thrown when the number of column counts in a union is invalid (e.g. zero or inconsistent).
+    error UnionInvalidColumnCounts();
     /// @notice Error thrown when there is an internal error.
     error InternalError();
     /// @notice Error thrown for unprovable group by error.
