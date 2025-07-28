@@ -140,15 +140,15 @@ where
             self.right
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
         let res_chi = builder.try_consume_chi_evaluation()?;
-        // 2. Chi evals and rho evals
+        // 2. alpha, beta
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
+        // 3. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
-        // 3. alpha, beta
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
         // 4. column evals
         let (hat_left_column_evals, left_join_column_evals, num_columns_left) =
             compute_hat_column_evals(&left_eval, left_rho_eval, &self.left_join_column_indexes);
@@ -333,6 +333,7 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .unzip();
         let num_rows_res = left_row_indexes.len();
         builder.produce_chi_evaluation_length(num_rows_res);
+        builder.request_post_result_challenges(2);
         // `\hat{J}` in the protocol
         let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
@@ -408,9 +409,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         // 5. Monotonicity checks
         first_round_evaluate_monotonic(builder, alloc, alloc_i);
         first_round_evaluate_monotonic(builder, alloc, alloc_u_0);
-        // 6. Request post-result challenges
-        builder.request_post_result_challenges(2);
-        // 7. Return join result
+        // 6. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
         let tab = Table::try_from_iter_with_options(
             self.result_idents
@@ -463,6 +462,8 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .unzip();
         let num_rows_res = left_row_indexes.len();
         let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
 
         // Instead of storing the join result in a local `Vec`, we copy it into bump-allocated memory
         // so it will outlive this scope (matching the `'a` lifetime) and avoid borrow issues.
@@ -502,11 +503,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let chi_u = alloc.alloc_slice_fill_copy(num_rows_u, true);
         span.exit();
 
-        // 3. Get post-result challenges
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
-        // 4. Membership checks
+        // 3. Membership checks
         let hat_left_column_indexes = self
             .left_join_column_indexes
             .iter()
@@ -554,11 +551,11 @@ impl ProverEvaluate for SortMergeJoinExec {
             builder, alloc, alpha, beta, chi_u, chi_m_r, &u, &c_r,
         );
 
-        // 6. Monotonicity checks
+        // 4. Monotonicity checks
         final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_i);
         final_round_evaluate_monotonic::<S, true, true>(builder, alloc, alpha, beta, alloc_u_0);
 
-        // 7. Prove that sum w_l * w_r = chi_m
+        // 5. Prove that sum w_l * w_r = chi_m
         // sum w_l * w_r - chi_m = 0
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::ZeroSum,
@@ -568,7 +565,7 @@ impl ProverEvaluate for SortMergeJoinExec {
             ],
         );
 
-        // 8. Return join result
+        // 6. Return join result
         // Drop the two rho columns of `\hat{J}` to get `J`
         Ok(Table::try_from_iter_with_options(
             self.result_idents
