@@ -139,10 +139,10 @@ where
         let right_eval =
             self.right
                 .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+        let res_chi = builder.try_consume_chi_evaluation()?;
         // 2. Chi evals and rho evals
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
-        let res_chi = builder.try_consume_chi_evaluation()?;
         let u_chi_eval = builder.try_consume_chi_evaluation()?.0;
         let left_rho_eval = builder.try_consume_rho_evaluation()?;
         let right_rho_eval = builder.try_consume_rho_evaluation()?;
@@ -331,6 +331,8 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .iter()
                 .copied()
                 .unzip();
+        let num_rows_res = left_row_indexes.len();
+        builder.produce_chi_evaluation_length(num_rows_res);
         // `\hat{J}` in the protocol
         let join_left_right_columns = apply_sort_merge_join_indexes(
             &left,
@@ -350,7 +352,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         for column in right_less_join_columns {
             builder.produce_intermediate_mle(column);
         }
-        let num_rows_res = left_row_indexes.len();
 
         let i = left_row_indexes
             .iter()
@@ -373,7 +374,6 @@ impl ProverEvaluate for SortMergeJoinExec {
         span.exit();
         builder.produce_intermediate_mle(alloc_u_0 as &[_]);
         // 3. Chi eval and rho eval
-        builder.produce_chi_evaluation_length(num_rows_res);
         builder.produce_chi_evaluation_length(num_rows_u);
         builder.produce_rho_evaluation_length(num_rows_left);
         builder.produce_rho_evaluation_length(num_rows_right);
@@ -461,6 +461,8 @@ impl ProverEvaluate for SortMergeJoinExec {
                 .iter()
                 .copied()
                 .unzip();
+        let num_rows_res = left_row_indexes.len();
+        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
 
         // Instead of storing the join result in a local `Vec`, we copy it into bump-allocated memory
         // so it will outlive this scope (matching the `'a` lifetime) and avoid borrow issues.
@@ -474,9 +476,6 @@ impl ProverEvaluate for SortMergeJoinExec {
             alloc,
         )
         .expect("Can not do sort merge join");
-
-        let num_rows_res = left_row_indexes.len();
-        let chi_res = alloc.alloc_slice_fill_copy(num_rows_res, true);
 
         // 2. Get the strictly increasing columns, `i` and `u`
         // i = left_row_index * 2^64 + right_row_index
