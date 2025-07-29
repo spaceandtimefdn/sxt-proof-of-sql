@@ -374,6 +374,90 @@ library SliceExec {
             {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/MembershipCheck.pre.sol
+            function membership_check_evaluate(
+                builder_ptr, alpha, beta, chi_n_eval, chi_m_eval, column_evals, candidate_evals
+            ) -> multiplicity_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function populate_right_evals_for_join(eval, right_column_evals, res_column_evals_out) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function sort_merge_join_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function skip_sort_merge_join_aliases(plan_ptr) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_sort_merge_join_outputs(
+                plan_ptr, builder_ptr, left_right_and_output_evaluations, left_chi_eval, right_chi_eval, output_chi_eval
+            ) -> plan_ptr_out {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_remaining_check_on_both_left_and_right_sides(
+                plan_ptr, builder_ptr, alpha_and_beta, left_right_and_output_evaluations, left_chi_eval, right_chi_eval
+            ) -> plan_ptr_out, w_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_consume_and_check_right_join_evals(
+                plan_ptr, builder_ptr, alpha_and_beta, res_chi_eval, left_right_and_output_evaluations, chi_eval
+            ) -> plan_ptr_out {
+                revert(0, 0)
+            }
+
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_consume_and_check_left_column_evals(
+                plan_ptr, builder_ptr, alpha_and_beta, res_chi_eval, left_right_and_output_evaluations, chi_eval
+            ) -> plan_ptr_out {
+                revert(0, 0)
+            }
+
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function consume_and_membership_check_right_column_evals(
+                builder_ptr,
+                alpha_and_beta,
+                num_join_columns,
+                hat_evals,
+                res_chi_eval,
+                chi_eval,
+                left_right_and_output_evaluations
+            ) -> i_eval {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function consume_right_evals_for_join(
+                builder_ptr, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations
+            ) -> i_eval, right_column_evals {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function consume_and_membership_check_left_column_evals(
+                builder_ptr, alpha_and_beta, hat_evals, res_chi_eval, chi_eval
+            ) -> res_column_evals {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_u_column_with_monotony_check(builder_ptr, alpha_and_beta) ->
+                u_column_eval_array,
+                u_chi_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL SortMergeJoinExec.pre.sol
+            function evaluate_input_plans(plan_ptr, builder_ptr, evaluations) -> plan_ptr_out, hat_evals, join_evals {
+                revert(0, 0)
+            }
             // IMPORT-YUL ProofPlan.pre.sol
             function proof_plan_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,

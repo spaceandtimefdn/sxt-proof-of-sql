@@ -26,6 +26,7 @@ pub(crate) enum EVMDynProofPlan {
     Slice(EVMSliceExec),
     GroupBy(EVMGroupByExec),
     Union(EVMUnionExec),
+    SortMergeJoin(EVMSortMergeJoinExec),
 }
 
 impl EVMDynProofPlan {
@@ -63,7 +64,14 @@ impl EVMDynProofPlan {
                 EVMUnionExec::try_from_proof_plan(union_exec, table_refs, column_refs)
                     .map(Self::Union)
             }
-            DynProofPlan::SortMergeJoin(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::SortMergeJoin(sort_merge_join_exec) => {
+                EVMSortMergeJoinExec::try_from_proof_plan(
+                    sort_merge_join_exec,
+                    table_refs,
+                    column_refs,
+                )
+                .map(Self::SortMergeJoin)
+            }
         }
     }
 
@@ -99,6 +107,13 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
                 union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
+                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
+                    table_refs,
+                    column_refs,
+                    output_column_names,
+                )?),
+            ),
         }
     }
 }
