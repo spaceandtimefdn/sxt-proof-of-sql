@@ -793,7 +793,9 @@ library Verifier {
 
                 verify_pcs_evaluations(proof_ptr, commitments_ptr, transcript_ptr, builder_ptr, evaluation_point_ptr)
 
-                compute_evaluations_with_length(evaluation_point_ptr, builder_get_table_chi_evaluations(builder_ptr))
+                table_lengths_ptr := read_word_array_as_uint512_array(table_lengths_ptr)
+                builder_set_table_chi_evaluations(builder_ptr, table_lengths_ptr)
+                compute_evaluations_with_length(evaluation_point_ptr, table_lengths_ptr)
                 compute_evaluations_with_length(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
                 builder_set_singleton_chi_evaluation(
                     builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
