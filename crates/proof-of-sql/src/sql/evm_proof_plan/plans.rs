@@ -847,38 +847,6 @@ mod tests {
     }
 
     #[test]
-    fn we_cannot_put_unsupported_proof_plan_in_evm() {
-        // Create a join plan with two projections
-        let plan = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            vec![0],
-            vec![0],
-            vec!["col1".into()],
-        ));
-
-        let table_refs = indexset![];
-        let column_refs = indexset![];
-
-        assert!(matches!(
-            EVMDynProofPlan::try_from_proof_plan(&plan, &table_refs, &column_refs),
-            Err(EVMProofPlanError::NotSupported)
-        ));
-    }
-
-    #[test]
     fn we_can_put_group_by_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
