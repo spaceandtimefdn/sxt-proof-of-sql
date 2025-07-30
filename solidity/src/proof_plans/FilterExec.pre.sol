@@ -255,6 +255,10 @@ library FilterExec {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
+                revert(0, 0)
+            }
             function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
                 plan_ptr_out,
                 c_fold,
@@ -267,24 +271,6 @@ library FilterExec {
                 plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
                 d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
                 plan_ptr_out := plan_ptr
-            }
-
-            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
-                let c_star := builder_consume_final_round_mle(builder_ptr)
-                let d_star := builder_consume_final_round_mle(builder_ptr)
-
-                builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval), 2
-                )
-                builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval), 2
-                )
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
-                )
-                builder_produce_identity_constraint(
-                    builder_ptr, mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)), 2
-                )
             }
 
             // IMPORT-YUL TableExec.pre.sol
