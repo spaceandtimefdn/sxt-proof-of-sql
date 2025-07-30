@@ -264,7 +264,7 @@ library SliceExec {
             {
                 revert(0, 0)
             }
-            // IMPORT-YUL FilterExec.pre.sol
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
             }
