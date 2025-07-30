@@ -350,6 +350,12 @@ library SliceExec {
             function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_column_exprs(
+                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
             // IMPORT-YUL UnionExec.pre.sol
             function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) ->
                 plan_ptr_out,

@@ -335,6 +335,12 @@ library ProofPlan {
             function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_column_exprs(
+                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
             // IMPORT-YUL GroupByExec.pre.sol
             function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
