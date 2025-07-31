@@ -67,6 +67,10 @@ uint32 constant ERR_SLICE_OFFSET_PLAN_VALUE_MISMATCH = 0x86052984;
 uint32 constant ERR_SLICE_OFFSET_SELECTION_SIZE_MISMATCH = 0xd66498ee;
 /// @dev Error code for when the max length is incorrect in slice.
 uint32 constant ERR_SLICE_MAX_LENGTH_MISMATCH = 0xd2e2f4a8;
+/// @dev Error code for when there are not enough input plans in a union.
+uint32 constant ERR_UNION_NOT_ENOUGH_INPUT_PLANS = 0x22d85efe;
+/// @dev Error thrown when the number of column counts in a union is invalid (e.g. zero or inconsistent).
+uint32 constant ERR_UNION_INVALID_COLUMN_COUNTS = 0x2b150620;
 /// @dev Error thrown when there is an internal error.
 uint32 constant ERR_INTERNAL = 0xfe835e35;
 /// @dev Error code for unprovable group by error.
@@ -138,6 +142,10 @@ library Errors {
     error SliceOffsetSelectionSizeMismatch();
     /// @notice Error thrown when the max length is incorrect in slice.
     error SliceMaxLengthMismatch();
+    /// @notice Error thrown when there are not enough input plans in a union.
+    error UnionNotEnoughInputPlans();
+    /// @notice Error thrown when the number of column counts in a union is invalid (e.g. zero or inconsistent).
+    error UnionInvalidColumnCounts();
     /// @notice Error thrown when there is an internal error.
     error InternalError();
     /// @notice Error thrown for unprovable group by error.

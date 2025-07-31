@@ -15,7 +15,8 @@ library ProofPlan {
         Table,
         Projection,
         Slice,
-        GroupBy
+        GroupBy,
+        Union
     }
 
     /// @notice Evaluates a proof plan
@@ -243,7 +244,7 @@ library ProofPlan {
             {
                 revert(0, 0)
             }
-            // IMPORT-YUL FilterExec.pre.sol
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
             }
@@ -326,8 +327,40 @@ library ProofPlan {
             ) -> evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_column_exprs(
+                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
             // IMPORT-YUL GroupByExec.pre.sol
             function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL UnionExec.pre.sol
+            function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) ->
+                plan_ptr_out,
+                output_length,
+                num_columns,
+                zerosum_constraint
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL UnionExec.pre.sol
+            function union_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
                 evaluations_ptr,
                 output_length,
@@ -420,6 +453,11 @@ library ProofPlan {
                     case_const(5, GROUP_BY_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         group_by_exec_evaluate(plan_ptr, builder_ptr)
+                }
+                case 6 {
+                    case_const(6, UNION_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        union_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
