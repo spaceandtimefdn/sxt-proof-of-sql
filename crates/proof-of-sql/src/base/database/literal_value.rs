@@ -124,13 +124,21 @@ mod tests {
         assert_eq!(bigint_val.column_type(), ColumnType::BigInt);
         assert_eq!(int128_val.column_type(), ColumnType::Int128);
 
-        // Test scalar conversion
-        let _uint8_scalar: TestScalar = uint8_val.to_scalar();
-        let _tinyint_scalar: TestScalar = tinyint_val.to_scalar();
-        let _smallint_scalar: TestScalar = smallint_val.to_scalar();
-        let _int_scalar: TestScalar = int_val.to_scalar();
-        let _bigint_scalar: TestScalar = bigint_val.to_scalar();
-        let _int128_scalar: TestScalar = int128_val.to_scalar();
+        // Test scalar conversion and verify values
+        let uint8_scalar: TestScalar = uint8_val.to_scalar();
+        let tinyint_scalar: TestScalar = tinyint_val.to_scalar();
+        let smallint_scalar: TestScalar = smallint_val.to_scalar();
+        let int_scalar: TestScalar = int_val.to_scalar();
+        let bigint_scalar: TestScalar = bigint_val.to_scalar();
+        let int128_scalar: TestScalar = int128_val.to_scalar();
+
+        // Verify the scalar values match the original values
+        assert_eq!(uint8_scalar, TestScalar::from(255u8));
+        assert_eq!(tinyint_scalar, TestScalar::from(-128i8));
+        assert_eq!(smallint_scalar, TestScalar::from(-32768i16));
+        assert_eq!(int_scalar, TestScalar::from(-2_147_483_648i32));
+        assert_eq!(bigint_scalar, TestScalar::from(-9_223_372_036_854_775_808i64));
+        assert_eq!(int128_scalar, TestScalar::from(-170_141_183_460_469_231_731_687_303_715_884_105_728i128));
     }
 
     #[test]
