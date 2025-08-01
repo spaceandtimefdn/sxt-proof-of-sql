@@ -315,17 +315,15 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
                     right_end += 1;
                 }
 
-                // Pre-allocate space for the cartesian product
-                let left_count = left_end - left_start;
-                let right_count = right_end - right_start;
-                result.reserve(left_count * right_count);
-
-                // Generate the cartesian product
-                for left_index in left_indexes.iter().take(left_end).skip(left_start) {
-                    for right_index in right_indexes.iter().take(right_end).skip(right_start) {
-                        result.push((*left_index, *right_index));
-                    }
-                }
+                result.extend(
+                    left_indexes[left_start..left_end]
+                        .iter()
+                        .flat_map(|&left_index| {
+                            right_indexes[right_start..right_end]
+                                .iter()
+                                .map(move |&right_index| (left_index, right_index))
+                        }),
+                );
 
                 // Move positions forward
                 left_pos = left_end;
@@ -334,7 +332,7 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
         }
     }
 
-    result.sort_unstable();
+    if_rayon!(result.par_sort_unstable(), result.sort_unstable());
     span.exit();
 
     result
