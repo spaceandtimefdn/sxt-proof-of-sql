@@ -127,3 +127,6 @@ mod order_by_util_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod join_util;
+
+#[cfg(test)]
+mod nullable_column_test;

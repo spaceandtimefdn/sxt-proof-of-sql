@@ -1,0 +1,12 @@
+[package]
+name = "nullable_columns"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "main.rs"
+
+[dependencies]
+proof-of-sql = { path = "../../../proof-of-sql", features = ["test"] }
+ark-std = "0.4"
