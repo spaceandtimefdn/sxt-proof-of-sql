@@ -117,8 +117,6 @@ library Shift {
                 let rho_plus_one_eval := builder_consume_rho_evaluation(builder_ptr)
                 let c_star_eval := builder_consume_final_round_mle(builder_ptr)
                 let d_star_eval := builder_consume_final_round_mle(builder_ptr)
-                // sum c_star - d_star = 0
-                builder_produce_zerosum_constraint(builder_ptr, submod_bn254(c_star_eval, d_star_eval), 1)
                 // c_star + c_fold * c_star - chi_n_plus_1 = 0
                 {
                     let c_fold := compute_shift_fold(alpha, beta, expr_eval, addmod_bn254(rho_eval, chi_eval))
@@ -133,6 +131,8 @@ library Shift {
                         builder_ptr, compute_shift_identity_constraint(d_star_eval, chi_plus_one_eval, d_fold), 2
                     )
                 }
+                // sum c_star - d_star = 0
+                builder_produce_zerosum_constraint(builder_ptr, submod_bn254(c_star_eval, d_star_eval), 1)
             }
 
             __shiftedExprEval, __chiPlusOneEval := shift_evaluate(__builder, __alpha, __beta, __exprEval, __chiEval)
