@@ -108,6 +108,7 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
 
     slice_ops::add_const::<S, S>(c_star, One::one());
     slice_ops::batch_inversion(c_star);
+    builder.produce_intermediate_mle(c_star as &[_]);
 
     let span = span!(
         Level::DEBUG,
@@ -121,8 +122,6 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
 
     slice_ops::add_const::<S, S>(d_star, One::one());
     slice_ops::batch_inversion(d_star);
-
-    builder.produce_intermediate_mle(c_star as &[_]);
     builder.produce_intermediate_mle(d_star as &[_]);
 
     // c_star + c_fold * c_star - chi_n_plus_1 = 0
@@ -173,8 +172,8 @@ pub(crate) fn verify_shift<S: Scalar>(
     let rho_n_eval = builder.try_consume_rho_evaluation()?;
     let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?;
     let c_fold_eval = alpha * fold_vals(beta, &[rho_n_eval + chi_n_eval, column_eval]);
-    let d_fold_eval = alpha * fold_vals(beta, &[rho_n_plus_1_eval, shifted_column_eval]);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+    let d_fold_eval = alpha * fold_vals(beta, &[rho_n_plus_1_eval, shifted_column_eval]);
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
     // c_star + c_fold * c_star - chi_n_plus_1 = 0
