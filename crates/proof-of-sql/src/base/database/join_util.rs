@@ -246,10 +246,24 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
     }
 
     // Sort indexes by the join columns
-    let left_indexes =
-        (0..left_num_rows).sorted_unstable_by(|&a, &b| compare_indexes_by_columns(left_on, a, b));
-    let right_indexes =
-        (0..right_num_rows).sorted_unstable_by(|&a, &b| compare_indexes_by_columns(right_on, a, b));
+    let span = span!(
+        Level::DEBUG,
+        "JoinUtil::get_sort_merge_join_indexes sort indexes"
+    )
+    .entered();
+    let mut left_indexes: Vec<usize> = (0..left_num_rows).collect();
+    let mut right_indexes: Vec<usize> = (0..right_num_rows).collect();
+
+    if_rayon!(
+        left_indexes.par_sort_unstable_by(|&a, &b| compare_indexes_by_columns(left_on, a, b)),
+        left_indexes.sort_unstable_by(|&a, &b| compare_indexes_by_columns(left_on, a, b))
+    );
+
+    if_rayon!(
+        right_indexes.par_sort_unstable_by(|&a, &b| compare_indexes_by_columns(right_on, a, b)),
+        right_indexes.sort_unstable_by(|&a, &b| compare_indexes_by_columns(right_on, a, b))
+    );
+    span.exit();
 
     let mut left_iter = left_indexes.into_iter().peekable();
     let mut right_iter = right_indexes.into_iter().peekable();
