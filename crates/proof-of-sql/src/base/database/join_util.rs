@@ -265,56 +265,76 @@ pub(crate) fn get_sort_merge_join_indexes<'a, S: Scalar>(
     );
     span.exit();
 
-    let mut left_iter = left_indexes.into_iter().peekable();
-    let mut right_iter = right_indexes.into_iter().peekable();
+    let span = span!(
+        Level::DEBUG,
+        "JoinUtil::get_sort_merge_join_indexes compute join"
+    )
+    .entered();
+    let mut result = Vec::new();
+    let mut left_pos = 0;
+    let mut right_pos = 0;
 
-    core::iter::from_fn(move || {
-        let (&left_index, &right_index) = (left_iter.peek()?, right_iter.peek()?);
+    while left_pos < left_indexes.len() && right_pos < right_indexes.len() {
+        let left_idx = left_indexes[left_pos];
+        let right_idx = right_indexes[right_pos];
 
-        match compare_single_row_of_tables(left_on, right_on, left_index, right_index).ok()? {
-            Ordering::Less => {
-                left_iter.next();
-                Some(Vec::new())
+        match compare_single_row_of_tables(left_on, right_on, left_idx, right_idx) {
+            Ok(comparison_result) => {
+                match comparison_result {
+                    Ordering::Less => {
+                        left_pos += 1;
+                    }
+                    Ordering::Greater => {
+                        right_pos += 1;
+                    }
+                    Ordering::Equal => {
+                        // Find all matching rows in left
+                        let left_start = left_pos;
+                        let mut left_end = left_pos;
+
+                        while left_end < left_indexes.len()
+                            && compare_indexes_by_columns(left_on, left_idx, left_indexes[left_end])
+                                == Ordering::Equal
+                        {
+                            left_end += 1;
+                        }
+
+                        // Find all matching rows in right
+                        let right_start = right_pos;
+                        let mut right_end = right_pos;
+
+                        while right_end < right_indexes.len()
+                            && compare_indexes_by_columns(
+                                right_on,
+                                right_idx,
+                                right_indexes[right_end],
+                            ) == Ordering::Equal
+                        {
+                            right_end += 1;
+                        }
+
+                        // Create the cartesian product of the matching rows
+                        result.extend(
+                            left_indexes[left_start..left_end]
+                                .iter()
+                                .cartesian_product(right_indexes[right_start..right_end].iter())
+                                .map(|(&left_index, &right_index)| (left_index, right_index)),
+                        );
+
+                        // Move positions forward
+                        left_pos = left_end;
+                        right_pos = right_end;
+                    }
+                }
             }
-            Ordering::Greater => {
-                right_iter.next();
-                Some(Vec::new())
-            }
-            Ordering::Equal => {
-                // Gather all rows from left_iter matching the current key
-                let left_group: Vec<_> = left_iter
-                    .clone()
-                    .take_while(|&lidx| {
-                        compare_indexes_by_columns(left_on, left_index, lidx) == Ordering::Equal
-                    })
-                    .collect();
-
-                // Gather all rows from right_iter matching the current key
-                let right_group: Vec<_> = right_iter
-                    .clone()
-                    .take_while(|&ridx| {
-                        compare_indexes_by_columns(right_on, right_index, ridx) == Ordering::Equal
-                    })
-                    .collect();
-
-                // Advance the iterators
-                left_iter.nth(left_group.len() - 1);
-                right_iter.nth(right_group.len() - 1);
-
-                // Generate all pairs (Cartesian product)
-                let pairs: Vec<_> = left_group
-                    .iter()
-                    .cartesian_product(right_group.iter())
-                    .map(|(&lidx, &ridx)| (lidx, ridx))
-                    .collect();
-
-                Some(pairs)
-            }
+            Err(_) => return Vec::new(),
         }
-    })
-    .flatten()
-    .sorted()
-    .collect::<Vec<(usize, usize)>>()
+    }
+
+    if_rayon!(result.par_sort_unstable(), result.sort_unstable());
+    span.exit();
+
+    result
 }
 
 pub(crate) struct JoinProverUtilities<'a, S: Scalar> {
