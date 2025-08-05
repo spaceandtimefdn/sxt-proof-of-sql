@@ -265,14 +265,22 @@ library FoldLogExpr {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
+            function fold_log_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
+                fold,
+                star,
+                evaluations_ptr
+            {
+                fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
+                fold := mulmod_bn254(alpha, fold)
+                star := fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval)
+            }
             function fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
                 star,
                 evaluations_ptr
             {
                 let fold
-                fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
-                fold := mulmod_bn254(alpha, fold)
-                star := fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval)
+                fold, star, evaluations_ptr :=
+                    fold_log_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval)
             }
 
             __star, __evaluations :=
