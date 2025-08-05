@@ -38,14 +38,14 @@ impl<S: Scalar> FoldLogExpr<S> {
         Ok((star_eval, fold_eval))
     }
 
-    pub fn final_round_evaluate<'a>(
+    pub fn final_round_evaluate_with_chi<'a>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
         alloc: &'a Bump,
         columns: &[Column<S>],
         length: usize,
+        chi: &'a [bool],
     ) -> (&'a [S], &'a [S]) {
-        let chi = alloc.alloc_slice_fill_copy(length, true);
         let fold = alloc.alloc_slice_fill_copy(length, Zero::zero());
         fold_columns(fold, self.alpha, self.beta, columns);
         let star = alloc.alloc_slice_copy(fold);
@@ -65,5 +65,16 @@ impl<S: Scalar> FoldLogExpr<S> {
             ],
         );
         (star, fold)
+    }
+
+    pub fn final_round_evaluate<'a>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        columns: &[Column<S>],
+        length: usize,
+    ) -> (&'a [S], &'a [S]) {
+        let chi = alloc.alloc_slice_fill_copy(length, true);
+        self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
