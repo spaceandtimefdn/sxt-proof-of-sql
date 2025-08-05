@@ -14,7 +14,6 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
         proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
-        proof_plans::fold_vals,
     },
     utils::log,
 };
@@ -118,13 +117,12 @@ where
         let filtered_columns_evals =
             builder.try_consume_first_round_mle_evaluations(columns_evals.len())?;
 
-        let c_fold_eval = alpha * fold_vals(beta, columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
         verify_evaluate_filter(
             builder,
-            c_fold_eval,
-            d_fold_eval,
+            alpha,
+            beta,
+            columns_evals,
+            &filtered_columns_evals,
             input_eval,
             output_chi_eval,
             selection_eval,

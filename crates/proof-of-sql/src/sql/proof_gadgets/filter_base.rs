@@ -2,22 +2,27 @@ use crate::{
     base::{database::Column, proof::ProofError, scalar::Scalar, slice_ops},
     sql::{
         proof::{FinalRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder},
-        proof_plans::fold_columns,
+        proof_plans::{fold_columns, fold_vals},
     },
 };
 use alloc::{boxed::Box, vec};
 use ark_ff::{One, Zero};
 use bumpalo::Bump;
 
-#[expect(clippy::similar_names)]
+#[expect(clippy::similar_names, clippy::too_many_arguments)]
 pub(crate) fn verify_evaluate_filter<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
-    c_fold_eval: S,
-    d_fold_eval: S,
+    alpha: S,
+    beta: S,
+    columns_evals: &[S],
+    filtered_column_evals: &[S],
     chi_n_eval: S,
     chi_m_eval: S,
     s_eval: S,
 ) -> Result<(), ProofError> {
+    let c_fold_eval = alpha * fold_vals(beta, columns_evals);
+    let d_fold_eval = alpha * fold_vals(beta, filtered_column_evals);
+
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
     let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
 
