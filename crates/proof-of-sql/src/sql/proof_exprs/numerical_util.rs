@@ -39,6 +39,7 @@ pub(crate) fn add_subtract_columns<'a, S: Scalar>(
 /// Multiply two columns together.
 /// # Panics
 /// Panics if: `lhs` and `rhs` are not of the same length.
+#[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn multiply_columns<'a, S: Scalar>(
     lhs: &Column<'a, S>,
     rhs: &Column<'a, S>,
