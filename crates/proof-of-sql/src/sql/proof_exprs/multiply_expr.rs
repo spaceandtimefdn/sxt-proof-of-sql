@@ -67,11 +67,7 @@ impl ProofExpr for MultiplyExpr {
         Ok(Column::Decimal75(self.precision(), self.scale(), res))
     }
 
-    #[tracing::instrument(
-        name = "proofs.sql.ast.multiply_expr.final_round_evaluate",
-        level = "info",
-        skip_all
-    )]
+    #[tracing::instrument(name = "MultiplyExpr::final_round_evaluate", level = "info", skip_all)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,

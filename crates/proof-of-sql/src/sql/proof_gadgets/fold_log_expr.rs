@@ -38,6 +38,11 @@ impl<S: Scalar> FoldLogExpr<S> {
         Ok((star_eval, fold_eval))
     }
 
+    #[tracing::instrument(
+        name = "FoldLogExpr::final_round_evaluate_with_chi",
+        level = "debug",
+        skip_all
+    )]
     pub fn final_round_evaluate_with_chi<'a>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,

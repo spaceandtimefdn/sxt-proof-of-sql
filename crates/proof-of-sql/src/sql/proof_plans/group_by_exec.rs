@@ -31,6 +31,7 @@ use core::iter;
 use num_traits::One;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
+use tracing::{span, Level};
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -361,6 +362,7 @@ impl ProverEvaluate for GroupByExec {
     }
 
     #[tracing::instrument(name = "GroupByExec::final_round_evaluate", level = "debug", skip_all)]
+    #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -401,6 +403,11 @@ impl ProverEvaluate for GroupByExec {
             .expect("selection is not boolean");
 
         // Compute sum_in_fold
+        let span = span!(
+            Level::DEBUG,
+            "GroupByExec::final_round_evaluate sum_columns"
+        )
+        .entered();
         let sum_columns = self
             .sum_expr
             .iter()
@@ -410,7 +417,16 @@ impl ProverEvaluate for GroupByExec {
                     .final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
+        span.exit();
+
+        let span = span!(
+            Level::DEBUG,
+            "GroupByExec::final_round_evaluate allocate sum_in_fold"
+        )
+        .entered();
         let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());
+        span.exit();
+
         fold_columns(sum_in_fold, beta, beta, &sum_columns);
         // End compute sum_in_fold
 
