@@ -251,6 +251,21 @@ library GroupByExec {
             ) -> plan_ptr_out, star {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
+                star,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
+                fold,
+                star,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
             function fold_first_round_mles(builder_ptr, column_count, beta) -> fold, evaluations_ptr {
                 revert(0, 0)
@@ -326,20 +341,11 @@ library GroupByExec {
             function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
                 g_out_star_eval
             {
-                let mle := builder_consume_first_round_mle(builder_ptr)
+                let mles
+                g_out_star_eval, mles := fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, 1, output_chi_eval)
+                let mle := mload(add(mles, WORD_SIZE))
                 mstore(evaluations_ptr, mle)
                 evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
-                let g_out_fold := mulmod_bn254(mle, alpha)
-                g_out_star_eval := builder_consume_final_round_mle(builder_ptr)
-                // Second constraint: g_out_star + g_out_star * g_out_fold - output_chi_eval = 0
-                builder_produce_identity_constraint(
-                    builder_ptr,
-                    submod_bn254(
-                        addmod_bn254(g_out_star_eval, mulmod_bn254(g_out_star_eval, g_out_fold)), output_chi_eval
-                    ),
-                    2
-                )
-                // Uniqueness constraint, currently only for single group by column using monotonicity
                 monotonic_verify(builder_ptr, alpha, beta, mle, output_chi_eval, 1, 1)
             }
             function compute_sum_out_fold_eval(
