@@ -114,15 +114,12 @@ where
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(columns_evals.len())?;
 
-        verify_evaluate_filter(
+        let filtered_columns_evals = verify_evaluate_filter(
             builder,
             alpha,
             beta,
             columns_evals,
-            &filtered_columns_evals,
             input_eval,
             output_chi_eval,
             selection_eval,
