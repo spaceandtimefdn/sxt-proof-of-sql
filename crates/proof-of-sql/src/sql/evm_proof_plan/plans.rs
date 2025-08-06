@@ -552,6 +552,106 @@ mod tests {
     }
 
     #[test]
+    fn we_can_put_projection_exec_with_filter_in_evm() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let alias_a = "alias_a".to_string();
+        let alias_b = "alias_b".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        // Create a filter exec to use as the input
+        let filter_exec = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    alias: Ident::new(alias_b.clone()),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    alias: Ident::new(alias_a.clone()),
+                },
+            ],
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            DynProofExpr::Equals(
+                EqualsExpr::try_new(
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Literal(LiteralExpr::new(
+                        LiteralValue::BigInt(5),
+                    ))),
+                )
+                .unwrap(),
+            ),
+        );
+
+        // Create a projection exec
+        let projection_exec = ProjectionExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    alias: Ident::new(alias_b.clone()),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    alias: Ident::new(alias_a.clone()),
+                },
+            ],
+            Box::new(DynProofPlan::Filter(filter_exec)),
+        );
+
+        // Convert to EVM plan
+        let evm_projection_exec = EVMProjectionExec::try_from_proof_plan(
+            &projection_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+
+        // Verify the structure
+        assert_eq!(evm_projection_exec.results.len(), 2);
+        assert!(matches!(
+            evm_projection_exec.results[0],
+            EVMDynProofExpr::Column(_)
+        ));
+        assert!(matches!(
+            evm_projection_exec.results[1],
+            EVMDynProofExpr::Column(_)
+        ));
+        assert!(matches!(
+            *evm_projection_exec.input_plan,
+            EVMDynProofPlan::Filter(_)
+        ));
+
+        // Roundtrip
+        let roundtripped_projection_exec = EVMProjectionExec::try_into_proof_plan(
+            &evm_projection_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            &indexset![alias_a, alias_b],
+        )
+        .unwrap();
+
+        // Verify the roundtripped plan has the expected structure
+        assert_eq!(roundtripped_projection_exec.aliased_results().len(), 2);
+        assert!(matches!(
+            roundtripped_projection_exec.aliased_results()[0].expr,
+            DynProofExpr::Column(_)
+        ));
+        assert!(matches!(
+            roundtripped_projection_exec.aliased_results()[1].expr,
+            DynProofExpr::Column(_)
+        ));
+        assert!(matches!(
+            *roundtripped_projection_exec.input(),
+            DynProofPlan::Filter(_)
+        ));
+    }
+
+    #[test]
     fn we_can_put_slice_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
