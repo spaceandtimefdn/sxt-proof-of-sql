@@ -112,16 +112,12 @@ where
                 .collect::<Result<Vec<_>, _>>()?,
         );
         // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        verify_evaluate_filter(
+        let filtered_columns_evals = verify_evaluate_filter(
             builder,
             alpha,
             beta,
             &columns_evals,
-            &filtered_columns_evals,
             input_chi_eval.0,
             output_chi_eval.0,
             selection_eval,
