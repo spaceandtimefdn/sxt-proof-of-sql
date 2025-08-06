@@ -255,15 +255,6 @@ library SliceExec {
             function projection_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL FilterExec.pre.sol
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
-                plan_ptr_out,
-                c_fold,
-                d_fold,
-                evaluations_ptr
-            {
-                revert(0, 0)
-            }
             // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
@@ -373,10 +364,28 @@ library SliceExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_expr_evals(
+                plan_ptr, builder_ptr, input_chi_eval, alpha, beta, column_count
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter_from_expr_evals(
+                plan_ptr, builder_ptr, num_columns, input_chi_eval, output_chi_eval, selection_eval
+            ) -> plan_ptr_out, filtered_columns {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
             function fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
                 star,
                 evaluations_ptr
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter_from_column_evals(
+                builder_ptr, column_evals, input_chi_eval, output_chi_eval, selection_eval
+            ) -> filtered_columns {
                 revert(0, 0)
             }
             // IMPORT-YUL UnionExec.pre.sol
@@ -444,30 +453,22 @@ library SliceExec {
                 plan_ptr_out := plan_ptr
             }
 
-            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
-                let alpha := builder_consume_challenge(builder_ptr)
-                let beta := builder_consume_challenge(builder_ptr)
-                c_fold := mulmod_bn254(alpha, compute_fold(beta, input_evaluations_ptr))
-                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, mload(input_evaluations_ptr))
-                d_fold := mulmod_bn254(alpha, d_fold)
-            }
-
             function slice_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
                 evaluations_ptr,
                 output_length,
                 output_chi_eval
             {
-                let c_fold, d_fold, input_chi_eval, selection_eval
-                {
-                    let input_length, input_evaluations_ptr
-                    plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
-                        proof_plan_evaluate(plan_ptr, builder_ptr)
-                    plan_ptr_out, output_length, output_chi_eval, selection_eval :=
-                        get_and_verify_slice_length(plan_ptr, builder_ptr, input_length)
-                    c_fold, d_fold, evaluations_ptr := compute_slice_folds(builder_ptr, input_evaluations_ptr)
-                }
-                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
+                let input_chi_eval, selection_eval
+                let input_length, input_evaluations_ptr
+                plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
+                    proof_plan_evaluate(plan_ptr, builder_ptr)
+                plan_ptr_out, output_length, output_chi_eval, selection_eval :=
+                    get_and_verify_slice_length(plan_ptr, builder_ptr, input_length)
+                evaluations_ptr :=
+                    verify_filter_from_column_evals(
+                        builder_ptr, input_evaluations_ptr, input_chi_eval, output_chi_eval, selection_eval
+                    )
             }
 
             let __planOutOffset

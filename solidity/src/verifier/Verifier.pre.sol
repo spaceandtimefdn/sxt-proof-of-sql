@@ -774,15 +774,6 @@ library Verifier {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_plans/FilterExec.pre.sol
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
-                plan_ptr_out,
-                c_fold,
-                d_fold,
-                evaluations_ptr
-            {
-                revert(0, 0)
-            }
             // IMPORT-YUL ../proof_plans/EmptyExec.pre.sol
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_length, output_chi_eval {
                 revert(0, 0)
@@ -797,6 +788,18 @@ library Verifier {
                 star,
                 evaluations_ptr
             {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_expr_evals(
+                plan_ptr, builder_ptr, input_chi_eval, alpha, beta, column_count
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter_from_expr_evals(
+                plan_ptr, builder_ptr, num_columns, input_chi_eval, output_chi_eval, selection_eval
+            ) -> plan_ptr_out, filtered_columns {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
@@ -873,8 +876,10 @@ library Verifier {
             {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_plans/SliceExec.pre.sol
-            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter_from_column_evals(
+                builder_ptr, column_evals, input_chi_eval, output_chi_eval, selection_eval
+            ) -> filtered_columns {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_plans/SliceExec.pre.sol

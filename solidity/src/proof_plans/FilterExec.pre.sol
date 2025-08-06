@@ -255,22 +255,33 @@ library FilterExec {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval) -> star {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_evaluate_from_mles(builder_ptr, alpha, beta, column_count, chi_eval) ->
+                fold,
+                star,
+                evaluations_ptr
+            {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../proof_gadgets/FoldLogExpr.pre.sol
+            function fold_log_star_evaluate_from_expr_evals(
+                plan_ptr, builder_ptr, input_chi_eval, alpha, beta, column_count
+            ) -> plan_ptr_out, star {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
             }
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
-                plan_ptr_out,
-                c_fold,
-                d_fold,
-                evaluations_ptr
-            {
-                let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-
-                plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
-                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
-                plan_ptr_out := plan_ptr
+            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            function verify_filter_from_expr_evals(
+                plan_ptr, builder_ptr, num_columns, input_chi_eval, output_chi_eval, selection_eval
+            ) -> plan_ptr_out, filtered_columns {
+                revert(0, 0)
             }
 
             // IMPORT-YUL TableExec.pre.sol
@@ -284,25 +295,21 @@ library FilterExec {
                 output_length,
                 output_chi_eval
             {
-                let input_chi_eval, selection_eval, c_fold, d_fold
-                {
-                    let alpha := builder_consume_challenge(builder_ptr)
-                    let beta := builder_consume_challenge(builder_ptr)
+                let input_chi_eval :=
+                    builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
 
-                    input_chi_eval :=
-                        builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
-                    plan_ptr := add(plan_ptr, UINT64_SIZE)
-
-                    plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
-
-                    plan_ptr, c_fold, d_fold, evaluations_ptr :=
-                        compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
-                    c_fold := mulmod_bn254(alpha, c_fold)
-                    d_fold := mulmod_bn254(alpha, d_fold)
-                }
+                let selection_eval
+                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
                 output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
-                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
+                let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+
+                plan_ptr, evaluations_ptr :=
+                    verify_filter_from_expr_evals(
+                        plan_ptr, builder_ptr, column_count, input_chi_eval, output_chi_eval, selection_eval
+                    )
 
                 plan_ptr_out := plan_ptr
             }
