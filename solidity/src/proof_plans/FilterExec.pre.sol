@@ -274,10 +274,6 @@ library FilterExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
-            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
             function verify_filter_from_expr_evals(
                 plan_ptr, builder_ptr, num_columns, input_chi_eval, output_chi_eval, selection_eval
             ) -> plan_ptr_out, filtered_columns {

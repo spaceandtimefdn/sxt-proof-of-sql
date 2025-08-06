@@ -191,10 +191,6 @@ library ProjectionExec {
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
-            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
-                revert(0, 0)
-            }
             // IMPORT-YUL SliceExec.pre.sol
             function get_and_verify_slice_length(plan_ptr, builder_ptr, input_length) ->
                 plan_ptr_out,

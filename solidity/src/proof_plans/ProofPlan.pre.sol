@@ -252,10 +252,6 @@ library ProofPlan {
             {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
-            function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
-                revert(0, 0)
-            }
             // IMPORT-YUL EmptyExec.pre.sol
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_length, output_chi_eval {
                 revert(0, 0)
