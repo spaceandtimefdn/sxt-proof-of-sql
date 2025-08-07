@@ -85,7 +85,7 @@ blitzar = ["dep:blitzar", "dep:merlin", "std"]
 hyperkzg_proof = ["dep:nova-snark", "std", "dep:ff", "dep:halo2curves", "blitzar"]
 test = ["dep:rand", "std"]
 perf = ["blitzar", "cpu-perf"]
-cpu-perf = ["rayon", "ark-ec/parallel", "ark-poly/parallel", "ark-ff/asm"]
+cpu-perf = ["rayon", "ark-ec/parallel", "ark-poly/parallel", "ark-ff/asm", "halo2curves/asm"]
 rayon = ["dep:rayon", "std"]
 std = ["snafu/std", "ark-serialize/std", "dep:sysinfo" ]
 
