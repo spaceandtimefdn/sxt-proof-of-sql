@@ -132,10 +132,12 @@ library ResultVerifier {
                     if sub(table_len, column_length) { err(ERR_INCONSISTENT_RESULT_COLUMN_LENGTHS) }
 
                     value := mulmod(MODULUS_MINUS_ONE, value, MODULUS)
-                    for { let i := 0 } sub(table_len, i) { i := add(i, 1) } {
+                    let temp_eval_vec := eval_vec
+                    for { let i := table_len } i { i := sub(i, 1) } {
                         let entry
                         result_ptr, entry := read_entry(result_ptr, data_type_variant)
-                        value := addmod_bn254(value, mulmod_bn254(entry, mload(add(eval_vec, mul(i, WORD_SIZE)))))
+                        value := addmod_bn254(value, mulmod_bn254(entry, mload(temp_eval_vec)))
+                        temp_eval_vec := add(temp_eval_vec, WORD_SIZE)
                     }
                     if value { err(ERR_INCORRECT_RESULT) }
                 }

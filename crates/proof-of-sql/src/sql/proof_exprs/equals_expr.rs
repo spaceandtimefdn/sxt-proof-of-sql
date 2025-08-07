@@ -128,7 +128,11 @@ impl ProofExpr for EqualsExpr {
     }
 }
 
-#[tracing::instrument(level = "debug", skip_all)]
+#[tracing::instrument(
+    name = "EqualsExpr::first_round_evaluate_equals_zero",
+    level = "debug",
+    skip_all
+)]
 pub fn first_round_evaluate_equals_zero<'a, S: Scalar>(
     table_length: usize,
     alloc: &'a Bump,
@@ -138,7 +142,11 @@ pub fn first_round_evaluate_equals_zero<'a, S: Scalar>(
     alloc.alloc_slice_fill_with(table_length, |i| lhs[i] == S::zero())
 }
 
-#[tracing::instrument(level = "debug", skip_all)]
+#[tracing::instrument(
+    name = "EqualsExpr::final_round_evaluate_equals_zero",
+    level = "debug",
+    skip_all
+)]
 pub fn final_round_evaluate_equals_zero<'a, S: Scalar>(
     table_length: usize,
     builder: &mut FinalRoundBuilder<'a, S>,
