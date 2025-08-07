@@ -1,0 +1,54 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Fold Gadget}
+\author{MakeInfinite Inc}
+\date{August 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $(C_j)$ be a collection of $J$ columns all of length $n$. Request two challenges $\alpha$ and $\beta$. For integer $i\in[0,n)$, we define the fold function $f$ by 
+$$f(c_{i,0},c_{i,1},\cdots,c_{i,J-1})=\sum_{j=0}^{J-1}c_{i,j}\cdot\beta^j$$
+and the star function $f^\star$ by
+$$f^\star(c_{i,0},c_{i,1},\cdots,c_{i,J-1})=\frac{1}{1+\alpha\cdot f(c_{i,0},c_{i,1},\cdots,c_{i,J-1})}.$$
+Note that $f^\star$ is using field division.
+The column $C^\star=f^\star((C_j))$ if and only if the constraints hold.
+\section{Constraints}
+\begin{itemize}
+    \item Plan values: None.
+    \item Inputs: $(C_j)$.
+    \item Input assumptions: $n$ is the length of each $C_j$. Each $C_j$ is evaluated in the first round.
+    \item Outputs: $C^\star=(c^\star_i)$.
+    \item Challenges: $\alpha$, $\beta$.
+    \item Constraints:
+    \begin{eqnarray}
+    c^\star\cdot(1+\alpha\cdot f(c_{i,0},\cdots,c_{i,J-1}))-\chi_n(i)&=&0
+    \end{eqnarray}
+    
+    
+\end{itemize}
+
+\section{Completeness}
+Completeness holds trivially.
+\section{Soundness}
+Soundness holds trivially.
+\end{document}
