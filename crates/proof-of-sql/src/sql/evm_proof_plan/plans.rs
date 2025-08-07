@@ -5,6 +5,7 @@ use crate::{
         map::IndexSet,
     },
     sql::{
+        proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
             DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, TableExec,
@@ -236,6 +237,12 @@ impl EVMProjectionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        let input_result_column_refs = plan
+            .input()
+            .get_column_result_fields()
+            .into_iter()
+            .map(|f| ColumnRef::new(TableRef::None, f.name(), f.data_type()))
+            .collect();
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
                 plan.input(),
@@ -245,7 +252,9 @@ impl EVMProjectionExec {
             results: plan
                 .aliased_results()
                 .iter()
-                .map(|result| EVMDynProofExpr::try_from_proof_expr(&result.expr, column_refs))
+                .map(|result| {
+                    EVMDynProofExpr::try_from_proof_expr(&result.expr, &input_result_column_refs)
+                })
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -256,22 +265,26 @@ impl EVMProjectionExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<ProjectionExec> {
+        let input =
+            self.input_plan
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let input_result_column_refs = input
+            .get_column_result_fields()
+            .into_iter()
+            .map(|f| ColumnRef::new(TableRef::None, f.name(), f.data_type()))
+            .collect();
         Ok(ProjectionExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
                 .map(|(expr, name)| {
                     Ok(AliasedDynProofExpr {
-                        expr: expr.try_into_proof_expr(column_refs)?,
+                        expr: expr.try_into_proof_expr(&input_result_column_refs)?,
                         alias: Ident::new(name),
                     })
                 })
                 .collect::<EVMProofPlanResult<Vec<_>>>()?,
-            Box::new(self.input_plan.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?),
+            Box::new(input),
         ))
     }
 }
@@ -1178,12 +1191,16 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(
-                                top_column_ref_a.clone(),
-                            ))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(
-                                top_column_ref_b.clone(),
-                            ))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                                TableRef::None,
+                                ident_a.clone(),
+                                ColumnType::BigInt,
+                            )))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                                TableRef::None,
+                                ident_b.clone(),
+                                ColumnType::BigInt,
+                            )))),
                         )
                         .unwrap(),
                     ),
@@ -1198,12 +1215,16 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(
-                                bottom_column_ref_a.clone(),
-                            ))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(
-                                bottom_column_ref_b.clone(),
-                            ))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                                TableRef::None,
+                                ident_a.clone(),
+                                ColumnType::BigInt,
+                            )))),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                                TableRef::None,
+                                ident_b.clone(),
+                                ColumnType::BigInt,
+                            )))),
                         )
                         .unwrap(),
                     ),

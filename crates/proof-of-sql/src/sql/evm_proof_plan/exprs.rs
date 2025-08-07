@@ -1,14 +1,15 @@
 use super::{EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
-        database::{ColumnRef, ColumnType, LiteralValue},
+        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
         map::IndexSet,
         math::{decimal::Precision, i256::I256},
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
-        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ScalingCastExpr, SubtractExpr,
+        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr,
+        SubtractExpr,
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -150,6 +151,13 @@ impl EVMColumnExpr {
         Ok(Self {
             column_number: column_refs
                 .get_index_of(expr.column_ref())
+                .or_else(|| {
+                    column_refs.get_index_of(&ColumnRef::new(
+                        TableRef::None,
+                        expr.column_id(),
+                        expr.data_type(),
+                    ))
+                })
                 .ok_or(EVMProofPlanError::ColumnNotFound)?,
         })
     }

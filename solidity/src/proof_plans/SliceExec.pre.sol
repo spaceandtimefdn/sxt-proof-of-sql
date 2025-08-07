@@ -273,6 +273,14 @@ library SliceExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_column_evaluations(builder_ptr) -> values_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_column_evaluations(builder_ptr, values_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
                 revert(0, 0)
             }

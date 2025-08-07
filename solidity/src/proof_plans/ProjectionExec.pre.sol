@@ -378,6 +378,14 @@ library ProjectionExec {
                 revert(0, 0)
             }
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_column_evaluations(builder_ptr) -> values_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_column_evaluations(builder_ptr, values_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
@@ -432,6 +440,9 @@ library ProjectionExec {
                 plan_ptr, input_evaluations_ptr, output_length, output_chi_eval :=
                     proof_plan_evaluate(plan_ptr, builder_ptr)
 
+                let save_builder_evaluations := builder_get_column_evaluations(builder_ptr)
+                builder_set_column_evaluations(builder_ptr, input_evaluations_ptr)
+
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 
@@ -447,6 +458,8 @@ library ProjectionExec {
 
                     mstore(target_ptr, evaluation)
                 }
+                builder_set_column_evaluations(builder_ptr, save_builder_evaluations)
+
                 plan_ptr_out := plan_ptr
             }
 
