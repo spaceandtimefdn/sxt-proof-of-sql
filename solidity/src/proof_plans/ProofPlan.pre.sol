@@ -206,6 +206,14 @@ library ProofPlan {
             }
             // slither-disable-end cyclomatic-complexity
             // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_get_column_evaluations(builder_ptr) -> values_ptr {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            function builder_set_column_evaluations(builder_ptr, values_ptr) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
