@@ -14,7 +14,6 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
         proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
-        proof_plans::fold_vals,
     },
     utils::log,
 };
@@ -112,19 +111,15 @@ where
         }
 
         let selection_eval = max_chi_eval - offset_chi_eval;
-        // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(columns_evals.len())?;
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
+        // 3. filtered_columns
 
-        let c_fold_eval = alpha * fold_vals(beta, columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
-        verify_evaluate_filter(
+        let filtered_columns_evals = verify_evaluate_filter(
             builder,
-            c_fold_eval,
-            d_fold_eval,
+            alpha,
+            beta,
+            columns_evals,
             input_eval,
             output_chi_eval,
             selection_eval,
@@ -175,6 +170,10 @@ impl ProverEvaluate for SliceExec {
             input_length
         };
         let output_length = max_index - offset_index;
+        builder.produce_chi_evaluation_length(output_length);
+        builder.produce_chi_evaluation_length(offset_index);
+        builder.produce_chi_evaluation_length(max_index);
+        builder.request_post_result_challenges(2);
         // Compute filtered_columns
         let (filtered_columns, _) = filter_columns(alloc, &columns, &select);
         // 3. Produce MLEs
@@ -189,10 +188,6 @@ impl ProverEvaluate for SliceExec {
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");
-        builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(output_length);
-        builder.produce_chi_evaluation_length(offset_index);
-        builder.produce_chi_evaluation_length(max_index);
 
         log::log_memory_usage("End");
 
@@ -218,10 +213,10 @@ impl ProverEvaluate for SliceExec {
         let select = get_slice_select(input.num_rows(), self.skip, self.fetch);
         let select_ref: &'a [_] = alloc.alloc_slice_copy(&select);
         let output_length = select.iter().filter(|b| **b).count();
-        // Compute filtered_columns and indexes
-        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
+        // Compute filtered_columns and indexes
+        let (filtered_columns, result_len) = filter_columns(alloc, &columns, &select);
 
         final_round_evaluate_filter::<S>(
             builder,
