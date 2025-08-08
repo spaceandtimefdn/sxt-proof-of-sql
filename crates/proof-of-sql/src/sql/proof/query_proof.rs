@@ -102,7 +102,7 @@ pub struct QueryProof<CP: CommitmentEvaluationProof> {
 
 impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
     /// Create a new `QueryProof`.
-    #[tracing::instrument(name = "QueryProof::new", level = "debug", skip_all)]
+    #[tracing::instrument(name = "QueryProof::new", level = "debug", skip(accessor, setup))]
     #[expect(clippy::too_many_lines)]
     pub fn new(
         expr: &(impl ProofPlan + Serialize),
@@ -113,6 +113,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         log::log_memory_usage("Start");
 
         let (min_row_num, max_row_num) = get_index_range(accessor, &expr.get_table_references());
+        tracing::info!("Index range: {}-{}", min_row_num, max_row_num);
         let initial_range_length = (max_row_num - min_row_num).max(1);
         let alloc = Bump::new();
 
@@ -135,6 +136,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let query_result =
             expr.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, params)?;
         let owned_table_result = OwnedTable::from(&query_result);
+        tracing::info!("Table result: {:?}", owned_table_result);
         let provable_result = query_result.into();
         let chi_evaluation_lengths = first_round_builder.chi_evaluation_lengths();
         let rho_evaluation_lengths = first_round_builder.rho_evaluation_lengths();
@@ -159,11 +161,12 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         for table in expr.get_table_references() {
             let length = accessor.get_length(&table);
+            tracing::info!("Table {} has length {}", table, length);
             transcript.extend_serialize_as_le(&[0, 0, 0, length]);
         }
         transcript.challenge_as_le();
 
-        for commitment in CP::Commitment::compute_commitments(
+        let commitments = CP::Commitment::compute_commitments(
             &expr
                 .get_column_references()
                 .into_iter()
@@ -173,7 +176,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 .collect_vec(),
             min_row_num,
             setup,
-        ) {
+        );
+        tracing::info!("Column commitments {:?}", commitments);
+        for commitment in commitments {
             transcript.extend_serialize_as_le(&commitment);
         }
         transcript.challenge_as_le();
