@@ -32,13 +32,15 @@ pub(crate) fn add_subtract_columns<'a, S: Scalar>(
     if_rayon!(
         {
             let result = alloc.alloc_slice_fill_with(lhs_len, |_| S::ZERO);
-            result.par_iter_mut().enumerate().for_each(|(i, val)| {
-                *val = if is_subtract {
-                    lhs.scalar_at(i).unwrap() - rhs.scalar_at(i).unwrap()
-                } else {
-                    lhs.scalar_at(i).unwrap() + rhs.scalar_at(i).unwrap()
-                };
-            });
+            if is_subtract {
+                result.par_iter_mut().enumerate().for_each(|(i, val)| {
+                    *val = lhs.scalar_at(i).unwrap() - rhs.scalar_at(i).unwrap();
+                });
+            } else {
+                result.par_iter_mut().enumerate().for_each(|(i, val)| {
+                    *val = lhs.scalar_at(i).unwrap() + rhs.scalar_at(i).unwrap();
+                });
+            }
             result
         },
         {
