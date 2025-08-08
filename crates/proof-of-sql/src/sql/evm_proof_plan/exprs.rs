@@ -153,7 +153,7 @@ impl EVMColumnExpr {
                 .get_index_of(expr.column_ref())
                 .or_else(|| {
                     column_refs.get_index_of(&ColumnRef::new(
-                        TableRef::None,
+                        TableRef::from_names(None, ""),
                         expr.column_id(),
                         expr.data_type(),
                     ))

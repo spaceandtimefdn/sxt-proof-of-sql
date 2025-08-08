@@ -241,7 +241,7 @@ impl EVMProjectionExec {
             .input()
             .get_column_result_fields()
             .into_iter()
-            .map(|f| ColumnRef::new(TableRef::None, f.name(), f.data_type()))
+            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
             .collect();
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
@@ -271,7 +271,7 @@ impl EVMProjectionExec {
         let input_result_column_refs = input
             .get_column_result_fields()
             .into_iter()
-            .map(|f| ColumnRef::new(TableRef::None, f.name(), f.data_type()))
+            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
             .collect();
         Ok(ProjectionExec::new(
             self.results
@@ -1192,12 +1192,12 @@ mod tests {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
                             Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::None,
+                                TableRef::from_names(None, ""),
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
                             Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::None,
+                                TableRef::from_names(None, ""),
                                 ident_b.clone(),
                                 ColumnType::BigInt,
                             )))),
@@ -1216,12 +1216,12 @@ mod tests {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
                             Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::None,
+                                TableRef::from_names(None, ""),
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
                             Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::None,
+                                TableRef::from_names(None, ""),
                                 ident_b.clone(),
                                 ColumnType::BigInt,
                             )))),

@@ -11,21 +11,9 @@ use sqlparser::ast::Ident;
 
 /// Expression for an SQL table
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TableRef {
-    /// Fully qualified table reference with schema and table name
-    FullyQualified {
-        /// Schema name
-        schema_name: Ident,
-        /// Table name
-        table_name: Ident,
-    },
-    /// Table reference without schema
-    TableOnly {
-        /// Table name
-        table_name: Ident,
-    },
-    /// No table reference
-    None,
+pub struct TableRef {
+    schema_name: Option<Ident>,
+    table_name: Ident,
 }
 
 impl TableRef {
@@ -36,62 +24,45 @@ impl TableRef {
         let schema = schema_name.as_ref();
         let table = table_name.as_ref();
 
-        if schema.is_empty() {
-            Self::TableOnly {
-                table_name: Ident::new(table.to_string()),
-            }
-        } else {
-            Self::FullyQualified {
-                schema_name: Ident::new(schema.to_string()),
-                table_name: Ident::new(table.to_string()),
-            }
+        Self {
+            schema_name: if schema.is_empty() {
+                None
+            } else {
+                Some(Ident::new(schema.to_string()))
+            },
+            table_name: Ident::new(table.to_string()),
         }
     }
 
-    /// Returns the identifier of the schema if it exists. Otherwise returns `None`.
+    /// Returns the identifier of the schema
+    /// # Panics
     #[must_use]
     pub fn schema_id(&self) -> Option<&Ident> {
-        match self {
-            Self::FullyQualified { schema_name, .. } => Some(schema_name),
-            Self::TableOnly { .. } | Self::None => None,
-        }
+        self.schema_name.as_ref()
     }
 
-    /// Returns the identifier of the table if it exists. Otherwise returns `None`.
+    /// Returns the identifier of the table
+    /// # Panics
     #[must_use]
-    pub fn table_id(&self) -> Option<&Ident> {
-        match self {
-            Self::FullyQualified { table_name, .. } | Self::TableOnly { table_name } => {
-                Some(table_name)
-            }
-            Self::None => None,
-        }
+    pub fn table_id(&self) -> &Ident {
+        &self.table_name
     }
 
     /// Creates a new table reference from an optional schema and table name.
     #[must_use]
     pub fn from_names(schema_name: Option<&str>, table_name: &str) -> Self {
-        if let Some(schema) = schema_name {
-            Self::FullyQualified {
-                schema_name: Ident::new(schema.to_string()),
-                table_name: Ident::new(table_name.to_string()),
-            }
-        } else {
-            Self::TableOnly {
-                table_name: Ident::new(table_name.to_string()),
-            }
+        Self {
+            schema_name: schema_name.map(|s| Ident::new(s.to_string())),
+            table_name: Ident::new(table_name.to_string()),
         }
     }
 
     /// Creates a `TableRef` directly from `Option<Ident>` for schema and `Ident` for table.
     #[must_use]
     pub fn from_idents(schema_name: Option<Ident>, table_name: Ident) -> Self {
-        match schema_name {
-            Some(schema) => Self::FullyQualified {
-                schema_name: schema,
-                table_name,
-            },
-            None => Self::TableOnly { table_name },
+        Self {
+            schema_name,
+            table_name,
         }
     }
 
@@ -133,8 +104,8 @@ impl TryFrom<&str> for TableRef {
 /// Note: We just need this conversion trait until `SelectStatement` refactor is done
 impl From<ResourceId> for TableRef {
     fn from(id: ResourceId) -> Self {
-        Self::FullyQualified {
-            schema_name: Ident::from(id.schema()),
+        TableRef {
+            schema_name: Some(Ident::from(id.schema())),
             table_name: Ident::from(id.object_name()),
         }
     }
@@ -150,35 +121,16 @@ impl FromStr for TableRef {
 
 impl Equivalent<TableRef> for &TableRef {
     fn equivalent(&self, key: &TableRef) -> bool {
-        match (self, key) {
-            (
-                TableRef::FullyQualified {
-                    schema_name: s1,
-                    table_name: t1,
-                },
-                TableRef::FullyQualified {
-                    schema_name: s2,
-                    table_name: t2,
-                },
-            ) => s1 == s2 && t1 == t2,
-            (TableRef::TableOnly { table_name: t1 }, TableRef::TableOnly { table_name: t2 }) => {
-                t1 == t2
-            }
-            (TableRef::None, TableRef::None) => true,
-            _ => false,
-        }
+        self.schema_name == key.schema_name && self.table_name == key.table_name
     }
 }
 
 impl Display for TableRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            TableRef::FullyQualified {
-                schema_name,
-                table_name,
-            } => write!(f, "{}.{}", schema_name.value, table_name.value),
-            TableRef::TableOnly { table_name } => write!(f, "{}", table_name.value),
-            TableRef::None => write!(f, "<no_table>"),
+        if let Some(schema) = &self.schema_name {
+            write!(f, "{}.{}", schema.value, self.table_name.value)
+        } else {
+            write!(f, "{}", self.table_name.value)
         }
     }
 }
