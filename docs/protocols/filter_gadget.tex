@@ -1,0 +1,57 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Filter Gadget}
+\author{MakeInfinite Inc}
+\date{June 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $(C_j)$ be a collection of $a$ columns each of length $n$. Let $S=(s_i)$ be a column of only $1$s and $0$s of length $n$. Define the function $f$ so that $f(C_j, S)$ is the column of all $c_{j,i}$ such that $s_i=1$. A collection of $a$ columns $(R_j)$, each of length $m$, is $(f(C_j, S))$ if and only if the following constraints hold.
+\section{Constraints}
+\begin{itemize}
+    \item Inputs: Input columns $(C_j)$, $\chi_n$, and selection column $S$.
+    \item Assumptions: The length of $\chi_n$ and $S$ is confirmed to be $n$. The individual rows of $S$ are known to be all $0$s and $1$s. The challenges $\alpha$, $\beta$ are challenges of each $C_j$.
+    \item Outputs: The filtered columns $(R_j)$ and $\chi_m$, where $m$ is the length of each $R_j$.
+    \item Hints and gadgets: $c^\star$ and $d^\star$ are the outputs of the fold gadget for $(C_j)$ and $(R_j)$, respectively.
+    \item Challenges: $\alpha$, $\beta$ are challenges of each $C_j$, $R_j$, and $S$.
+    \item Constraints: Let
+    $$d_{\text{fold},i}=\alpha\cdot\sum_{j=0}^a \beta^j\cdot r_{j,i}$$
+    The following constraints must hold:
+    \begin{eqnarray}
+    \sum_{i} (c^\star_i\cdot s_i-d^\star_i)&=&0\\
+    d_{\text{fold},i}\cdot(\chi_m(i)-1)&=&0
+\end{eqnarray}
+\end{itemize}
+\section{Completeness}
+Suppose $R_j=f(C_j, S)$.\\
+Constraint (2) holds trivially. For each $i$ such that $s_i=1$, we should be able to identify (without double-counting) a $k$ such that $c_{j,i}=r_{j,k}$ for all $j$, in which case $c^\star_i=d^\star_k$. Thus, each $c^\star_i\cdot s_i$ term where $s_i=1$ should be represented by exactly one $d^\star_k$ value. This gives us
+\begin{eqnarray*}
+\sum_{i} (c^\star_i\cdot s_i-d^\star_i)&=&\sum_{i=0}^n c^\star_i\cdot s_i-\sum_{k=0}^m d^\star_k\\
+&=&\sum_{k=0}^m d^\star_k-\sum_{k=0}^m d^\star_k\\
+&=&0.
+\end{eqnarray*}
+\section{Soundness}
+Assume the constraints hold. From the properties of the fold gadget, for any $k$,
+$$\sum_{c^\star_i=k} s_i-\sum_{d^\star_i=k}1=0.$$
+Thus, each row in $(C_j)$ where $s_i=1$ must be represented in $(R_j)$. Constraint $(2)$ guarantees that $R_j$ has no extra rows past the $(m-1)$th index.
+\end{document}
