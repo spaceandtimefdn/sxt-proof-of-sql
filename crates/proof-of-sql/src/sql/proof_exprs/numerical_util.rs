@@ -14,6 +14,8 @@ use num_traits::{NumCast, PrimInt};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 /// Add or subtract two columns together.
+/// # Panics
+/// Panics if: `lhs` and `rhs` are not of the same length
 #[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn add_subtract_columns<'a, S: Scalar>(
     lhs: Column<'a, S>,
@@ -27,16 +29,31 @@ pub(crate) fn add_subtract_columns<'a, S: Scalar>(
         lhs_len == rhs_len,
         "lhs and rhs should have the same length"
     );
-    let lhs_scalar = lhs.to_scalar();
-    let rhs_scalar = rhs.to_scalar();
-    let result = alloc.alloc_slice_fill_with(lhs_len, |i| {
-        if is_subtract {
-            lhs_scalar[i] - rhs_scalar[i]
-        } else {
-            lhs_scalar[i] + rhs_scalar[i]
+    if_rayon!(
+        {
+            let result = alloc.alloc_slice_fill_with(lhs_len, |_| S::ZERO);
+            result.par_iter_mut().enumerate().for_each(|(i, val)| {
+                *val = if is_subtract {
+                    lhs.scalar_at(i).unwrap() - rhs.scalar_at(i).unwrap()
+                } else {
+                    lhs.scalar_at(i).unwrap() + rhs.scalar_at(i).unwrap()
+                };
+            });
+            result
+        },
+        {
+            let lhs_scalar = lhs.to_scalar();
+            let rhs_scalar = rhs.to_scalar();
+            let result = alloc.alloc_slice_fill_with(lhs_len, |i| {
+                if is_subtract {
+                    lhs_scalar[i] - rhs_scalar[i]
+                } else {
+                    lhs_scalar[i] + rhs_scalar[i]
+                }
+            });
+            result
         }
-    });
-    result
+    )
 }
 
 /// Multiply two columns together.
