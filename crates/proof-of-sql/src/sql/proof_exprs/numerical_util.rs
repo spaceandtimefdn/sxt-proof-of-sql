@@ -1,5 +1,6 @@
 use crate::base::{
     database::{try_cast_types, try_scale_cast_types, Column, ColumnOperationResult, ColumnType},
+    if_rayon,
     math::decimal::Precision,
     scalar::{Scalar, ScalarExt},
 };
@@ -9,6 +10,8 @@ use bumpalo::Bump;
 use core::{convert::TryInto, ops::Neg};
 use itertools::izip;
 use num_traits::{NumCast, PrimInt};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 /// Add or subtract two columns together.
 #[tracing::instrument(level = "debug", skip_all)]
@@ -51,9 +54,17 @@ pub(crate) fn multiply_columns<'a, S: Scalar>(
         lhs_len == rhs_len,
         "lhs and rhs should have the same length"
     );
-    alloc.alloc_slice_fill_with(lhs_len, |i| {
-        lhs.scalar_at(i).unwrap() * rhs.scalar_at(i).unwrap()
-    })
+    if_rayon!(
+        {
+            let result = alloc.alloc_slice_fill_with(lhs_len, |_| S::ZERO);
+            result.par_iter_mut().enumerate().for_each(|(i, val)| {
+                *val = lhs.scalar_at(i).unwrap() * rhs.scalar_at(i).unwrap();
+            });
+            result
+        },
+        alloc.alloc_slice_fill_with(lhs_len, |i| lhs.scalar_at(i).unwrap()
+            * rhs.scalar_at(i).unwrap())
+    )
 }
 
 /// Divides two columns of data, where the data types are some signed int type(s).
