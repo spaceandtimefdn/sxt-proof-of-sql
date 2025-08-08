@@ -183,11 +183,9 @@ impl ProofPlan for GroupByExec {
         }
 
         let sum_result_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.sum_expr.len())?;
-        let count_column_eval = builder.try_consume_first_round_mle_evaluation()?;
+            builder.try_consume_first_round_mle_evaluations(self.sum_expr.len() + 1)?;
 
-        let sum_out_fold_eval =
-            count_column_eval + beta * fold_vals(beta, &sum_result_columns_evals);
+        let sum_out_fold_eval = fold_vals(beta, &sum_result_columns_evals);
 
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::ZeroSum,
@@ -226,7 +224,6 @@ impl ProofPlan for GroupByExec {
         let column_evals = group_by_result_columns_evals
             .into_iter()
             .chain(sum_result_columns_evals)
-            .chain(iter::once(count_column_eval))
             .collect::<Vec<_>>();
         Ok(TableEvaluation::new(column_evals, output_chi_eval))
     }
@@ -324,7 +321,10 @@ impl ProverEvaluate for GroupByExec {
 
         builder.produce_chi_evaluation_length(count_column.len());
 
-        let sum_result_columns_iter = sum_result_columns.iter().map(|col| Column::Scalar(col));
+        let sum_result_columns_iter = sum_result_columns
+            .iter()
+            .map(|col| Column::Scalar(col))
+            .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
             self.get_column_result_fields()
                 .into_iter()
@@ -333,8 +333,7 @@ impl ProverEvaluate for GroupByExec {
                     group_by_result_columns
                         .iter()
                         .copied()
-                        .chain(sum_result_columns_iter.clone())
-                        .chain(iter::once(Column::BigInt(count_column))),
+                        .chain(sum_result_columns_iter.clone()),
                 ),
         )
         .expect("Failed to create table from column references");
@@ -352,7 +351,7 @@ impl ProverEvaluate for GroupByExec {
             );
         }
         // Produce MLEs
-        for column in sum_result_columns_iter.chain(iter::once(Column::BigInt(count_column))) {
+        for column in sum_result_columns_iter {
             builder.produce_intermediate_mle(column);
         }
 
