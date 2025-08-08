@@ -48,23 +48,13 @@ impl TableRef {
         }
     }
 
-    /// Returns the identifier of the schema if it exists. Otherwise returns `None`.
+    /// Returns the identifier of the schema
+    /// # Panics
     #[must_use]
     pub fn schema_id(&self) -> Option<&Ident> {
         match self {
             Self::FullyQualified { schema_name, .. } => Some(schema_name),
             Self::TableOnly { .. } | Self::None => None,
-        }
-    }
-
-    /// Returns the identifier of the table if it exists. Otherwise returns `None`.
-    #[must_use]
-    pub fn table_id(&self) -> Option<&Ident> {
-        match self {
-            Self::FullyQualified { table_name, .. } | Self::TableOnly { table_name } => {
-                Some(table_name)
-            }
-            Self::None => None,
         }
     }
 
