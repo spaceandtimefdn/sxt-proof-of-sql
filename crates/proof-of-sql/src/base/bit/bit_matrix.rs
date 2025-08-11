@@ -28,7 +28,7 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
     vals: &[S],
     dist: &BitDistribution,
 ) -> Vec<&'a [bool]> {
-    log::log_memory_usage("Start");
+    log::start();
 
     let span = span!(Level::DEBUG, "allocate").entered();
     let number_of_scalars = vals.len();
@@ -42,11 +42,13 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
         .copied()
         .map(make_bit_mask)
         .collect();
+    log::log_vector("masks", &masks);
 
     let shifted_masks: Vec<U256> = dist
         .vary_mask_iter()
         .map(|bit_index| U256::ONE.shl(bit_index))
         .collect();
+    log::log_vector("shifted_masks", &shifted_masks);
 
     let span_fill_data = span!(Level::DEBUG, "fill data").entered();
     for (scalar_index, mask) in masks.into_iter().enumerate() {
@@ -66,7 +68,7 @@ pub fn compute_varying_bit_matrix<'a, S: Scalar>(
         res.push(&data[first..last]);
     }
 
-    log::log_memory_usage("Stop");
+    log::stop();
 
     res
 }

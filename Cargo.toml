@@ -74,6 +74,8 @@ tempfile = { version = "3.13.0", default-features = false }
 tracing = { version = "0.1.36", default-features = false }
 tracing-opentelemetry = { version = "0.22.0" }
 tracing-subscriber = { version = "0.3.0", features = ["env-filter"] }
+tracing-test = { version = "0.2" }
+
 uuid = { version = "=1.12.1", default-features = false }
 wasm-bindgen = { version = "0.2.92" }
 zerocopy = { version = "0.7.34" }
