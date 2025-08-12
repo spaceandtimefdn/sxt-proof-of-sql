@@ -792,3 +792,43 @@ fn we_can_verify_a_union_exec_using_the_evm() {
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 }
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc)]
+fn we_can_verify_a_sort_merge_join_exec_using_the_evm() {
+    let (ps, vk) = load_small_setup_for_testing();
+
+    let mut accessor =
+        OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_empty_with_setup(&ps[..]);
+    accessor.add_table(
+        TableRef::from_names(None, "table1"),
+        owned_table([bigint("column1", [1, 2, 3])]),
+        0,
+    );
+    accessor.add_table(
+        TableRef::from_names(None, "table2"),
+        owned_table([bigint("column1", [1, 2]), bigint("column2", [1, 5])]),
+        0,
+    );
+    let statements = Parser::parse_sql(
+        &GenericDialect {},
+        "SELECT * FROM table1 INNER JOIN table2 ON table1.column1 = table2.column1",
+    )
+    .unwrap();
+    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(plan.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+        .unwrap();
+}
