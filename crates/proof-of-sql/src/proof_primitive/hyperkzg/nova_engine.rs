@@ -4,7 +4,7 @@ use crate::{
         proof::{Keccak256Transcript, Transcript},
         slice_ops,
     },
-    proof_primitive::hyperkzg::convert_to_ark_bn254_g1_affine,
+    proof_primitive::hyperkzg::convert_g1_affine_from_halo2_to_ark,
 };
 use nova_snark::{
     errors::NovaError,
@@ -55,5 +55,5 @@ impl TranscriptEngineTrait<HyperKZGEngine> for Keccak256Transcript {
 pub fn nova_commitment_key_to_hyperkzg_public_setup(
     setup: &CommitmentKey<HyperKZGEngine>,
 ) -> HyperKZGPublicSetupOwned {
-    slice_ops::slice_cast_with(setup.ck(), convert_to_ark_bn254_g1_affine)
+    slice_ops::slice_cast_with(setup.ck(), convert_g1_affine_from_halo2_to_ark)
 }

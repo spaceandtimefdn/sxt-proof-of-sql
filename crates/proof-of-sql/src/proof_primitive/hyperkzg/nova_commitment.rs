@@ -14,7 +14,8 @@ mod tests {
             scalar::Scalar,
         },
         proof_primitive::hyperkzg::{
-            nova_commitment_key_to_hyperkzg_public_setup, BNScalar, HyperKZGCommitment,
+            convert_g1_affine_from_ark_to_halo2, nova_commitment_key_to_hyperkzg_public_setup,
+            BNScalar, HyperKZGCommitment,
         },
     };
     use ark_bn254::G1Affine;
@@ -30,10 +31,7 @@ mod tests {
 
     fn ark_to_nova_commitment(commitment: HyperKZGCommitment) -> NovaCommitment {
         NovaCommitment::new(
-            blitzar::compute::convert_to_halo2_bn256_g1_affine(&G1Affine::from(
-                commitment.commitment,
-            ))
-            .into(),
+            convert_g1_affine_from_ark_to_halo2(&G1Affine::from(commitment.commitment)).into(),
         )
     }
 

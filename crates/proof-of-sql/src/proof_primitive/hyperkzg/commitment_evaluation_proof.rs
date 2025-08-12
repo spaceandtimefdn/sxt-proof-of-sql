@@ -2,7 +2,7 @@ use super::{BNScalar, HyperKZGCommitment, HyperKZGEngine, HyperKZGPublicSetup};
 use crate::{
     base::{commitment::CommitmentEvaluationProof, slice_ops},
     proof_primitive::hyperkzg::{
-        convert_to_halo2_bn256_g1_affine, nova_commitment::NovaCommitment,
+        convert_g1_affine_from_ark_to_halo2, nova_commitment::NovaCommitment,
     },
 };
 use ark_bn254::{G1Affine, G1Projective};
@@ -81,7 +81,7 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
 
         let span = span!(Level::DEBUG, "initialize nova_ck").entered();
         let nova_ck: CommitmentKey<HyperKZGEngine> = CommitmentKey::new(
-            slice_ops::slice_cast_with(setup, convert_to_halo2_bn256_g1_affine),
+            slice_ops::slice_cast_with(setup, convert_g1_affine_from_ark_to_halo2),
             Affine::default(),   // I'm pretty sure this is unused in the proof
             G2Affine::default(), // I'm pretty sure this is unused in the proof
         );
@@ -127,7 +127,7 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
             .fold(G1Projective::default(), Add::add)
             .into();
         let nova_commit = nova_snark::provider::hyperkzg::Commitment::new(
-            convert_to_halo2_bn256_g1_affine(&commit).into(),
+            convert_g1_affine_from_ark_to_halo2(&commit).into(),
         );
         let nova_eval = evaluations
             .iter()
