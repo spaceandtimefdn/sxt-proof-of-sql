@@ -30,7 +30,7 @@ fn convert_fr_from_halo2_to_ark(field: halo2curves::bn256::Fr) -> ark_bn254::Fr 
 pub fn convert_g1_affine_from_halo2_to_ark(
     point: &halo2curves::bn256::G1Affine,
 ) -> ark_bn254::G1Affine {
-    if *point == halo2curves::bn256::G1Affine::identity() {
+    if point.is_identity().into() {
         ark_bn254::G1Affine::identity()
     } else {
         let x = convert_fq_from_halo2_to_ark(point.x);
