@@ -1,3 +1,5 @@
+use halo2curves::group::prime::PrimeCurveAffine;
+
 fn convert_limbs_to_halo2_fq(value: [u64; 4]) -> halo2curves::bn256::Fq {
     unsafe { core::mem::transmute(value) }
 }
@@ -24,9 +26,11 @@ fn convert_fr_from_halo2_to_ark(field: halo2curves::bn256::Fr) -> ark_bn254::Fr 
     ark_ff::Fp::new_unchecked(ark_ff::BigInt(convert_halo2_fr_to_limbs(field)))
 }
 
-fn convert_g1_affine_from_halo2_to_ark(point: halo2curves::bn256::G1Affine) -> ark_bn254::G1Affine {
-    use halo2curves::group::prime::PrimeCurveAffine;
-    if point == halo2curves::bn256::G1Affine::identity() {
+/// Converts a Halo2 BN256 G1 Affine point to an Arkworks BN254 G1 Affine point.
+pub fn convert_g1_affine_from_halo2_to_ark(
+    point: &halo2curves::bn256::G1Affine,
+) -> ark_bn254::G1Affine {
+    if *point == halo2curves::bn256::G1Affine::identity() {
         ark_bn254::G1Affine::identity()
     } else {
         let x = convert_fq_from_halo2_to_ark(point.x);
@@ -34,8 +38,11 @@ fn convert_g1_affine_from_halo2_to_ark(point: halo2curves::bn256::G1Affine) -> a
         ark_bn254::G1Affine::new_unchecked(x, y)
     }
 }
-fn convert_g1_affine_from_ark_to_halo2(point: ark_bn254::G1Affine) -> halo2curves::bn256::G1Affine {
-    use halo2curves::group::prime::PrimeCurveAffine;
+
+/// Converts an Arkworks BN254 G1 Affine point to a Halo2 BN256 G1 Affine point.
+pub fn convert_g1_affine_from_ark_to_halo2(
+    point: &ark_bn254::G1Affine,
+) -> halo2curves::bn256::G1Affine {
     if point.infinity {
         halo2curves::bn256::G1Affine::identity()
     } else {
@@ -48,13 +55,13 @@ fn convert_g1_affine_from_ark_to_halo2(point: ark_bn254::G1Affine) -> halo2curve
 impl From<&super::HyperKZGCommitment> for halo2curves::bn256::G1Affine {
     fn from(commitment: &super::HyperKZGCommitment) -> Self {
         use ark_ec::CurveGroup;
-        convert_g1_affine_from_ark_to_halo2(commitment.commitment.into_affine())
+        convert_g1_affine_from_ark_to_halo2(&commitment.commitment.into_affine())
     }
 }
 impl From<halo2curves::bn256::G1Affine> for super::HyperKZGCommitment {
     fn from(point: halo2curves::bn256::G1Affine) -> Self {
         use ark_ec::AffineRepr;
-        let commitment = convert_g1_affine_from_halo2_to_ark(point).into_group();
+        let commitment = convert_g1_affine_from_halo2_to_ark(&point).into_group();
         Self { commitment }
     }
 }
