@@ -37,6 +37,7 @@ pub use commitment_evaluation_proof::HyperKZGCommitmentEvaluationProof;
 
 #[cfg(feature = "hyperkzg_proof")]
 mod halo2_conversions;
+#[cfg(feature = "hyperkzg_proof")]
 pub(crate) use halo2_conversions::{
     convert_g1_affine_from_ark_to_halo2, convert_g1_affine_from_halo2_to_ark,
 };
