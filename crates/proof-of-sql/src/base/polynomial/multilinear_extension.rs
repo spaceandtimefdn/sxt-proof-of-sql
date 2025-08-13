@@ -49,7 +49,7 @@ where
         if_rayon!(values.par_iter(), values.iter())
             .map(Into::into)
             .chain(if_rayon!(
-                rayon::iter::repeatn(Zero::zero(), n - values.len()),
+                rayon::iter::repeat_n(Zero::zero(), n - values.len()),
                 itertools::repeat_n(Zero::zero(), n - values.len())
             ))
             .collect()
