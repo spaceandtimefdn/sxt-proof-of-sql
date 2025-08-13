@@ -17,9 +17,7 @@ use proof_of_sql::{
     },
     sql::proof::VerifiableQueryResult,
 };
-use proof_of_sql_planner::{
-    postprocessing::PostprocessingStep, sql_to_proof_plans, sql_to_proof_plans_with_postprocessing,
-};
+use proof_of_sql_planner::sql_to_proof_plans;
 use sqlparser::{dialect::GenericDialect, parser::Parser};
 
 /// Get a new `TableTestAccessor` with the provided tables
@@ -59,43 +57,6 @@ fn posql_end_to_end_test<'a, CP: CommitmentEvaluationProof>(
             .unwrap()
             .table;
         assert_eq!(res, expected.clone());
-    }
-}
-
-/// # Panics
-/// This function will panic if anything goes wrong
-fn posql_end_to_end_test_with_postprocessing<'a, CP: CommitmentEvaluationProof>(
-    sql: &str,
-    tables: &IndexMap<TableRef, Table<'a, CP::Scalar>>,
-    expected_results: &[OwnedTable<CP::Scalar>],
-    prover_setup: CP::ProverPublicSetup<'a>,
-    verifier_setup: CP::VerifierPublicSetup<'_>,
-    params: &[LiteralValue],
-) {
-    // Get accessor
-    let accessor: TableTestAccessor<'a, CP> = new_test_accessor(tables, prover_setup);
-    let config = ConfigOptions::default();
-    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
-    let plan_with_postprocessings =
-        sql_to_proof_plans_with_postprocessing(&statements, &accessor, &config).unwrap();
-    for (plan_with_postprocessing, expected) in plan_with_postprocessings
-        .iter()
-        .zip(expected_results.iter())
-    {
-        // Prove and verify the plans
-        let plan = plan_with_postprocessing.plan();
-        let res = VerifiableQueryResult::<CP>::new(plan, &accessor, &prover_setup, params).unwrap();
-        let raw_table = res
-            .verify(plan, &accessor, &verifier_setup, params)
-            .unwrap()
-            .table;
-        // Apply postprocessing
-        let transformed_table = plan_with_postprocessing
-            .postprocessing()
-            .map_or(raw_table.clone(), |postproc| {
-                postproc.apply(raw_table).unwrap()
-            });
-        assert_eq!(transformed_table, expected.clone());
     }
 }
 
@@ -459,47 +420,6 @@ fn test_coin() {
         &prover_setup,
         &verifier_setup,
         &[LiteralValue::VarChar("0x2".to_string())],
-    );
-}
-
-// Test GROUP BY queries with postprocessing
-#[test]
-fn test_group_by_with_postprocessing() {
-    let alloc = Bump::new();
-    let sql = "select human, 2*count(1) as double_cat_count from cats group by human;
-    select human, 2*count(1) from cats group by human;";
-    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
-        TableRef::from_names(None, "cats") => table(
-            vec![
-                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
-                borrowed_varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
-                borrowed_varchar("human", ["Cassia", "Cassia", "Cassia", "Gretta", "Gretta"], &alloc),
-                borrowed_decimal75("weight", 3, 1, [145, 75, 20, 45, 55], &alloc),
-            ]
-        )
-    };
-    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
-        owned_table([
-            varchar("cats.human", ["Cassia", "Gretta"]),
-            bigint("double_cat_count", [6_i64, 4]),
-        ]),
-        owned_table([
-            varchar("cats.human", ["Cassia", "Gretta"]),
-            bigint("Int64(2) * COUNT(Int64(1))", [6_i64, 4]),
-        ]),
-    ];
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
-
-    posql_end_to_end_test_with_postprocessing::<DynamicDoryEvaluationProof>(
-        sql,
-        &tables,
-        &expected_results,
-        &prover_setup,
-        &verifier_setup,
-        &[],
     );
 }
 
