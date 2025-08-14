@@ -1,7 +1,4 @@
-use crate::{
-    logical_plan_to_proof_plan, logical_plan_to_proof_plan_with_postprocessing, PlannerResult,
-    PoSqlContextProvider, ProofPlanWithPostprocessing,
-};
+use crate::{logical_plan_to_proof_plan, PlannerResult, PoSqlContextProvider};
 use alloc::{sync::Arc, vec::Vec};
 use datafusion::{
     config::ConfigOptions,
@@ -92,22 +89,6 @@ pub fn sql_to_proof_plans<A: SchemaAccessor + Clone>(
     config: &ConfigOptions,
 ) -> PlannerResult<Vec<DynProofPlan>> {
     sql_to_posql_plans(statements, schemas, config, logical_plan_to_proof_plan)
-}
-
-/// Convert a SQL query to a `ProofPlanWithPostprocessing` using schema from provided tables
-///
-/// See `sql_to_posql_plans` for more details
-pub fn sql_to_proof_plans_with_postprocessing<A: SchemaAccessor + Clone>(
-    statements: &[Statement],
-    schemas: &A,
-    config: &ConfigOptions,
-) -> PlannerResult<Vec<ProofPlanWithPostprocessing>> {
-    sql_to_posql_plans(
-        statements,
-        schemas,
-        config,
-        logical_plan_to_proof_plan_with_postprocessing,
-    )
 }
 
 /// Given a `Statement` retrieves all unique tables in the query
