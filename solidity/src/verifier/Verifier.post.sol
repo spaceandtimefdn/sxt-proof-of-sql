@@ -1251,15 +1251,13 @@ library Verifier {
             ) -> sum_out_fold_eval {
                 sum_out_fold_eval := 0
                 for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
+                    // We increment evaluations_ptr first to avoid an unneceesary addition,
+                    // Which means the value we pass in for evaluations_ptr should be adjusted accordingly
+                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                     let mle := builder_consume_first_round_mle(builder_ptr)
                     sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), mle)
                     mstore(evaluations_ptr, mle)
-                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
                 }
-                // Consume count column evaluation
-                let count_out_eval := builder_consume_first_round_mle(builder_ptr)
-                mstore(evaluations_ptr, count_out_eval)
-                sum_out_fold_eval := addmod_bn254(mulmod_bn254(sum_out_fold_eval, beta), count_out_eval)
             }
             function exclude_coverage_stop_compute_sum_out_fold_eval() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::read_input_evals
@@ -1304,11 +1302,12 @@ library Verifier {
             function read_output_evals(
                 builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
             ) -> evaluations_ptr, output_length, output_chi_eval {
+                num_sum_columns := add(num_sum_columns, 1)
                 // Allocate memory for evaluations
                 {
                     let free_ptr := mload(FREE_PTR)
                     evaluations_ptr := free_ptr
-                    let num_evals := add(num_group_by_columns, add(num_sum_columns, 1))
+                    let num_evals := add(num_group_by_columns, num_sum_columns)
                     mstore(free_ptr, num_evals)
                     free_ptr := add(free_ptr, WORD_SIZE)
                     free_ptr := add(free_ptr, mul(num_evals, WORD_SIZE))
@@ -1327,7 +1326,7 @@ library Verifier {
                         beta,
                         output_chi_eval,
                         num_sum_columns,
-                        add(evaluations_ptr, mul(add(num_group_by_columns, 1), WORD_SIZE))
+                        add(evaluations_ptr, mul(num_group_by_columns, WORD_SIZE))
                     )
 
                 builder_produce_zerosum_constraint(
