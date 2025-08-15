@@ -85,3 +85,37 @@ impl LiteralValue {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::base::{
+        database::LiteralValue,
+        math::{decimal::Precision, i256::I256},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        try_standard_binary_serialization,
+    };
+    use bnum::types::U256;
+
+    #[test]
+    fn we_can_roundtrip_serialize_literal_value_array() {
+        let literal_values = vec![
+            LiteralValue::Boolean(true),
+            LiteralValue::TinyInt(2),
+            LiteralValue::SmallInt(3),
+            LiteralValue::Int(4),
+            LiteralValue::BigInt(5),
+            LiteralValue::VarChar("6".to_string()),
+            LiteralValue::Scalar(U256::SEVEN.into()),
+            LiteralValue::Decimal75(
+                Precision::new(10).unwrap(),
+                0,
+                I256::new(U256::EIGHT.into()),
+            ),
+            LiteralValue::VarBinary(vec![9]),
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), 10),
+        ];
+        let serialized = try_standard_binary_serialization(literal_values).unwrap();
+        let bytes = hex::encode(serialized);
+        dbg!(&bytes);
+    }
+}
