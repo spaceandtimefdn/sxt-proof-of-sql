@@ -1,4 +1,3 @@
-use super::fold_vals;
 use crate::{
     base::{
         database::{
@@ -83,9 +82,6 @@ where
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let alpha = builder.try_consume_post_result_challenge()?;
-        let beta = builder.try_consume_post_result_challenge()?;
-
         let input_chi_eval = *chi_eval_map
             .get(&self.table.table_ref)
             .expect("Chi eval not found");
@@ -97,6 +93,10 @@ where
         let selection_eval =
             self.where_clause
                 .verifier_evaluate(builder, &accessor, input_chi_eval.0, params)?;
+
+        let output_chi_eval = builder.try_consume_chi_evaluation()?;
+        let alpha = builder.try_consume_post_result_challenge()?;
+        let beta = builder.try_consume_post_result_challenge()?;
         // 2. columns
         let columns_evals = Vec::from_iter(
             self.aliased_results
@@ -112,19 +112,12 @@ where
                 .collect::<Result<Vec<_>, _>>()?,
         );
         // 3. filtered_columns
-        let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
 
-        let output_chi_eval = builder.try_consume_chi_evaluation()?;
-
-        let c_fold_eval = alpha * fold_vals(beta, &columns_evals);
-        let d_fold_eval = alpha * fold_vals(beta, &filtered_columns_evals);
-
-        verify_evaluate_filter(
+        let filtered_columns_evals = verify_evaluate_filter(
             builder,
-            c_fold_eval,
-            d_fold_eval,
+            alpha,
+            beta,
+            &columns_evals,
             input_chi_eval.0,
             output_chi_eval.0,
             selection_eval,
@@ -186,6 +179,8 @@ impl ProverEvaluate for FilterExec {
             .as_boolean()
             .expect("selection is not boolean");
         let output_length = selection.iter().filter(|b| **b).count();
+        builder.produce_chi_evaluation_length(output_length);
+        builder.request_post_result_challenges(2);
 
         // 2. columns
         let columns: Vec<_> = self
@@ -210,8 +205,6 @@ impl ProverEvaluate for FilterExec {
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");
-        builder.request_post_result_challenges(2);
-        builder.produce_chi_evaluation_length(output_length);
 
         log::log_memory_usage("End");
 
@@ -227,9 +220,6 @@ impl ProverEvaluate for FilterExec {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
-        let alpha = builder.consume_post_result_challenge();
-        let beta = builder.consume_post_result_challenge();
-
         let table = table_map
             .get(&self.table.table_ref)
             .expect("Table not found");
@@ -241,6 +231,8 @@ impl ProverEvaluate for FilterExec {
             .as_boolean()
             .expect("selection is not boolean");
         let output_length = selection.iter().filter(|b| **b).count();
+        let alpha = builder.consume_post_result_challenge();
+        let beta = builder.consume_post_result_challenge();
 
         // 2. columns
         let columns: Vec<_> = self
