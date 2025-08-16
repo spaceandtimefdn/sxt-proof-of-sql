@@ -146,6 +146,27 @@ uint32 constant DATA_TYPE_SCALAR_VARIANT = 10;
 /// @dev Varbinary variant constant for column types
 uint32 constant DATA_TYPE_VARBINARY_VARIANT = 11;
 
+/// @dev Boolean variant constant for literal values
+uint32 constant LITERAL_VALUE_BOOLEAN_VARIANT = 0;
+/// @dev TinyInt variant constant for literal values
+uint32 constant LITERAL_VALUE_TINYINT_VARIANT = 2;
+/// @dev SmallInt variant constant for literal values
+uint32 constant LITERAL_VALUE_SMALLINT_VARIANT = 3;
+/// @dev Int variant constant for literal values
+uint32 constant LITERAL_VALUE_INT_VARIANT = 4;
+/// @dev BigInt variant constant for literal values
+uint32 constant LITERAL_VALUE_BIGINT_VARIANT = 5;
+/// @dev Varchar variant constant for literal values
+uint32 constant LITERAL_VALUE_VARCHAR_VARIANT = 6;
+/// @dev Varbinary variant constant for literal values
+uint32 constant LITERAL_VALUE_VARBINARY_VARIANT = 7;
+/// @dev Decimal75 variant constant for literal values
+uint32 constant LITERAL_VALUE_DECIMAL75_VARIANT = 9;
+/// @dev Scalar variant constant for literal values
+uint32 constant LITERAL_VALUE_SCALAR_VARIANT = 10;
+/// @dev Timestamp variant constant for literal values
+uint32 constant LITERAL_VALUE_TIMESTAMP_VARIANT = 11;
+
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;
 
