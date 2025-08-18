@@ -3,7 +3,7 @@ use crate::base::{
     math::{decimal::Precision, i256::I256},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::{Scalar, ScalarExt},
-    standard_serializations::limbs::{serialize_limbs, deserialize_to_limbs}
+    standard_serializations::limbs::{deserialize_to_limbs, serialize_limbs},
 };
 use alloc::{string::String, vec::Vec};
 use serde::{Deserialize, Serialize};

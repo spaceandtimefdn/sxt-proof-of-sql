@@ -755,9 +755,11 @@ mod tests {
             map::indexset,
             math::{decimal::Precision, i256::I256},
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+            try_standard_binary_serialization,
         },
         sql::proof_exprs::test_utility::*,
     };
+    use bnum::types::U256;
 
     // EVMColumnExpr
     #[test]
@@ -1686,5 +1688,37 @@ mod tests {
         });
         assert_eq!(evm, expected);
         assert_eq!(evm.try_into_proof_expr(&indexset! { c }).unwrap(), expr);
+    }
+
+    #[test]
+    fn we_can_catch_evm_literal_expr_serialization_change() {
+        let literal_values = vec![
+            LiteralValue::Boolean(true),
+            LiteralValue::TinyInt(2),
+            LiteralValue::SmallInt(3),
+            LiteralValue::Int(4),
+            LiteralValue::BigInt(5),
+            LiteralValue::VarChar("6".to_string()),
+            LiteralValue::Scalar(U256::SEVEN.into()),
+            LiteralValue::Decimal75(
+                Precision::new(10).unwrap(),
+                0,
+                I256::new(U256::EIGHT.into()),
+            ),
+            LiteralValue::VarBinary(vec![9]),
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), 10),
+        ];
+        let literal_values_bytes =
+            hex::encode(try_standard_binary_serialization(literal_values.clone()).unwrap());
+
+        let evm_literal_exprs: Vec<_> = literal_values
+            .into_iter()
+            .map(|lv| EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(lv)))
+            .collect();
+        let evm_literal_exprs_bytes =
+            hex::encode(try_standard_binary_serialization(evm_literal_exprs).unwrap());
+        assert_eq!(evm_literal_exprs_bytes, literal_values_bytes);
+        assert_eq!(evm_literal_exprs_bytes,
+            "000000000000000a000000000100000002020000000300030000000400000004000000050000000000000005000000070000000000000001360000000a0000000000000000000000000000000000000000000000000000000000000007000000080a0000000000000000000000000000000000000000000000000000000000000000080000000b000000000000000109000000090000000100000000000000000000000a".to_string());
     }
 }
