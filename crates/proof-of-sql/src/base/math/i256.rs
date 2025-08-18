@@ -1,4 +1,7 @@
-use crate::base::scalar::Scalar;
+use crate::base::{
+    scalar::Scalar,
+    standard_serializations::limbs::{deserialize_to_limbs, serialize_limbs},
+};
 use ark_ff::BigInteger;
 use core::ops::Neg;
 use serde::{Deserialize, Serialize};
@@ -7,7 +10,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// This should only implement conversions. If anything else is needed, we should strongly consider an alternative design.
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
-pub struct I256([u64; 4]);
+pub struct I256(
+    #[serde(
+        serialize_with = "serialize_limbs",
+        deserialize_with = "deserialize_to_limbs"
+    )]
+    [u64; 4],
+);
 
 impl Neg for I256 {
     type Output = Self;

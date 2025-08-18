@@ -3,6 +3,7 @@ use crate::base::{
     math::{decimal::Precision, i256::I256},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::{Scalar, ScalarExt},
+    standard_serializations::limbs::{serialize_limbs, deserialize_to_limbs}
 };
 use alloc::{string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,10 @@ pub enum LiteralValue {
     /// mapped to i64, which is time units since unix epoch
     TimeStampTZ(PoSQLTimeUnit, PoSQLTimeZone, i64),
     /// Scalar literals. The underlying `[u64; 4]` is the limbs of the canonical form of the literal
+    #[serde(
+        serialize_with = "serialize_limbs",
+        deserialize_with = "deserialize_to_limbs"
+    )]
     Scalar([u64; 4]),
     /// Binary data literals
     ///  - the backing store is a Vec<u8> for variable length binary data
