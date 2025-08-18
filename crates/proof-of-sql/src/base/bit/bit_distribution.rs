@@ -2,6 +2,7 @@ use super::bit_mask_utils::{is_bit_mask_negative_representation, make_bit_mask};
 use crate::base::{
     proof::ProofError,
     scalar::{Scalar, ScalarExt},
+    standard_serializations::limbs::{deserialize_to_limbs, serialize_limbs},
 };
 use ark_std::iterable::Iterable;
 use bit_iter::BitIter;
@@ -13,16 +14,7 @@ use core::{
 use itertools::Itertools;
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-fn serialize_limbs<S: Serializer>(limbs: &[u64; 4], serializer: S) -> Result<S::Ok, S::Error> {
-    [limbs[3], limbs[2], limbs[1], limbs[0]].serialize(serializer)
-}
-
-fn deserialize_to_limbs<'de, D: Deserializer<'de>>(deserializer: D) -> Result<[u64; 4], D::Error> {
-    let limbs = <[u64; 4]>::deserialize(deserializer)?;
-    Ok([limbs[3], limbs[2], limbs[1], limbs[0]])
-}
+use serde::{Deserialize, Serialize};
 
 /// Describe the distribution of bit values in a table column
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
