@@ -3,8 +3,6 @@ use crate::{
     base::{
         database::{ColumnRef, ColumnType, LiteralValue, TableRef},
         map::IndexSet,
-        math::{decimal::Precision, i256::I256},
-        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
@@ -12,7 +10,7 @@ use crate::{
         SubtractExpr,
     },
 };
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::boxed::Box;
 use serde::{Deserialize, Serialize};
 
 /// Represents an expression that can be serialized for EVM.
@@ -179,96 +177,17 @@ impl EVMColumnExpr {
 ///
 /// This enum corresponds to the variants in `LiteralValue` that can be represented in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) enum EVMLiteralExpr {
-    /// Boolean literals
-    Boolean(bool),
-    /// u8 literals
-    Uint8(u8),
-    /// i8 literals
-    TinyInt(i8),
-    /// i16 literals
-    SmallInt(i16),
-    /// i32 literals
-    Int(i32),
-    /// i64 literals
-    BigInt(i64),
-    /// i128 literals
-    Int128(i128),
-    /// String literals (stored with its string value)
-    VarChar(String),
-    /// Decimal literals with precision (max 75), scale, and 256-bit value as limbs
-    Decimal75(Precision, i8, [u64; 4]),
-    /// `TimeStamp` defined over a unit and timezone with backing store
-    /// For `TimeStampTZ`, we store:
-    /// - `unit`: The time unit (Second, Millisecond, Microsecond, Nanosecond)
-    /// - `timezone`: The timezone as an offset in seconds from UTC
-    /// - timestamp: time units since unix epoch
-    TimeStampTZ(PoSQLTimeUnit, PoSQLTimeZone, i64),
-    /// Scalar literals
-    Scalar([u64; 4]),
-    /// Binary data literals
-    VarBinary(Vec<u8>),
-}
+pub(crate) struct EVMLiteralExpr(pub(super) LiteralValue);
 
 impl EVMLiteralExpr {
     /// Create a `EVMLiteralExpr` from a `LiteralExpr`.
     pub(crate) fn from_proof_expr(expr: &LiteralExpr) -> Self {
-        match expr.value() {
-            LiteralValue::Boolean(value) => EVMLiteralExpr::Boolean(*value),
-            LiteralValue::Uint8(value) => EVMLiteralExpr::Uint8(*value),
-            LiteralValue::TinyInt(value) => EVMLiteralExpr::TinyInt(*value),
-            LiteralValue::SmallInt(value) => EVMLiteralExpr::SmallInt(*value),
-            LiteralValue::Int(value) => EVMLiteralExpr::Int(*value),
-            LiteralValue::BigInt(value) => EVMLiteralExpr::BigInt(*value),
-            LiteralValue::VarChar(value) => EVMLiteralExpr::VarChar(value.clone()),
-            LiteralValue::VarBinary(value) => EVMLiteralExpr::VarBinary(value.clone()),
-            LiteralValue::Int128(value) => EVMLiteralExpr::Int128(*value),
-            LiteralValue::Decimal75(precision, scale, value) => {
-                // Convert I256 to [u64; 4] for serialization
-                let limbs = value.limbs(); // Access the internal [u64; 4] representation
-                EVMLiteralExpr::Decimal75(
-                    *precision,
-                    *scale,
-                    [limbs[3], limbs[2], limbs[1], limbs[0]],
-                )
-            }
-            LiteralValue::Scalar(limbs) => {
-                EVMLiteralExpr::Scalar([limbs[3], limbs[2], limbs[1], limbs[0]])
-            }
-            LiteralValue::TimeStampTZ(unit, timezone, value) => {
-                EVMLiteralExpr::TimeStampTZ(*unit, *timezone, *value)
-            }
-        }
+        EVMLiteralExpr(expr.value().clone())
     }
 
     /// Convert back to a `LiteralExpr`
     pub(crate) fn to_proof_expr(&self) -> LiteralExpr {
-        match self {
-            EVMLiteralExpr::Boolean(value) => LiteralExpr::new(LiteralValue::Boolean(*value)),
-            EVMLiteralExpr::Uint8(value) => LiteralExpr::new(LiteralValue::Uint8(*value)),
-            EVMLiteralExpr::TinyInt(value) => LiteralExpr::new(LiteralValue::TinyInt(*value)),
-            EVMLiteralExpr::SmallInt(value) => LiteralExpr::new(LiteralValue::SmallInt(*value)),
-            EVMLiteralExpr::Int(value) => LiteralExpr::new(LiteralValue::Int(*value)),
-            EVMLiteralExpr::BigInt(value) => LiteralExpr::new(LiteralValue::BigInt(*value)),
-            EVMLiteralExpr::VarChar(value) => {
-                LiteralExpr::new(LiteralValue::VarChar(value.clone()))
-            }
-            EVMLiteralExpr::VarBinary(value) => {
-                LiteralExpr::new(LiteralValue::VarBinary(value.clone()))
-            }
-            EVMLiteralExpr::Int128(value) => LiteralExpr::new(LiteralValue::Int128(*value)),
-            EVMLiteralExpr::Decimal75(precision, scale, limbs) => {
-                // Convert [u64; 4] back to I256
-                let value = I256::new([limbs[3], limbs[2], limbs[1], limbs[0]]);
-                LiteralExpr::new(LiteralValue::Decimal75(*precision, *scale, value))
-            }
-            EVMLiteralExpr::Scalar(limbs) => LiteralExpr::new(LiteralValue::Scalar([
-                limbs[3], limbs[2], limbs[1], limbs[0],
-            ])),
-            EVMLiteralExpr::TimeStampTZ(unit, timezone, value) => {
-                LiteralExpr::new(LiteralValue::TimeStampTZ(*unit, *timezone, *value))
-            }
-        }
+        LiteralExpr::new(self.0.clone())
     }
 }
 
@@ -812,35 +731,38 @@ mod tests {
         // Test Uint8
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::Uint8(42)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::Uint8(42));
+        assert_eq!(evm_literal_expr, EVMLiteralExpr(LiteralValue::Uint8(42)));
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::Uint8(42));
 
         // Test TinyInt
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::TinyInt(-42)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::TinyInt(-42));
+        assert_eq!(evm_literal_expr, EVMLiteralExpr(LiteralValue::TinyInt(-42)));
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::TinyInt(-42));
 
         // Test SmallInt
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::SmallInt(1234)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::SmallInt(1234));
+        assert_eq!(
+            evm_literal_expr,
+            EVMLiteralExpr(LiteralValue::SmallInt(1234))
+        );
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::SmallInt(1234));
 
         // Test Int
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::Int(-12345)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::Int(-12345));
+        assert_eq!(evm_literal_expr, EVMLiteralExpr(LiteralValue::Int(-12345)));
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::Int(-12345));
 
         // Test BigInt
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::BigInt(5)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::BigInt(5));
+        assert_eq!(evm_literal_expr, EVMLiteralExpr(LiteralValue::BigInt(5)));
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::BigInt(5));
 
@@ -850,7 +772,7 @@ mod tests {
         ));
         assert_eq!(
             evm_literal_expr,
-            EVMLiteralExpr::Int128(1_234_567_890_123_456_789)
+            EVMLiteralExpr(LiteralValue::Int128(1_234_567_890_123_456_789))
         );
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(
@@ -863,7 +785,10 @@ mod tests {
     fn we_can_put_a_boolean_literal_expr_in_evm() {
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::Boolean(true)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::Boolean(true));
+        assert_eq!(
+            evm_literal_expr,
+            EVMLiteralExpr(LiteralValue::Boolean(true))
+        );
 
         // Roundtrip
         let roundtripped_literal_expr = evm_literal_expr.to_proof_expr();
@@ -882,7 +807,7 @@ mod tests {
         ));
         assert_eq!(
             evm_literal_expr,
-            EVMLiteralExpr::VarChar(test_string.clone())
+            EVMLiteralExpr(LiteralValue::VarChar(test_string.clone()))
         );
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(
@@ -900,7 +825,7 @@ mod tests {
         ));
         assert_eq!(
             evm_literal_expr,
-            EVMLiteralExpr::VarBinary(test_bytes.clone())
+            EVMLiteralExpr(LiteralValue::VarBinary(test_bytes.clone()))
         );
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(
@@ -920,13 +845,12 @@ mod tests {
             LiteralValue::Decimal75(precision, scale, value),
         ));
 
-        if let EVMLiteralExpr::Decimal75(p, s, limbs) = evm_literal_expr {
+        if let EVMLiteralExpr(LiteralValue::Decimal75(p, s, i256)) = evm_literal_expr {
             assert_eq!(p, precision);
             assert_eq!(s, scale);
-            // Use the limbs() method to access the private field
-            assert_eq!([limbs[3], limbs[2], limbs[1], limbs[0]], value.limbs());
+            assert_eq!(i256, value);
 
-            let roundtripped = EVMLiteralExpr::Decimal75(p, s, limbs).to_proof_expr();
+            let roundtripped = EVMLiteralExpr(LiteralValue::Decimal75(p, s, i256)).to_proof_expr();
             if let LiteralValue::Decimal75(rp, rs, rv) = *roundtripped.value() {
                 assert_eq!(rp, precision);
                 assert_eq!(rs, scale);
@@ -943,10 +867,12 @@ mod tests {
     fn we_can_put_a_scalar_literal_expr_in_evm() {
         // Test Scalar
         let limbs: [u64; 4] = [1, 2, 3, 4];
-        let be_limbs: [u64; 4] = [4, 3, 2, 1];
         let evm_literal_expr =
             EVMLiteralExpr::from_proof_expr(&LiteralExpr::new(LiteralValue::Scalar(limbs)));
-        assert_eq!(evm_literal_expr, EVMLiteralExpr::Scalar(be_limbs));
+        assert_eq!(
+            evm_literal_expr,
+            EVMLiteralExpr(LiteralValue::Scalar(limbs))
+        );
         let roundtripped = evm_literal_expr.to_proof_expr();
         assert_eq!(*roundtripped.value(), LiteralValue::Scalar(limbs));
     }
@@ -962,12 +888,12 @@ mod tests {
             LiteralValue::TimeStampTZ(unit, timezone, value),
         ));
 
-        if let EVMLiteralExpr::TimeStampTZ(u, tz, ts) = evm_literal_expr {
+        if let EVMLiteralExpr(LiteralValue::TimeStampTZ(u, tz, ts)) = evm_literal_expr {
             assert_eq!(u, unit);
             assert_eq!(tz, timezone);
             assert_eq!(ts, value);
 
-            let roundtripped = EVMLiteralExpr::TimeStampTZ(u, tz, ts).to_proof_expr();
+            let roundtripped = EVMLiteralExpr(LiteralValue::TimeStampTZ(u, tz, ts)).to_proof_expr();
             if let LiteralValue::TimeStampTZ(ru, rtz, rts) = *roundtripped.value() {
                 assert_eq!(ru, PoSQLTimeUnit::Millisecond);
                 assert_eq!(rtz, timezone);
@@ -988,7 +914,7 @@ mod tests {
             LiteralValue::TimeStampTZ(unit2, timezone2, value2),
         ));
 
-        if let EVMLiteralExpr::TimeStampTZ(u, tz, ts) = evm_literal_expr2 {
+        if let EVMLiteralExpr(LiteralValue::TimeStampTZ(u, tz, ts)) = evm_literal_expr2 {
             assert_eq!(u, unit2);
             assert_eq!(tz, timezone2);
             assert_eq!(ts, value2);
@@ -1021,7 +947,9 @@ mod tests {
             evm_equals_expr,
             EVMEqualsExpr {
                 lhs: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 })),
-                rhs: Box::new(EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)))
+                rhs: Box::new(EVMDynProofExpr::Literal(EVMLiteralExpr(
+                    LiteralValue::BigInt(5)
+                )))
             }
         );
 
@@ -1056,7 +984,7 @@ mod tests {
             evm_add_expr,
             EVMAddExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
-                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5))
+                EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(5)))
             )
         );
 
@@ -1091,7 +1019,7 @@ mod tests {
             evm_subtract_expr,
             EVMSubtractExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
-                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5))
+                EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(5)))
             )
         );
 
@@ -1127,7 +1055,7 @@ mod tests {
             evm_multiply_expr,
             EVMMultiplyExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
-                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(10))
+                EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(10)))
             )
         );
 
@@ -1403,7 +1331,7 @@ mod tests {
             evm_inquality_expr,
             EVMInequalityExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
-                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)),
+                EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(5))),
                 true
             )
         );
@@ -1501,7 +1429,9 @@ mod tests {
         let evm =
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
         let expected = EVMDynProofExpr::Equals(EVMEqualsExpr {
-            lhs: Box::new(EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5))),
+            lhs: Box::new(EVMDynProofExpr::Literal(EVMLiteralExpr(
+                LiteralValue::BigInt(5),
+            ))),
             rhs: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 })),
         });
         assert_eq!(evm, expected);
@@ -1524,7 +1454,7 @@ mod tests {
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
         let expected = EVMDynProofExpr::Add(EVMAddExpr::new(
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
-            EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(3)),
+            EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(3))),
         ));
         assert_eq!(evm, expected);
         assert_eq!(
@@ -1546,7 +1476,7 @@ mod tests {
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
         let expected = EVMDynProofExpr::Subtract(EVMSubtractExpr::new(
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
-            EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(2)),
+            EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(2))),
         ));
         assert_eq!(evm, expected);
         assert_eq!(
@@ -1568,7 +1498,7 @@ mod tests {
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
         let expected = EVMDynProofExpr::Multiply(EVMMultiplyExpr::new(
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
-            EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(4)),
+            EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(4))),
         ));
         assert_eq!(evm, expected);
         assert_eq!(
@@ -1660,7 +1590,7 @@ mod tests {
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
         let expected = EVMDynProofExpr::Inequality(EVMInequalityExpr::new(
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
-            EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(4)),
+            EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(4))),
             true,
         ));
         assert_eq!(evm, expected);

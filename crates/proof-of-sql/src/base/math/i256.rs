@@ -37,6 +37,7 @@ impl I256 {
 
     /// Get the limbs of the `I256` as a `[u64; 4]`.
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn limbs(&self) -> [u64; 4] {
         self.0
     }
