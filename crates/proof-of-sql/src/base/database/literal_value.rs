@@ -27,24 +27,24 @@ pub enum LiteralValue {
     Int(i32),
     /// i64 literals
     BigInt(i64),
+    /// i128 literals
+    Int128(i128),
 
     /// String literals
     ///  - the first element maps to the str value.
     ///  - the second element maps to the str hash (see [`crate::base::scalar::Scalar`]).
     VarChar(String),
-    /// Binary data literals
-    ///  - the backing store is a Vec<u8> for variable length binary data
-    VarBinary(Vec<u8>),
-    /// i128 literals
-    Int128(i128),
     /// Decimal literals with a max width of 252 bits
     ///  - the backing store maps to the type [`crate::base::scalar::Curve25519Scalar`]
     Decimal75(Precision, i8, I256),
-    /// Scalar literals. The underlying `[u64; 4]` is the limbs of the canonical form of the literal
-    Scalar([u64; 4]),
     /// `TimeStamp` defined over a unit (s, ms, ns, etc) and timezone with backing store
     /// mapped to i64, which is time units since unix epoch
     TimeStampTZ(PoSQLTimeUnit, PoSQLTimeZone, i64),
+    /// Scalar literals. The underlying `[u64; 4]` is the limbs of the canonical form of the literal
+    Scalar([u64; 4]),
+    /// Binary data literals
+    ///  - the backing store is a Vec<u8> for variable length binary data
+    VarBinary(Vec<u8>),
 }
 
 impl LiteralValue {
