@@ -753,7 +753,7 @@ mod tests {
             table_number: 0,
             where_clause: EVMDynProofExpr::Equals(EVMEqualsExpr::new(
                 EVMDynProofExpr::Column(EVMColumnExpr::new(0)),
-                EVMDynProofExpr::Literal(EVMLiteralExpr::BigInt(5)),
+                EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(5))),
             )),
             results: vec![EVMDynProofExpr::Column(EVMColumnExpr::new(1))],
         };
