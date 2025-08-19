@@ -132,11 +132,11 @@ jobs:
         - name: Install stable toolchain
           run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
         - name: Run hello_world example (With Blitzar)
-          run: cargo run --example hello_world --features="test"
+          run: cargo run --example hello_world --features="proof-of-sql/test"
         - name: Run hello_world example (Without Blitzar and With Rayon)
-          run: cargo run --example hello_world --no-default-features --features="rayon test"
+          run: cargo run --example hello_world --no-default-features --features="proof-of-sql/rayon proof-of-sql/test"
         - name: Run hello_world example (Without Blitzar and Without Rayon)
-          run: cargo run --example hello_world --no-default-features --features="test"
+          run: cargo run --example hello_world --no-default-features --features="proof-of-sql/test"
         - name: Run space example
           run: cargo run --example space
         - name: Run dog breeds example
@@ -144,9 +144,9 @@ jobs:
         - name: Run wood types example
           run: cargo run --example wood_types
         - name: Run posql_db example (With Blitzar)
-          run: bash crates/proof-of-sql/examples/posql_db/run_example.sh
+          run: bash crates/proof-of-sql-planner/examples/posql_db/run_example.sh
         - name: Run posql_db example (Without Blitzar)
-          run: bash crates/proof-of-sql/examples/posql_db/run_example.sh --no-default-features --features="rayon"
+          run: bash crates/proof-of-sql-planner/examples/posql_db/run_example.sh --no-default-features --features="proof-of-sql/rayon"
 
   clippy:
     name: Clippy
