@@ -2,9 +2,16 @@
 //! To run this, use `cargo run --release --example plastics`.
 //!
 //! NOTE: If this doesn't work because you do not have the appropriate GPU drivers installed,
-//! you can run `cargo run --release --example plastics --no-default-features --features="arrow cpu-perf"` instead. It will be slower for proof generation.
-use arrow::datatypes::SchemaRef;
-use arrow_csv::{infer_schema_from_files, ReaderBuilder};
+//! you can run `cargo run --release --example plastics --no-default-features --features="cpu-perf"` instead. It will be slower for proof generation.
+use datafusion::{
+    arrow::{
+        csv::{infer_schema_from_files, ReaderBuilder},
+        datatypes::SchemaRef,
+        record_batch::RecordBatch,
+        util::pretty::pretty_format_batches,
+    },
+    config::ConfigOptions,
+};
 use proof_of_sql::{
     base::database::{
         arrow_schema_utility::get_posql_compatible_schema, OwnedTable, OwnedTableTestAccessor,
@@ -13,11 +20,11 @@ use proof_of_sql::{
     proof_primitive::dory::{
         DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
     },
-    sql::{
-        parse::QueryExpr, postprocessing::apply_postprocessing_steps, proof::VerifiableQueryResult,
-    },
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
 
 // We generate the public parameters and the setups used by the prover and verifier for the Dory PCS.
@@ -37,14 +44,16 @@ fn prove_and_verify_query(
     // Parse the query:
     println!("Parsing the query: {sql}...");
     let now = Instant::now();
-    let query_plan = QueryExpr::try_new(sql.parse().unwrap(), "plastics".into(), accessor).unwrap();
+    let config = ConfigOptions::default();
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let query_plan = &sql_to_proof_plans(&statements, accessor, &config).unwrap()[0];
     println!("Done in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Generate the proof and result:
     print!("Generating proof...");
     let now = Instant::now();
     let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-        query_plan.proof_expr(),
+        query_plan,
         accessor,
         &prover_setup,
         &[],
@@ -55,15 +64,17 @@ fn prove_and_verify_query(
     // Verify the result with the proof:
     print!("Verifying proof...");
     let now = Instant::now();
-    let result = verifiable_result
-        .verify(query_plan.proof_expr(), accessor, &verifier_setup, &[])
+    let result: RecordBatch = verifiable_result
+        .verify(query_plan, accessor, &verifier_setup, &[])
+        .unwrap()
+        .table
+        .try_into()
         .unwrap();
-    let result = apply_postprocessing_steps(result.table, query_plan.postprocessing());
     println!("Verified in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Display the result
     println!("Query Result:");
-    println!("{result:?}");
+    println!("{}", pretty_format_batches(&[result]).unwrap());
 }
 
 fn main() {
@@ -72,7 +83,7 @@ fn main() {
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
-    let filename = "./crates/proof-of-sql/examples/plastics/plastics.csv";
+    let filename = "crates/proof-of-sql-planner/examples/plastics/plastics.csv";
     let schema = get_posql_compatible_schema(&SchemaRef::new(
         infer_schema_from_files(&[filename.to_string()], b',', None, true).unwrap(),
     ));
@@ -88,7 +99,7 @@ fn main() {
     let mut accessor =
         OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_empty_with_setup(&prover_setup);
     accessor.add_table(
-        TableRef::new("plastics", "types"),
+        TableRef::from_names(None, "types"),
         OwnedTable::try_from(plastics_batch).unwrap(),
         0,
     );
@@ -103,23 +114,15 @@ fn main() {
 
     // Query 2: List names of biodegradable plastics
     prove_and_verify_query(
-        "SELECT Name FROM types WHERE Biodegradable = TRUE ORDER BY Name",
+        "SELECT Name FROM types WHERE Biodegradable = TRUE",
         &accessor,
         &prover_setup,
         &verifier_setup,
     );
 
-    // Query 3: Show average density of plastics by recycling code
+    // Query 3: List plastics with density greater than 1.0 g/cm³
     prove_and_verify_query(
-        "SELECT Code, SUM(Density)/COUNT(*) as avg_density FROM types GROUP BY Code ORDER BY Code",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
-
-    // Query 4: List plastics with density greater than 1.0 g/cm³
-    prove_and_verify_query(
-        "SELECT Name, Density FROM types WHERE Density > 1.0 ORDER BY Density DESC",
+        "SELECT Name, Density FROM types WHERE Density > 1.0",
         &accessor,
         &prover_setup,
         &verifier_setup,

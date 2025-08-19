@@ -1,5 +1,8 @@
 #![doc = include_str!("README.md")]
-use ark_std::test_rng;
+use datafusion::{
+    arrow::{record_batch::RecordBatch, util::pretty::pretty_format_batches},
+    config::ConfigOptions,
+};
 use proof_of_sql::{
     base::database::{
         owned_table_utility::{bigint, owned_table, varchar},
@@ -8,8 +11,11 @@ use proof_of_sql::{
     proof_primitive::dory::{
         DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
     },
-    sql::{parse::QueryExpr, proof::VerifiableQueryResult},
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
+use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{
     io::{stdout, Write},
     time::Instant,
@@ -34,25 +40,18 @@ fn end_timer(instant: Instant) {
 /// - Will panic if the GPU initialization fails during `init_backend`.
 /// - Will panic if the table reference cannot be parsed in `add_table`.
 /// - Will panic if the offset provided to `add_table` is invalid.
-/// - Will panic if the query string cannot be parsed in `QueryExpr::try_new`.
-/// - Will panic if the table reference cannot be parsed in `QueryExpr::try_new`.
-/// - Will panic if the query expression creation fails.
-/// - Will panic if printing fails during error handling.
+/// - Will panic if the query string cannot be parsed or if the proof fails to verify.
 fn main() {
-    #[cfg(feature = "blitzar")]
-    {
-        let timer = start_timer("Warming up GPU");
-        proof_of_sql::base::commitment::init_backend();
-        end_timer(timer);
-    }
     let timer = start_timer("Loading data");
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    // Use a fixed seed for deterministic results
+    let mut rng = StdRng::from_seed([0u8; 32]);
+    let public_parameters = PublicParameters::rand(5, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     let mut accessor =
         OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_empty_with_setup(&prover_setup);
     accessor.add_table(
-        TableRef::new("sxt", "table"),
+        TableRef::from_names(None, "tab"),
         owned_table([
             bigint("a", [1, 2, 3, 2]),
             varchar("b", ["hi", "hello", "there", "world"]),
@@ -60,33 +59,35 @@ fn main() {
         0,
     );
     end_timer(timer);
+
+    let sql = "SELECT b FROM tab WHERE a = 2";
+
     let timer = start_timer("Parsing Query");
-    let query = QueryExpr::try_new(
-        "SELECT b FROM table WHERE a = 2".parse().unwrap(),
-        "sxt".into(),
-        &accessor,
-    )
-    .unwrap();
+    let config = ConfigOptions::default();
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let query_plan = &sql_to_proof_plans(&statements, &accessor, &config).unwrap()[0];
     end_timer(timer);
+
     let timer = start_timer("Generating Proof");
     let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-        query.proof_expr(),
+        query_plan,
         &accessor,
         &&prover_setup,
         &[],
     )
     .unwrap();
     end_timer(timer);
+
     let timer = start_timer("Verifying Proof");
-    let result = verifiable_result.verify(query.proof_expr(), &accessor, &&verifier_setup, &[]);
+    let result: RecordBatch = verifiable_result
+        .verify(query_plan, &accessor, &&verifier_setup, &[])
+        .unwrap()
+        .table
+        .try_into()
+        .unwrap();
     end_timer(timer);
-    match result {
-        Ok(result) => {
-            println!("Valid proof!");
-            println!("Query result: {:?}", result.table);
-        }
-        Err(e) => {
-            println!("Error: {e:?}");
-        }
-    }
+
+    println!("Valid proof!");
+    println!("Query Result:");
+    println!("{}", pretty_format_batches(&[result]).unwrap());
 }

@@ -13,6 +13,7 @@ use arrow::{
 use clap::{arg, Parser, Subcommand, ValueEnum};
 use commit_accessor::CommitAccessor;
 use csv_accessor::{read_record_batch_from_csv, CsvDataAccessor};
+use datafusion::{arrow::util::pretty::pretty_format_batches, config::ConfigOptions};
 use itertools::Itertools;
 use proof_of_sql::{
     base::{
@@ -23,10 +24,10 @@ use proof_of_sql::{
         DynamicDoryCommitment, DynamicDoryEvaluationProof, ProverSetup, PublicParameters,
         VerifierSetup,
     },
-    sql::{parse::QueryExpr, proof::VerifiableQueryResult},
+    sql::proof::VerifiableQueryResult,
 };
-use proof_of_sql_parser::SelectStatement;
-use sqlparser::ast::Ident;
+use proof_of_sql_planner::{get_table_refs_from_statement, sql_to_proof_plans};
+use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser as SqlParser};
 use std::{
     fs,
     io::{prelude::Write, stdout},
@@ -101,7 +102,7 @@ enum Commands {
     Prove {
         /// The query to prove. Note: the default schema is `example`.
         #[arg(short, long)]
-        query: SelectStatement,
+        query: String,
         /// The file name of the file to write the proof to.
         #[arg(short, long)]
         file: PathBuf,
@@ -112,7 +113,7 @@ enum Commands {
     Verify {
         /// The query to verify. Note: the default schema is `example`.
         #[arg(short, long)]
-        query: SelectStatement,
+        query: String,
         /// The file name of the file to read the proof from.
         #[arg(short, long)]
         file: PathBuf,
@@ -151,13 +152,6 @@ fn end_timer(instant: Instant) {
 #[expect(clippy::too_many_lines)]
 fn main() {
     let args = CliArgs::parse();
-
-    #[cfg(feature = "blitzar")]
-    {
-        println!("Warming up GPU...");
-        proof_of_sql::base::commitment::init_backend();
-        println!("Done.");
-    }
 
     let mut rng = <ark_std::rand::rngs::StdRng as ark_std::rand::SeedableRng>::from_seed([0u8; 32]);
     let public_parameters = PublicParameters::rand(5, &mut rng);
@@ -227,8 +221,14 @@ fn main() {
             let mut commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
             let mut csv_accessor = CsvDataAccessor::new(PathBuf::from(args.path.clone()));
-            let tables = query.get_table_references("example".parse().unwrap());
-            for table in tables.into_iter().map(Into::into) {
+
+            // Parse the query using sqlparser
+            let config = ConfigOptions::default();
+            let statements =
+                SqlParser::parse_sql(&GenericDialect {}, &query).expect("Failed to parse SQL");
+            let table_refs =
+                get_table_refs_from_statement(&statements[0]).expect("Failed to get table refs");
+            for table in table_refs {
                 commit_accessor
                     .load_commit(&table)
                     .expect("Failed to load commit");
@@ -243,10 +243,13 @@ fn main() {
                     .load_table(table.clone(), schema)
                     .expect("Failed to load table");
             }
-            let query = QueryExpr::try_new(query, "example".into(), &commit_accessor).unwrap();
+
+            let query_plan = &sql_to_proof_plans(&statements, &commit_accessor, &config)
+                .expect("Failed to convert to proof plan")[0];
+
             let timer = start_timer("Generating Proof");
             let proof = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-                query.proof_expr(),
+                query_plan,
                 &csv_accessor,
                 &&prover_setup,
                 &[],
@@ -262,27 +265,35 @@ fn main() {
         Commands::Verify { query, file } => {
             let mut commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
-            let table_refs = query.get_table_references("example".parse().unwrap());
-            for table_ref in table_refs {
-                let table_name: TableRef = table_ref.into();
+
+            // Parse the query using sqlparser
+            let config = ConfigOptions::default();
+            let statements =
+                SqlParser::parse_sql(&GenericDialect {}, &query).expect("Failed to parse SQL");
+            let table_refs =
+                get_table_refs_from_statement(&statements[0]).expect("Failed to get table refs");
+            for table in table_refs {
                 commit_accessor
-                    .load_commit(&table_name)
+                    .load_commit(&table)
                     .expect("Failed to load commit");
             }
-            let query = QueryExpr::try_new(query, "example".into(), &commit_accessor).unwrap();
+            let query_plan = &sql_to_proof_plans(&statements, &commit_accessor, &config)
+                .expect("Failed to convert to proof plan")[0];
+
             let result: VerifiableQueryResult<DynamicDoryEvaluationProof> =
                 postcard::from_bytes(&fs::read(file).expect("Failed to read proof"))
                     .expect("Failed to deserialize proof");
 
             let timer = start_timer("Verifying Proof");
             let query_result = result
-                .verify(query.proof_expr(), &commit_accessor, &&verifier_setup, &[])
+                .verify(query_plan, &commit_accessor, &&verifier_setup, &[])
                 .expect("Failed to verify proof");
             end_timer(timer);
-            println!(
-                "Verified Result: {:?}",
-                RecordBatch::try_from(query_result.table).unwrap()
-            );
+
+            // Convert to RecordBatch and pretty print
+            let record_batch: RecordBatch = query_result.table.try_into().unwrap();
+            println!("Query Result:");
+            println!("{}", pretty_format_batches(&[record_batch]).unwrap());
         }
     }
 }

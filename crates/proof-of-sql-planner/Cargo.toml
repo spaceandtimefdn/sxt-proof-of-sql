@@ -14,11 +14,14 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ahash = { workspace = true }
 arrow = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"]}
 datafusion = { workspace = true }
 # getrandom and uuid must be compiled with js feature
 getrandom = { workspace = true, features = ["js"] }
 indexmap = { workspace = true }
+postcard = { workspace = true }
 proof-of-sql = { workspace = true, features = ["arrow"] }
+rand = { workspace = true, default-features = false }
 serde = { workspace = true }
 snafu = { workspace = true }
 sqlparser = { workspace = true }
@@ -34,5 +37,70 @@ hex = { workspace = true }
 itertools = { workspace = true }
 proof-of-sql = { workspace = true, features = ["arrow", "hyperkzg_proof"] }
 
+[package.metadata.cargo-udeps.ignore]
+normal = ["clap", "postcard"]
+
 [lints]
 workspace = true
+
+[features]
+cpu-perf = ["proof-of-sql/cpu-perf"]
+
+[[example]]
+name = "hello_world"
+required-features = ["proof-of-sql/test"]
+
+[[example]]
+name = "posql_db"
+required-features = ["proof-of-sql/utils"]
+
+[[example]]
+name = "space"
+
+[[example]]
+name = "dog_breeds"
+
+[[example]]
+name = "wood_types"
+
+[[example]]
+name = "dinosaurs"
+
+[[example]]
+name = "books"
+
+[[example]]
+name = "programming_books"
+
+[[example]]
+name = "brands"
+
+[[example]]
+name = "census"
+
+[[example]]
+name = "plastics"
+
+[[example]]
+name = "avocado-prices"
+
+[[example]]
+name = "sushi"
+
+[[example]]
+name = "stocks"
+
+[[example]]
+name = "tech_gadget_prices"
+
+[[example]]
+name = "albums"
+
+[[example]]
+name = "vehicles"
+
+[[example]]
+name = "countries"
+
+[[example]]
+name = "rockets"

@@ -63,7 +63,6 @@ tracing = { workspace = true, features = ["attributes"] }
 zerocopy = { workspace = true }
 
 [dev-dependencies]
-arrow-csv = { workspace = true }
 hex = { workspace = true }
 merlin = { workspace = true }
 rand = { workspace = true, default-features = false, features = ["std"] }
@@ -101,79 +100,3 @@ required-features = [ "std", "blitzar", "utils" ]
 name = "commitment-utility"
 path = "utils/commitment-utility/main.rs"
 required-features = [ "std", "blitzar", "utils" ]
-
-[[example]]
-name = "hello_world"
-required-features = ["test"]
-
-[[example]]
-name = "posql_db"
-required-features = ["arrow", "utils"]
-
-[[example]]
-name = "space"
-required-features = ["arrow"]
-
-[[example]]
-name = "dog_breeds"
-required-features = ["arrow"]
-
-[[example]]
-name = "wood_types"
-required-features = ["arrow"]
-
-[[example]]
-name = "dinosaurs"
-required-features = ["arrow"]
-
-[[example]]
-name = "books"
-required-features = ["arrow"]
-
-[[example]]
-name = "programming_books"
-required-features = ["arrow"]
-
-[[example]]
-name = "brands"
-required-features = ["arrow"]
-
-[[example]]
-name = "census"
-required-features = [ "arrow" ]
-
-[[example]]
-name = "plastics"
-required-features = ["arrow"]
-
-[[example]]
-name = "avocado-prices"
-required-features = ["arrow"]
-
-[[example]]
-name = "sushi"
-required-features = ["arrow"]
-
-[[example]]
-name = "stocks"
-required-features = ["arrow"]
-
-[[example]]
-name = "tech_gadget_prices"
-required-features = [ "arrow" ]
-
-[[example]]
-name = "albums"
-required-features = [ "arrow" ]
-
-[[example]]
-name = "vehicles"
-required-features = [ "arrow" ]
-
-[[example]]
-name = "countries"
-required-features = [ "arrow" ]
-
-[[example]]
-name = "rockets"
-required-features = [ "arrow" ]

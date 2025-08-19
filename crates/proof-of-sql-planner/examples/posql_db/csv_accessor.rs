@@ -1,7 +1,10 @@
 use super::record_batch_accessor::RecordBatchAccessor;
-use arrow::{datatypes::Schema, record_batch::RecordBatch};
-use arrow_csv::{ReaderBuilder, WriterBuilder};
 use core::error::Error;
+use datafusion::arrow::{
+    csv::{ReaderBuilder, WriterBuilder},
+    datatypes::Schema,
+    record_batch::RecordBatch,
+};
 use proof_of_sql::base::{
     database::{Column, ColumnType, DataAccessor, MetadataAccessor, SchemaAccessor, TableRef},
     scalar::Scalar,

@@ -2,19 +2,29 @@
 //! To run, use `cargo run --example avocado-prices`.
 //!
 //! NOTE: If this doesn't work because you do not have the appropriate GPU drivers installed,
-//! you can run `cargo run --release --example avocado-prices --no-default-features --features="arrow cpu-perf"` instead. It will be slower for proof generation.
-use arrow::datatypes::SchemaRef;
-use arrow_csv::{infer_schema_from_files, ReaderBuilder};
+//! you can run `cargo run --release --example avocado-prices --no-default-features --features="cpu-perf"` instead. It will be slower for proof generation.
+use datafusion::{
+    arrow::{
+        csv::{infer_schema_from_files, ReaderBuilder},
+        datatypes::SchemaRef,
+        record_batch::RecordBatch,
+        util::pretty::pretty_format_batches,
+    },
+    config::ConfigOptions,
+};
 use proof_of_sql::{
-    base::database::{OwnedTable, OwnedTableTestAccessor, TableRef},
+    base::database::{
+        arrow_schema_utility::get_posql_compatible_schema, OwnedTable, OwnedTableTestAccessor,
+        TableRef,
+    },
     proof_primitive::dory::{
         DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
     },
-    sql::{
-        parse::QueryExpr, postprocessing::apply_postprocessing_steps, proof::VerifiableQueryResult,
-    },
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
 
 // We generate the public parameters and the setups used by the prover and verifier for the Dory PCS.
@@ -42,14 +52,16 @@ fn prove_and_verify_query(
     // Parse the query:
     println!("Parsing the query: {sql}...");
     let now = Instant::now();
-    let query_plan = QueryExpr::try_new(sql.parse().unwrap(), "avocado".into(), accessor).unwrap();
+    let config = ConfigOptions::default();
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let query_plan = &sql_to_proof_plans(&statements, accessor, &config).unwrap()[0];
     println!("Done in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Generate the proof and result:
     print!("Generating proof...");
     let now = Instant::now();
     let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-        query_plan.proof_expr(),
+        query_plan,
         accessor,
         &prover_setup,
         &[],
@@ -60,15 +72,17 @@ fn prove_and_verify_query(
     // Verify the result with the proof:
     print!("Verifying proof...");
     let now = Instant::now();
-    let result = verifiable_result
-        .verify(query_plan.proof_expr(), accessor, &verifier_setup, &[])
+    let result: RecordBatch = verifiable_result
+        .verify(query_plan, accessor, &verifier_setup, &[])
+        .unwrap()
+        .table
+        .try_into()
         .unwrap();
-    let result = apply_postprocessing_steps(result.table, query_plan.postprocessing());
     println!("Verified in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Display the result
     println!("Query Result:");
-    println!("{result:?}");
+    println!("{}", pretty_format_batches(&[result]).unwrap());
 }
 
 fn main() {
@@ -77,16 +91,18 @@ fn main() {
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
-    let filename = "./crates/proof-of-sql/examples/avocado-prices/avocado-prices.csv";
-    let data_batch = ReaderBuilder::new(SchemaRef::new(
+    let filename = "crates/proof-of-sql-planner/examples/avocado-prices/avocado-prices.csv";
+    let schema = get_posql_compatible_schema(&SchemaRef::new(
         infer_schema_from_files(&[filename.to_string()], b',', None, true).unwrap(),
-    ))
-    .with_header(true)
-    .build(File::open(filename).unwrap())
-    .unwrap()
-    .next()
-    .unwrap()
-    .unwrap();
+    ));
+
+    let data_batch = ReaderBuilder::new(schema.clone())
+        .with_header(true)
+        .build(File::open(filename).unwrap())
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
 
     // Load the table into an "Accessor" so that the prover and verifier can access the data/commitments.
     let accessor = OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_from_table(
@@ -97,19 +113,19 @@ fn main() {
     );
 
     prove_and_verify_query(
-        "SELECT COUNT(*) AS total FROM prices",
+        "SELECT COUNT(*) AS total FROM avocado.prices",
         &accessor,
         &prover_setup,
         &verifier_setup,
     );
     prove_and_verify_query(
-        "SELECT Price, COUNT(*) AS total FROM prices GROUP BY Price ORDER BY total",
+        "SELECT Price, COUNT(*) AS total FROM avocado.prices GROUP BY Price",
         &accessor,
         &prover_setup,
         &verifier_setup,
     );
     prove_and_verify_query(
-        "SELECT Year, COUNT(*) AS total FROM prices WHERE Price > 100 GROUP BY Year ORDER BY total DESC LIMIT 5",
+        "SELECT Year, COUNT(*) AS total FROM avocado.prices WHERE Price > 100 GROUP BY Year",
         &accessor,
         &prover_setup,
         &verifier_setup,

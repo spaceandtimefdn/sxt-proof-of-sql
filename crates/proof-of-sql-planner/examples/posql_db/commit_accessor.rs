@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 use std::{fs, path::PathBuf};
 
+#[derive(Debug, Clone)]
 pub struct CommitAccessor<C: Commitment> {
     base_path: PathBuf,
     inner: QueryCommitments<C>,

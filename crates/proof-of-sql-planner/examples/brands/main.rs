@@ -2,9 +2,16 @@
 //! To run this, use `cargo run --release --example brands`.
 //!
 //! NOTE: If this doesn't work because you do not have the appropriate GPU drivers installed,
-//! you can run `cargo run --release --example brands --no-default-features --features="arrow cpu-perf"` instead. It will be slower for proof generation.
-use arrow::datatypes::SchemaRef;
-use arrow_csv::{infer_schema_from_files, ReaderBuilder};
+//! you can run `cargo run --release --example brands --no-default-features --features="cpu-perf"` instead. It will be slower for proof generation.
+use datafusion::{
+    arrow::{
+        csv::{infer_schema_from_files, ReaderBuilder},
+        datatypes::SchemaRef,
+        record_batch::RecordBatch,
+        util::pretty::pretty_format_batches,
+    },
+    config::ConfigOptions,
+};
 use proof_of_sql::{
     base::database::{
         arrow_schema_utility::get_posql_compatible_schema, OwnedTable, OwnedTableTestAccessor,
@@ -13,11 +20,11 @@ use proof_of_sql::{
     proof_primitive::dory::{
         DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
     },
-    sql::{
-        parse::QueryExpr, postprocessing::apply_postprocessing_steps, proof::VerifiableQueryResult,
-    },
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
 
 // We generate the public parameters and the setups used by the prover and verifier for the Dory PCS.
@@ -37,14 +44,16 @@ fn prove_and_verify_query(
     // Parse the query:
     println!("Parsing the query: {sql}...");
     let now = Instant::now();
-    let query_plan = QueryExpr::try_new(sql.parse().unwrap(), "brands".into(), accessor).unwrap();
+    let config = ConfigOptions::default();
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let query_plan = &sql_to_proof_plans(&statements, accessor, &config).unwrap()[0];
     println!("Done in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Generate the proof and result:
     print!("Generating proof...");
     let now = Instant::now();
     let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-        query_plan.proof_expr(),
+        query_plan,
         accessor,
         &prover_setup,
         &[],
@@ -55,15 +64,17 @@ fn prove_and_verify_query(
     // Verify the result with the proof:
     print!("Verifying proof...");
     let now = Instant::now();
-    let result = verifiable_result
-        .verify(query_plan.proof_expr(), accessor, &verifier_setup, &[])
+    let result: RecordBatch = verifiable_result
+        .verify(query_plan, accessor, &verifier_setup, &[])
+        .unwrap()
+        .table
+        .try_into()
         .unwrap();
-    let result = apply_postprocessing_steps(result.table, query_plan.postprocessing());
     println!("Verified in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Display the result
     println!("Query Result:");
-    println!("{result:?}");
+    println!("{}", pretty_format_batches(&[result]).unwrap());
 }
 
 fn main() {
@@ -72,7 +83,7 @@ fn main() {
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
-    let filename = "./crates/proof-of-sql/examples/brands/brands.csv";
+    let filename = "crates/proof-of-sql-planner/examples/brands/brands.csv";
     let inferred_schema =
         SchemaRef::new(infer_schema_from_files(&[filename.to_string()], b',', None, true).unwrap());
     let posql_compatible_schema = get_posql_compatible_schema(&inferred_schema);
@@ -89,20 +100,12 @@ fn main() {
     let mut accessor =
         OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_empty_with_setup(&prover_setup);
     accessor.add_table(
-        TableRef::new("brands", "global_brands"),
+        TableRef::from_names(None, "global_brands"),
         OwnedTable::try_from(brands_batch).unwrap(),
         0,
     );
 
-    // Query 1: Count the total number of brands
-    prove_and_verify_query(
-        "SELECT COUNT(*) AS total_brands FROM global_brands",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
-
-    // Query 2: List the names of brands founded before 1950
+    // Query 1: List the names of brands founded before 1950
     prove_and_verify_query(
         "SELECT Name FROM global_brands WHERE Founded < 1950",
         &accessor,
@@ -110,9 +113,9 @@ fn main() {
         &verifier_setup,
     );
 
-    // Query 3: List the top 5 countries with the highest total revenue, ordered by total revenue
+    // Query 2: List countries with total revenue grouped by country
     prove_and_verify_query(
-        "SELECT Country, SUM(Revenue) AS total_revenue FROM global_brands GROUP BY Country ORDER BY total_revenue DESC LIMIT 5",
+        "SELECT Country, SUM(Revenue) AS total_revenue, COUNT(1) AS num_brands FROM global_brands GROUP BY Country",
         &accessor,
         &prover_setup,
         &verifier_setup,

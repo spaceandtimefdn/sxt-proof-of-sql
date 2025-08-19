@@ -2,23 +2,30 @@
 //! To run this, use `cargo run --release --example space`.
 //!
 //! NOTE: If this doesn't work because you do not have the appropriate GPU drivers installed,
-//! you can run `cargo run --release --example space --no-default-features --features="arrow cpu-perf"` instead. It will be slower for proof generation.
+//! you can run `cargo run --release --example space --no-default-features --features="cpu-perf"` instead. It will be slower for proof generation.
 
 // Note: the space_travellers.csv file was obtained from
 // https://www.kaggle.com/datasets/kaushiksinghrawat/humans-to-have-visited-space
 // under the Apache 2.0 license.
-use arrow::datatypes::SchemaRef;
-use arrow_csv::{infer_schema_from_files, ReaderBuilder};
+use datafusion::{
+    arrow::{
+        csv::{infer_schema_from_files, ReaderBuilder},
+        datatypes::SchemaRef,
+        record_batch::RecordBatch,
+        util::pretty::pretty_format_batches,
+    },
+    config::ConfigOptions,
+};
 use proof_of_sql::{
     base::database::{OwnedTable, OwnedTableTestAccessor, TableRef, TestAccessor},
     proof_primitive::dory::{
         DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
     },
-    sql::{
-        parse::QueryExpr, postprocessing::apply_postprocessing_steps, proof::VerifiableQueryResult,
-    },
+    sql::proof::VerifiableQueryResult,
 };
+use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
 
 // We generate the public parameters and the setups used by the prover and verifier for the Dory PCS.
@@ -46,14 +53,16 @@ fn prove_and_verify_query(
     // Parse the query:
     println!("Parsing the query: {sql}...");
     let now = Instant::now();
-    let query_plan = QueryExpr::try_new(sql.parse().unwrap(), "space".into(), accessor).unwrap();
+    let config = ConfigOptions::default();
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let query_plan = &sql_to_proof_plans(&statements, accessor, &config).unwrap()[0];
     println!("Done in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Generate the proof and result:
     print!("Generating proof...");
     let now = Instant::now();
     let verifiable_result = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
-        query_plan.proof_expr(),
+        query_plan,
         accessor,
         &prover_setup,
         &[],
@@ -64,15 +73,17 @@ fn prove_and_verify_query(
     // Verify the result with the proof:
     print!("Verifying proof...");
     let now = Instant::now();
-    let result = verifiable_result
-        .verify(query_plan.proof_expr(), accessor, &verifier_setup, &[])
+    let result: RecordBatch = verifiable_result
+        .verify(query_plan, accessor, &verifier_setup, &[])
+        .unwrap()
+        .table
+        .try_into()
         .unwrap();
-    let result = apply_postprocessing_steps(result.table, query_plan.postprocessing());
     println!("Verified in {} ms.", now.elapsed().as_secs_f64() * 1000.);
 
     // Display the result
     println!("Query Result:");
-    println!("{result:?}");
+    println!("{}", pretty_format_batches(&[result]).unwrap());
 }
 
 fn main() {
@@ -82,8 +93,8 @@ fn main() {
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
     let filenames = [
-        "./crates/proof-of-sql/examples/space/space_travellers.csv",
-        "./crates/proof-of-sql/examples/space/planets.csv",
+        "crates/proof-of-sql-planner/examples/space/space_travellers.csv",
+        "crates/proof-of-sql-planner/examples/space/planets.csv",
     ];
     let [space_travellers_batch, planets_batch] = filenames.map(|filename| {
         ReaderBuilder::new(SchemaRef::new(
@@ -101,12 +112,12 @@ fn main() {
     let mut accessor =
         OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_empty_with_setup(&prover_setup);
     accessor.add_table(
-        TableRef::new("space", "travellers"),
+        TableRef::from_names(None, "travellers"),
         OwnedTable::try_from(space_travellers_batch).unwrap(),
         0,
     );
     accessor.add_table(
-        TableRef::new("space", "planets"),
+        TableRef::from_names(None, "planets"),
         OwnedTable::try_from(planets_batch).unwrap(),
         0,
     );
@@ -118,13 +129,13 @@ fn main() {
         &verifier_setup,
     );
     prove_and_verify_query(
-        "SELECT Nationality, COUNT(*) AS num_travellers FROM travellers GROUP BY Nationality ORDER BY num_travellers",
+        "SELECT Nationality, COUNT(*) AS num_travellers FROM travellers GROUP BY Nationality",
         &accessor,
         &prover_setup,
         &verifier_setup,
     );
     prove_and_verify_query(
-        "SELECT Flight, COUNT(*) AS num_travellers FROM travellers WHERE Date > timestamp '2000-01-01T00:00:00Z' GROUP BY Flight ORDER BY num_travellers DESC LIMIT 5",
+        "SELECT Flight, COUNT(*) AS num_travellers FROM travellers GROUP BY Flight",
         &accessor,
         &prover_setup,
         &verifier_setup,
@@ -136,7 +147,7 @@ fn main() {
         &verifier_setup,
     );
     prove_and_verify_query(
-        "SELECT name, density FROM planets ORDER BY density DESC LIMIT 3",
+        "SELECT name, density FROM planets WHERE density > 0",
         &accessor,
         &prover_setup,
         &verifier_setup,
