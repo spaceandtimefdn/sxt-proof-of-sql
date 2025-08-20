@@ -5,7 +5,6 @@ mod error;
 pub mod evm_proof_plan;
 /// [`AnalyzeError`] temporarily exists until we switch to using Datafusion Analyzer to handle type checking.
 pub use error::{AnalyzeError, AnalyzeResult};
-pub mod postprocessing;
 pub mod proof;
 pub mod proof_exprs;
 pub mod proof_gadgets;
