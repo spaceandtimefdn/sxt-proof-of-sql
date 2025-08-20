@@ -29,6 +29,7 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
+    #[expect(dead_code)]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
