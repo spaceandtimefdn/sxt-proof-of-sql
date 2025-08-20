@@ -155,7 +155,7 @@ impl<'de> Deserialize<'de> for Precision {
 /// Returns `DecimalError::InvalidPrecision` error if the number of digits in
 /// the decimal exceeds the `target_precision` before or after adjusting for
 /// `target_scale`, or if the target precision is zero.
-pub(crate) fn try_convert_intermediate_decimal_to_scalar<S: Scalar>(
+pub fn try_convert_intermediate_decimal_to_scalar<S: Scalar>(
     d: &BigDecimal,
     target_precision: Precision,
     target_scale: i8,
