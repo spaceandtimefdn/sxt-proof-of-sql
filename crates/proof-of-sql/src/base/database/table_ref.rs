@@ -6,7 +6,8 @@ use core::{
     str::FromStr,
 };
 use indexmap::Equivalent;
-use proof_of_sql_parser::{impl_serde_from_str, ResourceId};
+use proof_of_sql_parser::ResourceId;
+use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
 /// Expression for an SQL table
@@ -135,4 +136,20 @@ impl Display for TableRef {
     }
 }
 
-impl_serde_from_str!(TableRef);
+impl Serialize for TableRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+impl<'d> Deserialize<'d> for TableRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'d>,
+    {
+        let string = alloc::string::String::deserialize(deserializer)?;
+        TableRef::from_str(&string).map_err(serde::de::Error::custom)
+    }
+}
