@@ -69,7 +69,6 @@ rand = { workspace = true, default-features = false, features = ["std"] }
 rand_core = { workspace = true, default-features = false }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-flexbuffers = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 
