@@ -151,11 +151,9 @@ mod tests {
     use arrow::datatypes::DataType;
     use core::ops::{Add, Mul, Sub};
     use datafusion::{
-        common::ScalarValue,
-        logical_expr::{
-            expr::{Placeholder, Unnest},
-            Cast,
-        },
+        catalog::TableReference,
+        common::{Column, ScalarValue},
+        logical_expr::{expr::Placeholder, Cast},
     };
     use proof_of_sql::base::{
         database::{ColumnRef, ColumnType, LiteralValue, TableRef},
@@ -722,7 +720,10 @@ mod tests {
     // Unsupported logical expression
     #[test]
     fn we_cannot_convert_unsupported_expr_to_proof_expr() {
-        let expr = Expr::Unnest(Unnest::new(Expr::Literal(ScalarValue::Int32(Some(100)))));
+        let expr = Expr::OuterReferenceColumn(
+            DataType::Int32,
+            Column::new(None::<TableReference>, "column"),
+        );
         assert!(matches!(
             expr_to_proof_expr(&expr, &Vec::new()),
             Err(PlannerError::UnsupportedLogicalExpression { .. })
