@@ -91,6 +91,26 @@ impl SortMergeJoinExec {
             result_idents,
         }
     }
+
+    pub(crate) fn left_plan(&self) -> &DynProofPlan {
+        &self.left
+    }
+
+    pub(crate) fn right_plan(&self) -> &DynProofPlan {
+        &self.right
+    }
+
+    pub(crate) fn left_join_column_indexes(&self) -> &Vec<usize> {
+        &self.left_join_column_indexes
+    }
+
+    pub(crate) fn right_join_column_indexes(&self) -> &Vec<usize> {
+        &self.right_join_column_indexes
+    }
+
+    pub(crate) fn result_idents(&self) -> &Vec<Ident> {
+        &self.result_idents
+    }
 }
 
 #[expect(clippy::missing_panics_doc)]
