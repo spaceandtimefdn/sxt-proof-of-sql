@@ -3,6 +3,7 @@ use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 
 pub trait BigDecimalExt {
+    #[cfg_attr(not(test), expect(dead_code, reason = "only used by tests for now"))]
     fn precision(&self) -> u64;
     fn scale(&self) -> i64;
     fn try_into_bigint_with_precision_and_scale(

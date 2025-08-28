@@ -25,9 +25,11 @@ pub struct AggregatedColumns<'a, S: Scalar> {
     pub sum_columns: Vec<&'a [S]>,
     /// Resulting maxima of the groups for the columns in `max_columns_in`. Note that for empty groups
     /// the result will be `None`.
+    #[cfg_attr(not(test), expect(dead_code, reason = "only used by tests for now"))]
     pub max_columns: Vec<&'a [Option<S>]>,
     /// Resulting minima of the groups for the columns in `min_columns_in`. Note that for empty groups
     /// the result will be `None`.
+    #[cfg_attr(not(test), expect(dead_code, reason = "only used by tests for now"))]
     pub min_columns: Vec<&'a [Option<S>]>,
     /// The number of rows in each group.
     pub count_column: &'a [i64],

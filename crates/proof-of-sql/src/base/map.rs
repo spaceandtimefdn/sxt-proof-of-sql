@@ -3,6 +3,7 @@ pub(crate) type IndexMap<K, V> =
 pub(crate) type IndexSet<T> = indexmap::IndexSet<T, core::hash::BuildHasherDefault<ahash::AHasher>>;
 
 /// Create an [`IndexMap`][self::IndexMap] from a list of key-value pairs
+#[cfg(test)]
 macro_rules! indexmap {
     ($($key:expr => $value:expr,)+) => { indexmap::indexmap_with_default!{ahash::AHasher; $($key => $value),+} };
     ($($key:expr => $value:expr),*) => { indexmap::indexmap_with_default!{ahash::AHasher; $($key => $value),*} };
@@ -14,5 +15,6 @@ macro_rules! indexset {
     ($($value:expr),*) => { indexmap::indexset_with_default!{ahash::AHasher; $($value),*} };
 }
 
+#[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
