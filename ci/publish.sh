@@ -14,7 +14,7 @@ fi
 sed -i 's/version = "*.*.*" # DO NOT CHANGE THIS LINE! This will be automatically updated/version = "'${NEW_VERSION}'"/' Cargo.toml
 sed -i 's/path = "[^"]*"/version = "'${NEW_VERSION}'"/g' Cargo.toml
 
-CRATES=("proof-of-sql-parser" "proof-of-sql" "proof-of-sql-planner")
+CRATES=("proof-of-sql" "proof-of-sql-planner")
 
 for crate in "${CRATES[@]}"; do
   echo "Attempting to see if ${crate}@${NEW_VERSION} is published already..." 

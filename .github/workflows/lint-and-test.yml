@@ -64,10 +64,9 @@ jobs:
         run: |
           cargo check -p proof-of-sql --no-default-features --features="std"
           cargo check -p proof-of-sql --all-targets --no-default-features --features="std"
-      - name: Run cargo check (proof-of-sql-parser & proof-of-sql) with no_std target.
+      - name: Run cargo check (proof-of-sql) with no_std target.
         run: |
           rustup target add thumbv7em-none-eabi
-          cargo check -p proof-of-sql-parser --target thumbv7em-none-eabi --no-default-features
           cargo check -p proof-of-sql --target thumbv7em-none-eabi --no-default-features
       - name: Check that we can compile `proof-of-sql-planner` to WebAssembly
         working-directory: ./crates/proof-of-sql-planner

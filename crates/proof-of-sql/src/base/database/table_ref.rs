@@ -6,7 +6,6 @@ use core::{
     str::FromStr,
 };
 use indexmap::Equivalent;
-use proof_of_sql_parser::ResourceId;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -98,16 +97,6 @@ impl TryFrom<&str> for TableRef {
             _ => Err(ParseError::InvalidTableReference {
                 table_reference: s.to_string(),
             }),
-        }
-    }
-}
-
-/// Note: We just need this conversion trait until `SelectStatement` refactor is done
-impl From<ResourceId> for TableRef {
-    fn from(id: ResourceId) -> Self {
-        TableRef {
-            schema_name: Some(Ident::from(id.schema())),
-            table_name: Ident::from(id.object_name()),
         }
     }
 }
