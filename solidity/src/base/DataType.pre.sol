@@ -204,7 +204,13 @@ library DataType {
                 }
                 case 9 {
                     case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    if sub(shr(UINT32_PADDING_BITS, calldataload(ptr_out)), TIMEUNIT_MILLISECOND_VARIANT) {
+                        err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT)
+                    }
                     ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    if sub(shr(INT32_PADDING_BITS, calldataload(ptr_out)), TIMEZONE_UTC) {
+                        err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT)
+                    }
                     ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
                 }
                 case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
