@@ -150,7 +150,7 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
             decimal75("d", 5, 0, [0, -2, -1, 1, 2]),
             timestamptz(
                 "t",
-                PoSQLTimeUnit::Second,
+                PoSQLTimeUnit::Millisecond,
                 PoSQLTimeZone::utc(),
                 [
                     1_746_627_936,
