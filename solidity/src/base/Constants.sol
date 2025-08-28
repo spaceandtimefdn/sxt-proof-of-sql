@@ -146,6 +146,11 @@ uint32 constant DATA_TYPE_SCALAR_VARIANT = 10;
 /// @dev Varbinary variant constant for column types
 uint32 constant DATA_TYPE_VARBINARY_VARIANT = 11;
 
+/// @dev Timestamp variant constant for column types
+uint32 constant TIMEUNIT_MILLISECOND_VARIANT = 1;
+/// @dev Timestamp variant constant for column types
+int32 constant TIMEZONE_UTC = 0;
+
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;
 
