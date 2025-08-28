@@ -96,8 +96,8 @@ contract PlanUtilTest is Test {
             name: "Timestamp",
             precision: 0,
             scale: 0,
-            timeunit: 3,
-            timezone: -18000
+            timeunit: 1,
+            timezone: 0
         });
 
         bytes[] memory outputColumnNames = new bytes[](2);

@@ -312,6 +312,15 @@ contract DataTypeTest is Test {
         }
     }
 
+    function testUnsupportedTimestamp() public {
+        bytes memory exprIn = abi.encodePacked(DATA_TYPE_TIMESTAMP_VARIANT, uint32(2), int32(0));
+        vm.expectRevert(Errors.UnsupportedDataTypeVariant.selector);
+        DataType.__readDataType(exprIn);
+        exprIn = abi.encodePacked(DATA_TYPE_TIMESTAMP_VARIANT, uint32(1), int32(1));
+        vm.expectRevert(Errors.UnsupportedDataTypeVariant.selector);
+        DataType.__readDataType(exprIn);
+    }
+
     function testReadDataTypeWithInvalidVariant() public {
         bytes memory exprIn = abi.encodePacked(INVALID_VARIANT, hex"abcdef");
         vm.expectRevert(Errors.UnsupportedDataTypeVariant.selector);
