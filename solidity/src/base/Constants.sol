@@ -58,6 +58,7 @@ uint256 constant INT16_SIZE = 0x02;
 uint256 constant INT16_PADDING_BITS = 0xF0;
 /// @dev Size of int16 minus one byte
 uint256 constant INT16_SIZE_MINUS_ONE = 0x01;
+uint256 constant UINT16_SIZE = 0x02;
 /// @dev Size of uint32 in bytes
 uint256 constant UINT32_SIZE = 0x04;
 /// @dev Number of bits needed to pad uint32 to 256 bits

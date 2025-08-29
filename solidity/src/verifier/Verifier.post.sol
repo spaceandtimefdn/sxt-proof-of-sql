@@ -4,9 +4,29 @@ pragma solidity ^0.8.28;
 
 import "../base/Constants.sol";
 import "../base/Errors.sol";
+import {Commitment} from "../commitment/Commitment.sol";
 
 library Verifier {
-    function __verify(
+    function verify(
+        bytes calldata __result,
+        bytes calldata __plan,
+        uint256[] memory __placeholderParameters,
+        bytes calldata __proof,
+        Commitment.TableCommitment[] memory __tableCommitments
+    ) public view {
+        (uint256[] memory tableLengths, uint256[] memory commitments) =
+            Commitment.getCommitmentsAndLength(__plan, __tableCommitments);
+        __internalVerify({
+            __result: __result,
+            __plan: __plan,
+            __placeholderParameters: __placeholderParameters,
+            __proof: __proof,
+            __tableLengths: tableLengths,
+            __commitments: commitments
+        });
+    }
+
+    function __internalVerify(
         bytes calldata __result,
         bytes calldata __plan,
         uint256[] memory __placeholderParameters,
