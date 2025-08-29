@@ -160,7 +160,7 @@ library Commitment {
     }
 
     function getCommitmentsAndLength(bytes calldata queryPlan, TableCommitment[] memory tableCommitments)
-        external
+        internal
         pure
         returns (uint256[] memory __tableLengths, uint256[] memory __commitments)
     {
