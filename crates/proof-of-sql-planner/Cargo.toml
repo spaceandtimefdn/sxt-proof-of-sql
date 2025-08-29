@@ -16,8 +16,8 @@ ahash = { workspace = true }
 arrow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"]}
 datafusion = { workspace = true }
-# getrandom and uuid must be compiled with js feature
-getrandom = { workspace = true, features = ["js"] }
+# getrandom must be compiled with wasm_js feature
+getrandom = { workspace = true, features = ["wasm_js"] }
 indexmap = { workspace = true }
 postcard = { workspace = true }
 proof-of-sql = { workspace = true, features = ["arrow"] }
@@ -25,6 +25,7 @@ rand = { workspace = true, default-features = false }
 serde = { workspace = true }
 snafu = { workspace = true }
 sqlparser = { workspace = true }
+# uuid must be compiled with js feature
 uuid = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
