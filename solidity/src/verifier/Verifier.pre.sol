@@ -6,7 +6,7 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 
 library Verifier {
-    function __verify(
+    function __internalVerify(
         bytes calldata __result,
         bytes calldata __plan,
         uint256[] memory __placeholderParameters,
