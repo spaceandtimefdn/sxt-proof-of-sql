@@ -2,6 +2,9 @@
 linker = "/usr/bin/clang" # used to decrease build time
 rustflags = ["-Clink-arg=-fuse-ld=lld"] # used to decrease link time
 
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
 [alias]
 f = "fmt --all -- --config imports_granularity=Crate,group_imports=One"
 cl = "clippy --all-targets --all-features"
