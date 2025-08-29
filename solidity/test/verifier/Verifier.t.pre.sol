@@ -16,7 +16,7 @@ contract VerifierTest is Test {
         uint256[] memory tableLengths,
         uint256[] memory commitments
     ) public view {
-        Verifier.__verify({
+        Verifier.__internalVerify({
             __result: result,
             __plan: plan,
             __placeholderParameters: placeholderParameters,
@@ -35,7 +35,7 @@ contract VerifierTest is Test {
         commitments[2] = 11994260765248910561540716452031502208136256599213361935879450273410509855704;
         commitments[3] = 13760418268827664034425846360177624835399216842325030254024970295997593510876;
         uint256[] memory placeholderParameters = new uint256[](0);
-        Verifier.__verify({
+        Verifier.__internalVerify({
             __result: hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003",
             __plan: hex"0000000000000001000000000000000f6e616d6573706163652e7461626c650000000000000002000000000000000000000000000000016200000005000000000000000000000000000000016100000005000000000000000100000000000000016200000000000000000000000000000002000000000000000000000001000000010000000500000000000000050000000000000001000000000000000000000000",
             __placeholderParameters: placeholderParameters,
@@ -62,7 +62,7 @@ contract VerifierTest is Test {
         // Expect the error for odd-length commitment array
         vm.expectRevert(Errors.CommitmentArrayOddLength.selector);
 
-        Verifier.__verify({
+        Verifier.__internalVerify({
             __result: hex"00",
             __plan: hex"00",
             __placeholderParameters: placeholderParameters,
