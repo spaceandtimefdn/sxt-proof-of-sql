@@ -1,13 +1,13 @@
 use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::{
-    catalog::TableReference,
     common::{Column, DFSchema},
     logical_expr::Expr,
+    sql::TableReference,
 };
 
 /// Create a `Expr::Column` from full table name and column
 pub(crate) fn df_column(table_name: &str, column: &str) -> Expr {
-    let reference = TableReference::parse_str(table_name).to_owned_reference();
+    let reference = TableReference::parse_str(table_name);
     Expr::Column(Column::new(Some(reference), column.to_string()))
 }
 
