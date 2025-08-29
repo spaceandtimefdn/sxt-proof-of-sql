@@ -278,11 +278,12 @@ library Commitment {
         }
     }
 
-    function getCommitmentsAndLength(bytes calldata queryPlan, TableCommitment[] memory tableCommitments)
+    function getCommitmentsAndLength(bytes calldata queryPlan, bytes[] calldata tableCommitmentsAsBytes)
         internal
         pure
         returns (uint256[] memory __tableLengths, uint256[] memory __commitments)
     {
+        Commitment.TableCommitment[] memory tableCommitments = deserializeTableCommitments(tableCommitmentsAsBytes);
         (, uint64[] memory columnTableIndexes, bytes32[] memory columnNameHashes) =
             deserializeProofPlanPrefix(queryPlan);
 

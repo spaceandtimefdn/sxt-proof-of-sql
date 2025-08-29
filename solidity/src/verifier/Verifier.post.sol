@@ -12,7 +12,7 @@ library Verifier {
         bytes calldata __plan,
         uint256[] memory __placeholderParameters,
         bytes calldata __proof,
-        Commitment.TableCommitment[] memory __tableCommitments
+        bytes[] calldata __tableCommitments
     ) internal view {
         (uint256[] memory tableLengths, uint256[] memory commitments) =
             Commitment.getCommitmentsAndLength(__plan, __tableCommitments);
