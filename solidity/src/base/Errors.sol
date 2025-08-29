@@ -76,6 +76,7 @@ uint32 constant ERR_INTERNAL = 0xfe835e35;
 /// @dev Error code for unprovable group by error.
 uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
 uint32 constant ERR_COMMITMENTS_NOT_FOUND = 0x0a1eb3f2f;
+uint32 constant ERR_TABLE_COMMITMENT_UNSUPPORTED = 0x4b35c9c3;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -152,6 +153,7 @@ library Errors {
     /// @notice Error thrown for unprovable group by error.
     error UnprovableGroupBy();
     error CommitmentsNotFound();
+    error TableCommitmentUnsupported();
 
     function __err(uint32 __code) internal pure {
         assembly {

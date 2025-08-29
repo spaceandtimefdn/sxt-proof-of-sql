@@ -49,6 +49,7 @@ uint256 constant INT8_SIZE = 0x01;
 uint256 constant INT8_PADDING_BITS = 0xF8;
 /// @dev Size of int8 minus one byte
 uint256 constant INT8_SIZE_MINUS_ONE = 0x00;
+uint256 constant UINT8_PADDING_BITS = 0xF8;
 /// @dev Size of uint8 in bytes
 uint256 constant UINT8_SIZE = 0x01;
 /// @dev Size of int16 in bytes
@@ -83,6 +84,7 @@ uint256 constant INT64_SIZE = 0x08;
 uint256 constant INT64_PADDING_BITS = 0xC0;
 /// @dev Size of int64 minus one byte
 uint256 constant INT64_SIZE_MINUS_ONE = 0x07;
+uint256 constant UINT128_SIZE = 0x10;
 
 /// @dev Column variant constant for proof expressions
 uint32 constant COLUMN_EXPR_VARIANT = 0;

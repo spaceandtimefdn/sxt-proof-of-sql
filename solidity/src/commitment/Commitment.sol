@@ -12,6 +12,125 @@ library Commitment {
         bytes32[] columnNameHashes;
     }
 
+    // slither-disable-next-line cyclomatic-complexity
+    function deserializeTableCommitment(bytes calldata tableCommitment)
+        internal
+        pure
+        returns (Commitment.TableCommitment memory result)
+    {
+        uint256 commitmentsPtr;
+        uint64 tableLength;
+        // columnNameHashes[columnId] = columnNameHash
+        bytes32[] memory columnNameHashes;
+        assembly {
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+
+            let ptr := tableCommitment.offset
+
+            // range.start (usize) must be 0
+            if shr(UINT64_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            ptr := add(ptr, UINT64_SIZE)
+
+            // range.end *usize) is the table length
+            tableLength := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // commitments.len() (usize) is the number of columns
+            let num_columns := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // each commitment is a 2-word commitment
+            commitmentsPtr := ptr
+            ptr := add(ptr, mul(num_columns, WORDX2_SIZE))
+
+            // column_metadata.len() (usize) must match the number of columns
+            if sub(num_columns, shr(UINT64_PADDING_BITS, calldataload(ptr))) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            ptr := add(ptr, UINT64_SIZE)
+
+            // allocating space for column namess
+            let free_ptr := mload(FREE_PTR)
+            columnNameHashes := free_ptr
+
+            // initializing length of column names
+            mstore(free_ptr, num_columns)
+            free_ptr := add(free_ptr, WORD_SIZE)
+
+            // for each entry in column_metadata
+            for {} num_columns { num_columns := sub(num_columns, 1) } {
+                // column_metadata[i].Ident.value.len() (usize) is the number of characters in the column name
+                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT64_SIZE)
+
+                // column_metadata[i].Ident.value (usize) is the column name. We hash it and store it in the columnNameHashes array
+                calldatacopy(free_ptr, ptr, name_len)
+                mstore(free_ptr, keccak256(free_ptr, name_len))
+                ptr := add(ptr, name_len)
+                free_ptr := add(free_ptr, WORD_SIZE)
+
+                // column_metadata[i].Ident.quote_style (Option<char>) must be None, i.e. 0
+                if shr(UINT8_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+                ptr := add(ptr, UINT8_SIZE)
+
+                // column_metadata[i].ColumnCommitmentMetadata.column_type (ColumnType)
+                switch shr(UINT32_PADDING_BITS, calldataload(ptr))
+                // ColumnType::Decimal75
+                case 8 { ptr := add(ptr, add(UINT32_SIZE, add(UINT8_SIZE, UINT8_SIZE))) }
+                // ColumnType::TimestampTZ
+                case 9 { ptr := add(ptr, add(UINT32_SIZE, add(UINT32_SIZE, UINT32_SIZE))) }
+                default { ptr := add(ptr, UINT32_SIZE) }
+
+                // column_metadata[i].ColumnCommitmentMetadata.bounds (ColumnBounds)
+                let variant := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT32_SIZE)
+                function skip_bounds(data_size, ptr_in) -> ptr_out {
+                    let bounds_variant := shr(UINT32_PADDING_BITS, calldataload(ptr_in))
+                    ptr_out := add(ptr_in, UINT32_SIZE)
+                    if bounds_variant { ptr_out := add(ptr_out, mul(data_size, 2)) }
+                }
+                switch variant
+                // ColumnBounds::NoOrder
+                case 0 {}
+                // ColumnBounds::Uint8
+                case 1 { ptr := skip_bounds(UINT8_SIZE, ptr) }
+                // ColumnBounds::TinyInt
+                case 2 { ptr := skip_bounds(UINT8_SIZE, ptr) }
+                // ColumnBounds::SmallInt
+                case 3 { ptr := skip_bounds(UINT16_SIZE, ptr) }
+                // ColumnBounds::Int
+                case 4 { ptr := skip_bounds(UINT32_SIZE, ptr) }
+                // ColumnBounds::BigInt
+                case 5 { ptr := skip_bounds(UINT64_SIZE, ptr) }
+                // ColumnBounds::Int128
+                case 6 { ptr := skip_bounds(UINT128_SIZE, ptr) }
+                // ColumnBounds::TimestampTZ
+                case 7 { ptr := skip_bounds(UINT64_SIZE, ptr) }
+                default { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            }
+
+            // done allocating space for column names
+            mstore(FREE_PTR, free_ptr)
+        }
+        result = Commitment.TableCommitment(commitmentsPtr, tableLength, columnNameHashes);
+    }
+
+    function deserializeTableCommitments(bytes[] calldata tableCommitments)
+        internal
+        pure
+        returns (
+            // tableCommitments[tableId] = TableCommitment
+            Commitment.TableCommitment[] memory result
+        )
+    {
+        uint256 numTableCommitments = tableCommitments.length;
+        result = new Commitment.TableCommitment[](numTableCommitments);
+        for (uint256 i = 0; i < numTableCommitments; ++i) {
+            result[i] = deserializeTableCommitment(tableCommitments[i]);
+        }
+    }
+
     function deserializeProofPlanPrefix(bytes calldata plan)
         internal
         pure
