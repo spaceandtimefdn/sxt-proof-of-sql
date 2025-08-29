@@ -62,13 +62,13 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
     fn options(&self) -> &ConfigOptions {
         &self.options
     }
-    fn udfs_names(&self) -> Vec<String> {
+    fn udf_names(&self) -> Vec<String> {
         Vec::new()
     }
-    fn udafs_names(&self) -> Vec<String> {
+    fn udaf_names(&self) -> Vec<String> {
         Vec::new()
     }
-    fn udwfs_names(&self) -> Vec<String> {
+    fn udwf_names(&self) -> Vec<String> {
         Vec::new()
     }
 }
@@ -128,7 +128,10 @@ mod tests {
     fn we_can_create_a_posql_table_source() {
         // Empty
         let table_source = PoSqlTableSource::new(vec![]);
-        assert_eq!(table_source.schema().all_fields(), Vec::<&Field>::new());
+        assert_eq!(
+            table_source.schema().flattened_fields(),
+            Vec::<&Field>::new()
+        );
         assert_eq!(
             table_source.as_any().type_id(),
             TypeId::of::<PoSqlTableSource>()
@@ -141,7 +144,7 @@ mod tests {
         ];
         let table_source = PoSqlTableSource::new(column_fields);
         assert_eq!(
-            table_source.schema().all_fields(),
+            table_source.schema().flattened_fields(),
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
@@ -159,9 +162,9 @@ mod tests {
         // Empty
         let accessor = TestSchemaAccessor::new(indexmap_with_default! {AHasher;});
         let context_provider = PoSqlContextProvider::new(accessor);
-        assert_eq!(context_provider.udfs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udafs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udwfs_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udf_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udaf_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udwf_names(), Vec::<String>::new());
         assert_eq!(context_provider.get_variable_type(&[]), None);
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
@@ -186,9 +189,9 @@ mod tests {
             },
         });
         let context_provider = PoSqlContextProvider::new(accessor);
-        assert_eq!(context_provider.udfs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udafs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udwfs_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udf_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udaf_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udwf_names(), Vec::<String>::new());
         assert_eq!(context_provider.get_variable_type(&[]), None);
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);

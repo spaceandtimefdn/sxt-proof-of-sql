@@ -1,8 +1,11 @@
 use super::{PlannerError, PlannerResult};
 use crate::expr_to_proof_expr;
 use datafusion::{
-    logical_expr::expr::{AggregateFunction, AggregateFunctionDefinition},
-    physical_plan,
+    functions_aggregate::{count::count_udaf, sum::sum_udaf},
+    logical_expr::{
+        expr::{AggregateFunction, AggregateFunctionParams},
+        AggregateUDF,
+    },
 };
 use proof_of_sql::{base::database::ColumnType, sql::proof_exprs::DynProofExpr};
 use sqlparser::ast::Ident;
@@ -16,6 +19,17 @@ pub enum AggregateFunc {
     Count,
 }
 
+/// Convert a `DataFusion` [`AggregateUDF`] to an [`AggregateFunc`]
+pub(crate) fn aggregate_udf_to_aggregate_func(udf: &AggregateUDF) -> PlannerResult<AggregateFunc> {
+    if *udf == *sum_udaf() {
+        Ok(AggregateFunc::Sum)
+    } else if *udf == *count_udaf() {
+        Ok(AggregateFunc::Count)
+    } else {
+        Err(PlannerError::UnsupportedAggregateUDF { udf: udf.clone() })?
+    }
+}
+
 /// Convert an [`AggregateFunction`] to a [`DynProofExpr`]
 ///
 /// TODO: Some moderate changes are necessary once we upgrade `DataFusion` to 46.0.0
@@ -23,24 +37,19 @@ pub(crate) fn aggregate_function_to_proof_expr(
     function: &AggregateFunction,
     schema: &[(Ident, ColumnType)],
 ) -> PlannerResult<(AggregateFunc, DynProofExpr)> {
-    match function {
-        AggregateFunction {
+    let agg_func = aggregate_udf_to_aggregate_func(&function.func)?;
+    match &function.params {
+        AggregateFunctionParams {
             distinct: false,
             filter: None,
-            order_by: None,
+            order_by,
             args,
-            func_def: AggregateFunctionDefinition::BuiltIn(op),
             ..
-        } if args.len() == 1 => {
-            let aggregate_function = match op {
-                physical_plan::aggregates::AggregateFunction::Sum => AggregateFunc::Sum,
-                physical_plan::aggregates::AggregateFunction::Count => AggregateFunc::Count,
-                _ => Err(PlannerError::UnsupportedAggregateOperation { op: op.clone() })?,
-            };
-            Ok((aggregate_function, expr_to_proof_expr(&args[0], schema)?))
+        } if args.len() == 1 && order_by.is_empty() => {
+            Ok((agg_func, expr_to_proof_expr(&args[0], schema)?))
         }
-        _ => Err(PlannerError::UnsupportedAggregateFunction {
-            function: function.clone(),
+        _ => Err(PlannerError::UnsupportedAggregateFunctionParams {
+            params: function.params.clone(),
         })?,
     }
 }
@@ -49,6 +58,7 @@ pub(crate) fn aggregate_function_to_proof_expr(
 mod tests {
     use super::*;
     use crate::df_util::*;
+    use datafusion::logical_expr::expr::AggregateFunctionParams;
     use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
 
     // AggregateFunction to DynProofExpr
@@ -56,24 +66,20 @@ mod tests {
     fn we_can_convert_an_aggregate_function_to_proof_expr() {
         let expr = df_column("table", "a");
         let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
-        for (function, operator) in &[
-            (
-                physical_plan::aggregates::AggregateFunction::Sum,
-                AggregateFunc::Sum,
-            ),
-            (
-                physical_plan::aggregates::AggregateFunction::Count,
-                AggregateFunc::Count,
-            ),
+        for (udf, operator) in &[
+            (sum_udaf(), AggregateFunc::Sum),
+            (count_udaf(), AggregateFunc::Count),
         ] {
-            let function = AggregateFunction::new(
-                function.clone(),
-                vec![expr.clone()],
-                false,
-                None,
-                None,
-                None,
-            );
+            let function = AggregateFunction {
+                func: udf.clone(),
+                params: AggregateFunctionParams {
+                    args: vec![expr.clone()],
+                    distinct: false,
+                    filter: None,
+                    order_by: vec![],
+                    null_treatment: None,
+                },
+            };
             assert_eq!(
                 aggregate_function_to_proof_expr(&function, &schema).unwrap(),
                 (
@@ -90,19 +96,22 @@ mod tests {
 
     #[test]
     fn we_cannot_convert_an_aggregate_function_to_pair_if_unsupported() {
+        use datafusion::functions_aggregate::min_max::min_udaf;
         let expr = df_column("table", "a");
         let schema = vec![("a".into(), ColumnType::BigInt)];
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::RegrIntercept,
-            vec![expr.clone()],
-            false,
-            None,
-            None,
-            None,
-        );
+        let function = AggregateFunction {
+            func: min_udaf(),
+            params: AggregateFunctionParams {
+                args: vec![expr.clone()],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateOperation { .. })
+            Err(PlannerError::UnsupportedAggregateUDF { .. })
         ));
     }
 
@@ -111,31 +120,35 @@ mod tests {
         let expr = df_column("table", "a");
         let schema = vec![("a".into(), ColumnType::BigInt)];
         // Too many exprs
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::Sum,
-            vec![expr.clone(); 2],
-            false,
-            None,
-            None,
-            None,
-        );
+        let function = AggregateFunction {
+            func: sum_udaf(),
+            params: AggregateFunctionParams {
+                args: vec![expr.clone(); 2],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateFunction { .. })
+            Err(PlannerError::UnsupportedAggregateFunctionParams { .. })
         ));
 
         // No exprs
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::Sum,
-            Vec::<_>::new(),
-            false,
-            None,
-            None,
-            None,
-        );
+        let function = AggregateFunction {
+            func: sum_udaf(),
+            params: AggregateFunctionParams {
+                args: Vec::<_>::new(),
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateFunction { .. })
+            Err(PlannerError::UnsupportedAggregateFunctionParams { .. })
         ));
     }
 
@@ -146,45 +159,55 @@ mod tests {
         // Distinct
         let expr = df_column("table", "a");
         let schema = vec![("a".into(), ColumnType::BigInt)];
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::Count,
-            vec![expr.clone()],
-            true,
-            None,
-            None,
-            None,
-        );
+        let function = AggregateFunction {
+            func: count_udaf(),
+            params: AggregateFunctionParams {
+                args: vec![expr.clone()],
+                distinct: true,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateFunction { .. })
+            Err(PlannerError::UnsupportedAggregateFunctionParams { .. })
         ));
 
         // Filter
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::Count,
-            vec![expr.clone()],
-            false,
-            Some(Box::new(expr.clone())),
-            None,
-            None,
-        );
+        let function = AggregateFunction {
+            func: count_udaf(),
+            params: AggregateFunctionParams {
+                args: vec![expr.clone()],
+                distinct: false,
+                filter: Some(Box::new(expr.clone())),
+                order_by: vec![],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateFunction { .. })
+            Err(PlannerError::UnsupportedAggregateFunctionParams { .. })
         ));
 
         // OrderBy
-        let function = AggregateFunction::new(
-            physical_plan::aggregates::AggregateFunction::Count,
-            vec![expr.clone()],
-            false,
-            None,
-            Some(vec![expr.clone()]),
-            None,
-        );
+        let function = AggregateFunction {
+            func: count_udaf(),
+            params: AggregateFunctionParams {
+                args: vec![expr.clone()],
+                distinct: false,
+                filter: None,
+                order_by: vec![datafusion::logical_expr::SortExpr::new(
+                    expr.clone(),
+                    true,
+                    true,
+                )],
+                null_treatment: None,
+            },
+        };
         assert!(matches!(
             aggregate_function_to_proof_expr(&function, &schema),
-            Err(PlannerError::UnsupportedAggregateFunction { .. })
+            Err(PlannerError::UnsupportedAggregateFunctionParams { .. })
         ));
     }
 }

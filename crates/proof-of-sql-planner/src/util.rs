@@ -1,9 +1,9 @@
 use super::{PlannerError, PlannerResult};
 use arrow::datatypes::{Field, Schema};
 use datafusion::{
-    catalog::TableReference,
     common::{Column, ScalarValue},
-    logical_expr::expr::Placeholder,
+    logical_expr::{expr::Placeholder, Expr},
+    sql::TableReference,
 };
 use proof_of_sql::{
     base::{
@@ -43,6 +43,16 @@ pub(crate) fn placeholder_to_placeholder_expr(
             data_type: df_type.clone().unwrap(),
         })?;
     Ok(DynProofExpr::try_new_placeholder(posql_id, posql_type)?)
+}
+
+/// Convert a boxed expression to an Option<i64> if possible, otherwise error out
+pub(crate) fn expr_to_opt_i64(expr: &Expr) -> PlannerResult<Option<i64>> {
+    match *expr {
+        Expr::Literal(ScalarValue::Int64(opt_value), _) => Ok(opt_value),
+        _ => Err(PlannerError::UnsupportedLogicalExpression {
+            expr: Box::new(expr.clone()),
+        }),
+    }
 }
 
 /// Convert a [`TableReference`] to a [`TableRef`]
@@ -233,6 +243,28 @@ mod tests {
             placeholder_to_placeholder_expr(&placeholder),
             Err(PlannerError::InvalidPlaceholderId { .. })
         ));
+    }
+
+    // expr_to_opt_i64
+    #[test]
+    fn we_can_convert_i64_literal_expr_to_opt_i64() {
+        let expr = Expr::Literal(ScalarValue::Int64(Some(42)), None);
+        assert!(matches!(expr_to_opt_i64(&expr), Ok(Some(42))));
+
+        let expr = Expr::Literal(ScalarValue::Int64(None), None);
+        assert!(matches!(expr_to_opt_i64(&expr), Ok(None)));
+    }
+
+    #[test]
+    fn we_cannot_convert_other_expr_to_opt_i64() {
+        let expr = Expr::Literal(ScalarValue::Float64(Some(42.0)), None);
+        assert!(expr_to_opt_i64(&expr).is_err());
+
+        let expr = Expr::Placeholder(Placeholder {
+            id: "$1".to_string(),
+            data_type: Some(DataType::Int64),
+        });
+        assert!(expr_to_opt_i64(&expr).is_err());
     }
 
     // TableReference to TableRef
@@ -509,7 +541,7 @@ mod tests {
         // Empty
         let column_fields = vec![];
         let schema = column_fields_to_schema(column_fields);
-        assert_eq!(schema.all_fields(), Vec::<&Field>::new());
+        assert_eq!(schema.flattened_fields(), Vec::<&Field>::new());
 
         // Non-empty
         let column_fields = vec![
@@ -518,7 +550,7 @@ mod tests {
         ];
         let schema = column_fields_to_schema(column_fields);
         assert_eq!(
-            schema.all_fields(),
+            schema.flattened_fields(),
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
