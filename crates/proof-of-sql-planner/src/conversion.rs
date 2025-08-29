@@ -3,7 +3,7 @@ use alloc::{sync::Arc, vec::Vec};
 use datafusion::{
     config::ConfigOptions,
     logical_expr::LogicalPlan,
-    optimizer::{analyzer::Analyzer, optimizer::Optimizer, OptimizerContext, OptimizerRule},
+    optimizer::{Analyzer, Optimizer, OptimizerContext, OptimizerRule},
     sql::planner::{ParserOptions, SqlToRel},
 };
 use indexmap::IndexSet;
@@ -62,18 +62,24 @@ where
                 ParserOptions {
                     parse_float_as_decimal: config.sql_parser.parse_float_as_decimal,
                     enable_ident_normalization: config.sql_parser.enable_ident_normalization,
+                    support_varchar_with_length: config.sql_parser.support_varchar_with_length,
+                    enable_options_value_normalization: config
+                        .sql_parser
+                        .enable_options_value_normalization,
+                    collect_spans: config.sql_parser.collect_spans,
+                    map_string_types_to_utf8view: config.sql_parser.map_string_types_to_utf8view,
                 },
             )
             .sql_statement_to_plan(ast.clone())?;
             // 3. Analyze the `LogicalPlan` using `Analyzer`
             let analyzer = Analyzer::new();
             let analyzed_logical_plan =
-                analyzer.execute_and_check(&raw_logical_plan, config, |_, _| {})?;
+                analyzer.execute_and_check(raw_logical_plan, config, |_, _| {})?;
             // 4. Optimize the `LogicalPlan` using `Optimizer`
             let optimizer = optimizer();
             let optimizer_context = OptimizerContext::default();
             let optimized_logical_plan =
-                optimizer.optimize(&analyzed_logical_plan, &optimizer_context, |_, _| {})?;
+                optimizer.optimize(analyzed_logical_plan, &optimizer_context, |_, _| {})?;
             // 5. Convert the optimized `LogicalPlan` into a Proof of SQL plan
             planner_converter(&optimized_logical_plan, schemas)
         })
