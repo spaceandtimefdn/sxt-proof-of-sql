@@ -94,4 +94,29 @@ mod timezone_parsing_tests {
         let timezone = PoSQLTimeZone::utc();
         assert_eq!(format!("{timezone}"), "+00:00");
     }
+
+    #[test]
+    fn we_can_parse_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("-01:03".into());
+        let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+        let expected_time_zone = PoSQLTimeZone::new(-3780);
+        assert_eq!(timezone, expected_time_zone);
+    }
+
+    #[test]
+    fn we_can_parse_none_time_zone() {
+        let timezone = PoSQLTimeZone::try_from(&None).unwrap();
+        let expected_time_zone = PoSQLTimeZone::utc();
+        assert_eq!(timezone, expected_time_zone);
+    }
+
+    #[test]
+    fn we_cannot_parse_invalid_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("111111111".into());
+        let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+        assert!(matches!(
+            timezone_err,
+            PoSQLTimestampError::InvalidTimezone { timezone: _ }
+        ));
+    }
 }
