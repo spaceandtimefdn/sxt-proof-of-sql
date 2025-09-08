@@ -77,4 +77,13 @@ mod tests {
         assert_eq!(decimal.precision(), 6);
         assert_eq!(decimal.scale(), 3);
     }
+
+    #[test]
+    fn we_can_catch_conversion_error() {
+        let big_decimal: BigDecimal = "123.456".parse::<BigDecimal>().unwrap().normalized();
+        let err = big_decimal
+            .try_into_bigint_with_precision_and_scale(2, 1)
+            .unwrap_err();
+        assert!(matches!(err, IntermediateDecimalError::ConversionFailure));
+    }
 }
