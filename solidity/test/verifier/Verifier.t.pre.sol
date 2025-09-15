@@ -91,20 +91,21 @@ contract VerifierTest is Test {
     function testDeserializeTableCommitment() public pure {
         bytes[] memory tableCommitments = new bytes[](1);
         tableCommitments[0] =
-            hex"000000000000000000000000000000030000000000000009257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca21a21982f135adddb079a91b739a8d358e47f38478eeaf8844c2f670f6595895e276a4c8714fba9d532e03556294ffdb2c6fb376a11ec2dda177a056e9513a28b257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca20000000000000009000000000000000161000000000500000005000000020000000000000001000000000000000300000000000000016200000000070000000000000000000000016300000000010000000100000002010300000000000000016400000000020000000200000002010300000000000000016500000000030000000300000002000100030000000000000001660000000004000000040000000200000001000000030000000000000001670000000006000000060000000200000000000000000000000000000001000000000000000000000000000000030000000000000001680000000009000000010000000000000007000000020000000000000001000000000000000300000000000000016900000000080a0000000000";
+            hex"00000000000000000000000000000003000000000000000a28b9628e4dd40477d8b9c22553ab1cef7de92be01aa635272a5153fdcc667a3c283fc7f7405e8f20c65e94abcfaddc18fb6d6d5fd6f24126a55fd428dc700b9028be5523f6dbeba579ba197a7c1f4f03f46da1dae8ea2e49527194195818f6680238e6a4be9f9fc58f0fe9a6d2ac32e2f357de9f33867506bcc8867695fcd8522699c20d6b46ccff9aea7842e64fccb91f59bd19b41ae4e4d29dee4804838ae0128ee7a84902f933505672b38340d2cdabeeca5c0c76e5548398ed95cdc8384c2fc17fec090794eae15adf182c461cad4867eab5807d4f38c86952472960e1d60ad5cb46df983be9f745caa334c85de105e9718c88205188939729b1794ea8de257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca216650968b1ec0b8cd847a81234cb55453682b378aba2b9ee1124232fab5f2e082ad3e1cb2fc5c73829abfe1aca3cbc9787c9bdccc3f698d4acd55b7f6d70ed07257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2257aad035de6dc285d1be01072947fb3bbff4b71457613d266dbde54710e52dd0e5bab33d51316dd8f77fcd732e259fb1599aaefd7d55c59c63fe81bdf030ca2000000000000000a00000000000000016100000000000000000000000000000000016200000000020000000200000002fe0200000000000000016300000000030000000300000002fc18000e00000000000000016400000000040000000400000002fffffffe000f42400000000000000001650000000005000000050000000200000000000000010000000000000003000000000000000166000000000700000000000000000000000167000000000808010000000000000000000000016800000000090000000100000000000000070000000200000000000000010000000000000005000000000000000169000000000a0000000000000000000000016a000000000b00000000";
         Verifier.TableCommitment memory deserializedTableCommitment =
             VerifierTestWrapper.deserializeTableCommitments(tableCommitments)[0];
         assert(deserializedTableCommitment.tableLength == 3);
-        bytes32[] memory expectedColumnHashes = new bytes32[](9);
-        expectedColumnHashes[0] = keccak256(bytes("a"));
-        expectedColumnHashes[1] = keccak256(bytes("b"));
-        expectedColumnHashes[2] = keccak256(bytes("c"));
-        expectedColumnHashes[3] = keccak256(bytes("d"));
-        expectedColumnHashes[4] = keccak256(bytes("e"));
-        expectedColumnHashes[5] = keccak256(bytes("f"));
-        expectedColumnHashes[6] = keccak256(bytes("g"));
-        expectedColumnHashes[7] = keccak256(bytes("h"));
-        expectedColumnHashes[8] = keccak256(bytes("i"));
+        bytes32[] memory expectedColumnHashes = new bytes32[](10);
+        expectedColumnHashes[0] = keccak256(bytes("a")); // Boolean
+        expectedColumnHashes[1] = keccak256(bytes("b")); // TinyInt
+        expectedColumnHashes[2] = keccak256(bytes("c")); // SmallInt
+        expectedColumnHashes[3] = keccak256(bytes("d")); // Int
+        expectedColumnHashes[4] = keccak256(bytes("e")); // BigInt
+        expectedColumnHashes[5] = keccak256(bytes("f")); // VarChar
+        expectedColumnHashes[6] = keccak256(bytes("g")); // Decimal75
+        expectedColumnHashes[7] = keccak256(bytes("h")); // TimestampTZ
+        expectedColumnHashes[8] = keccak256(bytes("i")); // Scalar
+        expectedColumnHashes[9] = keccak256(bytes("j")); // VarBinary
         assert(deserializedTableCommitment.columnNameHashes[0] == expectedColumnHashes[0]);
         assert(deserializedTableCommitment.columnNameHashes[1] == expectedColumnHashes[1]);
         assert(deserializedTableCommitment.columnNameHashes[2] == expectedColumnHashes[2]);
@@ -114,6 +115,7 @@ contract VerifierTest is Test {
         assert(deserializedTableCommitment.columnNameHashes[6] == expectedColumnHashes[6]);
         assert(deserializedTableCommitment.columnNameHashes[7] == expectedColumnHashes[7]);
         assert(deserializedTableCommitment.columnNameHashes[8] == expectedColumnHashes[8]);
+        assert(deserializedTableCommitment.columnNameHashes[9] == expectedColumnHashes[9]);
     }
 
     function testDeserializeTableCommitmentWithUnsupportedType() public {
