@@ -42,9 +42,17 @@ library Verifier {
         // columnNameHashes[columnId] = columnNameHash
         bytes32[] memory columnNameHashes;
         assembly {
+            // IMPORT-YUL ../base/Errors.sol
             function err(code) {
-                mstore(0, code)
-                revert(28, 4)
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/SwitchUtil.pre.sol
+            function case_const(lhs, rhs) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_data_type(ptr) -> ptr_out, data_type {
+                revert(0, 0)
             }
 
             let ptr := tableCommitment.offset
@@ -93,13 +101,8 @@ library Verifier {
                 if shr(UINT8_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
                 ptr := add(ptr, UINT8_SIZE)
 
-                // column_metadata[i].ColumnCommitmentMetadata.column_type (ColumnType)
-                switch shr(UINT32_PADDING_BITS, calldataload(ptr))
-                // ColumnType::Decimal75
-                case 8 { ptr := add(ptr, add(UINT32_SIZE, add(UINT8_SIZE, UINT8_SIZE))) }
-                // ColumnType::TimestampTZ
-                case 9 { ptr := add(ptr, add(UINT32_SIZE, add(UINT32_SIZE, UINT32_SIZE))) }
-                default { ptr := add(ptr, UINT32_SIZE) }
+                let data_type
+                ptr, data_type := read_data_type(ptr)
 
                 // column_metadata[i].ColumnCommitmentMetadata.bounds (ColumnBounds)
                 let variant := shr(UINT32_PADDING_BITS, calldataload(ptr))
@@ -163,6 +166,19 @@ library Verifier {
         )
     {
         assembly {
+            // IMPORT-YUL ../base/Errors.sol
+            function err(code) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/SwitchUtil.pre.sol
+            function case_const(lhs, rhs) {
+                revert(0, 0)
+            }
+            // IMPORT-YUL ../base/DataType.pre.sol
+            function read_data_type(ptr) -> ptr_out, data_type {
+                revert(0, 0)
+            }
+
             let ptr := plan.offset
 
             let free_ptr := mload(FREE_PTR)
@@ -229,13 +245,8 @@ library Verifier {
                 ptr := add(ptr, name_len)
                 free_ptr := add(free_ptr, WORD_SIZE)
 
-                // column[i].2 (ColumnType)
-                switch shr(UINT32_PADDING_BITS, calldataload(ptr))
-                // ColumnType::Decimal75
-                case 8 { ptr := add(ptr, add(UINT32_SIZE, add(UINT8_SIZE, UINT8_SIZE))) }
-                // ColumnType::TimestampTZ
-                case 9 { ptr := add(ptr, add(UINT32_SIZE, add(UINT16_SIZE, UINT16_SIZE))) }
-                default { ptr := add(ptr, UINT32_SIZE) }
+                let data_type
+                ptr, data_type := read_data_type(ptr)
             }
 
             // done allocating space for column names
