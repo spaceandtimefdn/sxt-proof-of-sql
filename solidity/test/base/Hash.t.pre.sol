@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "forge-std/Test.sol";
+import {Hash} from "../../src/base/Hash.pre.sol";
+
+contract HashTest is Test {
+    function testHashString() public pure {
+        bytes memory stringBytes = abi.encodePacked(uint64(4), "test");
+        bytes32 hashedString;
+        (stringBytes, hashedString) = Hash.__hashString(stringBytes);
+        bytes32 expectedHashedString = keccak256("test");
+        assert(hashedString == expectedHashedString);
+    }
+}
