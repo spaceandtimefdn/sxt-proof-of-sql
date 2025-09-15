@@ -90,3 +90,40 @@ impl LiteralValue {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::base::{
+        database::LiteralValue,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        try_standard_binary_serialization,
+    };
+
+    /// This allows us to reuse code within solidity more safely
+    #[test]
+    fn literal_value_and_column_type_varaints_should_have_same_data_type_serialization() {
+        let literal_values = vec![
+            LiteralValue::Boolean(true),
+            LiteralValue::Uint8(2),
+            LiteralValue::TinyInt(3),
+            LiteralValue::SmallInt(4),
+            LiteralValue::Int(5),
+            LiteralValue::BigInt(6),
+            LiteralValue::Int128(7),
+            LiteralValue::VarChar("test".to_string()),
+            LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, 7010.into()),
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), 10),
+            LiteralValue::Scalar([1; 4]),
+            LiteralValue::VarBinary(vec![1]),
+        ];
+        for literal_value in literal_values {
+            let column_type = literal_value.column_type();
+            let serialized_column_type =
+                hex::encode(try_standard_binary_serialization(column_type).unwrap());
+            let serialized_literal_value =
+                hex::encode(try_standard_binary_serialization(literal_value).unwrap());
+            assert!(serialized_literal_value.starts_with(&serialized_column_type));
+        }
+    }
+}
