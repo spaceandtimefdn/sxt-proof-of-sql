@@ -42,6 +42,10 @@ library Verifier {
         // columnNameHashes[columnId] = columnNameHash
         bytes32[] memory columnNameHashes;
         assembly {
+            // IMPORT-YUL ../base/Hash.pre.sol
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Errors.sol
             function err(code) {
                 revert(0, 0)
@@ -87,15 +91,7 @@ library Verifier {
 
             // for each entry in column_metadata
             for {} num_columns { num_columns := sub(num_columns, 1) } {
-                // column_metadata[i].Ident.value.len() (usize) is the number of characters in the column name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
-
-                // column_metadata[i].Ident.value (usize) is the column name. We hash it and store it in the columnNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
+                ptr, free_ptr := hash_string(ptr, free_ptr)
 
                 // column_metadata[i].Ident.quote_style (Option<char>) must be None, i.e. 0
                 if shr(UINT8_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
@@ -166,6 +162,10 @@ library Verifier {
         )
     {
         assembly {
+            // IMPORT-YUL ../base/Hash.pre.sol
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                revert(0, 0)
+            }
             // IMPORT-YUL ../base/Errors.sol
             function err(code) {
                 revert(0, 0)
@@ -193,17 +193,7 @@ library Verifier {
             free_ptr := add(free_ptr, WORD_SIZE)
 
             // for each table
-            for {} num_tables { num_tables := sub(num_tables, 1) } {
-                // table[i].len() (usize) is the number of characters in the table name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
-
-                // table[i] is the table name. We hash it and store it in the tableNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
-            }
+            for {} num_tables { num_tables := sub(num_tables, 1) } { ptr, free_ptr := hash_string(ptr, free_ptr) }
             // done allocating space for table names
 
             // columns.len() (usize) is the number of columns
@@ -235,15 +225,7 @@ library Verifier {
                 ptr := add(ptr, UINT64_SIZE)
                 index_ptr := add(index_ptr, WORD_SIZE)
 
-                // column[i].1.len() (usize) is number of characters in the column name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
-
-                // column[i].1 (usize) is the column name. We hash it and store it in the columnNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
+                ptr, free_ptr := hash_string(ptr, free_ptr)
 
                 let data_type
                 ptr, data_type := read_data_type(ptr)
