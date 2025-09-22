@@ -108,31 +108,7 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
 
     slice_ops::add_const::<S, S>(c_star, One::one());
     slice_ops::batch_inversion(c_star);
-
-    let span = span!(
-        Level::DEBUG,
-        "Shift::final_round_evaluate_shift_base allocation d"
-    )
-    .entered();
-    let d_fold = alloc.alloc_slice_fill_copy(num_rows + 1, Zero::zero());
-    fold_columns(d_fold, alpha, beta, &[rho_n_plus_1, shifted_column]);
-    let d_star = alloc.alloc_slice_copy(d_fold);
-    span.exit();
-
-    slice_ops::add_const::<S, S>(d_star, One::one());
-    slice_ops::batch_inversion(d_star);
-
     builder.produce_intermediate_mle(c_star as &[_]);
-    builder.produce_intermediate_mle(d_star as &[_]);
-
-    // sum c_star - d_star = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::ZeroSum,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (-S::one(), vec![Box::new(d_star as &[_])]),
-        ],
-    );
 
     // c_star + c_fold * c_star - chi_n_plus_1 = 0
     builder.produce_sumcheck_subpolynomial(
@@ -147,6 +123,20 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
         ],
     );
 
+    let span = span!(
+        Level::DEBUG,
+        "Shift::final_round_evaluate_shift_base allocation d"
+    )
+    .entered();
+    let d_fold = alloc.alloc_slice_fill_copy(num_rows + 1, Zero::zero());
+    fold_columns(d_fold, alpha, beta, &[rho_n_plus_1, shifted_column]);
+    let d_star = alloc.alloc_slice_copy(d_fold);
+    span.exit();
+
+    slice_ops::add_const::<S, S>(d_star, One::one());
+    slice_ops::batch_inversion(d_star);
+    builder.produce_intermediate_mle(d_star as &[_]);
+
     // d_star + d_fold * d_star - chi_n_plus_1 = 0
     builder.produce_sumcheck_subpolynomial(
         SumcheckSubpolynomialType::Identity,
@@ -157,6 +147,15 @@ fn final_round_evaluate_shift_base<'a, S: Scalar>(
                 vec![Box::new(d_fold as &[_]), Box::new(d_star as &[_])],
             ),
             (-S::one(), vec![Box::new(chi_n_plus_1 as &[_])]),
+        ],
+    );
+
+    // sum c_star - d_star = 0
+    builder.produce_sumcheck_subpolynomial(
+        SumcheckSubpolynomialType::ZeroSum,
+        vec![
+            (S::one(), vec![Box::new(c_star as &[_])]),
+            (-S::one(), vec![Box::new(d_star as &[_])]),
         ],
     );
 }
@@ -173,17 +172,7 @@ pub(crate) fn verify_shift<S: Scalar>(
     let rho_n_eval = builder.try_consume_rho_evaluation()?;
     let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?;
     let c_fold_eval = alpha * fold_vals(beta, &[rho_n_eval + chi_n_eval, column_eval]);
-    let d_fold_eval = alpha * fold_vals(beta, &[rho_n_plus_1_eval, shifted_column_eval]);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-
-    //sum c_star - d_star = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::ZeroSum,
-        c_star_eval - d_star_eval,
-        1,
-    )?;
-
     // c_star + c_fold * c_star - chi_n_plus_1 = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
@@ -191,11 +180,20 @@ pub(crate) fn verify_shift<S: Scalar>(
         2,
     )?;
 
+    let d_fold_eval = alpha * fold_vals(beta, &[rho_n_plus_1_eval, shifted_column_eval]);
+    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
     // d_star + d_fold * d_star - chi_n_plus_1 = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
         SumcheckSubpolynomialType::Identity,
         d_star_eval + d_fold_eval * d_star_eval - chi_n_plus_1_eval,
         2,
+    )?;
+
+    //sum c_star - d_star = 0
+    builder.try_produce_sumcheck_subpolynomial_evaluation(
+        SumcheckSubpolynomialType::ZeroSum,
+        c_star_eval - d_star_eval,
+        1,
     )?;
 
     Ok((shifted_column_eval, chi_n_plus_1_eval))
