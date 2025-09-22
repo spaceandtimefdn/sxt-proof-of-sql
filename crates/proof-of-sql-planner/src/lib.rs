@@ -22,6 +22,6 @@ pub use uppercase_column_visitor::{statement_with_uppercase_identifiers, upperca
 mod util;
 pub use util::column_fields_to_schema;
 pub(crate) use util::{
-    column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    schema_to_column_fields, table_reference_to_table_ref,
+    column_to_column_ref, expr_to_opt_i64, placeholder_to_placeholder_expr,
+    scalar_value_to_literal_value, schema_to_column_fields, table_reference_to_table_ref,
 };

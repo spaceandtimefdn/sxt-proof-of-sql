@@ -1,4 +1,6 @@
-use sqlparser::ast::{visit_relations_mut, Expr, Ident, Statement, VisitMut, VisitorMut};
+use sqlparser::ast::{
+    visit_relations_mut, Expr, Ident, ObjectNamePart, Statement, VisitMut, VisitorMut,
+};
 use std::ops::ControlFlow;
 
 /// Returns an uppercased version of Ident
@@ -35,9 +37,14 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
     // uppercase all tables
     let _ = visit_relations_mut(&mut statement, |object_name| {
-        object_name.0.iter_mut().for_each(|ident| {
-            ident.value = ident.value.to_uppercase();
-        });
+        object_name
+            .0
+            .iter_mut()
+            .for_each(|object_name_part| match object_name_part {
+                ObjectNamePart::Identifier(ident) => {
+                    ident.value = ident.value.to_uppercase();
+                }
+            });
 
         ControlFlow::<()>::Continue(())
     });

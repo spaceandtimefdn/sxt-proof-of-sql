@@ -62,6 +62,12 @@ where
                 ParserOptions {
                     parse_float_as_decimal: config.sql_parser.parse_float_as_decimal,
                     enable_ident_normalization: config.sql_parser.enable_ident_normalization,
+                    support_varchar_with_length: config.sql_parser.support_varchar_with_length,
+                    enable_options_value_normalization: config
+                        .sql_parser
+                        .enable_options_value_normalization,
+                    collect_spans: config.sql_parser.collect_spans,
+                    map_string_types_to_utf8view: config.sql_parser.map_string_types_to_utf8view,
                 },
             )
             .sql_statement_to_plan(ast.clone())?;

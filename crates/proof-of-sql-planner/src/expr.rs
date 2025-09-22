@@ -107,7 +107,7 @@ pub fn expr_to_proof_expr(
         Expr::BinaryExpr(BinaryExpr { left, right, op }) => {
             binary_expr_to_proof_expr(left, right, *op, schema)
         }
-        Expr::Literal(val) => Ok(DynProofExpr::new_literal(scalar_value_to_literal_value(
+        Expr::Literal(val, _) => Ok(DynProofExpr::new_literal(scalar_value_to_literal_value(
             val.clone(),
         )?)),
         Expr::Not(expr) => {
@@ -151,9 +151,9 @@ mod tests {
     use arrow::datatypes::DataType;
     use core::ops::{Add, Mul, Sub};
     use datafusion::{
-        catalog::TableReference,
         common::{Column, ScalarValue},
         logical_expr::{expr::Placeholder, Cast},
+        sql::TableReference,
     };
     use proof_of_sql::base::{
         database::{ColumnRef, ColumnType, LiteralValue, TableRef},
@@ -602,7 +602,7 @@ mod tests {
     // Literal
     #[test]
     fn we_can_convert_literal_expr_to_proof_expr() {
-        let expr = Expr::Literal(ScalarValue::Int32(Some(1)));
+        let expr = Expr::Literal(ScalarValue::Int32(Some(1)), None);
         assert_eq!(
             expr_to_proof_expr(&expr, &Vec::new()).unwrap(),
             DynProofExpr::new_literal(LiteralValue::Int(1))
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn we_can_convert_cast_expr_to_proof_expr() {
         let expr = Expr::Cast(Cast::new(
-            Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)))),
+            Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)), None)),
             DataType::Int32,
         ));
         let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap();
@@ -647,7 +647,7 @@ mod tests {
     fn we_cannot_convert_cast_expr_to_proof_expr_when_inner_expr_to_proof_expr_fails() {
         // Unsupported logical expression
         let expr = Expr::Cast(Cast::new(
-            Box::new(Expr::Literal(ScalarValue::UInt64(Some(100)))),
+            Box::new(Expr::Literal(ScalarValue::UInt64(Some(100)), None)),
             DataType::Int16,
         ));
         let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
@@ -661,7 +661,7 @@ mod tests {
     fn we_cannot_convert_cast_expr_to_proof_expr_for_unsupported_datatypes() {
         // Unsupported logical expression
         let expr = Expr::Cast(Cast::new(
-            Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)))),
+            Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)), None)),
             DataType::UInt16,
         ));
         let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
@@ -676,7 +676,7 @@ mod tests {
     {
         // Unsupported logical expression
         let expr = Expr::Cast(Cast::new(
-            Box::new(Expr::Literal(ScalarValue::Int16(Some(100)))),
+            Box::new(Expr::Literal(ScalarValue::Int16(Some(100)), None)),
             DataType::Boolean,
         ));
         let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
@@ -732,8 +732,8 @@ mod tests {
 
     #[test]
     fn we_can_get_proof_expr_for_timestamps_of_different_scale() {
-        let lhs = Expr::Literal(ScalarValue::TimestampSecond(Some(1), None));
-        let rhs = Expr::Literal(ScalarValue::TimestampNanosecond(Some(1), None));
+        let lhs = Expr::Literal(ScalarValue::TimestampSecond(Some(1), None), None);
+        let rhs = Expr::Literal(ScalarValue::TimestampNanosecond(Some(1), None), None);
         binary_expr_to_proof_expr(&lhs, &rhs, Operator::Gt, &Vec::new()).unwrap();
     }
 }

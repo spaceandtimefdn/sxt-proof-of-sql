@@ -21,12 +21,13 @@ pub fn find_bigdecimals(queries: &str) -> IndexMap<String, Vec<(String, u8, i8)>
     // Find all `CREATE TABLE` statements
     ast.iter()
         .filter_map(|statement| match statement {
-            Statement::CreateTable { name, columns, .. } => {
+            Statement::CreateTable(create_table) => {
                 // Find all `DECIMAL` columns where precision > 38
                 // Find the table name
                 // Add the table name and column name to the map
-                let str_name = name.to_string();
-                let big_decimal_specs: Vec<(String, u8, i8)> = columns
+                let str_name = create_table.name.to_string();
+                let big_decimal_specs: Vec<(String, u8, i8)> = create_table
+                    .columns
                     .iter()
                     .filter_map(|column_def| match column_def.data_type {
                         DataType::Decimal(ExactNumberInfo::PrecisionAndScale(precision, scale))
