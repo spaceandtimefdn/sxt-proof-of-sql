@@ -12,7 +12,7 @@ library ParamsBuilder {
     /// @param arrayOfSerializedParamElements An array of serialized parameters
     /// @return serializedParams The serialized array of parameters
     function serializeParamArray(bytes[] memory arrayOfSerializedParamElements)
-        external
+        internal
         pure
         returns (bytes memory serializedParams)
     {
@@ -26,7 +26,7 @@ library ParamsBuilder {
     /// @dev Returns an array of parameters
     /// @param serializedParams The serialized parameters
     /// @return params The parameters as scalars
-    function deserializeParamArray(bytes calldata serializedParams) external pure returns (uint256[] memory params) {
+    function deserializeParamArray(bytes calldata serializedParams) internal pure returns (uint256[] memory params) {
         uint64 length;
         assembly {
             length := shr(UINT64_PADDING_BITS, calldataload(serializedParams.offset))
@@ -218,42 +218,42 @@ library ParamsBuilder {
     /// @dev Serializes a bool parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function boolParam(bool param) external pure returns (bytes memory serializedParam) {
+    function boolParam(bool param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_BOOLEAN_VARIANT, param);
     }
 
     /// @dev Serializes a tinyint parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function tinyIntParam(int8 param) external pure returns (bytes memory serializedParam) {
+    function tinyIntParam(int8 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_TINYINT_VARIANT, param);
     }
 
     /// @dev Serializes a smallint parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function smallIntParam(int16 param) external pure returns (bytes memory serializedParam) {
+    function smallIntParam(int16 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_SMALLINT_VARIANT, param);
     }
 
     /// @dev Serializes an int32 parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function intParam(int32 param) external pure returns (bytes memory serializedParam) {
+    function intParam(int32 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_INT_VARIANT, param);
     }
 
     /// @dev Serializes a bigint parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function bigIntParam(int64 param) external pure returns (bytes memory serializedParam) {
+    function bigIntParam(int64 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_BIGINT_VARIANT, param);
     }
 
     /// @dev Serializes a string parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function varCharParam(string memory param) external pure returns (bytes memory serializedParam) {
+    function varCharParam(string memory param) internal pure returns (bytes memory serializedParam) {
         uint64 length = uint64(bytes(param).length);
         serializedParam = abi.encodePacked(DATA_TYPE_VARCHAR_VARIANT, length, param);
     }
@@ -264,7 +264,7 @@ library ParamsBuilder {
     /// @param scale The scale of the decimal
     /// @return serializedParam The serialized parameter
     function decimal75Param(uint256 param, uint8 precision, int8 scale)
-        external
+        internal
         pure
         returns (bytes memory serializedParam)
     {
@@ -274,21 +274,21 @@ library ParamsBuilder {
     /// @dev Serializes a timestamp parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function timeStampParam(int64 param) external pure returns (bytes memory serializedParam) {
+    function timeStampParam(int64 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_TIMESTAMP_VARIANT, uint32(1), int32(0), param);
     }
 
     /// @dev Serializes a scalar parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function scalarParam(uint256 param) external pure returns (bytes memory serializedParam) {
+    function scalarParam(uint256 param) internal pure returns (bytes memory serializedParam) {
         serializedParam = abi.encodePacked(DATA_TYPE_SCALAR_VARIANT, param);
     }
 
     /// @dev Serializes a varbinary parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
-    function varBinaryParam(bytes memory param) external pure returns (bytes memory serializedParam) {
+    function varBinaryParam(bytes memory param) internal pure returns (bytes memory serializedParam) {
         uint64 length = uint64(param.length);
         serializedParam = abi.encodePacked(DATA_TYPE_VARBINARY_VARIANT, length, param);
     }
