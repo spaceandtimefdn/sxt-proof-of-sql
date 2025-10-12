@@ -3,8 +3,8 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import "../../src/proof_exprs/PlaceholderExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import "../../src/proof_exprs/PlaceholderExpr.presl";
 
 /// @title PlaceholderExprTest
 /// @dev Test contract for PlaceholderExpr library

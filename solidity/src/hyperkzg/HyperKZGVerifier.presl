@@ -135,15 +135,15 @@ library HyperKZGVerifier {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -155,63 +155,63 @@ library HyperKZGVerifier {
             function draw_challenge(transcript_ptr) -> result {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_pairing_x2(args_ptr) -> success {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function calldata_ec_mul_add_assign(args_ptr, c_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function constant_ec_mul_add_assign(args_ptr, x, y, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function run_transcript(com_ptr, v_ptr, w_ptr, transcript_ptr, ell) -> r, q, d {
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function bivariate_evaluation(v_ptr, q, d, ell) -> b {
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function check_v_consistency(v_ptr, r, x, y) {
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function univariate_group_evaluation(g_ptr, e, length, scratch) {
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function compute_gl_msm(com_ptr, length, w_ptr, commitment_ptr, r, q, d, b, scratch) {
                 revert(0, 0)
             }

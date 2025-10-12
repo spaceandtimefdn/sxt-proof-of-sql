@@ -94,7 +94,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -172,7 +172,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -250,7 +250,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -306,7 +306,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue_uint512(queue_ptr) -> upper, lower {
                 revert(0, 0)
             }
@@ -344,7 +344,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue_uint512(queue_ptr) -> upper, lower {
                 revert(0, 0)
             }
@@ -400,7 +400,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -514,7 +514,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -545,7 +545,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
@@ -644,7 +644,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
@@ -701,7 +701,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_uint512_array_element(arr_ptr, index) -> upper, lower {
                 revert(0, 0)
             }
@@ -741,7 +741,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_uint512_array_element(arr_ptr, index) -> upper, lower {
                 revert(0, 0)
             }
@@ -891,7 +891,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue_uint512(queue_ptr) -> upper, lower {
                 revert(0, 0)
             }
@@ -1082,7 +1082,7 @@ library VerificationBuilder {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }

@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {FoldUtil} from "../../src/proof_gadgets/FoldUtil.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {FoldUtil} from "../../src/proof_gadgets/FoldUtil.presl";
 import {F, FF} from "../base/FieldUtil.sol";
 
 contract FoldUtilTest is Test {

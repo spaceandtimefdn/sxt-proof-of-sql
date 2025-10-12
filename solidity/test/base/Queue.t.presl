@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import "../../src/base/Queue.pre.sol";
+import "../../src/base/Queue.presl";
 
 contract ErrorsTest is Test {
     /// forge-config: default.allow_internal_expect_revert = true

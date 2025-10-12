@@ -82,11 +82,11 @@ library HyperKZGHelpers {
         returns (uint256 __b)
     {
         assembly {
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -146,15 +146,15 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -223,22 +223,22 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -306,50 +306,50 @@ library HyperKZGHelpers {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function calldata_ec_mul_add_assign(args_ptr, c_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function constant_ec_mul_add_assign(args_ptr, x, y, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add_assign(args_ptr, c_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL HyperKZGHelpers.pre.sol
+            // IMPORT-YUL HyperKZGHelpers.presl
             function univariate_group_evaluation(g_ptr, e, length, scratch) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)

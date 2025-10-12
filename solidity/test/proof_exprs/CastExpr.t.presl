@@ -4,9 +4,9 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {CastExpr} from "../../src/proof_exprs/CastExpr.pre.sol";
-//import {ProofExpr} from "../../src/proof_exprs/ProofExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {CastExpr} from "../../src/proof_exprs/CastExpr.presl";
+//import {ProofExpr} from "../../src/proof_exprs/ProofExpr.presl";
 import {F} from "../base/FieldUtil.sol";
 
 contract CastExprTest is Test {

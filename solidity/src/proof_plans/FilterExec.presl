@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 
 import "../base/Constants.sol";
 import "../base/Errors.sol";
-import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
 /// @title FilterExec
 /// @dev Library for handling filter execution plans
@@ -91,171 +91,171 @@ library FilterExec {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue_uint512(queue_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_challenge(builder_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_first_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_chi_evaluation(builder_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_produce_zerosum_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/SwitchUtil.pre.sol
+            // IMPORT-YUL ../base/SwitchUtil.presl
             function case_const(lhs, rhs) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/ColumnExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/ColumnExpr.presl
             function column_expr_evaluate(expr_ptr, builder_ptr) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/LiteralExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/LiteralExpr.presl
             function literal_expr_evaluate(expr_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/EqualsExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/EqualsExpr.presl
             function equals_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/AddExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/AddExpr.presl
             function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/SubtractExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/SubtractExpr.presl
             function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/MultiplyExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/MultiplyExpr.presl
             function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/AndExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/AndExpr.presl
             function and_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/OrExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/OrExpr.presl
             function or_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/NotExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/NotExpr.presl
             function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/CastExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/CastExpr.presl
             function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/SignExpr.pre.sol
+            // IMPORT-YUL ../proof_gadgets/SignExpr.presl
             function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/InequalityExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/InequalityExpr.presl
             function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/PlaceholderExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/PlaceholderExpr.presl
             function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/ScalingCastExpr.presl
             function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_get_placeholder_parameter(builder_ptr, index) -> value {
                 revert(0, 0)
             }
             // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../proof_exprs/ProofExpr.pre.sol
+            // IMPORT-YUL ../proof_exprs/ProofExpr.presl
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
             // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_uint512_array_element(arr_ptr, index) -> upper, lower {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.presl
             function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/FoldUtil.pre.sol
+            // IMPORT-YUL ../proof_gadgets/FoldUtil.presl
             function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../proof_gadgets/FilterBase.pre.sol
+            // IMPORT-YUL ../proof_gadgets/FilterBase.presl
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 revert(0, 0)
             }
@@ -273,7 +273,7 @@ library FilterExec {
                 plan_ptr_out := plan_ptr
             }
 
-            // IMPORT-YUL TableExec.pre.sol
+            // IMPORT-YUL TableExec.presl
             function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
                 revert(0, 0)
             }

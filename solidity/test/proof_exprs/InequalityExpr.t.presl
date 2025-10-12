@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {InequalityExpr} from "../../src/proof_exprs/InequalityExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {InequalityExpr} from "../../src/proof_exprs/InequalityExpr.presl";
 import {F} from "../base/FieldUtil.sol";
 
 contract InequalityExprTest is Test {

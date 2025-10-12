@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {FoldLogExpr} from "../../src/proof_gadgets/FoldLogExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {FoldLogExpr} from "../../src/proof_gadgets/FoldLogExpr.presl";
 
 contract FoldLogExprTest is Test {
     function testSimpleFoldLogExprEvalsWithMultipleColumn() public pure {

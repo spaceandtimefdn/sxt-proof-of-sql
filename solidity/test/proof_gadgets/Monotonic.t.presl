@@ -5,8 +5,8 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {Monotonic} from "../../src/proof_gadgets/Monotonic.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {Monotonic} from "../../src/proof_gadgets/Monotonic.presl";
 
 contract MonotonicTest is Test {
     function testStrictlyIncreasingColumn() public pure {

@@ -88,7 +88,7 @@ library ECPrecompiles {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -119,7 +119,7 @@ library ECPrecompiles {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -152,17 +152,17 @@ library ECPrecompiles {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -195,17 +195,17 @@ library ECPrecompiles {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -231,7 +231,7 @@ library ECPrecompiles {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ECPrecompiles.pre.sol
+            // IMPORT-YUL ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
