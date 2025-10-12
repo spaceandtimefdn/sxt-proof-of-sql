@@ -5,8 +5,8 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Errors.sol";
 import {Transcript} from "../../src/base/Transcript.sol";
-import {HyperKZGBatch} from "../../src/hyperkzg/HyperKZGBatch.pre.sol";
-import {ECPrecompilesTestHelper} from "../base/ECPrecompiles.t.pre.sol";
+import {HyperKZGBatch} from "../../src/hyperkzg/HyperKZGBatch.presl";
+import {ECPrecompilesTestHelper} from "../base/ECPrecompiles.t.presl";
 import {F, FF} from "../base/FieldUtil.sol";
 
 contract HyperKZGBatchTest is Test {

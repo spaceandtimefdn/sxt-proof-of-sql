@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 
 import "../base/Constants.sol";
 import "../base/Errors.sol";
-import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
 /// @title FilterBase
 /// @dev Library for handling common filter functionality
@@ -43,31 +43,31 @@ library FilterBase {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Queue.pre.sol
+            // IMPORT-YUL ../base/Queue.presl
             function dequeue(queue_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_produce_zerosum_constraint(builder_ptr, evaluation, degree) {
                 revert(0, 0)
             }

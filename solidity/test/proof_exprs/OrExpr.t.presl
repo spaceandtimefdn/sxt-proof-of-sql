@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {OrExpr} from "../../src/proof_exprs/OrExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {OrExpr} from "../../src/proof_exprs/OrExpr.presl";
 import {FF, F} from "../base/FieldUtil.sol";
 
 contract OrExprTest is Test {

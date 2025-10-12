@@ -25,22 +25,22 @@ library HyperKZGBatch {
         uint256 __batchEval
     ) internal view returns (uint256 __batchEvalOut, uint256[5] memory __argsOut) {
         assembly {
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_add(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul(args_ptr) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function ec_mul_assign(args_ptr, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/ECPrecompiles.pre.sol
+            // IMPORT-YUL ../base/ECPrecompiles.presl
             function constant_ec_mul_add_assign(args_ptr, c_x, c_y, scalar) {
                 pop(staticcall(0, 0, 0, 0, 0, 0))
                 revert(0, 0)
@@ -49,11 +49,11 @@ library HyperKZGBatch {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }

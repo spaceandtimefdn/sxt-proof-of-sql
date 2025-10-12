@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../../src/base/DataType.pre.sol";
+import "../../src/base/DataType.presl";
 import "../base/Constants.t.sol";
 import {F} from "../base/FieldUtil.sol";
 

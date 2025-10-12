@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {FilterBase} from "../../src/proof_gadgets/FilterBase.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {FilterBase} from "../../src/proof_gadgets/FilterBase.presl";
 
 contract FilterBaseTest is Test {
     function testSimpleSliceExec() public pure {

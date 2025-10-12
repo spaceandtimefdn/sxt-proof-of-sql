@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "./Constants.sol";
-import "./SwitchUtil.pre.sol";
+import "./SwitchUtil.presl";
 
 /// @title DataType
 /// @dev Library providing parsing utilities for different data types
@@ -33,7 +33,7 @@ library DataType {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL SwitchUtil.pre.sol
+            // IMPORT-YUL SwitchUtil.presl
             function case_const(lhs, rhs) {
                 revert(0, 0)
             }
@@ -183,7 +183,7 @@ library DataType {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL SwitchUtil.pre.sol
+            // IMPORT-YUL SwitchUtil.presl
             function case_const(lhs, rhs) {
                 revert(0, 0)
             }

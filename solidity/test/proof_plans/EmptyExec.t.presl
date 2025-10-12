@@ -3,8 +3,8 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {EmptyExec} from "../../src/proof_plans/EmptyExec.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {EmptyExec} from "../../src/proof_plans/EmptyExec.presl";
 
 contract EmptyExecTest is Test {
     function testEmptyExec() public pure {

@@ -118,11 +118,11 @@ library MathUtil {
     /// @return __fold The sum of __evals[n - 1] + evals[n - 2] * beta + ... + evals[0] * beta ^ (n - 1), where n is the length of the evals
     function __computeFold(uint256 __beta, uint256[] memory __evals) internal pure returns (uint256 __fold) {
         assembly {
-            // IMPORT-YUL MathUtil.pre.sol
+            // IMPORT-YUL MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL MathUtil.pre.sol
+            // IMPORT-YUL MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }

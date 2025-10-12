@@ -5,8 +5,8 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import "../../src/base/LagrangeBasisEvaluation.pre.sol";
-import {ResultVerifier} from "../../src/verifier/ResultVerifier.pre.sol";
+import "../../src/base/LagrangeBasisEvaluation.presl";
+import {ResultVerifier} from "../../src/verifier/ResultVerifier.presl";
 import "../base/Constants.t.sol";
 import {FF, F} from "../base/FieldUtil.sol";
 

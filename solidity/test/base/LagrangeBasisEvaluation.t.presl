@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import {LagrangeBasisEvaluation} from "./../../src/base/LagrangeBasisEvaluation.pre.sol";
+import {LagrangeBasisEvaluation} from "./../../src/base/LagrangeBasisEvaluation.presl";
 import {F, FF} from "./FieldUtil.sol";
 
 /// A library for efficiently computing sums over Lagrange basis polynomials evaluated at points.

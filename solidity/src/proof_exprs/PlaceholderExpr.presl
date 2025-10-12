@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 
 import "../base/Constants.sol";
 import "../base/Errors.sol";
-import {VerificationBuilder} from "../builder/VerificationBuilder.pre.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
 /// @title PlaceholderExpr
 /// @dev Library for handling placeholder expressions
@@ -45,23 +45,23 @@ library PlaceholderExpr {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/Array.pre.sol
+            // IMPORT-YUL ../base/Array.presl
             function get_array_element(arr_ptr, index) -> value {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/SwitchUtil.pre.sol
+            // IMPORT-YUL ../base/SwitchUtil.presl
             function case_const(lhs, rhs) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../builder/VerificationBuilder.pre.sol
+            // IMPORT-YUL ../builder/VerificationBuilder.presl
             function builder_get_placeholder_parameter(builder_ptr, index) -> value {
                 revert(0, 0)
             }

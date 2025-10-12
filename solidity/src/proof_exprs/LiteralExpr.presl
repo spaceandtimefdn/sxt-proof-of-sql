@@ -39,15 +39,15 @@ library LiteralExpr {
         returns (bytes calldata __exprOut, uint256 __eval)
     {
         assembly {
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function addmod_bn254(lhs, rhs) -> sum {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function submod_bn254(lhs, rhs) -> difference {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/MathUtil.pre.sol
+            // IMPORT-YUL ../base/MathUtil.presl
             function mulmod_bn254(lhs, rhs) -> product {
                 revert(0, 0)
             }
@@ -55,21 +55,21 @@ library LiteralExpr {
             function err(code) {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/SwitchUtil.pre.sol
+            // IMPORT-YUL ../base/SwitchUtil.presl
             function case_const(lhs, rhs) {
                 revert(0, 0)
             }
             // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 revert(0, 0)
             }
             // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 revert(0, 0)
             }
-            // IMPORT-YUL ../base/DataType.pre.sol
+            // IMPORT-YUL ../base/DataType.presl
             function read_data_type(ptr) -> ptr_out, data_type {
                 revert(0, 0)
             }

@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.pre.sol";
-import {NotExpr} from "../../src/proof_exprs/NotExpr.pre.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {NotExpr} from "../../src/proof_exprs/NotExpr.presl";
 import {F} from "../base/FieldUtil.sol";
 
 contract NotExprTest is Test {

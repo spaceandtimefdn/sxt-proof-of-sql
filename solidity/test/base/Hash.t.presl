@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import {Hash} from "../../src/base/Hash.pre.sol";
+import {Hash} from "../../src/base/Hash.presl";
 
 contract HashTest is Test {
     function testHashString() public pure {

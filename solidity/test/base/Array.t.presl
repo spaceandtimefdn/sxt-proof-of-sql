@@ -3,7 +3,7 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {Array} from "../../src/base/Array.pre.sol";
+import {Array} from "../../src/base/Array.presl";
 import {Errors} from "../../src/base/Errors.sol";
 
 contract ArrayTest is Test {
