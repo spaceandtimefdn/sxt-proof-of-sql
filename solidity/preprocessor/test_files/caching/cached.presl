@@ -1,0 +1,8 @@
+pragma solidity ^0.8.24;
+contract Cached {
+    function test() external pure {
+        assembly {
+            function cachedFunc() -> result { result := 42 }
+        }
+    }
+}

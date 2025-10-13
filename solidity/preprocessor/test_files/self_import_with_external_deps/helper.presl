@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+library Helper {
+    function process() external pure returns (uint256 output) {
+        assembly {
+            function add_one(x) -> result {
+                result := add(x, 1)
+            }
+
+            function double_value(x) -> result {
+                result := mul(x, 2)
+            }
+
+            let value := add_one(5)
+            value := double_value(value)
+            output := value
+        }
+    }
+}

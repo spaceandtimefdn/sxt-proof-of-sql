@@ -1,0 +1,24 @@
+pragma solidity ^0.8.24;
+contract MultilineUtils {
+    function test() external pure {
+        assembly {
+            function multiline_with_many_params(
+                foo, bar, baz, qux, quux, corge, grault
+            ) -> result_a, result_b {
+                result_a := add(foo, bar)
+                result_b := mulmod(baz, qux, add(quux, add(corge, grault)))
+            }
+
+            function simple_func(x) -> result {
+                result := add(x, 1)
+            }
+
+            function another_multiline_func(
+                a, b, c
+            ) -> x, y {
+                x := add(a, b)
+                y := mul(b, c)
+            }
+        }
+    }
+}

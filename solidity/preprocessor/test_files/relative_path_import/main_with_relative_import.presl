@@ -1,0 +1,10 @@
+pragma solidity ^0.8.24;
+contract Main {
+    function run() external pure returns (uint256 output) {
+        assembly {
+            // import double from lib/helper.presl
+            let val := double(21)
+            output := val
+        }
+    }
+}

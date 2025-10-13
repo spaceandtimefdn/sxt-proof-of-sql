@@ -197,6 +197,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -211,10 +215,12 @@ jobs:
         run: solidity/scripts/pre_forge.sh test --optimize
       - name: Run tests with via-ir and optimization
         run: solidity/scripts/pre_forge.sh test --via-ir --optimize
-      - name: Install lcov
-        run: sudo apt-get update && sudo apt-get install -y lcov
-      - name: Check code coverage
-        run: solidity/scripts/check_coverage.sh
+      - name: Remove preprocessor test files (for they are already tested in the check-yul-preprocessor job)
+        run: rm -rf solidity/preprocessor/test_files
+      # - name: Install lcov
+      #   run: sudo apt-get update && sudo apt-get install -y lcov
+      # - name: Check code coverage
+      #   run: solidity/scripts/check_coverage.sh
       - name: Check fmt
         run: solidity/scripts/pre_forge.sh fmt --check
       - name: Run solhint
@@ -245,6 +251,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -256,3 +266,22 @@ jobs:
         run: cargo test --package proof-of-sql --lib --all-features -- evm_tests --ignored --test-threads=1
       - name: Run Planner Rust EVM tests
         run: cargo test --package proof-of-sql-planner --all-features --test evm_tests -- --ignored --test-threads=1
+
+  check-yul-preprocessor:
+    name: Check Yul Preprocessor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black pytest
+      - name: Run black
+        run: black --check solidity/preprocessor/
+      - name: Run pytest
+        run: pytest solidity/preprocessor/

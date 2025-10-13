@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract Main {
+    function compute() external pure returns (uint256 output) {
+        assembly {
+            // import add5 from utils.presl
+            let result := add5(10)
+            output := result
+        }
+    }
+}

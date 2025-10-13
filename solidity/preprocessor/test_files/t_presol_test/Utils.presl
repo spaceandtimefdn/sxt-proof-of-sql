@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract Utils {
+    function utilFunc() external pure returns (uint256 output) {
+        return 42;
+    }
+}

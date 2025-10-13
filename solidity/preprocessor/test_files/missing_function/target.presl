@@ -1,0 +1,9 @@
+// does-not-compile
+pragma solidity ^0.8.24;
+contract Target {
+    function test() external pure {
+        assembly {
+            // import nonExistentFunc from source.presl
+        }
+    }
+}

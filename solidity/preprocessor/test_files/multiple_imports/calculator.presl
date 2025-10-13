@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract Calculator {
+    function operate() external pure returns (uint256 result) {
+        assembly {
+            // import multiply from math.presl
+            // import divide from math.presl
+            let x := multiply(6, 7)
+            let y := divide(x, 2)
+            result := y
+        }
+    }
+}

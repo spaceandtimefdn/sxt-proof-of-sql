@@ -1,0 +1,13 @@
+pragma solidity ^0.8.24;
+contract Utils {
+    function helpers() external pure {
+        assembly {
+            function utilAdd(x, y) -> result {
+                result := add(x, y)
+            }
+            function utilMul(x, y) -> result {
+                result := mul(x, y)
+            }
+        }
+    }
+}

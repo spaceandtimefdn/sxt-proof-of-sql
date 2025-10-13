@@ -1,0 +1,10 @@
+pragma solidity ^0.8.24;
+contract Main {
+    function run() external pure returns (uint256 sum) {
+        assembly {
+            // import computeMultiple from complex.presl
+            let r1, r2, r3 := computeMultiple(1, 2, 3)
+            sum := add(add(r1, r2), r3)
+        }
+    }
+}

@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract Utils {
+    function process() external pure returns (uint256 output) {
+        assembly {
+            function add5(x) -> result {
+                result := add(x, 5)
+            }
+            output := add5(7)
+        }
+    }
+}

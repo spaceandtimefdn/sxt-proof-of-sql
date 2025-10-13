@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract C {
+    function test() external pure {
+        assembly {
+            // import funcA from a.presl
+            // import funcB from b.presl
+            function funcC() -> result {
+                result := 3
+            }
+        }
+    }
+}

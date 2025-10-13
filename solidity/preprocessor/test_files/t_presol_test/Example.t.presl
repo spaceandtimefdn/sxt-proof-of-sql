@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {Helper} from "./Helper.presl";
+import {Utils} from "./Utils.presl";
+
+contract ExampleTest {
+    function testExample() external pure returns (uint256 result) {
+        result = Helper.helperFunction() + Utils.utilFunction();
+    }
+}
