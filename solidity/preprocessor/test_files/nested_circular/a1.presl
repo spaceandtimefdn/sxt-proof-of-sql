@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract A1 {
+    function test() external pure {
+        assembly {
+            // import utilMul from utils.presl
+            // import funcA0 from a0.presl
+            function funcA1() -> result {
+                result := 11
+            }
+        }
+    }
+}

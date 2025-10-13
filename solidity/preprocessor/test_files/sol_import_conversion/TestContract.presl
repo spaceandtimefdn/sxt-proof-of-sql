@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "./SomeLib.presl";
+import {Util} from "./Utils.presl";
+
+contract TestContract {
+    function test() external pure returns (uint256 result){
+        result = Util.utilFunction();
+    }
+}

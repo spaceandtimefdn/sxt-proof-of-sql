@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract MultilineMain {
+    function test() external pure returns (uint256 sum) {
+        assembly {
+            // import multiline_with_many_params from utils.presl
+            // import another_multiline_func from utils.presl
+
+            let result_a, result_b := multiline_with_many_params(1, 2, 3, 4, 5, 6, 7)
+            sum := add(result_a, result_b)
+        }
+    }
+}

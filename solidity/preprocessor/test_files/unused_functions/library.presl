@@ -1,0 +1,25 @@
+pragma solidity ^0.8.24;
+contract Library {
+    function helpers() external pure {
+        assembly {
+            // This function will be imported
+            function baz() -> result {
+                result := 300
+            }
+
+            // These functions should NOT be imported (not dependencies of baz)
+            function foo() -> result {
+                result := bar()
+            }
+
+            function bar() -> result {
+                result := 100
+            }
+
+            // Another unrelated function
+            function unrelated() -> result {
+                result := 999
+            }
+        }
+    }
+}

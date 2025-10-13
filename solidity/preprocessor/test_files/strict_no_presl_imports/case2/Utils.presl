@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract A {
+    function aFunction() external pure returns (uint256 result) {
+        result = 200;
+    }
+}
+
+contract B {
+    function bFunction() external pure returns (uint256 result) {
+        result = 300;
+    }
+}
