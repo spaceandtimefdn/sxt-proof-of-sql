@@ -25,42 +25,10 @@ library HyperKZGBatch {
         uint256 __batchEval
     ) internal view returns (uint256 __batchEvalOut, uint256[5] memory __argsOut) {
         assembly {
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul_assign(args_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function constant_ec_mul_add_assign(args_ptr, c_x, c_y, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Transcript.sol
-            function draw_challenge(transcript_ptr) -> result {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import draw_challenge from ../base/Transcript.sol
+            // import constant_ec_mul_add_assign from ../base/ECPrecompiles.presl
 
             function batch_pcs(args_ptr, transcript_ptr, commitments_ptr, evaluations_ptr, batch_eval) -> batch_eval_out
             {

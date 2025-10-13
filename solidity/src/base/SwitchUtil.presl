@@ -28,10 +28,7 @@ library SwitchUtil {
     /// @param __rhs The right-hand side value
     function __caseConst(uint256 __lhs, uint256 __rhs) internal pure {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function case_const(lhs, rhs) {
                 if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
             }

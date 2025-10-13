@@ -37,14 +37,7 @@ library HyperKZGHelpers {
         returns (uint256 __r, uint256 __q, uint256 __d)
     {
         assembly {
-            // IMPORT-YUL ../base/Transcript.sol
-            function append_calldata(transcript_ptr, offset, size) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Transcript.sol
-            function draw_challenge(transcript_ptr) -> result {
-                revert(0, 0)
-            }
+            // import append_calldata, draw_challenge from ../base/Transcript.sol
             function run_transcript(com_ptr, v_ptr, w_ptr, transcript_ptr, ell) -> r, q, d {
                 append_calldata(transcript_ptr, com_ptr, mul(WORDX2_SIZE, sub(ell, 1)))
                 r := draw_challenge(transcript_ptr)
@@ -82,14 +75,7 @@ library HyperKZGHelpers {
         returns (uint256 __b)
     {
         assembly {
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
             function bivariate_evaluation(v_ptr, q, d, ell) -> b {
                 b := 0
                 let v_stack := add(v_ptr, mul(WORDX3_SIZE, ell))
@@ -142,22 +128,8 @@ library HyperKZGHelpers {
     {
         assert(__x.length == __v.length);
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function submod_bn254(lhs, rhs) -> difference {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import addmod_bn254, mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
             function check_v_consistency(v_ptr, r, x, y) {
                 let ell := mload(x)
                 let v_stack := add(v_ptr, mul(WORDX3_SIZE, ell))
@@ -219,30 +191,7 @@ library HyperKZGHelpers {
         returns (uint256[4] memory __resultScratch)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul_assign(args_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function calldata_ec_add_assign(args_ptr, c_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import calldata_ec_add_assign, ec_mul_assign from ../base/ECPrecompiles.presl
 
             function univariate_group_evaluation(g_ptr, e, length, scratch) {
                 switch length
@@ -302,58 +251,9 @@ library HyperKZGHelpers {
         uint256[5] memory __scratch
     ) external view returns (uint256[5] memory __resultScratch) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_mul_assign(args_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function calldata_ec_mul_add_assign(args_ptr, c_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function constant_ec_mul_add_assign(args_ptr, x, y, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function calldata_ec_add_assign(args_ptr, c_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/ECPrecompiles.presl
-            function ec_add_assign(args_ptr, c_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL HyperKZGHelpers.presl
-            function univariate_group_evaluation(g_ptr, e, length, scratch) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import calldata_ec_mul_add_assign, constant_ec_mul_add_assign, ec_add_assign, ec_mul_assign from ../base/ECPrecompiles.presl
+            // import univariate_group_evaluation from self
 
             function compute_gl_msm(com_ptr, length, w_ptr, commitment_ptr, r, q, d, b, scratch) {
                 univariate_group_evaluation(com_ptr, q, length, scratch)

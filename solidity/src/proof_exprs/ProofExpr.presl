@@ -60,130 +60,23 @@ library ProofExpr {
         returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function submod_bn254(lhs, rhs) -> difference {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_column_evaluation(builder_ptr, column_num) -> eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_array_element(arr_ptr, index) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ColumnExpr.presl
-            function column_expr_evaluate(expr_ptr, builder_ptr) -> expr_ptr_out, eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL LiteralExpr.presl
-            function literal_expr_evaluate(expr_ptr, chi_eval) -> expr_ptr_out, eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_final_round_mle(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_placeholder_parameter(builder_ptr, index) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
-                revert(0, 0)
-            }
-            // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_binary(result_ptr) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.presl
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
-            // IMPORT-YUL EqualsExpr.presl
-            function equals_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL AddExpr.presl
-            function add_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL SubtractExpr.presl
-            function subtract_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL MultiplyExpr.presl
-            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL AndExpr.presl
-            function and_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL OrExpr.presl
-            function or_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL NotExpr.presl
-            function not_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL CastExpr.presl
-            function cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_gadgets/SignExpr.presl
-            function sign_expr_evaluate(expr_eval, builder_ptr, chi_eval) -> result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_exprs/InequalityExpr.presl
-            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL PlaceholderExpr.presl
-            function placeholder_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ScalingCastExpr.presl
-            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import case_const from ../base/SwitchUtil.presl
+            // import column_expr_evaluate from ColumnExpr.presl
+            // import literal_expr_evaluate from LiteralExpr.presl
+            // import equals_expr_evaluate from EqualsExpr.presl
+            // import add_expr_evaluate from AddExpr.presl
+            // import subtract_expr_evaluate from SubtractExpr.presl
+            // import multiply_expr_evaluate from MultiplyExpr.presl
+            // import and_expr_evaluate from AndExpr.presl
+            // import or_expr_evaluate from OrExpr.presl
+            // import not_expr_evaluate from NotExpr.presl
+            // import cast_expr_evaluate from CastExpr.presl
+            // import inequality_expr_evaluate from InequalityExpr.presl
+            // import placeholder_expr_evaluate from PlaceholderExpr.presl
+            // import scaling_cast_expr_evaluate from ScalingCastExpr.presl
 
-            // slither-disable-next-line cyclomatic-complexity
+            // slither-disable-start cyclomatic-complexity
             function proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval {
                 let proof_expr_variant := shr(UINT32_PADDING_BITS, calldataload(expr_ptr))
                 expr_ptr := add(expr_ptr, UINT32_SIZE)
@@ -243,6 +136,7 @@ library ProofExpr {
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_EXPR_VARIANT) }
             }
+            // slither-disable-end cyclomatic-complexity
             let __exprOutOffset
             __exprOutOffset, __eval := proof_expr_evaluate(__expr.offset, __builder, __chiEval)
             __exprOut.offset := __exprOutOffset

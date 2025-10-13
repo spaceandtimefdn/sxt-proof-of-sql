@@ -34,10 +34,7 @@ contract VerificationBuilderTest is Test {
         uint256 endFreePtr;
         uint256 builderPtr;
         assembly {
-            /// IMPORT-YUL ../../src/builder/VerificationBuilder.presl
-            function builder_new() -> builder {
-                revert(0, 0)
-            }
+            // import builder_new from ../../src/builder/VerificationBuilder.presl
             startFreePtr := mload(FREE_PTR)
             builderPtr := builder_new()
             endFreePtr := mload(FREE_PTR)

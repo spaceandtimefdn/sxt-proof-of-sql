@@ -28,10 +28,7 @@ library Array {
     /// @return __value The element at the specified index
     function __getArrayElement(uint256[][1] memory __array, uint256 __index) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function get_array_element(arr_ptr, index) -> value {
                 let arr := mload(arr_ptr)
                 let length := mload(arr)
@@ -62,10 +59,7 @@ library Array {
         returns (uint256[2][] memory __array)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function read_word_array_as_uint512_array(input_array_ptr) -> array_ptr {
                 array_ptr := mload(FREE_PTR)
 
@@ -126,10 +120,7 @@ library Array {
         returns (uint256 __upper, uint256 __lower)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function get_uint512_array_element(arr_ptr, index) -> upper, lower {
                 let arr := mload(arr_ptr)
                 let length := mload(arr)

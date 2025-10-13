@@ -26,10 +26,7 @@ library Queue {
     /// @return __value The dequeued value
     function __dequeue(uint256[][1] memory __queue) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function dequeue(queue_ptr) -> value {
                 let queue := mload(queue_ptr)
                 let length := mload(queue)
@@ -67,10 +64,7 @@ library Queue {
         returns (uint256 __upper, uint256 __lower)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function dequeue_uint512(queue_ptr) -> upper, lower {
                 let queue := mload(queue_ptr)
                 let length := mload(queue)

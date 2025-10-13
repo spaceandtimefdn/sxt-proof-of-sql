@@ -46,58 +46,8 @@ library Shift {
         returns (VerificationBuilder.Builder memory __builderOut, uint256 __shiftedExprEval, uint256 __chiPlusOneEval)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> upper, lower {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_array_element(arr_ptr, index) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_first_round_mle(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_final_round_mle(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_produce_zerosum_constraint(builder_ptr, evaluation, degree) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_rho_evaluation(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_chi_evaluation(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> difference {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function submod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
+            // import addmod_bn254, mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_chi_evaluation, builder_consume_final_round_mle, builder_consume_first_round_mle, builder_consume_rho_evaluation, builder_produce_identity_constraint, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
 
             function compute_shift_identity_constraint(star, chi_plus_one, fold) -> constraint {
                 constraint := addmod_bn254(submod_bn254(star, chi_plus_one), mulmod_bn254(fold, star))

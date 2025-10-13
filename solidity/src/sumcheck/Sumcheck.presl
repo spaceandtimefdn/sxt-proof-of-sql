@@ -32,26 +32,9 @@ library Sumcheck {
         )
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function submod_bn254(lhs, rhs) -> difference {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Transcript.sol
-            function append_calldata(transcript_ptr, offset, size) {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import addmod_bn254, mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
+            // import append_calldata from ../base/Transcript.sol
 
             // actual_sum = coefficient_0 + sum_{i=0}^{degree} coefficient_i,
             //                  where coefficient_i is the coefficient of x^i

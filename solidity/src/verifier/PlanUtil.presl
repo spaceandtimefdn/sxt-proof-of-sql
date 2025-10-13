@@ -29,18 +29,8 @@ library PlanUtil {
     /// @return __planOut The updated pointer after skipping names which points to the actual plan itself. i.e., the AST without any names.
     function __skipPlanNames(bytes calldata __plan) external pure returns (bytes calldata __planOut) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.presl
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
+            // import read_data_type from ../base/DataType.presl
+
             function skip_plan_names(plan_ptr) -> plan_ptr_out {
                 // skip over the table names
                 let num_tables := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))

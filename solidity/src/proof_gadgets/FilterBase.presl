@@ -39,38 +39,9 @@ library FilterBase {
         uint256 __selectionEval
     ) external pure returns (VerificationBuilder.Builder memory __builderOut) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function submod_bn254(lhs, rhs) -> difference {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_final_round_mle(builder_ptr) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_produce_zerosum_constraint(builder_ptr, evaluation, degree) {
-                revert(0, 0)
-            }
+            // import addmod_bn254, mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_final_round_mle, builder_produce_identity_constraint, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
+
             function verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval) {
                 let c_star := builder_consume_final_round_mle(builder_ptr)
                 let d_star := builder_consume_final_round_mle(builder_ptr)

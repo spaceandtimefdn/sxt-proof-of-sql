@@ -39,29 +39,7 @@ library ParamsBuilder {
         params = new uint256[](length);
 
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
-            // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_binary(result_ptr) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.presl
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
-            // skip length of byte array
+            // import read_data_type, read_entry from ../base/DataType.presl
             let paramsOffset := add(serializedParams.offset, UINT64_SIZE)
             let paramsArray := add(params, WORD_SIZE)
             for {} length { length := sub(length, 1) } {

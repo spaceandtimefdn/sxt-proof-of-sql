@@ -34,72 +34,10 @@ library ResultVerifier {
         uint256[] memory __evaluations
     ) external pure {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/LagrangeBasisEvaluation.presl
-            function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
-                revert(0, 0)
-            }
-            // slither-disable-start cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // slither-disable-end cyclomatic-complexity
-            // IMPORT-YUL ../base/DataType.presl
-            function read_binary(result_ptr) -> result_ptr_out, entry {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/DataType.presl
-            function read_data_type(ptr) -> ptr_out, data_type {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_array_element(arr_ptr, index) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../proof_plans/TableExec.presl
-            function table_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> upper, lower {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_column_evaluation(builder_ptr, column_num) -> value {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import read_data_type, read_entry from ../base/DataType.presl
+            // import compute_evaluation_vec from ../base/LagrangeBasisEvaluation.presl
 
             function verify_result_evaluations(result_ptr, evaluation_point_ptr, evaluations_ptr) {
                 let num_columns := shr(UINT64_PADDING_BITS, calldataload(result_ptr))
