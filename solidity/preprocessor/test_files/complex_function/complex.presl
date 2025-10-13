@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract Complex {
+    function test() external pure {
+        assembly {
+            function computeMultiple(a, b, c) -> x, y, z {
+                x := add(a, b)
+                y := mul(b, c)
+                z := sub(c, a)
+            }
+        }
+    }
+}

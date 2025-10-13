@@ -1,0 +1,9 @@
+pragma solidity ^0.8.24;
+contract Main {
+    function test() external pure {
+        assembly {
+            // import func1 from multi.presl
+            // import func2 from multi.presl
+        }
+    }
+}

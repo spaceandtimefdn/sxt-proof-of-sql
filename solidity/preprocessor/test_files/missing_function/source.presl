@@ -1,0 +1,8 @@
+pragma solidity ^0.8.24;
+contract Source {
+    function test() external pure {
+        assembly {
+            function existingFunc() -> result { result := 1 }
+        }
+    }
+}

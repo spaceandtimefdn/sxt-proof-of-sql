@@ -1,0 +1,18 @@
+pragma solidity ^0.8.24;
+contract SingleSelfImport {
+    function defineUtils() external pure {
+        assembly {
+            function utilFunc(x) -> result {
+                result := add(x, 42)
+            }
+        }
+    }
+
+    function test() external pure returns (uint256 result) {
+        assembly {
+            // import utilFunc from self
+            let value := utilFunc(10)
+            result := value
+        }
+    }
+}

@@ -1,0 +1,11 @@
+pragma solidity ^0.8.24;
+contract Main {
+    function test() external pure {
+        assembly {
+            // import baz from library.presl
+            function mainFunc() -> result {
+                result := baz()
+            }
+        }
+    }
+}

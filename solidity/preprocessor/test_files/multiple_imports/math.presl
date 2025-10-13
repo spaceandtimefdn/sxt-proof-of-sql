@@ -1,0 +1,13 @@
+pragma solidity ^0.8.24;
+contract Math {
+    function calc() external pure {
+        assembly {
+            function multiply(a, b) -> result {
+                result := mul(a, b)
+            }
+            function divide(a, b) -> result {
+                result := div(a, b)
+            }
+        }
+    }
+}

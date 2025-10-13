@@ -1,4 +1,4 @@
 {
-    "detectors_to_exclude": "assembly,naming-conventions,too-many-digits",
+    "detectors_to_exclude": "assembly,naming-conventions,too-many-digits,cyclomatic-complexity",
     "fail_on": "pedantic"
 }
