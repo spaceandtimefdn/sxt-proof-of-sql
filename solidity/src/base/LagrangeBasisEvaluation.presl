@@ -74,10 +74,7 @@ library LagrangeBasisEvaluation {
         returns (uint256[] memory __evaluations)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(evaluations_ptr, mul(length, WORD_SIZE)))
@@ -114,10 +111,7 @@ library LagrangeBasisEvaluation {
     /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
     function __computeChiEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
         assembly {
-            // IMPORT-YUL LagrangeBasisEvaluation.presl
-            function compute_truncated_lagrange_basis_sum(length, x_ptr, num_vars) -> result {
-                revert(0, 0)
-            }
+            // import compute_truncated_lagrange_basis_sum from self
             function compute_chi_evaluations(evaluation_point_ptr, array_ptr) {
                 let num_vars := mload(evaluation_point_ptr)
                 let x := add(evaluation_point_ptr, WORD_SIZE)
@@ -143,14 +137,8 @@ library LagrangeBasisEvaluation {
         pure
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL LagrangeBasisEvaluation.presl
-            function compute_truncated_lagrange_basis_sum(length, x_ptr, num_vars) -> result {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import compute_truncated_lagrange_basis_sum from self
             function compute_evaluations_with_length(evaluation_point_ptr, array_ptr) {
                 let num_vars := mload(evaluation_point_ptr)
                 let x := add(evaluation_point_ptr, WORD_SIZE)
@@ -175,22 +163,9 @@ library LagrangeBasisEvaluation {
     /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
     function __computeRhoEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
         assembly {
-            // IMPORT-YUL LagrangeBasisEvaluation.presl
-            function compute_evaluation_vec(length, evaluation_point_ptr) -> evaluations_ptr {
-                revert(0, 0)
-            }
-            // IMPORT-YUL MathUtil.presl
-            function addmod_bn254(lhs, rhs) -> sum {
-                revert(0, 0)
-            }
-            // IMPORT-YUL MathUtil.presl
-            function mulmod_bn254(lhs, rhs) -> product {
-                revert(0, 0)
-            }
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import addmod_bn254, mulmod_bn254 from MathUtil.presl
+            // import compute_evaluation_vec from self
             function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
                 let array_len := mload(array_ptr)
                 for {} array_len { array_len := sub(array_len, 1) } {

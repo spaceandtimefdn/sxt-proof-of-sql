@@ -29,14 +29,8 @@ library DataType {
         returns (bytes calldata __exprOut, uint256 __entry)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import case_const from SwitchUtil.presl
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 let free_ptr := mload(FREE_PTR)
                 let len := shr(UINT64_PADDING_BITS, calldataload(result_ptr))
@@ -179,14 +173,8 @@ library DataType {
         returns (bytes calldata __exprOut, uint32 __dataType)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL SwitchUtil.presl
-            function case_const(lhs, rhs) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import case_const from SwitchUtil.presl
             function read_data_type(ptr) -> ptr_out, data_type {
                 data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
                 ptr_out := add(ptr, UINT32_SIZE)

@@ -39,10 +39,8 @@ library EmptyExec {
         )
     {
         assembly {
-            // IMPORT-YUL ../builder/VerificationBuilder.presl
-            function builder_get_singleton_chi_evaluation(builder_ptr) -> value {
-                revert(0, 0)
-            }
+            // import builder_get_singleton_chi_evaluation from ../builder/VerificationBuilder.presl
+
             function empty_exec_evaluate(builder_ptr) -> evaluations_ptr, output_length, output_chi_eval {
                 evaluations_ptr := mload(FREE_PTR)
                 mstore(evaluations_ptr, 0)

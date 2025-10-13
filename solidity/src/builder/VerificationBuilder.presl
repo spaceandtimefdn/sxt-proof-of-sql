@@ -90,14 +90,7 @@ library VerificationBuilder {
     /// @return __challenge The consumed challenge
     function __consumeChallenge(Builder memory __builder) internal pure returns (uint256 __challenge) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import dequeue from ../base/Queue.presl
             function builder_consume_challenge(builder_ptr) -> challenge {
                 challenge := dequeue(add(builder_ptr, BUILDER_CHALLENGES_OFFSET))
             }
@@ -168,14 +161,7 @@ library VerificationBuilder {
     /// @return __value The consumed first round MLE value
     function __consumeFirstRoundMLE(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import dequeue from ../base/Queue.presl
             function builder_consume_first_round_mle(builder_ptr) -> value {
                 value := dequeue(add(builder_ptr, BUILDER_FIRST_ROUND_MLES_OFFSET))
             }
@@ -246,14 +232,7 @@ library VerificationBuilder {
     /// @return __value The consumed final round MLE value
     function __consumeFinalRoundMLE(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import dequeue from ../base/Queue.presl
             function builder_consume_final_round_mle(builder_ptr) -> value {
                 value := dequeue(add(builder_ptr, BUILDER_FINAL_ROUND_MLES_OFFSET))
             }
@@ -302,14 +281,7 @@ library VerificationBuilder {
     /// @return __value The consumed chi column evaluation value
     function __consumeChiEvaluation(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> upper, lower {
-                revert(0, 0)
-            }
+            // import dequeue_uint512 from ../base/Queue.presl
             function builder_consume_chi_evaluation(builder_ptr) -> value {
                 let length
                 length, value := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
@@ -340,14 +312,7 @@ library VerificationBuilder {
         returns (uint256 __length, uint256 __chiEval)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> upper, lower {
-                revert(0, 0)
-            }
+            // import dequeue_uint512 from ../base/Queue.presl
             function builder_consume_chi_evaluation_with_length(builder_ptr) -> length, chi_eval {
                 length, chi_eval := dequeue_uint512(add(builder_ptr, BUILDER_CHI_EVALUATIONS_OFFSET))
             }
@@ -396,14 +361,7 @@ library VerificationBuilder {
     /// @return __value The consumed rho column evaluation value
     function __consumeRhoEvaluation(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import dequeue from ../base/Queue.presl
             function builder_consume_rho_evaluation(builder_ptr) -> value {
                 value := dequeue(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
             }
@@ -510,14 +468,8 @@ library VerificationBuilder {
         pure
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import dequeue from ../base/Queue.presl
             function builder_produce_zerosum_constraint(builder_ptr, evaluation, degree) {
                 if gt(degree, mload(add(builder_ptr, BUILDER_MAX_DEGREE_OFFSET))) {
                     err(ERR_CONSTRAINT_DEGREE_TOO_HIGH)
@@ -541,14 +493,8 @@ library VerificationBuilder {
         pure
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue(queue_ptr) -> value {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
+            // import dequeue from ../base/Queue.presl
             function builder_produce_identity_constraint(builder_ptr, evaluation, degree) {
                 if gt(add(degree, 1), mload(add(builder_ptr, BUILDER_MAX_DEGREE_OFFSET))) {
                     err(ERR_CONSTRAINT_DEGREE_TOO_HIGH)
@@ -640,14 +586,7 @@ library VerificationBuilder {
         returns (uint256 __value)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_array_element(arr_ptr, index) -> value {
-                revert(0, 0)
-            }
+            // import get_array_element from ../base/Array.presl
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
                 value := get_array_element(add(builder_ptr, BUILDER_COLUMN_EVALUATIONS_OFFSET), column_num)
             }
@@ -697,14 +636,7 @@ library VerificationBuilder {
         returns (uint256 __value)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
-                revert(0, 0)
-            }
+            // import get_uint512_array_element from ../base/Array.presl
             function builder_get_table_chi_evaluation(builder_ptr, table_num) -> value {
                 let length
                 length, value :=
@@ -737,14 +669,7 @@ library VerificationBuilder {
         returns (uint256 __length, uint256 __chiEval)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_uint512_array_element(arr_ptr, index) -> upper, lower {
-                revert(0, 0)
-            }
+            // import get_uint512_array_element from ../base/Array.presl
             function builder_get_table_chi_evaluation_with_length(builder_ptr, table_num) -> length, chi_eval {
                 length, chi_eval :=
                     get_uint512_array_element(add(builder_ptr, BUILDER_TABLE_CHI_EVALUATIONS_OFFSET), table_num)
@@ -854,10 +779,6 @@ library VerificationBuilder {
     /// @param __values The bit distributions array
     function __setBitDistributions(Builder memory __builder, uint256[] memory __values) internal pure {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
             function builder_set_bit_distributions(builder_ptr, values_ptr) {
                 mstore(add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET), values_ptr)
             }
@@ -887,14 +808,7 @@ library VerificationBuilder {
         returns (uint256 __varyMask, uint256 __leadingBitMask)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Queue.presl
-            function dequeue_uint512(queue_ptr) -> upper, lower {
-                revert(0, 0)
-            }
+            // import dequeue_uint512 from ../base/Queue.presl
             function builder_consume_bit_distribution(builder_ptr) -> vary_mask, leading_bit_mask {
                 let values_ptr := add(builder_ptr, BUILDER_FINAL_ROUND_BIT_DISTRIBUTIONS_OFFSET)
                 vary_mask, leading_bit_mask := dequeue_uint512(values_ptr)
@@ -981,10 +895,7 @@ library VerificationBuilder {
     /// @param __builder The builder struct
     function __checkAggregateEvaluation(Builder memory __builder) internal pure {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from ../base/Errors.sol
             function builder_check_aggregate_evaluation(builder_ptr) {
                 if mload(add(builder_ptr, BUILDER_AGGREGATE_EVALUATION_OFFSET)) {
                     err(ERR_AGGREGATE_EVALUATION_MISMATCH)
@@ -1078,14 +989,7 @@ library VerificationBuilder {
         returns (uint256 __value)
     {
         assembly {
-            // IMPORT-YUL ../base/Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ../base/Array.presl
-            function get_array_element(arr_ptr, index) -> value {
-                revert(0, 0)
-            }
+            // import get_array_element from ../base/Array.presl
             function builder_get_placeholder_parameter(builder_ptr, index) -> value {
                 value := get_array_element(add(builder_ptr, BUILDER_PLACEHOLDER_PARAMETERS_OFFSET), index)
             }

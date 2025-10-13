@@ -15,10 +15,7 @@ library ECPrecompiles {
     /// @param __args The input memory containing the points to be added.
     function __ecAdd(uint256[4] memory __args) internal view {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function ec_add(args_ptr) {
                 if iszero(staticcall(ECADD_GAS, ECADD_ADDRESS, args_ptr, WORDX4_SIZE, args_ptr, WORDX2_SIZE)) {
                     err(ERR_INVALID_EC_ADD_INPUTS)
@@ -37,10 +34,7 @@ library ECPrecompiles {
     /// @param __args The input memory containing the point and scalar to be multiplied.
     function __ecMul(uint256[3] memory __args) internal view {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function ec_mul(args_ptr) {
                 if iszero(staticcall(ECMUL_GAS, ECMUL_ADDRESS, args_ptr, WORDX3_SIZE, args_ptr, WORDX2_SIZE)) {
                     err(ERR_INVALID_EC_MUL_INPUTS)
@@ -62,10 +56,7 @@ library ECPrecompiles {
     /// @return success0 The result of the pairing check.
     function __ecPairingX2(uint256[12] memory __args) internal view returns (uint256 success0) {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
+            // import err from Errors.sol
             function ec_pairing_x2(args_ptr) -> success {
                 if iszero(staticcall(ECPAIRINGX2_GAS, ECPAIRING_ADDRESS, args_ptr, WORDX12_SIZE, args_ptr, WORD_SIZE)) {
                     err(ERR_INVALID_EC_PAIRING_INPUTS)
@@ -84,15 +75,8 @@ library ECPrecompiles {
     /// @param __scalar The scalar to multiply the point by.
     function __ecMulAssign(uint256[3] memory __args, uint256 __scalar) internal view {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import ec_mul from self
             function ec_mul_assign(args_ptr, scalar) {
                 mstore(add(args_ptr, WORDX2_SIZE), scalar)
                 ec_mul(args_ptr)
@@ -115,15 +99,8 @@ library ECPrecompiles {
         returns (uint256[4] memory __resultArgs)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import ec_add from self
             function calldata_ec_add_assign(args_ptr, c_ptr) {
                 calldatacopy(add(args_ptr, WORDX2_SIZE), c_ptr, WORDX2_SIZE)
                 ec_add(args_ptr)
@@ -148,25 +125,8 @@ library ECPrecompiles {
         returns (uint256[5] memory __resultArgs)
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_mul_assign(args_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import ec_add, ec_mul_assign from self
             function calldata_ec_mul_add_assign(args_ptr, c_ptr, scalar) {
                 calldatacopy(add(args_ptr, WORDX2_SIZE), c_ptr, WORDX2_SIZE)
                 ec_mul_assign(add(args_ptr, WORDX2_SIZE), scalar)
@@ -191,25 +151,8 @@ library ECPrecompiles {
         view
     {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_mul(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_mul_assign(args_ptr, scalar) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import ec_add, ec_mul_assign from self
             function constant_ec_mul_add_assign(args_ptr, c_x, c_y, scalar) {
                 mstore(add(args_ptr, WORDX2_SIZE), c_x)
                 mstore(add(args_ptr, WORDX3_SIZE), c_y)
@@ -227,15 +170,8 @@ library ECPrecompiles {
     /// @param __c The memory pointer to the second point [c_x, c_y].
     function __ecAddAssign(uint256[4] memory __args, uint256[2] memory __c) internal view {
         assembly {
-            // IMPORT-YUL Errors.sol
-            function err(code) {
-                revert(0, 0)
-            }
-            // IMPORT-YUL ECPrecompiles.presl
-            function ec_add(args_ptr) {
-                pop(staticcall(0, 0, 0, 0, 0, 0))
-                revert(0, 0)
-            }
+            // import err from Errors.sol
+            // import ec_add from self
             function ec_add_assign(args_ptr, c_ptr) {
                 mcopy(add(args_ptr, WORDX2_SIZE), c_ptr, WORDX2_SIZE)
                 ec_add(args_ptr)
