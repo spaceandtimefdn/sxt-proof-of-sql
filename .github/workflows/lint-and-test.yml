@@ -197,6 +197,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -211,6 +215,8 @@ jobs:
         run: solidity/scripts/pre_forge.sh test --optimize
       - name: Run tests with via-ir and optimization
         run: solidity/scripts/pre_forge.sh test --via-ir --optimize
+      - name: Remove preprocessor test files (for they are already tested in the check-yul-preprocessor job)
+        run: rm -rf solidity/preprocessor/test_files
       - name: Install lcov
         run: sudo apt-get update && sudo apt-get install -y lcov
       - name: Check code coverage
@@ -245,6 +251,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
