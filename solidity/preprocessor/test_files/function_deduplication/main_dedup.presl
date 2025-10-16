@@ -1,0 +1,12 @@
+pragma solidity ^0.8.24;
+contract Main {
+    function compute() external pure returns (uint256 sum) {
+        assembly {
+            // import square from util.presl
+            // import square from util.presl
+            let a := square(3)
+            let b := square(4)
+            sum := add(a, b)
+        }
+    }
+}

@@ -1,0 +1,10 @@
+pragma solidity ^0.8.24;
+contract Helper {
+    function test() external pure {
+        assembly {
+            function double(x) -> result {
+                result := mul(x, 2)
+            }
+        }
+    }
+}

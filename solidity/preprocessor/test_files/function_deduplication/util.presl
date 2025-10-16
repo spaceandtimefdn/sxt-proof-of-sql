@@ -1,0 +1,10 @@
+pragma solidity ^0.8.24;
+contract Util {
+    function test() external pure {
+        assembly {
+            function square(x) -> result {
+                result := mul(x, x)
+            }
+        }
+    }
+}

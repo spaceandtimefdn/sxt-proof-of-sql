@@ -1,0 +1,23 @@
+pragma solidity ^0.8.24;
+contract SelfReferencing {
+    function defineHelpers() external pure {
+        assembly {
+            function helper(x) -> result {
+                result := mul(x, 2)
+            }
+
+            function anotherHelper(y) -> result {
+                result := add(y, 10)
+            }
+        }
+    }
+
+    function example() external pure returns (uint256 result) {
+        assembly {
+            // import helper, anotherHelper from self
+            let doubled := helper(5)
+            let increased := anotherHelper(doubled)
+            result := increased
+        }
+    }
+}

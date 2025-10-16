@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "../shared/Common.presl";
+import "./Helper.presl";
+import {A, B} from "./Utils.presl";
+
+contract Test {
+    // Comment mentioning .presl should be fine
+    function testSomething() external pure returns (uint256 result){
+        result = A.aFunction() + B.bFunction();
+    }
+}

@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+library Main {
+    /// First assembly block defines a function that imports from an external file
+    function first() external pure returns (uint256 output) {
+        assembly {
+            // import add_one, double_value from ./helper.presl
+
+            function compute(x) -> result {
+                result := double_value(add_one(x))
+            }
+
+            output := compute(10)
+        }
+    }
+
+    /// Second assembly block imports from self - should get compute AND its dependencies
+    function second() external pure returns (uint256 output) {
+        assembly {
+            // import compute from self
+
+            output := compute(20)
+        }
+    }
+}

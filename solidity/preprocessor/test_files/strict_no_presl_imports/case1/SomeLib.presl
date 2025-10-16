@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+library SomeLib {
+    function libFunction() internal pure returns (uint256 result) {
+        result = 10;
+    }
+}

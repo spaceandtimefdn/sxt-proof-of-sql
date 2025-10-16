@@ -1,0 +1,14 @@
+pragma solidity ^0.8.24;
+contract Multi {
+    function first() external pure {
+        assembly {
+            function func1() -> result { result := 1 }
+        }
+    }
+
+    function second() external pure {
+        assembly {
+            function func2() -> result { result := 2 }
+        }
+    }
+}
