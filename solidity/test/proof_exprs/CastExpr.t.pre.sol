@@ -58,7 +58,7 @@ contract CastExprTest is Test {
             DATA_TYPE_BIGINT_VARIANT,
             LITERAL_EXPR_VARIANT,
             DATA_TYPE_TIMESTAMP_VARIANT,
-            uint32(3),
+            uint32(1),
             int32(0),
             int64(7),
             hex"abcdef"
@@ -130,8 +130,6 @@ contract CastExprTest is Test {
     function testFuzzTimestampCastExpr(
         VerificationBuilder.Builder memory builder,
         uint256 chiEvaluation,
-        uint32 timestampUnit,
-        int32 timestampOffset,
         int64 timestampValue,
         bytes memory trailingExpr
     ) public pure {
@@ -139,8 +137,8 @@ contract CastExprTest is Test {
             DATA_TYPE_BIGINT_VARIANT,
             LITERAL_EXPR_VARIANT,
             DATA_TYPE_TIMESTAMP_VARIANT,
-            timestampUnit,
-            timestampOffset,
+            TIMEUNIT_MILLISECOND_VARIANT,
+            TIMEZONE_UTC,
             timestampValue,
             trailingExpr
         );
