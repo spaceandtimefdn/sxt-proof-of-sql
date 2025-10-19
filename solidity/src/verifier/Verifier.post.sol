@@ -42,10 +42,60 @@ library Verifier {
         // columnNameHashes[columnId] = columnNameHash
         bytes32[] memory columnNameHashes;
         assembly {
+            // IMPORTED-YUL ../base/Hash.pre.sol::hash_string
+            function exclude_coverage_start_hash_string() {} // solhint-disable-line no-empty-blocks
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT64_SIZE)
+
+                // TODO: This line should probably be using the FREE_PTR directly, instead of having it passed in the function.
+                // This is a little dangerous as it is.
+                calldatacopy(free_ptr, ptr, name_len)
+                mstore(free_ptr, keccak256(free_ptr, name_len))
+                ptr_out := add(ptr, name_len)
+                free_ptr_out := add(free_ptr, WORD_SIZE)
+            }
+            function exclude_coverage_stop_hash_string() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/Errors.sol::err
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
             function err(code) {
                 mstore(0, code)
                 revert(28, 4)
             }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/SwitchUtil.pre.sol::case_const
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
+                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
 
             let ptr := tableCommitment.offset
 
@@ -79,27 +129,14 @@ library Verifier {
 
             // for each entry in column_metadata
             for {} num_columns { num_columns := sub(num_columns, 1) } {
-                // column_metadata[i].Ident.value.len() (usize) is the number of characters in the column name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
-
-                // column_metadata[i].Ident.value (usize) is the column name. We hash it and store it in the columnNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
+                ptr, free_ptr := hash_string(ptr, free_ptr)
 
                 // column_metadata[i].Ident.quote_style (Option<char>) must be None, i.e. 0
                 if shr(UINT8_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
                 ptr := add(ptr, UINT8_SIZE)
 
-                // column_metadata[i].ColumnCommitmentMetadata.column_type (ColumnType)
-                switch shr(UINT32_PADDING_BITS, calldataload(ptr))
-                // ColumnType::Decimal75
-                case 8 { ptr := add(ptr, add(UINT32_SIZE, add(UINT8_SIZE, UINT8_SIZE))) }
-                // ColumnType::TimestampTZ
-                case 9 { ptr := add(ptr, add(UINT32_SIZE, add(UINT32_SIZE, UINT32_SIZE))) }
-                default { ptr := add(ptr, UINT32_SIZE) }
+                let data_type
+                ptr, data_type := read_data_type(ptr)
 
                 // column_metadata[i].ColumnCommitmentMetadata.bounds (ColumnBounds)
                 let variant := shr(UINT32_PADDING_BITS, calldataload(ptr))
@@ -163,6 +200,61 @@ library Verifier {
         )
     {
         assembly {
+            // IMPORTED-YUL ../base/Hash.pre.sol::hash_string
+            function exclude_coverage_start_hash_string() {} // solhint-disable-line no-empty-blocks
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT64_SIZE)
+
+                // TODO: This line should probably be using the FREE_PTR directly, instead of having it passed in the function.
+                // This is a little dangerous as it is.
+                calldatacopy(free_ptr, ptr, name_len)
+                mstore(free_ptr, keccak256(free_ptr, name_len))
+                ptr_out := add(ptr, name_len)
+                free_ptr_out := add(free_ptr, WORD_SIZE)
+            }
+            function exclude_coverage_stop_hash_string() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/Errors.sol::err
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/SwitchUtil.pre.sol::case_const
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
+                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
+
             let ptr := plan.offset
 
             let free_ptr := mload(FREE_PTR)
@@ -177,17 +269,7 @@ library Verifier {
             free_ptr := add(free_ptr, WORD_SIZE)
 
             // for each table
-            for {} num_tables { num_tables := sub(num_tables, 1) } {
-                // table[i].len() (usize) is the number of characters in the table name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
-
-                // table[i] is the table name. We hash it and store it in the tableNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
-            }
+            for {} num_tables { num_tables := sub(num_tables, 1) } { ptr, free_ptr := hash_string(ptr, free_ptr) }
             // done allocating space for table names
 
             // columns.len() (usize) is the number of columns
@@ -219,23 +301,10 @@ library Verifier {
                 ptr := add(ptr, UINT64_SIZE)
                 index_ptr := add(index_ptr, WORD_SIZE)
 
-                // column[i].1.len() (usize) is number of characters in the column name
-                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
-                ptr := add(ptr, UINT64_SIZE)
+                ptr, free_ptr := hash_string(ptr, free_ptr)
 
-                // column[i].1 (usize) is the column name. We hash it and store it in the columnNameHashes array
-                calldatacopy(free_ptr, ptr, name_len)
-                mstore(free_ptr, keccak256(free_ptr, name_len))
-                ptr := add(ptr, name_len)
-                free_ptr := add(free_ptr, WORD_SIZE)
-
-                // column[i].2 (ColumnType)
-                switch shr(UINT32_PADDING_BITS, calldataload(ptr))
-                // ColumnType::Decimal75
-                case 8 { ptr := add(ptr, add(UINT32_SIZE, add(UINT8_SIZE, UINT8_SIZE))) }
-                // ColumnType::TimestampTZ
-                case 9 { ptr := add(ptr, add(UINT32_SIZE, add(UINT16_SIZE, UINT16_SIZE))) }
-                default { ptr := add(ptr, UINT32_SIZE) }
+                let data_type
+                ptr, data_type := read_data_type(ptr)
             }
 
             // done allocating space for column names

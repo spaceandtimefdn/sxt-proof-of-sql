@@ -156,6 +156,8 @@ library Errors {
     error CommitmentsNotFound();
     /// @notice Error thrown for unsupported table commitments.
     error TableCommitmentUnsupported();
+    /// @notice Error thrown for having too many parameters.
+    error TooManyParameters();
 
     function __err(uint32 __code) internal pure {
         assembly {
