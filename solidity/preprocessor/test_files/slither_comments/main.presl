@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract SlitherTestMain {
+    function testFunc() public pure {
+        assembly {
+            // import complexFunction from source.presl
+            // import simpleFunction from source.presl
+
+            let x := complexFunction(1, 2, 3)
+            let y := simpleFunction(5)
+        }
+    }
+}
