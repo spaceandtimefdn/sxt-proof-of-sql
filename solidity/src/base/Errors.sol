@@ -75,6 +75,8 @@ uint32 constant ERR_UNION_INVALID_COLUMN_COUNTS = 0x2b150620;
 uint32 constant ERR_INTERNAL = 0xfe835e35;
 /// @dev Error code for unprovable group by error.
 uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
+/// @dev Error code for unsupported table commitments.
+uint32 constant ERR_TABLE_COMMITMENT_UNSUPPORTED = 0x4b35c9c3;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -150,6 +152,12 @@ library Errors {
     error InternalError();
     /// @notice Error thrown for unprovable group by error.
     error UnprovableGroupBy();
+    /// @notice Error thrown for commitments that are not found.
+    error CommitmentsNotFound();
+    /// @notice Error thrown for unsupported table commitments.
+    error TableCommitmentUnsupported();
+    /// @notice Error thrown for having too many parameters.
+    error TooManyParameters();
 
     function __err(uint32 __code) internal pure {
         assembly {

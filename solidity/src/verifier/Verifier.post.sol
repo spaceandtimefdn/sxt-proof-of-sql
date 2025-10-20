@@ -6,7 +6,387 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 
 library Verifier {
-    function __verify(
+    function verify(
+        bytes calldata __result,
+        bytes calldata __plan,
+        uint256[] memory __placeholderParameters,
+        bytes calldata __proof,
+        bytes[] calldata __tableCommitments
+    ) public view {
+        (uint256[] memory tableLengths, uint256[] memory commitments) =
+            getCommitmentsAndLength(__plan, __tableCommitments);
+        __internalVerify({
+            __result: __result,
+            __plan: __plan,
+            __placeholderParameters: __placeholderParameters,
+            __proof: __proof,
+            __tableLengths: tableLengths,
+            __commitments: commitments
+        });
+    }
+
+    struct TableCommitment {
+        uint256 commitmentsPtr;
+        uint64 tableLength;
+        bytes32[] columnNameHashes;
+    }
+
+    // slither-disable-next-line cyclomatic-complexity
+    function deserializeTableCommitment(bytes calldata tableCommitment)
+        internal
+        pure
+        returns (TableCommitment memory result)
+    {
+        uint256 commitmentsPtr;
+        uint64 tableLength;
+        // columnNameHashes[columnId] = columnNameHash
+        bytes32[] memory columnNameHashes;
+        assembly {
+            // IMPORTED-YUL ../base/Hash.pre.sol::hash_string
+            function exclude_coverage_start_hash_string() {} // solhint-disable-line no-empty-blocks
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT64_SIZE)
+
+                // TODO: This line should probably be using the FREE_PTR directly, instead of having it passed in the function.
+                // This is a little dangerous as it is.
+                calldatacopy(free_ptr, ptr, name_len)
+                mstore(free_ptr, keccak256(free_ptr, name_len))
+                ptr_out := add(ptr, name_len)
+                free_ptr_out := add(free_ptr, WORD_SIZE)
+            }
+            function exclude_coverage_stop_hash_string() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/Errors.sol::err
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/SwitchUtil.pre.sol::case_const
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
+                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
+
+
+            let ptr := tableCommitment.offset
+
+            // range.start (usize) must be 0
+            if shr(UINT64_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            ptr := add(ptr, UINT64_SIZE)
+
+            // range.end *usize) is the table length
+            tableLength := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // commitments.len() (usize) is the number of columns
+            let num_columns := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // each commitment is a 2-word commitment
+            commitmentsPtr := ptr
+            ptr := add(ptr, mul(num_columns, WORDX2_SIZE))
+
+            // column_metadata.len() (usize) must match the number of columns
+            if sub(num_columns, shr(UINT64_PADDING_BITS, calldataload(ptr))) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            ptr := add(ptr, UINT64_SIZE)
+
+            // allocating space for column namess
+            let free_ptr := mload(FREE_PTR)
+            columnNameHashes := free_ptr
+
+            // initializing length of column names
+            mstore(free_ptr, num_columns)
+            free_ptr := add(free_ptr, WORD_SIZE)
+
+            // for each entry in column_metadata
+            for {} num_columns { num_columns := sub(num_columns, 1) } {
+                ptr, free_ptr := hash_string(ptr, free_ptr)
+
+                // column_metadata[i].Ident.quote_style (Option<char>) must be None, i.e. 0
+                if shr(UINT8_PADDING_BITS, calldataload(ptr)) { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+                ptr := add(ptr, UINT8_SIZE)
+
+                let data_type
+                ptr, data_type := read_data_type(ptr)
+
+                // column_metadata[i].ColumnCommitmentMetadata.bounds (ColumnBounds)
+                let variant := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT32_SIZE)
+                function skip_bounds(data_size, ptr_in) -> ptr_out {
+                    let bounds_variant := shr(UINT32_PADDING_BITS, calldataload(ptr_in))
+                    ptr_out := add(ptr_in, UINT32_SIZE)
+                    if bounds_variant { ptr_out := add(ptr_out, mul(data_size, 2)) }
+                }
+                switch variant
+                // ColumnBounds::NoOrder
+                case 0 {}
+                // ColumnBounds::Uint8
+                case 1 { ptr := skip_bounds(UINT8_SIZE, ptr) }
+                // ColumnBounds::TinyInt
+                case 2 { ptr := skip_bounds(UINT8_SIZE, ptr) }
+                // ColumnBounds::SmallInt
+                case 3 { ptr := skip_bounds(UINT16_SIZE, ptr) }
+                // ColumnBounds::Int
+                case 4 { ptr := skip_bounds(UINT32_SIZE, ptr) }
+                // ColumnBounds::BigInt
+                case 5 { ptr := skip_bounds(UINT64_SIZE, ptr) }
+                // ColumnBounds::Int128
+                case 6 { ptr := skip_bounds(UINT128_SIZE, ptr) }
+                // ColumnBounds::TimestampTZ
+                case 7 { ptr := skip_bounds(UINT64_SIZE, ptr) }
+                default { err(ERR_TABLE_COMMITMENT_UNSUPPORTED) }
+            }
+
+            // done allocating space for column names
+            mstore(FREE_PTR, free_ptr)
+        }
+        result = TableCommitment(commitmentsPtr, tableLength, columnNameHashes);
+    }
+
+    function deserializeTableCommitments(bytes[] calldata tableCommitments)
+        internal
+        pure
+        returns (
+            // tableCommitments[tableId] = TableCommitment
+            TableCommitment[] memory result
+        )
+    {
+        uint256 numTableCommitments = tableCommitments.length;
+        result = new TableCommitment[](numTableCommitments);
+        for (uint256 i = 0; i < numTableCommitments; ++i) {
+            result[i] = deserializeTableCommitment(tableCommitments[i]);
+        }
+    }
+
+    function deserializeProofPlanPrefix(bytes calldata plan)
+        internal
+        pure
+        returns (
+            // tableNameHashes[tableId] = tableNameHash
+            bytes32[] memory tableNameHashes,
+            // columnTableIndexes[columnId] = tableId
+            uint64[] memory columnTableIndexes,
+            // columnNameHashes[columnId] = columnNameHash
+            bytes32[] memory columnNameHashes
+        )
+    {
+        assembly {
+            // IMPORTED-YUL ../base/Hash.pre.sol::hash_string
+            function exclude_coverage_start_hash_string() {} // solhint-disable-line no-empty-blocks
+            function hash_string(ptr, free_ptr) -> ptr_out, free_ptr_out {
+                let name_len := shr(UINT64_PADDING_BITS, calldataload(ptr))
+                ptr := add(ptr, UINT64_SIZE)
+
+                // TODO: This line should probably be using the FREE_PTR directly, instead of having it passed in the function.
+                // This is a little dangerous as it is.
+                calldatacopy(free_ptr, ptr, name_len)
+                mstore(free_ptr, keccak256(free_ptr, name_len))
+                ptr_out := add(ptr, name_len)
+                free_ptr_out := add(free_ptr, WORD_SIZE)
+            }
+            function exclude_coverage_stop_hash_string() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/Errors.sol::err
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/SwitchUtil.pre.sol::case_const
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
+            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
+                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
+
+
+            let ptr := plan.offset
+
+            let free_ptr := mload(FREE_PTR)
+
+            // tables.len() (usize) is the number of tables
+            let num_tables := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // allocating space for table names
+            tableNameHashes := free_ptr
+            mstore(free_ptr, num_tables)
+            free_ptr := add(free_ptr, WORD_SIZE)
+
+            // for each table
+            for {} num_tables { num_tables := sub(num_tables, 1) } { ptr, free_ptr := hash_string(ptr, free_ptr) }
+            // done allocating space for table names
+
+            // columns.len() (usize) is the number of columns
+            let num_columns := shr(UINT64_PADDING_BITS, calldataload(ptr))
+            ptr := add(ptr, UINT64_SIZE)
+
+            // allocating space for column table indexes
+            columnTableIndexes := free_ptr
+            let index_ptr := free_ptr
+
+            // initializing length of column table indexes
+            mstore(index_ptr, num_columns)
+            index_ptr := add(index_ptr, WORD_SIZE)
+
+            free_ptr := add(index_ptr, mul(num_columns, WORD_SIZE))
+            // done allocating space for column table indexes
+
+            // allocating space for column names
+            columnNameHashes := free_ptr
+
+            // initializing length of column names
+            mstore(free_ptr, num_columns)
+            free_ptr := add(free_ptr, WORD_SIZE)
+
+            // for each column
+            for {} num_columns { num_columns := sub(num_columns, 1) } {
+                // column[i].0 (usize) is the table id. We store it in the columnTableIndexes array
+                mstore(index_ptr, shr(UINT64_PADDING_BITS, calldataload(ptr)))
+                ptr := add(ptr, UINT64_SIZE)
+                index_ptr := add(index_ptr, WORD_SIZE)
+
+                ptr, free_ptr := hash_string(ptr, free_ptr)
+
+                let data_type
+                ptr, data_type := read_data_type(ptr)
+            }
+
+            // done allocating space for column names
+            mstore(FREE_PTR, free_ptr)
+        }
+    }
+
+    /// @notice Internal function to get the relevant commitments
+    /// @dev validates that all commitments are found
+    /// @return commitments the commitments in the order of the columns
+    function getRelevantCommitments(
+        uint64[] memory columnTableIndexes,
+        bytes32[] memory columnNameHashes,
+        TableCommitment[] memory tableCommitments
+    ) internal pure returns (uint256[] memory commitments) {
+        uint256 numColumns = columnTableIndexes.length;
+        commitments = new uint256[](numColumns * 2);
+        uint256 commitmentsFreePtr;
+        assembly {
+            commitmentsFreePtr := add(commitments, 0x20)
+        }
+
+        for (uint256 i = 0; i < numColumns; ++i) {
+            uint64 columnTableIndex = columnTableIndexes[i];
+            bytes32 columnNameHash = columnNameHashes[i];
+
+            if (!(columnTableIndex < tableCommitments.length)) {
+                revert Errors.CommitmentsNotFound();
+            }
+            TableCommitment memory tableCommitment = tableCommitments[columnTableIndex];
+            uint256 commitmentsPtr = tableCommitment.commitmentsPtr;
+            bool found = false;
+            uint256 columnNameHashesLength = tableCommitment.columnNameHashes.length;
+            for (uint256 j = 0; j < columnNameHashesLength; ++j) {
+                if (tableCommitment.columnNameHashes[j] == columnNameHash) {
+                    assembly {
+                        calldatacopy(commitmentsFreePtr, add(commitmentsPtr, mul(j, WORDX2_SIZE)), WORDX2_SIZE)
+                        commitmentsFreePtr := add(commitmentsFreePtr, WORDX2_SIZE)
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                revert Errors.CommitmentsNotFound();
+            }
+        }
+    }
+
+    function getTableLengths(TableCommitment[] memory tableCommitments)
+        private
+        pure
+        returns (uint256[] memory tableLengths)
+    {
+        uint256 numTables = tableCommitments.length;
+        tableLengths = new uint256[](numTables);
+        for (uint256 i = 0; i < numTables; ++i) {
+            tableLengths[i] = tableCommitments[i].tableLength;
+        }
+    }
+
+    function getCommitmentsAndLength(bytes calldata queryPlan, bytes[] calldata tableCommitmentsAsBytes)
+        internal
+        pure
+        returns (uint256[] memory __tableLengths, uint256[] memory __commitments)
+    {
+        TableCommitment[] memory tableCommitments = deserializeTableCommitments(tableCommitmentsAsBytes);
+        (, uint64[] memory columnTableIndexes, bytes32[] memory columnNameHashes) =
+            deserializeProofPlanPrefix(queryPlan);
+
+        // construct `uint256[] memory commitments` and validate that all commitments are found
+        uint256[] memory commitments = getRelevantCommitments(columnTableIndexes, columnNameHashes, tableCommitments);
+
+        // construct `uint256[] memory tableLengths`
+        uint256[] memory tableLengths = getTableLengths(tableCommitments);
+        __tableLengths = tableLengths;
+        __commitments = commitments;
+    }
+
+    function __internalVerify(
         bytes calldata __result,
         bytes calldata __plan,
         uint256[] memory __placeholderParameters,
@@ -903,14 +1283,18 @@ library Verifier {
                 {
                     let c_fold := compute_shift_fold(alpha, beta, expr_eval, addmod_bn254(rho_eval, chi_eval))
                     builder_produce_identity_constraint(
-                        builder_ptr, compute_shift_identity_constraint(c_star_eval, chi_plus_one_eval, c_fold), 2
+                        builder_ptr,
+                        compute_shift_identity_constraint(c_star_eval, chi_plus_one_eval, c_fold),
+                        2
                     )
                 }
                 // d_star + d_fold * d_star - chi_n_plus_1 = 0
                 {
                     let d_fold := compute_shift_fold(alpha, beta, shifted_expr_eval, rho_plus_one_eval)
                     builder_produce_identity_constraint(
-                        builder_ptr, compute_shift_identity_constraint(d_star_eval, chi_plus_one_eval, d_fold), 2
+                        builder_ptr,
+                        compute_shift_identity_constraint(d_star_eval, chi_plus_one_eval, d_fold),
+                        2
                     )
                 }
             }
@@ -944,24 +1328,22 @@ library Verifier {
                 case 1 {
                     // Strict monotonicity: sign(ind) == 1 for all but first and last element
                     // Allowed evaluations: chi_eval, shifted_chi_eval - singleton_chi_eval, chi_eval - singleton_chi_eval
-                    is_valid :=
-                        or(
-                            or(eq(sign_eval, chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, singleton_chi_eval))),
-                            eq(sign_eval, submod_bn254(chi_eval, singleton_chi_eval))
-                        )
+                    is_valid := or(
+                        or(eq(sign_eval, chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, singleton_chi_eval))),
+                        eq(sign_eval, submod_bn254(chi_eval, singleton_chi_eval))
+                    )
                 }
                 default {
                     // Non-strict monotonicity: sign(ind) == 0 for all but first and last element
                     // Allowed evaluations: singleton_chi_eval, shifted_chi_eval - chi_eval,
                     // singleton_chi_eval + shifted_chi_eval - chi_eval, 0
-                    is_valid :=
+                    is_valid := or(
+                        or(eq(sign_eval, singleton_chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, chi_eval))),
                         or(
-                            or(eq(sign_eval, singleton_chi_eval), eq(sign_eval, submod_bn254(shifted_chi_eval, chi_eval))),
-                            or(
-                                eq(sign_eval, submod_bn254(addmod_bn254(singleton_chi_eval, shifted_chi_eval), chi_eval)),
-                                iszero(sign_eval)
-                            )
+                            eq(sign_eval, submod_bn254(addmod_bn254(singleton_chi_eval, shifted_chi_eval), chi_eval)),
+                            iszero(sign_eval)
                         )
+                    )
                 }
 
                 if iszero(is_valid) { err(ERR_MONOTONY_CHECK_FAILED) }
@@ -1003,7 +1385,9 @@ library Verifier {
                         // Verify that every eval is a bit
                         // bit_eval - bit_eval * bit_eval = 0
                         builder_produce_identity_constraint(
-                            builder_ptr, submod_bn254(bit_eval, mulmod_bn254(bit_eval, bit_eval)), 2
+                            builder_ptr,
+                            submod_bn254(bit_eval, mulmod_bn254(bit_eval, bit_eval)),
+                            2
                         )
 
                         switch i
@@ -1019,14 +1403,13 @@ library Verifier {
 
                 // For constant and lead bits...
                 // sum += sign_eval * leading_bit_mask + (sign_eval - chi_eval) * leading_bit_inverse_mask - chi_eval * (1 << 255)
-                sum_eval :=
-                    submod_bn254(
-                        addmod_bn254(
-                            addmod_bn254(sum_eval, mulmod_bn254(sign_eval, leading_bit_mask)),
-                            mulmod_bn254(result_eval, leading_bit_inverse_mask)
-                        ),
-                        mulmod_bn254(chi_eval, shl(255, 1))
-                    )
+                sum_eval := submod_bn254(
+                    addmod_bn254(
+                        addmod_bn254(sum_eval, mulmod_bn254(sign_eval, leading_bit_mask)),
+                        mulmod_bn254(result_eval, leading_bit_inverse_mask)
+                    ),
+                    mulmod_bn254(chi_eval, shl(255, 1))
+                )
 
                 // Verify the bit recomposition matches the original column evaluation
                 if sub(sum_eval, expr_eval) { err(ERR_BIT_DECOMPOSITION_INVALID) }
@@ -1113,7 +1496,9 @@ library Verifier {
 
                 result_eval := mod(builder_consume_final_round_mle(builder_ptr), MODULUS)
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(result_eval, mulmod_bn254(lhs_eval, rhs_eval)), 2
+                    builder_ptr,
+                    submod_bn254(result_eval, mulmod_bn254(lhs_eval, rhs_eval)),
+                    2
                 )
 
                 expr_ptr_out := expr_ptr
@@ -1130,7 +1515,9 @@ library Verifier {
 
                 result_eval := mod(builder_consume_final_round_mle(builder_ptr), MODULUS)
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(result_eval, mulmod_bn254(lhs_eval, rhs_eval)), 2
+                    builder_ptr,
+                    submod_bn254(result_eval, mulmod_bn254(lhs_eval, rhs_eval)),
+                    2
                 )
 
                 expr_ptr_out := expr_ptr
@@ -1148,7 +1535,9 @@ library Verifier {
                 let lhs_times_rhs_eval := builder_consume_final_round_mle(builder_ptr)
                 result_eval := submod_bn254(addmod_bn254(lhs_eval, rhs_eval), lhs_times_rhs_eval)
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(lhs_times_rhs_eval, mulmod_bn254(lhs_eval, rhs_eval)), 2
+                    builder_ptr,
+                    submod_bn254(lhs_times_rhs_eval, mulmod_bn254(lhs_eval, rhs_eval)),
+                    2
                 )
 
                 expr_ptr_out := expr_ptr
@@ -1207,8 +1596,13 @@ library Verifier {
                 let g_in_star_eval
                 plan_ptr, g_in_star_eval :=
                     fold_log_star_evaluate_from_column_exprs(
-                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval
-                    )
+                    plan_ptr,
+                    builder_ptr,
+                    alpha,
+                    beta,
+                    num_group_by_columns,
+                    input_chi_eval
+                )
 
                 let selection_eval
                 plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
@@ -1234,8 +1628,7 @@ library Verifier {
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::compute_g_out_star_eval
             function exclude_coverage_start_compute_g_out_star_eval() {} // solhint-disable-line no-empty-blocks
             function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
-                g_out_star_eval
-            {
+                g_out_star_eval {
                 let mles
                 g_out_star_eval, mles := fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, 1, output_chi_eval)
                 let mle := mload(add(mles, WORD_SIZE))
@@ -1247,7 +1640,12 @@ library Verifier {
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::compute_sum_out_fold_eval
             function exclude_coverage_start_compute_sum_out_fold_eval() {} // solhint-disable-line no-empty-blocks
             function compute_sum_out_fold_eval(
-                builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr
+                builder_ptr,
+                alpha,
+                beta,
+                output_chi_eval,
+                num_sum_columns,
+                evaluations_ptr
             ) -> sum_out_fold_eval {
                 sum_out_fold_eval := 0
                 for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
@@ -1285,8 +1683,10 @@ library Verifier {
                 plan_ptr, sum_in_fold_eval, num_sum_columns :=
                     compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
 
-                partial_dlog_zero_sum_constraint_eval :=
-                    mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
+                partial_dlog_zero_sum_constraint_eval := mulmod_bn254(
+                    g_in_star_eval_times_selection_eval,
+                    sum_in_fold_eval
+                )
 
                 // Read count alias
                 {
@@ -1300,7 +1700,12 @@ library Verifier {
             // IMPORTED-YUL ../proof_plans/GroupByExec.pre.sol::read_output_evals
             function exclude_coverage_start_read_output_evals() {} // solhint-disable-line no-empty-blocks
             function read_output_evals(
-                builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
+                builder_ptr,
+                alpha,
+                beta,
+                partial_dlog_zero_sum_constraint_eval,
+                num_group_by_columns,
+                num_sum_columns
             ) -> evaluations_ptr, output_length, output_chi_eval {
                 num_sum_columns := add(num_sum_columns, 1)
                 // Allocate memory for evaluations
@@ -1332,7 +1737,8 @@ library Verifier {
                 builder_produce_zerosum_constraint(
                     builder_ptr,
                     submod_bn254(
-                        partial_dlog_zero_sum_constraint_eval, mulmod_bn254(g_out_star_eval, sum_out_fold_eval)
+                        partial_dlog_zero_sum_constraint_eval,
+                        mulmod_bn254(g_out_star_eval, sum_out_fold_eval)
                     ),
                     3
                 )
@@ -1513,7 +1919,9 @@ library Verifier {
                 star := builder_consume_final_round_mle(builder_ptr)
                 // star + fold * star - chi = 0
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(addmod_bn254(star, mulmod_bn254(fold, star)), chi_eval), 2
+                    builder_ptr,
+                    submod_bn254(addmod_bn254(star, mulmod_bn254(fold, star)), chi_eval),
+                    2
                 )
             }
             function exclude_coverage_stop_fold_log_star_evaluate_from_fold() {} // solhint-disable-line no-empty-blocks
@@ -1550,7 +1958,12 @@ library Verifier {
             // IMPORTED-YUL ../proof_gadgets/FoldLogExpr.pre.sol::fold_log_star_evaluate_from_column_exprs
             function exclude_coverage_start_fold_log_star_evaluate_from_column_exprs() {} // solhint-disable-line no-empty-blocks
             function fold_log_star_evaluate_from_column_exprs(
-                plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval
+                plan_ptr,
+                builder_ptr,
+                alpha,
+                beta,
+                column_count,
+                chi_eval
             ) -> plan_ptr_out, star {
                 let fold
                 plan_ptr_out, fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count)
@@ -1565,16 +1978,24 @@ library Verifier {
                 let d_star := builder_consume_final_round_mle(builder_ptr)
 
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval), 2
+                    builder_ptr,
+                    submod_bn254(mulmod_bn254(addmod_bn254(1, c_fold), c_star), input_chi_eval),
+                    2
                 )
                 builder_produce_identity_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval), 2
+                    builder_ptr,
+                    submod_bn254(mulmod_bn254(addmod_bn254(1, d_fold), d_star), output_chi_eval),
+                    2
                 )
                 builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star, selection_eval), d_star), 2
+                    builder_ptr,
+                    submod_bn254(mulmod_bn254(c_star, selection_eval), d_star),
+                    2
                 )
                 builder_produce_identity_constraint(
-                    builder_ptr, mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)), 2
+                    builder_ptr,
+                    mulmod_bn254(d_fold, submod_bn254(output_chi_eval, 1)),
+                    2
                 )
             }
             function exclude_coverage_stop_verify_filter() {} // solhint-disable-line no-empty-blocks
@@ -1591,8 +2012,10 @@ library Verifier {
                     let alpha := builder_consume_challenge(builder_ptr)
                     let beta := builder_consume_challenge(builder_ptr)
 
-                    input_chi_eval :=
-                        builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
+                    input_chi_eval := builder_get_table_chi_evaluation(
+                        builder_ptr,
+                        shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                    )
                     plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                     plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
@@ -1707,7 +2130,14 @@ library Verifier {
                 // For now, we can assume the number of group by columns is 1,
                 // because the function would have errored by this point otherwise
                 evaluations_ptr, output_length, output_chi_eval :=
-                    read_output_evals(builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, 1, num_sum_columns)
+                    read_output_evals(
+                    builder_ptr,
+                    alpha,
+                    beta,
+                    partial_dlog_zero_sum_constraint_eval,
+                    1,
+                    num_sum_columns
+                )
             }
             function exclude_coverage_stop_group_by_exec_evaluate() {} // solhint-disable-line no-empty-blocks
             // IMPORTED-YUL ../sumcheck/Sumcheck.pre.sol::process_round
@@ -1970,6 +2400,7 @@ library Verifier {
             }
             function exclude_coverage_stop_proof_plan_evaluate() {} // solhint-disable-line no-empty-blocks
 
+
             function read_first_round_message(proof_ptr_init, transcript_ptr, builder_ptr) ->
                 proof_ptr,
                 range_length,
@@ -1996,7 +2427,9 @@ library Verifier {
 
                 append_calldata(transcript_ptr, proof_ptr_init, sub(proof_ptr, proof_ptr_init))
             }
-            function read_final_round_message(proof_ptr_init, transcript_ptr, builder_ptr) -> proof_ptr, num_constraints
+            function read_final_round_message(proof_ptr_init, transcript_ptr, builder_ptr) ->
+                proof_ptr,
+                num_constraints
             {
                 proof_ptr := proof_ptr_init
 
@@ -2063,7 +2496,8 @@ library Verifier {
                 array_ptr := add(array_ptr, WORD_SIZE)
                 for {} array_len { array_len := sub(array_len, 1) } {
                     mstore(
-                        add(array_ptr, WORD_SIZE), compute_truncated_lagrange_basis_sum(mload(array_ptr), x, num_vars)
+                        add(array_ptr, WORD_SIZE),
+                        compute_truncated_lagrange_basis_sum(mload(array_ptr), x, num_vars)
                     )
                     array_ptr := add(array_ptr, WORDX2_SIZE)
                 }
@@ -2117,10 +2551,11 @@ library Verifier {
             }
             function exclude_coverage_stop_skip_plan_names() {} // solhint-disable-line no-empty-blocks
 
+
             // IMPORTED-YUL ../hyperkzg/HyperKZGBatch.pre.sol::batch_pcs
             function exclude_coverage_start_batch_pcs() {} // solhint-disable-line no-empty-blocks
-            function batch_pcs(args_ptr, transcript_ptr, commitments_ptr, evaluations_ptr, batch_eval) -> batch_eval_out
-            {
+            function batch_pcs(args_ptr, transcript_ptr, commitments_ptr, evaluations_ptr, batch_eval) ->
+                batch_eval_out {
                 let num_commitments := mload(commitments_ptr)
                 commitments_ptr := add(commitments_ptr, WORD_SIZE)
                 let num_evaluations := mload(evaluations_ptr)
@@ -2129,7 +2564,10 @@ library Verifier {
                 for {} num_commitments { num_commitments := sub(num_commitments, 1) } {
                     let challenge := draw_challenge(transcript_ptr)
                     constant_ec_mul_add_assign(
-                        args_ptr, mload(commitments_ptr), mload(add(commitments_ptr, WORD_SIZE)), challenge
+                        args_ptr,
+                        mload(commitments_ptr),
+                        mload(add(commitments_ptr, WORD_SIZE)),
+                        challenge
                     )
                     commitments_ptr := add(commitments_ptr, WORDX2_SIZE)
                     batch_eval := addmod_bn254(batch_eval, mulmod_bn254(mload(evaluations_ptr), challenge))
@@ -2139,39 +2577,41 @@ library Verifier {
             }
             function exclude_coverage_stop_batch_pcs() {} // solhint-disable-line no-empty-blocks
 
+
             // TODO: possibly move this to another file and add unit tests
             function verify_pcs_evaluations(
-                proof_ptr, commitments_ptr, transcript_ptr, builder_ptr, evaluation_point_ptr
+                proof_ptr,
+                commitments_ptr,
+                transcript_ptr,
+                builder_ptr,
+                evaluation_point_ptr
             ) {
                 let batch_commitment_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(batch_commitment_ptr, WORDX5_SIZE))
                 mstore(batch_commitment_ptr, 0)
                 mstore(add(batch_commitment_ptr, WORD_SIZE), 0)
                 let batch_eval := 0
-                batch_eval :=
-                    batch_pcs(
-                        batch_commitment_ptr,
-                        transcript_ptr,
-                        builder_get_first_round_commitments(builder_ptr),
-                        builder_get_first_round_mles(builder_ptr),
-                        batch_eval
-                    )
-                batch_eval :=
-                    batch_pcs(
-                        batch_commitment_ptr,
-                        transcript_ptr,
-                        commitments_ptr,
-                        builder_get_column_evaluations(builder_ptr),
-                        batch_eval
-                    )
-                batch_eval :=
-                    batch_pcs(
-                        batch_commitment_ptr,
-                        transcript_ptr,
-                        builder_get_final_round_commitments(builder_ptr),
-                        builder_get_final_round_mles(builder_ptr),
-                        batch_eval
-                    )
+                batch_eval := batch_pcs(
+                    batch_commitment_ptr,
+                    transcript_ptr,
+                    builder_get_first_round_commitments(builder_ptr),
+                    builder_get_first_round_mles(builder_ptr),
+                    batch_eval
+                )
+                batch_eval := batch_pcs(
+                    batch_commitment_ptr,
+                    transcript_ptr,
+                    commitments_ptr,
+                    builder_get_column_evaluations(builder_ptr),
+                    batch_eval
+                )
+                batch_eval := batch_pcs(
+                    batch_commitment_ptr,
+                    transcript_ptr,
+                    builder_get_final_round_commitments(builder_ptr),
+                    builder_get_final_round_mles(builder_ptr),
+                    batch_eval
+                )
 
                 verify_hyperkzg(proof_ptr, transcript_ptr, batch_commitment_ptr, evaluation_point_ptr, batch_eval)
             }
@@ -2201,6 +2641,7 @@ library Verifier {
             }
             function exclude_coverage_stop_compute_evaluation_vec() {} // solhint-disable-line no-empty-blocks
 
+
             // slither-disable-start cyclomatic-complexity
             // IMPORTED-YUL ../base/DataType.pre.sol::read_entry
             function exclude_coverage_start_read_entry() {} // solhint-disable-line no-empty-blocks
@@ -2216,29 +2657,37 @@ library Verifier {
                 }
                 case 2 {
                     case_const(2, DATA_TYPE_TINYINT_VARIANT)
-                    entry :=
-                        add(MODULUS, signextend(INT8_SIZE_MINUS_ONE, shr(INT8_PADDING_BITS, calldataload(result_ptr))))
+                    entry := add(
+                        MODULUS,
+                        signextend(INT8_SIZE_MINUS_ONE, shr(INT8_PADDING_BITS, calldataload(result_ptr)))
+                    )
                     result_ptr_out := add(result_ptr, INT8_SIZE)
                     entry := mod(entry, MODULUS)
                 }
                 case 3 {
                     case_const(3, DATA_TYPE_SMALLINT_VARIANT)
-                    entry :=
-                        add(MODULUS, signextend(INT16_SIZE_MINUS_ONE, shr(INT16_PADDING_BITS, calldataload(result_ptr))))
+                    entry := add(
+                        MODULUS,
+                        signextend(INT16_SIZE_MINUS_ONE, shr(INT16_PADDING_BITS, calldataload(result_ptr)))
+                    )
                     result_ptr_out := add(result_ptr, INT16_SIZE)
                     entry := mod(entry, MODULUS)
                 }
                 case 4 {
                     case_const(4, DATA_TYPE_INT_VARIANT)
-                    entry :=
-                        add(MODULUS, signextend(INT32_SIZE_MINUS_ONE, shr(INT32_PADDING_BITS, calldataload(result_ptr))))
+                    entry := add(
+                        MODULUS,
+                        signextend(INT32_SIZE_MINUS_ONE, shr(INT32_PADDING_BITS, calldataload(result_ptr)))
+                    )
                     result_ptr_out := add(result_ptr, INT32_SIZE)
                     entry := mod(entry, MODULUS)
                 }
                 case 5 {
                     case_const(5, DATA_TYPE_BIGINT_VARIANT)
-                    entry :=
-                        add(MODULUS, signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr))))
+                    entry := add(
+                        MODULUS,
+                        signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr)))
+                    )
                     result_ptr_out := add(result_ptr, INT64_SIZE)
                     entry := mod(entry, MODULUS)
                 }
@@ -2254,8 +2703,10 @@ library Verifier {
                 }
                 case 9 {
                     case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
-                    entry :=
-                        add(MODULUS, signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr))))
+                    entry := add(
+                        MODULUS,
+                        signextend(INT64_SIZE_MINUS_ONE, shr(INT64_PADDING_BITS, calldataload(result_ptr)))
+                    )
                     result_ptr_out := add(result_ptr, INT64_SIZE)
                     entry := mod(entry, MODULUS)
                 }
@@ -2289,31 +2740,26 @@ library Verifier {
                     let hash_val := keccak256(free_ptr, len)
 
                     // endian-swap steps
-                    hash_val :=
-                        or(
-                            shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
-                            shl(128, and(hash_val, 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
-                        )
-                    hash_val :=
-                        or(
-                            shr(64, and(hash_val, 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000)),
-                            shl(64, and(hash_val, 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF))
-                        )
-                    hash_val :=
-                        or(
-                            shr(32, and(hash_val, 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000)),
-                            shl(32, and(hash_val, 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF))
-                        )
-                    hash_val :=
-                        or(
-                            shr(16, and(hash_val, 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000)),
-                            shl(16, and(hash_val, 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF))
-                        )
-                    hash_val :=
-                        or(
-                            shr(8, and(hash_val, 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00)),
-                            shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
-                        )
+                    hash_val := or(
+                        shr(128, and(hash_val, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000)),
+                        shl(128, and(hash_val, 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
+                    )
+                    hash_val := or(
+                        shr(64, and(hash_val, 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000)),
+                        shl(64, and(hash_val, 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF))
+                    )
+                    hash_val := or(
+                        shr(32, and(hash_val, 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000)),
+                        shl(32, and(hash_val, 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF))
+                    )
+                    hash_val := or(
+                        shr(16, and(hash_val, 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000)),
+                        shl(16, and(hash_val, 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF))
+                    )
+                    hash_val := or(
+                        shr(8, and(hash_val, 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00)),
+                        shl(8, and(hash_val, 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF))
+                    )
 
                     entry := and(hash_val, MODULUS_MASK)
                 }
@@ -2322,6 +2768,7 @@ library Verifier {
                 result_ptr_out := add(result_ptr, len)
             }
             function exclude_coverage_stop_read_binary() {} // solhint-disable-line no-empty-blocks
+
 
             // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
             function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
@@ -2350,6 +2797,7 @@ library Verifier {
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
             function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
+
 
             // IMPORTED-YUL ResultVerifier.pre.sol::verify_result_evaluations
             function exclude_coverage_start_verify_result_evaluations() {} // solhint-disable-line no-empty-blocks
@@ -2396,6 +2844,7 @@ library Verifier {
             }
             function exclude_coverage_stop_verify_result_evaluations() {} // solhint-disable-line no-empty-blocks
 
+
             function make_transcript(result_ptr, plan_ptr, table_lengths_ptr, commitments_ptr) -> transcript_ptr {
                 transcript_ptr := mload(FREE_PTR)
                 mstore(FREE_PTR, add(transcript_ptr, WORD_SIZE))
@@ -2416,7 +2865,12 @@ library Verifier {
             }
 
             function verify_proof(
-                result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr, placeholder_params_ptr
+                result_ptr,
+                plan_ptr,
+                proof_ptr,
+                table_lengths_ptr,
+                commitments_ptr,
+                placeholder_params_ptr
             ) -> evaluation_point_ptr, evaluations_ptr {
                 let transcript_ptr := make_transcript(result_ptr, plan_ptr, table_lengths_ptr, commitments_ptr)
                 let builder_ptr := builder_new()
@@ -2452,7 +2906,8 @@ library Verifier {
                 compute_evaluations_with_length(evaluation_point_ptr, table_lengths_ptr)
                 compute_evaluations_with_length(evaluation_point_ptr, builder_get_chi_evaluations(builder_ptr))
                 builder_set_singleton_chi_evaluation(
-                    builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
+                    builder_ptr,
+                    compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
                 )
                 compute_rho_evaluations(evaluation_point_ptr, builder_get_rho_evaluations(builder_ptr))
 
@@ -2477,11 +2932,21 @@ library Verifier {
             }
 
             function verify_query(
-                result_ptr, plan_ptr, placeholder_params_ptr, proof_ptr, table_lengths_ptr, commitments_ptr
+                result_ptr,
+                plan_ptr,
+                placeholder_params_ptr,
+                proof_ptr,
+                table_lengths_ptr,
+                commitments_ptr
             ) {
                 let evaluation_point_ptr, evaluations_ptr :=
                     verify_proof(
-                        result_ptr, plan_ptr, proof_ptr, table_lengths_ptr, commitments_ptr, placeholder_params_ptr
+                        result_ptr,
+                        plan_ptr,
+                        proof_ptr,
+                        table_lengths_ptr,
+                        commitments_ptr,
+                        placeholder_params_ptr
                     )
                 verify_result_evaluations(result_ptr, evaluation_point_ptr, evaluations_ptr)
             }
@@ -2491,7 +2956,12 @@ library Verifier {
             if mod(commitments_len, 2) { err(ERR_COMMITMENT_ARRAY_ODD_LENGTH) }
             mstore(__commitments, div(commitments_len, 2))
             verify_query(
-                __result.offset, __plan.offset, __placeholderParameters, __proof.offset, __tableLengths, __commitments
+                __result.offset,
+                __plan.offset,
+                __placeholderParameters,
+                __proof.offset,
+                __tableLengths,
+                __commitments
             )
         }
     }

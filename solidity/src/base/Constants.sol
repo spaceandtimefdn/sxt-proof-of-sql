@@ -51,6 +51,9 @@ uint256 constant INT8_PADDING_BITS = 0xF8;
 uint256 constant INT8_SIZE_MINUS_ONE = 0x00;
 /// @dev Size of uint8 in bytes
 uint256 constant UINT8_SIZE = 0x01;
+/// @dev Number of bits needed to pad uint8 to 256 bits
+/// @dev This is useful for shifting a uint256 to the right to extract a uint8
+uint256 constant UINT8_PADDING_BITS = 0xF8;
 /// @dev Size of int16 in bytes
 uint256 constant INT16_SIZE = 0x02;
 /// @dev Number of bits needed to pad int16 to 256 bits
@@ -58,6 +61,8 @@ uint256 constant INT16_SIZE = 0x02;
 uint256 constant INT16_PADDING_BITS = 0xF0;
 /// @dev Size of int16 minus one byte
 uint256 constant INT16_SIZE_MINUS_ONE = 0x01;
+/// @dev Size of uint16 in bytes
+uint256 constant UINT16_SIZE = 0x02;
 /// @dev Size of uint32 in bytes
 uint256 constant UINT32_SIZE = 0x04;
 /// @dev Number of bits needed to pad uint32 to 256 bits
@@ -82,6 +87,11 @@ uint256 constant INT64_SIZE = 0x08;
 uint256 constant INT64_PADDING_BITS = 0xC0;
 /// @dev Size of int64 minus one byte
 uint256 constant INT64_SIZE_MINUS_ONE = 0x07;
+/// @dev Size of uint128 in bytes
+uint256 constant UINT128_SIZE = 0x10;
+
+/// @dev Max value for a uint64
+uint256 constant MAX_UINT64 = 0xFFFFFFFFFFFFFFFF;
 
 /// @dev Column variant constant for proof expressions
 uint32 constant COLUMN_EXPR_VARIANT = 0;
@@ -145,6 +155,11 @@ uint32 constant DATA_TYPE_TIMESTAMP_VARIANT = 9;
 uint32 constant DATA_TYPE_SCALAR_VARIANT = 10;
 /// @dev Varbinary variant constant for column types
 uint32 constant DATA_TYPE_VARBINARY_VARIANT = 11;
+
+/// @dev Timestamp variant constant for column types
+uint32 constant TIMEUNIT_MILLISECOND_VARIANT = 1;
+/// @dev Timestamp variant constant for column types
+int32 constant TIMEZONE_UTC = 0;
 
 /// @dev Position of the free memory pointer in the context of the EVM memory.
 uint256 constant FREE_PTR = 0x40;
