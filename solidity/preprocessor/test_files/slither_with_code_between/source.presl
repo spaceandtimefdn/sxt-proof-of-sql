@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract TestSource {
+    function testFunc() public pure {
+        assembly {
+            // slither-disable-start cyclomatic-complexity
+            function complexSwitch(x) -> result {
+                switch x
+                case 0 { result := 1 }
+                case 1 { result := 2 }
+                case 2 { result := 3 }
+                case 3 { result := 4 }
+                case 4 { result := 5 }
+                default { result := 0 }
+            }
+            // slither-disable-end cyclomatic-complexity
+            // Some code after the function but before the disable-end comment
+            let value := complexSwitch(2)
+        }
+    }
+}
