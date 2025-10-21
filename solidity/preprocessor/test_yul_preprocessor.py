@@ -582,6 +582,37 @@ class TestYulPreprocessor:
                 if output_file.exists():
                     output_file.unlink()
 
+    def test_slither_comments_preserved(self):
+        """Test that Slither exemption comments are preserved with imported functions."""
+        test_dir = self.test_files_dir / "slither_comments"
+        main_file = test_dir / "main.presl"
+
+        preprocessor = YulPreprocessor(root_dir=test_dir)
+        result = preprocessor.process_file(main_file)
+
+        # Verify both functions were imported
+        assert "function complexFunction(a, b, c) -> result" in result
+        assert "function simpleFunction(x) -> y" in result
+
+        # Verify Slither comments are preserved
+        # Should have slither-disable-start before complexFunction
+        assert "// slither-disable-start cyclomatic-complexity" in result
+        # Should have slither-disable-end after complexFunction
+        assert "// slither-disable-end cyclomatic-complexity" in result
+        # Should have slither-disable-next-line before simpleFunction
+        assert "// slither-disable-next-line write-after-write" in result
+
+        # Verify the ordering is correct (disable-start comes before the function)
+        start_idx = result.find("// slither-disable-start cyclomatic-complexity")
+        func_idx = result.find("function complexFunction")
+        end_idx = result.find("// slither-disable-end cyclomatic-complexity")
+        assert (
+            start_idx < func_idx < end_idx
+        ), "Slither comments should wrap the function"
+
+        # Verify no duplicate disable-end comments
+        assert result.count("// slither-disable-end cyclomatic-complexity") == 1
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
