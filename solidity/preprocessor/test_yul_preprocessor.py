@@ -237,6 +237,11 @@ class TestYulPreprocessor:
         # Verify it's usable in the second block
         assert "let value := utilFunc(10)" in result
 
+        # IMPORTANT: When importing from self (different assembly block in same file),
+        # the imported function SHOULD have coverage exclusion markers
+        assert "function exclude_coverage_start_utilFunc() {}" in result
+        assert "function exclude_coverage_stop_utilFunc() {}" in result
+
     def test_self_import_multiple(self):
         """Test importing multiple functions from a different assembly block in the same file."""
         test_dir = self.test_files_dir / "self_import"
@@ -253,6 +258,13 @@ class TestYulPreprocessor:
         # Verify they're usable in the second block
         assert "let doubled := helper(5)" in result
         assert "let increased := anotherHelper(doubled)" in result
+
+        # IMPORTANT: When importing from self (different assembly block in same file),
+        # the imported functions SHOULD have coverage exclusion markers
+        assert "function exclude_coverage_start_helper() {}" in result
+        assert "function exclude_coverage_stop_helper() {}" in result
+        assert "function exclude_coverage_start_anotherHelper() {}" in result
+        assert "function exclude_coverage_stop_anotherHelper() {}" in result
 
     def test_circular_with_external_import(self):
         """Test that C can import from a circular group A-B."""
@@ -602,16 +614,89 @@ class TestYulPreprocessor:
         # Should have slither-disable-next-line before simpleFunction
         assert "// slither-disable-next-line write-after-write" in result
 
+        # Verify coverage exclusion markers are added
+        assert "function exclude_coverage_start_complexFunction() {}" in result
+        assert "function exclude_coverage_stop_complexFunction() {}" in result
+        assert "function exclude_coverage_start_simpleFunction() {}" in result
+        assert "function exclude_coverage_stop_simpleFunction() {}" in result
+
         # Verify the ordering is correct (disable-start comes before the function)
         start_idx = result.find("// slither-disable-start cyclomatic-complexity")
+        cov_start_idx = result.find("function exclude_coverage_start_complexFunction")
         func_idx = result.find("function complexFunction")
+        cov_stop_idx = result.find("function exclude_coverage_stop_complexFunction")
         end_idx = result.find("// slither-disable-end cyclomatic-complexity")
         assert (
-            start_idx < func_idx < end_idx
-        ), "Slither comments should wrap the function"
+            start_idx < cov_start_idx < func_idx < cov_stop_idx < end_idx
+        ), "Slither comments and coverage markers should properly wrap the function"
 
         # Verify no duplicate disable-end comments
         assert result.count("// slither-disable-end cyclomatic-complexity") == 1
+
+    def test_coverage_exclusion_for_external_imports(self):
+        """Test that functions imported from external files get coverage exclusion markers."""
+        test_dir = self.test_files_dir / "basic_import"
+        target_file = test_dir / "main.presl"
+
+        preprocessor = YulPreprocessor(root_dir=test_dir)
+        result = preprocessor.process_file(target_file)
+
+        # Verify the imported function has coverage exclusion markers
+        assert "function exclude_coverage_start_add5() {}" in result
+        assert "function exclude_coverage_stop_add5() {}" in result
+
+        # Verify the markers wrap the function
+        start_idx = result.find("function exclude_coverage_start_add5")
+        func_idx = result.find("function add5(x) -> result")
+        stop_idx = result.find("function exclude_coverage_stop_add5")
+        assert (
+            start_idx < func_idx < stop_idx
+        ), "Coverage markers should wrap the imported function"
+
+    def test_coverage_exclusion_circular_dependencies(self):
+        """Test that functions in their own file are NOT coverage-excluded in circular dependencies."""
+        test_dir = self.test_files_dir / "circular_regular"
+        file_a = test_dir / "a.presl"
+        file_b = test_dir / "b.presl"
+
+        preprocessor = YulPreprocessor(root_dir=test_dir)
+        result_a = preprocessor.process_file(file_a)
+        result_b = preprocessor.process_file(file_b)
+
+        # In a.post.sol, funcA is defined locally so it should NOT have coverage exclusion
+        # but funcB is imported so it SHOULD have coverage exclusion
+
+        # funcB imported into a.post.sol should have coverage exclusion
+        assert "function exclude_coverage_start_funcB() {}" in result_a
+        assert "function exclude_coverage_stop_funcB() {}" in result_a
+
+        # funcA imported into b.post.sol should have coverage exclusion
+        assert "function exclude_coverage_start_funcA() {}" in result_b
+        assert "function exclude_coverage_stop_funcA() {}" in result_b
+
+        # IMPORTANT: funcA in a.post.sol should NOT have coverage exclusion
+        # because it's defined in a.presl (the source file for a.post.sol)
+        assert "function exclude_coverage_start_funcA() {}" not in result_a
+        assert "function exclude_coverage_stop_funcA() {}" not in result_a
+
+        # Similarly, funcB in b.post.sol should NOT have coverage exclusion
+        # because it's defined in b.presl (the source file for b.post.sol)
+        assert "function exclude_coverage_start_funcB() {}" not in result_b
+        assert "function exclude_coverage_stop_funcB() {}" not in result_b
+
+    def test_coverage_exclusion_with_dependencies(self):
+        """Test that transitive dependencies also get coverage exclusion markers."""
+        test_dir = self.test_files_dir / "multiple_imports"
+        target_file = test_dir / "calculator.presl"
+
+        preprocessor = YulPreprocessor(root_dir=test_dir)
+        result = preprocessor.process_file(target_file)
+
+        # Both imported functions should have coverage exclusion markers
+        assert "function exclude_coverage_start_multiply() {}" in result
+        assert "function exclude_coverage_stop_multiply() {}" in result
+        assert "function exclude_coverage_start_divide() {}" in result
+        assert "function exclude_coverage_stop_divide() {}" in result
 
 
 if __name__ == "__main__":

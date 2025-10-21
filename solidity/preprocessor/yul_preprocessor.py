@@ -40,6 +40,7 @@ class YulFunction:
         full_text: str,
         pre_comments: str = "",
         post_comments: str = "",
+        source_file: Optional[Path] = None,
     ):
         self.name = name
         self.signature = signature  # function name(...) -> ...
@@ -51,6 +52,7 @@ class YulFunction:
         self.post_comments = (
             post_comments  # Comments after function (e.g., slither-disable-end)
         )
+        self.source_file = source_file  # The .presl file where this function is defined
 
     def __eq__(self, other):
         if not isinstance(other, YulFunction):
@@ -120,7 +122,9 @@ class YulPreprocessor:
 
         return blocks
 
-    def extract_yul_functions(self, assembly_content: str) -> Dict[str, YulFunction]:
+    def extract_yul_functions(
+        self, assembly_content: str, source_file: Optional[Path] = None
+    ) -> Dict[str, YulFunction]:
         """
         Extract all Yul function definitions from an assembly block.
         Returns dict mapping function name to YulFunction object.
@@ -238,6 +242,7 @@ class YulPreprocessor:
                     full_text=full_text,
                     pre_comments=pre_comments,
                     post_comments=post_comments,
+                    source_file=source_file,
                 )
             else:
                 i += 1
@@ -390,7 +395,7 @@ class YulPreprocessor:
             assembly_blocks = self.find_assembly_blocks(content)
 
             for _, _, block_content in assembly_blocks:
-                functions = self.extract_yul_functions(block_content)
+                functions = self.extract_yul_functions(block_content, file_path)
                 for func_name, func in functions.items():
                     if func_name in all_functions:
                         # Check for signature conflicts
@@ -425,6 +430,9 @@ class YulPreprocessor:
         Returns the processed content.
         Handles circular dependencies by processing dependency cycles as unified groups.
         """
+        # Ensure file_path is resolved to an absolute path for consistent comparison
+        file_path = file_path.resolve()
+
         if processing_stack is None:
             processing_stack = []
 
@@ -523,7 +531,9 @@ class YulPreprocessor:
             current_cycle_key = frozenset(cycle_group)
 
         # Extract local functions from this block to detect what needs to be deduplicated
-        local_functions = self.extract_yul_functions(block_content)
+        # These are functions defined in THIS specific assembly block
+        local_functions = self.extract_yul_functions(block_content, current_file)
+        local_function_names = set(local_functions.keys())
 
         i = 0
         while i < len(lines):
@@ -623,11 +633,27 @@ class YulPreprocessor:
         if imported_functions:
             func_lines = []
             for func in imported_functions.values():
+                # A function should NOT have coverage exclusion if it's defined in THIS assembly block
+                # It SHOULD have coverage exclusion if it's imported from:
+                # 1. A different file (func.source_file != current_file)
+                # 2. The same file but a different assembly block (func.name not in local_function_names)
+                is_truly_local = func.name in local_function_names
+
                 # Include pre-comments (e.g., slither-disable-start)
                 if func.pre_comments:
                     func_lines.append(func.pre_comments)
+                # Add coverage exclusion start marker only for non-local functions
+                if not is_truly_local:
+                    func_lines.append(
+                        f"            function exclude_coverage_start_{func.name}() {{}} // solhint-disable-line no-empty-blocks"
+                    )
                 # Add the function itself
                 func_lines.append(func.full_text)
+                # Add coverage exclusion stop marker only for non-local functions
+                if not is_truly_local:
+                    func_lines.append(
+                        f"            function exclude_coverage_stop_{func.name}() {{}} // solhint-disable-line no-empty-blocks"
+                    )
                 # Include post-comments (e.g., slither-disable-end)
                 if func.post_comments:
                     func_lines.append(func.post_comments)
@@ -666,7 +692,7 @@ class YulPreprocessor:
             external_deps = {}  # Track functions imported from external files
 
             for _, _, block_content in assembly_blocks:
-                functions = self.extract_yul_functions(block_content)
+                functions = self.extract_yul_functions(block_content, current_file)
                 all_functions.update(functions)
 
                 # Also resolve any imports within this block to get external dependencies
@@ -771,7 +797,7 @@ class YulPreprocessor:
         # Extract all functions from all assembly blocks
         all_functions = {}
         for _, _, block_content in assembly_blocks:
-            functions = self.extract_yul_functions(block_content)
+            functions = self.extract_yul_functions(block_content, target_file)
             all_functions.update(functions)
 
         # Check if the requested function exists
