@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "../../src/base/Constants.sol";
+import {Test} from "forge-std/Test.sol";
+import {stdError} from "forge-std/Test.sol";
+
+import {ProofOfSqlTable} from "../../src/client/PoSQLTable.sol";
+
+function areStringsEqual(string memory left, string memory right) pure returns (bool areEqual) {
+    bytes memory leftBytes = bytes(left);
+    bytes memory rightBytes = bytes(right);
+    uint256 leftLength = leftBytes.length;
+    areEqual = leftLength == rightBytes.length;
+    for (uint8 i = 0; i < leftLength; ++i) {
+        areEqual = areEqual && (leftBytes[i] == rightBytes[i]);
+    }
+}
+
+function areByteArraysEqual(bytes memory left, bytes memory right) pure returns (bool areEqual) {
+    uint256 leftLength = left.length;
+    areEqual = leftLength == right.length;
+    for (uint8 i = 0; i < leftLength; ++i) {
+        areEqual = areEqual && (left[i] == right[i]);
+    }
+}
+
+contract PoSQLTableTest is Test {
+    function testSimpleTableDeserialization() public pure {
+        bytes memory serializedTable =
+            hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003";
+        ProofOfSqlTable.Table memory table;
+        (serializedTable, table) = ProofOfSqlTable.__deserializeFromBytes(serializedTable);
+        assert(table.columns.length == 1);
+        assert(table.columns[0].columnType == ProofOfSqlTable.ColumnType.BigInt);
+        bytes memory expectedName = bytes("b");
+        bytes memory actualName = bytes(table.columns[0].name);
+        uint256 actualLength = actualName.length;
+        assert(actualLength == expectedName.length);
+        assert(actualLength == 1);
+        for (uint8 i = 0; i < actualLength; ++i) {
+            assert(actualName[i] == expectedName[i]);
+        }
+        int64[] memory bigIntColumn = ProofOfSqlTable.readBigIntColumn(table, 0);
+        assert(bigIntColumn.length == 2);
+        assert(bigIntColumn[0] == 0);
+        assert(bigIntColumn[1] == 3);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testWrongDataType() public {
+        bytes memory serializedTable =
+            hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003";
+        ProofOfSqlTable.Table memory table;
+        (serializedTable, table) = ProofOfSqlTable.__deserializeFromBytes(serializedTable);
+
+        // Read wrong data type
+        vm.expectRevert(stdError.assertionError);
+        ProofOfSqlTable.readSmallIntColumn(table, 0);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testTooBigOfIndex() public {
+        bytes memory serializedTable =
+            hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003";
+        ProofOfSqlTable.Table memory table;
+        (serializedTable, table) = ProofOfSqlTable.__deserializeFromBytes(serializedTable);
+
+        // Read too many columns
+        vm.expectRevert(stdError.indexOOBError);
+        ProofOfSqlTable.readBigIntColumn(table, 1);
+    }
+
+    function testComplexTableDeserialization() public pure {
+        bytes memory serializedTable =
+            hex"000000000000000a000000000000000162000000000000000000000000050100010001000000000000000269380000000002000000000000000500807fff01000000000000000369313600000000030000000000000005000080007fffffff000100000000000000036933320000000004000000000000000500000000800000007fffffffffffffff00000001000000000000000369363400000000050000000000000005000000000000000080000000000000007fffffffffffffffffffffffffffffff0000000000000001000000000000000164000000000805000000000000000005000000000000000000000000000000000000000000000000000000000000000030644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffff30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f00000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000017400000000090000000100000000000000000000000500000000681b6d6000000000681b6d6100000000681b6d6200000000681b6d6300000000681b6d6400000000000000046c616e67000000000700000000000000050000000000000002656e00000000000000026865000000000000000268750000000000000002727500000000000000026879000000000000000373787400000000070000000000000005000000000000000e537061636520616e642054696d650000000000000011d79ed7a8d797d79120d795d796d79ed79f000000000000000d54c3a97220c3a973206964c5910000000000000026d09fd180d0bed181d182d180d0b0d0bdd181d182d0b2d0be20d0b820d0b2d180d0b5d0bcd18f000000000000002ad58fd5a1d680d5a1d5aed5b8d682d5a9d5b5d5b8d682d5b620d68720d5aad5a1d5b4d5a1d5b6d5a1d5af000000000000000362696e000000000b00000000000000050000000000000000000000000000000500010203040000000000000005fffefdfcfb0000000000000005fffefdfcfb0000000000000005fffefdfcfb";
+        ProofOfSqlTable.Table memory table;
+        (serializedTable, table) = ProofOfSqlTable.__deserializeFromBytes(serializedTable);
+        assert(table.columns.length == 10);
+        ProofOfSqlTable.ColumnType[10] memory expectedColumnTypes = [
+            ProofOfSqlTable.ColumnType.Boolean,
+            ProofOfSqlTable.ColumnType.TinyInt,
+            ProofOfSqlTable.ColumnType.SmallInt,
+            ProofOfSqlTable.ColumnType.Int,
+            ProofOfSqlTable.ColumnType.BigInt,
+            ProofOfSqlTable.ColumnType.Decimal75,
+            ProofOfSqlTable.ColumnType.TimeStampTZ,
+            ProofOfSqlTable.ColumnType.VarChar,
+            ProofOfSqlTable.ColumnType.VarChar,
+            ProofOfSqlTable.ColumnType.VarBinary
+        ];
+        string[10] memory expectedColumnNames = ["b", "i8", "i16", "i32", "i64", "d", "t", "lang", "sxt", "bin"];
+        for (uint8 i = 0; i < 10; ++i) {
+            ProofOfSqlTable.Column memory column = table.columns[i];
+            assert(column.columnType == expectedColumnTypes[i]);
+            assert(areStringsEqual(column.name, expectedColumnNames[i]));
+        }
+
+        {
+            bool[5] memory expectedColumn0 = [true, false, true, false, true];
+            bool[] memory column0 = ProofOfSqlTable.readBooleanColumn(table, 0);
+            assert(column0.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn0[i] == column0[i]);
+            }
+        }
+        {
+            int8[5] memory expectedColumn1 = [int8(0), -128, 127, -1, 1];
+            int8[] memory column1 = ProofOfSqlTable.readTinyIntColumn(table, 1);
+            assert(column1.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn1[i] == column1[i]);
+            }
+        }
+        {
+            int16[5] memory expectedColumn2 = [int16(0), -32768, 32767, -1, 1];
+            int16[] memory column2 = ProofOfSqlTable.readSmallIntColumn(table, 2);
+            assert(column2.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn2[i] == column2[i]);
+            }
+        }
+        {
+            int32[5] memory expectedColumn3 = [int32(0), -2147483648, 2147483647, -1, 1];
+            int32[] memory column3 = ProofOfSqlTable.readIntColumn(table, 3);
+            assert(column3.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn3[i] == column3[i]);
+            }
+        }
+        {
+            int64[5] memory expectedColumn4 = [int64(0), -9223372036854775808, 9223372036854775807, -1, 1];
+            int64[] memory column4 = ProofOfSqlTable.readBigIntColumn(table, 4);
+            assert(column4.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn4[i] == column4[i]);
+            }
+        }
+        {
+            uint256[5] memory expectedColumn5 = [uint256(0), MODULUS - 2, MODULUS_MINUS_ONE, 1, 2];
+            uint256[] memory column5 = ProofOfSqlTable.readDecimal75Column(table, 5);
+            assert(column5.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn5[i] == column5[i]);
+            }
+        }
+        {
+            int64[5] memory expectedColumn6 = [int64(1746627936), 1746627937, 1746627938, 1746627939, 1746627940];
+            int64[] memory column6 = ProofOfSqlTable.readTimeStampColumn(table, 6);
+            assert(column6.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(expectedColumn6[i] == column6[i]);
+            }
+        }
+        {
+            string[5] memory expectedColumn7 = ["en", "he", "hu", "ru", "hy"];
+            string[] memory column7 = ProofOfSqlTable.readVarCharColumn(table, 7);
+            assert(column7.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(areStringsEqual(expectedColumn7[i], column7[i]));
+            }
+        }
+        {
+            string[5] memory expectedColumn8 = [
+                "Space and Time",
+                unicode"מרחב וזמן",
+                unicode"Tér és idő",
+                unicode"Пространство и время",
+                unicode"Տարածություն և ժամանակ"
+            ];
+            string[] memory column8 = ProofOfSqlTable.readVarCharColumn(table, 8);
+            assert(column8.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(areStringsEqual(expectedColumn8[i], column8[i]));
+            }
+        }
+        {
+            bytes[5] memory expectedColumn9 = [
+                bytes(hex""),
+                bytes(hex"0001020304"),
+                bytes(hex"FFFEFDFCFB"),
+                bytes(hex"FFFEFDFCFB"),
+                bytes(hex"FFFEFDFCFB")
+            ];
+            bytes[] memory column9 = ProofOfSqlTable.readVarBinaryColumn(table, 9);
+            assert(column9.length == 5);
+            for (uint8 i = 0; i < 5; ++i) {
+                assert(areByteArraysEqual(expectedColumn9[i], column9[i]));
+            }
+        }
+    }
+}
