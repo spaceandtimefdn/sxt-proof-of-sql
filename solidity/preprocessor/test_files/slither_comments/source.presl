@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract SlitherTestSource {
+    function testFunc() public pure {
+        assembly {
+            // slither-disable-start cyclomatic-complexity
+            function complexFunction(a, b, c) -> result {
+                result := add(a, add(b, c))
+            }
+            // slither-disable-end cyclomatic-complexity
+
+            // slither-disable-next-line write-after-write
+            function simpleFunction(x) -> y {
+                y := mul(x, 2)
+            }
+        }
+    }
+}

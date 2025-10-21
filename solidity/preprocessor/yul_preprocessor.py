@@ -32,11 +32,25 @@ from typing import Dict, Set, List, Tuple, Optional
 class YulFunction:
     """Represents a parsed Yul function."""
 
-    def __init__(self, name: str, signature: str, body: str, full_text: str):
+    def __init__(
+        self,
+        name: str,
+        signature: str,
+        body: str,
+        full_text: str,
+        pre_comments: str = "",
+        post_comments: str = "",
+    ):
         self.name = name
         self.signature = signature  # function name(...) -> ...
         self.body = body
         self.full_text = full_text  # Complete function including definition
+        self.pre_comments = (
+            pre_comments  # Comments before function (e.g., slither-disable-start)
+        )
+        self.post_comments = (
+            post_comments  # Comments after function (e.g., slither-disable-end)
+        )
 
     def __eq__(self, other):
         if not isinstance(other, YulFunction):
@@ -111,6 +125,7 @@ class YulPreprocessor:
         Extract all Yul function definitions from an assembly block.
         Returns dict mapping function name to YulFunction object.
         Handles multiline function signatures.
+        Captures Slither exemption comments before and after functions.
         """
         functions = {}
 
@@ -123,6 +138,29 @@ class YulPreprocessor:
 
             # Check if line starts with "function" keyword
             if line.strip().startswith("function"):
+                # Look back for Slither disable comments before the function
+                # Only capture slither-disable-start or slither-disable-next-line
+                # Do NOT capture slither-disable-end as that belongs to the previous function
+                pre_comment_lines = []
+                j = i - 1
+                while j >= 0:
+                    prev_line = lines[j].strip()
+                    # Check for slither-disable-start or slither-disable-next-line (not disable-end)
+                    if "slither-disable" in prev_line and prev_line.startswith("//"):
+                        if "slither-disable-end" not in prev_line:
+                            # This is a disable-start or disable-next-line, include it
+                            pre_comment_lines.insert(0, lines[j])
+                            j -= 1
+                        else:
+                            # This is a disable-end from a previous function, stop here
+                            break
+                    elif prev_line == "":
+                        # Allow empty lines but don't add them
+                        j -= 1
+                    else:
+                        # Stop when we hit non-comment/non-empty content
+                        break
+
                 # Extract function name using simple pattern
                 func_match = self.function_name_pattern.search(line)
 
@@ -167,11 +205,39 @@ class YulPreprocessor:
                     brace_count += lines[i].count("{") - lines[i].count("}")
                     i += 1
 
+                # Look ahead for Slither disable-end comments after the function
+                post_comment_lines = []
+                temp_i = i
+                while temp_i < len(lines):
+                    next_line = lines[temp_i].strip()
+                    # Check for slither-disable-end
+                    if "slither-disable-end" in next_line and next_line.startswith(
+                        "//"
+                    ):
+                        post_comment_lines.append(lines[temp_i])
+                        i = temp_i + 1
+                        break
+                    elif next_line == "":
+                        # Allow empty lines
+                        temp_i += 1
+                    else:
+                        # Stop when we hit any other content (function or non-comment)
+                        break
+
                 full_text = "\n".join(func_lines)
                 body = "\n".join(func_lines[len(sig_lines) :])
+                pre_comments = "\n".join(pre_comment_lines) if pre_comment_lines else ""
+                post_comments = (
+                    "\n".join(post_comment_lines) if post_comment_lines else ""
+                )
 
                 functions[func_name] = YulFunction(
-                    name=func_name, signature=signature, body=body, full_text=full_text
+                    name=func_name,
+                    signature=signature,
+                    body=body,
+                    full_text=full_text,
+                    pre_comments=pre_comments,
+                    post_comments=post_comments,
                 )
             else:
                 i += 1
@@ -557,7 +623,14 @@ class YulPreprocessor:
         if imported_functions:
             func_lines = []
             for func in imported_functions.values():
+                # Include pre-comments (e.g., slither-disable-start)
+                if func.pre_comments:
+                    func_lines.append(func.pre_comments)
+                # Add the function itself
                 func_lines.append(func.full_text)
+                # Include post-comments (e.g., slither-disable-end)
+                if func.post_comments:
+                    func_lines.append(func.post_comments)
 
             # Add imported functions before other content
             return "\n".join(func_lines) + "\n" + "\n".join(result_lines)
