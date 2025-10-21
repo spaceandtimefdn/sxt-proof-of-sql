@@ -212,7 +212,16 @@ class YulPreprocessor:
                 # Look ahead for Slither disable-end comments after the function
                 post_comment_lines = []
                 temp_i = i
-                while temp_i < len(lines):
+
+                # Check if there was a slither-disable-start in pre-comments
+                has_disable_start = any(
+                    "slither-disable-start" in line for line in pre_comment_lines
+                )
+
+                # If there's a slither-disable-start, search more aggressively for the matching end
+                max_lookahead = 20 if has_disable_start else 5
+
+                while temp_i < len(lines) and (temp_i - i) < max_lookahead:
                     next_line = lines[temp_i].strip()
                     # Check for slither-disable-end
                     if "slither-disable-end" in next_line and next_line.startswith(
@@ -221,11 +230,12 @@ class YulPreprocessor:
                         post_comment_lines.append(lines[temp_i])
                         i = temp_i + 1
                         break
-                    elif next_line == "":
-                        # Allow empty lines
+                    elif next_line == "" or has_disable_start:
+                        # Allow empty lines, or any content if we're searching for a matching end
                         temp_i += 1
                     else:
                         # Stop when we hit any other content (function or non-comment)
+                        # unless we're searching for a matching slither-disable-end
                         break
 
                 full_text = "\n".join(func_lines)
@@ -639,24 +649,24 @@ class YulPreprocessor:
                 # 2. The same file but a different assembly block (func.name not in local_function_names)
                 is_truly_local = func.name in local_function_names
 
-                # Include pre-comments (e.g., slither-disable-start)
-                if func.pre_comments:
-                    func_lines.append(func.pre_comments)
-                # Add coverage exclusion start marker only for non-local functions
+                # Add coverage exclusion start marker FIRST for non-local functions
                 if not is_truly_local:
                     func_lines.append(
                         f"            function exclude_coverage_start_{func.name}() {{}} // solhint-disable-line no-empty-blocks"
                     )
+                # Include pre-comments (e.g., slither-disable-start) after coverage start
+                if func.pre_comments:
+                    func_lines.append(func.pre_comments)
                 # Add the function itself
                 func_lines.append(func.full_text)
-                # Add coverage exclusion stop marker only for non-local functions
+                # Include post-comments (e.g., slither-disable-end) after function
+                if func.post_comments:
+                    func_lines.append(func.post_comments)
+                # Add coverage exclusion stop marker LAST for non-local functions
                 if not is_truly_local:
                     func_lines.append(
                         f"            function exclude_coverage_stop_{func.name}() {{}} // solhint-disable-line no-empty-blocks"
                     )
-                # Include post-comments (e.g., slither-disable-end)
-                if func.post_comments:
-                    func_lines.append(func.post_comments)
 
             # Add imported functions before other content
             return "\n".join(func_lines) + "\n" + "\n".join(result_lines)

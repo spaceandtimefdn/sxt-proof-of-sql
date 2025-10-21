@@ -620,18 +620,64 @@ class TestYulPreprocessor:
         assert "function exclude_coverage_start_simpleFunction() {}" in result
         assert "function exclude_coverage_stop_simpleFunction() {}" in result
 
-        # Verify the ordering is correct (disable-start comes before the function)
+        # Verify the ordering is correct:
+        # 1. Coverage start marker
+        # 2. Slither disable-start comment
+        # 3. Function
+        # 4. Slither disable-end comment
+        # 5. Coverage stop marker
         start_idx = result.find("// slither-disable-start cyclomatic-complexity")
         cov_start_idx = result.find("function exclude_coverage_start_complexFunction")
         func_idx = result.find("function complexFunction")
         cov_stop_idx = result.find("function exclude_coverage_stop_complexFunction")
         end_idx = result.find("// slither-disable-end cyclomatic-complexity")
         assert (
-            start_idx < cov_start_idx < func_idx < cov_stop_idx < end_idx
-        ), "Slither comments and coverage markers should properly wrap the function"
+            cov_start_idx < start_idx < func_idx < end_idx < cov_stop_idx
+        ), "Coverage start, slither disable-start, function, slither disable-end, coverage stop"
 
         # Verify no duplicate disable-end comments
         assert result.count("// slither-disable-end cyclomatic-complexity") == 1
+
+    def test_slither_comments_with_code_between(self):
+        """Test that slither-disable-end is preserved even when code appears between function and end comment."""
+        test_dir = self.test_files_dir / "slither_with_code_between"
+        main_file = test_dir / "main.presl"
+
+        preprocessor = YulPreprocessor(root_dir=test_dir)
+        result = preprocessor.process_file(main_file)
+
+        # Verify function was imported
+        assert "function complexSwitch(x) -> result" in result
+
+        # Verify both slither comments are preserved
+        assert "// slither-disable-start cyclomatic-complexity" in result
+        assert "// slither-disable-end cyclomatic-complexity" in result
+
+        # Verify coverage exclusion markers are also added
+        assert "function exclude_coverage_start_complexSwitch() {}" in result
+        assert "function exclude_coverage_stop_complexSwitch() {}" in result
+
+        # Verify ordering:
+        # 1. Coverage start marker
+        # 2. Slither disable-start comment
+        # 3. Function
+        # 4. Slither disable-end comment
+        # 5. Coverage stop marker
+        start_comment_idx = result.find(
+            "// slither-disable-start cyclomatic-complexity"
+        )
+        cov_start_idx = result.find("function exclude_coverage_start_complexSwitch")
+        func_idx = result.find("function complexSwitch(x) -> result")
+        cov_stop_idx = result.find("function exclude_coverage_stop_complexSwitch")
+        end_comment_idx = result.find("// slither-disable-end cyclomatic-complexity")
+
+        assert (
+            cov_start_idx
+            < start_comment_idx
+            < func_idx
+            < end_comment_idx
+            < cov_stop_idx
+        )
 
     def test_coverage_exclusion_for_external_imports(self):
         """Test that functions imported from external files get coverage exclusion markers."""
