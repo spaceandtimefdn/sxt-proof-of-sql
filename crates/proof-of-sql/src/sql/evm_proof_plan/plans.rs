@@ -27,6 +27,7 @@ pub(crate) enum EVMDynProofPlan {
     Slice(EVMSliceExec),
     GroupBy(EVMGroupByExec),
     Union(EVMUnionExec),
+    SortMergeJoin(EVMSortMergeJoinExec),
 }
 
 impl EVMDynProofPlan {
@@ -64,7 +65,14 @@ impl EVMDynProofPlan {
                 EVMUnionExec::try_from_proof_plan(union_exec, table_refs, column_refs)
                     .map(Self::Union)
             }
-            DynProofPlan::SortMergeJoin(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::SortMergeJoin(sort_merge_join_exec) => {
+                EVMSortMergeJoinExec::try_from_proof_plan(
+                    sort_merge_join_exec,
+                    table_refs,
+                    column_refs,
+                )
+                .map(Self::SortMergeJoin)
+            }
         }
     }
 
@@ -100,6 +108,13 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
                 union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
+                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
+                    table_refs,
+                    column_refs,
+                    output_column_names,
+                )?),
+            ),
         }
     }
 }
@@ -842,38 +857,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
-    }
-
-    #[test]
-    fn we_cannot_put_unsupported_proof_plan_in_evm() {
-        // Create a join plan with two projections
-        let plan = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            vec![0],
-            vec![0],
-            vec!["col1".into()],
-        ));
-
-        let table_refs = indexset![];
-        let column_refs = indexset![];
-
-        assert!(matches!(
-            EVMDynProofPlan::try_from_proof_plan(&plan, &table_refs, &column_refs),
-            Err(EVMProofPlanError::NotSupported)
-        ));
     }
 
     #[test]

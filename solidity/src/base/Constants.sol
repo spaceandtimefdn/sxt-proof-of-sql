@@ -134,6 +134,8 @@ uint32 constant SLICE_EXEC_VARIANT = 4;
 uint32 constant GROUP_BY_EXEC_VARIANT = 5;
 /// @dev Union variant constant for proof plans
 uint32 constant UNION_EXEC_VARIANT = 6;
+/// @dev Sort Merge Join variant constant for proof plans
+uint32 constant SORT_MERGE_JOIN_EXEC_VARIANT = 7;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;
