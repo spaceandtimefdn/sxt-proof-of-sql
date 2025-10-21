@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title SliceExec
+/// @dev Library for handling slice execution plans
+library SliceExec {
+    /// @notice Evaluates a slice execution plan
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval
+    /// ```
+    /// ##### Parameters
+    /// * `plan_ptr` - calldata pointer to the slice execution plan
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// ##### Return Values
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the slice execution plan
+    /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_length` - the number of rows of the output
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
+    /// @notice Evaluates a slice execution plan
+    /// ##### Proof Plan Encoding
+    /// The slice plan is encoded as follows:
+    /// 1. The input plan
+    /// 2. The number of rows to skip
+    /// 3. The number of rows to fetch
+    /// @dev Evaluates a slice execution plan
+    /// @param __plan The slice execution plan data
+    /// @param __builder The verification builder
+    /// @return __planOut The remaining plan after processing
+    /// @return __builderOut The verification builder result
+    /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputLength The length of the output chi evaluation
+    /// @return __outputChiEvaluation The output chi evaluation
+    function __sliceExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __plan, VerificationBuilder.Builder memory __builder)
+        external
+        pure
+        returns (
+            bytes calldata __planOut,
+            VerificationBuilder.Builder memory __builderOut,
+            uint256[] memory __evaluationsPtr,
+            uint256 __outputLength,
+            uint256 __outputChiEvaluation
+        )
+    {
+        uint256[] memory __evaluations;
+        assembly {
+            // import err from ../base/Errors.sol
+            // import min, submod_bn254, mulmod_bn254, compute_fold from ../base/MathUtil.presl
+            // import builder_consume_challenge, builder_consume_chi_evaluation_with_length from ../builder/VerificationBuilder.presl
+            // import fold_first_round_mles from ../proof_gadgets/FoldUtil.presl
+            // import verify_filter from ../proof_gadgets/FilterBase.presl
+            // import proof_plan_evaluate from ProofPlan.presl
+            function get_and_verify_slice_length(plan_ptr, builder_ptr, input_length) -> plan_ptr_out, output_length, output_chi_eval, selection_eval {
+                let expected_skip := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                let expected_max_length
+                {
+                    let is_fetch_populated := shr(BOOLEAN_PADDING_BITS, calldataload(plan_ptr))
+                    plan_ptr := add(plan_ptr, BOOLEAN_SIZE)
+                    switch is_fetch_populated
+                    case 0 { expected_max_length := input_length }
+                    default {
+                        let fetch := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                        plan_ptr := add(plan_ptr, UINT64_SIZE)
+                        expected_max_length := min(add(expected_skip, fetch), input_length)
+                    }
+                }
+
+                output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                let actual_skip
+                actual_skip, selection_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                let max_length, max_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
+                selection_eval := submod_bn254(max_eval, selection_eval)
+
+                if sub(max_length, add(actual_skip, output_length)) { err(ERR_SLICE_OFFSET_SELECTION_SIZE_MISMATCH) }
+                if sub(min(expected_skip, input_length), actual_skip) { err(ERR_SLICE_OFFSET_PLAN_VALUE_MISMATCH) }
+                if sub(max_length, expected_max_length) { err(ERR_SLICE_MAX_LENGTH_MISMATCH) }
+
+                plan_ptr_out := plan_ptr
+            }
+
+            function compute_slice_folds(builder_ptr, input_evaluations_ptr) -> c_fold, d_fold, evaluations_ptr {
+                let alpha := builder_consume_challenge(builder_ptr)
+                let beta := builder_consume_challenge(builder_ptr)
+                c_fold := mulmod_bn254(alpha, compute_fold(beta, input_evaluations_ptr))
+                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, mload(input_evaluations_ptr))
+                d_fold := mulmod_bn254(alpha, d_fold)
+            }
+
+            function slice_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
+                let c_fold, d_fold, input_chi_eval, selection_eval
+                {
+                    let input_length, input_evaluations_ptr
+                    plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
+                        proof_plan_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr_out, output_length, output_chi_eval, selection_eval :=
+                        get_and_verify_slice_length(plan_ptr, builder_ptr, input_length)
+                    c_fold, d_fold, evaluations_ptr := compute_slice_folds(builder_ptr, input_evaluations_ptr)
+                }
+                verify_filter(builder_ptr, c_fold, d_fold, input_chi_eval, output_chi_eval, selection_eval)
+            }
+
+            let __planOutOffset
+            __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
+                slice_exec_evaluate(__plan.offset, __builder)
+            __planOut.offset := __planOutOffset
+            // slither-disable-next-line write-after-write
+            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+        }
+        __evaluationsPtr = __evaluations;
+        __builderOut = __builder;
+    }
+}

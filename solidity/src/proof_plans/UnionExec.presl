@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title UnionExec
+/// @dev Library for handling union execution plans
+library UnionExec {
+    /// @notice Evaluates a union execution plan
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// union_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval
+    /// ```
+    /// ##### Parameters
+    /// * `plan_ptr` - calldata pointer to the union execution plan
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// ##### Return Values
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the union execution plan
+    /// * `evaluations_ptr` - pointer to the evaluations
+    /// * `output_length` - the length of the output
+    /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
+    /// @notice Implements SQL UNION ALL operation by combining multiple proof plans
+    /// @notice ##### Constraints
+    /// * Inputs: Multiple input proof plans with compatible schemas
+    /// * Outputs: Combined result from all input plans
+    /// * Challenges: \\(\gamma=\texttt{gamma}\\), \\(\beta=\texttt{beta}\\) for the FoldLogExpr gadget
+    /// * Constraint: \\(\sum_{i} c^\star_i - d^\star = 0\\) (zero-sum constraint)
+    /// @notice Evaluates a union execution plan
+    /// @param __plan The union execution plan data
+    /// @param __builder The verification builder
+    /// @return __planOut The remaining plan after processing
+    /// @return __builderOut The verification builder result
+    /// @return __evaluationsPtr The evaluations pointer
+    /// @return __outputLength The length of the output chi evaluation
+    /// @return __outputChiEvaluation The output chi evaluation
+    function __unionExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __plan, VerificationBuilder.Builder memory __builder)
+        external
+        pure
+        returns (
+            bytes calldata __planOut,
+            VerificationBuilder.Builder memory __builderOut,
+            uint256[] memory __evaluationsPtr,
+            uint256 __outputLength,
+            uint256 __outputChiEvaluation
+        )
+    {
+        uint256[] memory __evaluations;
+        assembly {
+            // import err from ../base/Errors.sol
+            // import addmod_bn254, submod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_challenge, builder_consume_chi_evaluation, builder_consume_final_round_mle, builder_produce_identity_constraint, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
+            // import fold_first_round_mles from ../proof_gadgets/FoldUtil.presl
+            // import fold_log_star_evaluate from ../proof_gadgets/FoldLogExpr.presl
+            // import proof_plan_evaluate from ProofPlan.presl
+
+            function union_input_evaluate(plan_ptr, builder_ptr, gamma, beta) -> plan_ptr_out, output_length, num_columns, zerosum_constraint {
+                let input_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+                if lt(input_count, 2) {
+                    // Not enough input plans for union
+                    err(ERR_UNION_NOT_ENOUGH_INPUT_PLANS)
+                }
+
+                // Process each input plan
+                for {} input_count { input_count := sub(input_count, 1) } {
+                    // Recursively evaluate the input plan
+                    let input_evaluations_ptr
+                    let input_length
+                    let input_chi_eval
+                    plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
+                        proof_plan_evaluate(plan_ptr, builder_ptr)
+                    output_length := add(output_length, input_length)
+                    switch num_columns
+                    case 0 {
+                        // If this is the first input, initialize num_columns
+                        num_columns := mload(input_evaluations_ptr)
+                        if iszero(num_columns) {
+                            // No columns in input evaluations
+                            err(ERR_UNION_INVALID_COLUMN_COUNTS)
+                        }
+                    }
+                    default {
+                        // Ensure all inputs have the same number of columns
+                        if iszero(eq(num_columns, mload(input_evaluations_ptr))) {
+                            // Mismatched column counts
+                            err(ERR_UNION_INVALID_COLUMN_COUNTS)
+                        }
+                    }
+                    // Apply FoldLogExpr to get c_star for this input
+                    let c_star :=
+                        fold_log_star_evaluate(builder_ptr, gamma, beta, input_evaluations_ptr, input_chi_eval)
+                    // Add to zero-sum constraint
+                    zerosum_constraint := addmod_bn254(zerosum_constraint, c_star)
+                }
+                plan_ptr_out := plan_ptr
+            }
+
+            function union_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
+                // Consume gamma and beta challenges for FoldLogExpr
+                let gamma := builder_consume_challenge(builder_ptr)
+                let beta := builder_consume_challenge(builder_ptr)
+
+                {
+                    let num_columns, zerosum_constraint
+                    plan_ptr, output_length, num_columns, zerosum_constraint :=
+                        union_input_evaluate(plan_ptr, builder_ptr, gamma, beta)
+                    // Consume first-round MLEs for output columns
+                    {
+                        let d_fold
+                        d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, num_columns)
+                        d_fold := mulmod_bn254(gamma, d_fold)
+                        // Consume chi evaluation for output
+                        output_chi_eval := builder_consume_chi_evaluation(builder_ptr)
+
+                        let d_star := builder_consume_final_round_mle(builder_ptr)
+                        // d_star + d_fold * d_star - output_chi = 0
+                        builder_produce_identity_constraint(
+                            builder_ptr,
+                            submod_bn254(addmod_bn254(d_star, mulmod_bn254(d_fold, d_star)), output_chi_eval),
+                            2
+                        )
+                        // Generate zero-sum constraint: sum(c_stars) - d_star = 0
+                        zerosum_constraint := submod_bn254(zerosum_constraint, d_star)
+                        builder_produce_zerosum_constraint(builder_ptr, zerosum_constraint, 1)
+                    }
+                }
+
+                // Return output evaluations
+                plan_ptr_out := plan_ptr
+            }
+
+            let __planOutOffset
+            __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
+                union_exec_evaluate(__plan.offset, __builder)
+            __planOut.offset := __planOutOffset
+            // slither-disable-next-line write-after-write
+            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+        }
+        __evaluationsPtr = __evaluations;
+        __builderOut = __builder;
+    }
+}

@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title ScalingCastExpr
+/// @dev Library for handling scaling cast of a proof expression
+library ScalingCastExpr {
+    /// @notice Evaluates a scaling cast expression by scaling and casting a sub-expression
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// ```
+    /// ##### Parameters
+    /// * `expr_ptr` - calldata pointer to the expression data
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `chi_eval` - the chi value for evaluation
+    /// ##### Return Values
+    /// * `expr_ptr_out` - pointer to the remaining expression after consuming the sub-expression
+    /// * `eval` - the evaluation result from the builder's final round MLE
+    /// @notice Evaluates a sub-expression and applies scaling cast
+    /// ##### Proof Plan Encoding
+    /// The scaling cast expression is encoded as follows:
+    /// 1. The target data type
+    /// 2. The input expression
+    /// 3. The scaling factor (as a uint256)
+    /// @param __expr The scaling cast expression data
+    /// @param __builder The verification builder
+    /// @param __chiEval The chi value for evaluation
+    /// @return __exprOut The remaining expression after processing
+    /// @return __builderOut The verification builder result
+    /// @return __eval The evaluated result
+    function __scalingCastExprEvaluate( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
+        external
+        pure
+        returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
+    {
+        assembly {
+            // import mulmod_bn254 from ../base/MathUtil.presl
+            // import read_data_type from ../base/DataType.presl
+            // import proof_expr_evaluate from ProofExpr.presl
+
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                let data_type
+                expr_ptr, data_type := read_data_type(expr_ptr)
+
+                // Evaluate the input expression
+                expr_ptr, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+
+                // Read the scaling factor (256 bits)
+                let scaling_factor := calldataload(expr_ptr)
+                expr_ptr := add(expr_ptr, WORD_SIZE)
+
+                // Apply scaling by multiplying with the scaling factor
+                result_eval := mulmod_bn254(result_eval, scaling_factor)
+
+                expr_ptr_out := expr_ptr
+            }
+
+            let __exprOutOffset
+            __exprOutOffset, __eval := scaling_cast_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOut.offset := __exprOutOffset
+            // slither-disable-next-line write-after-write
+            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+        }
+        __builderOut = __builder;
+    }
+}

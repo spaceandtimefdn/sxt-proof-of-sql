@@ -4,11 +4,12 @@ out = "out"
 solc = "0.8.28"
 libs = ["dependencies"]
 deny-warnings = true
-no-match-path = "**/*.pre.sol"
-no-match-coverage = "pre.sol"
+no-match-path = "**/*.presl"
+no-match-coverage = "presl"
+ignored_paths = ["**/*.presl"]
 
 [doc]
-ignore = ["**/*.pre.sol"]
+ignore = ["**/*.presl"]
 
 [dependencies]
 forge-std = "1.9.5"

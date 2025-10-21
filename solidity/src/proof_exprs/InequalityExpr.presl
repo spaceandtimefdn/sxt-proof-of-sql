@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title InequalityExpr
+/// @dev Library for handling inequality comparison expressions between two proof expressions
+library InequalityExpr {
+    /// @notice Evaluates an inequality expression by comparing two sub-expressions
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// ```
+    /// ##### Parameters
+    /// * `expr_ptr` - calldata pointer to the expression data
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `chi_eval` - the chi value for evaluation
+    /// ##### Return Values
+    /// * `expr_ptr_out` - pointer to the remaining expression after consuming both sub-expressions
+    /// * `eval` - the evaluation result from the builder's final round MLE
+    /// @notice Evaluates two sub-expressions and uses sign gadget to check inequality
+    /// ##### Proof Plan Encoding
+    /// The inequality expression is encoded as follows:
+    /// 1. A bit representing if it is a less than comparison
+    /// 2. The left hand side expression
+    /// 3. The right hand side expression
+    /// @param __expr The inqeuality expression data
+    /// @param __builder The verification builder
+    /// @param __chiEval The chi value for evaluation
+    /// @return __exprOut The remaining expression after processing
+    /// @return __builderOut The verification builder result
+    /// @return __eval The evaluated result
+    function __inequalityExprEvaluate( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
+        external
+        pure
+        returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
+    {
+        assembly {
+            // import submod_bn254 from ../base/MathUtil.presl
+            // import sign_expr_evaluate from ../proof_gadgets/SignExpr.presl
+            // import proof_expr_evaluate from ProofExpr.presl
+
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+                let lhs_eval
+                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+
+                let rhs_eval
+                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+
+                let is_lt := shr(BOOLEAN_PADDING_BITS, calldataload(expr_ptr))
+                expr_ptr := add(expr_ptr, BOOLEAN_SIZE)
+
+                let diff_eval
+                switch is_lt
+                case 0 { diff_eval := submod_bn254(rhs_eval, lhs_eval) }
+                default { diff_eval := submod_bn254(lhs_eval, rhs_eval) }
+                result_eval := sign_expr_evaluate(diff_eval, builder_ptr, chi_eval)
+                expr_ptr_out := expr_ptr
+            }
+
+            let __exprOutOffset
+            __exprOutOffset, __eval := inequality_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOut.offset := __exprOutOffset
+            // slither-disable-next-line write-after-write
+            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+        }
+        __builderOut = __builder;
+    }
+}

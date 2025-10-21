@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title FoldUtil
+/// @dev Library for handling fold operations
+library FoldUtil {
+    /// @notice Folds expression evaluations with beta challenge
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold
+    /// ```
+    /// ##### Parameters
+    /// * `plan_ptr` - calldata pointer to the plan
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `input_chi_eval` - input chi evaluation
+    /// * `beta` - challenge value
+    /// * `column_count` - number of columns to process
+    /// ##### Return Values
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming
+    /// * `fold` - computed fold value
+    /// @param __plan The plan data
+    /// @param __builder The verification builder
+    /// @param __inputChiEval The input chi evaluation
+    /// @param __beta The beta challenge value
+    /// @param __columnCount The number of columns
+    /// @return __planOut The remaining plan after processing
+    /// @return __builderOut The updated verification builder
+    /// @return __fold The computed fold value
+    function __foldExprEvals( // solhint-disable-line gas-calldata-parameters
+        bytes calldata __plan,
+        VerificationBuilder.Builder memory __builder,
+        uint256 __inputChiEval,
+        uint256 __beta,
+        uint256 __columnCount
+    )
+        external
+        pure
+        returns (bytes calldata __planOut, VerificationBuilder.Builder memory __builderOut, uint256 __fold)
+    {
+        assembly {
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
+
+            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
+                fold := 0
+                for {} column_count { column_count := sub(column_count, 1) } {
+                    let expr_eval
+                    plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
+                }
+                plan_ptr_out := plan_ptr
+            }
+
+            let __planOutOffset
+            __planOutOffset, __fold := fold_expr_evals(__plan.offset, __builder, __inputChiEval, __beta, __columnCount)
+            // slither-disable-start write-after-write
+            __planOut.offset := __planOutOffset
+            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            // slither-disable-end write-after-write
+        }
+        __builderOut = __builder;
+    }
+
+    /// @notice Folds first round MLEs with beta challenge
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// fold_first_round_mles(builder_ptr, column_count, beta) -> fold, evaluations_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `beta` - challenge value
+    /// * `column_count` - number of columns to process
+    /// ##### Return Values
+    /// * `fold` - computed fold value
+    /// * `evaluations_ptr` - pointer to the evaluations array
+    /// @param __builder The verification builder
+    /// @param __beta The beta challenge value
+    /// @param __columnCount The number of columns
+    /// @return __builderOut The updated verification builder
+    /// @return __fold The computed fold value
+    /// @return __evaluations The evaluations array
+    function __foldFirstRoundMles( // solhint-disable-line gas-calldata-parameters
+    VerificationBuilder.Builder memory __builder, uint256 __beta, uint256 __columnCount)
+        external
+        pure
+        returns (VerificationBuilder.Builder memory __builderOut, uint256 __fold, uint256[] memory __evaluations)
+    {
+        assembly {
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_first_round_mle from ../builder/VerificationBuilder.presl
+
+            function fold_first_round_mles(builder_ptr, beta, column_count) -> fold, evaluations_ptr {
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(evaluations_ptr, column_count)
+                evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
+                fold := 0
+                for { let i := column_count } i { i := sub(i, 1) } {
+                    let mle := builder_consume_first_round_mle(builder_ptr)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), mle)
+                    mstore(evaluations_ptr, mle)
+                    evaluations_ptr := add(evaluations_ptr, WORD_SIZE)
+                }
+                evaluations_ptr := mload(FREE_PTR)
+                mstore(FREE_PTR, add(evaluations_ptr, add(WORD_SIZE, mul(column_count, WORD_SIZE))))
+            }
+
+            let __evaluationsPtr
+            __fold, __evaluationsPtr := fold_first_round_mles(__builder, __beta, __columnCount)
+            __evaluations := __evaluationsPtr
+        }
+        __builderOut = __builder;
+    }
+
+    /// @notice Folds column expression evaluations with beta challenge
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold
+    /// ```
+    /// ##### Parameters
+    /// * `plan_ptr` - calldata pointer to the plan
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `beta` - challenge value
+    /// * `column_count` - number of columns to process
+    /// ##### Return Values
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming
+    /// * `fold` - computed fold value
+    /// @param __plan The plan data
+    /// @param __builder The verification builder
+    /// @param __beta The beta challenge value
+    /// @param __columnCount The number of columns
+    /// @return __planOut The remaining plan after processing
+    /// @return __builderOut The updated verification builder
+    /// @return __fold The computed fold value
+    function __foldColumnExprEvals( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __plan, VerificationBuilder.Builder memory __builder, uint256 __beta, uint256 __columnCount)
+        external
+        pure
+        returns (bytes calldata __planOut, VerificationBuilder.Builder memory __builderOut, uint256 __fold)
+    {
+        assembly {
+            // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
+            // import column_expr_evaluate from ../proof_exprs/ColumnExpr.presl
+
+            function fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold {
+                fold := 0
+                for {} column_count { column_count := sub(column_count, 1) } {
+                    let expr_eval
+                    plan_ptr, expr_eval := column_expr_evaluate(plan_ptr, builder_ptr)
+                    fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
+                }
+                plan_ptr_out := plan_ptr
+            }
+
+            let __planOutOffset
+            __planOutOffset, __fold := fold_column_expr_evals(__plan.offset, __builder, __beta, __columnCount)
+            // slither-disable-start write-after-write
+            __planOut.offset := __planOutOffset
+            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
+            // slither-disable-end write-after-write
+        }
+        __builderOut = __builder;
+    }
+}
