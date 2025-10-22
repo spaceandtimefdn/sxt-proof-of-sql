@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Subtract Expr}
+\author{MakeInfinite Inc}
+\date{Aug 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $a$ and $b$ be two columns with length $n$. $c$ is the difference $a - b$ if and only if $C(c) = C(a) - C(b)$.
+\section{Constraints}
+\begin{itemize}
+    \item Inputs: Input columns $a$, $b$.
+    \item Assumptions: The length of $a$ and $b$ is confirmed to be $n$.
+    \item Outputs: The difference $a - b$.
+    \item Hints and gadgets: None.
+    \item Challenges: None.
+    \item Constraints: None.
+\end{itemize}
+\section{Completeness}
+Trivially true since Pedersen commitment is homomorphic with respect to addition.
+\section{Soundness}
+True since the possibility of any random vector having commitment identical to $C(a-b) = C(a) - C(b)$ is negligible.
+\end{document}
