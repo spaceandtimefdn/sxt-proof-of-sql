@@ -64,7 +64,9 @@ impl EVMDynProofPlan {
                 EVMUnionExec::try_from_proof_plan(union_exec, table_refs, column_refs)
                     .map(Self::Union)
             }
-            DynProofPlan::SortMergeJoin(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::SortMergeJoin(_) | DynProofPlan::GeneralizedFilter(_) => {
+                Err(EVMProofPlanError::NotSupported)
+            }
         }
     }
 
