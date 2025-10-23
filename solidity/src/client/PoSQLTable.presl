@@ -60,10 +60,7 @@ library ProofOfSqlTable {
         returns (bytes memory __serializedTableOut, Table memory __table)
     {
         assembly {
-            function err(code) {
-                mstore(0, code)
-                revert(28, 4)
-            }
+            // import err from ../base/Errors.sol
             function read_column_type(column_data) -> column_type, precision, scale, column_data_out {
                 // Retrieve column type as uint8
                 column_type := shr(UINT32_PADDING_BITS, mload(column_data))
@@ -253,10 +250,7 @@ library ProofOfSqlTable {
     {
         bytes memory __columnAsBytes = __column.data;
         assembly {
-            function err(code) {
-                mstore(0, code)
-                revert(28, 4)
-            }
+            // import err from ../base/Errors.sol
             function return_pointer_to_typed_column_for_byte_array_element(column_as_bytes) -> column_ptr {
                 column_as_bytes := add(column_as_bytes, WORD_SIZE)
                 column_ptr := mload(FREE_PTR)
@@ -324,12 +318,9 @@ library ProofOfSqlTable {
     {
         bytes memory __columnAsBytes = __column.data;
         assembly {
-            function err(code) {
-                mstore(0, code)
-                revert(28, 4)
-            }
-            function return_pointer_to_typed_column_for_fixed_sized_element(column_as_bytes, element_size) ->
-                column_ptr {
+            // import err from ../base/Errors.sol
+            function return_pointer_to_typed_column_for_fixed_sized_element(column_as_bytes, element_size) -> column_ptr
+            {
                 column_as_bytes := add(column_as_bytes, WORD_SIZE)
                 column_ptr := mload(FREE_PTR)
 
@@ -485,23 +476,6 @@ library ProofOfSqlTable {
         uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT64_SIZE);
         assembly {
             __timeStampColumn := __columnPtr
-        }
-    }
-
-    /// @dev Deserializes a column into a scalar column.
-    /// @param __table The table
-    /// @param __index The index of the column to be deserialized
-    /// @return __scalarColumn The deserialized scalar column
-    function readScalarColumn(Table memory __table, uint256 __index)
-        internal
-        pure
-        returns (uint256[] memory __scalarColumn)
-    {
-        Column memory __column = __table.columns[__index];
-        assert(__column.columnType == ColumnType.Scalar);
-        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, WORD_SIZE);
-        assembly {
-            __scalarColumn := __columnPtr
         }
     }
 

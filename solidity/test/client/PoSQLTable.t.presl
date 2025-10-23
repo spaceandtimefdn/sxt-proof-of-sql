@@ -3,9 +3,10 @@ pragma solidity ^0.8.28;
 
 import "../../src/base/Constants.sol";
 import {Test} from "forge-std/Test.sol";
+import {Errors} from "../../src/base/Errors.sol";
 import {stdError} from "forge-std/Test.sol";
 
-import {ProofOfSqlTable} from "../../src/client/PoSQLTable.sol";
+import {ProofOfSqlTable} from "../../src/client/PoSQLTable.presl";
 
 function areStringsEqual(string memory left, string memory right) pure returns (bool areEqual) {
     bytes memory leftBytes = bytes(left);
