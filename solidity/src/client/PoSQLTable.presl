@@ -180,6 +180,8 @@ library ProofOfSqlTable {
                 let target_ptr := add(column, WORD_SIZE)
 
                 // Check that column name is valid
+                // This is because an `Ident` from sqlparser 0.45.0
+                // has the field `quote_style` which must be 0 for unquoted identifiers.
                 if byte(0, mload(serialized_column)) { err(ERR_INVALID_RESULT_COLUMN_NAME) }
                 serialized_column := add(serialized_column, 1)
 
