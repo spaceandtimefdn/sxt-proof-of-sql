@@ -1,5 +1,5 @@
 use super::{
-    aggregate_function_to_proof_expr, column_to_column_ref, expr_to_proof_expr,
+    aggregate_function_to_proof_expr, column_to_column_ref, expr_to_opt_i64, expr_to_proof_expr,
     table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
 };
 use alloc::vec::Vec;
@@ -204,7 +204,7 @@ fn aggregate_to_proof_plan(
                 .iter()
                 .map(|e| match e.clone().unalias() {
                     Expr::AggregateFunction(agg) => {
-                        let name_string = e.display_name()?;
+                        let name_string = e.schema_name().to_string();
                         let name = name_string.as_str();
                         let alias = alias_map.get(&name).ok_or_else(|| {
                             PlannerError::UnsupportedLogicalPlan {
@@ -386,8 +386,8 @@ pub fn logical_plan_to_proof_plan(
             let name_strings = group_expr
                 .iter()
                 .chain(aggr_expr.iter())
-                .map(Expr::display_name)
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|e| e.schema_name().to_string())
+                .collect::<Vec<_>>();
             let alias_map = name_strings
                 .iter()
                 .zip(schema.fields().iter())
@@ -446,7 +446,27 @@ pub fn logical_plan_to_proof_plan(
         // Limit
         LogicalPlan::Limit(Limit { input, fetch, skip }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            Ok(DynProofPlan::new_slice(input_plan, *skip, *fetch))
+            let skip_val = usize::try_from(
+                skip.clone()
+                    .map(|e| expr_to_opt_i64(&e))
+                    .transpose()?
+                    .flatten()
+                    .unwrap_or(0_i64),
+            )
+            .map_err(|_| PlannerError::UnsupportedLogicalPlan {
+                plan: Box::new(plan.clone()),
+            })?;
+            let fetch_val = fetch
+                .clone()
+                .map(|e| expr_to_opt_i64(&e))
+                .transpose()?
+                .flatten()
+                .map(usize::try_from)
+                .transpose()
+                .map_err(|_| PlannerError::UnsupportedLogicalPlan {
+                    plan: Box::new(plan.clone()),
+                })?;
+            Ok(DynProofPlan::new_slice(input_plan, skip_val, fetch_val))
         }
         // Union
         LogicalPlan::Union(Union { inputs, schema: _ }) => {
@@ -472,12 +492,12 @@ mod tests {
     use arrow::datatypes::DataType;
     use core::ops::Add;
     use datafusion::{
-        common::{Column, ScalarValue},
+        common::{Column, NullEquality, ScalarValue},
+        functions_aggregate::{average::avg_udaf, count::count_udaf, sum::sum_udaf},
         logical_expr::{
-            expr::{AggregateFunction, AggregateFunctionDefinition},
-            not, BinaryExpr, EmptyRelation, Operator, Prepare, TableScan, TableSource,
+            expr::AggregateFunction, not, BinaryExpr, EmptyRelation, Operator, TableScan,
+            TableSource,
         },
-        physical_plan,
     };
     use indexmap::{indexmap, indexmap_with_default};
     use proof_of_sql::base::{
@@ -485,13 +505,6 @@ mod tests {
         math::decimal::Precision,
     };
     use std::hash::BuildHasherDefault;
-
-    const SUM: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Sum);
-    const COUNT: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Count);
-    const AVG: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Avg);
 
     #[expect(non_snake_case)]
     fn TABLE_REF_TABLE() -> TableRef {
@@ -599,36 +612,42 @@ mod tests {
     #[expect(non_snake_case)]
     fn COUNT_1() -> Expr {
         Expr::AggregateFunction(AggregateFunction {
-            func_def: COUNT,
-            args: vec![Expr::Literal(ScalarValue::Int64(Some(1)))],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: count_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![Expr::Literal(ScalarValue::Int64(Some(1)), None)],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         })
     }
 
     #[expect(non_snake_case)]
     fn SUM_B() -> Expr {
         Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: sum_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![df_column("table", "b")],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         })
     }
 
     #[expect(non_snake_case)]
     fn SUM_D() -> Expr {
         Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "d")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: sum_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![df_column("table", "d")],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         })
     }
 
@@ -1052,6 +1071,7 @@ mod tests {
             expr: Box::new(non_agg_expr),
             relation: None,
             name: "b_plus_c".to_string(),
+            metadata: None,
         });
 
         // Create the aggregate expressions
@@ -1090,12 +1110,14 @@ mod tests {
 
         // Setup a non-SUM aggregate function (e.g., Avg)
         let avg_expr = Expr::AggregateFunction(AggregateFunction {
-            func_def: AVG,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: avg_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![df_column("table", "b")],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         });
 
         // Setup aliased expressions
@@ -1103,6 +1125,7 @@ mod tests {
             expr: Box::new(avg_expr),
             relation: None,
             name: "avg_b".to_string(),
+            metadata: None,
         });
 
         // Create the aggregate expressions
@@ -1144,21 +1167,25 @@ mod tests {
 
         // Setup SUM aggregates
         let sum_expr1 = Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: sum_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![df_column("table", "b")],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         });
 
         let sum_expr2 = Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "c")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
+            func: sum_udaf(),
+            params: datafusion::logical_expr::expr::AggregateFunctionParams {
+                args: vec![df_column("table", "c")],
+                distinct: false,
+                filter: None,
+                order_by: vec![],
+                null_treatment: None,
+            },
         });
 
         // Setup aliased expressions
@@ -1166,12 +1193,14 @@ mod tests {
             expr: Box::new(sum_expr1),
             relation: None,
             name: "sum_b".to_string(),
+            metadata: None,
         });
 
         let aliased_sum2 = Expr::Alias(Alias {
             expr: Box::new(sum_expr2),
             relation: None,
             name: "sum_c".to_string(),
+            metadata: None,
         });
 
         // Create the aggregate expressions with no COUNT at the end
@@ -1549,8 +1578,8 @@ mod tests {
                 )
                 .unwrap(),
             )),
-            fetch: Some(3),
-            skip: 2,
+            fetch: Some(Box::new(Expr::Literal(ScalarValue::Int64(Some(3)), None))),
+            skip: Some(Box::new(Expr::Literal(ScalarValue::Int64(Some(2)), None))),
         });
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
@@ -1580,8 +1609,8 @@ mod tests {
                 TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], Some(3))
                     .unwrap(),
             )),
-            fetch: Some(3),
-            skip: 0,
+            fetch: Some(Box::new(Expr::Literal(ScalarValue::Int64(Some(3)), None))),
+            skip: Some(Box::new(Expr::Literal(ScalarValue::Int64(Some(0)), None))),
         });
 
         let schemas = SCHEMAS();
@@ -1613,7 +1642,7 @@ mod tests {
                     .unwrap(),
             )),
             fetch: None,
-            skip: 2,
+            skip: Some(Box::new(Expr::Literal(ScalarValue::Int64(Some(2)), None))),
         });
 
         let schemas = SCHEMAS();
@@ -1894,14 +1923,17 @@ mod tests {
     // Unsupported
     #[test]
     fn we_cannot_convert_unsupported_logical_plan_to_proof_plan() {
-        let plan = LogicalPlan::Prepare(Prepare {
-            name: "not_a_real_plan".to_string(),
-            data_types: vec![],
+        use datafusion::logical_expr::{Distinct, DistinctOn};
+        let plan = LogicalPlan::Distinct(Distinct::On(DistinctOn {
+            on_expr: vec![],
+            select_expr: vec![],
+            sort_expr: None,
             input: Arc::new(LogicalPlan::EmptyRelation(EmptyRelation {
                 produce_one_row: false,
                 schema: Arc::new(DFSchema::empty()),
             })),
-        });
+            schema: Arc::new(DFSchema::empty()),
+        }));
         let schemas = SCHEMAS();
         assert!(matches!(
             logical_plan_to_proof_plan(&plan, &schemas),
@@ -1912,13 +1944,9 @@ mod tests {
     #[test]
     fn we_can_error_if_not_inner_join() {
         // Most of the arguments here are bogus. The only thing that really matters is the join type.
-        let plan = LogicalPlan::Prepare(Prepare {
-            name: "not_a_real_plan".to_string(),
-            data_types: vec![],
-            input: Arc::new(LogicalPlan::EmptyRelation(EmptyRelation {
-                produce_one_row: false,
-                schema: Arc::new(DFSchema::empty()),
-            })),
+        let plan = LogicalPlan::EmptyRelation(EmptyRelation {
+            produce_one_row: false,
+            schema: Arc::new(DFSchema::empty()),
         });
         let schemas = SCHEMAS();
         let join_err = join_to_proof_plan(
@@ -1930,7 +1958,7 @@ mod tests {
                 join_type: JoinType::Left,
                 join_constraint: JoinConstraint::On,
                 schema: Arc::new(DFSchema::empty()),
-                null_equals_null: false,
+                null_equality: NullEquality::NullEqualsNull,
             },
             &schemas,
             &plan,
