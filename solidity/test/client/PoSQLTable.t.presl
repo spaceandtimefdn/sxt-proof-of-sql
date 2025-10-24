@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Test, stdError} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
-import {Test} from "forge-std/Test.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import {stdError} from "forge-std/Test.sol";
-
 import {ProofOfSqlTable} from "../../src/client/PoSQLTable.presl";
 
-function areStringsEqual(string memory left, string memory right) pure returns (bool areEqual) {
+
+function _areStringsEqual(string memory left, string memory right) pure returns (bool areEqual) {
     bytes memory leftBytes = bytes(left);
     bytes memory rightBytes = bytes(right);
     uint256 leftLength = leftBytes.length;
@@ -18,7 +17,7 @@ function areStringsEqual(string memory left, string memory right) pure returns (
     }
 }
 
-function areByteArraysEqual(bytes memory left, bytes memory right) pure returns (bool areEqual) {
+function _areByteArraysEqual(bytes memory left, bytes memory right) pure returns (bool areEqual) {
     uint256 leftLength = left.length;
     areEqual = leftLength == right.length;
     for (uint8 i = 0; i < leftLength; ++i) {
@@ -108,6 +107,7 @@ contract PoSQLTableTest is Test {
         ProofOfSqlTable.readBigIntColumn(table, 1);
     }
 
+    //solhint-disable-next-line code-complexity
     function testComplexTableDeserialization() public pure {
         bytes memory serializedTable =
             hex"000000000000000a000000000000000162000000000000000000000000050100010001000000000000000269380000000002000000000000000500807fff01000000000000000369313600000000030000000000000005000080007fffffff000100000000000000036933320000000004000000000000000500000000800000007fffffffffffffff00000001000000000000000369363400000000050000000000000005000000000000000080000000000000007fffffffffffffffffffffffffffffff0000000000000001000000000000000164000000000805000000000000000005000000000000000000000000000000000000000000000000000000000000000030644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffff30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f00000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000200000000000000017400000000090000000100000000000000000000000500000000681b6d6000000000681b6d6100000000681b6d6200000000681b6d6300000000681b6d6400000000000000046c616e67000000000700000000000000050000000000000002656e00000000000000026865000000000000000268750000000000000002727500000000000000026879000000000000000373787400000000070000000000000005000000000000000e537061636520616e642054696d650000000000000011d79ed7a8d797d79120d795d796d79ed79f000000000000000d54c3a97220c3a973206964c5910000000000000026d09fd180d0bed181d182d180d0b0d0bdd181d182d0b2d0be20d0b820d0b2d180d0b5d0bcd18f000000000000002ad58fd5a1d680d5a1d5aed5b8d682d5a9d5b5d5b8d682d5b620d68720d5aad5a1d5b4d5a1d5b6d5a1d5af000000000000000362696e000000000b00000000000000050000000000000000000000000000000500010203040000000000000005fffefdfcfb0000000000000005fffefdfcfb0000000000000005fffefdfcfb";
@@ -130,7 +130,7 @@ contract PoSQLTableTest is Test {
         for (uint8 i = 0; i < 10; ++i) {
             ProofOfSqlTable.Column memory column = table.columns[i];
             assert(column.columnType == expectedColumnTypes[i]);
-            assert(areStringsEqual(column.name, expectedColumnNames[i]));
+            assert(_areStringsEqual(column.name, expectedColumnNames[i]));
         }
 
         {
@@ -194,7 +194,7 @@ contract PoSQLTableTest is Test {
             string[] memory column7 = ProofOfSqlTable.readVarCharColumn(table, 7);
             assert(column7.length == 5);
             for (uint8 i = 0; i < 5; ++i) {
-                assert(areStringsEqual(expectedColumn7[i], column7[i]));
+                assert(_areStringsEqual(expectedColumn7[i], column7[i]));
             }
         }
         {
@@ -208,7 +208,7 @@ contract PoSQLTableTest is Test {
             string[] memory column8 = ProofOfSqlTable.readVarCharColumn(table, 8);
             assert(column8.length == 5);
             for (uint8 i = 0; i < 5; ++i) {
-                assert(areStringsEqual(expectedColumn8[i], column8[i]));
+                assert(_areStringsEqual(expectedColumn8[i], column8[i]));
             }
         }
         {
@@ -222,7 +222,7 @@ contract PoSQLTableTest is Test {
             bytes[] memory column9 = ProofOfSqlTable.readVarBinaryColumn(table, 9);
             assert(column9.length == 5);
             for (uint8 i = 0; i < 5; ++i) {
-                assert(areByteArraysEqual(expectedColumn9[i], column9[i]));
+                assert(_areByteArraysEqual(expectedColumn9[i], column9[i]));
             }
         }
     }
