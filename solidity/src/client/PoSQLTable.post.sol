@@ -1,0 +1,521 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+
+/// @title ProofOfSqlTableUtilities
+/// @dev Library for handling reading from a proof of sql table
+library ProofOfSqlTable {
+    enum ColumnType {
+        Boolean,
+        // Not currently supported
+        Uint8,
+        TinyInt,
+        SmallInt,
+        Int,
+        BigInt,
+        // Not currently supported
+        Int128,
+        VarChar,
+        Decimal75,
+        TimeStampTZ,
+        Scalar,
+        VarBinary
+    }
+
+    struct Column {
+        string name;
+        ColumnType columnType;
+        // precision will simply be 0 if it is meaningless for a data type
+        uint8 precision;
+        // scale will simply be 0 if it is meaningless for a data type
+        int8 scale;
+        bytes data;
+    }
+
+    struct Table {
+        Column[] columns;
+    }
+
+    /// @notice Reads a result from a proof of sql query into the `Table` struct.
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function deserialize_from_bytes(serialized_table) -> table, serialized_table_out
+    /// ```
+    /// ##### Parameters
+    /// * `serialized_table` - The serialized table
+    /// ##### Return Values
+    /// * `table` - The deserialized table
+    /// * `serialized_table_out` - The data that remains after consuming the serialized table
+    /// @dev Reads a result from a proof of sql query into memory in a deserialized format.
+    /// @param __serializedTable The serialized table
+    /// @return __serializedTableOut The data that remains after consuming the serialized table
+    /// @return __table The deserialized table
+    function __deserializeFromBytes(bytes memory __serializedTable)
+        internal
+        pure
+        returns (bytes memory __serializedTableOut, Table memory __table)
+    {
+        assembly {
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+
+
+            function read_column_type(column_data) -> column_type, precision, scale, column_data_out {
+                // Retrieve column type as uint8
+                column_type := shr(UINT32_PADDING_BITS, mload(column_data))
+                column_data := add(column_data, UINT32_SIZE)
+
+                // For decimals, scale and precision must be retrieved
+                if eq(column_type, DATA_TYPE_DECIMAL75_VARIANT) {
+                    precision := byte(0, mload(column_data))
+                    column_data := add(column_data, UINT8_SIZE)
+                    scale := byte(0, mload(column_data))
+                    column_data := add(column_data, INT8_SIZE)
+                }
+
+                if eq(column_type, DATA_TYPE_TIMESTAMP_VARIANT) {
+                    // We only support milliseconds for timestamps, for now
+                    let time_unit := shr(UINT32_PADDING_BITS, mload(column_data))
+                    column_data := add(column_data, UINT32_SIZE)
+                    if sub(time_unit, 1) { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+                    // time unit is serialized by enum variant, so we need to adjust to the correct logical value
+                    precision := 3
+
+                    // We only support utc for timestamps, for now
+                    let time_standard := shr(INT32_PADDING_BITS, mload(column_data))
+                    column_data := add(column_data, INT32_SIZE)
+                    if time_standard { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+                }
+                column_data_out := column_data
+            }
+            function get_byte_array_copy_size(source_ptr, column_length) -> copy_size {
+                // No need to retrieve the column length again
+                source_ptr := add(source_ptr, UINT64_SIZE)
+                for {} column_length { column_length := sub(column_length, 1) } {
+                    // Per byte array, we will need to copy the number of bytes in the array plus the number of bytes needed to contain a uint64.
+                    let byte_array_length := add(UINT64_SIZE, shr(UINT64_PADDING_BITS, mload(source_ptr)))
+                    source_ptr := add(source_ptr, byte_array_length)
+                    copy_size := add(copy_size, byte_array_length)
+                }
+            }
+            function get_column_as_bytes(source_ptr, column_type) -> source_ptr_out, column_as_bytes {
+                // Allocate space for the byte array
+                column_as_bytes := mload(FREE_PTR)
+
+                // Get length
+                let column_length := shr(UINT64_PADDING_BITS, mload(source_ptr))
+
+                // Determine how much space the column of data will take
+                let copy_size
+                switch column_type
+                // DATA_TYPE_BOOLEAN_VARIANT
+                case 0 { copy_size := mul(column_length, BOOLEAN_SIZE) }
+                // DATA_TYPE_TINYINT_VARIANT
+                case 2 { copy_size := mul(column_length, INT8_SIZE) }
+                // DATA_TYPE_SMALLINT_VARIANT
+                case 3 { copy_size := mul(column_length, INT16_SIZE) }
+                // DATA_TYPE_INT_VARIANT
+                case 4 { copy_size := mul(column_length, INT32_SIZE) }
+                // DATA_TYPE_BIGINT_VARIANT
+                case 5 { copy_size := mul(column_length, INT64_SIZE) }
+                // DATA_TYPE_VARCHAR_VARIANT
+                case 7 { copy_size := get_byte_array_copy_size(source_ptr, column_length) }
+                // DATA_TYPE_DECIMAL75_VARIANT
+                case 8 { copy_size := mul(column_length, WORD_SIZE) }
+                // DATA_TYPE_TIMESTAMP_VARIANT
+                case 9 { copy_size := mul(column_length, INT64_SIZE) }
+                // DATA_TYPE_SCALAR_VARIANT
+                case 10 { copy_size := mul(column_length, WORD_SIZE) }
+                // DATA_TYPE_VARBINARY_VARIANT
+                case 11 { copy_size := get_byte_array_copy_size(source_ptr, column_length) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+
+                // We need to include the length of the column of data in our serialized column
+                copy_size := add(copy_size, UINT64_SIZE)
+
+                // Save the length of the byte array
+                mstore(column_as_bytes, copy_size)
+                let target_ptr := add(column_as_bytes, WORD_SIZE)
+
+                // Copy the serialized column data into the byte array
+                for { let i := copy_size } i { i := sub(i, 1) } {
+                    mstore8(target_ptr, byte(0, mload(source_ptr)))
+                    source_ptr := add(source_ptr, 1)
+                    target_ptr := add(target_ptr, 1)
+                }
+                mstore(FREE_PTR, target_ptr)
+                source_ptr_out := source_ptr
+            }
+            function get_byte_array(source_ptr) -> source_ptr_out, byte_array {
+                // Allocate space for the byte array
+                byte_array := mload(FREE_PTR)
+
+                // Find and store length of byte array
+                let len := shr(UINT64_PADDING_BITS, mload(source_ptr))
+                source_ptr := add(source_ptr, UINT64_SIZE)
+                mstore(byte_array, len)
+                let target_ptr := add(byte_array, WORD_SIZE)
+
+                // Copy bytes to byte array
+                for { let i := len } i { i := sub(i, 1) } {
+                    mstore8(target_ptr, byte(0, mload(source_ptr)))
+                    source_ptr := add(source_ptr, 1)
+                    target_ptr := add(target_ptr, 1)
+                }
+                mstore(FREE_PTR, target_ptr)
+                source_ptr_out := source_ptr
+            }
+            function deserialize_column_from_bytes(serialized_column) -> column, serialized_column_out {
+                // Allocate memory for the column pointer
+                column := mload(FREE_PTR)
+
+                // Allocate space for the five fields
+                mstore(FREE_PTR, add(column, WORDX5_SIZE))
+
+                // Get and store the name
+                let name
+                serialized_column, name := get_byte_array(serialized_column)
+                mstore(column, name)
+                let target_ptr := add(column, WORD_SIZE)
+
+                // Check that column name is valid
+                // This is because an `Ident` from sqlparser 0.45.0
+                // has the field `quote_style` which must be 0 for unquoted identifiers.
+                if byte(0, mload(serialized_column)) { err(ERR_INVALID_RESULT_COLUMN_NAME) }
+                serialized_column := add(serialized_column, 1)
+
+                // Get and store type, precision, and scale
+                let column_type, precision, scale
+                column_type, precision, scale, serialized_column := read_column_type(serialized_column)
+                mstore(target_ptr, column_type)
+                target_ptr := add(target_ptr, WORD_SIZE)
+                mstore(target_ptr, precision)
+                target_ptr := add(target_ptr, WORD_SIZE)
+                mstore(target_ptr, scale)
+                target_ptr := add(target_ptr, WORD_SIZE)
+
+                // Get data and store in its serialized format
+                let column_as_bytes
+                serialized_column_out, column_as_bytes := get_column_as_bytes(serialized_column, column_type)
+                mstore(target_ptr, column_as_bytes)
+            }
+            function deserialize_from_bytes(serialized_table) -> table, serialized_table_out {
+                // Allocate memory for the table pointer
+                table := mload(FREE_PTR)
+
+                // Store column array pointer
+                let columns_field_ptr := add(table, WORD_SIZE)
+                mstore(table, columns_field_ptr)
+
+                // get and store number of columns
+                let num_columns := shr(UINT64_PADDING_BITS, mload(serialized_table))
+                serialized_table := add(serialized_table, UINT64_SIZE)
+                mstore(columns_field_ptr, num_columns)
+                columns_field_ptr := add(columns_field_ptr, WORD_SIZE)
+
+                // allocate space for each element
+                mstore(FREE_PTR, add(columns_field_ptr, mul(num_columns, WORD_SIZE)))
+
+                // populate and store each column pointer
+                for {} num_columns { num_columns := sub(num_columns, 1) } {
+                    let column
+                    column, serialized_table := deserialize_column_from_bytes(serialized_table)
+                    mstore(columns_field_ptr, column)
+                    columns_field_ptr := add(columns_field_ptr, WORD_SIZE)
+                }
+                serialized_table_out := serialized_table
+            }
+            __table, __serializedTableOut := deserialize_from_bytes(add(__serializedTable, WORD_SIZE))
+        }
+    }
+
+    /// @notice Deserializes a serialized column into memory.
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function return_pointer_to_typed_column_for_byte_array_element(column_as_bytes) -> column_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `column_as_bytes` - The pointer to the column, serialized as bytes
+    /// ##### Return Values
+    /// * `column_ptr` - The pointer to the deserialized column
+    /// @dev Deserializes a serialized column into memory. The return value is meant to be used immediately, using yul,
+    /// to assign the deserialized column to a correctly typed variable.
+    /// @param __column The serialized column
+    /// @return __columnPtr The pointer to the deserialized column
+    function returnPointerToTypedColumnForByteArrayElements(Column memory __column)
+        internal
+        pure
+        returns (uint256 __columnPtr)
+    {
+        bytes memory __columnAsBytes = __column.data;
+        assembly {
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+
+
+            function return_pointer_to_typed_column_for_byte_array_element(column_as_bytes) -> column_ptr {
+                column_as_bytes := add(column_as_bytes, WORD_SIZE)
+                column_ptr := mload(FREE_PTR)
+
+                // Find and store length of column
+                let column_length := shr(UINT64_PADDING_BITS, mload(column_as_bytes))
+                column_as_bytes := add(column_as_bytes, UINT64_SIZE)
+                mstore(column_ptr, column_length)
+                let target_ptr := add(column_ptr, WORD_SIZE)
+
+                // Allocate space for the pointer of each byte array element
+                let free_ptr := add(target_ptr, mul(column_length, WORD_SIZE))
+
+                // We process one byte array at a time
+                for {} column_length { column_length := sub(column_length, 1) } {
+                    // Store the next pointer in the column array
+                    mstore(target_ptr, free_ptr)
+                    target_ptr := add(target_ptr, WORD_SIZE)
+
+                    // Find and store the length of the byte array
+                    let len := shr(UINT64_PADDING_BITS, mload(column_as_bytes))
+                    column_as_bytes := add(column_as_bytes, UINT64_SIZE)
+                    mstore(free_ptr, len)
+                    free_ptr := add(free_ptr, WORD_SIZE)
+
+                    // Copy over each byte into the new byte array
+                    for {} gt(len, WORD_SIZE) { len := sub(len, WORD_SIZE) } {
+                        mstore(free_ptr, mload(column_as_bytes))
+                        column_as_bytes := add(column_as_bytes, WORD_SIZE)
+                        free_ptr := add(free_ptr, WORD_SIZE)
+                    }
+                    let remaining_bytes := mul(8, sub(WORD_SIZE, len))
+                    mstore(free_ptr, shl(remaining_bytes, shr(remaining_bytes, mload(column_as_bytes))))
+                    column_as_bytes := add(column_as_bytes, len)
+                    free_ptr := add(free_ptr, len)
+                }
+
+                mstore(FREE_PTR, free_ptr)
+            }
+            __columnPtr := return_pointer_to_typed_column_for_byte_array_element(__columnAsBytes)
+        }
+    }
+
+    /// @notice Deserializes a serialized column into memory.
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function return_pointer_to_typed_column_for_fixed_sized_element(column_as_bytes, element_size) -> column_ptr
+    /// ```
+    /// ##### Parameters
+    /// * `column_as_bytes` - The pointer to the column, serialized as bytes
+    /// * `element_size` - The size of the fixed size elements
+    /// ##### Return Values
+    /// * `column_ptr` - The pointer to the deserialized column
+    /// @dev Deserializes a serialized column into memory. The return value is meant to be used immediately, using yul,
+    /// to assign the deserialized column to a correctly typed variable.
+    /// @param __column The serialized column of data
+    /// @param __elementSize The size of the fixed size elements
+    /// @return __columnPtr The pointer to the deserialized column
+    function returnPointerToTypedColumnForFixedSizeElement(Column memory __column, uint256 __elementSize)
+        internal
+        pure
+        returns (uint256 __columnPtr)
+    {
+        bytes memory __columnAsBytes = __column.data;
+        assembly {
+            function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
+            function err(code) {
+                mstore(0, code)
+                revert(28, 4)
+            }
+            function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+
+
+            function return_pointer_to_typed_column_for_fixed_sized_element(column_as_bytes, element_size) ->
+                column_ptr {
+                column_as_bytes := add(column_as_bytes, WORD_SIZE)
+                column_ptr := mload(FREE_PTR)
+
+                // Find and store length of column
+                let column_length := shr(UINT64_PADDING_BITS, mload(column_as_bytes))
+                column_as_bytes := add(column_as_bytes, UINT64_SIZE)
+                mstore(column_ptr, column_length)
+                let target_ptr := add(column_ptr, WORD_SIZE)
+
+                // Calculate the number of bits to shift the 32 byte value loaded from memory in order to retrieve the next array element
+                let element_padding_bits := mul(8, sub(WORD_SIZE, element_size))
+
+                // Copy each element into the new column
+                for {} column_length { column_length := sub(column_length, 1) } {
+                    mstore(target_ptr, shr(element_padding_bits, mload(column_as_bytes)))
+                    column_as_bytes := add(column_as_bytes, element_size)
+                    target_ptr := add(target_ptr, WORD_SIZE)
+                }
+
+                mstore(FREE_PTR, target_ptr)
+            }
+            __columnPtr := return_pointer_to_typed_column_for_fixed_sized_element(__columnAsBytes, __elementSize)
+        }
+    }
+
+    /// @dev Deserializes a column into a boolean column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __booleanColumn The deserialized boolean column
+    function readBooleanColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (bool[] memory __booleanColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.Boolean);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, BOOLEAN_SIZE);
+        assembly {
+            // We assign the return value here because the pointer is not properly typed within the solidity
+            __booleanColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a tinyint column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __tinyIntColumn The deserialized tinyint column
+    function readTinyIntColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (int8[] memory __tinyIntColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.TinyInt);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT8_SIZE);
+        assembly {
+            __tinyIntColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a smallint column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __smallIntColumn The deserialized smallint column
+    function readSmallIntColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (int16[] memory __smallIntColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.SmallInt);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT16_SIZE);
+        assembly {
+            __smallIntColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a int column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __intColumn The deserialized int column
+    function readIntColumn(Table memory __table, uint256 __index) internal pure returns (int32[] memory __intColumn) {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.Int);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT32_SIZE);
+        assembly {
+            __intColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a bigint column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __bigIntColumn The deserialized bigint column
+    function readBigIntColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (int64[] memory __bigIntColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.BigInt);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT64_SIZE);
+        assembly {
+            __bigIntColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a varchar column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __varCharColumn The deserialized varchar column
+    function readVarCharColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (string[] memory __varCharColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.VarChar);
+        uint256 __columnPtr = returnPointerToTypedColumnForByteArrayElements(__column);
+        assembly {
+            __varCharColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a decimal column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __decimal75Column The deserialized decimal column
+    function readDecimal75Column(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (uint256[] memory __decimal75Column)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.Decimal75);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, WORD_SIZE);
+        assembly {
+            __decimal75Column := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a timestamp column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __timeStampColumn The deserialized timestamp column
+    function readTimeStampColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (int64[] memory __timeStampColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.TimeStampTZ);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, INT64_SIZE);
+        assembly {
+            __timeStampColumn := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a varbinary column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __varBinaryColumn The deserialized varbinary column
+    function readVarBinaryColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (bytes[] memory __varBinaryColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.VarBinary);
+        uint256 __columnPtr = returnPointerToTypedColumnForByteArrayElements(__column);
+        assembly {
+            __varBinaryColumn := __columnPtr
+        }
+    }
+}

@@ -39,22 +39,45 @@ library ParamsBuilder {
         params = new uint256[](length);
 
         assembly {
-            // IMPORTED-YUL ../base/Errors.sol::err
+            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function read_data_type(ptr) -> ptr_out, data_type {
+                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
+                ptr_out := add(ptr, UINT32_SIZE)
+                switch data_type
+                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
+                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
+                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
+                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
+                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
+                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
+                case 8 {
+                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
+                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
+                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
+                }
+                case 9 {
+                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
+                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
+                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
+                }
+                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
+                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
+                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
+            }
+            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
             function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
             function err(code) {
                 mstore(0, code)
                 revert(28, 4)
             }
             function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
-            // IMPORTED-YUL ../base/SwitchUtil.pre.sol::case_const
-            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
-            function case_const(lhs, rhs) {
-                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
-            }
-            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
-            // slither-disable-start cyclomatic-complexity
-            // IMPORTED-YUL ../base/DataType.pre.sol::read_entry
             function exclude_coverage_start_read_entry() {} // solhint-disable-line no-empty-blocks
+            // slither-disable-start cyclomatic-complexity
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
                 result_ptr_out := result_ptr
                 switch data_type_variant
@@ -132,9 +155,8 @@ library ParamsBuilder {
                 }
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
-            function exclude_coverage_stop_read_entry() {} // solhint-disable-line no-empty-blocks
             // slither-disable-end cyclomatic-complexity
-            // IMPORTED-YUL ../base/DataType.pre.sol::read_binary
+            function exclude_coverage_stop_read_entry() {} // solhint-disable-line no-empty-blocks
             function exclude_coverage_start_read_binary() {} // solhint-disable-line no-empty-blocks
             function read_binary(result_ptr) -> result_ptr_out, entry {
                 let free_ptr := mload(FREE_PTR)
@@ -178,34 +200,8 @@ library ParamsBuilder {
                 result_ptr_out := add(result_ptr, len)
             }
             function exclude_coverage_stop_read_binary() {} // solhint-disable-line no-empty-blocks
-            // IMPORTED-YUL ../base/DataType.pre.sol::read_data_type
-            function exclude_coverage_start_read_data_type() {} // solhint-disable-line no-empty-blocks
-            function read_data_type(ptr) -> ptr_out, data_type {
-                data_type := shr(UINT32_PADDING_BITS, calldataload(ptr))
-                ptr_out := add(ptr, UINT32_SIZE)
-                switch data_type
-                case 0 { case_const(0, DATA_TYPE_BOOLEAN_VARIANT) }
-                case 2 { case_const(2, DATA_TYPE_TINYINT_VARIANT) }
-                case 3 { case_const(3, DATA_TYPE_SMALLINT_VARIANT) }
-                case 4 { case_const(4, DATA_TYPE_INT_VARIANT) }
-                case 5 { case_const(5, DATA_TYPE_BIGINT_VARIANT) }
-                case 7 { case_const(7, DATA_TYPE_VARCHAR_VARIANT) }
-                case 8 {
-                    case_const(8, DATA_TYPE_DECIMAL75_VARIANT)
-                    ptr_out := add(ptr_out, UINT8_SIZE) // Skip precision
-                    ptr_out := add(ptr_out, INT8_SIZE) // Skip scale
-                }
-                case 9 {
-                    case_const(9, DATA_TYPE_TIMESTAMP_VARIANT)
-                    ptr_out := add(ptr_out, UINT32_SIZE) // Skip timeunit
-                    ptr_out := add(ptr_out, INT32_SIZE) // Skip timezone
-                }
-                case 10 { case_const(10, DATA_TYPE_SCALAR_VARIANT) }
-                case 11 { case_const(11, DATA_TYPE_VARBINARY_VARIANT) }
-                default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
-            }
-            function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
-            // skip length of byte array
+
+
             let paramsOffset := add(serializedParams.offset, UINT64_SIZE)
             let paramsArray := add(params, WORD_SIZE)
             for {} length { length := sub(length, 1) } {
