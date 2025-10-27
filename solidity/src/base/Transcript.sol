@@ -74,7 +74,9 @@ library Transcript {
     /// @param __data The calldata to append
     /// @return __resultTranscript The updated state of the transcript
     function __appendCalldata( // solhint-disable-line gas-calldata-parameters
-    uint256[1] memory __transcript, bytes calldata __data)
+        uint256[1] memory __transcript,
+        bytes calldata __data
+    )
         external
         pure
         returns (uint256[1] memory __resultTranscript)
