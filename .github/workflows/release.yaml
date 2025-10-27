@@ -31,6 +31,10 @@ jobs:
       - name: Install cargo info
         run: |
           cargo install cargo-info
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.0.0
       - name: Build generated solidity bundle
         run: |
           chmod +x solidity/scripts/pre_forge.sh
