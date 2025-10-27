@@ -31,6 +31,14 @@ jobs:
       - name: Install cargo info
         run: |
           cargo install cargo-info
+      - name: Build generated solidity bundle
+        run: |
+          chmod +x solidity/scripts/pre_forge.sh
+          solidity/scripts/pre_forge.sh build
+          mkdir -p dist
+          # adjust the source path to whatever pre_forge outputs:
+          zip -r "dist/posql-generated.zip" solidity/src/base/Constants.sol solidity/src/base/Errors.sol solidity/src/client/ParamsBuilder.post.sol solidity/src/client/PoSQLTable.post.sol solidity/src/verifier/Verifier.post.sol
+
       - name: Semantic Release
         run: |
           npm install semantic-release
