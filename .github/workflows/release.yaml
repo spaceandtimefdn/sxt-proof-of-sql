@@ -35,6 +35,8 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.0.0
+      - name: Install dependencies
+        run: solidity/scripts/install_deps.sh
       - name: Build generated solidity bundle
         run: |
           chmod +x solidity/scripts/pre_forge.sh
