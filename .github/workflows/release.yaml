@@ -47,13 +47,8 @@ jobs:
 
       - name: Semantic Release
         run: |
-          npm install -D \
-            semantic-release \
-            @semantic-release/github \
-            @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator
+          npm install semantic-release
           npx semantic-release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
-          DEBUG: semantic-release:*,@semantic-release:*
