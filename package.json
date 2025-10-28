@@ -46,7 +46,15 @@
                 }
             ],
             [
-                "@semantic-release/github"
+                "@semantic-release/github",
+                {
+                    "assets": [
+                        {
+                            "path": "dist/posql-generated.zip",
+                            "label": "Generated Solidity Source Files"
+                        }
+                    ]
+                }
             ]
         ]
     },
