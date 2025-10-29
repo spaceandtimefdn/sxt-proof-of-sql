@@ -2,10 +2,10 @@ pragma solidity ^0.8.24;
 contract Main {
     function run() external pure returns (uint256 result) {
         assembly {
-            // import add, multiply from operations.presl
-            let sum := add(5, 10)
+            // import _add, multiply from operations.presl
+            let sum := _add(5, 10)
             let product := multiply(3, 7)
-            result := add(sum, product)
+            result := _add(sum, product)
         }
     }
 }

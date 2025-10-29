@@ -2,7 +2,7 @@ pragma solidity ^0.8.24;
 contract Operations {
     function compute() external pure {
         assembly {
-            function add(a, b) -> result {
+            function _add(a, b) -> result {
                 result := add(a, b)
             }
             function subtract(a, b) -> result {
