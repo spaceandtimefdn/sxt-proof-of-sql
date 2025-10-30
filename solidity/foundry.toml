@@ -3,10 +3,8 @@ src = "src"
 out = "out"
 solc = "0.8.28"
 libs = ["dependencies"]
-deny-warnings = true
 no-match-path = "**/*.presl"
 no-match-coverage = "presl"
-ignored_paths = ["**/*.presl"]
 
 [doc]
 ignore = ["**/*.presl"]

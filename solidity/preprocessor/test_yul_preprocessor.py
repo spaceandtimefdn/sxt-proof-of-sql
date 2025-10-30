@@ -216,9 +216,9 @@ class TestYulPreprocessor:
         result = preprocessor.process_file(target_file)
 
         # Verify requested functions were imported
-        assert "function add(a, b) -> result" in result
+        assert "function _add(a, b) -> result" in result
         assert "function multiply(a, b) -> result" in result
-        assert result.count("function add(a, b) -> result") == 1
+        assert result.count("function _add(a, b) -> result") == 1
         assert result.count("function multiply(a, b) -> result") == 1
         # Note: subtract may also be included as it's from the same file
         # This is correct behavior - importing from a file gets its complete definition
