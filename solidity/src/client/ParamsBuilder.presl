@@ -117,13 +117,6 @@ library ParamsBuilder {
             abi.encodePacked(DATA_TYPE_TIMESTAMP_VARIANT, TIMEUNIT_MILLISECOND_VARIANT, TIMEZONE_UTC, param);
     }
 
-    /// @dev Serializes a scalar parameter
-    /// @param param The parameter
-    /// @return serializedParam The serialized parameter
-    function scalarParam(uint256 param) internal pure returns (bytes memory serializedParam) {
-        serializedParam = abi.encodePacked(DATA_TYPE_SCALAR_VARIANT, param);
-    }
-
     /// @dev Serializes a varbinary parameter
     /// @param param The parameter
     /// @return serializedParam The serialized parameter
