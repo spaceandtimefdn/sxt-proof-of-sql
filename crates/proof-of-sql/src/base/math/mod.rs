@@ -8,6 +8,6 @@ pub mod i256;
 mod log;
 pub(crate) use log::log2_up;
 mod big_decimal_ext;
-pub(crate) use big_decimal_ext::BigDecimalExt;
+pub use big_decimal_ext::BigDecimalExt;
 /// TODO: add docs
 pub(crate) mod permutation;
