@@ -2,10 +2,13 @@ use super::decimal::{IntermediateDecimalError, IntermediateDecimalError::LossyCa
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 
+/// Extension trait for `BigDecimal` to provide additional functionality specific to Proof of SQL.
 pub trait BigDecimalExt {
-    #[cfg_attr(not(test), expect(dead_code, reason = "only used by tests for now"))]
+    /// Get the precision of the fixed-point representation of this decimal.
     fn precision(&self) -> u64;
+    /// Get the scale of the fixed-point representation of this decimal.
     fn scale(&self) -> i64;
+    /// Attempts to convert the decimal to `BigInt` while adjusting it to the specified precision and scale.
     fn try_into_bigint_with_precision_and_scale(
         &self,
         precision: u8,
