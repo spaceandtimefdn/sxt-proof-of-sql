@@ -11,8 +11,8 @@ use crate::{
     },
     sql::{
         proof::{
-            FinalRoundBuilder, FirstRoundBuilder, HonestProver, ProofPlan, ProverEvaluate,
-            ProverHonestyMarker, VerificationBuilder,
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
         proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
@@ -21,7 +21,6 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bumpalo::Bump;
-use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -30,18 +29,17 @@ use sqlparser::ast::Ident;
 ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
 /// ```
 ///
-/// This differs from the [`FilterExec`] in that the result is not a sparse table.
+/// This differs from the [`FilterExec`] in that it accepts a `DynProofPlan` as input.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct OstensibleFilterExec<H: ProverHonestyMarker> {
+pub struct GeneralizedFilterExec {
     aliased_results: Vec<AliasedDynProofExpr>,
     table: TableExpr,
     /// TODO: add docs
     where_clause: DynProofExpr,
-    phantom: PhantomData<H>,
 }
 
-impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
-    /// Creates a new filter expression.
+impl GeneralizedFilterExec {
+    /// Creates a new generalized filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
         table: TableExpr,
@@ -51,7 +49,6 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
             aliased_results,
             table,
             where_clause,
-            phantom: PhantomData,
         }
     }
 
@@ -71,10 +68,7 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
     }
 }
 
-impl<H: ProverHonestyMarker> ProofPlan for OstensibleFilterExec<H>
-where
-    OstensibleFilterExec<H>: ProverEvaluate,
-{
+impl ProofPlan for GeneralizedFilterExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -161,11 +155,8 @@ where
     }
 }
 
-/// Alias for a filter expression with a honest prover.
-pub type FilterExec = OstensibleFilterExec<HonestProver>;
-
-impl ProverEvaluate for FilterExec {
-    #[tracing::instrument(name = "FilterExec::first_round_evaluate", level = "debug", skip_all)]
+impl ProverEvaluate for GeneralizedFilterExec {
+    #[tracing::instrument(name = "GeneralizedFilterExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -218,7 +209,7 @@ impl ProverEvaluate for FilterExec {
         Ok(res)
     }
 
-    #[tracing::instrument(name = "FilterExec::final_round_evaluate", level = "debug", skip_all)]
+    #[tracing::instrument(name = "GeneralizedFilterExec::final_round_evaluate", level = "debug", skip_all)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
