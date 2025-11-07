@@ -77,6 +77,8 @@ uint32 constant ERR_INTERNAL = 0xfe835e35;
 uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
 /// @dev Error code for unsupported table commitments.
 uint32 constant ERR_TABLE_COMMITMENT_UNSUPPORTED = 0x4b35c9c3;
+/// @dev Error code for when a plan has a number of join columns other than one.
+uint32 constant ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE = 0xf81ffd2a;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -158,6 +160,8 @@ library Errors {
     error TableCommitmentUnsupported();
     /// @notice Error thrown for having too many parameters.
     error TooManyParameters();
+    /// @notice Error thrown when a plan has a number of join columns other than one.
+    error NumberOfJoinColumnsNotOne();
 
     function __err(uint32 __code) internal pure {
         assembly {

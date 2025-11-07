@@ -8,36 +8,10 @@ use crate::{
         proof_exprs::{
             AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr, TableExpr,
         },
-        proof_plans::{DynProofPlan, FilterExec, SortMergeJoinExec},
+        proof_plans::{DynProofPlan, FilterExec},
     },
 };
 use core::iter;
-
-#[test]
-fn we_cannot_generate_serialized_proof_plan_for_unsupported_plan() {
-    // Create a join plan with two projections
-    let plan = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
-        Box::new(DynProofPlan::new_projection(
-            vec![AliasedDynProofExpr {
-                alias: "col1".into(),
-                expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-            }],
-            DynProofPlan::new_empty(),
-        )),
-        Box::new(DynProofPlan::new_projection(
-            vec![AliasedDynProofExpr {
-                alias: "col1".into(),
-                expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-            }],
-            DynProofPlan::new_empty(),
-        )),
-        vec![0],
-        vec![0],
-        vec!["col1".into()],
-    ));
-
-    try_standard_binary_serialization(EVMProofPlan::new(plan)).unwrap_err();
-}
 
 #[test]
 fn we_can_generate_serialized_proof_plan_for_simple_filter() {

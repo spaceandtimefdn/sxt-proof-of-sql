@@ -8,8 +8,8 @@ use crate::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
-            DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, TableExec,
-            UnionExec,
+            DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec,
+            SortMergeJoinExec, TableExec, UnionExec,
         },
     },
 };
@@ -27,6 +27,7 @@ pub(crate) enum EVMDynProofPlan {
     Slice(EVMSliceExec),
     GroupBy(EVMGroupByExec),
     Union(EVMUnionExec),
+    SortMergeJoin(EVMSortMergeJoinExec),
 }
 
 impl EVMDynProofPlan {
@@ -64,7 +65,14 @@ impl EVMDynProofPlan {
                 EVMUnionExec::try_from_proof_plan(union_exec, table_refs, column_refs)
                     .map(Self::Union)
             }
-            DynProofPlan::SortMergeJoin(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::SortMergeJoin(sort_merge_join_exec) => {
+                EVMSortMergeJoinExec::try_from_proof_plan(
+                    sort_merge_join_exec,
+                    table_refs,
+                    column_refs,
+                )
+                .map(Self::SortMergeJoin)
+            }
         }
     }
 
@@ -100,6 +108,13 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
                 union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
+                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
+                    table_refs,
+                    column_refs,
+                    output_column_names,
+                )?),
+            ),
         }
     }
 }
@@ -480,6 +495,79 @@ impl EVMUnionExec {
     }
 }
 
+/// Represents a group by execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMSortMergeJoinExec {
+    left: Box<EVMDynProofPlan>,
+    right: Box<EVMDynProofPlan>,
+    left_join_column_indexes: Vec<usize>,
+    right_join_column_indexes: Vec<usize>,
+    result_aliases: Vec<String>,
+}
+
+impl EVMSortMergeJoinExec {
+    pub(crate) fn try_from_proof_plan(
+        plan: &SortMergeJoinExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        let left = Box::new(EVMDynProofPlan::try_from_proof_plan(
+            plan.left_plan(),
+            table_refs,
+            column_refs,
+        )?);
+        let right = Box::new(EVMDynProofPlan::try_from_proof_plan(
+            plan.right_plan(),
+            table_refs,
+            column_refs,
+        )?);
+        let left_join_column_indexes = plan.left_join_column_indexes().clone();
+        let right_join_column_indexes = plan.right_join_column_indexes().clone();
+        let result_aliases = plan
+            .result_idents()
+            .iter()
+            .map(|id| id.value.clone())
+            .collect();
+
+        Ok(Self {
+            left,
+            right,
+            left_join_column_indexes,
+            right_join_column_indexes,
+            result_aliases,
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
+    ) -> EVMProofPlanResult<SortMergeJoinExec> {
+        let left = Box::new(self.left.try_into_proof_plan(
+            table_refs,
+            column_refs,
+            output_column_names,
+        )?);
+        let right = Box::new(self.right.try_into_proof_plan(
+            table_refs,
+            column_refs,
+            output_column_names,
+        )?);
+        let left_join_column_indexes = self.left_join_column_indexes.clone();
+        let right_join_column_indexes = self.right_join_column_indexes.clone();
+        let result_idents = self.result_aliases.iter().map(Ident::new).collect();
+
+        Ok(SortMergeJoinExec::new(
+            left,
+            right,
+            left_join_column_indexes,
+            right_join_column_indexes,
+            result_idents,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -769,38 +857,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
-    }
-
-    #[test]
-    fn we_cannot_put_unsupported_proof_plan_in_evm() {
-        // Create a join plan with two projections
-        let plan = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            Box::new(DynProofPlan::new_projection(
-                vec![AliasedDynProofExpr {
-                    alias: "col1".into(),
-                    expr: DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Int(1))),
-                }],
-                DynProofPlan::new_empty(),
-            )),
-            vec![0],
-            vec![0],
-            vec!["col1".into()],
-        ));
-
-        let table_refs = indexset![];
-        let column_refs = indexset![];
-
-        assert!(matches!(
-            EVMDynProofPlan::try_from_proof_plan(&plan, &table_refs, &column_refs),
-            Err(EVMProofPlanError::NotSupported)
-        ));
     }
 
     #[test]
@@ -1261,5 +1317,68 @@ mod tests {
             .try_into_proof_plan(table_refs, column_refs, &output_column_names)
             .unwrap();
         assert_eq!(union_exec, round_tripped_union_exec);
+    }
+
+    #[test]
+    fn we_can_put_sort_merge_join_exec_in_evm() {
+        let left_table_ref: TableRef = "namespace.left_table".parse().unwrap();
+        let right_table_ref: TableRef = "namespace.right_table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let ident_c: Ident = "c".into();
+
+        let left_column_ref_a =
+            ColumnRef::new(left_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let left_column_ref_b =
+            ColumnRef::new(left_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        let right_column_ref_a =
+            ColumnRef::new(right_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let right_column_ref_b =
+            ColumnRef::new(right_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        // Create columns fields to use as the input
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+
+        // Create a sort merge join exec
+        let sort_merge_join_exec = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(DynProofPlan::new_table(
+                left_table_ref.clone(),
+                column_fields.clone(),
+            )),
+            Box::new(DynProofPlan::new_table(
+                right_table_ref.clone(),
+                column_fields,
+            )),
+            vec![0],
+            vec![0],
+            vec![ident_a, ident_b, ident_c],
+        ));
+        let output_column_names = sort_merge_join_exec
+            .get_column_result_fields()
+            .iter()
+            .map(|cr| cr.name().to_string())
+            .collect();
+
+        let table_refs = &indexset![left_table_ref, right_table_ref];
+        let column_refs = &indexset![
+            left_column_ref_a,
+            left_column_ref_b,
+            right_column_ref_a,
+            right_column_ref_b
+        ];
+
+        // Convert to EVM plan
+        let evm_sort_merge_join_exec =
+            EVMDynProofPlan::try_from_proof_plan(&sort_merge_join_exec, table_refs, column_refs)
+                .unwrap();
+
+        let round_tripped_sort_merge_join_exec = evm_sort_merge_join_exec
+            .try_into_proof_plan(table_refs, column_refs, &output_column_names)
+            .unwrap();
+        assert_eq!(sort_merge_join_exec, round_tripped_sort_merge_join_exec);
     }
 }
