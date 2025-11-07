@@ -6,7 +6,8 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::Alias, Aggregate, Expr, Join, Limit, LogicalPlan, Projection, TableScan, Union,
+        expr::Alias, Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
+        Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -446,6 +447,34 @@ pub fn logical_plan_to_proof_plan(
                 }
                 _ => projection_to_proof_plan(expr, input, schema, schema_accessor),
             }
+        }
+        // Filter
+        LogicalPlan::Filter(Filter {
+            input, predicate, ..
+        }) => {
+            let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
+            let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+            let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
+            let aliased_exprs = input_plan
+                .get_column_result_fields()
+                .iter()
+                .map(|field| -> PlannerResult<AliasedDynProofExpr> {
+                    let alias = field.name();
+                    Ok(AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                            alias.clone(),
+                            field.data_type(),
+                        )),
+                        alias,
+                    })
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
+            Ok(DynProofPlan::new_filter(
+                aliased_exprs,
+                input_plan,
+                filter_proof_expr,
+            ))
         }
         // Limit
         LogicalPlan::Limit(Limit { input, fetch, skip }) => {
@@ -1955,5 +1984,77 @@ mod tests {
         assert!(
             matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
         );
+    }
+
+    // Filter (LogicalPlan::Filter) tests - Happy paths
+    #[test]
+    fn we_can_convert_simple_nested_filters() {
+        let table_scan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1, 3]), vec![], None).unwrap(),
+        );
+        let inner_filter = LogicalPlan::Filter(
+            Filter::try_new(
+                df_column("table", "a").gt(Expr::Literal(ScalarValue::Int64(Some(0)))),
+                Arc::new(table_scan),
+            )
+            .unwrap(),
+        );
+        let outer_filter = LogicalPlan::Filter(
+            Filter::try_new(df_column("table", "d"), Arc::new(inner_filter)).unwrap(),
+        );
+        let schemas = SCHEMAS();
+        let result = logical_plan_to_proof_plan(&outer_filter, &schemas).unwrap();
+
+        assert!(matches!(result, DynProofPlan::Filter(_)));
+    }
+
+    #[test]
+    fn we_can_convert_deeply_nested_filters_with_complex_predicates() {
+        let table_scan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1, 3]), vec![], None).unwrap(),
+        );
+        // First filter: a > 0
+        let filter1 = LogicalPlan::Filter(
+            Filter::try_new(
+                df_column("table", "a").gt(Expr::Literal(ScalarValue::Int64(Some(0)))),
+                Arc::new(table_scan),
+            )
+            .unwrap(),
+        );
+        // Second filter: b < 100
+        let filter2 = LogicalPlan::Filter(
+            Filter::try_new(
+                df_column("table", "b").lt(Expr::Literal(ScalarValue::Int32(Some(100)))),
+                Arc::new(filter1),
+            )
+            .unwrap(),
+        );
+        // Third filter: d (boolean)
+        let filter3 = LogicalPlan::Filter(
+            Filter::try_new(df_column("table", "d"), Arc::new(filter2)).unwrap(),
+        );
+        let schemas = SCHEMAS();
+        let result = logical_plan_to_proof_plan(&filter3, &schemas).unwrap();
+
+        assert!(matches!(result, DynProofPlan::Filter(_)));
+    }
+
+    // Error path tests for Filter
+    #[test]
+    fn we_cannot_convert_filter_with_unsupported_column() {
+        let table_scan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let filter_plan = LogicalPlan::Filter(
+            Filter::try_new(
+                df_column("table", "nonexistent").gt(Expr::Literal(ScalarValue::Int64(Some(0)))),
+                Arc::new(table_scan),
+            )
+            .unwrap(),
+        );
+        let schemas = SCHEMAS();
+        let result = logical_plan_to_proof_plan(&filter_plan, &schemas);
+
+        assert!(matches!(result, Err(PlannerError::ColumnNotFound)));
     }
 }
