@@ -33,6 +33,17 @@ use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 use tracing::{span, Level};
 
+/// Enum representing whether the group by can and need to prove uniqueness
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AggregationUniqueness {
+    /// Trivially unique (e.g. No group by columns)
+    TriviallyUnique,
+    /// The group by can prove uniqueness
+    Provable,
+    /// The group by cannot prove uniqueness
+    NotProvable,
+}
+
 /// Provable expressions for queries of the form
 /// ```ignore
 ///     SELECT <group_by_expr1>, ..., <group_by_exprM>,
@@ -97,14 +108,21 @@ impl GroupByExec {
     }
 
     /// Checks if the group by expression can prove uniqueness
-    /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
-    pub fn is_uniqueness_provable(&self) -> bool {
-        if self.group_by_exprs.len() != 1 {
-            return false;
+    /// This is true if there is at most one group by column and if there is one its type is not `VarChar` and not `VarBinary`
+    pub fn aggregation_uniqueness(&self) -> AggregationUniqueness {
+        if self.group_by_exprs.len() > 1 {
+            return AggregationUniqueness::NotProvable;
         }
-
+        if self.group_by_exprs.is_empty() {
+            return AggregationUniqueness::TriviallyUnique;
+        }
+        // We can directly use [0] since we checked len() above
         let column_type = self.group_by_exprs[0].data_type();
-        !matches!(column_type, ColumnType::VarChar | ColumnType::VarBinary)
+        if matches!(column_type, ColumnType::VarChar | ColumnType::VarBinary) {
+            AggregationUniqueness::NotProvable
+        } else {
+            AggregationUniqueness::Provable
+        }
     }
 }
 
@@ -166,13 +184,8 @@ impl ProofPlan for GroupByExec {
             .verify_evaluate(builder, &group_by_result_columns_evals, output_chi_eval.0)?
             .0;
 
-        let is_uniqueness_provable = self.is_uniqueness_provable();
-        if is_uniqueness_provable {
-            assert_eq!(
-                group_by_result_columns_evals.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
+        let aggregation_uniqueness = self.aggregation_uniqueness();
+        if aggregation_uniqueness == AggregationUniqueness::Provable {
             verify_monotonic::<S, true, true>(
                 builder,
                 alpha,
@@ -193,9 +206,8 @@ impl ProofPlan for GroupByExec {
             3,
         )?;
 
-        match (is_uniqueness_provable, result) {
-            (true, _) => (),
-            (false, Some(table)) => {
+        match (aggregation_uniqueness, result) {
+            (AggregationUniqueness::NotProvable, Some(table)) => {
                 let cols = self
                     .group_by_exprs
                     .iter()
@@ -214,11 +226,12 @@ impl ProofPlan for GroupByExec {
                     })?;
                 }
             }
-            (false, None) => {
+            (AggregationUniqueness::NotProvable, None) => {
                 Err(ProofError::UnsupportedQueryPlan {
                     error: "GroupByExec without provable uniqueness check currently only supported at top level of query plan.",
                 })?;
             }
+            _ => {}
         }
 
         let column_evals = group_by_result_columns_evals
@@ -337,13 +350,8 @@ impl ProverEvaluate for GroupByExec {
                 ),
         )
         .expect("Failed to create table from column references");
-        // Prove result uniqueness if possible
-        if self.is_uniqueness_provable() {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
+        // Prove result uniqueness if possible and needed
+        if self.aggregation_uniqueness() == AggregationUniqueness::Provable {
             first_round_evaluate_monotonic(
                 builder,
                 alloc,
@@ -444,13 +452,7 @@ impl ProverEvaluate for GroupByExec {
             .final_round_evaluate(builder, alloc, &group_by_result_columns, m)
             .0;
 
-        let check_uniqueness = self.is_uniqueness_provable();
-        if check_uniqueness {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
+        if self.aggregation_uniqueness() == AggregationUniqueness::Provable {
             let g_out_scalars = group_by_result_columns[0].to_scalar();
             let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
             final_round_evaluate_monotonic::<S, true, true>(
