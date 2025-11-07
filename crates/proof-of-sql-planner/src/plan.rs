@@ -96,17 +96,21 @@ fn table_scan_to_filter(
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
-    let table_expr = TableExpr { table_ref };
-    // Filter
-    let consolidated_filter_proof_expr = filters
+    // TODO: We might refine it by taking all the projection columns and filter columns
+    let input_column_fields = input_schema
+        .iter()
+        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .collect::<Vec<_>>();
+    let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
+    let filter_proof_exprs = filters
         .iter()
         .map(|f| expr_to_proof_expr(f, &input_schema))
         .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
         .expect("At least one filter expression is required")?;
-    Ok(DynProofPlan::new_filter(
+    Ok(DynProofPlan::new_generalized_filter(
         aliased_dyn_proof_exprs,
-        table_expr,
-        consolidated_filter_proof_expr,
+        table_exec,
+        filter_proof_exprs,
     ))
 }
 
@@ -1336,11 +1340,17 @@ mod tests {
         );
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
-        let expected = DynProofPlan::new_filter(
+        let expected = DynProofPlan::new_generalized_filter(
             vec![ALIASED_A(), ALIASED_C()],
-            TableExpr {
-                table_ref: TABLE_REF_TABLE(),
-            },
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("a".into(), ColumnType::BigInt),
+                    ColumnField::new("b".into(), ColumnType::Int),
+                    ColumnField::new("c".into(), ColumnType::VarChar),
+                    ColumnField::new("d".into(), ColumnType::Boolean),
+                ],
+            ),
             DynProofExpr::try_new_and(
                 DynProofExpr::try_new_equals(
                     DynProofExpr::new_column(ColumnRef::new(
@@ -1437,11 +1447,17 @@ mod tests {
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
         let expected = DynProofPlan::new_slice(
-            DynProofPlan::new_filter(
+            DynProofPlan::new_generalized_filter(
                 vec![ALIASED_A(), ALIASED_D()],
-                TableExpr {
-                    table_ref: TABLE_REF_TABLE(),
-                },
+                DynProofPlan::new_table(
+                    TABLE_REF_TABLE(),
+                    vec![
+                        ColumnField::new("a".into(), ColumnType::BigInt),
+                        ColumnField::new("b".into(), ColumnType::Int),
+                        ColumnField::new("c".into(), ColumnType::VarChar),
+                        ColumnField::new("d".into(), ColumnType::Boolean),
+                    ],
+                ),
                 DynProofExpr::try_new_and(
                     DynProofExpr::try_new_inequality(
                         DynProofExpr::new_column(ColumnRef::new(
