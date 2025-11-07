@@ -57,6 +57,10 @@ library SortMergeJoinExec {
             // import fold_log_star_evaluate_from_column_exprs, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
             // import monotonic_verify from ../proof_gadgets/Monotonic.presl
             // import membership_check_evaluate from ../proof_gadgets/MembershipCheck.presl
+
+            // This function takes the evaluations from one of the input plans and organizes them into two collections:
+            // 1. A collection ordered with just the joining columns, and
+            // 2. a collection with the joining columns first, the remaining columns next, and the rho column last.
             function evaluate_input_plans(plan_ptr, builder_ptr, evaluations) -> plan_ptr_out, hat_evals, join_evals {
                 // Determine total number of evaluations
                 let num_columns := mload(evaluations)
@@ -67,8 +71,9 @@ library SortMergeJoinExec {
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
                 if sub(num_join_columns, 1) { err(ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE) }
 
-                // We need a collection to record which indices are not join indices.
+                // We need a collection to record which indices are not join indices (1 means it is not a joining column).
                 // The total number of evaluations from the input should be the number of entries in this collection.
+                // No need to store the length.
                 let other_indices := mload(FREE_PTR)
                 hat_evals := add(other_indices, mul(num_columns, WORD_SIZE))
 
@@ -85,6 +90,7 @@ library SortMergeJoinExec {
                 // Populate the non join index collection with 1s.
                 for { let i := num_columns } i {} {
                     i := sub(i, 1)
+                    // TODO: We probably don't need to be skipping by WORDS for what is effectively a bit collection
                     mstore(add(other_indices, mul(i, WORD_SIZE)), 1)
                 }
 
@@ -120,6 +126,8 @@ library SortMergeJoinExec {
                 mstore(target_hat_evals, builder_consume_rho_evaluation(builder_ptr))
                 plan_ptr_out := plan_ptr
             }
+
+            // Consumes the u column and chi evaluations, and verifies monotonicity for the u column.
             function evaluate_u_column_with_monotony_check(builder_ptr, alpha_and_beta) -> u_column_eval_array, u_chi_eval {
                 // The length of the u eval collection is 1, until we support joining on multiple columns
                 u_column_eval_array := mload(FREE_PTR)
@@ -142,17 +150,20 @@ library SortMergeJoinExec {
                 // Store the u eval in the collection
                 mstore(add(u_column_eval_array, WORD_SIZE), u_column_eval)
             }
+
+            // Consumes the output evaluations from the first round builder for any columns that belong to the left plan
+            // and verifies that the output rows are all members of the left hat collection
             function consume_and_membership_check_left_column_evals(builder_ptr, alpha_and_beta, hat_evals, res_chi_eval, chi_eval) -> res_column_evals {
                 // Initially we set the length of res_column_evals to include the rho eval
                 // This will allow us to check the left evals against the hat evals without needing to load a second,
                 // almost identical collection
-                let num_columns := mload(hat_evals)
+                let num_hat_columns := mload(hat_evals)
                 res_column_evals := mload(FREE_PTR)
-                mstore(res_column_evals, num_columns)
-                mstore(FREE_PTR, add(res_column_evals, mul(add(num_columns, 1), WORD_SIZE)))
+                mstore(res_column_evals, num_hat_columns)
+                mstore(FREE_PTR, add(res_column_evals, mul(add(num_hat_columns, 1), WORD_SIZE)))
 
                 let target_ptr := add(res_column_evals, WORD_SIZE)
-                for { let i := num_columns } i { i := sub(i, 1) } {
+                for { let i := num_hat_columns } i { i := sub(i, 1) } {
                     let eval := builder_consume_first_round_mle(builder_ptr)
                     mstore(target_ptr, eval)
                     target_ptr := add(target_ptr, WORD_SIZE)
@@ -169,23 +180,26 @@ library SortMergeJoinExec {
                     )
                 )
             }
+
             function populate_right_evals_for_join(eval, right_column_evals, res_column_evals_out) {
                 // We store the output in two collections. One output collection and one to compare with the hat evals
                 mstore(right_column_evals, eval)
                 mstore(res_column_evals_out, eval)
             }
 
-            function consume_right_evals_for_join(builder_ptr, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations) -> i_eval, right_column_evals {
+            // Assembles the collection of output columns that will be compared to the right hat collection.
+            // Additionally, computes the i_eval
+            function consume_right_evals_for_join(builder_ptr, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations) -> i_eval, right_output_column_evals {
                 // The length of hat_evals is the length of the collection which will be used in the membership check
-                let num_columns := mload(hat_evals)
-                right_column_evals := mload(FREE_PTR)
-                mstore(right_column_evals, num_columns)
+                let num_hat_columns := mload(hat_evals)
+                right_output_column_evals := mload(FREE_PTR)
+                mstore(right_output_column_evals, num_hat_columns)
                 let res_column_evals := mload(add(left_right_and_output_evaluations, WORDX2_SIZE))
-                let res_column_evals_out := add(right_column_evals, mul(add(num_columns, 1), WORD_SIZE))
+                let res_column_evals_out := add(right_output_column_evals, mul(add(num_hat_columns, 1), WORD_SIZE))
                 mstore(add(left_right_and_output_evaluations, WORDX2_SIZE), res_column_evals_out)
 
                 // Load length of incoming res_column_evals
-                let res_column_length := sub(mload(res_column_evals), 1)
+                let num_left_output_columns  := sub(mload(res_column_evals), 1)
 
                 // The length of the outgoing collection should be
                 // the incoming length plus the number of right hat evals less the common columns
@@ -193,44 +207,50 @@ library SortMergeJoinExec {
                     FREE_PTR,
                     add(
                         res_column_evals_out,
-                        mul(add(res_column_length, sub(add(num_columns, 1), num_join_columns)), WORD_SIZE)
+                        mul(add(num_left_output_columns, sub(add(num_hat_columns, 1), num_join_columns)), WORD_SIZE)
                     )
                 )
-                mstore(res_column_evals_out, add(res_column_length, sub(sub(num_columns, 1), num_join_columns)))
+                mstore(res_column_evals_out, add(num_left_output_columns , sub(sub(num_hat_columns, 1), num_join_columns)))
 
                 // The first num_join_columns entries in the res_column_evals collection are the common evals.
-                // Both res_column_evals_out and right_column_evals need them.
+                // Both res_column_evals_out and right_output_column_evals need them.
                 for { let i := num_join_columns } i { i := sub(i, 1) } {
                     // We increment before reading and writing because we did not increment after handling the lenghts.
                     res_column_evals := add(res_column_evals, WORD_SIZE)
                     res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
-                    right_column_evals := add(right_column_evals, WORD_SIZE)
-                    populate_right_evals_for_join(mload(res_column_evals), right_column_evals, res_column_evals_out)
+                    right_output_column_evals := add(right_output_column_evals, WORD_SIZE)
+                    populate_right_evals_for_join(mload(res_column_evals), right_output_column_evals, res_column_evals_out)
                 }
                 // We copy over the remaining res_column_evals to res_column_evals_out
-                for { let i := sub(res_column_length, num_join_columns) } i { i := sub(i, 1) } {
+                for { let i := sub(num_left_output_columns , num_join_columns) } i { i := sub(i, 1) } {
                     res_column_evals := add(res_column_evals, WORD_SIZE)
                     res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                     mstore(res_column_evals_out, mload(res_column_evals))
                 }
-                // We consume the non rho, non common right evals and populate right_column_evals and res_column_evals_out
-                for { let i := sub(num_columns, num_join_columns) } i { i := sub(i, 1) } {
-                    right_column_evals := add(right_column_evals, WORD_SIZE)
+                // We consume non common right evals and populate right_output_column_evals and res_column_evals_out
+                for { let i := sub(num_hat_columns, num_join_columns) } i { i := sub(i, 1) } {
+                    right_output_column_evals := add(right_output_column_evals, WORD_SIZE)
                     res_column_evals_out := add(res_column_evals_out, WORD_SIZE)
                     populate_right_evals_for_join(
-                        builder_consume_first_round_mle(builder_ptr), right_column_evals, res_column_evals_out
+                        builder_consume_first_round_mle(builder_ptr), right_output_column_evals, res_column_evals_out
                     )
                 }
-                // We populate the final entry in right_column_evals with i_eval
+                // The last entry in right_output_column_evals is rho_bar_right_eval
+                // We saved rho_bar_left_eval from earlier, so that we could calculate i_eval now. Note that this value
+                // does not get recorded in res_column_evals_out.
+
                 i_eval :=
                     addmod_bn254(
-                        mload(right_column_evals), mulmod_bn254(shl(64, 1), mload(add(res_column_evals, WORD_SIZE)))
+                        mload(right_output_column_evals), mulmod_bn254(shl(64, 1), mload(add(res_column_evals, WORD_SIZE)))
                     )
 
                 // We drop the pointers back to their starting places
-                right_column_evals := sub(right_column_evals, mul(num_columns, WORD_SIZE))
+                right_output_column_evals := sub(right_output_column_evals, mul(num_hat_columns, WORD_SIZE))
             }
 
+            // Consumes the output evaluations from the first round builder for any output columns that belong only to the right plan 
+            // and verifies that all output rows from the right plan are all members of the right hat collection.
+            // Additionally, this function retrieves i_eval
             function consume_and_membership_check_right_column_evals(builder_ptr, alpha_and_beta, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations) -> i_eval {
                 let right_column_evals
                 i_eval, right_column_evals :=
@@ -251,6 +271,9 @@ library SortMergeJoinExec {
                     )
                 )
             }
+
+            // This organizes the left plan evaluations, consumes the output evaluations from the first round builder
+            // for any columns that belong to the left plan, and verifies that the output rows are all members of the left hat collection
             function evaluate_consume_and_check_left_column_evals(plan_ptr, builder_ptr, alpha_and_beta, res_chi_eval, left_right_and_output_evaluations, chi_eval) -> plan_ptr_out {
                 // We only need the hat evals for a membership check on the output columns
                 let hat_evals, join_evals
@@ -263,6 +286,11 @@ library SortMergeJoinExec {
                     )
                 mstore(add(left_right_and_output_evaluations, WORDX2_SIZE), res_column_evals)
             }
+
+            // This organizes the right plan evaluations, consumes the output evaluations from the first round builder
+            // for any columns that belong only to the right plan, and verifies that all output rows from the right plan
+            // are all members of the right hat collection.
+            // Additionally, this function checks the monotonicity of the i_eval
             function evaluate_consume_and_check_right_join_evals(plan_ptr, builder_ptr, alpha_and_beta, res_chi_eval, left_right_and_output_evaluations, chi_eval) -> plan_ptr_out {
                 let hat_evals, i_eval, join_evals
                 plan_ptr, hat_evals, join_evals :=
@@ -291,6 +319,7 @@ library SortMergeJoinExec {
                 plan_ptr_out := plan_ptr
             }
 
+            // Runs all checks using the u column collection, including the monotony check and both membership checks.
             function evaluate_remaining_check_on_both_left_and_right_sides(plan_ptr, builder_ptr, alpha_and_beta, left_right_and_output_evaluations, left_chi_eval, right_chi_eval) -> plan_ptr_out, w_eval {
                 let u_column_eval_array, u_chi_eval :=
                     evaluate_u_column_with_monotony_check(builder_ptr, alpha_and_beta)
@@ -321,6 +350,7 @@ library SortMergeJoinExec {
                 plan_ptr_out := plan_ptr
             }
 
+            // This function is effectively any verification that happens on the evaluations of the left and right input plans
             function evaluate_sort_merge_join_outputs(plan_ptr, builder_ptr, left_right_and_output_evaluations, left_chi_eval, right_chi_eval, output_chi_eval) -> plan_ptr_out {
                 // In order to save on local variables, we save alpha and beta in one location in memory
                 let alpha_and_beta := mload(FREE_PTR)
@@ -361,6 +391,7 @@ library SortMergeJoinExec {
                 plan_ptr_out := plan_ptr
             }
 
+            // We don't need the aliases for verification, so we can skip them
             function skip_sort_merge_join_aliases(plan_ptr) -> plan_ptr_out {
                 let num_aliases := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
@@ -371,6 +402,7 @@ library SortMergeJoinExec {
                 plan_ptr_out := plan_ptr
             }
 
+            // Verifies a `SortMergeJoinExec` plan
             function sort_merge_join_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
                 // In order to save on local variables, we save the left, right, and output evaluations
                 // in one location in memory
