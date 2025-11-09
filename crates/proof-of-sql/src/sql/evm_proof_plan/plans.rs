@@ -8,8 +8,8 @@ use crate::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
-            DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec,
-            SortMergeJoinExec, TableExec, UnionExec,
+            DynProofPlan, EmptyExec, FilterExec, GeneralizedFilterExec, GroupByExec,
+            ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
         },
     },
 };
@@ -28,6 +28,7 @@ pub(crate) enum EVMDynProofPlan {
     GroupBy(EVMGroupByExec),
     Union(EVMUnionExec),
     SortMergeJoin(EVMSortMergeJoinExec),
+    GeneralizedFilter(EVMGeneralizedFilterExec),
 }
 
 impl EVMDynProofPlan {
@@ -73,7 +74,14 @@ impl EVMDynProofPlan {
                 )
                 .map(Self::SortMergeJoin)
             }
-            DynProofPlan::GeneralizedFilter(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::GeneralizedFilter(generalized_filter_exec) => {
+                EVMGeneralizedFilterExec::try_from_proof_plan(
+                    generalized_filter_exec,
+                    table_refs,
+                    column_refs,
+                )
+                .map(Self::GeneralizedFilter)
+            }
         }
     }
 
@@ -111,6 +119,13 @@ impl EVMDynProofPlan {
             )),
             EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
                 DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
+                    table_refs,
+                    column_refs,
+                    output_column_names,
+                )?),
+            ),
+            EVMDynProofPlan::GeneralizedFilter(generalized_filter_exec) => Ok(
+                DynProofPlan::GeneralizedFilter(generalized_filter_exec.try_into_proof_plan(
                     table_refs,
                     column_refs,
                     output_column_names,
@@ -234,6 +249,63 @@ impl EVMFilterExec {
                     .cloned()
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
+            self.where_clause.try_into_proof_expr(column_refs)?,
+        ))
+    }
+}
+
+/// Represents a generalized filter execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMGeneralizedFilterExec {
+    input_plan: Box<EVMDynProofPlan>,
+    where_clause: EVMDynProofExpr,
+    results: Vec<EVMDynProofExpr>,
+}
+
+impl EVMGeneralizedFilterExec {
+    /// Try to create a `EVMGeneralizedFilterExec` from a `GeneralizedFilterExec`.
+    pub(crate) fn try_from_proof_plan(
+        plan: &GeneralizedFilterExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(Self {
+            input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
+                plan.input(),
+                table_refs,
+                column_refs,
+            )?),
+            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+            results: plan
+                .aliased_results()
+                .iter()
+                .map(|result| EVMDynProofExpr::try_from_proof_expr(&result.expr, column_refs))
+                .collect::<Result<_, _>>()?,
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
+    ) -> EVMProofPlanResult<GeneralizedFilterExec> {
+        Ok(GeneralizedFilterExec::new(
+            self.results
+                .iter()
+                .zip(output_column_names.iter())
+                .map(|(expr, name)| {
+                    Ok(AliasedDynProofExpr {
+                        expr: expr.try_into_proof_expr(column_refs)?,
+                        alias: Ident::new(name),
+                    })
+                })
+                .collect::<EVMProofPlanResult<Vec<_>>>()?,
+            Box::new(self.input_plan.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
             self.where_clause.try_into_proof_expr(column_refs)?,
         ))
     }
