@@ -81,6 +81,104 @@ contract ProofPlanTest is Test {
         }
     }
 
+    function testGeneralizedFilterExecVariant() public pure {
+        bytes memory plan = abi.encodePacked(
+            GENERALIZED_FILTER_EXEC_VARIANT,
+            TABLE_EXEC_VARIANT,
+            uint64(0), // table_number
+            uint64(2), // column_count
+            uint64(0), // column0_index
+            uint64(1), // column1_index
+            COLUMN_EXPR_VARIANT, // where clause
+            uint64(1),
+            uint64(1), // results
+            COLUMN_EXPR_VARIANT,
+            uint64(0),
+            hex"abcdef"
+        );
+
+        VerificationBuilder.Builder memory builder;
+
+        // column evaluations
+        builder.columnEvaluations = new uint256[](2);
+        uint256[4] memory column0 = [uint256(1), 3, MODULUS_MINUS_ONE, 400];
+        uint256[4] memory column1 = [uint256(1), 0, 0, 1];
+
+        // chi evals
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 4;
+        builder.tableChiEvaluations[1] = 1;
+        builder.chiEvaluations = new uint256[](8); // 1 chi evaluation times 4 rows times 2 slots per element
+        {
+            uint256[4] memory outputChiEval = [uint256(1), 1, 0, 0];
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.chiEvaluations[i * 2] = 2;
+                builder.chiEvaluations[i * 2 + 1] = outputChiEval[i];
+            }
+        }
+
+        // challenges
+        builder.challenges = new uint256[](8);
+        builder.challenges[0] = 3; // alpha
+        builder.challenges[1] = 8; // beta
+        builder.challenges[2] = 3; // alpha
+        builder.challenges[3] = 8; // beta
+        builder.challenges[4] = 3; // alpha
+        builder.challenges[5] = 8; // beta
+        builder.challenges[6] = 3; // alpha
+        builder.challenges[7] = 8; // beta
+
+        // max degree and row multipliers
+        builder.maxDegree = 3;
+        builder.rowMultipliersEvaluation = 1;
+
+        // constraint multipliers
+        builder.constraintMultipliers = new uint256[](16); // 4 constraints times 4 rows
+        for (uint8 i = 0; i < 16; ++i) {
+            builder.constraintMultipliers[i] = 1;
+        }
+
+        // first round mles
+        builder.firstRoundMLEs = new uint256[](4); // 1 mle times 4 rows
+        {
+            uint256[4] memory filteredColumn = [uint256(1), 400, 0, 0];
+
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.firstRoundMLEs[i] = filteredColumn[i];
+            }
+        }
+
+        // final round mles
+        builder.finalRoundMLEs = new uint256[](8); // 2 mles times 4 rows
+        {
+            uint256 inv4 = 16416182153879456416684804308942956316411273300312025757773653139931856371713;
+            uint256 inv10 = 15321770010287492655572484021680092561983855080291224040588742930603065946932;
+            uint256 invNegative2 = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
+            uint256 inv1201 = 17860514583182755801666509267570465934036134148549303627663813574391583951461;
+            uint256[4] memory cStarColumn = [inv4, inv10, invNegative2, inv1201];
+            uint256[4] memory dStarColumn = [cStarColumn[0], cStarColumn[3], 0, 0];
+
+            for (uint8 i = 0; i < 4; ++i) {
+                builder.finalRoundMLEs[i * 2] = cStarColumn[i];
+                builder.finalRoundMLEs[i * 2 + 1] = dStarColumn[i];
+            }
+        }
+        builder.aggregateEvaluation = 0;
+
+        for (uint8 i = 0; i < 4; ++i) {
+            bytes memory planOutput;
+            uint256[] memory evals;
+            uint256 outputChiEval;
+            uint256 length;
+            builder.columnEvaluations[0] = column0[i];
+            builder.columnEvaluations[1] = column1[i];
+            (planOutput, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+            assert(planOutput.length == 3);
+        }
+
+        assert(builder.aggregateEvaluation == 0);
+    }
+
     function testProjectionExecVariant() public pure {
         bytes memory inputPlan = abi.encodePacked(
             FILTER_EXEC_VARIANT,
