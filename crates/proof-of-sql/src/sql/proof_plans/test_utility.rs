@@ -32,6 +32,14 @@ pub fn filter(
     DynProofPlan::Filter(FilterExec::new(results, table, where_clause))
 }
 
+pub fn generalized_filter(
+    results: Vec<AliasedDynProofExpr>,
+    input: DynProofPlan,
+    where_clause: DynProofExpr,
+) -> DynProofPlan {
+    DynProofPlan::new_generalized_filter(results, input, where_clause)
+}
+
 /// # Panics
 ///
 /// Will panic if `count_alias` cannot be parsed as a valid identifier.

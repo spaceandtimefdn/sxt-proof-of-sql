@@ -73,6 +73,7 @@ impl EVMDynProofPlan {
                 )
                 .map(Self::SortMergeJoin)
             }
+            DynProofPlan::GeneralizedFilter(_) => Err(EVMProofPlanError::NotSupported),
         }
     }
 
