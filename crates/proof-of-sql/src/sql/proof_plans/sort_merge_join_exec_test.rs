@@ -102,14 +102,26 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
     accessor.add_table(table_cat_details.clone(), cat_details, 0);
     let ast = slice_exec(
         sort_merge_join(
-            filter(
+            generalized_filter(
                 cols_expr_plan(&table_cats, &["id", "name"], &accessor),
-                tab(&table_cats),
+                table_exec(
+                    table_cats.clone(),
+                    vec![
+                        column_field("id", ColumnType::BigInt),
+                        column_field("name", ColumnType::VarChar),
+                    ],
+                ),
                 lte(column(&table_cats, "id", &accessor), const_int128(20)),
             ),
-            filter(
+            generalized_filter(
                 cols_expr_plan(&table_cat_details, &["id", "human"], &accessor),
-                tab(&table_cat_details),
+                table_exec(
+                    table_cat_details.clone(),
+                    vec![
+                        column_field("id", ColumnType::BigInt),
+                        column_field("human", ColumnType::VarChar),
+                    ],
+                ),
                 not(equal(
                     column(&table_cat_details, "human", &accessor),
                     const_varchar("Gretta"),
@@ -195,14 +207,27 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
     accessor.add_table(table_cat_vet.clone(), cat_vet, 0);
     let ast = sort_merge_join(
         sort_merge_join(
-            filter(
+            generalized_filter(
                 cols_expr_plan(&table_cats, &["id", "name"], &accessor),
-                tab(&table_cats),
+                table_exec(
+                    table_cats.clone(),
+                    vec![
+                        column_field("id", ColumnType::BigInt),
+                        column_field("name", ColumnType::VarChar),
+                    ],
+                ),
                 lte(column(&table_cats, "id", &accessor), const_int128(20)),
             ),
-            filter(
+            generalized_filter(
                 cols_expr_plan(&table_cat_human, &["id", "human", "state"], &accessor),
-                tab(&table_cat_human),
+                table_exec(
+                    table_cat_human.clone(),
+                    vec![
+                        column_field("id", ColumnType::BigInt),
+                        column_field("human", ColumnType::VarChar),
+                        column_field("state", ColumnType::VarChar),
+                    ],
+                ),
                 not(equal(
                     column(&table_cat_human, "human", &accessor),
                     const_varchar("Gretta"),
@@ -217,9 +242,15 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
                 Ident::new("state"),
             ],
         ),
-        filter(
+        generalized_filter(
             cols_expr_plan(&table_cat_vet, &["id", "hospital"], &accessor),
-            tab(&table_cat_vet),
+            table_exec(
+                table_cat_vet.clone(),
+                vec![
+                    column_field("id", ColumnType::BigInt),
+                    column_field("hospital", ColumnType::VarChar),
+                ],
+            ),
             not(equal(
                 column(&table_cat_vet, "hospital", &accessor),
                 const_varchar("Clear Creek"),
