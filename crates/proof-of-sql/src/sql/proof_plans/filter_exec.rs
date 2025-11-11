@@ -37,7 +37,7 @@ pub struct FilterExec {
 }
 
 impl FilterExec {
-    /// Creates a new generalized filter expression.
+    /// Creates a new filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
         input: Box<DynProofPlan>,

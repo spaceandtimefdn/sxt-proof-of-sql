@@ -246,7 +246,7 @@ impl EVMLegacyFilterExec {
     }
 }
 
-/// Represents a generalized filter execution plan in EVM.
+/// Represents a filter execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMFilterExec {
     input_plan: Box<EVMDynProofPlan>,
@@ -1448,7 +1448,7 @@ mod tests {
     }
 
     #[test]
-    fn we_can_put_simple_generalized_filter_exec_in_evm() {
+    fn we_can_put_simple_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
@@ -1464,8 +1464,8 @@ mod tests {
         ];
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
-        // Create a generalized filter exec
-        let generalized_filter_exec = FilterExec::new(
+        // Create a filter exec
+        let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
                 alias: Ident::new(alias.clone()),
@@ -1483,31 +1483,31 @@ mod tests {
         );
 
         // Convert to EVM plan
-        let evm_generalized_filter_exec = EVMFilterExec::try_from_proof_plan(
-            &generalized_filter_exec,
+        let evm_filter_exec = EVMFilterExec::try_from_proof_plan(
+            &filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
         )
         .unwrap();
 
         // Verify the structure
-        assert_eq!(evm_generalized_filter_exec.results.len(), 1);
+        assert_eq!(evm_filter_exec.results.len(), 1);
         assert!(matches!(
-            evm_generalized_filter_exec.results[0],
+            evm_filter_exec.results[0],
             EVMDynProofExpr::Column(_)
         ));
         assert!(matches!(
-            evm_generalized_filter_exec.where_clause,
+            evm_filter_exec.where_clause,
             EVMDynProofExpr::Equals(_)
         ));
         assert!(matches!(
-            *evm_generalized_filter_exec.input_plan,
+            *evm_filter_exec.input_plan,
             EVMDynProofPlan::Table(_)
         ));
 
         // Roundtrip
-        let roundtripped_generalized_filter_exec = EVMFilterExec::try_into_proof_plan(
-            &evm_generalized_filter_exec,
+        let roundtripped_filter_exec = EVMFilterExec::try_into_proof_plan(
+            &evm_filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
             &indexset![alias],
@@ -1515,26 +1515,23 @@ mod tests {
         .unwrap();
 
         // Verify the roundtripped plan has the expected structure
-        assert_eq!(
-            roundtripped_generalized_filter_exec.aliased_results().len(),
-            1
-        );
+        assert_eq!(roundtripped_filter_exec.aliased_results().len(), 1);
         assert!(matches!(
-            roundtripped_generalized_filter_exec.aliased_results()[0].expr,
+            roundtripped_filter_exec.aliased_results()[0].expr,
             DynProofExpr::Column(_)
         ));
         assert!(matches!(
-            roundtripped_generalized_filter_exec.where_clause(),
+            roundtripped_filter_exec.where_clause(),
             DynProofExpr::Equals(_)
         ));
         assert!(matches!(
-            *roundtripped_generalized_filter_exec.input(),
+            *roundtripped_filter_exec.input(),
             DynProofPlan::Table(_)
         ));
     }
 
     #[test]
-    fn we_can_put_complex_generalized_filter_exec_in_evm() {
+    fn we_can_put_complex_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -1553,8 +1550,8 @@ mod tests {
         // Create a slice exec as the input (to test nested plans)
         let slice_exec = SliceExec::new(Box::new(DynProofPlan::Table(table_exec)), 5, Some(10));
 
-        // Create a generalized filter exec with the slice as input
-        let generalized_filter_exec = FilterExec::new(
+        // Create a filter exec with the slice as input
+        let filter_exec = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
@@ -1578,8 +1575,8 @@ mod tests {
         );
 
         // Convert to EVM plan
-        let evm_generalized_filter_exec = EVMFilterExec::try_from_proof_plan(
-            &generalized_filter_exec,
+        let evm_filter_exec = EVMFilterExec::try_from_proof_plan(
+            &filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
         )
@@ -1587,12 +1584,12 @@ mod tests {
 
         // Verify nested structure
         assert!(matches!(
-            *evm_generalized_filter_exec.input_plan,
+            *evm_filter_exec.input_plan,
             EVMDynProofPlan::Slice(_)
         ));
 
         // Roundtrip
-        let roundtripped = evm_generalized_filter_exec
+        let roundtripped = evm_filter_exec
             .try_into_proof_plan(
                 &indexset![table_ref],
                 &indexset![column_ref_a, column_ref_b],
@@ -1607,7 +1604,7 @@ mod tests {
 
     #[expect(clippy::too_many_lines)]
     #[test]
-    fn we_can_put_nested_generalized_filter_exec_in_evm() {
+    fn we_can_put_nested_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -1628,7 +1625,7 @@ mod tests {
         ];
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
-        // First generalized filter: filter where a = 10
+        // First filter: filter where a = 10
         let filter_1 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
@@ -1656,7 +1653,7 @@ mod tests {
             ),
         );
 
-        // Second generalized filter: filter where b > 20
+        // Second filter: filter where b > 20
         let filter_2 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
@@ -1684,7 +1681,7 @@ mod tests {
             ),
         );
 
-        // Third generalized filter: filter where c = 30
+        // Third filter: filter where c = 30
         let filter_3 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
@@ -1774,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn generalized_filter_exec_fails_with_column_not_found_in_where_clause() {
+    fn filter_exec_fails_with_column_not_found_in_where_clause() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -1793,8 +1790,8 @@ mod tests {
         ];
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
-        // Create a generalized filter exec with a where clause that references a missing column
-        let generalized_filter_exec = FilterExec::new(
+        // Create a filter exec with a where clause that references a missing column
+        let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
                 alias: Ident::new(alias),
@@ -1812,7 +1809,7 @@ mod tests {
         );
 
         let result = EVMFilterExec::try_from_proof_plan(
-            &generalized_filter_exec,
+            &filter_exec,
             &indexset![table_ref],
             &indexset![column_ref_a, column_ref_b],
         );
@@ -1821,7 +1818,7 @@ mod tests {
     }
 
     #[test]
-    fn generalized_filter_exec_fails_with_column_not_found_in_results() {
+    fn filter_exec_fails_with_column_not_found_in_results() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -1840,8 +1837,8 @@ mod tests {
         ];
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
-        // Create a generalized filter exec with a result that references a missing column
-        let generalized_filter_exec = FilterExec::new(
+        // Create a filter exec with a result that references a missing column
+        let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(missing_column)),
                 alias: Ident::new(alias),
@@ -1859,7 +1856,7 @@ mod tests {
         );
 
         let result = EVMFilterExec::try_from_proof_plan(
-            &generalized_filter_exec,
+            &filter_exec,
             &indexset![table_ref],
             &indexset![column_ref_a, column_ref_b],
         );
@@ -1868,7 +1865,7 @@ mod tests {
     }
 
     #[test]
-    fn generalized_filter_exec_fails_with_table_not_found_in_input() {
+    fn filter_exec_fails_with_table_not_found_in_input() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let missing_table_ref: TableRef = "namespace.missing".parse().unwrap();
         let ident_a: Ident = "a".into();
@@ -1885,8 +1882,8 @@ mod tests {
         ];
         let table_exec = TableExec::new(missing_table_ref, column_fields);
 
-        // Create a generalized filter exec
-        let generalized_filter_exec = FilterExec::new(
+        // Create a filter exec
+        let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
                 alias: Ident::new(alias),
@@ -1904,7 +1901,7 @@ mod tests {
         );
 
         let result = EVMFilterExec::try_from_proof_plan(
-            &generalized_filter_exec,
+            &filter_exec,
             &indexset![table_ref],
             &indexset![column_ref_a, column_ref_b],
         );
