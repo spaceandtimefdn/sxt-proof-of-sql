@@ -169,6 +169,63 @@ fn test_simple_filter_queries() {
     );
 }
 
+/// Test complex filter queries with nested filters using subqueries
+#[test]
+fn test_complex_filter_queries() {
+    let alloc = Bump::new();
+    let sql = "
+        SELECT id, value FROM (SELECT * FROM data WHERE value > 10) WHERE id < 4;
+        SELECT id, name FROM (SELECT * FROM pets WHERE age > 2) WHERE id < 4 OR name = $1;
+        SELECT a, double_b as b FROM (SELECT b * 2 as double_b, a + 1 as a FROM numbers WHERE a >= 0) WHERE double_b == 100;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "data") => table(
+            vec![
+                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
+                borrowed_int("value", [5, 12, 18, 8, 25], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "pets") => table(
+            vec![
+                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
+                borrowed_varchar("name", ["Rex", "Whiskers", "Fido", "Fluffy", "Buddy"], &alloc),
+                borrowed_tinyint("age", [3_i8, 5, 1, 7, 4], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "numbers") => table(
+            vec![
+                borrowed_bigint("a", [1_i64, 2, -1, 3, 0, 5], &alloc),
+                borrowed_bigint("b", [10_i64, 50, 20, 150, 50, 50], &alloc),
+            ]
+        )
+    };
+
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([int("id", [2, 3]), int("value", [12, 18])]),
+        owned_table([
+            int("id", [1, 2, 5]),
+            varchar("name", ["Rex", "Whiskers", "Buddy"]),
+        ]),
+        owned_table([
+            decimal75("a", 20, 0, [3_i64, 1, 6]),
+            decimal75("b", 39, 0, [100_i64, 100, 100]),
+        ]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[LiteralValue::VarChar("Buddy".to_string())],
+    );
+}
+
 /// Test projection operation - selecting only specific columns
 #[test]
 fn test_projection() {
