@@ -10,8 +10,8 @@ use proof_of_sql::{
                 bigint, boolean, decimal75, int, owned_table, smallint, timestamptz, tinyint,
                 varbinary, varchar,
             },
-            ColumnRef, ColumnType, CommitmentAccessor, LiteralValue, OwnedTableTestAccessor,
-            SchemaAccessor, TableRef, TestAccessor,
+            ColumnField, ColumnRef, ColumnType, CommitmentAccessor, LiteralValue,
+            OwnedTableTestAccessor, SchemaAccessor, TableRef, TestAccessor,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
@@ -23,7 +23,7 @@ use proof_of_sql::{
     sql::{
         evm_proof_plan::EVMProofPlan,
         proof::{ProofPlan, VerifiableQueryResult},
-        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr},
         proof_plans::DynProofPlan,
     },
 };
@@ -438,9 +438,13 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
                 "b",
             ),
         ],
-        TableExpr {
-            table_ref: t.clone(),
-        },
+        DynProofPlan::new_table(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::Boolean),
+            ],
+        ),
         DynProofExpr::try_new_equals(
             DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),
@@ -492,9 +496,13 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
             ),
             col_expr_plan(&t, "b", &accessor),
         ],
-        TableExpr {
-            table_ref: t.clone(),
-        },
+        DynProofPlan::new_table(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::Boolean),
+            ],
+        ),
         DynProofExpr::try_new_equals(
             DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),

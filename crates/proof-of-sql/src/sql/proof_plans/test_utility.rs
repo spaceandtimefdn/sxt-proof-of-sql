@@ -1,6 +1,6 @@
 use super::{
-    DynProofPlan, EmptyExec, FilterExec, GroupByExec, ProjectionExec, SliceExec, SortMergeJoinExec,
-    TableExec, UnionExec,
+    DynProofPlan, EmptyExec, GroupByExec, LegacyFilterExec, ProjectionExec, SliceExec,
+    SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::database::{ColumnField, ColumnType, TableRef},
@@ -24,20 +24,20 @@ pub fn projection(results: Vec<AliasedDynProofExpr>, input: DynProofPlan) -> Dyn
     DynProofPlan::Projection(ProjectionExec::new(results, Box::new(input)))
 }
 
-pub fn filter(
+pub fn legacy_filter(
     results: Vec<AliasedDynProofExpr>,
     table: TableExpr,
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
-    DynProofPlan::Filter(FilterExec::new(results, table, where_clause))
+    DynProofPlan::LegacyFilter(LegacyFilterExec::new(results, table, where_clause))
 }
 
-pub fn generalized_filter(
+pub fn filter(
     results: Vec<AliasedDynProofExpr>,
     input: DynProofPlan,
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
-    DynProofPlan::new_generalized_filter(results, input, where_clause)
+    DynProofPlan::new_filter(results, input, where_clause)
 }
 
 /// # Panics

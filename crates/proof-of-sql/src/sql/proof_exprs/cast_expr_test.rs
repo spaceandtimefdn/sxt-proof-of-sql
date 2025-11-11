@@ -18,7 +18,7 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{CastExpr, DynProofExpr},
-        proof_plans::test_utility::filter,
+        proof_plans::test_utility::legacy_filter,
         AnalyzeError,
     },
 };
@@ -43,7 +43,7 @@ fn we_can_prove_a_simple_cast_expr() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             aliased_plan(
                 cast(column(&t, "a", &accessor), ColumnType::TinyInt),
@@ -101,7 +101,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             aliased_plan(
                 cast(column(&t, "a", &accessor), ColumnType::SmallInt),

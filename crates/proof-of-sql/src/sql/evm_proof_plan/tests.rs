@@ -8,7 +8,7 @@ use crate::{
         proof_exprs::{
             AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr, TableExpr,
         },
-        proof_plans::{DynProofPlan, FilterExec},
+        proof_plans::{DynProofPlan, LegacyFilterExec},
     },
 };
 use core::iter;
@@ -23,7 +23,7 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
     let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
 
-    let plan = DynProofPlan::Filter(FilterExec::new(
+    let plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
             alias: identifier_alias,
@@ -59,7 +59,7 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
         .chain(&5_usize.to_be_bytes())
         .chain("alias".as_bytes())
         .chain([])
-        .chain(&0_u32.to_be_bytes()) //   FilterExec
+        .chain(&0_u32.to_be_bytes()) //   LegacyFilterExec
         .chain(&0_usize.to_be_bytes()) //   table_number
         .chain(&2_u32.to_be_bytes()) //     where_clause - EqualsExpr
         .chain(&0_u32.to_be_bytes()) //       lhs - ColumnExpr
@@ -85,7 +85,7 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
     let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
     let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
 
-    let expected_plan = DynProofPlan::Filter(FilterExec::new(
+    let expected_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
             alias: identifier_alias,
@@ -119,7 +119,7 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
         .chain(&5_usize.to_be_bytes())
         .chain("alias".as_bytes())
         .chain([])
-        .chain(&0_u32.to_be_bytes()) //   FilterExec
+        .chain(&0_u32.to_be_bytes()) //   LegacyFilterExec
         .chain(&0_usize.to_be_bytes()) //   table_number
         .chain(&2_u32.to_be_bytes()) //     where_clause - EqualsExpr
         .chain(&0_u32.to_be_bytes()) //       lhs - ColumnExpr

@@ -6,29 +6,29 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
-/// @title GeneralizedFilterExec
-/// @dev Library for handling generalized filter execution plans
-library GeneralizedFilterExec {
-    /// @notice Evaluates a generalized filter execution plan
+/// @title LegacyFilterExec
+/// @dev Library for handling legacy filter execution plans
+library LegacyFilterExec {
+    /// @notice Evaluates a legacy filter execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// function generalized_filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval
+    /// legacy_filter_exec_evaluate(plan_ptr, builder_ptr, accessor_ptr, one_evals) -> plan_ptr_out, evaluations_ptr, output_chi_eval
     /// ```
     /// ##### Parameters
-    /// * `plan_ptr` - calldata pointer to the generalized filter execution plan
+    /// * `plan_ptr` - calldata pointer to the legacy filter execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
-    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the generalized filter execution plan
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the filter execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
     /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
-    /// @notice Evaluates two sub-expressions and produces identity constraints checking their equality
+    /// @notice Evaluates two sub-expressions and produces identity constraints checking their equality (legacy version)
     /// @notice ##### Constraints
     /// * Inputs: \\(S=\texttt{selection}\\), \\(C_1,\ldots,C_\ell=\texttt{c}\\) with length \\(n\\), and thus \\(\chi_{[0,n)}=\texttt{input_chi_eval}\\).
-    ///   Note: `proof_expr_evaluate` guarantees that the lengths of these inputs equals the lengths of \\(chi_{[0,n)}\\).
-    ///         It also guarantees that the inputs have the correct evaluations.
+    ///   Note: `proof_expr_evaluate` guarentees that the lengths of these inputs equals the lengths of \\(chi_{[0,n)}\\).
+    ///         It also guarentees that the inputs have the correct evaluations.
     ///         So, because we are assuming the query is valid, we know that \\(S\\) must be a column of boolean values.
     /// * Outputs: \\(D_1,\ldots,D_\ell=\texttt{d}\\) with length \\(m\\), and thus \\(\chi_{[0,m)}=\texttt{output_chi_eval}\\).
     /// * Hints: \\(C^\star=\texttt{c_star}\\) and \\(D^\star=\texttt{d_star}\\)
@@ -60,20 +60,20 @@ library GeneralizedFilterExec {
     /// @notice **Soundness Proof:**
     /// TODO
     /// ##### Proof Plan Encoding
-    /// The generalized filter plan is encoded as follows:
-    /// 1. The input proof plan
+    /// The filter plan is encoded as follows:
+    /// 1. The index of the table being read from (64 bit integer)
     /// 2. The selection/filtering condition expression
     /// 3. The number of input/output columns (64 bit integer)
     /// 4. The input column expressions, in order
-    /// @dev Evaluates a generalized filter execution plan by checking the filter condition on each row
-    /// @param __plan The generalized filter execution plan data
+    /// @dev Evaluates a legacy filter execution plan by checking the filter condition on each row
+    /// @param __plan The legacy filter execution plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
-    function __generalizedFilterExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __legacyFilterExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
@@ -88,27 +88,44 @@ library GeneralizedFilterExec {
         uint256[] memory __evaluations;
         assembly {
             // import mulmod_bn254 from ../base/MathUtil.presl
-            // import builder_consume_challenge, builder_consume_chi_evaluation_with_length from ../builder/VerificationBuilder.presl
+            // import builder_consume_challenge, builder_consume_chi_evaluation_with_length, builder_get_table_chi_evaluation from ../builder/VerificationBuilder.presl
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
+            // import fold_expr_evals, fold_first_round_mles from ../proof_gadgets/FoldUtil.presl
             // import verify_filter from ../proof_gadgets/FilterBase.presl
-            // import compute_filter_folds from FilterExec.presl
-            // import proof_plan_evaluate from ProofPlan.presl
 
-            function generalized_filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
+                plan_ptr_out,
+                c_fold,
+                d_fold,
+                evaluations_ptr
+            {
+                let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
+
+                plan_ptr, c_fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
+                d_fold, evaluations_ptr := fold_first_round_mles(builder_ptr, beta, column_count)
+                plan_ptr_out := plan_ptr
+            }
+
+            function legacy_filter_exec_evaluate(plan_ptr, builder_ptr) ->
+                plan_ptr_out,
+                evaluations_ptr,
+                output_length,
+                output_chi_eval
+            {
                 let input_chi_eval, selection_eval, c_fold, d_fold
                 {
                     let alpha := builder_consume_challenge(builder_ptr)
                     let beta := builder_consume_challenge(builder_ptr)
-                    {
-                        let input_length, input_evaluations_ptr
-                        plan_ptr, input_evaluations_ptr, input_length, input_chi_eval :=
-                            proof_plan_evaluate(plan_ptr, builder_ptr)
-                    }
+
+                    input_chi_eval :=
+                        builder_get_table_chi_evaluation(builder_ptr, shr(UINT64_PADDING_BITS, calldataload(plan_ptr)))
+                    plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                     plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
 
                     plan_ptr, c_fold, d_fold, evaluations_ptr :=
-                         compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
+                        compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta)
                     c_fold := mulmod_bn254(alpha, c_fold)
                     d_fold := mulmod_bn254(alpha, d_fold)
                 }
@@ -121,7 +138,7 @@ library GeneralizedFilterExec {
 
             let __planOutOffset
             __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
-                generalized_filter_exec_evaluate(__plan.offset, __builder)
+                legacy_filter_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

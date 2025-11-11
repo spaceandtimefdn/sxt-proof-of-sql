@@ -1,5 +1,5 @@
 use super::{
-    EmptyExec, FilterExec, GeneralizedFilterExec, GroupByExec, ProjectionExec, SliceExec,
+    EmptyExec, FilterExec, GroupByExec, LegacyFilterExec, ProjectionExec, SliceExec,
     SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
@@ -51,13 +51,13 @@ pub enum DynProofPlan {
     /// ```ignore
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
     /// ```
-    Filter(FilterExec),
+    LegacyFilter(LegacyFilterExec),
     /// Provable expressions for queries of the form, where the result is sent in a dense form
     /// ```ignore
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
     /// ```
-    /// Similar to Filter but accepts a DynProofPlan as input
-    GeneralizedFilter(GeneralizedFilterExec),
+    /// Accepts a DynProofPlan as input
+    Filter(FilterExec),
     /// `ProofPlan` for queries of the form
     /// ```ignore
     ///     <ProofPlan> LIMIT <fetch> [OFFSET <skip>]
@@ -100,14 +100,14 @@ impl DynProofPlan {
         Self::Projection(ProjectionExec::new(aliased_results, Box::new(input)))
     }
 
-    /// Creates a new filter plan.
+    /// Creates a new legacy filter plan.
     #[must_use]
-    pub fn new_filter(
+    pub fn new_legacy_filter(
         aliased_results: Vec<AliasedDynProofExpr>,
         input: TableExpr,
         filter_expr: DynProofExpr,
     ) -> Self {
-        Self::Filter(FilterExec::new(aliased_results, input, filter_expr))
+        Self::LegacyFilter(LegacyFilterExec::new(aliased_results, input, filter_expr))
     }
 
     /// Creates a new group by plan.
@@ -139,14 +139,14 @@ impl DynProofPlan {
         UnionExec::try_new(inputs).map(Self::Union)
     }
 
-    /// Creates a new generalized filter plan.
+    /// Creates a new filter plan.
     #[must_use]
-    pub fn new_generalized_filter(
+    pub fn new_filter(
         aliased_results: Vec<AliasedDynProofExpr>,
         input: DynProofPlan,
         filter_expr: DynProofExpr,
     ) -> Self {
-        Self::GeneralizedFilter(GeneralizedFilterExec::new(
+        Self::Filter(FilterExec::new(
             aliased_results,
             Box::new(input),
             filter_expr,

@@ -1,449 +1,247 @@
-use super::{test_utility::*, FilterExec};
+use super::{test_utility::*, DynProofPlan};
 use crate::{
     base::{
+        commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
-            LiteralValue, OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor,
-            TestAccessor,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
+            TableTestAccessor, TestAccessor,
         },
-        map::{indexmap, IndexMap, IndexSet},
-        math::decimal::Precision,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{
-            exercise_verification, FirstRoundBuilder, ProofPlan, ProvableQueryResult,
-            ProverEvaluate, VerifiableQueryResult,
-        },
-        proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, LiteralExpr, TableExpr},
+        proof::{exercise_verification, VerifiableQueryResult},
+        proof_exprs::test_utility::*,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
-use sqlparser::ast::Ident;
 
 #[test]
-fn we_can_correctly_fetch_the_query_result_schema() {
-    let schema_name = "sxt";
-    let table_name = "sxt_tab";
-    let table_ref = TableRef::new(schema_name, table_name);
-    let a = Ident::new("a");
-    let b = Ident::new("b");
-    let provable_ast = FilterExec::new(
-        vec![
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
-                "a",
-            ),
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    b,
-                    ColumnType::BigInt,
-                ))),
-                "b",
-            ),
-        ],
-        TableExpr {
-            table_ref: table_ref.clone(),
-        },
-        DynProofExpr::try_new_equals(
-            DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                table_ref.clone(),
-                Ident::new("c"),
-                ColumnType::BigInt,
-            ))),
-            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(123))),
-        )
-        .unwrap(),
-    );
-
-    let column_fields: Vec<ColumnField> = provable_ast.get_column_result_fields();
-    assert_eq!(
-        column_fields,
-        vec![
-            ColumnField::new("a".into(), ColumnType::BigInt),
-            ColumnField::new("b".into(), ColumnType::BigInt)
-        ]
-    );
-}
-
-#[test]
-fn we_can_correctly_fetch_all_the_referenced_columns() {
-    let schema_name = "sxt";
-    let table_name = "sxt_tab";
-    let table_ref = TableRef::new(schema_name, table_name);
-
-    let a = Ident::new("a");
-    let f = Ident::new("f");
-    let provable_ast = FilterExec::new(
-        vec![
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
-                "a",
-            ),
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    f,
-                    ColumnType::BigInt,
-                ))),
-                "f",
-            ),
-        ],
-        TableExpr {
-            table_ref: table_ref.clone(),
-        },
-        not(and(
-            or(
-                DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
-                        Ident::new("f"),
-                        ColumnType::BigInt,
-                    ))),
-                    DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(45))),
-                )
-                .unwrap(),
-                DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
-                        Ident::new("c"),
-                        ColumnType::BigInt,
-                    ))),
-                    DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(-2))),
-                )
-                .unwrap(),
-            ),
-            DynProofExpr::try_new_equals(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    Ident::new("b"),
-                    ColumnType::BigInt,
-                ))),
-                DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(3))),
-            )
-            .unwrap(),
-        )),
-    );
-
-    let ref_columns = provable_ast.get_column_references();
-
-    assert_eq!(
-        ref_columns,
-        IndexSet::from_iter([
-            ColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("c"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("b"), ColumnType::BigInt)
-        ])
-    );
-
-    let ref_tables = provable_ast.get_table_references();
-
-    assert_eq!(ref_tables, IndexSet::from_iter([table_ref]));
-}
-
-#[test]
-fn we_can_prove_and_get_the_correct_result_from_a_basic_filter() {
-    let data = owned_table([
-        bigint("a", [1_i64, 4_i64, 5_i64, 2_i64, 5_i64]),
-        bigint("b", [1_i64, 2, 3, 4, 5]),
+fn we_can_get_fields_of_filter() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [1, 2, 3], &alloc),
+        borrowed_bigint("b", [4, 5, 6], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+
+    // Create a TableExec as input for FilterExec
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+        ],
+    );
+
+    let where_clause = equal(column(&t, "a", &accessor), const_int128(2_i128));
+    let plan = filter(
+        cols_expr_plan(&t, &["a"], &accessor),
+        table_exec.clone(),
+        where_clause.clone(),
+    );
+    let expected_aliased_results = vec![col_expr_plan(&t, "a", &accessor)];
+    if let DynProofPlan::Filter(plan) = plan {
+        assert_eq!(plan.aliased_results(), &expected_aliased_results,);
+        assert_eq!(plan.input(), &table_exec,);
+        assert_eq!(plan.where_clause(), &where_clause);
+    } else {
+        panic!("Expected FilterExec plan");
+    }
+}
+
+#[test]
+fn we_can_correctly_filter_data_with_filter() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
+        borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+
+    // Create a TableExec as input for FilterExec
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+        ],
+    );
+
+    // Create FilterExec with TableExec as input
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
-    let ast = filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let expr = filter(
+        cols_expr_plan(&t, &["b"], &accessor),
+        table_exec,
+        where_clause,
+    );
+
+    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    exercise_verification(&res, &expr, &accessor, &t);
+    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([bigint("b", [3_i64, 5])]);
     assert_eq!(res, expected_res);
 }
 
 #[test]
-fn we_can_get_an_empty_result_from_a_basic_filter_on_an_empty_table_using_first_round_evaluate() {
-    let alloc = Bump::new();
-    let data = table([
-        borrowed_bigint("a", [0; 0], &alloc),
-        borrowed_bigint("b", [0; 0], &alloc),
-        borrowed_int128("c", [0; 0], &alloc),
-        borrowed_varchar("d", [""; 0], &alloc),
-        borrowed_scalar("e", [0; 0], &alloc),
-    ]);
-    let data_length = data.num_rows();
-    let t = TableRef::new("sxt", "t");
-    let table_map = indexmap! {
-        t.clone() => data.clone()
-    };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
-    let expr = filter(
-        cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
-        where_clause,
-    );
-    let fields = &[
-        ColumnField::new("b".into(), ColumnType::BigInt),
-        ColumnField::new("c".into(), ColumnType::Int128),
-        ColumnField::new("d".into(), ColumnType::VarChar),
-        ColumnField::new(
-            "e".into(),
-            ColumnType::Decimal75(Precision::new(75).unwrap(), 0),
-        ),
-    ];
-    let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
-        expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
-            .unwrap(),
-    )
-    .to_owned_table(fields)
-    .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
-        bigint("b", [0; 0]),
-        int128("c", [0; 0]),
-        varchar("d", [""; 0]),
-        decimal75("e", 75, 0, [0; 0]),
-    ]);
-
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn we_can_get_an_empty_result_from_a_basic_filter_using_first_round_evaluate() {
+fn we_can_correctly_filter_with_complex_condition() {
     let alloc = Bump::new();
     let data = table([
         borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
         borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
-        borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
-        borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
+        borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
-    let data_length = data.num_rows();
     let t = TableRef::new("sxt", "t");
-    let table_map = indexmap! {
-        t.clone() => data.clone()
-    };
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
+
+    // Create a TableExec as input for FilterExec
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+            ColumnField::new("c".into(), ColumnType::Int128),
+        ],
+    );
+
+    // Create FilterExec with TableExec as input and complex condition
+    let where_clause = and(
+        gte(column(&t, "a", &accessor), const_int128(4_i128)),
+        lte(column(&t, "c", &accessor), const_int128(30_i128)),
+    );
     let expr = filter(
-        cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
+        cols_expr_plan(&t, &["a", "b", "c"], &accessor),
+        table_exec,
         where_clause,
     );
-    let fields = &[
-        ColumnField::new("b".into(), ColumnType::BigInt),
-        ColumnField::new("c".into(), ColumnType::Int128),
-        ColumnField::new("d".into(), ColumnType::VarChar),
-        ColumnField::new(
-            "e".into(),
-            ColumnType::Decimal75(Precision::new(1).unwrap(), 0),
-        ),
-    ];
-    let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
-        expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
-            .unwrap(),
-    )
-    .to_owned_table(fields)
-    .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
-        bigint("b", [0; 0]),
-        int128("c", [0; 0]),
-        varchar("d", [""; 0]),
-        decimal75("e", 1, 0, [0; 0]),
-    ]);
 
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn we_can_get_no_columns_from_a_basic_filter_with_no_selected_columns_using_first_round_evaluate() {
-    let alloc = Bump::new();
-    let data = table([
-        borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
-        borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
-        borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
-        borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
-    ]);
-    let data_length = data.num_rows();
-    let t = TableRef::new("sxt", "t");
-    let table_map = indexmap! {
-        t.clone() => data.clone()
-    };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
-    let expr = filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause);
-    let fields = &[];
-    let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
-        expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
-            .unwrap(),
-    )
-    .to_owned_table(fields)
-    .unwrap();
-    let expected = OwnedTable::try_new(IndexMap::default()).unwrap();
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn we_can_get_the_correct_result_from_a_basic_filter_using_first_round_evaluate() {
-    let alloc = Bump::new();
-    let data = table([
-        borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
-        borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
-        borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
-        borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
-    ]);
-    let data_length = data.num_rows();
-    let t = TableRef::new("sxt", "t");
-    let table_map = indexmap! {
-        t.clone() => data.clone()
-    };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
-    let expr = filter(
-        cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
-        where_clause,
-    );
-    let fields = &[
-        ColumnField::new("b".into(), ColumnType::BigInt),
-        ColumnField::new("c".into(), ColumnType::Int128),
-        ColumnField::new("d".into(), ColumnType::VarChar),
-        ColumnField::new(
-            "e".into(),
-            ColumnType::Decimal75(Precision::new(1).unwrap(), 0),
-        ),
-    ];
-    let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
-        expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
-            .unwrap(),
-    )
-    .to_owned_table(fields)
-    .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
-        bigint("b", [3, 5]),
-        int128("c", [3, 5]),
-        varchar("d", ["3", "5"]),
-        decimal75("e", 1, 0, [3, 5]),
-    ]);
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn we_can_prove_a_filter_on_an_empty_table() {
-    let data = owned_table([
-        bigint("a", [101; 0]),
-        bigint("b", [3; 0]),
-        int128("c", [3; 0]),
-        varchar("d", ["3"; 0]),
-        scalar("e", [3; 0]),
-    ]);
-    let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let expr = filter(
-        cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
-        equal(column(&t, "a", &accessor), const_int128(106)),
-    );
-    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
-    let expected = owned_table([
-        bigint("b", [3; 0]),
-        int128("c", [3; 0]),
-        varchar("d", ["3"; 0]),
-        scalar("e", [3; 0]),
-    ]);
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn we_can_prove_a_filter_with_empty_results() {
-    let data = owned_table([
-        bigint("a", [101, 104, 105, 102, 105]),
-        bigint("b", [1, 2, 3, 4, 5]),
-        int128("c", [1, 2, 3, 4, 5]),
-        varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
-    ]);
-    let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let expr = filter(
-        cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-        tab(&t),
-        equal(column(&t, "a", &accessor), const_int128(106)),
-    );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
-    let expected = owned_table([
-        bigint("b", [3; 0]),
-        int128("c", [3; 0]),
-        varchar("d", ["3"; 0]),
-        scalar("e", [3; 0]),
+    let expected_res = owned_table([
+        bigint("a", [4_i64, 5]),
+        bigint("b", [2, 3]),
+        int128("c", [20, 30]),
     ]);
-    assert_eq!(res, expected);
+    assert_eq!(res, expected_res);
 }
 
 #[test]
-fn we_can_prove_a_filter() {
-    let data = owned_table([
-        bigint("a", [101, 104, 105, 102, 105]),
-        bigint("b", [1, 2, 3, 4, 7]),
-        int128("c", [1, 3, 3, 4, 5]),
-        varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
+fn we_can_compose_multiple_filters() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
+        borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
+        borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
+
+    // Create a TableExec as input
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+            ColumnField::new("c".into(), ColumnType::Int128),
+        ],
+    );
+
+    // First filter to keep rows where a > 3
+    let first_filter = filter(
+        cols_expr_plan(&t, &["a", "b", "c"], &accessor),
+        table_exec,
+        gt(column(&t, "a", &accessor), const_int128(3_i128)),
+    );
+
+    // Second filter to keep rows where b < 4
+    let expr = filter(
+        cols_expr_plan(&t, &["a", "b", "c"], &accessor),
+        first_filter,
+        lt(column(&t, "b", &accessor), const_int128(4_i128)),
+    );
+
+    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    exercise_verification(&res, &expr, &accessor, &t);
+    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let expected_res = owned_table([
+        bigint("a", [4_i64, 5]),
+        bigint("b", [2, 3]),
+        int128("c", [20, 30]),
+    ]);
+    assert_eq!(res, expected_res);
+}
+
+// Test for non-trivial composition of FilterExec, FilterExec and TableExec
+#[test]
+fn we_can_compose_complex_filters() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_int("a", [1, 3, 5, 7, 9], &alloc),
+        borrowed_int("b", [2, 4, 6, 8, 10], &alloc),
+        borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+
+    let intermediate_data = table([
+        borrowed_decimal75("a_plus_b", 11, 0, [7, 11, 15, 19], &alloc),
+        borrowed_int("a", [3, 5, 7, 9], &alloc),
+        borrowed_int128("c", [20, 30, 40, 50], &alloc),
+    ]);
+    let mut intermediate_accessor =
+        TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    intermediate_accessor.add_table(t.clone(), intermediate_data, 0);
+
+    // Create a TableExec as input
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::Int),
+            ColumnField::new("b".into(), ColumnType::Int),
+            ColumnField::new("c".into(), ColumnType::Int128),
+        ],
+    );
+
+    // First filter: transform the data by adding a to b and filter out c > 15
+    let first_filter = filter(
+        vec![
+            aliased_plan(
+                add(column(&t, "a", &accessor), column(&t, "b", &accessor)),
+                "a_plus_b",
+            ),
+            aliased_plan(column(&t, "a", &accessor), "a"),
+            aliased_plan(column(&t, "c", &accessor), "c"),
+        ],
+        table_exec,
+        gt(column(&t, "c", &accessor), const_smallint(15_i16)),
+    );
+
+    // Second filter: filter where a_plus_b > 11
     let expr = filter(
         vec![
-            col_expr_plan(&t, "b", &accessor),
-            col_expr_plan(&t, "c", &accessor),
-            col_expr_plan(&t, "d", &accessor),
-            col_expr_plan(&t, "e", &accessor),
-            aliased_plan(const_int128(105), "const"),
-            aliased_plan(
-                equal(column(&t, "b", &accessor), column(&t, "c", &accessor)),
-                "bool",
-            ),
+            aliased_plan(column(&t, "a_plus_b", &intermediate_accessor), "sum"),
+            aliased_plan(column(&t, "a", &intermediate_accessor), "a"),
+            aliased_plan(column(&t, "c", &intermediate_accessor), "c"),
         ],
-        tab(&t),
-        equal(column(&t, "a", &accessor), const_int128(105)),
+        first_filter,
+        gt(
+            column(&t, "a_plus_b", &intermediate_accessor),
+            const_int128(11_i128),
+        ),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
-    let expected = owned_table([
-        bigint("b", [3, 7]),
-        int128("c", [3, 5]),
-        varchar("d", ["3", "5"]),
-        scalar("e", [3, 5]),
-        int128("const", [105, 105]),
-        boolean("bool", [true, false]),
+    let expected_res = owned_table([
+        decimal75("sum", 11, 0, [15, 19]), // a+b values for rows 3,4
+        int("a", [7, 9]),                  // a values for rows 3,4
+        int128("c", [40, 50]),             // c values for rows 3,4
     ]);
-    assert_eq!(res, expected);
+    assert_eq!(res, expected_res);
 }

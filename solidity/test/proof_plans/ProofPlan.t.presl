@@ -10,9 +10,9 @@ import {ProofPlan} from "../../src/proof_plans/ProofPlan.presl";
 import {FF, F} from "../base/FieldUtil.sol";
 
 contract ProofPlanTest is Test {
-    function testFilterExecVariant() public pure {
+    function testLegacyFilterExecVariant() public pure {
         bytes memory plan = abi.encodePacked(
-            FILTER_EXEC_VARIANT,
+            LEGACY_FILTER_EXEC_VARIANT,
             uint64(0), // table_number
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
             abi.encodePacked( // select clause
@@ -81,9 +81,9 @@ contract ProofPlanTest is Test {
         }
     }
 
-    function testGeneralizedFilterExecVariant() public pure {
+    function testFilterExecVariant() public pure {
         bytes memory plan = abi.encodePacked(
-            GENERALIZED_FILTER_EXEC_VARIANT,
+            FILTER_EXEC_VARIANT,
             TABLE_EXEC_VARIANT,
             uint64(0), // table_number
             uint64(2), // column_count
@@ -181,7 +181,7 @@ contract ProofPlanTest is Test {
 
     function testProjectionExecVariant() public pure {
         bytes memory inputPlan = abi.encodePacked(
-            FILTER_EXEC_VARIANT,
+            LEGACY_FILTER_EXEC_VARIANT,
             uint64(0), // table_number
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
             abi.encodePacked( // select clause
@@ -1041,7 +1041,7 @@ contract ProofPlanTest is Test {
     /* solhint-enable code-complexity */
 
     function testVariantsMatchEnum() public pure {
-        assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.LegacyFilter) == LEGACY_FILTER_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Table) == TABLE_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Projection) == PROJECTION_EXEC_VARIANT);
@@ -1049,5 +1049,6 @@ contract ProofPlanTest is Test {
         assert(uint32(ProofPlan.PlanVariant.GroupBy) == GROUP_BY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Union) == UNION_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.SortMergeJoin) == SORT_MERGE_JOIN_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
     }
 }

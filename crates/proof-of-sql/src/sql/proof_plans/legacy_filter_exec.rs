@@ -1,4 +1,4 @@
-use super::{fold_vals, DynProofPlan};
+use super::fold_vals;
 use crate::{
     base::{
         database::{
@@ -11,42 +11,47 @@ use crate::{
     },
     sql::{
         proof::{
-            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
+            FinalRoundBuilder, FirstRoundBuilder, HonestProver, ProofPlan, ProverEvaluate,
+            ProverHonestyMarker, VerificationBuilder,
         },
-        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
         proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
     },
     utils::log,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use bumpalo::Bump;
+use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
 /// Provable expressions for queries of the form
 /// ```ignore
-///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
+///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
 /// ```
 ///
-/// This differs from the [`FilterExec`] in that it accepts a `DynProofPlan` as input.
+/// This differs from the [`LegacyFilterExec`] in that the result is not a sparse table.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct GeneralizedFilterExec {
+pub struct OstensibleLegacyFilterExec<H: ProverHonestyMarker> {
     aliased_results: Vec<AliasedDynProofExpr>,
-    input: Box<DynProofPlan>,
+    table: TableExpr,
+    /// TODO: add docs
     where_clause: DynProofExpr,
+    phantom: PhantomData<H>,
 }
 
-impl GeneralizedFilterExec {
-    /// Creates a new generalized filter expression.
+impl<H: ProverHonestyMarker> OstensibleLegacyFilterExec<H> {
+    /// Creates a new filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
-        input: Box<DynProofPlan>,
+        table: TableExpr,
         where_clause: DynProofExpr,
     ) -> Self {
         Self {
             aliased_results,
-            input,
+            table,
             where_clause,
+            phantom: PhantomData,
         }
     }
 
@@ -55,9 +60,9 @@ impl GeneralizedFilterExec {
         &self.aliased_results
     }
 
-    /// Get the input plan
-    pub fn input(&self) -> &DynProofPlan {
-        &self.input
+    /// Get the table expression
+    pub fn table(&self) -> &TableExpr {
+        &self.table
     }
 
     /// Get the where clause expression
@@ -66,7 +71,10 @@ impl GeneralizedFilterExec {
     }
 }
 
-impl ProofPlan for GeneralizedFilterExec {
+impl<H: ProverHonestyMarker> ProofPlan for OstensibleLegacyFilterExec<H>
+where
+    OstensibleLegacyFilterExec<H>: ProverEvaluate,
+{
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -78,19 +86,13 @@ impl ProofPlan for GeneralizedFilterExec {
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
 
-        let input_eval =
-            self.input
-                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let input_chi_eval = input_eval.chi();
-
-        // Build new accessors
-        let input_schema = self.input.get_column_result_fields();
-        let accessor = input_schema
-            .iter()
-            .map(ColumnField::name)
-            .zip(input_eval.column_evals().iter().copied())
-            .collect::<IndexMap<_, _>>();
-
+        let input_chi_eval = *chi_eval_map
+            .get(&self.table.table_ref)
+            .expect("Chi eval not found");
+        let accessor = accessor
+            .get(&self.table.table_ref)
+            .cloned()
+            .unwrap_or_else(|| [].into_iter().collect());
         // 1. selection
         let selection_eval =
             self.where_clause
@@ -143,17 +145,28 @@ impl ProofPlan for GeneralizedFilterExec {
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        self.input.get_column_references()
+        let mut columns = IndexSet::default();
+
+        for aliased_expr in &self.aliased_results {
+            aliased_expr.expr.get_column_references(&mut columns);
+        }
+
+        self.where_clause.get_column_references(&mut columns);
+
+        columns
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
-        self.input.get_table_references()
+        IndexSet::from_iter([self.table.table_ref.clone()])
     }
 }
 
-impl ProverEvaluate for GeneralizedFilterExec {
+/// Alias for a filter expression with a honest prover.
+pub type LegacyFilterExec = OstensibleLegacyFilterExec<HonestProver>;
+
+impl ProverEvaluate for LegacyFilterExec {
     #[tracing::instrument(
-        name = "GeneralizedFilterExec::first_round_evaluate",
+        name = "LegacyFilterExec::first_round_evaluate",
         level = "debug",
         skip_all
     )]
@@ -166,14 +179,13 @@ impl ProverEvaluate for GeneralizedFilterExec {
     ) -> PlaceholderResult<Table<'a, S>> {
         log::log_memory_usage("Start");
 
-        let input = self
-            .input
-            .first_round_evaluate(builder, alloc, table_map, params)?;
-
+        let table = table_map
+            .get(&self.table.table_ref)
+            .expect("Table not found");
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
-            .first_round_evaluate(alloc, &input, params)?;
+            .first_round_evaluate(alloc, table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -184,9 +196,7 @@ impl ProverEvaluate for GeneralizedFilterExec {
             .aliased_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr
-                    .expr
-                    .first_round_evaluate(alloc, &input, params)
+                aliased_expr.expr.first_round_evaluate(alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
 
@@ -213,7 +223,7 @@ impl ProverEvaluate for GeneralizedFilterExec {
     }
 
     #[tracing::instrument(
-        name = "GeneralizedFilterExec::final_round_evaluate",
+        name = "LegacyFilterExec::final_round_evaluate",
         level = "debug",
         skip_all
     )]
@@ -228,13 +238,13 @@ impl ProverEvaluate for GeneralizedFilterExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        let input = self
-            .input
-            .final_round_evaluate(builder, alloc, table_map, params)?;
+        let table = table_map
+            .get(&self.table.table_ref)
+            .expect("Table not found");
         // 1. selection
         let selection_column: Column<'a, S> = self
             .where_clause
-            .final_round_evaluate(builder, alloc, &input, params)?;
+            .final_round_evaluate(builder, alloc, table, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -247,7 +257,7 @@ impl ProverEvaluate for GeneralizedFilterExec {
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
                     .expr
-                    .final_round_evaluate(builder, alloc, &input, params)
+                    .final_round_evaluate(builder, alloc, table, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // Compute filtered_columns
@@ -261,7 +271,7 @@ impl ProverEvaluate for GeneralizedFilterExec {
             &columns,
             selection,
             &filtered_columns,
-            input.num_rows(),
+            table.num_rows(),
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(

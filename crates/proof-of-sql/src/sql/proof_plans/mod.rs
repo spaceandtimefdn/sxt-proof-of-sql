@@ -15,14 +15,14 @@ mod projection_exec_test;
 #[cfg(test)]
 pub(crate) mod test_utility;
 
-mod filter_exec;
-pub(crate) use filter_exec::FilterExec;
+mod legacy_filter_exec;
+pub(crate) use legacy_filter_exec::LegacyFilterExec;
 #[cfg(test)]
-pub(crate) use filter_exec::OstensibleFilterExec;
+pub(crate) use legacy_filter_exec::OstensibleLegacyFilterExec;
 #[cfg(all(test, feature = "blitzar"))]
-mod filter_exec_test;
+mod legacy_filter_exec_test;
 #[cfg(all(test, feature = "blitzar"))]
-mod filter_exec_test_dishonest_prover;
+mod legacy_filter_exec_test_dishonest_prover;
 
 mod fold_util;
 pub(crate) use fold_util::{fold_columns, fold_vals};
@@ -35,11 +35,11 @@ pub(crate) use group_by_exec::GroupByExec;
 #[cfg(all(test, feature = "blitzar"))]
 mod group_by_exec_test;
 
-mod generalized_filter_exec;
-pub(crate) use generalized_filter_exec::GeneralizedFilterExec;
+mod filter_exec;
+pub(crate) use filter_exec::FilterExec;
 
 #[cfg(all(test, feature = "blitzar"))]
-mod generalized_filter_exec_test;
+mod filter_exec_test;
 
 mod slice_exec;
 pub(crate) use slice_exec::SliceExec;

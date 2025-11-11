@@ -210,7 +210,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_composed_projection() {
                 "prod",
             ),
         ],
-        generalized_filter(
+        filter(
             vec![
                 aliased_plan(add(column(&t, "b", &accessor), const_bigint(1)), "b"),
                 aliased_plan(
