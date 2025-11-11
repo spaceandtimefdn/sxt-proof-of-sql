@@ -30,9 +30,9 @@ use sqlparser::ast::Ident;
 ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
 /// ```
 ///
-/// This differs from the [`FilterExec`] in that the result is not a sparse table.
+/// This differs from the [`LegacyFilterExec`] in that the result is not a sparse table.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct OstensibleFilterExec<H: ProverHonestyMarker> {
+pub struct OstensibleLegacyFilterExec<H: ProverHonestyMarker> {
     aliased_results: Vec<AliasedDynProofExpr>,
     table: TableExpr,
     /// TODO: add docs
@@ -40,7 +40,7 @@ pub struct OstensibleFilterExec<H: ProverHonestyMarker> {
     phantom: PhantomData<H>,
 }
 
-impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
+impl<H: ProverHonestyMarker> OstensibleLegacyFilterExec<H> {
     /// Creates a new filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
@@ -71,9 +71,9 @@ impl<H: ProverHonestyMarker> OstensibleFilterExec<H> {
     }
 }
 
-impl<H: ProverHonestyMarker> ProofPlan for OstensibleFilterExec<H>
+impl<H: ProverHonestyMarker> ProofPlan for OstensibleLegacyFilterExec<H>
 where
-    OstensibleFilterExec<H>: ProverEvaluate,
+    OstensibleLegacyFilterExec<H>: ProverEvaluate,
 {
     fn verifier_evaluate<S: Scalar>(
         &self,
@@ -162,10 +162,14 @@ where
 }
 
 /// Alias for a filter expression with a honest prover.
-pub type FilterExec = OstensibleFilterExec<HonestProver>;
+pub type LegacyFilterExec = OstensibleLegacyFilterExec<HonestProver>;
 
-impl ProverEvaluate for FilterExec {
-    #[tracing::instrument(name = "FilterExec::first_round_evaluate", level = "debug", skip_all)]
+impl ProverEvaluate for LegacyFilterExec {
+    #[tracing::instrument(
+        name = "LegacyFilterExec::first_round_evaluate",
+        level = "debug",
+        skip_all
+    )]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -218,7 +222,11 @@ impl ProverEvaluate for FilterExec {
         Ok(res)
     }
 
-    #[tracing::instrument(name = "FilterExec::final_round_evaluate", level = "debug", skip_all)]
+    #[tracing::instrument(
+        name = "LegacyFilterExec::final_round_evaluate",
+        level = "debug",
+        skip_all
+    )]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,

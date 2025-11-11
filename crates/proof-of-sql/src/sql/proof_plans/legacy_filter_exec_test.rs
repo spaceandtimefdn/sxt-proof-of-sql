@@ -1,4 +1,4 @@
-use super::{test_utility::*, FilterExec};
+use super::{test_utility::*, LegacyFilterExec};
 use crate::{
     base::{
         database::{
@@ -29,7 +29,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let table_ref = TableRef::new(schema_name, table_name);
     let a = Ident::new("a");
     let b = Ident::new("b");
-    let provable_ast = FilterExec::new(
+    let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
                 DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
@@ -80,7 +80,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
 
     let a = Ident::new("a");
     let f = Ident::new("f");
-    let provable_ast = FilterExec::new(
+    let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
                 DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
@@ -162,7 +162,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_filter() {
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
-    let ast = filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
+    let ast = legacy_filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
@@ -191,7 +191,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_on_an_empty_table_using_first_
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
-    let expr = filter(
+    let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         where_clause,
@@ -240,7 +240,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_using_first_round_evaluate() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
-    let expr = filter(
+    let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         where_clause,
@@ -289,7 +289,7 @@ fn we_can_get_no_columns_from_a_basic_filter_with_no_selected_columns_using_firs
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
-    let expr = filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause);
+    let expr = legacy_filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause);
     let fields = &[];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
     let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
@@ -320,7 +320,7 @@ fn we_can_get_the_correct_result_from_a_basic_filter_using_first_round_evaluate(
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
-    let expr = filter(
+    let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         where_clause,
@@ -362,7 +362,7 @@ fn we_can_prove_a_filter_on_an_empty_table() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = filter(
+    let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(106)),
@@ -390,7 +390,7 @@ fn we_can_prove_a_filter_with_empty_results() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = filter(
+    let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(106)),
@@ -419,7 +419,7 @@ fn we_can_prove_a_filter() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = filter(
+    let expr = legacy_filter(
         vec![
             col_expr_plan(&t, "b", &accessor),
             col_expr_plan(&t, "c", &accessor),

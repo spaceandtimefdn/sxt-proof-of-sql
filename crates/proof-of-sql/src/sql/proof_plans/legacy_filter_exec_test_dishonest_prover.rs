@@ -1,4 +1,3 @@
-use super::OstensibleFilterExec;
 use crate::{
     base::{
         database::{
@@ -28,7 +27,7 @@ use bumpalo::Bump;
 #[derive(Debug, PartialEq)]
 struct Dishonest;
 impl ProverHonestyMarker for Dishonest {}
-type DishonestFilterExec = OstensibleFilterExec<Dishonest>;
+type DishonestFilterExec = super::OstensibleLegacyFilterExec<Dishonest>;
 
 impl ProverEvaluate for DishonestFilterExec {
     #[tracing::instrument(
