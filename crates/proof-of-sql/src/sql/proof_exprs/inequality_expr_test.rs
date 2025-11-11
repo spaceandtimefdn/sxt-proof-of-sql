@@ -36,9 +36,15 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![column_field(
+                "a",
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+            )],
+        ),
         gte(
             DynProofExpr::try_new_scaling_cast(
                 column(&t, "a", &accessor),
@@ -79,9 +85,15 @@ fn we_can_compare_columns_with_small_timestamp_values_lte() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![column_field(
+                "a",
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+            )],
+        ),
         lte(
             scaling_cast(
                 column(&t, "a", &accessor),
@@ -116,9 +128,15 @@ fn we_can_compare_a_constant_column() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -137,9 +155,15 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -164,9 +188,18 @@ fn we_can_compare_columns_with_extreme_values() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["bigint_b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("bigint_a", ColumnType::BigInt),
+                column_field("bigint_b", ColumnType::BigInt),
+                column_field("int128_a", ColumnType::Int128),
+                column_field("int128_b", ColumnType::Int128),
+                column_field("boolean", ColumnType::Boolean),
+            ],
+        ),
         lte(
             lte(
                 lte(
@@ -204,9 +237,17 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(38).unwrap(), 0)),
+            ],
+        ),
         lte(column(&t, "e", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -237,9 +278,18 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(38).unwrap(), 0)),
+                column_field("f", ColumnType::Decimal75(Precision::new(38).unwrap(), 19)),
+            ],
+        ),
         lte(
             column(&t, "f", &accessor),
             DynProofExpr::try_new_scaling_cast(
@@ -278,9 +328,18 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(38).unwrap(), 0)),
+                column_field("f", ColumnType::Decimal75(Precision::new(38).unwrap(), 19)),
+            ],
+        ),
         gte(
             column(&t, "f", &accessor),
             DynProofExpr::try_new_scaling_cast(
@@ -322,9 +381,17 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         lte(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -374,9 +441,15 @@ fn we_can_compare_two_columns() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -398,9 +471,15 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -422,9 +501,15 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -446,9 +531,15 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -467,9 +558,15 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -488,9 +585,15 @@ fn we_can_compare_column_with_greater_than_or_equal() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         gte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -513,9 +616,16 @@ fn we_can_run_nested_comparison() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("boolean", ColumnType::Boolean),
+            ],
+        ),
         equal(
             gte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
             column(&t, "boolean", &accessor),
@@ -537,9 +647,15 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -558,9 +674,15 @@ fn we_can_compare_a_constant_column_of_zeros() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -579,9 +701,15 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -619,9 +747,15 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                ],
+            ),
             lte(column(&t, "a", &accessor), const_bigint(filter_val)),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

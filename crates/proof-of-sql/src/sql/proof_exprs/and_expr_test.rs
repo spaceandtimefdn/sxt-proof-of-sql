@@ -41,9 +41,17 @@ fn we_can_prove_a_simple_and_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("c", ColumnType::BigInt),
+            ],
+        ),
         and(
             equal(column(&t, "b", &accessor), const_scalar::<TestScalar, _>(1)),
             equal(
@@ -73,9 +81,17 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::Int128),
+                column_field("b", ColumnType::Int128),
+                column_field("d", ColumnType::VarChar),
+                column_field("c", ColumnType::Int128),
+            ],
+        ),
         and(
             equal(column(&t, "b", &accessor), const_scalar::<TestScalar, _>(1)),
             equal(
@@ -125,9 +141,17 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                    column_field("d", ColumnType::VarChar),
+                ],
+            ),
             and(
                 equal(
                     column(&t, "b", &accessor),

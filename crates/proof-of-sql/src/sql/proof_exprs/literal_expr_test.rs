@@ -3,8 +3,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, OwnedTableTestAccessor, Table,
-            TableRef,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
+            Table, TableRef,
         },
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
@@ -47,9 +47,16 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "b", "c"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::Boolean),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                ],
+            ),
             const_bool(lit),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -96,9 +103,9 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -116,9 +123,9 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

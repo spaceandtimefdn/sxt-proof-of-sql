@@ -2,8 +2,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, OwnedTableTestAccessor, TableRef,
-            TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
+            TableRef, TableTestAccessor, TestAccessor,
         },
     },
     sql::{
@@ -31,9 +31,16 @@ fn we_can_prove_a_simple_or_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -59,9 +66,16 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::Int128),
+                column_field("d", ColumnType::VarChar),
+                column_field("b", ColumnType::SmallInt),
+            ],
+        ),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -88,9 +102,17 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::Int128),
+                column_field("c", ColumnType::Int),
+                column_field("d", ColumnType::VarChar),
+            ],
+        ),
         or(
             equal(column(&t, "b", &accessor), const_bigint(1)),
             equal(column(&t, "d", &accessor), const_varchar("g")),
@@ -137,9 +159,17 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                    column_field("d", ColumnType::VarChar),
+                ],
+            ),
             or(
                 equal(
                     column(&t, "b", &accessor),

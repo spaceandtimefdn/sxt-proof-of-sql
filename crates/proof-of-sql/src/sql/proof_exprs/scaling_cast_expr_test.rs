@@ -12,10 +12,10 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{
-            test_utility::{aliased_plan, column, scaling_cast, tab},
+            test_utility::{aliased_plan, column, scaling_cast},
             LiteralExpr,
         },
-        proof_plans::test_utility::legacy_filter,
+        proof_plans::test_utility::{column_field, filter, table_exec},
     },
 };
 use blitzar::proof::InnerProductProof;
@@ -33,7 +33,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             aliased_plan(
                 scaling_cast(
@@ -78,7 +78,17 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
                 "f_cast",
             ),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::TinyInt),
+                column_field("b", ColumnType::Uint8),
+                column_field("c", ColumnType::SmallInt),
+                column_field("d", ColumnType::Int),
+                column_field("e", ColumnType::BigInt),
+                column_field("f", ColumnType::Int128),
+            ],
+        ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -108,7 +118,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             aliased_plan(
                 scaling_cast(
@@ -132,7 +142,14 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
                 "c_cast",
             ),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::Decimal75(Precision::new(4).unwrap(), -2)),
+                column_field("b", ColumnType::Decimal75(Precision::new(4).unwrap(), 1)),
+                column_field("c", ColumnType::Decimal75(Precision::new(6).unwrap(), 0)),
+            ],
+        ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -160,7 +177,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![aliased_plan(
             scaling_cast(
                 column(&t, "a", &accessor),
@@ -168,7 +185,13 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
             ),
             "a_cast",
         )],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![column_field(
+                "a",
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0)),
+            )],
+        ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

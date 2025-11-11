@@ -58,7 +58,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             vec![
                 col_expr_plan(&t, "a", &accessor),
                 col_expr_plan(&t, "b", &accessor),
@@ -66,7 +66,14 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 aliased_placeholder(1, ColumnType::BigInt, "p1"),
                 aliased_placeholder(2, ColumnType::VarChar, "p2"),
             ],
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::Boolean),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                ],
+            ),
             const_bool(true),
         );
         let params = vec![random_bigint_literal, random_varchar_literal];
@@ -112,9 +119,9 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
@@ -138,9 +145,9 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
     let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
@@ -177,9 +184,9 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     assert!(matches!(
@@ -194,9 +201,9 @@ fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
@@ -220,13 +227,13 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64, 456], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
             aliased_placeholder(1, ColumnType::BigInt, "p1"),
             aliased_placeholder(2, ColumnType::VarChar, "p2"),
         ],
-        tab(&t),
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
