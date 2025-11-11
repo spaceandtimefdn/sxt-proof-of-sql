@@ -17,7 +17,8 @@ library ProofPlan {
         Slice,
         GroupBy,
         Union,
-        SortMergeJoin
+        SortMergeJoin,
+        GeneralizedFilter
     }
 
     /// @notice Evaluates a proof plan
@@ -66,6 +67,7 @@ library ProofPlan {
             // import group_by_exec_evaluate from GroupByExec.presl
             // import union_exec_evaluate from UnionExec.presl
             // import sort_merge_join_evaluate from SortMergeJoinExec.presl
+            // import generalized_filter_exec_evaluate from GeneralizedFilterExec.presl
 
             function proof_plan_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
                 let proof_plan_variant := shr(UINT32_PADDING_BITS, calldataload(plan_ptr))
@@ -111,6 +113,11 @@ library ProofPlan {
                     case_const(7, SORT_MERGE_JOIN_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         sort_merge_join_evaluate(plan_ptr, builder_ptr)
+                }
+                case 8 {
+                    case_const(8, GENERALIZED_FILTER_EXEC_VARIANT)
+                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
+                        generalized_filter_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 default { err(ERR_UNSUPPORTED_PROOF_PLAN_VARIANT) }
             }
