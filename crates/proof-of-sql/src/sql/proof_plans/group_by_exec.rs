@@ -3,7 +3,6 @@ use crate::{
     base::{
         database::{
             group_by_util::{aggregate_columns, AggregatedColumns},
-            order_by_util::compare_indexes_by_owned_columns,
             Column, ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table,
             TableEvaluation, TableRef,
         },
