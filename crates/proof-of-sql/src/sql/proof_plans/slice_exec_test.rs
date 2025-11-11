@@ -64,10 +64,17 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(2));
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::VarChar),
+        ],
+    );
     let ast = slice_exec(
-        filter(
+        generalized_filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_plan,
             where_clause,
         ),
         1,
@@ -101,10 +108,20 @@ fn we_can_get_an_empty_result_from_a_slice_on_an_empty_table_using_first_round_e
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
-        filter(
+        generalized_filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-            tab(&t),
+            table_plan,
             where_clause,
         ),
         1,
@@ -145,7 +162,7 @@ fn we_can_get_an_empty_result_from_a_slice_using_first_round_evaluate() {
         borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
         borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
         borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
+        borrowed_decimal75("e", 1, 0, [1, 2, 3, 4, 5], &alloc),
     ]);
     let data_length = data.num_rows();
     let t = TableRef::new("sxt", "t");
@@ -155,10 +172,20 @@ fn we_can_get_an_empty_result_from_a_slice_using_first_round_evaluate() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Decimal75(Precision::new(1).unwrap(), 0)),
+        ],
+    );
     let expr = slice_exec(
-        filter(
+        generalized_filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-            tab(&t),
+            table_plan,
             where_clause,
         ),
         1,
@@ -209,8 +236,18 @@ fn we_can_get_no_columns_from_a_slice_with_empty_input_using_first_round_evaluat
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
-        filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause),
+        generalized_filter(cols_expr_plan(&t, &[], &accessor), table_plan, where_clause),
         2,
         None,
     );
@@ -234,7 +271,7 @@ fn we_can_get_the_correct_result_from_a_slice_using_first_round_evaluate() {
         borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
         borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
         borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
+        borrowed_decimal75("e", 1, 0, [1, 2, 3, 4, 5], &alloc),
     ]);
     let data_length = data.num_rows();
     let t = TableRef::new("sxt", "t");
@@ -244,10 +281,20 @@ fn we_can_get_the_correct_result_from_a_slice_using_first_round_evaluate() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Decimal75(Precision::new(1).unwrap(), 0)),
+        ],
+    );
     let expr = slice_exec(
-        filter(
+        generalized_filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
-            tab(&t),
+            table_plan,
             where_clause,
         ),
         1,
@@ -290,8 +337,18 @@ fn we_can_prove_a_slice_exec() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
-        filter(
+        generalized_filter(
             vec![
                 col_expr_plan(&t, "b", &accessor),
                 col_expr_plan(&t, "c", &accessor),
@@ -303,7 +360,7 @@ fn we_can_prove_a_slice_exec() {
                     "bool",
                 ),
             ],
-            tab(&t),
+            table_plan,
             equal(column(&t, "a", &accessor), const_int128(105)),
         ),
         2,
@@ -335,9 +392,19 @@ fn we_can_prove_a_nested_slice_exec() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
         slice_exec(
-            filter(
+            generalized_filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),
@@ -349,7 +416,7 @@ fn we_can_prove_a_nested_slice_exec() {
                         "bool",
                     ),
                 ],
-                tab(&t),
+                table_plan,
                 equal(column(&t, "a", &accessor), const_int128(105)),
             ),
             1,
@@ -384,9 +451,19 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
         slice_exec(
-            filter(
+            generalized_filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),
@@ -398,7 +475,7 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
                         "bool",
                     ),
                 ],
-                tab(&t),
+                table_plan,
                 equal(column(&t, "a", &accessor), const_int128(105)),
             ),
             1,
@@ -433,9 +510,19 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::BigInt),
+            column_field("c", ColumnType::Int128),
+            column_field("d", ColumnType::VarChar),
+            column_field("e", ColumnType::Scalar),
+        ],
+    );
     let expr = slice_exec(
         slice_exec(
-            filter(
+            generalized_filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),
@@ -447,7 +534,7 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
                         "bool",
                     ),
                 ],
-                tab(&t),
+                table_plan,
                 equal(column(&t, "a", &accessor), const_int128(105)),
             ),
             6,

@@ -35,9 +35,16 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_with_one_table() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    union_exec(vec![filter(
+    let table_plan = table_exec(
+        t.clone(),
+        vec![
+            column_field("a0", ColumnType::BigInt),
+            column_field("b0", ColumnType::VarChar),
+        ],
+    );
+    union_exec(vec![generalized_filter(
         cols_expr_plan(&t, &["a0"], &accessor),
-        tab(&t),
+        table_plan,
         gte(column(&t, "a0", &accessor), const_int128(2_i128)),
     )]);
 }
@@ -190,20 +197,32 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
                     ),
                 ),
                 slice_exec(
-                    filter(
+                    generalized_filter(
                         cols_expr_plan(&t2, &["a2", "b2"], &accessor),
-                        tab(&t2),
+                        table_exec(
+                            t2.clone(),
+                            vec![
+                                column_field("a2", ColumnType::BigInt),
+                                column_field("b2", ColumnType::VarChar),
+                            ],
+                        ),
                         gte(column(&t2, "a2", &accessor), const_smallint(5_i16)),
                     ),
                     2,
                     None,
                 ),
-                filter(
+                generalized_filter(
                     vec![
                         aliased_plan(const_bigint(105_i64), "const"),
                         col_expr_plan(&t3, "b3", &accessor),
                     ],
-                    tab(&t3),
+                    table_exec(
+                        t3.clone(),
+                        vec![
+                            column_field("a3", ColumnType::BigInt),
+                            column_field("b3", ColumnType::VarChar),
+                        ],
+                    ),
                     equal(column(&t3, "a3", &accessor), const_int128(6_i128)),
                 ),
                 projection(
