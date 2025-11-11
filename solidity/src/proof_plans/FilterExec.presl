@@ -20,7 +20,7 @@ library FilterExec {
     /// * `plan_ptr` - calldata pointer to the filter execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
-    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the generalized filter execution plan
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the filter execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
     /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
