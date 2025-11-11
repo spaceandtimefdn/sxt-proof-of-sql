@@ -47,7 +47,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = filter(
+        let ast = legacy_filter(
             cols_expr_plan(&t, &["a", "b", "c"], &accessor),
             tab(&t),
             const_bool(lit),
@@ -96,7 +96,7 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         cols_expr_plan(&t, &["a"], &accessor),
         tab(&t),
         const_bool(true),
@@ -116,7 +116,7 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         cols_expr_plan(&t, &["a"], &accessor),
         tab(&t),
         const_bool(false),

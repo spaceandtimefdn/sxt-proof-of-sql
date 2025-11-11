@@ -107,7 +107,7 @@ fn table_scan_to_filter(
         .map(|f| expr_to_proof_expr(f, &input_schema))
         .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
         .expect("At least one filter expression is required")?;
-    Ok(DynProofPlan::new_generalized_filter(
+    Ok(DynProofPlan::new_filter(
         aliased_dyn_proof_exprs,
         table_exec,
         filter_proof_exprs,
@@ -1340,7 +1340,7 @@ mod tests {
         );
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
-        let expected = DynProofPlan::new_generalized_filter(
+        let expected = DynProofPlan::new_filter(
             vec![ALIASED_A(), ALIASED_C()],
             DynProofPlan::new_table(
                 TABLE_REF_TABLE(),
@@ -1447,7 +1447,7 @@ mod tests {
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
         let expected = DynProofPlan::new_slice(
-            DynProofPlan::new_generalized_filter(
+            DynProofPlan::new_filter(
                 vec![ALIASED_A(), ALIASED_D()],
                 DynProofPlan::new_table(
                     TABLE_REF_TABLE(),

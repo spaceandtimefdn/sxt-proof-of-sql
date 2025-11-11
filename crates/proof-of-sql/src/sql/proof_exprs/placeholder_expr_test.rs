@@ -58,7 +58,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = filter(
+        let ast = legacy_filter(
             vec![
                 col_expr_plan(&t, "a", &accessor),
                 col_expr_plan(&t, "b", &accessor),
@@ -112,7 +112,7 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         tab(&t),
         const_bool(true),
@@ -138,7 +138,7 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         tab(&t),
         const_bool(false),
@@ -177,7 +177,7 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         tab(&t),
         const_bool(true),
@@ -194,7 +194,7 @@ fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         tab(&t),
         const_bool(true),
@@ -220,7 +220,7 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
     let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64, 456], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
             aliased_placeholder(1, ColumnType::BigInt, "p1"),

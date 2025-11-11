@@ -102,7 +102,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
     accessor.add_table(table_cat_details.clone(), cat_details, 0);
     let ast = slice_exec(
         sort_merge_join(
-            generalized_filter(
+            filter(
                 cols_expr_plan(&table_cats, &["id", "name"], &accessor),
                 table_exec(
                     table_cats.clone(),
@@ -113,7 +113,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
                 ),
                 lte(column(&table_cats, "id", &accessor), const_int128(20)),
             ),
-            generalized_filter(
+            filter(
                 cols_expr_plan(&table_cat_details, &["id", "human"], &accessor),
                 table_exec(
                     table_cat_details.clone(),
@@ -207,7 +207,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
     accessor.add_table(table_cat_vet.clone(), cat_vet, 0);
     let ast = sort_merge_join(
         sort_merge_join(
-            generalized_filter(
+            filter(
                 cols_expr_plan(&table_cats, &["id", "name"], &accessor),
                 table_exec(
                     table_cats.clone(),
@@ -218,7 +218,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
                 ),
                 lte(column(&table_cats, "id", &accessor), const_int128(20)),
             ),
-            generalized_filter(
+            filter(
                 cols_expr_plan(&table_cat_human, &["id", "human", "state"], &accessor),
                 table_exec(
                     table_cat_human.clone(),
@@ -242,7 +242,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
                 Ident::new("state"),
             ],
         ),
-        generalized_filter(
+        filter(
             cols_expr_plan(&table_cat_vet, &["id", "hospital"], &accessor),
             table_exec(
                 table_cat_vet.clone(),

@@ -36,7 +36,7 @@ fn we_can_prove_a_typical_multiply_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             aliased_plan(multiply(column(&t, "a", &accessor), const_int(2)), "a"),
             col_expr_plan(&t, "c", &accessor),
@@ -98,7 +98,7 @@ fn where_clause_can_wrap_around() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast: DynProofPlan = filter(
+    let ast: DynProofPlan = legacy_filter(
         cols_expr_plan(&t, &["a", "b", "c", "d", "e", "res"], &accessor),
         tab(&t),
         equal(
@@ -170,7 +170,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = filter(
+        let ast = legacy_filter(
             vec![
                 col_expr_plan(&t, "d", &accessor),
                 aliased_plan(

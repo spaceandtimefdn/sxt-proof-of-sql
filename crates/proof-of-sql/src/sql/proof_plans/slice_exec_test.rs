@@ -72,7 +72,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
         ],
     );
     let ast = slice_exec(
-        generalized_filter(
+        filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
             table_plan,
             where_clause,
@@ -119,7 +119,7 @@ fn we_can_get_an_empty_result_from_a_slice_on_an_empty_table_using_first_round_e
         ],
     );
     let expr = slice_exec(
-        generalized_filter(
+        filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
             table_plan,
             where_clause,
@@ -183,7 +183,7 @@ fn we_can_get_an_empty_result_from_a_slice_using_first_round_evaluate() {
         ],
     );
     let expr = slice_exec(
-        generalized_filter(
+        filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
             table_plan,
             where_clause,
@@ -247,7 +247,7 @@ fn we_can_get_no_columns_from_a_slice_with_empty_input_using_first_round_evaluat
         ],
     );
     let expr = slice_exec(
-        generalized_filter(cols_expr_plan(&t, &[], &accessor), table_plan, where_clause),
+        filter(cols_expr_plan(&t, &[], &accessor), table_plan, where_clause),
         2,
         None,
     );
@@ -292,7 +292,7 @@ fn we_can_get_the_correct_result_from_a_slice_using_first_round_evaluate() {
         ],
     );
     let expr = slice_exec(
-        generalized_filter(
+        filter(
             cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
             table_plan,
             where_clause,
@@ -348,7 +348,7 @@ fn we_can_prove_a_slice_exec() {
         ],
     );
     let expr = slice_exec(
-        generalized_filter(
+        filter(
             vec![
                 col_expr_plan(&t, "b", &accessor),
                 col_expr_plan(&t, "c", &accessor),
@@ -404,7 +404,7 @@ fn we_can_prove_a_nested_slice_exec() {
     );
     let expr = slice_exec(
         slice_exec(
-            generalized_filter(
+            filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),
@@ -463,7 +463,7 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
     );
     let expr = slice_exec(
         slice_exec(
-            generalized_filter(
+            filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),
@@ -522,7 +522,7 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
     );
     let expr = slice_exec(
         slice_exec(
-            generalized_filter(
+            filter(
                 vec![
                     col_expr_plan(&t, "b", &accessor),
                     col_expr_plan(&t, "c", &accessor),

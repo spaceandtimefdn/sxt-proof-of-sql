@@ -41,7 +41,7 @@ fn we_can_prove_a_simple_and_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         tab(&t),
         and(
@@ -73,7 +73,7 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         tab(&t),
         and(
@@ -125,7 +125,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = filter(
+        let ast = legacy_filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
             tab(&t),
             and(

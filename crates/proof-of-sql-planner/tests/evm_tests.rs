@@ -426,7 +426,7 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
         &ps[..],
     );
     let t = TableRef::from_names(Some("namespace"), "table");
-    let plan = DynProofPlan::new_generalized_filter(
+    let plan = DynProofPlan::new_filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
             aliased_plan(
@@ -484,7 +484,7 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
         &ps[..],
     );
     let t = TableRef::from_names(Some("namespace"), "table");
-    let plan = DynProofPlan::new_generalized_filter(
+    let plan = DynProofPlan::new_filter(
         vec![
             aliased_plan(
                 DynProofExpr::try_new_cast(

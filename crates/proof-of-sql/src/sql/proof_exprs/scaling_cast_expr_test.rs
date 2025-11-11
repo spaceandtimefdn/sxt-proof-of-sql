@@ -15,7 +15,7 @@ use crate::{
             test_utility::{aliased_plan, column, scaling_cast, tab},
             LiteralExpr,
         },
-        proof_plans::test_utility::filter,
+        proof_plans::test_utility::legacy_filter,
     },
 };
 use blitzar::proof::InnerProductProof;
@@ -33,7 +33,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             aliased_plan(
                 scaling_cast(
@@ -108,7 +108,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![
             aliased_plan(
                 scaling_cast(
@@ -160,7 +160,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = filter(
+    let ast = legacy_filter(
         vec![aliased_plan(
             scaling_cast(
                 column(&t, "a", &accessor),

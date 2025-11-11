@@ -42,7 +42,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_with_one_table() {
             column_field("b0", ColumnType::VarChar),
         ],
     );
-    union_exec(vec![generalized_filter(
+    union_exec(vec![filter(
         cols_expr_plan(&t, &["a0"], &accessor),
         table_plan,
         gte(column(&t, "a0", &accessor), const_int128(2_i128)),
@@ -197,7 +197,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
                     ),
                 ),
                 slice_exec(
-                    generalized_filter(
+                    filter(
                         cols_expr_plan(&t2, &["a2", "b2"], &accessor),
                         table_exec(
                             t2.clone(),
@@ -211,7 +211,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
                     2,
                     None,
                 ),
-                generalized_filter(
+                filter(
                     vec![
                         aliased_plan(const_bigint(105_i64), "const"),
                         col_expr_plan(&t3, "b3", &accessor),
