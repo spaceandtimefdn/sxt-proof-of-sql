@@ -120,8 +120,8 @@ uint32 constant PLACEHOLDER_EXPR_VARIANT = 11;
 /// @dev Scaling cast variant constant for proof expressions
 uint32 constant SCALING_CAST_EXPR_VARIANT = 12;
 
-/// @dev Filter variant constant for proof plans
-uint32 constant FILTER_EXEC_VARIANT = 0;
+/// @dev Legacy Filter variant constant for proof plans
+uint32 constant LEGACY_FILTER_EXEC_VARIANT = 0;
 /// @dev Empty variant constant for proof plans
 uint32 constant EMPTY_EXEC_VARIANT = 1;
 /// @dev Table variant constant for proof plans

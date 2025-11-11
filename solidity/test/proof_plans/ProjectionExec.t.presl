@@ -10,7 +10,7 @@ import {ProjectionExec} from "../../src/proof_plans/ProjectionExec.presl";
 contract ProjectionExecTest is Test {
     function testSimpleProjectionExec() public pure {
         bytes memory inputPlan = abi.encodePacked(
-            FILTER_EXEC_VARIANT,
+            LEGACY_FILTER_EXEC_VARIANT,
             uint64(0), // table_number
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
             abi.encodePacked( // select clause

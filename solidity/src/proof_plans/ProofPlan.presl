@@ -10,7 +10,7 @@ import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 /// @dev Library for handling proof plans
 library ProofPlan {
     enum PlanVariant {
-        Filter,
+        LegacyFilter,
         Empty,
         Table,
         Projection,
@@ -60,7 +60,7 @@ library ProofPlan {
             // import err from ../base/Errors.sol
             // import case_const from ../base/SwitchUtil.presl
             // import empty_exec_evaluate from EmptyExec.presl
-            // import filter_exec_evaluate from FilterExec.presl
+            // import legacy_filter_exec_evaluate from LegacyFilterExec.presl
             // import table_exec_evaluate from TableExec.presl
             // import projection_exec_evaluate from ProjectionExec.presl
             // import slice_exec_evaluate from SliceExec.presl
@@ -75,9 +75,9 @@ library ProofPlan {
 
                 switch proof_plan_variant
                 case 0 {
-                    case_const(0, FILTER_EXEC_VARIANT)
+                    case_const(0, LEGACY_FILTER_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
-                        filter_exec_evaluate(plan_ptr, builder_ptr)
+                        legacy_filter_exec_evaluate(plan_ptr, builder_ptr)
                 }
                 case 1 {
                     case_const(1, EMPTY_EXEC_VARIANT)

@@ -5,11 +5,11 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
-import {FilterExec} from "../../src/proof_plans/FilterExec.presl";
+import {LegacyFilterExec} from "../../src/proof_plans/LegacyFilterExec.presl";
 import {FF, F} from "../base/FieldUtil.sol";
 
-contract FilterExecTest is Test {
-    function testSimpleFilterExec() public pure {
+contract LegacyFilterExecTest is Test {
+    function testSimpleLegacyFilterExec() public pure {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
@@ -50,7 +50,7 @@ contract FilterExecTest is Test {
         uint256[] memory evals;
         uint256 length;
         uint256 outputChiEval;
-        (plan, builder, evals, length, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = LegacyFilterExec.__legacyFilterExecEvaluate(plan, builder);
 
         FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
         FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);
@@ -151,7 +151,7 @@ contract FilterExecTest is Test {
                 * _computeEqualsExprIdentityConstraint3(builder, inputEvaluations);
     }
 
-    function _computeFilterExecResultEvaluations(
+    function _computeLegacyFilterExecResultEvaluations(
         VerificationBuilder.Builder memory builder,
         uint256 inputEvaluationsLength
     ) internal pure returns (uint256[] memory resultEvaluations) {
@@ -161,7 +161,7 @@ contract FilterExecTest is Test {
         }
     }
 
-    function testFuzzFilterExec(
+    function testFuzzLegacyFilterExec(
         VerificationBuilder.Builder memory builder,
         int64 where,
         int64[] memory inputs,
@@ -195,11 +195,11 @@ contract FilterExecTest is Test {
         uint256 expectedAggregateEvaluation = _computeEqualsExprAggregateEvaluation(
             builder, F.from(where) * F.from(builder.tableChiEvaluations[tableIndex]), inputEvaluations, tableIndex
         ).into();
-        uint256[] memory expectedResultEvaluations = _computeFilterExecResultEvaluations(builder, inputsLength);
+        uint256[] memory expectedResultEvaluations = _computeLegacyFilterExecResultEvaluations(builder, inputsLength);
 
         uint256[] memory evals;
         uint256 outputChiEval;
-        (plan, builder, evals,, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
+        (plan, builder, evals,, outputChiEval) = LegacyFilterExec.__legacyFilterExecEvaluate(plan, builder);
 
         uint256 evalsLength = evals.length;
         assert(evalsLength == expectedResultEvaluations.length);

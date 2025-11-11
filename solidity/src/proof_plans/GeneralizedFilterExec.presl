@@ -7,17 +7,17 @@ import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
 /// @title GeneralizedFilterExec
-/// @dev Library for handling generalized filter execution plans
+/// @dev Library for handling filter execution plans
 library GeneralizedFilterExec {
-    /// @notice Evaluates a generalized filter execution plan
+    /// @notice Evaluates a filter execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// function generalized_filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval
+    /// function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval
     /// ```
     /// ##### Parameters
-    /// * `plan_ptr` - calldata pointer to the generalized filter execution plan
+    /// * `plan_ptr` - calldata pointer to the filter execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming the generalized filter execution plan
@@ -60,20 +60,20 @@ library GeneralizedFilterExec {
     /// @notice **Soundness Proof:**
     /// TODO
     /// ##### Proof Plan Encoding
-    /// The generalized filter plan is encoded as follows:
+    /// The filter plan is encoded as follows:
     /// 1. The input proof plan
     /// 2. The selection/filtering condition expression
     /// 3. The number of input/output columns (64 bit integer)
     /// 4. The input column expressions, in order
-    /// @dev Evaluates a generalized filter execution plan by checking the filter condition on each row
-    /// @param __plan The generalized filter execution plan data
+    /// @dev Evaluates a filter execution plan by checking the filter condition on each row
+    /// @param __plan The filter execution plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
-    function __generalizedFilterExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __filterExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
@@ -94,7 +94,7 @@ library GeneralizedFilterExec {
             // import compute_filter_folds from FilterExec.presl
             // import proof_plan_evaluate from ProofPlan.presl
 
-            function generalized_filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
+            function filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
                 let input_chi_eval, selection_eval, c_fold, d_fold
                 {
                     let alpha := builder_consume_challenge(builder_ptr)
@@ -121,7 +121,7 @@ library GeneralizedFilterExec {
 
             let __planOutOffset
             __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
-                generalized_filter_exec_evaluate(__plan.offset, __builder)
+                filter_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
