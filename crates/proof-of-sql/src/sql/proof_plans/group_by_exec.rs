@@ -112,7 +112,7 @@ impl ProofPlan for GroupByExec {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        result: Option<&OwnedTable<S>>,
+        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -179,6 +179,10 @@ impl ProofPlan for GroupByExec {
                 group_by_result_columns_evals[0],
                 output_chi_eval.0,
             )?;
+        } else {
+            Err(ProofError::UnsupportedQueryPlan {
+                error: "GroupByExec without provable uniqueness check not supported.",
+            })?;
         }
 
         let sum_result_columns_evals =
@@ -191,15 +195,6 @@ impl ProofPlan for GroupByExec {
             g_in_star_eval * where_eval * sum_in_fold_eval - g_out_star_eval * sum_out_fold_eval,
             3,
         )?;
-
-        match (is_uniqueness_provable, result) {
-            (true, _) => (),
-            (false, _) => {
-                Err(ProofError::UnsupportedQueryPlan {
-                    error: "GroupByExec without provable uniqueness check not supported.",
-                })?;
-            }
-        }
 
         let column_evals = group_by_result_columns_evals
             .into_iter()
