@@ -6,9 +6,9 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
-/// @title GeneralizedFilterExec
+/// @title FilterExec
 /// @dev Library for handling filter execution plans
-library GeneralizedFilterExec {
+library FilterExec {
     /// @notice Evaluates a filter execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function

@@ -5,10 +5,10 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
-import {GeneralizedFilterExec} from "../../src/proof_plans/GeneralizedFilterExec.presl";
+import {FilterExec} from "../../src/proof_plans/FilterExec.presl";
 
-contract GeneralizedFilterExecTest is Test {
-    function testGeneralizedFilterExec() public pure {
+contract FilterExecTest is Test {
+    function testFilterExec() public pure {
         bytes memory plan = abi.encodePacked(
             TABLE_EXEC_VARIANT,
             uint64(0), // table_number
@@ -98,7 +98,7 @@ contract GeneralizedFilterExecTest is Test {
             uint256 length;
             builder.columnEvaluations[0] = column0[i];
             builder.columnEvaluations[1] = column1[i];
-            (planOutput, builder, evals, length, outputChiEval) = GeneralizedFilterExec.__generalizedFilterExecEvaluate(plan, builder);
+            (planOutput, builder, evals, length, outputChiEval) = FilterExec.__filterExecEvaluate(plan, builder);
             assert(planOutput.length == 3);
         }
 
