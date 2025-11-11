@@ -28,15 +28,15 @@ use sqlparser::ast::Ident;
 ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
 /// ```
 ///
-/// This differs from the [`FilterExec`] in that it accepts a `DynProofPlan` as input.
+/// This differs from the [`LegacyFilterExec`] in that it accepts a `DynProofPlan` as input.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct GeneralizedFilterExec {
+pub struct FilterExec {
     aliased_results: Vec<AliasedDynProofExpr>,
     input: Box<DynProofPlan>,
     where_clause: DynProofExpr,
 }
 
-impl GeneralizedFilterExec {
+impl FilterExec {
     /// Creates a new generalized filter expression.
     pub fn new(
         aliased_results: Vec<AliasedDynProofExpr>,
@@ -66,7 +66,7 @@ impl GeneralizedFilterExec {
     }
 }
 
-impl ProofPlan for GeneralizedFilterExec {
+impl ProofPlan for FilterExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -151,12 +151,8 @@ impl ProofPlan for GeneralizedFilterExec {
     }
 }
 
-impl ProverEvaluate for GeneralizedFilterExec {
-    #[tracing::instrument(
-        name = "GeneralizedFilterExec::first_round_evaluate",
-        level = "debug",
-        skip_all
-    )]
+impl ProverEvaluate for FilterExec {
+    #[tracing::instrument(name = "FilterExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -212,11 +208,7 @@ impl ProverEvaluate for GeneralizedFilterExec {
         Ok(res)
     }
 
-    #[tracing::instrument(
-        name = "GeneralizedFilterExec::final_round_evaluate",
-        level = "debug",
-        skip_all
-    )]
+    #[tracing::instrument(name = "FilterExec::final_round_evaluate", level = "debug", skip_all)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,

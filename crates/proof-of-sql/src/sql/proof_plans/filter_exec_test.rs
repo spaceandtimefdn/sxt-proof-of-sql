@@ -15,7 +15,7 @@ use crate::{
 use bumpalo::Bump;
 
 #[test]
-fn we_can_get_fields_of_generalized_filter() {
+fn we_can_get_fields_of_filter() {
     let alloc = Bump::new();
     let data = table([
         borrowed_bigint("a", [1, 2, 3], &alloc),
@@ -25,7 +25,7 @@ fn we_can_get_fields_of_generalized_filter() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
-    // Create a TableExec as input for GeneralizedFilterExec
+    // Create a TableExec as input for FilterExec
     let table_exec = table_exec(
         t.clone(),
         vec![
@@ -35,23 +35,23 @@ fn we_can_get_fields_of_generalized_filter() {
     );
 
     let where_clause = equal(column(&t, "a", &accessor), const_int128(2_i128));
-    let plan = generalized_filter(
+    let plan = filter(
         cols_expr_plan(&t, &["a"], &accessor),
         table_exec.clone(),
         where_clause.clone(),
     );
     let expected_aliased_results = vec![col_expr_plan(&t, "a", &accessor)];
-    if let DynProofPlan::GeneralizedFilter(plan) = plan {
+    if let DynProofPlan::Filter(plan) = plan {
         assert_eq!(plan.aliased_results(), &expected_aliased_results,);
         assert_eq!(plan.input(), &table_exec,);
         assert_eq!(plan.where_clause(), &where_clause);
     } else {
-        panic!("Expected GeneralizedFilterExec plan");
+        panic!("Expected FilterExec plan");
     }
 }
 
 #[test]
-fn we_can_correctly_filter_data_with_generalized_filter() {
+fn we_can_correctly_filter_data_with_filter() {
     let alloc = Bump::new();
     let data = table([
         borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
@@ -61,7 +61,7 @@ fn we_can_correctly_filter_data_with_generalized_filter() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
-    // Create a TableExec as input for GeneralizedFilterExec
+    // Create a TableExec as input for FilterExec
     let table_exec = table_exec(
         t.clone(),
         vec![
@@ -70,9 +70,9 @@ fn we_can_correctly_filter_data_with_generalized_filter() {
         ],
     );
 
-    // Create GeneralizedFilterExec with TableExec as input
+    // Create FilterExec with TableExec as input
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
-    let expr = generalized_filter(
+    let expr = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec,
         where_clause,
@@ -97,7 +97,7 @@ fn we_can_correctly_filter_with_complex_condition() {
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
-    // Create a TableExec as input for GeneralizedFilterExec
+    // Create a TableExec as input for FilterExec
     let table_exec = table_exec(
         t.clone(),
         vec![
@@ -107,12 +107,12 @@ fn we_can_correctly_filter_with_complex_condition() {
         ],
     );
 
-    // Create GeneralizedFilterExec with TableExec as input and complex condition
+    // Create FilterExec with TableExec as input and complex condition
     let where_clause = and(
         gte(column(&t, "a", &accessor), const_int128(4_i128)),
         lte(column(&t, "c", &accessor), const_int128(30_i128)),
     );
-    let expr = generalized_filter(
+    let expr = filter(
         cols_expr_plan(&t, &["a", "b", "c"], &accessor),
         table_exec,
         where_clause,
@@ -152,14 +152,14 @@ fn we_can_compose_multiple_filters() {
     );
 
     // First filter to keep rows where a > 3
-    let first_filter = generalized_filter(
+    let first_filter = filter(
         cols_expr_plan(&t, &["a", "b", "c"], &accessor),
         table_exec,
         gt(column(&t, "a", &accessor), const_int128(3_i128)),
     );
 
     // Second filter to keep rows where b < 4
-    let expr = generalized_filter(
+    let expr = filter(
         cols_expr_plan(&t, &["a", "b", "c"], &accessor),
         first_filter,
         lt(column(&t, "b", &accessor), const_int128(4_i128)),
@@ -176,7 +176,7 @@ fn we_can_compose_multiple_filters() {
     assert_eq!(res, expected_res);
 }
 
-// Test for non-trivial composition of GeneralizedFilterExec, GeneralizedFilterExec and TableExec
+// Test for non-trivial composition of FilterExec, FilterExec and TableExec
 #[test]
 fn we_can_compose_complex_filters() {
     let alloc = Bump::new();
@@ -209,7 +209,7 @@ fn we_can_compose_complex_filters() {
     );
 
     // First filter: transform the data by adding a to b and filter out c > 15
-    let first_filter = generalized_filter(
+    let first_filter = filter(
         vec![
             aliased_plan(
                 add(column(&t, "a", &accessor), column(&t, "b", &accessor)),
@@ -223,7 +223,7 @@ fn we_can_compose_complex_filters() {
     );
 
     // Second filter: filter where a_plus_b > 11
-    let expr = generalized_filter(
+    let expr = filter(
         vec![
             aliased_plan(column(&t, "a_plus_b", &intermediate_accessor), "sum"),
             aliased_plan(column(&t, "a", &intermediate_accessor), "a"),
