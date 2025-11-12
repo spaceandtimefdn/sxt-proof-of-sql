@@ -418,44 +418,7 @@ pub fn logical_plan_to_proof_plan(
             expr,
             schema,
             ..
-        }) => {
-            match &**input {
-                LogicalPlan::Aggregate(Aggregate {
-                    input: agg_input,
-                    group_expr,
-                    aggr_expr,
-                    ..
-                }) => {
-                    // Check whether the last layer is identity
-                    let alias_map = expr
-                        .iter()
-                        .map(|e| match e {
-                            Expr::Column(c) => Ok((c.name.as_str(), c.name.as_str())),
-                            Expr::Alias(Alias { expr, name, .. }) => {
-                                if let Expr::Column(c) = expr.as_ref() {
-                                    Ok((c.name.as_str(), name.as_str()))
-                                } else {
-                                    Err(PlannerError::UnsupportedLogicalPlan {
-                                        plan: Box::new(plan.clone()),
-                                    })
-                                }
-                            }
-                            _ => Err(PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(plan.clone()),
-                            }),
-                        })
-                        .collect::<PlannerResult<IndexMap<_, _>>>()?;
-                    aggregate_to_proof_plan(
-                        agg_input,
-                        group_expr,
-                        aggr_expr,
-                        schema_accessor,
-                        &alias_map,
-                    )
-                }
-                _ => projection_to_proof_plan(expr, input, schema, schema_accessor),
-            }
-        }
+        }) => projection_to_proof_plan(expr, input, schema, schema_accessor),
         // Filter
         LogicalPlan::Filter(Filter {
             input, predicate, ..
