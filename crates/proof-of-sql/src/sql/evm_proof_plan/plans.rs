@@ -28,6 +28,7 @@ pub(crate) enum EVMDynProofPlan {
     Union(EVMUnionExec),
     SortMergeJoin(EVMSortMergeJoinExec),
     Filter(EVMFilterExec),
+    Aggregate(EVMAggregateExec),
 }
 
 impl EVMDynProofPlan {
@@ -122,6 +123,9 @@ impl EVMDynProofPlan {
             ),
             EVMDynProofPlan::Filter(filter_exec) => Ok(DynProofPlan::Filter(
                 filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
+            )),
+            EVMDynProofPlan::Aggregate(aggregate_exec) => Ok(DynProofPlan::GroupBy(
+                aggregate_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
         }
     }
@@ -423,6 +427,116 @@ pub(crate) struct EVMGroupByExec {
 
 impl EVMGroupByExec {
     /// Try to create a `EVMGroupByExec` from a `GroupByExec`.
+    pub(crate) fn try_from_proof_plan(
+        plan: &GroupByExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        // Map column expressions to their indices in column_refs
+        let group_by_exprs = plan
+            .group_by_exprs()
+            .iter()
+            .map(|col_expr| {
+                column_refs
+                    .get_index_of(&col_expr.get_column_reference())
+                    .ok_or(EVMProofPlanError::ColumnNotFound)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            table_number: table_refs
+                .get_index_of(&plan.table().table_ref)
+                .ok_or(EVMProofPlanError::TableNotFound)?,
+            group_by_exprs: group_by_exprs.clone(),
+            sum_expr: plan
+                .sum_expr()
+                .iter()
+                .map(|aliased_expr| {
+                    EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, column_refs)
+                })
+                .collect::<Result<_, _>>()?,
+            count_alias_name: plan.count_alias().value.clone(),
+            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+        output_column_names: &IndexSet<String>,
+    ) -> EVMProofPlanResult<GroupByExec> {
+        // Convert indices back to ColumnExpr objects
+        let group_by_exprs = self
+            .group_by_exprs
+            .iter()
+            .map(|&idx| {
+                let column_ref = column_refs
+                    .get_index(idx)
+                    .cloned()
+                    .ok_or(EVMProofPlanError::ColumnNotFound)?;
+                Ok(ColumnExpr::new(column_ref))
+            })
+            .collect::<EVMProofPlanResult<Vec<_>>>()?;
+
+        // Map sum expressions to AliasedDynProofExpr objects
+        let sum_aliases_offset = group_by_exprs.len();
+        let sum_expr = self
+            .sum_expr
+            .iter()
+            .enumerate()
+            .map(|(i, expr)| {
+                let alias_idx = sum_aliases_offset + i;
+                let alias_name = output_column_names
+                    .get_index(alias_idx)
+                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
+                Ok(AliasedDynProofExpr {
+                    expr: expr.try_into_proof_expr(column_refs)?,
+                    alias: Ident::new(alias_name),
+                })
+            })
+            .collect::<EVMProofPlanResult<Vec<_>>>()?;
+
+        // Get the count alias from output column names
+        let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
+
+        // For safety, check if the provided count_alias_name matches
+        if let Some(name) = output_column_names.get_index(count_alias_idx) {
+            if name != &self.count_alias_name {
+                return Err(EVMProofPlanError::InvalidOutputColumnName);
+            }
+        } else {
+            return Err(EVMProofPlanError::InvalidOutputColumnName);
+        }
+
+        GroupByExec::try_new(
+            group_by_exprs,
+            sum_expr,
+            Ident::new(&self.count_alias_name),
+            TableExpr {
+                table_ref: table_refs
+                    .get_index(self.table_number)
+                    .cloned()
+                    .ok_or(EVMProofPlanError::TableNotFound)?,
+            },
+            self.where_clause.try_into_proof_expr(column_refs)?,
+        )
+        .ok_or(EVMProofPlanError::NotSupported)
+    }
+}
+
+/// Represents an aggregate execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMAggregateExec {
+    table_number: usize,
+    group_by_exprs: Vec<usize>,
+    where_clause: EVMDynProofExpr,
+    sum_expr: Vec<EVMDynProofExpr>,
+    count_alias_name: String,
+}
+
+impl EVMAggregateExec {
+    /// Try to create a `EVMAggregateExec` from a `GroupByExec`.
     pub(crate) fn try_from_proof_plan(
         plan: &GroupByExec,
         table_refs: &IndexSet<TableRef>,
