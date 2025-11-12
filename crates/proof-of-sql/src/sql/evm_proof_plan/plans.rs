@@ -78,6 +78,7 @@ impl EVMDynProofPlan {
                 EVMFilterExec::try_from_proof_plan(filter_exec, table_refs, column_refs)
                     .map(Self::Filter)
             }
+            DynProofPlan::Aggregate(_) => Err(EVMProofPlanError::NotSupported),
         }
     }
 

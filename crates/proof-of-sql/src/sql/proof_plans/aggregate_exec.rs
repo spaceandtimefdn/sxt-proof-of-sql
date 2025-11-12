@@ -1,4 +1,4 @@
-use super::{fold_columns, fold_vals};
+use super::{fold_columns, fold_vals, DynProofPlan};
 use crate::{
     base::{
         database::{
@@ -16,7 +16,7 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
             SumcheckSubpolynomialType, VerificationBuilder,
         },
-        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, ProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
         proof_gadgets::{
             final_round_evaluate_monotonic, first_round_evaluate_monotonic,
             fold_log_expr::FoldLogExpr, verify_monotonic,
@@ -34,46 +34,46 @@ use tracing::{span, Level};
 
 /// Provable expressions for queries of the form
 /// ```ignore
-///     SELECT <group_by_expr1>, ..., <group_by_exprM>,
+///     SELECT <group_by_expr1>.expr as <group_by_expr1>.alias, ..., <group_by_exprM>.expr as <group_by_exprM>.alias,
 ///         SUM(<sum_expr1>.expr) as <sum_expr1>.alias, ..., SUM(<sum_exprN>.expr) as <sum_exprN>.alias,
-///         COUNT(*) as count_alias
-///     FROM <table>
+///         COUNT(*) as <count_alias>
+///     FROM <input>
 ///     WHERE <where_clause>
-///     GROUP BY <group_by_expr1>, ..., <group_by_exprM>
+///     GROUP BY <group_by_expr1>.expr, ..., <group_by_exprM>.expr
 /// ```
 ///
 /// Note: if `group_by_exprs` is empty, then the query is equivalent to removing the `GROUP BY` clause.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AggregateExec {
-    pub(super) group_by_exprs: Vec<ColumnExpr>,
-    pub(super) sum_expr: Vec<AliasedDynProofExpr>,
-    pub(super) count_alias: Ident,
-    pub(super) table: TableExpr,
-    pub(super) where_clause: DynProofExpr,
+    group_by_exprs: Vec<AliasedDynProofExpr>,
+    sum_expr: Vec<AliasedDynProofExpr>,
+    count_alias: Ident,
+    input: Box<DynProofPlan>,
+    where_clause: DynProofExpr,
 }
 
 impl AggregateExec {
-    /// Creates a new `group_by` expression.
+    /// Creates a new aggregate proof plan.
     pub fn try_new(
-        group_by_exprs: Vec<ColumnExpr>,
+        group_by_exprs: Vec<AliasedDynProofExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
         count_alias: Ident,
-        table: TableExpr,
+        input: Box<DynProofPlan>,
         where_clause: DynProofExpr,
     ) -> Option<Self> {
         let group_by = Self {
             group_by_exprs,
             sum_expr,
             count_alias,
-            table,
+            input,
             where_clause,
         };
         group_by.try_get_is_uniqueness_provable().map(|_| group_by)
     }
 
-    /// Get a reference to the table expression
-    pub fn table(&self) -> &TableExpr {
-        &self.table
+    /// Get a reference to the input plan
+    pub fn input(&self) -> &DynProofPlan {
+        &self.input
     }
 
     /// Get a reference to the where clause
@@ -82,7 +82,7 @@ impl AggregateExec {
     }
 
     /// Get a reference to the group by expressions
-    pub fn group_by_exprs(&self) -> &[ColumnExpr] {
+    pub fn group_by_exprs(&self) -> &[AliasedDynProofExpr] {
         &self.group_by_exprs
     }
 
@@ -101,7 +101,9 @@ impl AggregateExec {
     pub fn try_get_is_uniqueness_provable(&self) -> Option<bool> {
         match (
             self.group_by_exprs.len(),
-            self.group_by_exprs.first().map(ColumnExpr::data_type),
+            self.group_by_exprs
+                .first()
+                .map(|aliased_expr| aliased_expr.expr.data_type()),
         ) {
             (0, _) => Some(false),
             (1, Some(data_type))
@@ -124,21 +126,29 @@ impl ProofPlan for AggregateExec {
     ) -> Result<TableEvaluation<S>, ProofError> {
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
-        let input_chi_eval = chi_eval_map
-            .get(&self.table.table_ref)
-            .expect("Chi eval not found")
-            .0;
-        let accessor = accessor
-            .get(&self.table.table_ref)
-            .cloned()
-            .unwrap_or_else(|| [].into_iter().collect());
+        let input_eval = self
+            .input
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
+        let input_chi_eval = input_eval.chi_eval();
+        // Build new accessors
+        let input_schema = self.input.get_column_result_fields();
+        // Check for tables - this is just error handling, we don't need the table ref
+        let accessor = input_schema
+            .iter()
+            .zip(input_eval.column_evals())
+            .map(|(field, eval)| (field.name().clone(), *eval))
+            .collect::<IndexMap<_, _>>();
 
         // Compute g_in_star
         let fold_gadget = FoldLogExpr::new(alpha, beta);
         let group_by_evals = self
             .group_by_exprs
             .iter()
-            .map(|expr| expr.verifier_evaluate(builder, &accessor, input_chi_eval, params))
+            .map(|aliased_expr| {
+                aliased_expr
+                    .expr
+                    .verifier_evaluate(builder, &accessor, input_chi_eval, params)
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let g_in_star_eval = fold_gadget
             .verify_evaluate(builder, &group_by_evals, input_chi_eval)?
@@ -207,11 +217,12 @@ impl ProofPlan for AggregateExec {
         Ok(TableEvaluation::new(column_evals, output_chi_eval))
     }
 
-    #[expect(clippy::redundant_closure_for_method_calls)]
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.group_by_exprs
             .iter()
-            .map(|col| col.get_column_field())
+            .map(|aliased_expr| {
+                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+            })
             .chain(self.sum_expr.iter().map(|aliased_expr| {
                 ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
             }))
@@ -223,27 +234,20 @@ impl ProofPlan for AggregateExec {
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        let mut columns = IndexSet::default();
-
-        for col in &self.group_by_exprs {
-            columns.insert(col.get_column_reference());
-        }
-        for aliased_expr in &self.sum_expr {
-            aliased_expr.expr.get_column_references(&mut columns);
-        }
-
-        self.where_clause.get_column_references(&mut columns);
-
-        columns
+        self.input.get_column_references()
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
-        IndexSet::from_iter([self.table.table_ref.clone()])
+        self.input.get_table_references()
     }
 }
 
 impl ProverEvaluate for AggregateExec {
-    #[tracing::instrument(name = "AggregateExec::first_round_evaluate", level = "debug", skip_all)]
+    #[tracing::instrument(
+        name = "AggregateExec::first_round_evaluate",
+        level = "debug",
+        skip_all
+    )]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -255,23 +259,25 @@ impl ProverEvaluate for AggregateExec {
 
         builder.request_post_result_challenges(2);
 
-        let table = table_map
-            .get(&self.table.table_ref)
-            .expect("Table not found");
+        let input = self
+            .input
+            .first_round_evaluate(builder, alloc, table_map, params)?;
 
         // Compute g_in_star
         let group_by_columns = self
             .group_by_exprs
             .iter()
-            .map(|expr| -> PlaceholderResult<Column<'a, S>> {
-                expr.first_round_evaluate(alloc, table, params)
+            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, &input, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // End compute g_in_star
 
         let selection_column: Column<'a, S> = self
             .where_clause
-            .first_round_evaluate(alloc, table, params)?;
+            .first_round_evaluate(alloc, &input, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -281,7 +287,9 @@ impl ProverEvaluate for AggregateExec {
             .sum_expr
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr.expr.first_round_evaluate(alloc, table, params)
+                aliased_expr
+                    .expr
+                    .first_round_evaluate(alloc, &input, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         // End compute sum_in_fold
@@ -337,8 +345,12 @@ impl ProverEvaluate for AggregateExec {
         Ok(res)
     }
 
-    #[tracing::instrument(name = "AggregateExec::final_round_evaluate", level = "debug", skip_all)]
     #[expect(clippy::too_many_lines)]
+    #[tracing::instrument(
+        name = "AggregateExec::final_round_evaluate",
+        level = "debug",
+        skip_all
+    )]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
@@ -351,18 +363,20 @@ impl ProverEvaluate for AggregateExec {
         let alpha = builder.consume_post_result_challenge();
         let beta = builder.consume_post_result_challenge();
 
-        let table = table_map
-            .get(&self.table.table_ref)
-            .expect("Table not found");
+        let input = self
+            .input
+            .final_round_evaluate(builder, alloc, table_map, params)?;
 
-        let n = table.num_rows();
+        let n = input.num_rows();
 
         // Compute g_in_star
         let group_by_columns = self
             .group_by_exprs
             .iter()
-            .map(|expr| -> PlaceholderResult<Column<'a, S>> {
-                expr.final_round_evaluate(builder, alloc, table, params)
+            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
+                aliased_expr
+                    .expr
+                    .final_round_evaluate(builder, alloc, &input, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         let fold_gadget = FoldLogExpr::new(alpha, beta);
@@ -373,7 +387,7 @@ impl ProverEvaluate for AggregateExec {
 
         let selection_column: Column<'a, S> = self
             .where_clause
-            .final_round_evaluate(builder, alloc, table, params)?;
+            .final_round_evaluate(builder, alloc, &input, params)?;
         let selection = selection_column
             .as_boolean()
             .expect("selection is not boolean");
@@ -390,7 +404,7 @@ impl ProverEvaluate for AggregateExec {
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
                     .expr
-                    .final_round_evaluate(builder, alloc, table, params)
+                    .final_round_evaluate(builder, alloc, &input, params)
             })
             .collect::<PlaceholderResult<Vec<_>>>()?;
         span.exit();
