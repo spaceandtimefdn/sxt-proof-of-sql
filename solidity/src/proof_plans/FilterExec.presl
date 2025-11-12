@@ -93,12 +93,7 @@ library FilterExec {
             // import verify_filter from ../proof_gadgets/FilterBase.presl
             // import proof_plan_evaluate from ProofPlan.presl
 
-            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) ->
-                plan_ptr_out,
-                c_fold,
-                d_fold,
-                evaluations_ptr
-            {
+            function compute_filter_folds(plan_ptr, builder_ptr, input_chi_eval, beta) -> plan_ptr_out, c_fold, d_fold, evaluations_ptr {
                 let column_count := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
 

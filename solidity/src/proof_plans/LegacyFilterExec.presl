@@ -94,12 +94,7 @@ library LegacyFilterExec {
             // import compute_filter_folds from FilterExec.presl
             // import verify_filter from ../proof_gadgets/FilterBase.presl
 
-            function legacy_filter_exec_evaluate(plan_ptr, builder_ptr) ->
-                plan_ptr_out,
-                evaluations_ptr,
-                output_length,
-                output_chi_eval
-            {
+            function legacy_filter_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
                 let input_chi_eval, selection_eval, c_fold, d_fold
                 {
                     let alpha := builder_consume_challenge(builder_ptr)
