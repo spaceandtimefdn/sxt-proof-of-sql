@@ -1,5 +1,5 @@
 use super::{
-    EmptyExec, FilterExec, GroupByExec, LegacyFilterExec, ProjectionExec, SliceExec,
+    AggregateExec, EmptyExec, FilterExec, GroupByExec, LegacyFilterExec, ProjectionExec, SliceExec,
     SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
@@ -45,6 +45,17 @@ pub enum DynProofPlan {
     ///     GROUP BY <group_by_expr1>, ..., <group_by_exprM>
     /// ```
     GroupBy(GroupByExec),
+    /// Provable expressions for queries of the form
+    /// ```ignore
+    ///     SELECT <group_by_expr1>.expr as <group_by_expr1>.alias, ..., <group_by_exprM>.expr as <group_by_exprM>.alias,
+    ///         SUM(<sum_expr1>.expr) as <sum_expr1>.alias, ..., SUM(<sum_exprN>.expr) as <sum_exprN>.alias,
+    ///         COUNT(*) as <count_alias>
+    ///     FROM <input>
+    ///     WHERE <where_clause>
+    ///     GROUP BY <group_by_expr1>.expr, ..., <group_by_exprM>.expr
+    /// ```
+    /// Similar to GroupBy but accepts a DynProofPlan as input
+    Aggregate(AggregateExec),
     /// Provable expressions for queries of the form, where the result is sent in a dense form
     /// ```ignore
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <table> WHERE <where_clause>
@@ -119,6 +130,25 @@ impl DynProofPlan {
     ) -> Option<Self> {
         GroupByExec::try_new(group_by_exprs, sum_expr, count_alias, table, where_clause)
             .map(Self::GroupBy)
+    }
+
+    /// Creates a new aggregate plan.
+    #[must_use]
+    pub fn try_new_aggregate(
+        group_by_exprs: Vec<AliasedDynProofExpr>,
+        sum_expr: Vec<AliasedDynProofExpr>,
+        count_alias: Ident,
+        input: DynProofPlan,
+        where_clause: DynProofExpr,
+    ) -> Option<Self> {
+        AggregateExec::try_new(
+            group_by_exprs,
+            sum_expr,
+            count_alias,
+            Box::new(input),
+            where_clause,
+        )
+        .map(Self::Aggregate)
     }
 
     /// Creates a new slice plan.

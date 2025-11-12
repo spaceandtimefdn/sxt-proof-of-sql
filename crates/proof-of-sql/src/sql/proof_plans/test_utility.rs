@@ -6,6 +6,7 @@ use crate::{
     base::database::{ColumnField, ColumnType, TableRef},
     sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
 };
+use alloc::boxed::Box;
 use sqlparser::ast::Ident;
 
 pub fn column_field(name: &str, column_type: ColumnType) -> ColumnField {
@@ -60,6 +61,26 @@ pub fn group_by(
         )
         .unwrap(),
     )
+}
+
+/// # Panics
+///
+/// Will panic if `count_alias` cannot be parsed as a valid identifier.
+pub fn aggregate(
+    group_by_exprs: Vec<AliasedDynProofExpr>,
+    sum_expr: Vec<AliasedDynProofExpr>,
+    count_alias: &str,
+    input: DynProofPlan,
+    where_clause: DynProofExpr,
+) -> DynProofPlan {
+    DynProofPlan::try_new_aggregate(
+        group_by_exprs,
+        sum_expr,
+        count_alias.into(),
+        input,
+        where_clause,
+    )
+    .unwrap()
 }
 
 pub fn slice_exec(input: DynProofPlan, skip: usize, fetch: Option<usize>) -> DynProofPlan {
