@@ -7,13 +7,12 @@ use crate::{
         },
         map::{indexmap, IndexMap},
         math::decimal::Precision,
-        proof::ProofError,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
             exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
-            QueryError, VerifiableQueryResult,
+            VerifiableQueryResult,
         },
         proof_exprs::{test_utility::*, DynProofExpr},
     },
@@ -657,35 +656,4 @@ fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input
         bigint("__count__", [2]),
     ]);
     assert_eq!(res, expected);
-}
-
-#[test]
-fn we_cannot_prove_a_slice_exec_if_it_has_groupby_without_uniqueness_proof_as_input_for_now() {
-    let data = owned_table([
-        varchar("a", ["1", "2", "2", "1", "2"]),
-        bigint("b", [99, 99, 99, 99, 0]),
-        bigint("c", [101, 102, 103, 104, 105]),
-    ]);
-    let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
-    accessor.add_table(t.clone(), data, 0);
-    let expr = slice_exec(
-        group_by(
-            cols_expr(&t, &["a"], &accessor),
-            vec![sum_expr(column(&t, "c", &accessor), "sum_c")],
-            "__count__",
-            tab(&t),
-            equal(column(&t, "b", &accessor), const_int128(99)),
-        ),
-        2,
-        None,
-    );
-    let res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    assert!(matches!(
-        res.verify(&expr, &accessor, &(), &[]),
-        Err(QueryError::ProofError {
-            source: ProofError::UnsupportedQueryPlan { .. }
-        })
-    ));
 }

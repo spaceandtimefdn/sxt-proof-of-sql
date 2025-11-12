@@ -1,8 +1,7 @@
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions,
-            TableRef,
+            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -42,7 +41,6 @@ impl ProofPlan for EmptyExec {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

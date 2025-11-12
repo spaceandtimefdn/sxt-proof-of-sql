@@ -50,13 +50,16 @@ pub fn group_by(
     table: TableExpr,
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
-    DynProofPlan::GroupBy(GroupByExec::new(
-        group_by_exprs,
-        sum_expr,
-        count_alias.into(),
-        table,
-        where_clause,
-    ))
+    DynProofPlan::GroupBy(
+        GroupByExec::try_new(
+            group_by_exprs,
+            sum_expr,
+            count_alias.into(),
+            table,
+            where_clause,
+        )
+        .unwrap(),
+    )
 }
 
 pub fn slice_exec(input: DynProofPlan, skip: usize, fetch: Option<usize>) -> DynProofPlan {

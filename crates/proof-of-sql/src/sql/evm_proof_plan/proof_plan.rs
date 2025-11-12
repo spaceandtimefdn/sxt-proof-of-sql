@@ -2,8 +2,7 @@ use super::{plans::EVMDynProofPlan, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableRef,
+            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -154,12 +153,11 @@ impl ProofPlan for EVMProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         self.inner()
-            .verifier_evaluate(builder, accessor, result, chi_eval_map, params)
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.inner().get_column_result_fields()

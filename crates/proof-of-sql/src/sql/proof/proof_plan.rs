@@ -1,8 +1,6 @@
 use super::{verification_builder::VerificationBuilder, FinalRoundBuilder, FirstRoundBuilder};
 use crate::base::{
-    database::{
-        ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableRef,
-    },
+    database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
     map::{IndexMap, IndexSet},
     proof::{PlaceholderResult, ProofError},
     scalar::Scalar,
@@ -20,7 +18,6 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError>;

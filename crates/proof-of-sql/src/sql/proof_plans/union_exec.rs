@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            union_util::table_union, Column, ColumnField, ColumnRef, LiteralValue, OwnedTable,
-            Table, TableEvaluation, TableRef,
+            union_util::table_union, Column, ColumnField, ColumnRef, LiteralValue, Table,
+            TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         polynomial::MultilinearExtension,
@@ -59,7 +59,6 @@ where
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -72,7 +71,7 @@ where
             .iter()
             .map(|input| -> Result<_, ProofError> {
                 let table_evaluation =
-                    input.verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+                    input.verifier_evaluate(builder, accessor, chi_eval_map, params)?;
                 let column_evals = table_evaluation.column_evals();
                 num_mle_evaluations = num_mle_evaluations.or(Some(column_evals.len()));
                 fold_log_gadget

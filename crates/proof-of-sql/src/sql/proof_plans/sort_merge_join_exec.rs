@@ -7,8 +7,7 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions,
-            TableRef,
+            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -147,17 +146,16 @@ where
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // 1. columns
-        let left_eval =
-            self.left
-                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
-        let right_eval =
-            self.right
-                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+        let left_eval = self
+            .left
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
+        let right_eval = self
+            .right
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
         let res_chi = builder.try_consume_chi_evaluation()?;
         // 2. alpha, beta
         let alpha = builder.try_consume_post_result_challenge()?;

@@ -121,11 +121,12 @@ fn main() {
         &verifier_setup,
     );
 
+    // We do want intend support this example, but for now, we do not
     // Query 3: List countries with the number of dog breeds originating from them
-    prove_and_verify_query(
-        "SELECT Origin, COUNT(*) AS breed_count FROM breeds GROUP BY Origin",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
+    // prove_and_verify_query(
+    //     "SELECT Origin, COUNT(*) AS breed_count FROM breeds GROUP BY Origin",
+    //     &accessor,
+    //     &prover_setup,
+    //     &verifier_setup,
+    // );
 }
