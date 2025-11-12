@@ -3,8 +3,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, ColumnField, ColumnType, OwnedTableTestAccessor, TableRef,
-            TestAccessor,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType,
+            OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
@@ -14,6 +14,7 @@ use crate::{
         proof_plans::AggregateExec,
     },
 };
+use bumpalo::Bump;
 
 /// `select sum(c) as sum_c, count(*) as __count__ from sxt.t where b = 99`
 #[test]
@@ -313,6 +314,76 @@ fn we_cannot_prove_a_complex_aggregate_query_with_many_columns() {
         decimal75("sum_128", 59, 0, [(1342 + 1262 + 513) * 4]),
         scalar("sum_scal", [1116 + 1033 + 375]),
         bigint("__count__", [3 + 2 + 1]),
+    ]);
+    assert_eq!(res, expected);
+}
+
+/// Test for composition of `AggregateExec` on top of `FilterExec` on top of `TableExec`
+/// with a single decimal75(39,0) variable computed as 2*a
+#[test]
+fn we_can_aggregate_with_decimal75_variable_on_filter() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [1, 2, 3, 2, 1], &alloc),
+        borrowed_bigint("b", [10, 20, 30, 40, 50], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+
+    // Intermediate data after FilterExec: rows where b > 15
+    let intermediate_data = table([
+        borrowed_decimal75("double_a", 39, 0, [4, 6, 4, 2], &alloc),
+        borrowed_bigint("b", [20, 30, 40, 50], &alloc),
+    ]);
+    let mut intermediate_accessor =
+        TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    intermediate_accessor.add_table(t.clone(), intermediate_data, 0);
+
+    // Create a TableExec as input
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+        ],
+    );
+
+    // FilterExec: compute 2*a as double_a and filter b > 15
+    let filter = filter(
+        vec![
+            aliased_plan(
+                multiply(column(&t, "a", &accessor), const_bigint(2)),
+                "double_a",
+            ),
+            aliased_plan(column(&t, "b", &accessor), "b"),
+        ],
+        table_exec,
+        gt(column(&t, "b", &accessor), const_int128(15_i128)),
+    );
+
+    // AggregateExec: group by 1 + double_a from the intermediate result
+    let expr = aggregate(
+        vec![aliased_plan(
+            add(
+                column(&t, "double_a", &intermediate_accessor),
+                const_bigint(1),
+            ),
+            "one_plus_double_a",
+        )],
+        vec![sum_expr(column(&t, "b", &intermediate_accessor), "sum_b")],
+        "__count__",
+        filter,
+        const_bool(true),
+    );
+
+    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    exercise_verification(&res, &expr, &accessor, &t);
+    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let expected = owned_table([
+        decimal75("one_plus_double_a", 40, 0, [3, 5, 7]),
+        bigint("sum_b", [50, 60, 30]),
+        bigint("__count__", [1, 2, 1]),
     ]);
     assert_eq!(res, expected);
 }
