@@ -168,7 +168,65 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<&str, &str>,
 ) -> PlannerResult<DynProofPlan> {
-
+    let input_plan = logical_plan_to_proof_plan(input, schemas)?;
+    let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+    let group_by_exprs = group_expr
+        .iter()
+        .map(|e| expr_to_proof_expr(e, &input_schema))
+        .collect::<PlannerResult<Vec<_>>>()?;
+    let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
+        .iter()
+        .map(|e| match e.clone().unalias() {
+            Expr::AggregateFunction(agg) => {
+                let name_string = e.display_name()?;
+                let name = name_string.as_str();
+                let alias = alias_map.get(&name).ok_or_else(|| {
+                    PlannerError::UnsupportedLogicalPlan {
+                        plan: Box::new(input.clone()),
+                    }
+                })?;
+                Ok((
+                    aggregate_function_to_proof_expr(&agg, &input_schema)?,
+                    (*alias).into(),
+                ))
+            }
+            _ => Err(PlannerError::UnsupportedLogicalPlan {
+                plan: Box::new(input.clone()),
+            }),
+        })
+        .collect::<PlannerResult<Vec<_>>>()?;
+    // Remap to aggregation with projection
+    let enumerated_sum_exprs = agg_aliased_proof_exprs
+        .enumerate()
+        .iter()
+        .filter_map(|(i, ((func, expr), alias))| {
+            if *func == AggregateFunc::Sum {
+                Some((i, AliasedDynProofExpr {
+                    expr: expr.clone(),
+                    alias: alias.clone(),
+                }))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    let sum_exprs = enumerated_sum_exprs
+        .iter()
+        .map(|(_, aliased_expr)| aliased_expr.clone())
+        .collect::<Vec<_>>();
+    let agg_plan = DynProofPlan::try_new_aggregate(
+        group_by_exprs,
+        sum_exprs,
+        "__count_alias__".into(),
+        input_plan,
+        DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+    )?;
+    let remapping = 
+    let remapping_projection_plan = DynProofPlan::new_projection(
+        enumerated_sum_exprs
+        agg_plan,
+    )
+    
 }
 
 fn join_to_proof_plan(
