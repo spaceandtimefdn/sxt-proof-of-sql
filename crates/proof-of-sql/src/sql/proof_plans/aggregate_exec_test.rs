@@ -2,7 +2,10 @@ use super::test_utility::*;
 use crate::{
     base::{
         commitment::InnerProductProof,
-        database::{owned_table_utility::*, OwnedTableTestAccessor, TableRef, TestAccessor},
+        database::{
+            owned_table_utility::*, ColumnField, ColumnType, OwnedTableTestAccessor, TableRef,
+            TestAccessor,
+        },
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
@@ -23,11 +26,18 @@ fn we_can_prove_aggregation_without_group_by() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = group_by(
+    let expr = aggregate(
         vec![],
         vec![sum_expr(column(&t, "c", &accessor), "sum_c")],
         "__count__",
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::BigInt),
+                ColumnField::new("c".into(), ColumnType::BigInt),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
@@ -42,7 +52,7 @@ fn we_can_prove_aggregation_without_group_by() {
 
 /// `select a, sum(c) as sum_c, count(*) as __count__ from sxt.t where b = 99 group by a`
 #[test]
-fn we_can_prove_a_simple_group_by_with_bigint_columns() {
+fn we_can_prove_a_simple_aggregate_with_bigint_columns() {
     let data = owned_table([
         bigint("a", [1, 2, 2, 1, 2]),
         bigint("b", [99, 99, 99, 99, 0]),
@@ -51,11 +61,18 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = group_by(
-        cols_expr(&t, &["a"], &accessor),
+    let expr = aggregate(
+        cols_expr_plan(&t, &["a"], &accessor),
         vec![sum_expr(column(&t, "c", &accessor), "sum_c")],
         "__count__",
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::BigInt),
+                ColumnField::new("c".into(), ColumnType::BigInt),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
@@ -71,7 +88,7 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
 
 /// `select a, sum(c * 2 + 1) as sum_c, count(*) as __count__ from sxt.t where b = 99 group by a`
 #[test]
-fn we_can_prove_a_group_by_with_bigint_columns() {
+fn we_can_prove_an_aggregate_with_bigint_columns() {
     let data = owned_table([
         bigint("a", [1, 2, 2, 1, 2]),
         bigint("b", [99, 99, 99, 99, 0]),
@@ -80,8 +97,8 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
     let t = TableRef::new("sxt", "t");
     let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
-    let expr = group_by(
-        cols_expr(&t, &["a"], &accessor),
+    let expr = aggregate(
+        cols_expr_plan(&t, &["a"], &accessor),
         vec![sum_expr(
             add(
                 multiply(column(&t, "c", &accessor), const_bigint(2)),
@@ -90,7 +107,14 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
             "sum_c",
         )],
         "__count__",
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::BigInt),
+                ColumnField::new("c".into(), ColumnType::BigInt),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
@@ -108,7 +132,7 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
 /// this test will be left as is, for the most part, as we do expect to support this again.
 #[expect(clippy::too_many_lines)]
 #[test]
-fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
+fn we_cannot_prove_a_complex_aggregate_query_with_many_columns() {
     let scalar_filter_data: Vec<Curve25519Scalar> = [
         333, 222, 222, 333, 222, 333, 333, 333, 222, 222, 222, 333, 222, 222, 222, 222, 222, 222,
         333, 333,
@@ -191,7 +215,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
     //  FROM sxt.t WHERE int128_filter = 1020 AND varchar_filter = 'f2'
     //  GROUP BY scalar_group, int128_group, bigint_group
     let expr = AggregateExec::try_new(
-        cols_expr(
+        cols_expr_plan(
             &t,
             &["scalar_group", "int128_group", "bigint_group"],
             &accessor,
@@ -211,7 +235,22 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
             sum_expr(column(&t, "scalar_sum", &accessor), "sum_scal"),
         ],
         "__count__".into(),
-        tab(&t),
+        Box::new(table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("bigint_filter".into(), ColumnType::BigInt),
+                ColumnField::new("bigint_group".into(), ColumnType::BigInt),
+                ColumnField::new("bigint_sum".into(), ColumnType::BigInt),
+                ColumnField::new("int128_filter".into(), ColumnType::Int128),
+                ColumnField::new("int128_group".into(), ColumnType::Int128),
+                ColumnField::new("int128_sum".into(), ColumnType::Int128),
+                ColumnField::new("varchar_filter".into(), ColumnType::VarChar),
+                ColumnField::new("varchar_group".into(), ColumnType::VarChar),
+                ColumnField::new("scalar_filter".into(), ColumnType::Scalar),
+                ColumnField::new("scalar_group".into(), ColumnType::Scalar),
+                ColumnField::new("scalar_sum".into(), ColumnType::Scalar),
+            ],
+        )),
         and(
             equal(column(&t, "int128_filter", &accessor), const_int128(1020)),
             equal(column(&t, "varchar_filter", &accessor), const_varchar("f2")),
@@ -234,7 +273,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
 
     // SELECT sum(bigint_sum) as sum_int, sum(int128_sum * 4) as sum_128, sum(scalar_sum) as sum_scal, count(*) as __count__
     //  FROM sxt.t WHERE int128_filter = 1020 AND varchar_filter = 'f2'
-    let expr = group_by(
+    let expr = aggregate(
         vec![],
         vec![
             sum_expr(column(&t, "bigint_sum", &accessor), "sum_int"),
@@ -245,7 +284,22 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
             sum_expr(column(&t, "scalar_sum", &accessor), "sum_scal"),
         ],
         "__count__",
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("bigint_filter".into(), ColumnType::BigInt),
+                ColumnField::new("bigint_group".into(), ColumnType::BigInt),
+                ColumnField::new("bigint_sum".into(), ColumnType::BigInt),
+                ColumnField::new("int128_filter".into(), ColumnType::Int128),
+                ColumnField::new("int128_group".into(), ColumnType::Int128),
+                ColumnField::new("int128_sum".into(), ColumnType::Int128),
+                ColumnField::new("varchar_filter".into(), ColumnType::VarChar),
+                ColumnField::new("varchar_group".into(), ColumnType::VarChar),
+                ColumnField::new("scalar_filter".into(), ColumnType::Scalar),
+                ColumnField::new("scalar_group".into(), ColumnType::Scalar),
+                ColumnField::new("scalar_sum".into(), ColumnType::Scalar),
+            ],
+        ),
         and(
             equal(column(&t, "int128_filter", &accessor), const_int128(1020)),
             equal(column(&t, "varchar_filter", &accessor), const_varchar("f2")),
