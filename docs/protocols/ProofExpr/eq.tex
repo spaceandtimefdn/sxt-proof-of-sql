@@ -1,0 +1,59 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Equals Expr}
+\author{MakeInfinite Inc}
+\date{Aug 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $a$ and $b$ be two columns with length $n$. $s$ is a column with length $n$ such that $s_i := 
+\begin{cases}
+1, & \text{if } a_i = b_i,\\
+0, & \text{if } a_i \neq b_i.
+\end{cases}$ if and only if the constraints hold.
+\section{Constraints}
+\begin{itemize}
+    \item Inputs: Input columns $a$, $b$.
+    \item Assumptions: The length of $a$ and $b$ is confirmed to be $n$.
+    \item Outputs: The column $s$.
+    \item Hints and gadgets: The pseudo-inverse $d$.
+    \item Challenges: None.
+    \item Constraints:
+    Let $d$ be the pseudo-inverse of $a-b$, that is,
+    $d_i := 
+\begin{cases}
+0, & \text{if } a_i = b_i,\\
+1/(a_i-b_i), & \text{if } a_i \neq b_i.
+\end{cases}$
+    The following constraints must hold:
+     \begin{eqnarray}
+    (a_i-b_i)s_i&=&0\\
+    (a_i-b_i)d_i&=&\chi_i-s_i
+\end{eqnarray}
+\end{itemize}
+\section{Completeness}
+Both constraints hold trivially due to the definition of $s$ and $d$.
+\section{Soundness}
+If (1) holds then either $a_i=b_i$ or $s_i=0$. If $a_i=b_i$ then (2) leads to $s_i=1$.
+The inverse is trivial. 
+\end{document}
