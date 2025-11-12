@@ -3,8 +3,8 @@ use crate::{
     base::{
         database::{
             group_by_util::{aggregate_columns, AggregatedColumns},
-            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table,
-            TableEvaluation, TableRef,
+            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -112,7 +112,6 @@ impl ProofPlan for GroupByExec {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

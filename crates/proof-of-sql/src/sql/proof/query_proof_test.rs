@@ -6,8 +6,8 @@ use crate::{
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, OwnedTableTestAccessor,
-            Table, TableEvaluation, TableRef,
+            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
+            TableEvaluation, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -89,7 +89,6 @@ impl ProofPlan for TrivialTestProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -306,7 +305,6 @@ impl ProofPlan for SquareTestProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -499,7 +497,6 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -702,7 +699,6 @@ impl ProofPlan for ChallengeTestProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -843,7 +839,6 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

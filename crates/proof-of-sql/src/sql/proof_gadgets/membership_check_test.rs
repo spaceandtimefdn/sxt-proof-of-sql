@@ -8,7 +8,7 @@ use crate::{
     base::{
         database::{
             owned_table_utility::*, table_utility::table, Column, ColumnField, ColumnRef,
-            ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnType, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -167,7 +167,6 @@ impl ProofPlan for MembershipCheckTestPlan {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

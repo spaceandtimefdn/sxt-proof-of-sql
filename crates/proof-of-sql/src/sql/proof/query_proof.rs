@@ -500,13 +500,8 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             })
             .collect();
 
-        let verifier_evaluations = expr.verifier_evaluate(
-            &mut builder,
-            &evaluation_accessor,
-            Some(&result),
-            &chi_eval_map,
-            params,
-        )?;
+        let verifier_evaluations =
+            expr.verifier_evaluate(&mut builder, &evaluation_accessor, &chi_eval_map, params)?;
         // compute the evaluation of the result MLEs
         let result_evaluations = result.mle_evaluations(&subclaim.evaluation_point);
         // check the evaluation of the result MLEs

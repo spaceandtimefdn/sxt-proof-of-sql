@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            Column, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableOptions, TableRef,
+            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -57,14 +57,13 @@ impl ProofPlan for ProjectionExec {
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // For projections input and output have the same length and hence the same chi eval
-        let input_eval =
-            self.input
-                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+        let input_eval = self
+            .input
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
         let chi = input_eval.chi();
         // Build new accessors
         // TODO: Make this work with inputs with multiple tables such as join
