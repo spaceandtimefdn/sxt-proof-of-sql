@@ -54,20 +54,21 @@ pub struct GroupByExec {
 
 impl GroupByExec {
     /// Creates a new `group_by` expression.
-    pub fn new(
+    pub fn try_new(
         group_by_exprs: Vec<ColumnExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
         count_alias: Ident,
         table: TableExpr,
         where_clause: DynProofExpr,
-    ) -> Self {
-        Self {
+    ) -> Option<Self> {
+        let group_by = Self {
             group_by_exprs,
             sum_expr,
             count_alias,
             table,
             where_clause,
-        }
+        };
+        group_by.try_get_is_uniqueness_provable().map(|_| group_by)
     }
 
     /// Get a reference to the table expression

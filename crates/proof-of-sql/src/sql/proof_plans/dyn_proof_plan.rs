@@ -110,20 +110,15 @@ impl DynProofPlan {
 
     /// Creates a new group by plan.
     #[must_use]
-    pub fn new_group_by(
+    pub fn try_new_group_by(
         group_by_exprs: Vec<ColumnExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
         count_alias: Ident,
         table: TableExpr,
         where_clause: DynProofExpr,
-    ) -> Self {
-        Self::GroupBy(GroupByExec::new(
-            group_by_exprs,
-            sum_expr,
-            count_alias,
-            table,
-            where_clause,
-        ))
+    ) -> Option<Self> {
+        GroupByExec::try_new(group_by_exprs, sum_expr, count_alias, table, where_clause)
+            .map(Self::GroupBy)
     }
 
     /// Creates a new slice plan.
