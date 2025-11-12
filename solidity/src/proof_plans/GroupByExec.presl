@@ -75,7 +75,7 @@ library GroupByExec {
             // import fold_log_star_evaluate_from_column_exprs, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
             // import monotonic_verify from ../proof_gadgets/Monotonic.presl
 
-            function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+            function compute_g_in_star_eval(plan_ptr, builder_ptr, alpha_and_beta, input_chi_eval) ->
                 plan_ptr_out,
                 g_in_star_eval_times_selection_eval
             {
@@ -88,7 +88,7 @@ library GroupByExec {
                 let g_in_star_eval
                 plan_ptr, g_in_star_eval :=
                     fold_log_star_evaluate_from_column_exprs(
-                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval
+                        plan_ptr, builder_ptr, mload(alpha_and_beta), mload(add(alpha_and_beta, WORD_SIZE)), num_group_by_columns, input_chi_eval
                     )
 
                 let selection_eval
@@ -97,7 +97,7 @@ library GroupByExec {
                 plan_ptr_out := plan_ptr
             }
 
-            function compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) ->
+            function compute_sum_in_fold_eval(plan_ptr, builder_ptr, beta, input_chi_eval) ->
                 plan_ptr_out,
                 sum_in_fold_eval,
                 num_sum_columns
@@ -109,10 +109,12 @@ library GroupByExec {
                 sum_in_fold_eval := addmod_bn254(mulmod_bn254(sum_in_fold_eval, beta), input_chi_eval)
                 plan_ptr_out := plan_ptr
             }
-            function compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, evaluations_ptr) ->
+            function compute_g_out_star_eval(builder_ptr, alpha_and_beta, output_chi_eval, evaluations_ptr) ->
                 g_out_star_eval
             {
                 let mles
+                let alpha := mload(alpha_and_beta)
+                let beta := mload(add(alpha_and_beta, WORD_SIZE))
                 g_out_star_eval, mles := fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, 1, output_chi_eval)
                 let mle := mload(add(mles, WORD_SIZE))
                 mstore(evaluations_ptr, mle)
@@ -120,7 +122,7 @@ library GroupByExec {
                 monotonic_verify(builder_ptr, alpha, beta, mle, output_chi_eval, 1, 1)
             }
             function compute_sum_out_fold_eval(
-                builder_ptr, alpha, beta, output_chi_eval, num_sum_columns, evaluations_ptr
+                builder_ptr, beta, output_chi_eval, num_sum_columns, evaluations_ptr
             ) -> sum_out_fold_eval {
                 sum_out_fold_eval := 0
                 for {} num_sum_columns { num_sum_columns := sub(num_sum_columns, 1) } {
@@ -133,7 +135,7 @@ library GroupByExec {
                 }
             }
 
-            function read_input_evals(plan_ptr, builder_ptr, alpha, beta) ->
+            function read_input_evals(plan_ptr, builder_ptr, alpha_and_beta) ->
                 plan_ptr_out,
                 partial_dlog_zero_sum_constraint_eval,
                 num_sum_columns
@@ -149,12 +151,12 @@ library GroupByExec {
                 // Read/eval group by inputs, selection inputs, and fold and dlog them
                 let g_in_star_eval_times_selection_eval
                 plan_ptr, g_in_star_eval_times_selection_eval :=
-                    compute_g_in_star_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                    compute_g_in_star_eval(plan_ptr, builder_ptr, alpha_and_beta, input_chi_eval)
 
                 // Read/eval sum inputs and fold them
                 let sum_in_fold_eval
                 plan_ptr, sum_in_fold_eval, num_sum_columns :=
-                    compute_sum_in_fold_eval(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                    compute_sum_in_fold_eval(plan_ptr, builder_ptr, mload(add(alpha_and_beta, WORD_SIZE)), input_chi_eval)
 
                 partial_dlog_zero_sum_constraint_eval :=
                     mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
@@ -169,7 +171,7 @@ library GroupByExec {
             }
 
             function read_output_evals(
-                builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
+                builder_ptr, alpha_and_beta, partial_dlog_zero_sum_constraint_eval, num_group_by_columns, num_sum_columns
             ) -> evaluations_ptr, output_length, output_chi_eval {
                 num_sum_columns := add(num_sum_columns, 1)
                 // Allocate memory for evaluations
@@ -186,13 +188,12 @@ library GroupByExec {
                 output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
 
                 let g_out_star_eval :=
-                    compute_g_out_star_eval(builder_ptr, alpha, beta, output_chi_eval, add(evaluations_ptr, WORD_SIZE))
+                    compute_g_out_star_eval(builder_ptr, alpha_and_beta, output_chi_eval, add(evaluations_ptr, WORD_SIZE))
 
                 let sum_out_fold_eval :=
                     compute_sum_out_fold_eval(
                         builder_ptr,
-                        alpha,
-                        beta,
+                        mload(add(alpha_and_beta, WORD_SIZE)),
                         output_chi_eval,
                         num_sum_columns,
                         add(evaluations_ptr, mul(num_group_by_columns, WORD_SIZE))
@@ -213,18 +214,21 @@ library GroupByExec {
                 output_length,
                 output_chi_eval
             {
-                let alpha := builder_consume_challenge(builder_ptr)
-                let beta := builder_consume_challenge(builder_ptr)
+                // In order to save on local variables, we save alpha and beta in one location in memory
+                let alpha_and_beta := mload(FREE_PTR)
+                mstore(FREE_PTR, add(alpha_and_beta, WORDX2_SIZE))
+                mstore(alpha_and_beta, builder_consume_challenge(builder_ptr))
+                mstore(add(alpha_and_beta, WORD_SIZE), builder_consume_challenge(builder_ptr))
 
                 let partial_dlog_zero_sum_constraint_eval, num_sum_columns
                 plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_sum_columns :=
-                    read_input_evals(plan_ptr, builder_ptr, alpha, beta)
+                    read_input_evals(plan_ptr, builder_ptr, alpha_and_beta)
 
                 // Read output
                 // For now, we can assume the number of group by columns is 1,
                 // because the function would have errored by this point otherwise
                 evaluations_ptr, output_length, output_chi_eval :=
-                    read_output_evals(builder_ptr, alpha, beta, partial_dlog_zero_sum_constraint_eval, 1, num_sum_columns)
+                    read_output_evals(builder_ptr, alpha_and_beta, partial_dlog_zero_sum_constraint_eval, 1, num_sum_columns)
             }
 
             let __planOutOffset
