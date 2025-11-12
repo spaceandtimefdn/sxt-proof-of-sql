@@ -168,116 +168,65 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<&str, &str>,
 ) -> PlannerResult<DynProofPlan> {
-    // Check that all of `group_expr` are columns and get their names
-    let group_columns = group_expr
+    let input_plan = logical_plan_to_proof_plan(input, schemas)?;
+    let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+    let group_by_exprs = group_expr
         .iter()
-        .map(|e| match e {
-            Expr::Column(c) => Ok(c),
+        .map(|e| expr_to_proof_expr(e, &input_schema))
+        .collect::<PlannerResult<Vec<_>>>()?;
+    let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
+        .iter()
+        .map(|e| match e.clone().unalias() {
+            Expr::AggregateFunction(agg) => {
+                let name_string = e.display_name()?;
+                let name = name_string.as_str();
+                let alias = alias_map.get(&name).ok_or_else(|| {
+                    PlannerError::UnsupportedLogicalPlan {
+                        plan: Box::new(input.clone()),
+                    }
+                })?;
+                Ok((
+                    aggregate_function_to_proof_expr(&agg, &input_schema)?,
+                    (*alias).into(),
+                ))
+            }
             _ => Err(PlannerError::UnsupportedLogicalPlan {
                 plan: Box::new(input.clone()),
             }),
         })
         .collect::<PlannerResult<Vec<_>>>()?;
-    match input {
-        // Only TableScan without fetch is supported
-        LogicalPlan::TableScan(TableScan {
-            table_name,
-            filters,
-            fetch: None,
-            ..
-        }) => {
-            let table_ref = table_reference_to_table_ref(table_name)?;
-            let input_schema = schemas.lookup_schema(&table_ref);
-            let table_expr = TableExpr { table_ref };
-            // Filter
-            let consolidated_filter_proof_expr = filters
-                .iter()
-                .map(|f| expr_to_proof_expr(f, &input_schema))
-                .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
-                .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
-            // Aggregate
-            // Prove that the ordering of `aggr_expr` is
-            // 1. All group columns according to `group_columns`
-            // 2. (Optional) All the SUMs
-            // 3. COUNT
-            if aggr_expr.is_empty() {
-                return Err(PlannerError::UnsupportedLogicalPlan {
-                    plan: Box::new(input.clone()),
-                });
-            }
-            let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
-                .iter()
-                .map(|e| match e.clone().unalias() {
-                    Expr::AggregateFunction(agg) => {
-                        let name_string = e.display_name()?;
-                        let name = name_string.as_str();
-                        let alias = alias_map.get(&name).ok_or_else(|| {
-                            PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(input.clone()),
-                            }
-                        })?;
-                        Ok((
-                            aggregate_function_to_proof_expr(&agg, &input_schema)?,
-                            (*alias).into(),
-                        ))
-                    }
-                    _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: Box::new(input.clone()),
-                    }),
-                })
-                .collect::<PlannerResult<Vec<_>>>()?;
-            // Check that the last expression is COUNT and the rest are SUMs
-            let (sum_tuples, count_tuple) =
-                agg_aliased_proof_exprs.split_at(agg_aliased_proof_exprs.len() - 1);
-            let sum_is_compliant = sum_tuples
-                .iter()
-                .all(|((op, _), _)| matches!(op, AggregateFunc::Sum));
-            let count_is_compliant = count_tuple
-                .iter()
-                .all(|((op, _), _)| matches!(op, AggregateFunc::Count));
-            if !sum_is_compliant || !count_is_compliant {
-                return Err(PlannerError::UnsupportedLogicalPlan {
-                    plan: Box::new(input.clone()),
-                });
-            }
-            let count_alias = agg_aliased_proof_exprs
-                .last()
-                .expect("We have already checked that this exists")
-                .1
-                .clone();
-            // `group_by_exprs`
-            let group_by_exprs = group_columns
-                .iter()
-                .map(|column| {
-                    Ok(ColumnExpr::new(column_to_column_ref(
-                        column,
-                        &input_schema,
-                    )?))
-                })
-                .collect::<PlannerResult<Vec<_>>>()?;
-            // `sum_expr`
-            let sum_expr = sum_tuples
-                .iter()
-                .map(|((_, expr), alias)| AliasedDynProofExpr {
+    // Remap to aggregation with projection
+    let enumerated_sum_exprs = agg_aliased_proof_exprs
+        .enumerate()
+        .iter()
+        .filter_map(|(i, ((func, expr), alias))| {
+            if *func == AggregateFunc::Sum {
+                Some((i, AliasedDynProofExpr {
                     expr: expr.clone(),
                     alias: alias.clone(),
-                })
-                .collect::<Vec<_>>();
-            DynProofPlan::try_new_group_by(
-                group_by_exprs,
-                sum_expr,
-                count_alias,
-                table_expr,
-                consolidated_filter_proof_expr,
-            )
-            .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
-                plan: Box::new(input.clone()),
-            })
-        }
-        _ => Err(PlannerError::UnsupportedLogicalPlan {
-            plan: Box::new(input.clone()),
-        }),
-    }
+                }))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    let sum_exprs = enumerated_sum_exprs
+        .iter()
+        .map(|(_, aliased_expr)| aliased_expr.clone())
+        .collect::<Vec<_>>();
+    let agg_plan = DynProofPlan::try_new_aggregate(
+        group_by_exprs,
+        sum_exprs,
+        "__count_alias__".into(),
+        input_plan,
+        DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+    )?;
+    let remapping = 
+    let remapping_projection_plan = DynProofPlan::new_projection(
+        enumerated_sum_exprs
+        agg_plan,
+    )
+    
 }
 
 fn join_to_proof_plan(
@@ -413,44 +362,7 @@ pub fn logical_plan_to_proof_plan(
             expr,
             schema,
             ..
-        }) => {
-            match &**input {
-                LogicalPlan::Aggregate(Aggregate {
-                    input: agg_input,
-                    group_expr,
-                    aggr_expr,
-                    ..
-                }) => {
-                    // Check whether the last layer is identity
-                    let alias_map = expr
-                        .iter()
-                        .map(|e| match e {
-                            Expr::Column(c) => Ok((c.name.as_str(), c.name.as_str())),
-                            Expr::Alias(Alias { expr, name, .. }) => {
-                                if let Expr::Column(c) = expr.as_ref() {
-                                    Ok((c.name.as_str(), name.as_str()))
-                                } else {
-                                    Err(PlannerError::UnsupportedLogicalPlan {
-                                        plan: Box::new(plan.clone()),
-                                    })
-                                }
-                            }
-                            _ => Err(PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(plan.clone()),
-                            }),
-                        })
-                        .collect::<PlannerResult<IndexMap<_, _>>>()?;
-                    aggregate_to_proof_plan(
-                        agg_input,
-                        group_expr,
-                        aggr_expr,
-                        schema_accessor,
-                        &alias_map,
-                    )
-                }
-                _ => projection_to_proof_plan(expr, input, schema, schema_accessor),
-            }
-        }
+        }) => projection_to_proof_plan(expr, input, schema, schema_accessor),
         // Filter
         LogicalPlan::Filter(Filter {
             input, predicate, ..
