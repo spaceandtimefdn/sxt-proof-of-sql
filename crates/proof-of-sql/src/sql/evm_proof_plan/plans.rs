@@ -7,8 +7,8 @@ use crate::{
     sql::{
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
-            DynProofPlan, EmptyExec, FilterExec, GroupByExec, LegacyFilterExec, ProjectionExec,
-            SliceExec, SortMergeJoinExec, TableExec, UnionExec,
+            AggregateExec, DynProofPlan, EmptyExec, FilterExec, GroupByExec, LegacyFilterExec,
+            ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
         },
     },
 };
@@ -536,7 +536,7 @@ pub(crate) struct EVMAggregateExec {
 }
 
 impl EVMAggregateExec {
-    /// Try to create a `EVMAggregateExec` from a `GroupByExec`.
+    /// Try to create a `EVMAggregateExec` from an `AggregateExec`.
     pub(crate) fn try_from_proof_plan(
         plan: &GroupByExec,
         table_refs: &IndexSet<TableRef>,
