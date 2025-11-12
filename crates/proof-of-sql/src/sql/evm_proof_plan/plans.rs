@@ -78,7 +78,10 @@ impl EVMDynProofPlan {
                 EVMFilterExec::try_from_proof_plan(filter_exec, table_refs, column_refs)
                     .map(Self::Filter)
             }
-            DynProofPlan::Aggregate(_) => Err(EVMProofPlanError::NotSupported),
+            DynProofPlan::Aggregate(aggregate_exec) => {
+                EVMAggregateExec::try_from_proof_plan(aggregate_exec, table_refs, column_refs)
+                    .map(Self::Aggregate)
+            }
         }
     }
 
@@ -124,7 +127,7 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Filter(filter_exec) => Ok(DynProofPlan::Filter(
                 filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
-            EVMDynProofPlan::Aggregate(aggregate_exec) => Ok(DynProofPlan::GroupBy(
+            EVMDynProofPlan::Aggregate(aggregate_exec) => Ok(DynProofPlan::Aggregate(
                 aggregate_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
         }
@@ -528,8 +531,8 @@ impl EVMGroupByExec {
 /// Represents an aggregate execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMAggregateExec {
-    table_number: usize,
-    group_by_exprs: Vec<usize>,
+    input_plan: Box<EVMDynProofPlan>,
+    group_by_exprs: Vec<EVMDynProofExpr>,
     where_clause: EVMDynProofExpr,
     sum_expr: Vec<EVMDynProofExpr>,
     count_alias_name: String,
@@ -538,35 +541,43 @@ pub(crate) struct EVMAggregateExec {
 impl EVMAggregateExec {
     /// Try to create a `EVMAggregateExec` from an `AggregateExec`.
     pub(crate) fn try_from_proof_plan(
-        plan: &GroupByExec,
+        plan: &AggregateExec,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
-        // Map column expressions to their indices in column_refs
+        // Get the input result columns to use for expression conversion
+        let input_result_column_refs = plan.input().get_column_result_fields_as_references();
+
         let group_by_exprs = plan
             .group_by_exprs()
             .iter()
-            .map(|col_expr| {
-                column_refs
-                    .get_index_of(&col_expr.get_column_reference())
-                    .ok_or(EVMProofPlanError::ColumnNotFound)
+            .map(|aliased_expr| {
+                EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, &input_result_column_refs)
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<_, _>>()?;
 
         Ok(Self {
-            table_number: table_refs
-                .get_index_of(&plan.table().table_ref)
-                .ok_or(EVMProofPlanError::TableNotFound)?,
-            group_by_exprs: group_by_exprs.clone(),
+            input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
+                plan.input(),
+                table_refs,
+                column_refs,
+            )?),
+            group_by_exprs,
             sum_expr: plan
                 .sum_expr()
                 .iter()
                 .map(|aliased_expr| {
-                    EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, column_refs)
+                    EVMDynProofExpr::try_from_proof_expr(
+                        &aliased_expr.expr,
+                        &input_result_column_refs,
+                    )
                 })
                 .collect::<Result<_, _>>()?,
             count_alias_name: plan.count_alias().value.clone(),
-            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+            where_clause: EVMDynProofExpr::try_from_proof_expr(
+                plan.where_clause(),
+                &input_result_column_refs,
+            )?,
         })
     }
 
@@ -575,17 +586,25 @@ impl EVMAggregateExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<GroupByExec> {
-        // Convert indices back to ColumnExpr objects
+    ) -> EVMProofPlanResult<AggregateExec> {
+        let input =
+            self.input_plan
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let input_result_column_refs = input.get_column_result_fields_as_references();
+
+        // Map group by expressions to AliasedDynProofExpr objects
         let group_by_exprs = self
             .group_by_exprs
             .iter()
-            .map(|&idx| {
-                let column_ref = column_refs
-                    .get_index(idx)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::ColumnNotFound)?;
-                Ok(ColumnExpr::new(column_ref))
+            .enumerate()
+            .map(|(i, expr)| {
+                let alias_name = output_column_names
+                    .get_index(i)
+                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
+                Ok(AliasedDynProofExpr {
+                    expr: expr.try_into_proof_expr(&input_result_column_refs)?,
+                    alias: Ident::new(alias_name),
+                })
             })
             .collect::<EVMProofPlanResult<Vec<_>>>()?;
 
@@ -601,7 +620,7 @@ impl EVMAggregateExec {
                     .get_index(alias_idx)
                     .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
                 Ok(AliasedDynProofExpr {
-                    expr: expr.try_into_proof_expr(column_refs)?,
+                    expr: expr.try_into_proof_expr(&input_result_column_refs)?,
                     alias: Ident::new(alias_name),
                 })
             })
@@ -619,17 +638,13 @@ impl EVMAggregateExec {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
         }
 
-        GroupByExec::try_new(
+        AggregateExec::try_new(
             group_by_exprs,
             sum_expr,
             Ident::new(&self.count_alias_name),
-            TableExpr {
-                table_ref: table_refs
-                    .get_index(self.table_number)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::TableNotFound)?,
-            },
-            self.where_clause.try_into_proof_expr(column_refs)?,
+            Box::new(input),
+            self.where_clause
+                .try_into_proof_expr(&input_result_column_refs)?,
         )
         .ok_or(EVMProofPlanError::NotSupported)
     }
