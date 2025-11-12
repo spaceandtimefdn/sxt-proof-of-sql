@@ -345,14 +345,14 @@ fn test_slicing_limit() {
 #[test]
 fn test_group_by() {
     let alloc = Bump::new();
-    let sql = "select human, count(1) from cats group by human;
-    select human, count(1) as num_cats from cats group by human;
-    select human, sum(weight), count(1) from cats group by human;
-    select human, sum(weight), count(1) as num_cats from cats group by human;
-    select human, sum(weight) as total_weight, count(1) as num_cats from cats group by human;
-    select human, sum(2 * weight), count(1) from cats group by human;
-    select human, sum(2 * weight + 1) as total_transformed_weight, count(1) from cats group by human;
-    select human, sum(2 * weight + $1::bigint) as total_transformed_weight, count(1) from cats group by human;
+    let sql = "select human_id, count(1) from cats group by human_id;
+    select human_id, count(1) as num_cats from cats group by human_id;
+    select human_id, sum(weight), count(1) from cats group by human_id;
+    select human_id, sum(weight), count(1) as num_cats from cats group by human_id;
+    select human_id, sum(weight) as total_weight, count(1) as num_cats from cats group by human_id;
+    select human_id, sum(2 * weight), count(1) from cats group by human_id;
+    select human_id, sum(2 * weight + 1) as total_transformed_weight, count(1) from cats group by human_id;
+    select human_id, sum(2 * weight + $1::bigint) as total_transformed_weight, count(1) from cats group by human_id;
     select sum(2 * weight + 1) as total_transformed_weight, count(1) as num_cats from cats;
     select count(1) as num_cats from cats;
     select count(1) from cats;";
@@ -362,46 +362,44 @@ fn test_group_by() {
                 borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
                 borrowed_varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
                 borrowed_varchar("human", ["Cassia", "Cassia", "Cassia", "Gretta", "Gretta"], &alloc),
+                borrowed_int("human_id", [1, 1, 1, 2, 2], &alloc),
                 borrowed_decimal75("weight", 3, 1, [145, 75, 20, 45, 55], &alloc),
             ]
         )
     };
     let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),
+        owned_table([int("human_id", [1, 2]), bigint("num_cats", [3_i64, 2])]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
-            bigint("num_cats", [3_i64, 2]),
-        ]),
-        owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("SUM(cats.weight)", 3, 1, [240, 100]),
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("SUM(cats.weight)", 3, 1, [240, 100]),
             bigint("num_cats", [3_i64, 2]),
         ]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("total_weight", 3, 1, [240, 100]),
             bigint("num_cats", [3_i64, 2]),
         ]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("SUM(Int64(2) * cats.weight)", 24, 1, [480, 200]),
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("total_transformed_weight", 25, 1, [510, 220]),
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
-            varchar("human", ["Cassia", "Gretta"]),
+            int("human_id", [1, 2]),
             decimal75("total_transformed_weight", 25, 1, [540, 240]),
             bigint("COUNT(Int64(1))", [3_i64, 2]),
         ]),

@@ -844,7 +844,7 @@ mod tests {
     }
 
     #[test]
-    fn we_can_aggregate_with_multiple_group_columns() {
+    fn we_cannot_aggregate_with_multiple_group_columns() {
         // Setup group expressions
         let group_expr = vec![df_column("table", "a"), df_column("table", "c")];
 
@@ -873,9 +873,13 @@ mod tests {
         };
 
         // Test the function
-        let result =
+        let err =
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
-                .unwrap();
+                .unwrap_err();
+        assert!(matches!(
+            err,
+            PlannerError::UnsupportedLogicalPlan { plan: _ }
+        ));
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
@@ -904,10 +908,9 @@ mod tests {
                 table_ref: TABLE_REF_TABLE(),
             },
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+        );
 
-        assert_eq!(result, expected);
+        assert!(expected.is_none());
     }
 
     #[test]

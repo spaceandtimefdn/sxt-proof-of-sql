@@ -112,19 +112,20 @@ fn main() {
         &verifier_setup,
     );
 
-    prove_and_verify_query(
-        "SELECT common_use, SUM(density) as total_density, COUNT(*) as wood_count FROM woods GROUP BY common_use",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
+    // For now, these queries are unsupported
+    // prove_and_verify_query(
+    //     "SELECT common_use, SUM(density) as total_density, COUNT(*) as wood_count FROM woods GROUP BY common_use",
+    //     &accessor,
+    //     &prover_setup,
+    //     &verifier_setup,
+    // );
 
-    prove_and_verify_query(
-        "SELECT common_use, COUNT(*) as c FROM woods GROUP BY common_use",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
+    // prove_and_verify_query(
+    //     "SELECT common_use, COUNT(*) as c FROM woods GROUP BY common_use",
+    //     &accessor,
+    //     &prover_setup,
+    //     &verifier_setup,
+    // );
 
     prove_and_verify_query(
         "SELECT name, hardness FROM woods WHERE density > 0.7",
