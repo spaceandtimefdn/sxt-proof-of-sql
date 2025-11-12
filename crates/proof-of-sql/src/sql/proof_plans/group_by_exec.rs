@@ -97,13 +97,19 @@ impl GroupByExec {
 
     /// Checks if the group by expression can prove uniqueness
     /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
-    pub fn is_uniqueness_provable(&self) -> bool {
-        if self.group_by_exprs.len() != 1 {
-            return false;
+    pub fn try_get_is_uniqueness_provable(&self) -> Option<bool> {
+        match (
+            self.group_by_exprs.len(),
+            self.group_by_exprs.first().map(ColumnExpr::data_type),
+        ) {
+            (0, _) => Some(false),
+            (1, Some(data_type))
+                if !matches!(data_type, ColumnType::VarChar | ColumnType::VarBinary) =>
+            {
+                Some(true)
+            }
+            _ => None,
         }
-
-        let column_type = self.group_by_exprs[0].data_type();
-        !matches!(column_type, ColumnType::VarChar | ColumnType::VarBinary)
     }
 }
 
@@ -164,24 +170,22 @@ impl ProofPlan for GroupByExec {
             .verify_evaluate(builder, &group_by_result_columns_evals, output_chi_eval.0)?
             .0;
 
-        let is_uniqueness_provable = self.is_uniqueness_provable();
-        if is_uniqueness_provable {
-            assert_eq!(
-                group_by_result_columns_evals.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
-            verify_monotonic::<S, true, true>(
-                builder,
-                alpha,
-                beta,
-                group_by_result_columns_evals[0],
-                output_chi_eval.0,
-            )?;
-        } else {
-            Err(ProofError::UnsupportedQueryPlan {
-                error: "GroupByExec without provable uniqueness check not supported.",
+        match self.try_get_is_uniqueness_provable() {
+            Some(true) => {
+                verify_monotonic::<S, true, true>(
+                    builder,
+                    alpha,
+                    beta,
+                    group_by_result_columns_evals[0],
+                    output_chi_eval.0,
+                )?;
+            }
+            Some(false) => (),
+            None => {
+                Err(ProofError::UnsupportedQueryPlan {
+                error: "GroupByExec with nonzero grouping columns and without provable uniqueness check not supported.",
             })?;
+            }
         }
 
         let sum_result_columns_evals =
@@ -312,12 +316,10 @@ impl ProverEvaluate for GroupByExec {
         )
         .expect("Failed to create table from column references");
         // Prove result uniqueness if possible
-        if self.is_uniqueness_provable() {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
+        if self
+            .try_get_is_uniqueness_provable()
+            .expect("Group by must be provable")
+        {
             first_round_evaluate_monotonic(
                 builder,
                 alloc,
@@ -418,13 +420,10 @@ impl ProverEvaluate for GroupByExec {
             .final_round_evaluate(builder, alloc, &group_by_result_columns, m)
             .0;
 
-        let check_uniqueness = self.is_uniqueness_provable();
-        if check_uniqueness {
-            assert_eq!(
-                group_by_result_columns.len(),
-                1,
-                "Expected exactly one group by column for uniqueness check"
-            );
+        if self
+            .try_get_is_uniqueness_provable()
+            .expect("Group by must be provable")
+        {
             let g_out_scalars = group_by_result_columns[0].to_scalar();
             let alloc_g_out_scalars = alloc.alloc_slice_copy(&g_out_scalars);
             final_round_evaluate_monotonic::<S, true, true>(
