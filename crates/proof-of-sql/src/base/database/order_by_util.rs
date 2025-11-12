@@ -1,9 +1,8 @@
 //! Contains the utility functions for ordering.
 use crate::base::{
-    database::{Column, OwnedColumn, TableOperationError, TableOperationResult},
+    database::{Column, TableOperationError, TableOperationResult},
     scalar::{Scalar, ScalarExt},
 };
-use alloc::vec::Vec;
 use core::cmp::Ordering;
 
 /// Compares the tuples `(order_by[0][i], order_by[1][i], ...)` and
@@ -99,56 +98,4 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
     }
 
     Ok(Ordering::Equal)
-}
-
-/// Compares the tuples `(order_by[0][i], order_by[1][i], ...)` and
-/// `(order_by[0][j], order_by[1][j], ...)` in lexicographic order.
-///
-/// Identical in functionality to [`compare_indexes_by_columns`]
-pub(crate) fn compare_indexes_by_owned_columns<S: Scalar>(
-    order_by: &[&OwnedColumn<S>],
-    i: usize,
-    j: usize,
-) -> Ordering {
-    let order_by_pairs = order_by
-        .iter()
-        // ASC is the default direction
-        .map(|&col| (col.clone(), true))
-        .collect::<Vec<_>>();
-    compare_indexes_by_owned_columns_with_direction(&order_by_pairs, i, j)
-}
-
-/// Compares the tuples `(left[0][i], left[1][i], ...)` and
-/// `(right[0][j], right[1][j], ...)` in lexicographic order.
-/// Note that direction flips the ordering.
-pub(crate) fn compare_indexes_by_owned_columns_with_direction<S: Scalar>(
-    order_by_pairs: &[(OwnedColumn<S>, bool)],
-    i: usize,
-    j: usize,
-) -> Ordering {
-    order_by_pairs
-        .iter()
-        .map(|(col, is_asc)| {
-            let ordering = match col {
-                OwnedColumn::Boolean(col) => col[i].cmp(&col[j]),
-                OwnedColumn::Uint8(col) => col[i].cmp(&col[j]),
-                OwnedColumn::TinyInt(col) => col[i].cmp(&col[j]),
-                OwnedColumn::SmallInt(col) => col[i].cmp(&col[j]),
-                OwnedColumn::Int(col) => col[i].cmp(&col[j]),
-                OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => {
-                    col[i].cmp(&col[j])
-                }
-                OwnedColumn::Int128(col) => col[i].cmp(&col[j]),
-                OwnedColumn::Decimal75(_, _, col) => col[i].signed_cmp(&col[j]),
-                OwnedColumn::Scalar(col) => col[i].cmp(&col[j]),
-                OwnedColumn::VarChar(col) => col[i].cmp(&col[j]),
-                OwnedColumn::VarBinary(col) => col[i].cmp(&col[j]),
-            };
-            match is_asc {
-                true => ordering,
-                false => ordering.reverse(),
-            }
-        })
-        .find(|&ord| ord != Ordering::Equal)
-        .unwrap_or(Ordering::Equal)
 }

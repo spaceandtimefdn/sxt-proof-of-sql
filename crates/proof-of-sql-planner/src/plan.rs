@@ -263,13 +263,16 @@ fn aggregate_to_proof_plan(
                     alias: alias.clone(),
                 })
                 .collect::<Vec<_>>();
-            Ok(DynProofPlan::new_group_by(
+            DynProofPlan::try_new_group_by(
                 group_by_exprs,
                 sum_expr,
                 count_alias,
                 table_expr,
                 consolidated_filter_proof_expr,
-            ))
+            )
+            .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+                plan: Box::new(input.clone()),
+            })
         }
         _ => Err(PlannerError::UnsupportedLogicalPlan {
             plan: Box::new(input.clone()),
@@ -747,7 +750,7 @@ mod tests {
                 .unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -766,7 +769,8 @@ mod tests {
                 table_ref: TABLE_REF_TABLE(),
             },
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }
@@ -810,7 +814,7 @@ mod tests {
                 .unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -833,13 +837,14 @@ mod tests {
                 "d".into(),
                 ColumnType::Boolean,
             )),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn we_can_aggregate_with_multiple_group_columns() {
+    fn we_cannot_aggregate_with_multiple_group_columns() {
         // Setup group expressions
         let group_expr = vec![df_column("table", "a"), df_column("table", "c")];
 
@@ -868,12 +873,16 @@ mod tests {
         };
 
         // Test the function
-        let result =
+        let err =
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
-                .unwrap();
+                .unwrap_err();
+        assert!(matches!(
+            err,
+            PlannerError::UnsupportedLogicalPlan { plan: _ }
+        ));
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![
                 ColumnExpr::new(ColumnRef::new(
                     TABLE_REF_TABLE(),
@@ -901,7 +910,7 @@ mod tests {
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
         );
 
-        assert_eq!(result, expected);
+        assert!(expected.is_none());
     }
 
     #[test]
@@ -940,7 +949,7 @@ mod tests {
                 .unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -969,7 +978,8 @@ mod tests {
                 table_ref: TABLE_REF_TABLE(),
             },
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }
@@ -1006,7 +1016,7 @@ mod tests {
                 .unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -1018,7 +1028,8 @@ mod tests {
                 table_ref: TABLE_REF_TABLE(),
             },
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }
@@ -1774,7 +1785,7 @@ mod tests {
         let result = logical_plan_to_proof_plan(&agg_plan, &SCHEMAS()).unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -1797,7 +1808,8 @@ mod tests {
                 "d".into(),
                 ColumnType::Boolean,
             )),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }
@@ -1860,7 +1872,7 @@ mod tests {
         let result = logical_plan_to_proof_plan(&proj_plan, &SCHEMAS()).unwrap();
 
         // Expected result
-        let expected = DynProofPlan::new_group_by(
+        let expected = DynProofPlan::try_new_group_by(
             vec![ColumnExpr::new(ColumnRef::new(
                 TABLE_REF_TABLE(),
                 "a".into(),
@@ -1883,7 +1895,8 @@ mod tests {
                 "d".into(),
                 ColumnType::Boolean,
             )),
-        );
+        )
+        .unwrap();
 
         assert_eq!(result, expected);
     }

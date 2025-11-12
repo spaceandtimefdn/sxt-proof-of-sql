@@ -507,7 +507,7 @@ impl EVMGroupByExec {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
         }
 
-        Ok(GroupByExec::new(
+        GroupByExec::try_new(
             group_by_exprs,
             sum_expr,
             Ident::new(&self.count_alias_name),
@@ -518,7 +518,8 @@ impl EVMGroupByExec {
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
             self.where_clause.try_into_proof_expr(column_refs)?,
-        ))
+        )
+        .ok_or(EVMProofPlanError::NotSupported)
     }
 }
 
@@ -936,7 +937,7 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(column_ref_a.clone())],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -955,7 +956,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         // Convert to EVM plan
         let evm_group_by_exec = EVMGroupByExec::try_from_proof_plan(
@@ -1026,7 +1028,7 @@ mod tests {
             ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
 
         // Create a group by exec with a column that doesn't exist in column_refs
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(missing_column)],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1045,7 +1047,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         let result = EVMGroupByExec::try_from_proof_plan(
             &group_by_exec,
@@ -1069,7 +1072,7 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec with a table that doesn't exist in table_refs
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(column_ref_a.clone())],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1088,7 +1091,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         let result = EVMGroupByExec::try_from_proof_plan(
             &group_by_exec,
@@ -1111,7 +1115,7 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(column_ref_a.clone())],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1130,7 +1134,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         let evm_group_by_exec = EVMGroupByExec::try_from_proof_plan(
             &group_by_exec,
@@ -1166,7 +1171,7 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(column_ref_a.clone())],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1185,7 +1190,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         let evm_group_by_exec = EVMGroupByExec::try_from_proof_plan(
             &group_by_exec,
@@ -1221,7 +1227,7 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
-        let group_by_exec = GroupByExec::new(
+        let group_by_exec = GroupByExec::try_new(
             vec![ColumnExpr::new(column_ref_a.clone())],
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1240,7 +1246,8 @@ mod tests {
                 )
                 .unwrap(),
             ),
-        );
+        )
+        .unwrap();
 
         let evm_group_by_exec = EVMGroupByExec::try_from_proof_plan(
             &group_by_exec,

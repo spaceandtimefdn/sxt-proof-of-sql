@@ -8,6 +8,7 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::test_utility::*,
+        proof_plans::GroupByExec,
     },
 };
 
@@ -103,9 +104,11 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
     assert_eq!(res, expected);
 }
 
+/// Despite functionality for multi column group having gone away for now,
+/// this test will be left as is, for the most part, as we do expect to support this again.
 #[expect(clippy::too_many_lines)]
 #[test]
-fn we_can_prove_a_complex_group_by_query_with_many_columns() {
+fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
     let scalar_filter_data: Vec<Curve25519Scalar> = [
         333, 222, 222, 333, 222, 333, 333, 333, 222, 222, 222, 333, 222, 222, 222, 222, 222, 222,
         333, 333,
@@ -187,7 +190,7 @@ fn we_can_prove_a_complex_group_by_query_with_many_columns() {
     // SELECT scalar_group, int128_group, bigint_group, sum(bigint_sum + 1) as sum_int, sum(bigint_sum - int128_sum) as sum_bigint, sum(scalar_filter) as sum_scal, count(*) as __count__
     //  FROM sxt.t WHERE int128_filter = 1020 AND varchar_filter = 'f2'
     //  GROUP BY scalar_group, int128_group, bigint_group
-    let expr = group_by(
+    let expr = GroupByExec::try_new(
         cols_expr(
             &t,
             &["scalar_group", "int128_group", "bigint_group"],
@@ -207,26 +210,27 @@ fn we_can_prove_a_complex_group_by_query_with_many_columns() {
             ),
             sum_expr(column(&t, "scalar_sum", &accessor), "sum_scal"),
         ],
-        "__count__",
+        "__count__".into(),
         tab(&t),
         and(
             equal(column(&t, "int128_filter", &accessor), const_int128(1020)),
             equal(column(&t, "varchar_filter", &accessor), const_varchar("f2")),
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
-    let expected = owned_table([
-        scalar("scalar_group", [4, 4, 4]),
-        int128("int128_group", [8, 8, 9]),
-        bigint("bigint_group", [6, 7, 6]),
-        decimal75("sum_int", 20, 0, [1409, 929, 638]),
-        decimal75("sum_128", 40, 0, [64, -335, 124]),
-        scalar("sum_scal", [1116, 1033, 375]),
-        bigint("__count__", [3, 2, 1]),
-    ]);
-    assert_eq!(res, expected);
+    assert!(expr.is_none());
+    // let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    // exercise_verification(&res, &expr, &accessor, &t);
+    // let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    // let expected = owned_table([
+    //     scalar("scalar_group", [4, 4, 4]),
+    //     int128("int128_group", [8, 8, 9]),
+    //     bigint("bigint_group", [6, 7, 6]),
+    //     decimal75("sum_int", 20, 0, [1409, 929, 638]),
+    //     decimal75("sum_128", 40, 0, [64, -335, 124]),
+    //     scalar("sum_scal", [1116, 1033, 375]),
+    //     bigint("__count__", [3, 2, 1]),
+    // ]);
+    // assert_eq!(res, expected);
 
     // SELECT sum(bigint_sum) as sum_int, sum(int128_sum * 4) as sum_128, sum(scalar_sum) as sum_scal, count(*) as __count__
     //  FROM sxt.t WHERE int128_filter = 1020 AND varchar_filter = 'f2'

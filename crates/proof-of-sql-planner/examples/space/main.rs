@@ -128,18 +128,19 @@ fn main() {
         &prover_setup,
         &verifier_setup,
     );
-    prove_and_verify_query(
-        "SELECT Nationality, COUNT(*) AS num_travellers FROM travellers GROUP BY Nationality",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
-    prove_and_verify_query(
-        "SELECT Flight, COUNT(*) AS num_travellers FROM travellers GROUP BY Flight",
-        &accessor,
-        &prover_setup,
-        &verifier_setup,
-    );
+    // For now, these queries are unsupported
+    // prove_and_verify_query(
+    //     "SELECT Nationality, COUNT(*) AS num_travellers FROM travellers GROUP BY Nationality",
+    //     &accessor,
+    //     &prover_setup,
+    //     &verifier_setup,
+    // );
+    // prove_and_verify_query(
+    //     "SELECT Flight, COUNT(*) AS num_travellers FROM travellers GROUP BY Flight",
+    //     &accessor,
+    //     &prover_setup,
+    //     &verifier_setup,
+    // );
     prove_and_verify_query(
         "SELECT name FROM planets WHERE NOT dwarf",
         &accessor,

@@ -2,7 +2,7 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, OwnedTable, Table,
+            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, Table,
             TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
@@ -75,14 +75,13 @@ where
         &self,
         builder: &mut impl VerificationBuilder<S>,
         accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
-        _result: Option<&OwnedTable<S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         // 1. columns
         let input_table_eval =
             self.input
-                .verifier_evaluate(builder, accessor, None, chi_eval_map, params)?;
+                .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
         let (input_eval, input_length) = input_table_eval.chi();
         let (output_chi_eval, output_length) = builder.try_consume_chi_evaluation()?;
         let columns_evals = input_table_eval.column_evals();
