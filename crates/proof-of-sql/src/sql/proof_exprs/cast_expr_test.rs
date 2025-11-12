@@ -1,5 +1,5 @@
 use super::{
-    test_utility::{aliased_plan, cast, column, tab},
+    test_utility::{aliased_plan, cast, column},
     LiteralExpr,
 };
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{CastExpr, DynProofExpr},
-        proof_plans::test_utility::legacy_filter,
+        proof_plans::test_utility::{column_field, filter, table_exec},
         AnalyzeError,
     },
 };
@@ -43,7 +43,7 @@ fn we_can_prove_a_simple_cast_expr() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             aliased_plan(
                 cast(column(&t, "a", &accessor), ColumnType::TinyInt),
@@ -67,7 +67,20 @@ fn we_can_prove_a_simple_cast_expr() {
                 "f_cast",
             ),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::Boolean),
+                column_field("b", ColumnType::Boolean),
+                column_field("c", ColumnType::Boolean),
+                column_field("d", ColumnType::Boolean),
+                column_field("e", ColumnType::Boolean),
+                column_field(
+                    "f",
+                    ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(1)),
+                ),
+            ],
+        ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -101,7 +114,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             aliased_plan(
                 cast(column(&t, "a", &accessor), ColumnType::SmallInt),
@@ -141,7 +154,18 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
                 "g_cast",
             ),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::TinyInt),
+                column_field("b", ColumnType::Uint8),
+                column_field("c", ColumnType::SmallInt),
+                column_field("d", ColumnType::Int),
+                column_field("e", ColumnType::BigInt),
+                column_field("f", ColumnType::Int128),
+                column_field("g", ColumnType::Decimal75(Precision::new(2).unwrap(), 0)),
+            ],
+        ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

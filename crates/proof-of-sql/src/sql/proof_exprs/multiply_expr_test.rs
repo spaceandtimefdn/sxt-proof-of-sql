@@ -36,7 +36,7 @@ fn we_can_prove_a_typical_multiply_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             aliased_plan(multiply(column(&t, "a", &accessor), const_int(2)), "a"),
             col_expr_plan(&t, "c", &accessor),
@@ -53,7 +53,16 @@ fn we_can_prove_a_typical_multiply_query() {
             ),
             col_expr_plan(&t, "e", &accessor),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::SmallInt),
+                column_field("b", ColumnType::Int),
+                column_field("e", ColumnType::VarChar),
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::Decimal75(Precision::new(2).unwrap(), 1)),
+            ],
+        ),
         equal(
             multiply(column(&t, "d", &accessor), const_decimal75(2, 1, 39)),
             const_decimal75(3, 2, 819),
@@ -98,9 +107,19 @@ fn where_clause_can_wrap_around() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast: DynProofPlan = legacy_filter(
+    let ast: DynProofPlan = filter(
         cols_expr_plan(&t, &["a", "b", "c", "d", "e", "res"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::BigInt),
+                column_field("e", ColumnType::BigInt),
+                column_field("res", ColumnType::BigInt),
+            ],
+        ),
         equal(
             multiply(
                 multiply(
@@ -170,7 +189,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             vec![
                 col_expr_plan(&t, "d", &accessor),
                 aliased_plan(
@@ -181,7 +200,15 @@ fn test_random_tables_with_given_offset(offset: usize) {
                     "f",
                 ),
             ],
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                    column_field("d", ColumnType::VarChar),
+                ],
+            ),
             and(
                 equal(
                     column(&t, "b", &accessor),

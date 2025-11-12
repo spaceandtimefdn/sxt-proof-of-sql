@@ -2,8 +2,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, OwnedTableTestAccessor, TableRef,
-            TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
+            TableRef, TableTestAccessor, TestAccessor,
         },
         scalar::test_scalar::TestScalar,
     },
@@ -32,9 +32,16 @@ fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+            ],
+        ),
         not(equal(column(&t, "b", &accessor), const_bigint(1))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -73,9 +80,15 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "b"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                ],
+            ),
             not(and(
                 equal(column(&t, "a", &accessor), const_bigint(filter_val_a)),
                 equal(

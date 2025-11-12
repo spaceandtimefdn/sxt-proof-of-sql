@@ -2,9 +2,10 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, OwnedTable, OwnedTableTestAccessor,
-            Table, TableRef, TableTestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTable,
+            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
+        math::decimal::Precision,
         scalar::Scalar,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
@@ -34,9 +35,17 @@ fn we_can_prove_an_equality_query_with_no_rows() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res =
@@ -60,9 +69,17 @@ fn we_can_prove_another_equality_query_with_no_rows() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res =
@@ -87,9 +104,18 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["b", "c", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("bool", ColumnType::Boolean),
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(
             column(&t, "bool", &accessor),
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
@@ -120,9 +146,17 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -146,9 +180,17 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -172,9 +214,17 @@ fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("d", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -212,9 +262,17 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -253,9 +311,18 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("bool", ColumnType::Boolean),
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(75).unwrap(), 0)),
+            ],
+        ),
         equal(
             column(&t, "bool", &accessor),
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
@@ -297,9 +364,17 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(42).unwrap(), 10)),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_bigint(123_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -339,9 +414,17 @@ fn we_can_prove_an_equality_query_with_a_string_comparison() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "b", "e"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+                column_field("c", ColumnType::VarChar),
+                column_field("e", ColumnType::Decimal75(Precision::new(42).unwrap(), 10)),
+            ],
+        ),
         equal(column(&t, "c", &accessor), const_varchar("ghi")),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -388,9 +471,17 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             cols_expr_plan(&t, &["a", "d"], &accessor),
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                    column_field("d", ColumnType::VarChar),
+                ],
+            ),
             equal(
                 column(&t, "b", &accessor),
                 const_varchar(filter_val.as_str()),
@@ -482,9 +573,15 @@ fn we_can_query_with_varbinary_equality() {
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
 
     // Build query plan: SELECT a, b FROM table WHERE b = [4,5,6,7]
-    let ast = legacy_filter(
+    let ast = filter(
         cols_expr_plan(&t, &["a", "b"], &accessor),
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::VarBinary),
+            ],
+        ),
         equal(column(&t, "b", &accessor), const_varbinary(&[4, 5, 6, 7])),
     );
 

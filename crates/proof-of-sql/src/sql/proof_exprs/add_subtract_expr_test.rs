@@ -36,14 +36,22 @@ fn we_can_prove_a_typical_add_subtract_query() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
             col_expr_plan(&t, "c", &accessor),
             aliased_plan(add(column(&t, "b", &accessor), const_bigint(4)), "res"),
             col_expr_plan(&t, "d", &accessor),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::SmallInt),
+                column_field("b", ColumnType::Int),
+                column_field("d", ColumnType::VarChar),
+                column_field("c", ColumnType::BigInt),
+            ],
+        ),
         equal(
             subtract(column(&t, "a", &accessor), column(&t, "b", &accessor)),
             const_bigint(3),
@@ -76,7 +84,7 @@ fn we_can_prove_a_typical_add_subtract_query_with_decimals() {
     let t = TableRef::new("sxt", "t");
     let accessor =
         OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
-    let ast = legacy_filter(
+    let ast = filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
             aliased_plan(
@@ -100,7 +108,15 @@ fn we_can_prove_a_typical_add_subtract_query_with_decimals() {
             ),
             col_expr_plan(&t, "d", &accessor),
         ],
-        tab(&t),
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("a", ColumnType::Decimal75(Precision::new(12).unwrap(), 1)),
+                column_field("b", ColumnType::Decimal75(Precision::new(12).unwrap(), 2)),
+                column_field("d", ColumnType::VarChar),
+                column_field("c", ColumnType::Decimal75(Precision::new(12).unwrap(), 3)),
+            ],
+        ),
         equal(
             subtract(
                 scaling_cast(
@@ -157,7 +173,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             offset,
             (),
         );
-        let ast = legacy_filter(
+        let ast = filter(
             vec![
                 col_expr_plan(&t, "d", &accessor),
                 aliased_plan(
@@ -168,7 +184,15 @@ fn test_random_tables_with_given_offset(offset: usize) {
                     "f",
                 ),
             ],
-            tab(&t),
+            table_exec(
+                t.clone(),
+                vec![
+                    column_field("a", ColumnType::BigInt),
+                    column_field("b", ColumnType::VarChar),
+                    column_field("c", ColumnType::BigInt),
+                    column_field("d", ColumnType::VarChar),
+                ],
+            ),
             and(
                 equal(
                     column(&t, "b", &accessor),
