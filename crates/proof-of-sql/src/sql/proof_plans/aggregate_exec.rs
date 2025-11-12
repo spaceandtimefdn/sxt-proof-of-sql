@@ -44,7 +44,7 @@ use tracing::{span, Level};
 ///
 /// Note: if `group_by_exprs` is empty, then the query is equivalent to removing the `GROUP BY` clause.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct GroupByExec {
+pub struct AggregateExec {
     pub(super) group_by_exprs: Vec<ColumnExpr>,
     pub(super) sum_expr: Vec<AliasedDynProofExpr>,
     pub(super) count_alias: Ident,
@@ -52,7 +52,7 @@ pub struct GroupByExec {
     pub(super) where_clause: DynProofExpr,
 }
 
-impl GroupByExec {
+impl AggregateExec {
     /// Creates a new `group_by` expression.
     pub fn try_new(
         group_by_exprs: Vec<ColumnExpr>,
@@ -114,7 +114,7 @@ impl GroupByExec {
     }
 }
 
-impl ProofPlan for GroupByExec {
+impl ProofPlan for AggregateExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -184,7 +184,7 @@ impl ProofPlan for GroupByExec {
             Some(false) => (),
             None => {
                 Err(ProofError::UnsupportedQueryPlan {
-                error: "GroupByExec with nonzero grouping columns and without provable uniqueness check not supported.",
+                error: "AggregateExec with nonzero grouping columns and without provable uniqueness check not supported.",
             })?;
             }
         }
@@ -242,8 +242,8 @@ impl ProofPlan for GroupByExec {
     }
 }
 
-impl ProverEvaluate for GroupByExec {
-    #[tracing::instrument(name = "GroupByExec::first_round_evaluate", level = "debug", skip_all)]
+impl ProverEvaluate for AggregateExec {
+    #[tracing::instrument(name = "AggregateExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FirstRoundBuilder<'a, S>,
@@ -337,7 +337,7 @@ impl ProverEvaluate for GroupByExec {
         Ok(res)
     }
 
-    #[tracing::instrument(name = "GroupByExec::final_round_evaluate", level = "debug", skip_all)]
+    #[tracing::instrument(name = "AggregateExec::final_round_evaluate", level = "debug", skip_all)]
     #[expect(clippy::too_many_lines)]
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
@@ -381,7 +381,7 @@ impl ProverEvaluate for GroupByExec {
         // Compute sum_in_fold
         let span = span!(
             Level::DEBUG,
-            "GroupByExec::final_round_evaluate sum_columns"
+            "AggregateExec::final_round_evaluate sum_columns"
         )
         .entered();
         let sum_columns = self
@@ -397,7 +397,7 @@ impl ProverEvaluate for GroupByExec {
 
         let span = span!(
             Level::DEBUG,
-            "GroupByExec::final_round_evaluate allocate sum_in_fold"
+            "AggregateExec::final_round_evaluate allocate sum_in_fold"
         )
         .entered();
         let sum_in_fold = alloc.alloc_slice_fill_copy(n, One::one());

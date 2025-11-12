@@ -8,7 +8,7 @@ use crate::{
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::test_utility::*,
-        proof_plans::GroupByExec,
+        proof_plans::AggregateExec,
     },
 };
 
@@ -190,7 +190,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
     // SELECT scalar_group, int128_group, bigint_group, sum(bigint_sum + 1) as sum_int, sum(bigint_sum - int128_sum) as sum_bigint, sum(scalar_filter) as sum_scal, count(*) as __count__
     //  FROM sxt.t WHERE int128_filter = 1020 AND varchar_filter = 'f2'
     //  GROUP BY scalar_group, int128_group, bigint_group
-    let expr = GroupByExec::try_new(
+    let expr = AggregateExec::try_new(
         cols_expr(
             &t,
             &["scalar_group", "int128_group", "bigint_group"],
