@@ -55,7 +55,7 @@ library ProofOfSqlTable {
     /// @param __serializedTable The serialized table
     /// @return __serializedTableOut The data that remains after consuming the serialized table
     /// @return __table The deserialized table
-    function __deserializeFromBytes(bytes memory __serializedTable)
+    function deserializeFromBytes(bytes memory __serializedTable)
         internal
         pure
         returns (bytes memory __serializedTableOut, Table memory __table)
