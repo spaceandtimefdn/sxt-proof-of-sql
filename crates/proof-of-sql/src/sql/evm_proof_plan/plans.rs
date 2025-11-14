@@ -121,9 +121,11 @@ impl EVMDynProofPlan {
                     output_column_names,
                 )?),
             ),
-            EVMDynProofPlan::Filter(filter_exec) => Ok(DynProofPlan::Filter(
-                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::Filter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
         }
     }
 }
@@ -282,8 +284,8 @@ impl EVMFilterExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<FilterExec> {
-        Ok(FilterExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Filter(FilterExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -300,7 +302,7 @@ impl EVMFilterExec {
                 output_column_names,
             )?),
             self.where_clause.try_into_proof_expr(column_refs)?,
-        ))
+        )))
     }
 }
 
@@ -1529,6 +1531,10 @@ mod tests {
         )
         .unwrap();
 
+        let DynProofPlan::Filter(roundtripped_filter_exec) = roundtripped_filter_exec else {
+            panic!("This branch is not possible");
+        };
+
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_filter_exec.aliased_results().len(), 1);
         assert!(matches!(
@@ -1611,6 +1617,10 @@ mod tests {
                 &indexset![ident_a.value, ident_c.value],
             )
             .unwrap();
+
+        let DynProofPlan::Filter(roundtripped) = roundtripped else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan
         assert_eq!(roundtripped.aliased_results().len(), 2);
@@ -1762,6 +1772,10 @@ mod tests {
                 &indexset![ident_a.value, ident_b.value, alias_3],
             )
             .unwrap();
+
+        let DynProofPlan::Filter(roundtripped) = roundtripped else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected nested structure
         assert_eq!(roundtripped.aliased_results().len(), 3);
