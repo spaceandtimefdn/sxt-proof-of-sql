@@ -93,9 +93,11 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Table(table_exec) => Ok(DynProofPlan::Table(
                 table_exec.try_into_proof_plan(table_refs, column_refs)?,
             )),
-            EVMDynProofPlan::LegacyFilter(filter_exec) => Ok(DynProofPlan::LegacyFilter(
-                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::LegacyFilter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
             EVMDynProofPlan::Projection(projection_exec) => Ok(DynProofPlan::Projection(
                 projection_exec.try_into_proof_plan(
                     table_refs,
@@ -222,8 +224,8 @@ impl EVMLegacyFilterExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<LegacyFilterExec> {
-        Ok(LegacyFilterExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::LegacyFilter(LegacyFilterExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -241,7 +243,7 @@ impl EVMLegacyFilterExec {
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
             self.where_clause.try_into_proof_expr(column_refs)?,
-        ))
+        )))
     }
 }
 
@@ -921,7 +923,10 @@ mod tests {
             &indexset![alias],
         )
         .unwrap();
-        assert_eq!(roundtripped_filter_exec, filter_exec);
+        assert_eq!(
+            roundtripped_filter_exec,
+            DynProofPlan::LegacyFilter(filter_exec)
+        );
     }
 
     #[test]
