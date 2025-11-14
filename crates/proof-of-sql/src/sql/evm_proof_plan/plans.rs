@@ -111,13 +111,8 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Union(union_exec) => {
                 Ok(union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
             }
-            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
-                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
-                    table_refs,
-                    column_refs,
-                    output_column_names,
-                )?),
-            ),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(sort_merge_join_exec
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?),
             EVMDynProofPlan::Filter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
                 table_refs,
                 column_refs,
@@ -611,7 +606,7 @@ impl EVMSortMergeJoinExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<SortMergeJoinExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let left = Box::new(self.left.try_into_proof_plan(
             table_refs,
             column_refs,
@@ -626,13 +621,13 @@ impl EVMSortMergeJoinExec {
         let right_join_column_indexes = self.right_join_column_indexes.clone();
         let result_idents = self.result_aliases.iter().map(Ident::new).collect();
 
-        Ok(SortMergeJoinExec::new(
+        Ok(DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
             result_idents,
-        ))
+        )))
     }
 }
 
