@@ -194,6 +194,10 @@ impl ProofPlan for MembershipCheckTestPlan {
         )?;
         Ok(TableEvaluation::new(vec![multiplicities_eval], chi_n_eval))
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 #[cfg(all(test, feature = "blitzar"))]

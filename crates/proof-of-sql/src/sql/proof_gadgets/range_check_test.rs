@@ -176,6 +176,10 @@ impl ProofPlan for RangeCheckTestPlan {
             chi_eval_map[&self.column.table_ref()],
         ))
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 #[cfg(all(test, feature = "blitzar"))]

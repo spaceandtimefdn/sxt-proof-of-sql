@@ -25,6 +25,9 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
     /// Return all the result column fields
     fn get_column_result_fields(&self) -> Vec<ColumnField>;
 
+    /// Return all the result column fields from intermediate results (i.e. results from an input plan)
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField>;
+
     /// Return all the columns referenced in the Query
     fn get_column_references(&self) -> IndexSet<ColumnRef>;
 

@@ -61,6 +61,10 @@ impl ProofPlan for EmptyExec {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         IndexSet::default()
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        Vec::new()
+    }
 }
 
 impl ProverEvaluate for EmptyExec {

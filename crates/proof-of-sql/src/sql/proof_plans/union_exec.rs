@@ -121,6 +121,10 @@ where
             .flat_map(ProofPlan::get_table_references)
             .collect()
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 impl ProverEvaluate for UnionExec {

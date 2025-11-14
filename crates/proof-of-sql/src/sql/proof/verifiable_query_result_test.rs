@@ -92,6 +92,10 @@ impl ProofPlan for EmptyTestQueryExpr {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 #[test]

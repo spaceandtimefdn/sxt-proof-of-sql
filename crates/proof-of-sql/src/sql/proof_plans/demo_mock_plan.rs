@@ -49,6 +49,10 @@ impl ProofPlan for DemoMockPlan {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset! {self.column.table_ref()}
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 impl ProverEvaluate for DemoMockPlan {

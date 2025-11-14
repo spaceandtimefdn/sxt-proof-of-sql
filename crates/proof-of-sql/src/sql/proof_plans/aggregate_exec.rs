@@ -240,6 +240,10 @@ impl ProofPlan for AggregateExec {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         self.input.get_table_references()
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 impl ProverEvaluate for AggregateExec {

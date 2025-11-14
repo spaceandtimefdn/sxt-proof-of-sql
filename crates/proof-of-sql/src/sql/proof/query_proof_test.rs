@@ -117,6 +117,10 @@ impl ProofPlan for TrivialTestProofPlan {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 fn verify_a_trivial_query_proof_with_given_offset(n: usize, offset_generators: usize) {
@@ -338,6 +342,10 @@ impl ProofPlan for SquareTestProofPlan {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 fn verify_a_proof_with_an_anchored_commitment_and_given_offset(offset_generators: usize) {
@@ -539,6 +547,10 @@ impl ProofPlan for DoubleSquareTestProofPlan {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 fn verify_a_proof_with_an_intermediate_commitment_and_given_offset(offset_generators: usize) {
@@ -733,6 +745,10 @@ impl ProofPlan for ChallengeTestProofPlan {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 fn verify_a_proof_with_a_post_result_challenge_and_given_offset(offset_generators: usize) {
@@ -873,6 +889,10 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
     }
 }
 

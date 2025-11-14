@@ -86,6 +86,10 @@ impl ProofPlan for TableExec {
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset! {self.table_ref.clone()}
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 impl ProverEvaluate for TableExec {

@@ -345,6 +345,10 @@ mod tests {
             verify_shift(builder, alpha, beta, column_eval, chi_n_eval)?;
             Ok(TableEvaluation::new(vec![], (S::zero(), 0)))
         }
+
+        fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+            todo!()
+        }
     }
 
     #[test]

@@ -157,6 +157,10 @@ impl ProofPlan for PermutationCheckTestPlan {
         )?;
         Ok(TableEvaluation::new(vec![], (S::ZERO, 0)))
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 #[cfg(all(test, feature = "blitzar"))]

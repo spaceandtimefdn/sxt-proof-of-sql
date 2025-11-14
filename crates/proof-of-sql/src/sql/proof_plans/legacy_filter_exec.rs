@@ -158,6 +158,10 @@ where
     fn get_table_references(&self) -> IndexSet<TableRef> {
         IndexSet::from_iter([self.table.table_ref.clone()])
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 /// Alias for a filter expression with a honest prover.

@@ -311,6 +311,10 @@ where
             .chain(self.right.get_table_references())
             .collect()
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 impl ProverEvaluate for SortMergeJoinExec {

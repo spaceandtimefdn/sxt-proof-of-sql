@@ -58,6 +58,7 @@ struct CompactPlan {
     columns: Vec<(usize, String, ColumnType)>,
     output_column_names: Vec<String>,
     plan: EVMDynProofPlan,
+    intermediate_result_column_names: Vec<String>,
 }
 
 impl TryFrom<&EVMProofPlan> for CompactPlan {
@@ -68,6 +69,12 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
         let column_refs = value.get_column_references();
         let output_column_names = value
             .get_column_result_fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect();
+
+        let itermediate_result_column_names = value
+            .get_intermediate_column_result_fields()
             .iter()
             .map(|field| field.name().to_string())
             .collect();
@@ -93,6 +100,7 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
             columns,
             output_column_names,
             plan,
+            intermediate_result_column_names: itermediate_result_column_names,
         })
     }
 }
@@ -118,7 +126,11 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
                 Ok(ColumnRef::new(table_ref, Ident::new(ident), *column_type))
             })
             .try_collect()?;
-        let output_column_names: IndexSet<String> = value.output_column_names.into_iter().collect();
+        let output_column_names: IndexSet<String> = value
+            .output_column_names
+            .into_iter()
+            .chain(value.intermediate_result_column_names)
+            .collect();
         Ok(Self {
             inner: value.plan.try_into_proof_plan(
                 &table_refs,
@@ -167,6 +179,10 @@ impl ProofPlan for EVMProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         self.inner().get_table_references()
+    }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
     }
 }
 impl ProverEvaluate for EVMProofPlan {

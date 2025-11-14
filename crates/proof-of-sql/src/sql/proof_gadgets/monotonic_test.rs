@@ -116,6 +116,10 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
         verify_monotonic::<S, STRICT, ASC>(builder, alpha, beta, column_eval, chi_eval)?;
         Ok(TableEvaluation::new(vec![], (S::zero(), 0)))
     }
+
+    fn get_intermediate_column_result_fields(&self) -> Vec<ColumnField> {
+        todo!()
+    }
 }
 
 #[cfg(all(test, feature = "blitzar"))]
