@@ -98,13 +98,8 @@ impl EVMDynProofPlan {
                 column_refs,
                 output_column_names,
             )?),
-            EVMDynProofPlan::Projection(projection_exec) => Ok(DynProofPlan::Projection(
-                projection_exec.try_into_proof_plan(
-                    table_refs,
-                    column_refs,
-                    output_column_names,
-                )?,
-            )),
+            EVMDynProofPlan::Projection(projection_exec) => Ok(projection_exec
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?),
             EVMDynProofPlan::Slice(slice_exec) => Ok(DynProofPlan::Slice(
                 slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
@@ -347,7 +342,7 @@ impl EVMProjectionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<ProjectionExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -356,7 +351,7 @@ impl EVMProjectionExec {
             .into_iter()
             .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
             .collect();
-        Ok(ProjectionExec::new(
+        Ok(DynProofPlan::Projection(ProjectionExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -368,7 +363,7 @@ impl EVMProjectionExec {
                 })
                 .collect::<EVMProofPlanResult<Vec<_>>>()?,
             Box::new(input),
-        ))
+        )))
     }
 }
 
@@ -708,6 +703,11 @@ mod tests {
             &indexset![alias],
         )
         .unwrap();
+
+        let DynProofPlan::Projection(roundtripped_projection_exec) = roundtripped_projection_exec
+        else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_projection_exec.aliased_results().len(), 1);
