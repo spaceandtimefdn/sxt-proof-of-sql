@@ -100,9 +100,9 @@ impl EVMDynProofPlan {
             )?),
             EVMDynProofPlan::Projection(projection_exec) => Ok(projection_exec
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?),
-            EVMDynProofPlan::Slice(slice_exec) => Ok(DynProofPlan::Slice(
-                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::Slice(slice_exec) => {
+                Ok(slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
+            }
             EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
                 group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
@@ -398,8 +398,8 @@ impl EVMSliceExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<SliceExec> {
-        Ok(SliceExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Slice(SliceExec::new(
             Box::new(self.input_plan.try_into_proof_plan(
                 table_refs,
                 column_refs,
@@ -407,7 +407,7 @@ impl EVMSliceExec {
             )?),
             self.skip,
             self.fetch,
-        ))
+        )))
     }
 }
 
@@ -766,6 +766,10 @@ mod tests {
             &IndexSet::default(),
         )
         .unwrap();
+
+        let DynProofPlan::Slice(roundtripped_slice_exec) = roundtripped_slice_exec else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_slice_exec.skip(), skip);
