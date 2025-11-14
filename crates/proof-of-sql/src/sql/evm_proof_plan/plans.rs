@@ -108,9 +108,9 @@ impl EVMDynProofPlan {
                 column_refs,
                 output_column_names,
             )?),
-            EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
-                union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::Union(union_exec) => {
+                Ok(union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
+            }
             EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
                 DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
                     table_refs,
@@ -553,13 +553,13 @@ impl EVMUnionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<UnionExec> {
-        Ok(UnionExec::try_new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Union(UnionExec::try_new(
             self.inputs
                 .iter()
                 .map(|plan| plan.try_into_proof_plan(table_refs, column_refs, output_column_names))
                 .collect::<Result<Vec<_>, _>>()?,
-        )?)
+        )?))
     }
 }
 
@@ -1410,7 +1410,7 @@ mod tests {
         let round_tripped_union_exec = evm_union_exec
             .try_into_proof_plan(table_refs, column_refs, &output_column_names)
             .unwrap();
-        assert_eq!(union_exec, round_tripped_union_exec);
+        assert_eq!(DynProofPlan::Union(union_exec), round_tripped_union_exec);
     }
 
     #[test]
