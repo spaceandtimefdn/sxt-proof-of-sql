@@ -90,9 +90,9 @@ impl EVMDynProofPlan {
     ) -> EVMProofPlanResult<DynProofPlan> {
         match self {
             EVMDynProofPlan::Empty(_empty_exec) => Ok(EVMEmptyExec::try_into_proof_plan()),
-            EVMDynProofPlan::Table(table_exec) => Ok(DynProofPlan::Table(
-                table_exec.try_into_proof_plan(table_refs, column_refs)?,
-            )),
+            EVMDynProofPlan::Table(table_exec) => {
+                Ok(table_exec.try_into_proof_plan(table_refs, column_refs)?)
+            }
             EVMDynProofPlan::LegacyFilter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
                 table_refs,
                 column_refs,
@@ -174,7 +174,7 @@ impl EVMTableExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-    ) -> EVMProofPlanResult<TableExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let table_ref = table_refs
             .get_index(self.table_number)
             .cloned()
@@ -187,7 +187,7 @@ impl EVMTableExec {
             .map(|col_ref| ColumnField::new(col_ref.column_id(), *col_ref.column_type()))
             .collect();
 
-        Ok(TableExec::new(table_ref, schema))
+        Ok(DynProofPlan::Table(TableExec::new(table_ref, schema)))
     }
 }
 
@@ -832,11 +832,15 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            *roundtripped_table_exec.table_ref(),
-            *table_exec.table_ref()
-        );
-        assert_eq!(roundtripped_table_exec.schema().len(), 2);
+        if let DynProofPlan::Table(roundtripped_table_exec) = roundtripped_table_exec {
+            assert_eq!(
+                *roundtripped_table_exec.table_ref(),
+                *table_exec.table_ref()
+            );
+            assert_eq!(roundtripped_table_exec.schema().len(), 2);
+        } else {
+            panic!("This branch is not possible");
+        }
     }
 
     #[test]
