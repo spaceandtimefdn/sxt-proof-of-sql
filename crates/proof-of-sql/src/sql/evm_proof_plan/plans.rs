@@ -89,9 +89,7 @@ impl EVMDynProofPlan {
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<DynProofPlan> {
         match self {
-            EVMDynProofPlan::Empty(_empty_exec) => {
-                Ok(DynProofPlan::Empty(EVMEmptyExec::try_into_proof_plan()))
-            }
+            EVMDynProofPlan::Empty(_empty_exec) => Ok(EVMEmptyExec::try_into_proof_plan()),
             EVMDynProofPlan::Table(table_exec) => Ok(DynProofPlan::Table(
                 table_exec.try_into_proof_plan(table_refs, column_refs)?,
             )),
@@ -139,8 +137,8 @@ impl EVMEmptyExec {
     }
 
     /// Convert into a proof plan
-    pub(crate) fn try_into_proof_plan() -> EmptyExec {
-        EmptyExec::new()
+    pub(crate) fn try_into_proof_plan() -> DynProofPlan {
+        DynProofPlan::Empty(EmptyExec::new())
     }
 }
 
@@ -787,7 +785,7 @@ mod tests {
 
     #[test]
     fn we_can_put_empty_exec_in_evm() {
-        let empty_exec = EmptyExec::new();
+        let empty_exec = DynProofPlan::new_empty();
 
         // Roundtrip
         let roundtripped_empty_exec = EVMEmptyExec::try_into_proof_plan();
