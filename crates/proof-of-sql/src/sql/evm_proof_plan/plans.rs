@@ -103,9 +103,11 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Slice(slice_exec) => {
                 Ok(slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
             }
-            EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
-                group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::GroupBy(group_by_exec) => Ok(group_by_exec.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
             EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
                 union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
@@ -461,7 +463,7 @@ impl EVMGroupByExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<GroupByExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         // Convert indices back to ColumnExpr objects
         let group_by_exprs = self
             .group_by_exprs
@@ -505,19 +507,21 @@ impl EVMGroupByExec {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
         }
 
-        GroupByExec::try_new(
-            group_by_exprs,
-            sum_expr,
-            Ident::new(&self.count_alias_name),
-            TableExpr {
-                table_ref: table_refs
-                    .get_index(self.table_number)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::TableNotFound)?,
-            },
-            self.where_clause.try_into_proof_expr(column_refs)?,
-        )
-        .ok_or(EVMProofPlanError::NotSupported)
+        Ok(DynProofPlan::GroupBy(
+            (GroupByExec::try_new(
+                group_by_exprs,
+                sum_expr,
+                Ident::new(&self.count_alias_name),
+                TableExpr {
+                    table_ref: table_refs
+                        .get_index(self.table_number)
+                        .cloned()
+                        .ok_or(EVMProofPlanError::TableNotFound)?,
+                },
+                self.where_clause.try_into_proof_expr(column_refs)?,
+            )
+            .ok_or(EVMProofPlanError::NotSupported))?,
+        ))
     }
 }
 
@@ -1007,6 +1011,10 @@ mod tests {
             ],
         )
         .unwrap();
+
+        let DynProofPlan::GroupBy(roundtripped_group_by_exec) = roundtripped_group_by_exec else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_group_by_exec.group_by_exprs().len(), 1);
