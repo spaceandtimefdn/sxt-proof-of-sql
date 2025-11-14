@@ -91,33 +91,28 @@ impl EVMDynProofPlan {
         match self {
             EVMDynProofPlan::Empty(_empty_exec) => Ok(EVMEmptyExec::try_into_proof_plan()),
             EVMDynProofPlan::Table(table_exec) => {
-                Ok(table_exec.try_into_proof_plan(table_refs, column_refs)?)
+                table_exec.try_into_proof_plan(table_refs, column_refs)
             }
-            EVMDynProofPlan::LegacyFilter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?),
-            EVMDynProofPlan::Projection(projection_exec) => Ok(projection_exec
-                .try_into_proof_plan(table_refs, column_refs, output_column_names)?),
+            EVMDynProofPlan::LegacyFilter(filter_exec) => {
+                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::Projection(projection_exec) => {
+                projection_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
             EVMDynProofPlan::Slice(slice_exec) => {
-                Ok(slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
+                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
             }
-            EVMDynProofPlan::GroupBy(group_by_exec) => Ok(group_by_exec.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?),
+            EVMDynProofPlan::GroupBy(group_by_exec) => {
+                group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
             EVMDynProofPlan::Union(union_exec) => {
-                Ok(union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?)
+                union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
             }
-            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(sort_merge_join_exec
-                .try_into_proof_plan(table_refs, column_refs, output_column_names)?),
-            EVMDynProofPlan::Filter(filter_exec) => Ok(filter_exec.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => sort_merge_join_exec
+                .try_into_proof_plan(table_refs, column_refs, output_column_names),
+            EVMDynProofPlan::Filter(filter_exec) => {
+                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
         }
     }
 }
