@@ -3,13 +3,15 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType, TableRef,
             TableTestAccessor, TestAccessor,
         },
+        try_standard_binary_serialization,
     },
     sql::{
+        evm_proof_plan::EVMProofPlan,
         proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::test_utility::*,
+        proof_exprs::{test_utility::*, AddExpr, AliasedDynProofExpr, DynProofExpr},
     },
 };
 use bumpalo::Bump;
@@ -244,4 +246,113 @@ fn we_can_compose_complex_filters() {
         int128("c", [40, 50]),             // c values for rows 3,4
     ]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_have_projection_as_input_plan_for_filter() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [1, 4, 5, 2, 5], &alloc),
+        borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
+        borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), data, 0);
+
+    let table_exec = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+            ColumnField::new("c".into(), ColumnType::Int128),
+        ],
+    );
+
+    // Create a TableExec as input
+    let projection = projection(
+        vec![
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    t.clone(),
+                    "a".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "x".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    t.clone(),
+                    "b".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "y".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    t.clone(),
+                    "c".into(),
+                    ColumnType::Int128,
+                )),
+                alias: "z".into(),
+            },
+        ],
+        table_exec,
+    );
+
+    let dummy_table = TableRef::new("", "");
+    let filter_results = vec![
+        AliasedDynProofExpr {
+            expr: DynProofExpr::Add(
+                AddExpr::try_new(
+                    Box::new(DynProofExpr::new_column(ColumnRef::new(
+                        dummy_table.clone(),
+                        "x".into(),
+                        ColumnType::BigInt,
+                    ))),
+                    Box::new(DynProofExpr::new_column(ColumnRef::new(
+                        dummy_table.clone(),
+                        "y".into(),
+                        ColumnType::BigInt,
+                    ))),
+                )
+                .unwrap(),
+            ),
+            alias: "xplusy".into(),
+        },
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "y".into(),
+                ColumnType::BigInt,
+            )),
+            alias: "y".into(),
+        },
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "z".into(),
+                ColumnType::Int128,
+            )),
+            alias: "z".into(),
+        },
+    ];
+    // First filter to keep rows where a > 3
+    let filter = filter(
+        filter_results,
+        projection,
+        gt(
+            DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "z".into(),
+                ColumnType::Int128,
+            )),
+            const_int128(13_i128),
+        ),
+    );
+    let res: VerifiableQueryResult<InnerProductProof> =
+        VerifiableQueryResult::new(&filter, &accessor, &(), &[]).unwrap();
+    res.verify(&filter, &accessor, &(), &[]).unwrap();
+    let expected_evm_proof_plan = EVMProofPlan::new(filter);
+    try_standard_binary_serialization(expected_evm_proof_plan).unwrap();
 }
