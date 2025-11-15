@@ -262,17 +262,28 @@ impl EVMFilterExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        let input_result_column_refs: IndexSet<ColumnRef> = plan
+            .input()
+            .get_column_result_fields()
+            .into_iter()
+            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
+            .collect();
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
                 plan.input(),
                 table_refs,
                 column_refs,
             )?),
-            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+            where_clause: EVMDynProofExpr::try_from_proof_expr(
+                plan.where_clause(),
+                &input_result_column_refs,
+            )?,
             results: plan
                 .aliased_results()
                 .iter()
-                .map(|result| EVMDynProofExpr::try_from_proof_expr(&result.expr, column_refs))
+                .map(|result| {
+                    EVMDynProofExpr::try_from_proof_expr(&result.expr, &input_result_column_refs)
+                })
                 .collect::<Result<_, _>>()?,
         })
     }
