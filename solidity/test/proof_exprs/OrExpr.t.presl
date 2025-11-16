@@ -25,7 +25,7 @@ contract OrExprTest is Test {
         builder.rowMultipliersEvaluation = 1;
 
         uint256 eval;
-        (expr, builder, eval) = OrExpr.__orExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = OrExpr.__orExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == addmod(MODULUS, mulmod(MODULUS_MINUS_ONE, 10, MODULUS), MODULUS));
         assert(builder.aggregateEvaluation == 100);
@@ -87,7 +87,7 @@ contract OrExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = OrExpr.__orExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = OrExpr.__orExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == expectedEval.into());
         assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());

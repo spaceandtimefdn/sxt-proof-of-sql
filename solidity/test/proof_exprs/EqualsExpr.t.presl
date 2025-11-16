@@ -27,7 +27,7 @@ contract EqualsExprTest is Test {
         builder.rowMultipliersEvaluation = 1;
 
         uint256 eval;
-        (expr, builder, eval) = EqualsExpr.__equalsExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = EqualsExpr.__equalsExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 5);
         assert(builder.aggregateEvaluation == 550);
@@ -96,7 +96,7 @@ contract EqualsExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = EqualsExpr.__equalsExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = EqualsExpr.__equalsExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == expectedEval.into());
         assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());

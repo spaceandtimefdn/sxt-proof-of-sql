@@ -15,7 +15,7 @@ contract NotExprTest is Test {
         VerificationBuilder.Builder memory builder;
 
         uint256 eval;
-        (expr, builder, eval) = NotExpr.__notExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = NotExpr.__notExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 0);
         bytes memory expectedExprOut = hex"abcdef";
@@ -36,7 +36,7 @@ contract NotExprTest is Test {
             abi.encodePacked(abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, inputValue), trailingExpr);
 
         uint256 eval;
-        (expr, builder, eval) = NotExpr.__notExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = NotExpr.__notExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == (F.from(chiEvaluation) - F.from(inputValue) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);

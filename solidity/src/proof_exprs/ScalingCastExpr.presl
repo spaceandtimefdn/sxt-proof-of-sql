@@ -14,12 +14,13 @@ library ScalingCastExpr {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, eval
     /// ```
     /// ##### Parameters
     /// * `expr_ptr` - calldata pointer to the expression data
     /// * `builder_ptr` - memory pointer to the verification builder
     /// * `chi_eval` - the chi value for evaluation
+    /// * `accessor` - memory pointer to the collection of evals
     /// ##### Return Values
     /// * `expr_ptr_out` - pointer to the remaining expression after consuming the sub-expression
     /// * `eval` - the evaluation result from the builder's final round MLE
@@ -32,11 +33,12 @@ library ScalingCastExpr {
     /// @param __expr The scaling cast expression data
     /// @param __builder The verification builder
     /// @param __chiEval The chi value for evaluation
+    /// @param __accessor The collection of evals
     /// @return __exprOut The remaining expression after processing
     /// @return __builderOut The verification builder result
     /// @return __eval The evaluated result
     function __scalingCastExprEvaluate( // solhint-disable-line gas-calldata-parameters
-    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval, uint256[] memory __accessor)
         external
         pure
         returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
@@ -46,12 +48,12 @@ library ScalingCastExpr {
             // import read_data_type from ../base/DataType.presl
             // import proof_expr_evaluate from ProofExpr.presl
 
-            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function scaling_cast_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, result_eval {
                 let data_type
                 expr_ptr, data_type := read_data_type(expr_ptr)
 
                 // Evaluate the input expression
-                expr_ptr, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                expr_ptr, result_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
 
                 // Read the scaling factor (256 bits)
                 let scaling_factor := calldataload(expr_ptr)
@@ -64,7 +66,7 @@ library ScalingCastExpr {
             }
 
             let __exprOutOffset
-            __exprOutOffset, __eval := scaling_cast_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOutOffset, __eval := scaling_cast_expr_evaluate(__expr.offset, __builder, __chiEval, __accessor)
             __exprOut.offset := __exprOutOffset
             // slither-disable-next-line write-after-write
             __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))

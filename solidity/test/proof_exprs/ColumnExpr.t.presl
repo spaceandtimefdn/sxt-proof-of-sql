@@ -22,7 +22,7 @@ contract ColumnExprTest is Test {
 
         bytes memory exprOut;
         uint256 eval;
-        (exprOut, builder, eval) = ColumnExpr.__columnExprEvaluate(exprIn, builder);
+        (exprOut, eval) = ColumnExpr.__columnExprEvaluate(exprIn, values);
         assert(eval == 0x22222222);
         assert(exprOut.length == expectedExprOut.length);
         uint256 exprOutLength = exprOut.length;
@@ -43,7 +43,7 @@ contract ColumnExprTest is Test {
         bytes memory exprIn = abi.encodePacked(columnNum, trailingExpr);
         bytes memory exprOut;
         uint256 eval;
-        (exprOut, builder, eval) = ColumnExpr.__columnExprEvaluate(exprIn, builder);
+        (exprOut, eval) = ColumnExpr.__columnExprEvaluate(exprIn, columnValues);
 
         assert(eval == columnValues[columnNum]);
         assert(exprOut.length == trailingExpr.length);
@@ -61,6 +61,6 @@ contract ColumnExprTest is Test {
 
         bytes memory exprIn = abi.encodePacked(uint64(2), hex"abcdef");
         vm.expectRevert(Errors.InvalidIndex.selector);
-        ColumnExpr.__columnExprEvaluate(exprIn, builder);
+        ColumnExpr.__columnExprEvaluate(exprIn, values);
     }
 }

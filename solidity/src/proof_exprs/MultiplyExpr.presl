@@ -14,12 +14,13 @@ library MultiplyExpr {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, eval
     /// ```
     /// ##### Parameters
     /// * `expr_ptr` - calldata pointer to the expression data
     /// * `builder_ptr` - memory pointer to the verification builder
     /// * `chi_eval` - the chi value for evaluation
+    /// * `accessor` - memory pointer to the collection of evals
     /// ##### Return Values
     /// * `expr_ptr_out` - pointer to the remaining expression after consuming both sub-expressions
     /// * `eval` - the evaluation result from the builder's final round MLE
@@ -31,11 +32,12 @@ library MultiplyExpr {
     /// @param __expr The multiply expression data
     /// @param __builder The verification builder
     /// @param __chiEval The chi value for evaluation
+    /// @param __accessor The collection of evals
     /// @return __exprOut The remaining expression after processing
     /// @return __builderOut The verification builder result
     /// @return __eval The evaluated result
     function __multiplyExprEvaluate( // solhint-disable-line gas-calldata-parameters
-    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval, uint256[] memory __accessor)
         external
         pure
         returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
@@ -45,12 +47,12 @@ library MultiplyExpr {
             // import builder_consume_final_round_mle, builder_produce_identity_constraint from ../builder/VerificationBuilder.presl
             // import proof_expr_evaluate from ProofExpr.presl
 
-            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function multiply_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, result_eval {
                 let lhs_eval
-                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
 
                 let rhs_eval
-                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
 
                 result_eval := mod(builder_consume_final_round_mle(builder_ptr), MODULUS)
                 builder_produce_identity_constraint(
@@ -61,7 +63,7 @@ library MultiplyExpr {
             }
 
             let __exprOutOffset
-            __exprOutOffset, __eval := multiply_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOutOffset, __eval := multiply_expr_evaluate(__expr.offset, __builder, __chiEval, __accessor)
             __exprOut.offset := __exprOutOffset
             // slither-disable-next-line write-after-write
             __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))

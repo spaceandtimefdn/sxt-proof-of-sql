@@ -85,7 +85,7 @@ library ProjectionExec {
                 for {} column_count { column_count := sub(column_count, 1) } {
                     target_ptr := add(target_ptr, WORD_SIZE)
                     let evaluation
-                    plan_ptr, evaluation := proof_expr_evaluate(plan_ptr, builder_ptr, output_chi_eval)
+                    plan_ptr, evaluation := proof_expr_evaluate(plan_ptr, builder_ptr, output_chi_eval, builder_get_column_evaluations(builder_ptr))
 
                     mstore(target_ptr, evaluation)
                 }

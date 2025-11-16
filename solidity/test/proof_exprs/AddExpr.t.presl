@@ -18,7 +18,7 @@ contract AddExprTest is Test {
         VerificationBuilder.Builder memory builder;
 
         uint256 eval;
-        (expr, builder, eval) = AddExpr.__addExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = AddExpr.__addExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 120);
         bytes memory expectedExprOut = hex"abcdef";
@@ -43,7 +43,7 @@ contract AddExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = AddExpr.__addExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = AddExpr.__addExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == ((F.from(lhsValue) + F.from(rhsValue)) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);

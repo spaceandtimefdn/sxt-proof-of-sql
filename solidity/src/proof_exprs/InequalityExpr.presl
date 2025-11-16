@@ -14,12 +14,13 @@ library InequalityExpr {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, eval
+    /// inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, eval
     /// ```
     /// ##### Parameters
     /// * `expr_ptr` - calldata pointer to the expression data
     /// * `builder_ptr` - memory pointer to the verification builder
     /// * `chi_eval` - the chi value for evaluation
+    /// * `accessor` - memory pointer to the collection of evals
     /// ##### Return Values
     /// * `expr_ptr_out` - pointer to the remaining expression after consuming both sub-expressions
     /// * `eval` - the evaluation result from the builder's final round MLE
@@ -32,11 +33,12 @@ library InequalityExpr {
     /// @param __expr The inqeuality expression data
     /// @param __builder The verification builder
     /// @param __chiEval The chi value for evaluation
+    /// @param __accessor The collection of evals
     /// @return __exprOut The remaining expression after processing
     /// @return __builderOut The verification builder result
     /// @return __eval The evaluated result
     function __inequalityExprEvaluate( // solhint-disable-line gas-calldata-parameters
-    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval)
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval, uint256[] memory __accessor)
         external
         pure
         returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
@@ -46,12 +48,12 @@ library InequalityExpr {
             // import sign_expr_evaluate from ../proof_gadgets/SignExpr.presl
             // import proof_expr_evaluate from ProofExpr.presl
 
-            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval) -> expr_ptr_out, result_eval {
+            function inequality_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, result_eval {
                 let lhs_eval
-                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                expr_ptr, lhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
 
                 let rhs_eval
-                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval)
+                expr_ptr, rhs_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
 
                 let is_lt := shr(BOOLEAN_PADDING_BITS, calldataload(expr_ptr))
                 expr_ptr := add(expr_ptr, BOOLEAN_SIZE)
@@ -65,7 +67,7 @@ library InequalityExpr {
             }
 
             let __exprOutOffset
-            __exprOutOffset, __eval := inequality_expr_evaluate(__expr.offset, __builder, __chiEval)
+            __exprOutOffset, __eval := inequality_expr_evaluate(__expr.offset, __builder, __chiEval, __accessor)
             __exprOut.offset := __exprOutOffset
             // slither-disable-next-line write-after-write
             __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))

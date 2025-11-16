@@ -72,7 +72,7 @@ contract InequalityExprTest is Test {
         );
 
         uint256 signEval;
-        (expr, builder, signEval) = InequalityExpr.__inequalityExprEvaluate(expr, builder, evaluations[1]);
+        (expr, builder, signEval) = InequalityExpr.__inequalityExprEvaluate(expr, builder, evaluations[1], builder.columnEvaluations);
         assert(signEval == evaluations[9]);
     }
 }

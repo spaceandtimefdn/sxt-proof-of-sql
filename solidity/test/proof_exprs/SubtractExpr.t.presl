@@ -18,7 +18,7 @@ contract SubtractExprTest is Test {
         VerificationBuilder.Builder memory builder;
 
         uint256 eval;
-        (expr, builder, eval) = SubtractExpr.__subtractExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = SubtractExpr.__subtractExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 20);
         bytes memory expectedExprOut = hex"abcdef";
@@ -43,7 +43,7 @@ contract SubtractExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = SubtractExpr.__subtractExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = SubtractExpr.__subtractExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == ((F.from(lhsValue) - F.from(rhsValue)) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);
