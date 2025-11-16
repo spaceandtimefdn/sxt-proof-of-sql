@@ -89,41 +89,30 @@ impl EVMDynProofPlan {
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<DynProofPlan> {
         match self {
-            EVMDynProofPlan::Empty(_empty_exec) => {
-                Ok(DynProofPlan::Empty(EVMEmptyExec::try_into_proof_plan()))
+            EVMDynProofPlan::Empty(_empty_exec) => Ok(EVMEmptyExec::try_into_proof_plan()),
+            EVMDynProofPlan::Table(table_exec) => {
+                table_exec.try_into_proof_plan(table_refs, column_refs)
             }
-            EVMDynProofPlan::Table(table_exec) => Ok(DynProofPlan::Table(
-                table_exec.try_into_proof_plan(table_refs, column_refs)?,
-            )),
-            EVMDynProofPlan::LegacyFilter(filter_exec) => Ok(DynProofPlan::LegacyFilter(
-                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
-            EVMDynProofPlan::Projection(projection_exec) => Ok(DynProofPlan::Projection(
-                projection_exec.try_into_proof_plan(
-                    table_refs,
-                    column_refs,
-                    output_column_names,
-                )?,
-            )),
-            EVMDynProofPlan::Slice(slice_exec) => Ok(DynProofPlan::Slice(
-                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
-            EVMDynProofPlan::GroupBy(group_by_exec) => Ok(DynProofPlan::GroupBy(
-                group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
-            EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
-                union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
-            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
-                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
-                    table_refs,
-                    column_refs,
-                    output_column_names,
-                )?),
-            ),
-            EVMDynProofPlan::Filter(filter_exec) => Ok(DynProofPlan::Filter(
-                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
-            )),
+            EVMDynProofPlan::LegacyFilter(filter_exec) => {
+                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::Projection(projection_exec) => {
+                projection_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::Slice(slice_exec) => {
+                slice_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::GroupBy(group_by_exec) => {
+                group_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::Union(union_exec) => {
+                union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => sort_merge_join_exec
+                .try_into_proof_plan(table_refs, column_refs, output_column_names),
+            EVMDynProofPlan::Filter(filter_exec) => {
+                filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)
+            }
         }
     }
 }
@@ -139,8 +128,8 @@ impl EVMEmptyExec {
     }
 
     /// Convert into a proof plan
-    pub(crate) fn try_into_proof_plan() -> EmptyExec {
-        EmptyExec::new()
+    pub(crate) fn try_into_proof_plan() -> DynProofPlan {
+        DynProofPlan::Empty(EmptyExec::new())
     }
 }
 
@@ -174,7 +163,7 @@ impl EVMTableExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-    ) -> EVMProofPlanResult<TableExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let table_ref = table_refs
             .get_index(self.table_number)
             .cloned()
@@ -187,7 +176,7 @@ impl EVMTableExec {
             .map(|col_ref| ColumnField::new(col_ref.column_id(), *col_ref.column_type()))
             .collect();
 
-        Ok(TableExec::new(table_ref, schema))
+        Ok(DynProofPlan::Table(TableExec::new(table_ref, schema)))
     }
 }
 
@@ -224,8 +213,8 @@ impl EVMLegacyFilterExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<LegacyFilterExec> {
-        Ok(LegacyFilterExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::LegacyFilter(LegacyFilterExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -243,7 +232,7 @@ impl EVMLegacyFilterExec {
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
             self.where_clause.try_into_proof_expr(column_refs)?,
-        ))
+        )))
     }
 }
 
@@ -282,8 +271,8 @@ impl EVMFilterExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<FilterExec> {
-        Ok(FilterExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Filter(FilterExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -300,7 +289,7 @@ impl EVMFilterExec {
                 output_column_names,
             )?),
             self.where_clause.try_into_proof_expr(column_refs)?,
-        ))
+        )))
     }
 }
 
@@ -345,7 +334,7 @@ impl EVMProjectionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<ProjectionExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -354,7 +343,7 @@ impl EVMProjectionExec {
             .into_iter()
             .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
             .collect();
-        Ok(ProjectionExec::new(
+        Ok(DynProofPlan::Projection(ProjectionExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
@@ -366,7 +355,7 @@ impl EVMProjectionExec {
                 })
                 .collect::<EVMProofPlanResult<Vec<_>>>()?,
             Box::new(input),
-        ))
+        )))
     }
 }
 
@@ -401,8 +390,8 @@ impl EVMSliceExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<SliceExec> {
-        Ok(SliceExec::new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Slice(SliceExec::new(
             Box::new(self.input_plan.try_into_proof_plan(
                 table_refs,
                 column_refs,
@@ -410,7 +399,7 @@ impl EVMSliceExec {
             )?),
             self.skip,
             self.fetch,
-        ))
+        )))
     }
 }
 
@@ -464,7 +453,7 @@ impl EVMGroupByExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<GroupByExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         // Convert indices back to ColumnExpr objects
         let group_by_exprs = self
             .group_by_exprs
@@ -508,19 +497,21 @@ impl EVMGroupByExec {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
         }
 
-        GroupByExec::try_new(
-            group_by_exprs,
-            sum_expr,
-            Ident::new(&self.count_alias_name),
-            TableExpr {
-                table_ref: table_refs
-                    .get_index(self.table_number)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::TableNotFound)?,
-            },
-            self.where_clause.try_into_proof_expr(column_refs)?,
-        )
-        .ok_or(EVMProofPlanError::NotSupported)
+        Ok(DynProofPlan::GroupBy(
+            (GroupByExec::try_new(
+                group_by_exprs,
+                sum_expr,
+                Ident::new(&self.count_alias_name),
+                TableExpr {
+                    table_ref: table_refs
+                        .get_index(self.table_number)
+                        .cloned()
+                        .ok_or(EVMProofPlanError::TableNotFound)?,
+                },
+                self.where_clause.try_into_proof_expr(column_refs)?,
+            )
+            .ok_or(EVMProofPlanError::NotSupported))?,
+        ))
     }
 }
 
@@ -552,13 +543,13 @@ impl EVMUnionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<UnionExec> {
-        Ok(UnionExec::try_new(
+    ) -> EVMProofPlanResult<DynProofPlan> {
+        Ok(DynProofPlan::Union(UnionExec::try_new(
             self.inputs
                 .iter()
                 .map(|plan| plan.try_into_proof_plan(table_refs, column_refs, output_column_names))
                 .collect::<Result<Vec<_>, _>>()?,
-        )?)
+        )?))
     }
 }
 
@@ -610,7 +601,7 @@ impl EVMSortMergeJoinExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
-    ) -> EVMProofPlanResult<SortMergeJoinExec> {
+    ) -> EVMProofPlanResult<DynProofPlan> {
         let left = Box::new(self.left.try_into_proof_plan(
             table_refs,
             column_refs,
@@ -625,13 +616,13 @@ impl EVMSortMergeJoinExec {
         let right_join_column_indexes = self.right_join_column_indexes.clone();
         let result_idents = self.result_aliases.iter().map(Ident::new).collect();
 
-        Ok(SortMergeJoinExec::new(
+        Ok(DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
             result_idents,
-        ))
+        )))
     }
 }
 
@@ -707,6 +698,11 @@ mod tests {
         )
         .unwrap();
 
+        let DynProofPlan::Projection(roundtripped_projection_exec) = roundtripped_projection_exec
+        else {
+            panic!("This branch is not possible");
+        };
+
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_projection_exec.aliased_results().len(), 1);
         assert!(matches!(
@@ -765,6 +761,10 @@ mod tests {
         )
         .unwrap();
 
+        let DynProofPlan::Slice(roundtripped_slice_exec) = roundtripped_slice_exec else {
+            panic!("This branch is not possible");
+        };
+
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_slice_exec.skip(), skip);
         assert_eq!(roundtripped_slice_exec.fetch(), fetch);
@@ -787,7 +787,7 @@ mod tests {
 
     #[test]
     fn we_can_put_empty_exec_in_evm() {
-        let empty_exec = EmptyExec::new();
+        let empty_exec = DynProofPlan::new_empty();
 
         // Roundtrip
         let roundtripped_empty_exec = EVMEmptyExec::try_into_proof_plan();
@@ -832,11 +832,15 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            *roundtripped_table_exec.table_ref(),
-            *table_exec.table_ref()
-        );
-        assert_eq!(roundtripped_table_exec.schema().len(), 2);
+        if let DynProofPlan::Table(roundtripped_table_exec) = roundtripped_table_exec {
+            assert_eq!(
+                *roundtripped_table_exec.table_ref(),
+                *table_exec.table_ref()
+            );
+            assert_eq!(roundtripped_table_exec.schema().len(), 2);
+        } else {
+            panic!("This branch is not possible");
+        }
     }
 
     #[test]
@@ -923,7 +927,10 @@ mod tests {
             &indexset![alias],
         )
         .unwrap();
-        assert_eq!(roundtripped_filter_exec, filter_exec);
+        assert_eq!(
+            roundtripped_filter_exec,
+            DynProofPlan::LegacyFilter(filter_exec)
+        );
     }
 
     #[test]
@@ -994,6 +1001,10 @@ mod tests {
             ],
         )
         .unwrap();
+
+        let DynProofPlan::GroupBy(roundtripped_group_by_exec) = roundtripped_group_by_exec else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_group_by_exec.group_by_exprs().len(), 1);
@@ -1389,7 +1400,7 @@ mod tests {
         let round_tripped_union_exec = evm_union_exec
             .try_into_proof_plan(table_refs, column_refs, &output_column_names)
             .unwrap();
-        assert_eq!(union_exec, round_tripped_union_exec);
+        assert_eq!(DynProofPlan::Union(union_exec), round_tripped_union_exec);
     }
 
     #[test]
@@ -1522,6 +1533,10 @@ mod tests {
         )
         .unwrap();
 
+        let DynProofPlan::Filter(roundtripped_filter_exec) = roundtripped_filter_exec else {
+            panic!("This branch is not possible");
+        };
+
         // Verify the roundtripped plan has the expected structure
         assert_eq!(roundtripped_filter_exec.aliased_results().len(), 1);
         assert!(matches!(
@@ -1604,6 +1619,10 @@ mod tests {
                 &indexset![ident_a.value, ident_c.value],
             )
             .unwrap();
+
+        let DynProofPlan::Filter(roundtripped) = roundtripped else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan
         assert_eq!(roundtripped.aliased_results().len(), 2);
@@ -1755,6 +1774,10 @@ mod tests {
                 &indexset![ident_a.value, ident_b.value, alias_3],
             )
             .unwrap();
+
+        let DynProofPlan::Filter(roundtripped) = roundtripped else {
+            panic!("This branch is not possible");
+        };
 
         // Verify the roundtripped plan has the expected nested structure
         assert_eq!(roundtripped.aliased_results().len(), 3);
