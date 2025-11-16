@@ -29,13 +29,16 @@ library Array {
     function __getArrayElement(uint256[][1] memory __array, uint256 __index) internal pure returns (uint256 __value) {
         assembly {
             // import err from Errors.sol
-            function get_array_element(arr_ptr, index) -> value {
-                let arr := mload(arr_ptr)
+            function get_array_element(arr, index) -> value {
                 let length := mload(arr)
                 if iszero(lt(index, length)) { err(ERR_INVALID_INDEX) }
                 value := mload(add(add(arr, WORD_SIZE), mul(index, WORD_SIZE)))
             }
-            __value := get_array_element(__array, __index)
+            function get_array_element_from_ptr(arr_ptr, index) -> value {
+                let arr := mload(arr_ptr)
+                value := get_array_element(arr, index)
+            }
+            __value := get_array_element_from_ptr(__array, __index)
         }
     }
 
