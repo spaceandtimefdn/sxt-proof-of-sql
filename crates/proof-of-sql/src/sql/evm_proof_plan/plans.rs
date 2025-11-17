@@ -5,7 +5,6 @@ use crate::{
         map::IndexSet,
     },
     sql::{
-        proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
             DynProofPlan, EmptyExec, FilterExec, GroupByExec, LegacyFilterExec, ProjectionExec,
@@ -318,12 +317,7 @@ impl EVMProjectionExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
-        let input_result_column_refs = plan
-            .input()
-            .get_column_result_fields()
-            .into_iter()
-            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
-            .collect();
+        let input_result_column_refs = plan.input().get_column_result_fields_as_references();
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
                 plan.input(),
@@ -349,11 +343,7 @@ impl EVMProjectionExec {
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
-        let input_result_column_refs = input
-            .get_column_result_fields()
-            .into_iter()
-            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
-            .collect();
+        let input_result_column_refs = input.get_column_result_fields_as_references();
         Ok(ProjectionExec::new(
             self.results
                 .iter()
