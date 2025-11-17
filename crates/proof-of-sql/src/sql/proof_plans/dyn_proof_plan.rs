@@ -175,4 +175,12 @@ impl DynProofPlan {
             filter_expr,
         ))
     }
+
+    /// Returns the resulting column fields of the plan as column references
+    pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<ColumnRef> {
+        self.get_column_result_fields()
+            .into_iter()
+            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
+            .collect()
+    }
 }
