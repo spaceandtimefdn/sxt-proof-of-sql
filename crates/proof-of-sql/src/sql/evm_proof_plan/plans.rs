@@ -288,23 +288,24 @@ impl EVMFilterExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<FilterExec> {
+        let input =
+            self.input_plan
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let input_result_column_refs = input.get_column_result_fields_as_references();
         Ok(FilterExec::new(
             self.results
                 .iter()
                 .zip(output_column_names.iter())
                 .map(|(expr, name)| {
                     Ok(AliasedDynProofExpr {
-                        expr: expr.try_into_proof_expr(column_refs)?,
+                        expr: expr.try_into_proof_expr(&input_result_column_refs)?,
                         alias: Ident::new(name),
                     })
                 })
                 .collect::<EVMProofPlanResult<Vec<_>>>()?,
-            Box::new(self.input_plan.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?),
-            self.where_clause.try_into_proof_expr(column_refs)?,
+            Box::new(input),
+            self.where_clause
+                .try_into_proof_expr(&input_result_column_refs)?,
         ))
     }
 }
