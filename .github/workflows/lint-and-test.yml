@@ -229,21 +229,18 @@ jobs:
           cd solidity
           solhint '**/*.sol' -w 0
           cd ..
-      - name: Run slither on artifact
-        uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
-        with:
-          target: solidity/src/verifier/Verifier.post.sol
-          slither-config: solidity/slither.config.json
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      - name: Run slither on verifier
+        run: slither solidity/src/verifier/Verifier.post.sol --config-file solidity/slither.config.json
+
       - name: Run slither on errors
-        uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
-        with:
-          target: solidity/src/base/Errors.sol
-          slither-config: solidity/slither.config.json
+        run: slither solidity/src/base/Errors.sol --config-file solidity/slither.config.json
+
       - name: Run slither on constants
-        uses: crytic/slither-action@d86660fe7e45835a0ec7b7aeb768d271fb421ea0
-        with:
-          target: solidity/src/base/Constants.sol
-          slither-config: solidity/slither.config.json
+        run: slither solidity/src/base/Constants.sol --config-file solidity/slither.config.json
+
 
   rustevmtests:
     name: Rust EVM Tests
