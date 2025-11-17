@@ -6,7 +6,7 @@ use crate::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType, TableRef,
             TableTestAccessor, TestAccessor,
         },
-        try_standard_binary_serialization,
+        try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     sql::{
         evm_proof_plan::EVMProofPlan,
@@ -248,6 +248,7 @@ fn we_can_compose_complex_filters() {
     assert_eq!(res, expected_res);
 }
 
+#[expect(clippy::too_many_lines)]
 #[test]
 fn we_can_have_projection_as_input_plan_for_filter() {
     let alloc = Bump::new();
@@ -354,5 +355,13 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         VerifiableQueryResult::new(&filter, &accessor, &(), &[]).unwrap();
     res.verify(&filter, &accessor, &(), &[]).unwrap();
     let expected_evm_proof_plan = EVMProofPlan::new(filter);
-    try_standard_binary_serialization(expected_evm_proof_plan).unwrap();
+    let deserialized_evem_proof_plan: EVMProofPlan = try_standard_binary_deserialization(
+        &try_standard_binary_serialization(expected_evm_proof_plan).unwrap(),
+    )
+    .unwrap()
+    .0;
+    let res: VerifiableQueryResult<InnerProductProof> =
+        VerifiableQueryResult::new(&deserialized_evem_proof_plan, &accessor, &(), &[]).unwrap();
+    res.verify(&deserialized_evem_proof_plan, &accessor, &(), &[])
+        .unwrap();
 }
