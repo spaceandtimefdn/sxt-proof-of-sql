@@ -355,7 +355,9 @@ fn test_group_by() {
     select human_id, sum(2 * weight + $1::bigint) as total_transformed_weight, count(1) from cats group by human_id;
     select sum(2 * weight + 1) as total_transformed_weight, count(1) as num_cats from cats;
     select count(1) as num_cats from cats;
-    select count(1) from cats;";
+    select count(1) from cats;
+    select count(id) from cats;
+    select count(*) from cats;";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "cats") => table(
             vec![
@@ -409,6 +411,8 @@ fn test_group_by() {
         ]),
         owned_table([bigint("num_cats", [5_i64])]),
         owned_table([bigint("COUNT(Int64(1))", [5_i64])]),
+        owned_table([bigint("COUNT(cats.id)", [5_i64])]),
+        owned_table([bigint("COUNT(*)", [5_i64])]),
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
