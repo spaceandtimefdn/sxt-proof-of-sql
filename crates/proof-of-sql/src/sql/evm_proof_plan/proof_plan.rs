@@ -66,24 +66,39 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
     fn try_from(value: &EVMProofPlan) -> Result<Self, Self::Error> {
         let table_refs = value.get_table_references();
         let column_refs = value.get_column_references();
-        let output_column_names = value
-            .get_column_result_fields()
+        let column_fields = value.get_column_result_fields();
+        let output_column_names = column_fields
             .iter()
             .map(|field| field.name().to_string())
             .collect();
 
         let plan = EVMDynProofPlan::try_from_proof_plan(value.inner(), &table_refs, &column_refs)?;
+
+        // Build column type map from the column result fields
+        let column_type_map: IndexMap<ColumnRef, ColumnType> = value
+            .inner()
+            .get_column_result_fields()
+            .iter()
+            .filter_map(|field| {
+                // Find the matching column ref in column_refs
+                column_refs
+                    .iter()
+                    .find(|cr| cr.column_id() == field.name())
+                    .map(|cr| (cr.clone(), field.data_type()))
+            })
+            .collect();
+
         let columns = column_refs
             .into_iter()
             .map(|column_ref| -> EVMProofPlanResult<_> {
                 let table_index = table_refs
                     .get_index_of(&column_ref.table_ref())
                     .ok_or(EVMProofPlanError::TableNotFound)?;
-                Ok((
-                    table_index,
-                    column_ref.column_id().to_string(),
-                    *column_ref.column_type(),
-                ))
+                let column_type = column_type_map
+                    .get(&column_ref)
+                    .copied()
+                    .unwrap_or(ColumnType::BigInt); // Default fallback
+                Ok((table_index, column_ref.column_id().to_string(), column_type))
             })
             .try_collect()?;
         let tables = table_refs.iter().map(ToString::to_string).collect();
@@ -107,7 +122,9 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
             .map(|table| TableRef::from_str(table).map_err(|_| EVMProofPlanError::InvalidTableName))
             .try_collect()?;
         let table_refs_clone = table_refs.clone();
-        let column_refs: IndexSet<ColumnRef> = value
+
+        // Build column_refs with types
+        let column_refs: IndexSet<(ColumnRef, ColumnType)> = value
             .columns
             .iter()
             .map(|(i, ident, column_type)| -> EVMProofPlanResult<_> {
@@ -115,7 +132,8 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
                     .get_index(*i)
                     .cloned()
                     .ok_or(EVMProofPlanError::TableNotFound)?;
-                Ok(ColumnRef::new(table_ref, Ident::new(ident), *column_type))
+                let column_ref = ColumnRef::new(table_ref, Ident::new(ident));
+                Ok((column_ref, *column_type))
             })
             .try_collect()?;
         let output_column_names: IndexSet<String> = value.output_column_names.into_iter().collect();

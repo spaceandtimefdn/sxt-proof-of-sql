@@ -107,14 +107,14 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
     }
 }
 
-/// Find a column in a schema and return its info as a [`ColumnRef`]
+/// Find a column in a schema and return its info as a [`ColumnRef`] with [`ColumnType`]
 ///
 /// Note that the table name must be provided in the column which resolved logical plans do
 /// Otherwise we error out
 pub(crate) fn column_to_column_ref(
     column: &Column,
     schema: &[(Ident, ColumnType)],
-) -> PlannerResult<ColumnRef> {
+) -> PlannerResult<(ColumnRef, ColumnType)> {
     let relation = column
         .relation
         .as_ref()
@@ -126,7 +126,7 @@ pub(crate) fn column_to_column_ref(
         .find(|(i, _t)| *i == ident)
         .ok_or(PlannerError::ColumnNotFound)?
         .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+    Ok((ColumnRef::new(table_ref, ident), column_type))
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -475,9 +475,8 @@ mod tests {
         let schema = vec![("a".into(), ColumnType::Int)];
         assert_eq!(
             column_to_column_ref(&column, &schema).unwrap(),
-            ColumnRef::new(
-                TableRef::from_names(Some("namespace"), "table"),
-                "a".into(),
+            (
+                ColumnRef::new(TableRef::from_names(Some("namespace"), "table"), "a".into()),
                 ColumnType::Int
             )
         );

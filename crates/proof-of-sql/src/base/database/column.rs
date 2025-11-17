@@ -634,17 +634,15 @@ impl Display for ColumnType {
 pub struct ColumnRef {
     column_id: Ident,
     table_ref: TableRef,
-    column_type: ColumnType,
 }
 
 impl ColumnRef {
-    /// Create a new `ColumnRef` from a table, column identifier and column type
+    /// Create a new `ColumnRef` from a table and column identifier
     #[must_use]
-    pub fn new(table_ref: TableRef, column_id: Ident, column_type: ColumnType) -> Self {
+    pub fn new(table_ref: TableRef, column_id: Ident) -> Self {
         Self {
             column_id,
             table_ref,
-            column_type,
         }
     }
 
@@ -658,12 +656,6 @@ impl ColumnRef {
     #[must_use]
     pub fn column_id(&self) -> Ident {
         self.column_id.clone()
-    }
-
-    /// Returns the column type of this column
-    #[must_use]
-    pub fn column_type(&self) -> &ColumnType {
-        &self.column_type
     }
 }
 

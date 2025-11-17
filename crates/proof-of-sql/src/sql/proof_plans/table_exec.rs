@@ -79,7 +79,7 @@ impl ProofPlan for TableExec {
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
         self.schema
             .iter()
-            .map(|field| ColumnRef::new(self.table_ref.clone(), field.name(), field.data_type()))
+            .map(|field| ColumnRef::new(self.table_ref.clone(), field.name()))
             .collect()
     }
 

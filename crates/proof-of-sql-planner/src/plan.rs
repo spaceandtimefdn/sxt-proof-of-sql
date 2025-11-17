@@ -44,11 +44,10 @@ fn get_aliased_dyn_proof_exprs(
                 let (input_column_name, data_type) = input_schema
                     .get(*input_index)
                     .ok_or(PlannerError::ColumnNotFound)?;
-                let expr = DynProofExpr::new_column(ColumnRef::new(
-                    table_ref.clone(),
-                    input_column_name.clone(),
+                let expr = DynProofExpr::new_column(
+                    ColumnRef::new(table_ref.clone(), input_column_name.clone()),
                     *data_type,
-                ));
+                );
                 Ok(AliasedDynProofExpr { expr, alias })
             },
         )
@@ -249,10 +248,8 @@ fn aggregate_to_proof_plan(
             let group_by_exprs = group_columns
                 .iter()
                 .map(|column| {
-                    Ok(ColumnExpr::new(column_to_column_ref(
-                        column,
-                        &input_schema,
-                    )?))
+                    let (column_ref, column_type) = column_to_column_ref(column, &input_schema)?;
+                    Ok(ColumnExpr::new(column_ref, column_type))
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
             // `sum_expr`
@@ -464,11 +461,13 @@ pub fn logical_plan_to_proof_plan(
                 .map(|field| -> PlannerResult<AliasedDynProofExpr> {
                     let alias = field.name();
                     Ok(AliasedDynProofExpr {
-                        expr: DynProofExpr::new_column(ColumnRef::new(
-                            TableRef::from_names(None, "__filter_input__"), // Dummy table ref
-                            alias.clone(),
+                        expr: DynProofExpr::new_column(
+                            ColumnRef::new(
+                                TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                                alias.clone(),
+                            ),
                             field.data_type(),
-                        )),
+                        ),
                         alias,
                     })
                 })
@@ -587,11 +586,10 @@ mod tests {
     #[expect(non_snake_case)]
     fn ALIASED_A() -> AliasedDynProofExpr {
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            )),
+            ),
             alias: "a".into(),
         }
     }
@@ -599,11 +597,10 @@ mod tests {
     #[expect(non_snake_case)]
     fn ALIASED_B() -> AliasedDynProofExpr {
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "b".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                 ColumnType::Int,
-            )),
+            ),
             alias: "b".into(),
         }
     }
@@ -611,11 +608,10 @@ mod tests {
     #[expect(non_snake_case)]
     fn ALIASED_C() -> AliasedDynProofExpr {
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "c".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "c".into()),
                 ColumnType::VarChar,
-            )),
+            ),
             alias: "c".into(),
         }
     }
@@ -623,11 +619,10 @@ mod tests {
     #[expect(non_snake_case)]
     fn ALIASED_D() -> AliasedDynProofExpr {
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                 ColumnType::Boolean,
-            )),
+            ),
             alias: "d".into(),
         }
     }
@@ -751,17 +746,15 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                     ColumnType::Int,
-                )),
+                ),
                 alias: "sum_b".into(),
             }],
             "count_1".into(),
@@ -815,28 +808,25 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                     ColumnType::Int,
-                )),
+                ),
                 alias: "sum_b".into(),
             }],
             "count_1".into(),
             TableExpr {
                 table_ref: TABLE_REF_TABLE(),
             },
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
+            DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                 ColumnType::Boolean,
-            )),
+            ),
         )
         .unwrap();
 
@@ -884,23 +874,20 @@ mod tests {
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
             vec![
-                ColumnExpr::new(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                ColumnExpr::new(
+                    ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                     ColumnType::BigInt,
-                )),
-                ColumnExpr::new(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "c".into(),
+                ),
+                ColumnExpr::new(
+                    ColumnRef::new(TABLE_REF_TABLE(), "c".into()),
                     ColumnType::VarChar,
-                )),
+                ),
             ],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                     ColumnType::Int,
-                )),
+                ),
                 alias: "sum_b".into(),
             }],
             "count_1".into(),
@@ -950,26 +937,23 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "b".into(),
+                    expr: DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                         ColumnType::Int,
-                    )),
+                    ),
                     alias: "sum_b".into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "d".into(),
+                    expr: DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                         ColumnType::Boolean,
-                    )),
+                    ),
                     alias: "sum_d".into(),
                 },
             ],
@@ -1017,11 +1001,10 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![], // No SUMs
             "count_1".into(),
             TableExpr {
@@ -1393,23 +1376,20 @@ mod tests {
             ),
             DynProofExpr::try_new_and(
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "a".into(),
+                    DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                         ColumnType::BigInt,
-                    )),
-                    DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "b".into(),
+                    ),
+                    DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                         ColumnType::Int,
-                    )),
+                    ),
                 )
                 .unwrap(),
-                DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "d".into(),
+                DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                     ColumnType::Boolean,
-                )),
+                ),
             )
             .unwrap(),
         );
@@ -1500,24 +1480,21 @@ mod tests {
                 ),
                 DynProofExpr::try_new_and(
                     DynProofExpr::try_new_inequality(
-                        DynProofExpr::new_column(ColumnRef::new(
-                            TABLE_REF_TABLE(),
-                            "a".into(),
+                        DynProofExpr::new_column(
+                            ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                             ColumnType::BigInt,
-                        )),
-                        DynProofExpr::new_column(ColumnRef::new(
-                            TABLE_REF_TABLE(),
-                            "b".into(),
+                        ),
+                        DynProofExpr::new_column(
+                            ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                             ColumnType::Int,
-                        )),
+                        ),
                         false,
                     )
                     .unwrap(),
-                    DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "d".into(),
+                    DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                         ColumnType::Boolean,
-                    )),
+                    ),
                 )
                 .unwrap(),
             ),
@@ -1553,26 +1530,23 @@ mod tests {
             vec![
                 AliasedDynProofExpr {
                     expr: DynProofExpr::try_new_add(
-                        DynProofExpr::new_column(ColumnRef::new(
-                            TABLE_REF_TABLE(),
-                            "a".into(),
+                        DynProofExpr::new_column(
+                            ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                             ColumnType::BigInt,
-                        )),
-                        DynProofExpr::new_column(ColumnRef::new(
-                            TABLE_REF_TABLE(),
-                            "b".into(),
+                        ),
+                        DynProofExpr::new_column(
+                            ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                             ColumnType::Int,
-                        )),
+                        ),
                     )
                     .unwrap(),
                     alias: "table.a + table.b".into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::try_new_not(DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "d".into(),
+                    expr: DynProofExpr::try_new_not(DynProofExpr::new_column(
+                        ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                         ColumnType::Boolean,
-                    )))
+                    ))
                     .unwrap(),
                     alias: "NOT table.d".into(),
                 },
@@ -1786,28 +1760,25 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                     ColumnType::Int,
-                )),
+                ),
                 alias: "SUM(table.b)".into(),
             }],
             "COUNT(Int64(1))".into(),
             TableExpr {
                 table_ref: TABLE_REF_TABLE(),
             },
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
+            DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                 ColumnType::Boolean,
-            )),
+            ),
         )
         .unwrap();
 
@@ -1873,28 +1844,25 @@ mod tests {
 
         // Expected result
         let expected = DynProofPlan::try_new_group_by(
-            vec![ColumnExpr::new(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "a".into(),
+            vec![ColumnExpr::new(
+                ColumnRef::new(TABLE_REF_TABLE(), "a".into()),
                 ColumnType::BigInt,
-            ))],
+            )],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(TABLE_REF_TABLE(), "b".into()),
                     ColumnType::Int,
-                )),
+                ),
                 alias: "sum_b".into(),
             }],
             "count_1".into(),
             TableExpr {
                 table_ref: TABLE_REF_TABLE(),
             },
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
+            DynProofExpr::new_column(
+                ColumnRef::new(TABLE_REF_TABLE(), "d".into()),
                 ColumnType::Boolean,
-            )),
+            ),
         )
         .unwrap();
 

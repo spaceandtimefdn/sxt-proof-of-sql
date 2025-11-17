@@ -8,8 +8,8 @@ use sqlparser::ast::Ident;
 
 pub fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
     let name: Ident = name.into();
-    let type_col = accessor.lookup_column(tab, &name).unwrap();
-    ColumnRef::new(tab.clone(), name, type_col)
+    let _type_col = accessor.lookup_column(tab, &name).unwrap();
+    ColumnRef::new(tab.clone(), name)
 }
 
 /// # Panics
@@ -17,8 +17,11 @@ pub fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> Co
 /// - `accessor.lookup_column()` returns `None`, indicating the column is not found.
 pub fn column(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> DynProofExpr {
     let name: Ident = name.into();
-    let type_col = accessor.lookup_column(tab, &name).unwrap();
-    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(tab.clone(), name, type_col)))
+    let column_type = accessor.lookup_column(tab, &name).unwrap();
+    DynProofExpr::Column(ColumnExpr::new(
+        ColumnRef::new(tab.clone(), name),
+        column_type,
+    ))
 }
 
 /// # Panics
@@ -184,8 +187,10 @@ pub fn col_expr_plan(
     name: &str,
     accessor: &impl SchemaAccessor,
 ) -> AliasedDynProofExpr {
+    let col_ref = col_ref(tab, name, accessor);
+    let column_type = accessor.lookup_column(tab, &name.into()).unwrap();
     AliasedDynProofExpr {
-        expr: DynProofExpr::Column(ColumnExpr::new(col_ref(tab, name, accessor))),
+        expr: DynProofExpr::Column(ColumnExpr::new(col_ref, column_type)),
         alias: name.into(),
     }
 }
@@ -202,7 +207,9 @@ pub fn cols_expr_plan(
 }
 
 pub fn col_expr(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnExpr {
-    ColumnExpr::new(col_ref(tab, name, accessor))
+    let col_ref = col_ref(tab, name, accessor);
+    let column_type = accessor.lookup_column(tab, &name.into()).unwrap();
+    ColumnExpr::new(col_ref, column_type)
 }
 
 pub fn cols_expr(
