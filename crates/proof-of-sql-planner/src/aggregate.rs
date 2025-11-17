@@ -1,10 +1,16 @@
 use super::{PlannerError, PlannerResult};
 use crate::expr_to_proof_expr;
 use datafusion::{
-    logical_expr::expr::{AggregateFunction, AggregateFunctionDefinition},
+    logical_expr::{
+        expr::{AggregateFunction, AggregateFunctionDefinition},
+        Expr,
+    },
     physical_plan,
 };
-use proof_of_sql::{base::database::ColumnType, sql::proof_exprs::DynProofExpr};
+use proof_of_sql::{
+    base::database::{ColumnType, LiteralValue},
+    sql::proof_exprs::DynProofExpr,
+};
 use sqlparser::ast::Ident;
 
 /// An aggregate function we support
@@ -32,12 +38,21 @@ pub(crate) fn aggregate_function_to_proof_expr(
             func_def: AggregateFunctionDefinition::BuiltIn(op),
             ..
         } if args.len() == 1 => {
-            let aggregate_function = match op {
-                physical_plan::aggregates::AggregateFunction::Sum => AggregateFunc::Sum,
-                physical_plan::aggregates::AggregateFunction::Count => AggregateFunc::Count,
-                _ => Err(PlannerError::UnsupportedAggregateOperation { op: op.clone() })?,
-            };
-            Ok((aggregate_function, expr_to_proof_expr(&args[0], schema)?))
+            let arg = &args[0];
+            match (op, arg) {
+                (physical_plan::aggregates::AggregateFunction::Count, &Expr::Wildcard { .. }) => {
+                    // Special case for COUNT(*)
+                    let proof_expr = DynProofExpr::new_literal(LiteralValue::BigInt(1));
+                    Ok((AggregateFunc::Count, proof_expr))
+                }
+                (physical_plan::aggregates::AggregateFunction::Sum, _) => {
+                    Ok((AggregateFunc::Sum, expr_to_proof_expr(arg, schema)?))
+                }
+                (physical_plan::aggregates::AggregateFunction::Count, _) => {
+                    Ok((AggregateFunc::Count, expr_to_proof_expr(arg, schema)?))
+                }
+                _ => Err(PlannerError::UnsupportedAggregateOperation { op: op.clone() }),
+            }
         }
         _ => Err(PlannerError::UnsupportedAggregateFunction {
             function: function.clone(),
@@ -86,6 +101,29 @@ mod tests {
                 )
             );
         }
+    }
+
+    #[test]
+    fn we_can_convert_count_star_to_count_one() {
+        use proof_of_sql::base::database::LiteralValue;
+
+        let wildcard_expr = Expr::Wildcard { qualifier: None };
+        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let function = AggregateFunction::new(
+            physical_plan::aggregates::AggregateFunction::Count,
+            vec![wildcard_expr],
+            false,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            aggregate_function_to_proof_expr(&function, &schema).unwrap(),
+            (
+                AggregateFunc::Count,
+                DynProofExpr::new_literal(LiteralValue::BigInt(1))
+            )
+        );
     }
 
     #[test]

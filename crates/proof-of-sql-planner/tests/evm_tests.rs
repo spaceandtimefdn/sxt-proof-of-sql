@@ -711,26 +711,30 @@ fn we_can_verify_a_zero_column_groupby_query_using_the_evm() {
         0,
         &ps[..],
     );
-    let statements = Parser::parse_sql(
-        &GenericDialect {},
+    let sql_list = [
+        "SELECT sum(b) as sum_b, count(*) as count_0 FROM namespace.table WHERE c = 2",
+        "SELECT sum(b) as sum_b, count(a) FROM namespace.table WHERE c = 2",
         "SELECT sum(b) as sum_b, count(1) as count_0 FROM namespace.table WHERE c = 2",
-    )
-    .unwrap();
-    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
-    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
-        &EVMProofPlan::new(plan.clone()),
-        &accessor,
-        &&ps[..],
-        &[],
-    )
-    .unwrap();
-
-    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
-
-    verifiable_result
-        .clone()
-        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+    ];
+    for sql in sql_list {
+        let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+        let plan =
+            &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
+        let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+            &EVMProofPlan::new(plan.clone()),
+            &accessor,
+            &&ps[..],
+            &[],
+        )
         .unwrap();
+
+        assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
+
+        verifiable_result
+            .clone()
+            .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+            .unwrap();
+    }
 }
 
 #[ignore = "This test requires the forge binary to be present"]
