@@ -2045,4 +2045,347 @@ mod tests {
 
         assert!(matches!(result, Err(EVMProofPlanError::TableNotFound)));
     }
+
+    #[test]
+    fn we_can_put_simple_aggregate_exec_in_evm() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let sum_alias = "sum_b".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        // Create a table exec as input
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+        let table_exec = TableExec::new(table_ref.clone(), column_fields);
+
+        // Create output column refs for aggregate (these come from the table's output)
+        let output_col_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let output_col_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+
+        // Create an aggregate exec
+        let aggregate_exec = AggregateExec::try_new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_a.clone())),
+                alias: ident_a.clone(),
+            }],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_b.clone())),
+                alias: Ident::new(sum_alias.clone()),
+            }],
+            Ident::new(count_alias.clone()),
+            Box::new(DynProofPlan::Table(table_exec)),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+
+        // Convert to EVM plan
+        let evm_aggregate_exec = EVMAggregateExec::try_from_proof_plan(
+            &aggregate_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+
+        // Verify the structure
+        assert_eq!(evm_aggregate_exec.group_by_exprs.len(), 1);
+        assert_eq!(evm_aggregate_exec.sum_expr.len(), 1);
+        assert_eq!(evm_aggregate_exec.count_alias_name, count_alias);
+        assert!(matches!(
+            *evm_aggregate_exec.input_plan,
+            EVMDynProofPlan::Table(_)
+        ));
+
+        // Roundtrip
+        let roundtripped_aggregate_exec = EVMAggregateExec::try_into_proof_plan(
+            &evm_aggregate_exec,
+            &indexset![table_ref],
+            &indexset![column_ref_a, column_ref_b],
+            &indexset![ident_a.value, sum_alias, count_alias],
+        )
+        .unwrap();
+
+        // Verify the roundtripped plan has the expected structure
+        assert_eq!(roundtripped_aggregate_exec.group_by_exprs().len(), 1);
+        assert_eq!(roundtripped_aggregate_exec.sum_expr().len(), 1);
+        assert!(matches!(
+            roundtripped_aggregate_exec.group_by_exprs()[0].expr,
+            DynProofExpr::Column(_)
+        ));
+        assert!(matches!(
+            *roundtripped_aggregate_exec.input(),
+            DynProofPlan::Table(_)
+        ));
+    }
+
+    #[test]
+    fn we_can_put_complex_aggregate_exec_in_evm() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let ident_c: Ident = "c".into();
+        let sum_alias_b = "sum_b".to_string();
+        let sum_alias_c = "sum_c".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+
+        // Create a table exec
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_c.clone(), ColumnType::BigInt),
+        ];
+        let table_exec = TableExec::new(table_ref.clone(), column_fields);
+
+        // Create a filter exec as the input (to test nested plans)
+        let filter_exec = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    alias: ident_a.clone(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    alias: ident_b.clone(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
+                    alias: ident_c.clone(),
+                },
+            ],
+            Box::new(DynProofPlan::Table(table_exec)),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        );
+
+        // Output columns from filter (used by aggregate)
+        let filter_output_col_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let filter_output_col_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+        let filter_output_col_c = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_c.clone(),
+            ColumnType::BigInt,
+        );
+
+        // Create an aggregate exec with the filter as input
+        let aggregate_exec = AggregateExec::try_new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(filter_output_col_a.clone())),
+                alias: ident_a.clone(),
+            }],
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(filter_output_col_b.clone())),
+                    alias: Ident::new(sum_alias_b.clone()),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(filter_output_col_c.clone())),
+                    alias: Ident::new(sum_alias_c.clone()),
+                },
+            ],
+            Ident::new(count_alias.clone()),
+            Box::new(DynProofPlan::Filter(filter_exec)),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+
+        // Convert to EVM plan
+        let evm_aggregate_exec = EVMAggregateExec::try_from_proof_plan(
+            &aggregate_exec,
+            &indexset![table_ref.clone()],
+            &indexset![
+                column_ref_a.clone(),
+                column_ref_b.clone(),
+                column_ref_c.clone()
+            ],
+        )
+        .unwrap();
+
+        // Verify nested structure
+        assert!(matches!(
+            *evm_aggregate_exec.input_plan,
+            EVMDynProofPlan::Filter(_)
+        ));
+        assert_eq!(evm_aggregate_exec.group_by_exprs.len(), 1);
+        assert_eq!(evm_aggregate_exec.sum_expr.len(), 2);
+
+        // Roundtrip
+        let roundtripped = evm_aggregate_exec
+            .try_into_proof_plan(
+                &indexset![table_ref],
+                &indexset![column_ref_a, column_ref_b, column_ref_c],
+                &indexset![
+                    ident_a.value,
+                    sum_alias_b.clone(),
+                    sum_alias_c.clone(),
+                    count_alias.clone()
+                ],
+            )
+            .unwrap();
+
+        // Verify the roundtripped plan
+        assert_eq!(roundtripped.group_by_exprs().len(), 1);
+        assert_eq!(roundtripped.sum_expr().len(), 2);
+        assert!(matches!(*roundtripped.input(), DynProofPlan::Filter(_)));
+    }
+
+    #[test]
+    fn aggregate_exec_fails_with_table_not_found_in_input() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let missing_table_ref: TableRef = "namespace.missing".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let sum_alias = "sum_b".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        // Output columns (from table's perspective)
+        let output_col_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let output_col_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+
+        // Create a table exec with a missing table reference
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+        let table_exec = TableExec::new(missing_table_ref, column_fields);
+
+        // Create an aggregate exec
+        let aggregate_exec = AggregateExec::try_new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_a)),
+                alias: ident_a.clone(),
+            }],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_b)),
+                alias: Ident::new(sum_alias),
+            }],
+            Ident::new(count_alias),
+            Box::new(DynProofPlan::Table(table_exec)),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+
+        let result = EVMAggregateExec::try_from_proof_plan(
+            &aggregate_exec,
+            &indexset![table_ref],
+            &indexset![column_ref_a, column_ref_b],
+        );
+
+        assert!(matches!(result, Err(EVMProofPlanError::TableNotFound)));
+    }
+
+    #[test]
+    fn aggregate_exec_fails_with_invalid_output_column_names() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let sum_alias = "sum_b".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        // Create a table exec as input
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+        let table_exec = TableExec::new(table_ref.clone(), column_fields);
+
+        // Output columns
+        let output_col_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let output_col_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+
+        // Create an aggregate exec
+        let aggregate_exec = AggregateExec::try_new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_a)),
+                alias: ident_a.clone(),
+            }],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(output_col_b)),
+                alias: Ident::new(sum_alias.clone()),
+            }],
+            Ident::new(count_alias.clone()),
+            Box::new(DynProofPlan::Table(table_exec)),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+
+        let evm_aggregate_exec = EVMAggregateExec::try_from_proof_plan(
+            &aggregate_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+
+        // Try to convert back with incorrect output column names (missing count_alias)
+        let result = EVMAggregateExec::try_into_proof_plan(
+            &evm_aggregate_exec,
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            &indexset![ident_a.value.clone(), sum_alias.clone()], // Missing count_alias
+        );
+
+        assert!(matches!(
+            result,
+            Err(EVMProofPlanError::InvalidOutputColumnName)
+        ));
+
+        // Try with wrong count alias name
+        let wrong_count_alias = "wrong_count".to_string();
+        let result = EVMAggregateExec::try_into_proof_plan(
+            &evm_aggregate_exec,
+            &indexset![table_ref],
+            &indexset![column_ref_a, column_ref_b],
+            &indexset![ident_a.value, sum_alias, wrong_count_alias],
+        );
+
+        assert!(matches!(
+            result,
+            Err(EVMProofPlanError::InvalidOutputColumnName)
+        ));
+    }
 }
