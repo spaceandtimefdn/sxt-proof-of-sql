@@ -15,7 +15,6 @@ contract ProofExprTest is Test {
         uint256[] memory values = new uint256[](2);
         values[0] = 0x11111111;
         values[1] = 0x22222222;
-        builder.columnEvaluations = values;
 
         bytes memory expr = abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";

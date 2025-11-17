@@ -5,17 +5,14 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
-import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
 import {ColumnExpr} from "../../src/proof_exprs/ColumnExpr.presl";
 
 contract ColumnExprTest is Test {
     function testColumnExpr() public pure {
-        VerificationBuilder.Builder memory builder;
         uint256[] memory values = new uint256[](3);
         values[0] = 0x11111111;
         values[1] = 0x22222222;
         values[2] = 0x33333333;
-        builder.columnEvaluations = values;
 
         bytes memory exprIn = abi.encodePacked(uint64(1), hex"abcdef");
         bytes memory expectedExprOut = hex"abcdef";
@@ -37,9 +34,6 @@ contract ColumnExprTest is Test {
     {
         vm.assume(columnNum < columnValues.length);
 
-        VerificationBuilder.Builder memory builder;
-        builder.columnEvaluations = columnValues;
-
         bytes memory exprIn = abi.encodePacked(columnNum, trailingExpr);
         bytes memory exprOut;
         uint256 eval;
@@ -55,9 +49,7 @@ contract ColumnExprTest is Test {
 
     /// forge-config: default.allow_internal_expect_revert = true
     function testInvalidColumnIndex() public {
-        VerificationBuilder.Builder memory builder;
         uint256[] memory values = new uint256[](2);
-        builder.columnEvaluations = values;
 
         bytes memory exprIn = abi.encodePacked(uint64(2), hex"abcdef");
         vm.expectRevert(Errors.InvalidIndex.selector);
