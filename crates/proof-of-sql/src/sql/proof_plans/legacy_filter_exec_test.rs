@@ -15,7 +15,7 @@ use crate::{
             exercise_verification, FirstRoundBuilder, ProofPlan, ProvableQueryResult,
             ProverEvaluate, VerifiableQueryResult,
         },
-        proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, LiteralExpr, TableExpr},
+        proof_exprs::{test_utility::*, DynProofExpr, LiteralExpr, TableExpr},
     },
 };
 use blitzar::proof::InnerProductProof;
@@ -31,32 +31,14 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let b = Ident::new("b");
     let provable_ast = LegacyFilterExec::new(
         vec![
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
-                "a",
-            ),
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    b,
-                    ColumnType::BigInt,
-                ))),
-                "b",
-            ),
+            aliased_plan(DynProofExpr::new_column(a, ColumnType::BigInt), "a"),
+            aliased_plan(DynProofExpr::new_column(b, ColumnType::BigInt), "b"),
         ],
         TableExpr {
             table_ref: table_ref.clone(),
         },
         DynProofExpr::try_new_equals(
-            DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                table_ref.clone(),
-                Ident::new("c"),
-                ColumnType::BigInt,
-            ))),
+            DynProofExpr::new_column(Ident::new("c"), ColumnType::BigInt),
             DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(123))),
         )
         .unwrap(),
@@ -82,22 +64,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let f = Ident::new("f");
     let provable_ast = LegacyFilterExec::new(
         vec![
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
-                "a",
-            ),
-            aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    f,
-                    ColumnType::BigInt,
-                ))),
-                "f",
-            ),
+            aliased_plan(DynProofExpr::new_column(a, ColumnType::BigInt), "a"),
+            aliased_plan(DynProofExpr::new_column(f, ColumnType::BigInt), "f"),
         ],
         TableExpr {
             table_ref: table_ref.clone(),
@@ -105,30 +73,18 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
         not(and(
             or(
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
-                        Ident::new("f"),
-                        ColumnType::BigInt,
-                    ))),
+                    DynProofExpr::new_column(Ident::new("f"), ColumnType::BigInt),
                     DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(45))),
                 )
                 .unwrap(),
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
-                        Ident::new("c"),
-                        ColumnType::BigInt,
-                    ))),
+                    DynProofExpr::new_column(Ident::new("c"), ColumnType::BigInt),
                     DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(-2))),
                 )
                 .unwrap(),
             ),
             DynProofExpr::try_new_equals(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    Ident::new("b"),
-                    ColumnType::BigInt,
-                ))),
+                DynProofExpr::new_column(Ident::new("b"), ColumnType::BigInt),
                 DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(3))),
             )
             .unwrap(),
@@ -140,10 +96,10 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     assert_eq!(
         ref_columns,
         IndexSet::from_iter([
-            ColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("c"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("b"), ColumnType::BigInt)
+            ColumnRef::new(table_ref.clone(), Ident::new("a")),
+            ColumnRef::new(table_ref.clone(), Ident::new("f")),
+            ColumnRef::new(table_ref.clone(), Ident::new("c")),
+            ColumnRef::new(table_ref.clone(), Ident::new("b"))
         ])
     );
 

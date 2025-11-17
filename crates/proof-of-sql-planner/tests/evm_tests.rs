@@ -109,10 +109,10 @@ fn evm_verifier_all(
 }
 
 #[expect(clippy::missing_panics_doc)]
-fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
+fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> (ColumnRef, ColumnType) {
     let name: Ident = name.into();
-    let type_col = accessor.lookup_column(tab, &name).unwrap();
-    ColumnRef::new(tab.clone(), name, type_col)
+    let column_type = accessor.lookup_column(tab, &name).unwrap();
+    (ColumnRef::new(tab.clone(), name), column_type)
 }
 
 fn col_expr_plan(
@@ -120,8 +120,9 @@ fn col_expr_plan(
     name: &str,
     accessor: &impl SchemaAccessor,
 ) -> AliasedDynProofExpr {
+    let (column_ref, column_type) = col_ref(tab, name, accessor);
     AliasedDynProofExpr {
-        expr: DynProofExpr::Column(ColumnExpr::new(col_ref(tab, name, accessor))),
+        expr: DynProofExpr::Column(ColumnExpr::new(column_ref.column_id(), column_type)),
         alias: name.into(),
     }
 }
@@ -431,7 +432,10 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
             col_expr_plan(&t, "a", &accessor),
             aliased_plan(
                 DynProofExpr::try_new_cast(
-                    DynProofExpr::new_column(col_ref(&t, "b", &accessor)),
+                    {
+                        let (col_ref, col_type) = col_ref(&t, "b", &accessor);
+                        DynProofExpr::new_column(col_ref.column_id(), col_type)
+                    },
                     ColumnType::BigInt,
                 )
                 .unwrap(),
@@ -446,7 +450,10 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
             ],
         ),
         DynProofExpr::try_new_equals(
-            DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+            {
+                let (col_ref, col_type) = col_ref(&t, "a", &accessor);
+                DynProofExpr::new_column(col_ref.column_id(), col_type)
+            },
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),
         )
         .unwrap(),
@@ -488,7 +495,10 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
         vec![
             aliased_plan(
                 DynProofExpr::try_new_cast(
-                    DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+                    {
+                        let (col_ref, col_type) = col_ref(&t, "a", &accessor);
+                        DynProofExpr::new_column(col_ref, col_type)
+                    },
                     ColumnType::Decimal75(Precision::new(25).unwrap(), 0),
                 )
                 .unwrap(),
@@ -504,7 +514,10 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
             ],
         ),
         DynProofExpr::try_new_equals(
-            DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+            {
+                let (col_ref, col_type) = col_ref(&t, "a", &accessor);
+                DynProofExpr::new_column(col_ref.column_id(), col_type)
+            },
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),
         )
         .unwrap(),

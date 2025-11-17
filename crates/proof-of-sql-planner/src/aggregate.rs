@@ -93,11 +93,7 @@ mod tests {
                 aggregate_function_to_proof_expr(&function, &schema).unwrap(),
                 (
                     *operator,
-                    DynProofExpr::new_column(ColumnRef::new(
-                        TableRef::from_names(None, "table"),
-                        "a".into(),
-                        ColumnType::BigInt
-                    ))
+                    DynProofExpr::new_column("a".into(), ColumnType::BigInt)
                 )
             );
         }

@@ -329,11 +329,7 @@ impl ProofPlan for SquareTestProofPlan {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
-        TableRef::new("sxt", "test"),
-              "x".into(),
-              ColumnType::BigInt,
-          )}
+        indexset! {ColumnRef::new(TableRef::new("sxt", "test"), "x".into())}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
@@ -530,11 +526,7 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
-        TableRef::new("sxt", "test"),
-              "x".into(),
-              ColumnType::BigInt,
-          )}
+        indexset! {ColumnRef::new(TableRef::new("sxt", "test"), "x".into())}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
@@ -724,11 +716,7 @@ impl ProofPlan for ChallengeTestProofPlan {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
-            TableRef::new("sxt", "test"),
-            "x".into(),
-            ColumnType::BigInt,
-        )}
+        indexset! {ColumnRef::new(TableRef::new("sxt", "test"), "x".into())}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
@@ -865,11 +853,7 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
-            TableRef::new("sxt", "test"),
-            "x".into(),
-            ColumnType::BigInt,
-        )}
+        indexset! {ColumnRef::new(TableRef::new("sxt", "test"), "x".into())}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]

@@ -73,72 +73,47 @@ pub fn scale_cast_binary_op(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::database::{ColumnRef, TableRef};
 
     #[expect(non_snake_case)]
     fn COLUMN1_BOOLEAN() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
-            "column1".into(),
-            ColumnType::Boolean,
-        ))
+        DynProofExpr::new_column("column1".into(), ColumnType::Boolean)
     }
 
     #[expect(non_snake_case)]
     fn COLUMN1_SMALLINT() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
-            "column1".into(),
-            ColumnType::SmallInt,
-        ))
+        DynProofExpr::new_column("column1".into(), ColumnType::SmallInt)
     }
 
     #[expect(non_snake_case)]
     fn COLUMN1_DECIMAL_3_MINUS2() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
+        DynProofExpr::new_column(
             "column1".into(),
-            ColumnType::Decimal75(
-                Precision::new(3).expect("Precision is definitely valid"),
-                -2,
-            ),
-        ))
+            ColumnType::Decimal75(Precision::new(3).unwrap(), -2),
+        )
     }
 
     #[expect(non_snake_case)]
     fn COLUMN1_DECIMAL_10_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
+        DynProofExpr::new_column(
             "column1".into(),
-            ColumnType::Decimal75(
-                Precision::new(10).expect("Precision is definitely valid"),
-                5,
-            ),
-        ))
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 5),
+        )
     }
 
     #[expect(non_snake_case)]
     fn COLUMN3_DECIMAL_75_10() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
+        DynProofExpr::new_column(
             "column3".into(),
-            ColumnType::Decimal75(
-                Precision::new(75).expect("Precision is definitely valid"),
-                10,
-            ),
-        ))
+            ColumnType::Decimal75(Precision::new(75).unwrap(), 10),
+        )
     }
 
     #[expect(non_snake_case)]
     fn COLUMN2_DECIMAL_25_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
-            TableRef::from_names(Some("namespace"), "table_name"),
+        DynProofExpr::new_column(
             "column2".into(),
-            ColumnType::Decimal75(
-                Precision::new(25).expect("Precision is definitely valid"),
-                5,
-            ),
-        ))
+            ColumnType::Decimal75(Precision::new(25).unwrap(), 5),
+        )
     }
 
     // decimal_scale_cast_expr

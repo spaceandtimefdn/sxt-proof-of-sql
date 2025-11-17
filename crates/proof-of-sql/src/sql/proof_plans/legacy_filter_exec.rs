@@ -144,15 +144,21 @@ where
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        let mut columns = IndexSet::default();
+        // Since ColumnExpr no longer stores table_ref, we need to manually
+        // construct ColumnRefs using the table_ref from self.table
+        let mut idents = IndexSet::default();
 
         for aliased_expr in &self.aliased_results {
-            aliased_expr.expr.get_column_references(&mut columns);
+            aliased_expr.expr.get_column_identifiers(&mut idents);
         }
 
-        self.where_clause.get_column_references(&mut columns);
+        self.where_clause.get_column_identifiers(&mut idents);
 
-        columns
+        // Convert Idents to ColumnRefs using self.table.table_ref
+        idents
+            .into_iter()
+            .map(|ident| ColumnRef::new(self.table.table_ref.clone(), ident))
+            .collect()
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {

@@ -54,8 +54,8 @@ pub enum DynProofExpr {
 impl DynProofExpr {
     /// Create column expression
     #[must_use]
-    pub fn new_column(column_ref: ColumnRef) -> Self {
-        Self::Column(ColumnExpr::new(column_ref))
+    pub fn new_column(id: Ident, column_type: ColumnType) -> Self {
+        Self::Column(ColumnExpr::new(id, column_type))
     }
     /// Create logical AND expression
     pub fn try_new_and(lhs: DynProofExpr, rhs: DynProofExpr) -> AnalyzeResult<Self> {
@@ -120,5 +120,56 @@ impl DynProofExpr {
         to_datatype: ColumnType,
     ) -> AnalyzeResult<Self> {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
+    }
+
+    /// Collect all column identifiers used in this expression tree
+    pub fn get_column_identifiers(&self, idents: &mut IndexSet<Ident>) {
+        match self {
+            DynProofExpr::Column(column_expr) => {
+                idents.insert(column_expr.column_id());
+            }
+            DynProofExpr::And(and_expr) => {
+                and_expr.lhs().get_column_identifiers(idents);
+                and_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Or(or_expr) => {
+                or_expr.lhs().get_column_identifiers(idents);
+                or_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Not(not_expr) => {
+                not_expr.input().get_column_identifiers(idents);
+            }
+            DynProofExpr::Equals(equals_expr) => {
+                equals_expr.lhs().get_column_identifiers(idents);
+                equals_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Inequality(inequality_expr) => {
+                inequality_expr.lhs().get_column_identifiers(idents);
+                inequality_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Add(add_expr) => {
+                add_expr.lhs().get_column_identifiers(idents);
+                add_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Subtract(subtract_expr) => {
+                subtract_expr.lhs().get_column_identifiers(idents);
+                subtract_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Multiply(multiply_expr) => {
+                multiply_expr.lhs().get_column_identifiers(idents);
+                multiply_expr.rhs().get_column_identifiers(idents);
+            }
+            DynProofExpr::Cast(cast_expr) => {
+                cast_expr.get_from_expr().get_column_identifiers(idents);
+            }
+            DynProofExpr::ScalingCast(scaling_cast_expr) => {
+                scaling_cast_expr
+                    .get_from_expr()
+                    .get_column_identifiers(idents);
+            }
+            DynProofExpr::Literal(_) | DynProofExpr::Placeholder(_) => {
+                // No column identifiers in literals or placeholders
+            }
+        }
     }
 }

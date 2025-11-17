@@ -2,8 +2,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
-            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
+            Table, TableRef, TableTestAccessor,
         },
         map::indexmap,
         polynomial::MultilinearExtension,
@@ -15,7 +15,7 @@ use crate::{
             mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
             FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
         },
-        proof_exprs::{test_utility::*, AndExpr, ColumnExpr, DynProofExpr, ProofExpr},
+        proof_exprs::{test_utility::*, AndExpr, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
     },
@@ -222,7 +222,6 @@ fn we_can_compute_the_correct_output_of_an_and_expr_using_first_round_evaluate()
 #[test]
 fn we_can_verify_a_simple_proof() {
     let alloc = Bump::new();
-    let t: TableRef = "sxt.t".parse().unwrap();
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
     let table = Table::try_new(indexmap! {
@@ -230,11 +229,11 @@ fn we_can_verify_a_simple_proof() {
         "b".into() => Column::Boolean::<TestScalar>(rhs),
     })
     .unwrap();
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = Ident::from("a");
+    let b = Ident::from("b");
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::new_column(a.clone(), ColumnType::Boolean)),
+        Box::new(DynProofExpr::new_column(b.clone(), ColumnType::Boolean)),
     )
     .unwrap();
 
@@ -254,8 +253,8 @@ fn we_can_verify_a_simple_proof() {
         3,
         |verification_builder, chi_eval, evaluation_point| {
             let accessor = indexmap! {
-                a.clone().column_id() => lhs.inner_product(evaluation_point),
-                b.clone().column_id() => rhs.inner_product(evaluation_point)
+                a.clone() => lhs.inner_product(evaluation_point),
+                b.clone() => rhs.inner_product(evaluation_point)
             };
             and_expr
                 .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
@@ -271,14 +270,13 @@ fn we_can_verify_a_simple_proof() {
 #[test]
 fn we_can_reject_a_simple_tampered_proof() {
     let alloc = Bump::new();
-    let t: TableRef = "sxt.t".parse().unwrap();
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = Ident::from("a");
+    let b = Ident::from("b");
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::new_column(a.clone(), ColumnType::Boolean)),
+        Box::new(DynProofExpr::new_column(b.clone(), ColumnType::Boolean)),
     )
     .unwrap();
 
@@ -310,8 +308,8 @@ fn we_can_reject_a_simple_tampered_proof() {
     for evaluation_point in evaluation_points {
         let chi_eval = (&[1, 1, 1, 1]).inner_product(evaluation_point);
         let accessor = indexmap! {
-            a.clone().column_id() => lhs.inner_product(evaluation_point),
-            b.clone().column_id() => rhs.inner_product(evaluation_point)
+            a.clone() => lhs.inner_product(evaluation_point),
+            b.clone() => rhs.inner_product(evaluation_point)
         };
         and_expr
             .verifier_evaluate(&mut verification_builder, &accessor, chi_eval, &[])
