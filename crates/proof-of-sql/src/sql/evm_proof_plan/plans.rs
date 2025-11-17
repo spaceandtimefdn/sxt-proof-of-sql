@@ -1614,13 +1614,16 @@ mod tests {
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
         let ident_c: Ident = "c".into();
-        let alias_1 = "result_1".to_string();
-        let alias_2 = "result_2".to_string();
-        let alias_3 = "result_3".to_string();
+        let alias_1 = "result_1";
+        let alias_2 = "result_2";
+        let alias_3 = "result_3";
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
         let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+
+        let column_ref_1 = ColumnRef::new(table_ref.clone(), alias_1.into(), ColumnType::BigInt);
+        let column_ref_2 = ColumnRef::new(table_ref.clone(), alias_2.into(), ColumnType::BigInt);
 
         // Create a table exec as the base
         let column_fields = vec![
@@ -1635,7 +1638,7 @@ mod tests {
             vec![
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
-                    alias: Ident::new(alias_1.clone()),
+                    alias: Ident::new(alias_1),
                 },
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
@@ -1662,12 +1665,12 @@ mod tests {
         let filter_2 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_1.clone())),
                     alias: ident_a.clone(),
                 },
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
-                    alias: Ident::new(alias_2.clone()),
+                    alias: Ident::new(alias_2),
                 },
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
@@ -1694,12 +1697,12 @@ mod tests {
                     alias: ident_a.clone(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_2.clone())),
                     alias: ident_b.clone(),
                 },
                 AliasedDynProofExpr {
                     expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
-                    alias: Ident::new(alias_3.clone()),
+                    alias: Ident::new(alias_3),
                 },
             ],
             Box::new(DynProofPlan::Filter(filter_2)),
@@ -1749,7 +1752,7 @@ mod tests {
             .try_into_proof_plan(
                 &indexset![table_ref],
                 &indexset![column_ref_a, column_ref_b, column_ref_c],
-                &indexset![ident_a.value, ident_b.value, alias_3],
+                &indexset![ident_a.value, ident_b.value, alias_3.to_string()],
             )
             .unwrap();
 
