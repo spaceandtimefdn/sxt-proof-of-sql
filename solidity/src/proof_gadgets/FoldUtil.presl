@@ -47,12 +47,13 @@ library FoldUtil {
         assembly {
             // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
+            // import builder_get_column_evaluations from ../builder/VerificationBuilder.presl
 
             function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
                 fold := 0
                 for {} column_count { column_count := sub(column_count, 1) } {
                     let expr_eval
-                    plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval)
+                    plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval, builder_get_column_evaluations(builder_ptr))
                     fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
                 }
                 plan_ptr_out := plan_ptr
@@ -151,12 +152,13 @@ library FoldUtil {
         assembly {
             // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
             // import column_expr_evaluate from ../proof_exprs/ColumnExpr.presl
+            // import builder_get_column_evaluations from ../builder/VerificationBuilder.presl
 
             function fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count) -> plan_ptr_out, fold {
                 fold := 0
                 for {} column_count { column_count := sub(column_count, 1) } {
                     let expr_eval
-                    plan_ptr, expr_eval := column_expr_evaluate(plan_ptr, builder_ptr)
+                    plan_ptr, expr_eval := column_expr_evaluate(plan_ptr, builder_get_column_evaluations(builder_ptr))
                     fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
                 }
                 plan_ptr_out := plan_ptr

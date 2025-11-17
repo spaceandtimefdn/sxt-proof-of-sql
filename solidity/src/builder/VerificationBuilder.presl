@@ -586,9 +586,9 @@ library VerificationBuilder {
         returns (uint256 __value)
     {
         assembly {
-            // import get_array_element from ../base/Array.presl
+            // import get_array_element_from_ptr from ../base/Array.presl
             function builder_get_column_evaluation(builder_ptr, column_num) -> value {
-                value := get_array_element(add(builder_ptr, BUILDER_COLUMN_EVALUATIONS_OFFSET), column_num)
+                value := get_array_element_from_ptr(add(builder_ptr, BUILDER_COLUMN_EVALUATIONS_OFFSET), column_num)
             }
             __value := builder_get_column_evaluation(__builder, __columnNum)
         }
@@ -989,9 +989,9 @@ library VerificationBuilder {
         returns (uint256 __value)
     {
         assembly {
-            // import get_array_element from ../base/Array.presl
+            // import get_array_element_from_ptr from ../base/Array.presl
             function builder_get_placeholder_parameter(builder_ptr, index) -> value {
-                value := get_array_element(add(builder_ptr, BUILDER_PLACEHOLDER_PARAMETERS_OFFSET), index)
+                value := get_array_element_from_ptr(add(builder_ptr, BUILDER_PLACEHOLDER_PARAMETERS_OFFSET), index)
             }
             __value := builder_get_placeholder_parameter(__builder, __index)
         }

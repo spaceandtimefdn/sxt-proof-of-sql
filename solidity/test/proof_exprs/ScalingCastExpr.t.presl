@@ -24,7 +24,7 @@ contract ScalingCastExprTest is Test {
         bytes memory expectedExprOut = hex"abcdef";
 
         uint256 eval;
-        (expr, builder, eval) = ScalingCastExpr.__scalingCastExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = ScalingCastExpr.__scalingCastExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 7000); // 7 * 10 * 100
         assert(expr.length == expectedExprOut.length);
@@ -53,7 +53,7 @@ contract ScalingCastExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = ScalingCastExpr.__scalingCastExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = ScalingCastExpr.__scalingCastExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == (F.from(inputValue) * F.from(chiEvaluation) * F.from(scalingFactor)).into());
         assert(expr.length == trailingExpr.length);

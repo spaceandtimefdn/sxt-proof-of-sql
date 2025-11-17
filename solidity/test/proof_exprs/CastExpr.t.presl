@@ -18,7 +18,7 @@ contract CastExprTest is Test {
         bytes memory expectedExprOut = hex"abcdef";
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 70); // 7 * 10
         assert(expr.length == expectedExprOut.length);
@@ -42,7 +42,7 @@ contract CastExprTest is Test {
         bytes memory expectedExprOut = hex"abcdef";
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 70); // 7 * 10
         assert(expr.length == expectedExprOut.length);
@@ -66,7 +66,7 @@ contract CastExprTest is Test {
         bytes memory expectedExprOut = hex"abcdef";
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == 70); // 7 * 10
         assert(expr.length == expectedExprOut.length);
@@ -87,7 +87,7 @@ contract CastExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == (F.from(inputValue) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);
@@ -117,7 +117,7 @@ contract CastExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == (F.from(inputValue) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);
@@ -146,7 +146,7 @@ contract CastExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = CastExpr.__castExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == (F.from(timestampValue) * F.from(chiEvaluation)).into());
         assert(expr.length == trailingExpr.length);

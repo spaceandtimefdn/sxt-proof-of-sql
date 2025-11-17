@@ -25,7 +25,7 @@ contract MultiplyExprTest is Test {
         builder.rowMultipliersEvaluation = addmod(MODULUS, mulmod(MODULUS_MINUS_ONE, 2, MODULUS), MODULUS);
 
         uint256 eval;
-        (expr, builder, eval) = MultiplyExpr.__multiplyExprEvaluate(expr, builder, 10);
+        (expr, builder, eval) = MultiplyExpr.__multiplyExprEvaluate(expr, builder, 10, new uint256[](0));
 
         assert(eval == addmod(MODULUS, mulmod(MODULUS_MINUS_ONE, 500, MODULUS), MODULUS));
         assert(builder.aggregateEvaluation == 15000);
@@ -85,7 +85,7 @@ contract MultiplyExprTest is Test {
         );
 
         uint256 eval;
-        (expr, builder, eval) = MultiplyExpr.__multiplyExprEvaluate(expr, builder, chiEvaluation);
+        (expr, builder, eval) = MultiplyExpr.__multiplyExprEvaluate(expr, builder, chiEvaluation, new uint256[](0));
 
         assert(eval == expectedEval.into());
         assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());
