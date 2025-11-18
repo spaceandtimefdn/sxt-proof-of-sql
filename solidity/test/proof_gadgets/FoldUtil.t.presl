@@ -247,8 +247,8 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 1;
         uint256 fold;
 
-        (plan, builder, fold) =
-            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+        (plan, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __accessor: columnEvals, __beta: beta, __columnCount: columnCount});
 
         assert(fold == 84); // Column 1 evaluation
         assert(plan.length == expectedPlanOut.length);
@@ -272,8 +272,8 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 2;
         uint256 fold;
 
-        (plan, builder, fold) =
-            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+        (plan, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __accessor: columnEvals, __beta: beta, __columnCount: columnCount});
 
         // Fold calculation: 10 * 7 + 30 = 70 + 30 = 100
         assert(fold == 100);
@@ -309,9 +309,9 @@ contract FoldUtilTest is Test {
         bytes memory expectedPlanOut = hex"abcdef";
         uint256 fold;
 
-        (plan, builder, fold) = FoldUtil.__foldColumnExprEvals({
+        (plan, fold) = FoldUtil.__foldColumnExprEvals({
             __plan: plan,
-            __builder: builder,
+            __accessor: columnEvals,
             __beta: beta,
             __columnCount: columnEvalsLength
         });
@@ -342,8 +342,8 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 0;
         uint256 fold;
 
-        (plan, builder, fold) =
-            FoldUtil.__foldColumnExprEvals({__plan: plan, __builder: builder, __beta: beta, __columnCount: columnCount});
+        (plan, fold) =
+            FoldUtil.__foldColumnExprEvals({__plan: plan, __accessor: new uint256[](0), __beta: beta, __columnCount: columnCount});
 
         assert(fold == 0);
         assert(plan.length == expectedPlanOut.length);
