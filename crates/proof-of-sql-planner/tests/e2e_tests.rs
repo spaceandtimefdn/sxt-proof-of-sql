@@ -341,9 +341,9 @@ fn test_slicing_limit() {
     );
 }
 
-/// Test GROUP BY queries
+/// Test aggregation queries
 #[test]
-fn test_group_by() {
+fn test_aggregation() {
     let alloc = Bump::new();
     let sql = "select human_id, count(1) from cats group by human_id;
     select human_id, count(1) as num_cats from cats group by human_id;
