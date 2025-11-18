@@ -106,7 +106,7 @@ library GroupByExec {
                 num_sum_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
                 plan_ptr, sum_in_fold_eval :=
-                    fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, num_sum_columns)
+                    fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, num_sum_columns, builder_get_column_evaluations(builder_ptr))
                 sum_in_fold_eval := addmod_bn254(mulmod_bn254(sum_in_fold_eval, beta), input_chi_eval)
                 plan_ptr_out := plan_ptr
             }

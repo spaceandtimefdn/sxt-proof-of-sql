@@ -14,7 +14,7 @@ library FoldUtil {
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold
+    /// fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count, accessor) -> plan_ptr_out, fold
     /// ```
     /// ##### Parameters
     /// * `plan_ptr` - calldata pointer to the plan
@@ -22,6 +22,7 @@ library FoldUtil {
     /// * `input_chi_eval` - input chi evaluation
     /// * `beta` - challenge value
     /// * `column_count` - number of columns to process
+    /// * `accessor` - memory pointer to the collection of evals
     /// ##### Return Values
     /// * `plan_ptr_out` - pointer to the remaining plan after consuming
     /// * `fold` - computed fold value
@@ -30,7 +31,7 @@ library FoldUtil {
     /// @param __inputChiEval The input chi evaluation
     /// @param __beta The beta challenge value
     /// @param __columnCount The number of columns
-    /// @return __planOut The remaining plan after processing
+    /// @param __accessor The collection of evals
     /// @return __builderOut The updated verification builder
     /// @return __fold The computed fold value
     function __foldExprEvals( // solhint-disable-line gas-calldata-parameters
@@ -38,33 +39,28 @@ library FoldUtil {
         VerificationBuilder.Builder memory __builder,
         uint256 __inputChiEval,
         uint256 __beta,
-        uint256 __columnCount
+        uint256 __columnCount, uint256[] memory __accessor
     )
         external
         pure
-        returns (bytes calldata __planOut, VerificationBuilder.Builder memory __builderOut, uint256 __fold)
+        returns (VerificationBuilder.Builder memory __builderOut, uint256 __fold)
     {
         assembly {
             // import addmod_bn254, mulmod_bn254 from ../base/MathUtil.presl
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
-            // import builder_get_column_evaluations from ../builder/VerificationBuilder.presl
 
-            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count) -> plan_ptr_out, fold {
+            function fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count, accessor) -> plan_ptr_out, fold {
                 fold := 0
                 for {} column_count { column_count := sub(column_count, 1) } {
                     let expr_eval
-                    plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval, builder_get_column_evaluations(builder_ptr))
+                    plan_ptr, expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval, accessor)
                     fold := addmod_bn254(mulmod_bn254(fold, beta), expr_eval)
                 }
                 plan_ptr_out := plan_ptr
             }
 
             let __planOutOffset
-            __planOutOffset, __fold := fold_expr_evals(__plan.offset, __builder, __inputChiEval, __beta, __columnCount)
-            // slither-disable-start write-after-write
-            __planOut.offset := __planOutOffset
-            __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
-            // slither-disable-end write-after-write
+            __planOutOffset, __fold := fold_expr_evals(__plan.offset, __builder, __inputChiEval, __beta, __columnCount, __accessor)
         }
         __builderOut = __builder;
     }

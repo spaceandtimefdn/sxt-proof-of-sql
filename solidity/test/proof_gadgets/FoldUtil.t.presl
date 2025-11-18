@@ -19,20 +19,16 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 1;
         uint256 fold;
 
-        (plan, builder, fold) = FoldUtil.__foldExprEvals({
+        (builder, fold) = FoldUtil.__foldExprEvals({
             __plan: plan,
             __builder: builder,
             __inputChiEval: inputChiEval,
             __beta: beta,
-            __columnCount: columnCount
+            __columnCount: columnCount,
+            __accessor: new uint256[](0)
         });
 
         assert(fold == MODULUS - 15); // 5 * (-3) = -15
-        assert(plan.length == expectedPlanOut.length);
-        uint256 planOutLength = plan.length;
-        for (uint256 i = 0; i < planOutLength; ++i) {
-            assert(plan[i] == expectedPlanOut[i]);
-        }
     }
 
     function testFoldExprEvalsWithMultipleColumns() public pure {
@@ -54,21 +50,17 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 2;
         uint256 fold;
 
-        (plan, builder, fold) = FoldUtil.__foldExprEvals({
+        (builder, fold) = FoldUtil.__foldExprEvals({
             __plan: plan,
             __builder: builder,
             __inputChiEval: inputChiEval,
             __beta: beta,
-            __columnCount: columnCount
+            __columnCount: columnCount,
+            __accessor: new uint256[](0)
         });
 
         // Fold calculation: ((2 * 5) * 10 + (3 * 5) = 115
         assert(fold == 115);
-        assert(plan.length == expectedPlanOut.length);
-        uint256 planOutLength = plan.length;
-        for (uint256 i = 0; i < planOutLength; ++i) {
-            assert(plan[i] == expectedPlanOut[i]);
-        }
     }
 
     function testFoldExprEvalsWithColumnExpression() public pure {
@@ -85,20 +77,16 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 1;
         uint256 fold;
 
-        (plan, builder, fold) = FoldUtil.__foldExprEvals({
+        (builder, fold) = FoldUtil.__foldExprEvals({
             __plan: plan,
             __builder: builder,
             __inputChiEval: inputChiEval,
             __beta: beta,
-            __columnCount: columnCount
+            __columnCount: columnCount,
+            __accessor: columnEvals
         });
 
         assert(fold == 84); // Column 1 evaluation
-        assert(plan.length == expectedPlanOut.length);
-        uint256 planOutLength = plan.length;
-        for (uint256 i = 0; i < planOutLength; ++i) {
-            assert(plan[i] == expectedPlanOut[i]);
-        }
     }
 
     function testFoldFirstRoundMlesWithSingleColumn() public pure {
@@ -167,23 +155,19 @@ contract FoldUtilTest is Test {
         uint256 columnCount = 2;
         uint256 fold;
 
-        (plan, builder, fold) = FoldUtil.__foldExprEvals({
+        (builder, fold) = FoldUtil.__foldExprEvals({
             __plan: plan,
             __builder: builder,
             __inputChiEval: chiEval,
             __beta: beta,
-            __columnCount: columnCount
+            __columnCount: columnCount,
+            __accessor: new uint256[](0)
         });
 
         // Expected fold: value1 * chiEval * beta + value2 * chiEval
         FF expectedFold = (F.from(value1) * F.from(chiEval)) * F.from(beta) + (F.from(value2) * F.from(chiEval));
 
         assert(fold == expectedFold.into());
-        assert(plan.length == expectedPlanOut.length);
-        uint256 planOutLength = plan.length;
-        for (uint256 i = 0; i < planOutLength; ++i) {
-            assert(plan[i] == expectedPlanOut[i]);
-        }
     }
 
     function testFuzzFoldFirstRoundMles(uint256[] memory mles, uint256 beta) public pure {

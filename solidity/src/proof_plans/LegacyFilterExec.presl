@@ -90,7 +90,7 @@ library LegacyFilterExec {
             // import mulmod_bn254 from ../base/MathUtil.presl
             // import builder_consume_challenge, builder_consume_chi_evaluation_with_length, builder_get_table_chi_evaluation, builder_get_column_evaluations from ../builder/VerificationBuilder.presl
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
-            // import fold_expr_evals, fold_first_round_mles from ../proof_gadgets/FoldUtil.presl
+            // import fold_first_round_mles from ../proof_gadgets/FoldUtil.presl
             // import compute_filter_folds from FilterExec.presl
             // import verify_filter from ../proof_gadgets/FilterBase.presl
 
