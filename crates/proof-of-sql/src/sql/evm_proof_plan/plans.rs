@@ -231,6 +231,9 @@ impl EVMLegacyFilterExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<LegacyFilterExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         Ok(LegacyFilterExec::new(
             self.results
                 .iter()
@@ -1066,6 +1069,17 @@ mod tests {
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
+
+        assert!(matches!(
+            EVMLegacyFilterExec::try_into_proof_plan(
+                &evm_filter_exec,
+                &indexset![],
+                &indexset![],
+                &indexset![],
+            )
+            .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
+        ));
     }
 
     #[test]
