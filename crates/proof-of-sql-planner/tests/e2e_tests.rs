@@ -342,6 +342,7 @@ fn test_slicing_limit() {
 }
 
 /// Test aggregation queries
+#[expect(clippy::too_many_lines)]
 #[test]
 fn test_aggregation() {
     let alloc = Bump::new();
@@ -357,7 +358,12 @@ fn test_aggregation() {
     select count(1) as num_cats from cats;
     select count(1) from cats;
     select count(id) from cats;
-    select count(*) from cats;";
+    select count(*) from cats;
+    select sum(weight) as total_weight, human_id, count(1) as num_cats from cats group by human_id;
+    select count(1), sum(weight), human_id from cats group by human_id;
+    select human_id, sum(weight) as total_weight from cats group by human_id;
+    select human_id, count(1) as count_1, count(id) as count_id, count(*) as count_star from cats group by human_id;
+    select count(1) as count_1, count(id) as count_id, count(*) as count_star from cats;";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "cats") => table(
             vec![
@@ -413,6 +419,36 @@ fn test_aggregation() {
         owned_table([bigint("COUNT(Int64(1))", [5_i64])]),
         owned_table([bigint("COUNT(cats.id)", [5_i64])]),
         owned_table([bigint("COUNT(*)", [5_i64])]),
+        // Random column ordering: aggregates first, then group column
+        owned_table([
+            decimal75("total_weight", 3, 1, [240, 100]),
+            int("human_id", [1, 2]),
+            bigint("num_cats", [3_i64, 2]),
+        ]),
+        // Random ordering: count, sum, then group column
+        owned_table([
+            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            decimal75("SUM(cats.weight)", 3, 1, [240, 100]),
+            int("human_id", [1, 2]),
+        ]),
+        // No count: just sum aggregation
+        owned_table([
+            int("human_id", [1, 2]),
+            decimal75("total_weight", 3, 1, [240, 100]),
+        ]),
+        // Multiple counts
+        owned_table([
+            int("human_id", [1, 2]),
+            bigint("count_1", [3_i64, 2]),
+            bigint("count_id", [3_i64, 2]),
+            bigint("count_star", [3_i64, 2]),
+        ]),
+        // Multiple counts without group by
+        owned_table([
+            bigint("count_1", [5_i64]),
+            bigint("count_id", [5_i64]),
+            bigint("count_star", [5_i64]),
+        ]),
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof

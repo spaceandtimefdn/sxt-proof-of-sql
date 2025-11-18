@@ -1,7 +1,6 @@
 use super::{
-    aggregate_function_to_proof_expr, expr_to_proof_expr,
-    get_column_idents_from_expr, table_reference_to_table_ref, AggregateFunc, PlannerError,
-    PlannerResult,
+    aggregate_function_to_proof_expr, expr_to_proof_expr, get_column_idents_from_expr,
+    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
 };
 use alloc::vec::Vec;
 use datafusion::{
