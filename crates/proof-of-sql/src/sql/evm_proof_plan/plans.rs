@@ -472,7 +472,10 @@ impl EVMGroupByExec {
         })
     }
 
-    #[expect(clippy::missing_panics_doc)]
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "There is a check before unwrapping"
+    )]
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
@@ -590,7 +593,10 @@ impl EVMAggregateExec {
         })
     }
 
-    #[expect(clippy::missing_panics_doc)]
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "There is a check before unwrapping"
+    )]
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
