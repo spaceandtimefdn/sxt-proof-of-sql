@@ -13,7 +13,6 @@ contract FoldUtilTest is Test {
         VerificationBuilder.Builder memory builder;
 
         bytes memory plan = abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(5), hex"abcdef");
-        bytes memory expectedPlanOut = hex"abcdef";
         uint256 inputChiEval = MODULUS - 3;
         uint256 beta = 7;
         uint256 columnCount = 1;
@@ -44,7 +43,6 @@ contract FoldUtilTest is Test {
             int64(3),
             hex"abcdef"
         );
-        bytes memory expectedPlanOut = hex"abcdef";
         uint256 inputChiEval = 5;
         uint256 beta = 10;
         uint256 columnCount = 2;
@@ -71,7 +69,6 @@ contract FoldUtilTest is Test {
         builder.columnEvaluations = columnEvals;
 
         bytes memory plan = abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1), hex"abcdef");
-        bytes memory expectedPlanOut = hex"abcdef";
         uint256 inputChiEval = 0; // Not used for column expressions
         uint256 beta = 5;
         uint256 columnCount = 1;
@@ -150,7 +147,6 @@ contract FoldUtilTest is Test {
             value2,
             hex"abcdef"
         );
-        bytes memory expectedPlanOut = hex"abcdef";
 
         uint256 columnCount = 2;
         uint256 fold;

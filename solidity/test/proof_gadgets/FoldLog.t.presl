@@ -96,14 +96,14 @@ contract FoldLogExprTest is Test {
             columnEval[0] = column[i][0];
             columnEval[1] = column[i][1];
             builder.columnEvaluations = columnEval;
-            uint256 actualStar;
-            (builder, actualStar) = FoldLogExpr.__foldLogStarEvaluateFromColumnExprs({
+            builder = FoldLogExpr.__foldLogStarEvaluateFromColumnExprs({
                 __plan: plan,
                 __builder: builder,
                 __alpha: 3,
                 __beta: 8,
                 __columnCount: 2,
-                __chiEval: 1
+                __chiEval: 1,
+                __accessor: columnEval
             });
         }
         assert(builder.aggregateEvaluation == 0);
@@ -201,14 +201,14 @@ contract FoldLogExprTest is Test {
         for (uint8 i = 0; i < 8; ++i) {
             builder.columnEvaluations[0] = columnEvals[i][0];
             builder.columnEvaluations[1] = columnEvals[i][1];
-            uint256 actualStar;
-            (builder, actualStar) = FoldLogExpr.__foldLogStarEvaluateFromExprEvals({
+            (builder) = FoldLogExpr.__foldLogStarEvaluateFromExprEvals({
                 __plan: plan,
                 __builder: builder,
                 __inputChiEval: 1,
                 __alpha: 3,
                 __beta: 8,
-                __columnCount: 2
+                __columnCount: 2,
+                __accessor: builder.columnEvaluations
             });
         }
         assert(builder.aggregateEvaluation == 0);

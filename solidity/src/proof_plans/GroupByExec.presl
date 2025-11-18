@@ -89,7 +89,7 @@ library GroupByExec {
                 let g_in_star_eval
                 plan_ptr, g_in_star_eval :=
                     fold_log_star_evaluate_from_column_exprs(
-                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval
+                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval, builder_get_column_evaluations(builder_ptr)
                     )
 
                 let selection_eval
