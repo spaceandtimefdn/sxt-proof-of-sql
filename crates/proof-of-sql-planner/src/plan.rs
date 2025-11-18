@@ -1,5 +1,5 @@
 use super::{
-    aggregate_function_to_proof_expr, column_to_column_ref, expr_to_proof_expr,
+    aggregate_function_to_proof_expr, expr_to_proof_expr,
     get_column_idents_from_expr, table_reference_to_table_ref, AggregateFunc, PlannerError,
     PlannerResult,
 };
@@ -7,8 +7,7 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::Alias, Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
-        Union,
+        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -17,7 +16,7 @@ use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
         proof::ProofPlan,
-        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr},
         proof_plans::{DynProofPlan, SortMergeJoinExec},
     },
 };
@@ -154,12 +153,42 @@ fn projection_to_proof_plan(
     schemas: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+    // Use the proof plan's output schema (which has unqualified names after aggregation)
+    // instead of DataFusion's schema (which may have qualified names)
+    let input_schema: Vec<(Ident, ColumnType)> = input_plan
+        .get_column_result_fields()
+        .iter()
+        .map(|field| (field.name(), field.data_type()))
+        .collect();
     let aliased_exprs = expr
         .iter()
         .zip(output_schema.fields().iter())
         .map(|(e, field)| -> PlannerResult<AliasedDynProofExpr> {
-            let proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            // For projections over aggregates, DataFusion may generate column references with
+            // table qualifiers, but our aggregate output has unqualified names.
+            // Unwrap aliases and match columns by name only.
+            let expr_to_convert = match e {
+                Expr::Alias(alias) => &*alias.expr, // Unwrap the alias
+                _ => e,
+            };
+
+            let proof_expr = if let Expr::Column(col) = expr_to_convert {
+                // Try to find the column by name only in the schema
+                let ident: Ident = col.name.as_str().into();
+                let column_type = input_schema
+                    .iter()
+                    .find(|(i, _t)| *i == ident)
+                    .ok_or(PlannerError::ColumnNotFound)?
+                    .1;
+                // Create a ColumnRef using the unqualified name
+                DynProofExpr::new_column(ColumnRef::new(
+                    TableRef::from_names(None, "__aggregate_input__"),
+                    ident,
+                    column_type,
+                ))
+            } else {
+                expr_to_proof_expr(expr_to_convert, &input_schema)?
+            };
             let alias = field.name().as_str().into();
             Ok(AliasedDynProofExpr {
                 expr: proof_expr,
@@ -176,6 +205,7 @@ fn projection_to_proof_plan(
 ///
 /// # Panics
 /// The code should never panic
+#[expect(clippy::too_many_lines)]
 fn aggregate_to_proof_plan(
     input: &LogicalPlan,
     group_expr: &[Expr],
@@ -183,6 +213,135 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<&str, &str>,
 ) -> PlannerResult<DynProofPlan> {
+    let input_plan = logical_plan_to_proof_plan(input, schemas)?;
+    // Get schema from DataFusion's LogicalPlan which has qualified column names
+    let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+    let group_by_exprs = group_expr
+        .iter()
+        .map(|e| -> PlannerResult<AliasedDynProofExpr> {
+            let proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            let name_string = e.display_name()?;
+            let name = name_string.as_str();
+            let alias =
+                alias_map
+                    .get(&name)
+                    .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+                        plan: Box::new(input.clone()),
+                    })?;
+            Ok(AliasedDynProofExpr {
+                expr: proof_expr,
+                alias: (*alias).into(),
+            })
+        })
+        .collect::<PlannerResult<Vec<_>>>()?;
+    let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
+        .iter()
+        .map(|e| match e.clone().unalias() {
+            Expr::AggregateFunction(agg) => {
+                let name_string = e.display_name()?;
+                let name = name_string.as_str();
+                let alias =
+                    alias_map
+                        .get(&name)
+                        .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(input.clone()),
+                        })?;
+                Ok((
+                    aggregate_function_to_proof_expr(&agg, &input_schema)?,
+                    (*alias).into(),
+                ))
+            }
+            _ => Err(PlannerError::UnsupportedLogicalPlan {
+                plan: Box::new(input.clone()),
+            }),
+        })
+        .collect::<PlannerResult<Vec<_>>>()?;
+    // Remap to aggregation with projection
+    let (sum_indices, sum_exprs): (Vec<_>, Vec<_>) = agg_aliased_proof_exprs
+        .iter()
+        .enumerate()
+        .filter_map(|(i, ((func, expr), alias))| {
+            if *func == AggregateFunc::Sum {
+                Some((
+                    i,
+                    AliasedDynProofExpr {
+                        expr: expr.clone(),
+                        alias: alias.clone(),
+                    },
+                ))
+            } else {
+                None
+            }
+        })
+        .unzip();
+    let agg_plan = DynProofPlan::try_new_aggregate(
+        group_by_exprs,
+        sum_exprs,
+        "__count_alias__".into(),
+        input_plan,
+        DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+    )
+    .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+        plan: Box::new(input.clone()),
+    })?;
+
+    // Build projection that reorders columns to match aggr_expr order
+    // Aggregate output: [group_by_cols..., sum_cols..., count_col]
+    // Desired output: [group_by_cols..., aggr_expr_cols_in_order...]
+    let n_group = group_expr.len();
+    let result_fields = agg_plan.get_column_result_fields();
+
+    let mut remapping_exprs = Vec::new();
+
+    // First, add group by columns
+    for (i, g) in group_expr.iter().enumerate() {
+        let name_string = g.display_name()?;
+        let name = name_string.as_str();
+        let alias = alias_map
+            .get(&name)
+            .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+                plan: Box::new(input.clone()),
+            })?;
+        let field = &result_fields[i];
+        remapping_exprs.push(AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                TableRef::from_names(None, "__aggregate_input__"),
+                field.name(),
+                field.data_type(),
+            )),
+            alias: (*alias).into(),
+        });
+    }
+
+    // Then, add aggregate columns in aggr_expr order
+    for (aggr_idx, ((func, _), alias)) in agg_aliased_proof_exprs.iter().enumerate() {
+        let col_idx = if *func == AggregateFunc::Sum {
+            // Find which sum column this is in the aggregate output
+            let sum_position = sum_indices
+                .iter()
+                .position(|&idx| idx == aggr_idx)
+                .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+                    plan: Box::new(input.clone()),
+                })?;
+            n_group + sum_position
+        } else {
+            // COUNT
+            // All COUNTs reference the same count column (last column)
+            n_group + sum_indices.len()
+        };
+
+        let field = &result_fields[col_idx];
+        remapping_exprs.push(AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                TableRef::from_names(None, "__aggregate_input__"),
+                field.name(),
+                field.data_type(),
+            )),
+            alias: alias.clone(),
+        });
+    }
+
+    Ok(DynProofPlan::new_projection(remapping_exprs, agg_plan))
 }
 
 fn join_to_proof_plan(
@@ -255,7 +414,6 @@ fn join_to_proof_plan(
 }
 
 /// Visit a [`datafusion::logical_plan::LogicalPlan`] and return a [`DynProofPlan`]
-#[expect(clippy::too_many_lines)]
 pub fn logical_plan_to_proof_plan(
     plan: &LogicalPlan,
     schema_accessor: &impl SchemaAccessor,
