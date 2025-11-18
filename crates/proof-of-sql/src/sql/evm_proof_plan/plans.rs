@@ -603,13 +603,9 @@ impl EVMAggregateExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<AggregateExec> {
-        let grouping_column_count = self.group_by_exprs.len();
-        let required_alias_count = grouping_column_count + self.sum_expr.len() + 1;
+        let required_alias_count = self.group_by_exprs.len() + self.sum_expr.len() + 1;
         if required_alias_count > output_column_names.len() {
             Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
-        if grouping_column_count > column_refs.len() {
-            Err(EVMProofPlanError::ColumnNotFound)?;
         }
         let input =
             self.input_plan
