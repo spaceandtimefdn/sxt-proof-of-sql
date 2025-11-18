@@ -295,6 +295,9 @@ impl EVMFilterExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<FilterExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -1747,6 +1750,13 @@ mod tests {
         // Verify the roundtripped plan
         assert_eq!(roundtripped.aliased_results().len(), 2);
         assert!(matches!(*roundtripped.input(), DynProofPlan::Slice(_)));
+
+        assert!(matches!(
+            evm_filter_exec
+                .try_into_proof_plan(&indexset![], &indexset![], &indexset![],)
+                .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
+        ));
     }
 
     #[expect(clippy::too_many_lines)]
