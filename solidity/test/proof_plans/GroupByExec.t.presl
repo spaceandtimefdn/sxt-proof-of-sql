@@ -300,9 +300,7 @@ contract GroupByExecTest is Test {
             uint64(1), // group_by_count
             uint64(0), // group_by_expr[0] - column 0
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
-            uint64(0), // sum_count
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
+            uint64(0) // sum_count
         );
         VerificationBuilder.Builder memory builder;
         builder = _configureBuilderForGroupByExec(builder);
@@ -332,9 +330,7 @@ contract GroupByExecTest is Test {
             uint64(0), // group_by_expr[0] - column 0
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
             uint64(1), // sum_count
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)), // sum_expr[0] - column 1;
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)) // sum_expr[0] - column 1;
         );
         VerificationBuilder.Builder memory builder;
         builder = _configureBuilderForGroupByExec(builder);
@@ -367,9 +363,7 @@ contract GroupByExecTest is Test {
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
             uint64(2), // sum_count
             abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)), // sum_expr[0] - column 1;
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(2)), // sum_expr[1] - column 2;
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(2)) // sum_expr[1] - column 2;
         );
         VerificationBuilder.Builder memory builder;
         builder = _configureBuilderForGroupByExec(builder);

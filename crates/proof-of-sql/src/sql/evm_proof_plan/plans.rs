@@ -425,7 +425,6 @@ pub(crate) struct EVMGroupByExec {
     group_by_exprs: Vec<usize>,
     where_clause: EVMDynProofExpr,
     sum_expr: Vec<EVMDynProofExpr>,
-    count_alias_name: String,
 }
 
 impl EVMGroupByExec {
@@ -458,7 +457,6 @@ impl EVMGroupByExec {
                     EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, column_refs)
                 })
                 .collect::<Result<_, _>>()?,
-            count_alias_name: plan.count_alias().value.clone(),
             where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
         })
     }
@@ -504,18 +502,14 @@ impl EVMGroupByExec {
         let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
 
         // For safety, check if the provided count_alias_name matches
-        if let Some(name) = output_column_names.get_index(count_alias_idx) {
-            if name != &self.count_alias_name {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-        } else {
+        let Some(count_alias_name) = output_column_names.get_index(count_alias_idx) else {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
-        }
+        };
 
         GroupByExec::try_new(
             group_by_exprs,
             sum_expr,
-            Ident::new(&self.count_alias_name),
+            Ident::new(count_alias_name),
             TableExpr {
                 table_ref: table_refs
                     .get_index(self.table_number)
@@ -535,7 +529,6 @@ pub(crate) struct EVMAggregateExec {
     group_by_exprs: Vec<EVMDynProofExpr>,
     where_clause: EVMDynProofExpr,
     sum_expr: Vec<EVMDynProofExpr>,
-    count_alias_name: String,
 }
 
 impl EVMAggregateExec {
@@ -573,7 +566,6 @@ impl EVMAggregateExec {
                     )
                 })
                 .collect::<Result<_, _>>()?,
-            count_alias_name: plan.count_alias().value.clone(),
             where_clause: EVMDynProofExpr::try_from_proof_expr(
                 plan.where_clause(),
                 &input_result_column_refs,
@@ -630,18 +622,14 @@ impl EVMAggregateExec {
         let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
 
         // For safety, check if the provided count_alias_name matches
-        if let Some(name) = output_column_names.get_index(count_alias_idx) {
-            if name != &self.count_alias_name {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-        } else {
+        let Some(count_alias_name) = output_column_names.get_index(count_alias_idx) else {
             return Err(EVMProofPlanError::InvalidOutputColumnName);
-        }
+        };
 
         AggregateExec::try_new(
             group_by_exprs,
             sum_expr,
-            Ident::new(&self.count_alias_name),
+            Ident::new(count_alias_name),
             Box::new(input),
             self.where_clause
                 .try_into_proof_expr(&input_result_column_refs)?,
@@ -695,7 +683,6 @@ pub(crate) struct EVMSortMergeJoinExec {
     right: Box<EVMDynProofPlan>,
     left_join_column_indexes: Vec<usize>,
     right_join_column_indexes: Vec<usize>,
-    result_aliases: Vec<String>,
 }
 
 impl EVMSortMergeJoinExec {
@@ -716,18 +703,12 @@ impl EVMSortMergeJoinExec {
         )?);
         let left_join_column_indexes = plan.left_join_column_indexes().clone();
         let right_join_column_indexes = plan.right_join_column_indexes().clone();
-        let result_aliases = plan
-            .result_idents()
-            .iter()
-            .map(|id| id.value.clone())
-            .collect();
 
         Ok(Self {
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
-            result_aliases,
         })
     }
 
@@ -749,7 +730,7 @@ impl EVMSortMergeJoinExec {
         )?);
         let left_join_column_indexes = self.left_join_column_indexes.clone();
         let right_join_column_indexes = self.right_join_column_indexes.clone();
-        let result_idents = self.result_aliases.iter().map(Ident::new).collect();
+        let result_idents = output_column_names.iter().map(Ident::new).collect();
 
         Ok(SortMergeJoinExec::new(
             left,
@@ -1102,7 +1083,6 @@ mod tests {
             evm_group_by_exec.sum_expr[0],
             EVMDynProofExpr::Column(_)
         ));
-        assert_eq!(evm_group_by_exec.count_alias_name, count_alias);
         assert!(matches!(
             evm_group_by_exec.where_clause,
             EVMDynProofExpr::Equals(_)
@@ -1343,7 +1323,7 @@ mod tests {
     }
 
     #[test]
-    fn group_by_exec_fails_with_invalid_output_column_name_into_proof_plan() {
+    fn group_by_exec_mismatching_count_alias() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -1405,10 +1385,7 @@ mod tests {
             &indexset![ident_a.value.clone(), sum_alias.clone(), wrong_count_alias],
         );
 
-        assert!(matches!(
-            result,
-            Err(EVMProofPlanError::InvalidOutputColumnName)
-        ));
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -2103,7 +2080,6 @@ mod tests {
         // Verify the structure
         assert_eq!(evm_aggregate_exec.group_by_exprs.len(), 1);
         assert_eq!(evm_aggregate_exec.sum_expr.len(), 1);
-        assert_eq!(evm_aggregate_exec.count_alias_name, count_alias);
         assert!(matches!(
             *evm_aggregate_exec.input_plan,
             EVMDynProofPlan::Table(_)
@@ -2309,7 +2285,7 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_exec_fails_with_invalid_output_column_names() {
+    fn aggregate_exec_mismatching_count_alias() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
@@ -2383,9 +2359,6 @@ mod tests {
             &indexset![ident_a.value, sum_alias, wrong_count_alias],
         );
 
-        assert!(matches!(
-            result,
-            Err(EVMProofPlanError::InvalidOutputColumnName)
-        ));
+        assert!(result.is_ok());
     }
 }

@@ -391,17 +391,6 @@ library SortMergeJoinExec {
                 plan_ptr_out := plan_ptr
             }
 
-            // We don't need the aliases for verification, so we can skip them
-            function skip_sort_merge_join_aliases(plan_ptr) -> plan_ptr_out {
-                let num_aliases := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                plan_ptr := add(plan_ptr, UINT64_SIZE)
-                for {} num_aliases { num_aliases := sub(num_aliases, 1) } {
-                    let entry
-                    plan_ptr, entry := read_binary(plan_ptr)
-                }
-                plan_ptr_out := plan_ptr
-            }
-
             // Verifies a `SortMergeJoinExec` plan
             function sort_merge_join_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr, output_length, output_chi_eval {
                 // In order to save on local variables, we save the left, right, and output evaluations
@@ -423,7 +412,7 @@ library SortMergeJoinExec {
                     mstore(add(left_right_and_output_evaluations, WORD_SIZE), right_evaluations)
                 }
                 output_length, output_chi_eval := builder_consume_chi_evaluation_with_length(builder_ptr)
-                plan_ptr :=
+                plan_ptr_out :=
                     evaluate_sort_merge_join_outputs(
                         plan_ptr,
                         builder_ptr,
@@ -433,8 +422,6 @@ library SortMergeJoinExec {
                         output_chi_eval
                     )
                 evaluations_ptr := mload(add(left_right_and_output_evaluations, WORDX2_SIZE))
-
-                plan_ptr_out := skip_sort_merge_join_aliases(plan_ptr)
             }
 
             let __planOutOffset

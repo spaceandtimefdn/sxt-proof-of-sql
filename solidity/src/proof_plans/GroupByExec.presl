@@ -169,12 +169,6 @@ library GroupByExec {
                 partial_dlog_zero_sum_constraint_eval :=
                     mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)
 
-                // Read count alias
-                {
-                    let count_alias
-                    plan_ptr, count_alias := read_binary(plan_ptr)
-                }
-
                 plan_ptr_out := plan_ptr
             }
 

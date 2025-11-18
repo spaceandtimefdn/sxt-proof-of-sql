@@ -106,10 +106,6 @@ impl SortMergeJoinExec {
     pub(crate) fn right_join_column_indexes(&self) -> &Vec<usize> {
         &self.right_join_column_indexes
     }
-
-    pub(crate) fn result_idents(&self) -> &Vec<Ident> {
-        &self.result_idents
-    }
 }
 
 #[expect(clippy::missing_panics_doc)]
