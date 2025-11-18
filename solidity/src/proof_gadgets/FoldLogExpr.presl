@@ -97,7 +97,6 @@ library FoldLogExpr {
             // import mulmod_bn254 from ../base/MathUtil.presl
             // import fold_log_star_evaluate_from_fold from self
             // import fold_column_expr_evals from FoldUtil.presl
-            // import builder_get_column_evaluations from ../builder/VerificationBuilder.presl
 
             function fold_log_star_evaluate_from_column_exprs(plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval, accessor) -> plan_ptr_out, star {
                 let fold
