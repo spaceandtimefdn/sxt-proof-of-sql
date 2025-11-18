@@ -55,17 +55,7 @@ contract SortMergeJoinExecTest is Test {
                 uint64(1), // join index count
                 uint64(0)
             );
-
-            bytes memory aliases = abi.encodePacked(
-                uint64(3),
-                uint64(7), // alias (unused in verification)
-                "count_0",
-                uint64(7), // alias
-                "count_1",
-                uint64(7), // alias
-                "count_2"
-            );
-            plan = abi.encodePacked(leftPlan, rightPlan, leftJoinIndices, rightJoinIndices, aliases, hex"abcdef");
+            plan = abi.encodePacked(leftPlan, rightPlan, leftJoinIndices, rightJoinIndices, hex"abcdef");
         }
 
         // challenges
