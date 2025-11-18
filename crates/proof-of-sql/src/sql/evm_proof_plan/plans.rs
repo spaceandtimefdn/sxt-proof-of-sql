@@ -354,6 +354,9 @@ impl EVMProjectionExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<ProjectionExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -841,6 +844,17 @@ mod tests {
         assert!(matches!(
             *roundtripped_projection_exec.input(),
             DynProofPlan::Table(_)
+        ));
+
+        assert!(matches!(
+            EVMProjectionExec::try_into_proof_plan(
+                &evm_projection_exec,
+                &indexset![],
+                &indexset![],
+                &indexset![],
+            )
+            .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
         ));
     }
 
