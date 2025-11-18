@@ -463,53 +463,53 @@ impl EVMGroupByExec {
         })
     }
 
+    #[expect(clippy::missing_panics_doc)]
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<GroupByExec> {
+        let grouping_column_count = self.group_by_exprs.len();
+        let required_alias_count = grouping_column_count + self.sum_expr.len() + 1;
+        if required_alias_count > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
+        if grouping_column_count > column_refs.len() {
+            Err(EVMProofPlanError::ColumnNotFound)?;
+        }
         // Convert indices back to ColumnExpr objects
-        let group_by_exprs = self
-            .group_by_exprs
+        let group_by_exprs = column_refs
             .iter()
-            .map(|&idx| {
-                let column_ref = column_refs
-                    .get_index(idx)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::ColumnNotFound)?;
-                Ok(ColumnExpr::new(column_ref))
-            })
-            .collect::<EVMProofPlanResult<Vec<_>>>()?;
+            .take(grouping_column_count)
+            .cloned()
+            .map(ColumnExpr::new)
+            .collect::<Vec<_>>();
+
+        let mut output_column_names = output_column_names.iter().skip(grouping_column_count);
 
         // Map sum expressions to AliasedDynProofExpr objects
-        let sum_aliases_offset = group_by_exprs.len();
         let sum_expr = self
             .sum_expr
             .iter()
-            .enumerate()
-            .map(|(i, expr)| {
-                let alias_idx = sum_aliases_offset + i;
-                let alias_name = output_column_names
-                    .get_index(alias_idx)
-                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
-                Ok(AliasedDynProofExpr {
-                    expr: expr.try_into_proof_expr(column_refs)?,
-                    alias: Ident::new(alias_name),
-                })
-            })
-            .collect::<EVMProofPlanResult<Vec<_>>>()?;
-
-        // Get the count alias from output column names
-        let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
+            .zip(&mut output_column_names)
+            .map(
+                |(expr, alias_name)| -> EVMProofPlanResult<AliasedDynProofExpr> {
+                    Ok(AliasedDynProofExpr {
+                        expr: expr.try_into_proof_expr(column_refs)?,
+                        alias: Ident::new(alias_name),
+                    })
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         // For safety, check if the provided count_alias_name matches
-        if let Some(name) = output_column_names.get_index(count_alias_idx) {
-            if name != &self.count_alias_name {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-        } else {
-            return Err(EVMProofPlanError::InvalidOutputColumnName);
+        if &self.count_alias_name
+            != output_column_names
+                .next()
+                .expect("Value confirmed to exist")
+        {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
         }
 
         GroupByExec::try_new(
