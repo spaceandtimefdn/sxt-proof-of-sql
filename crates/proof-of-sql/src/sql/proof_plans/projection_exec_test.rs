@@ -30,19 +30,17 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let provable_ast = ProjectionExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
+                DynProofExpr::Column(ColumnExpr::new(
+                    ColumnRef::new(table_ref.clone(), a),
                     ColumnType::BigInt,
-                ))),
+                )),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    b,
+                DynProofExpr::Column(ColumnExpr::new(
+                    ColumnRef::new(table_ref.clone(), b),
                     ColumnType::BigInt,
-                ))),
+                )),
                 "b",
             ),
         ],
@@ -72,19 +70,17 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let provable_ast = projection(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
+                DynProofExpr::Column(ColumnExpr::new(
+                    ColumnRef::new(table_ref.clone(), a),
                     ColumnType::BigInt,
-                ))),
+                )),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    f,
+                DynProofExpr::Column(ColumnExpr::new(
+                    ColumnRef::new(table_ref.clone(), f),
                     ColumnType::BigInt,
-                ))),
+                )),
                 "f",
             ),
         ],
@@ -102,8 +98,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     assert_eq!(
         ref_columns,
         IndexSet::from_iter([
-            ColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
+            ColumnRef::new(table_ref.clone(), Ident::new("a")),
+            ColumnRef::new(table_ref.clone(), Ident::new("f")),
         ])
     );
 

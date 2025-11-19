@@ -332,7 +332,6 @@ impl ProofPlan for SquareTestProofPlan {
         indexset! {ColumnRef::new(
         TableRef::new("sxt", "test"),
               "x".into(),
-              ColumnType::BigInt,
           )}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
@@ -533,7 +532,6 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         indexset! {ColumnRef::new(
         TableRef::new("sxt", "test"),
               "x".into(),
-              ColumnType::BigInt,
           )}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
@@ -727,7 +725,6 @@ impl ProofPlan for ChallengeTestProofPlan {
         indexset! {ColumnRef::new(
             TableRef::new("sxt", "test"),
             "x".into(),
-            ColumnType::BigInt,
         )}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
@@ -868,7 +865,6 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         indexset! {ColumnRef::new(
             TableRef::new("sxt", "test"),
             "x".into(),
-            ColumnType::BigInt,
         )}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {

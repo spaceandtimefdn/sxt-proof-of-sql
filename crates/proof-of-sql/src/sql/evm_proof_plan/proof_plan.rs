@@ -66,10 +66,21 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
     fn try_from(value: &EVMProofPlan) -> Result<Self, Self::Error> {
         let table_refs = value.get_table_references();
         let column_refs = value.get_column_references();
-        let output_column_names = value
-            .get_column_result_fields()
+        let result_fields = value.get_column_result_fields();
+        let output_column_names = result_fields
             .iter()
             .map(|field| field.name().to_string())
+            .collect();
+
+        // Build a map from ColumnRef to ColumnType using result fields
+        let column_type_map: IndexMap<_, _> = column_refs
+            .iter()
+            .filter_map(|col_ref| {
+                result_fields
+                    .iter()
+                    .find(|field| field.name() == col_ref.column_id())
+                    .map(|field| (col_ref.clone(), field.data_type()))
+            })
             .collect();
 
         let plan = EVMDynProofPlan::try_from_proof_plan(value.inner(), &table_refs, &column_refs)?;
@@ -79,11 +90,11 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
                 let table_index = table_refs
                     .get_index_of(&column_ref.table_ref())
                     .ok_or(EVMProofPlanError::TableNotFound)?;
-                Ok((
-                    table_index,
-                    column_ref.column_id().to_string(),
-                    *column_ref.column_type(),
-                ))
+                let column_type = column_type_map
+                    .get(&column_ref)
+                    .copied()
+                    .ok_or(EVMProofPlanError::ColumnNotFound)?;
+                Ok((table_index, column_ref.column_id().to_string(), column_type))
             })
             .try_collect()?;
         let tables = table_refs.iter().map(ToString::to_string).collect();
@@ -107,22 +118,27 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
             .map(|table| TableRef::from_str(table).map_err(|_| EVMProofPlanError::InvalidTableName))
             .try_collect()?;
         let table_refs_clone = table_refs.clone();
-        let column_refs: IndexSet<ColumnRef> = value
-            .columns
-            .iter()
-            .map(|(i, ident, column_type)| -> EVMProofPlanResult<_> {
-                let table_ref = table_refs_clone
-                    .get_index(*i)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::TableNotFound)?;
-                Ok(ColumnRef::new(table_ref, Ident::new(ident), *column_type))
-            })
-            .try_collect()?;
+
+        // Build both column_refs and column_type_map
+        let mut column_refs = IndexSet::default();
+        let mut column_type_map = IndexMap::default();
+
+        for (i, ident, column_type) in value.columns.iter() {
+            let table_ref = table_refs_clone
+                .get_index(*i)
+                .cloned()
+                .ok_or(EVMProofPlanError::TableNotFound)?;
+            let column_ref = ColumnRef::new(table_ref, Ident::new(ident));
+            column_refs.insert(column_ref.clone());
+            column_type_map.insert(column_ref, *column_type);
+        }
+
         let output_column_names: IndexSet<String> = value.output_column_names.into_iter().collect();
         Ok(Self {
             inner: value.plan.try_into_proof_plan(
                 &table_refs,
                 &column_refs,
+                &column_type_map,
                 Some(&output_column_names),
             )?,
         })

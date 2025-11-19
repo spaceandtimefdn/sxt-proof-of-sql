@@ -230,11 +230,17 @@ fn we_can_verify_a_simple_proof() {
         "b".into() => Column::Boolean::<TestScalar>(rhs),
     })
     .unwrap();
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = ColumnRef::new(t.clone(), Ident::from("a"));
+    let b = ColumnRef::new(t, Ident::from("b"));
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            a.clone(),
+            ColumnType::Boolean,
+        ))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            b.clone(),
+            ColumnType::Boolean,
+        ))),
     )
     .unwrap();
 
@@ -274,11 +280,17 @@ fn we_can_reject_a_simple_tampered_proof() {
     let t: TableRef = "sxt.t".parse().unwrap();
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = ColumnRef::new(t.clone(), Ident::from("a"));
+    let b = ColumnRef::new(t, Ident::from("b"));
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            a.clone(),
+            ColumnType::Boolean,
+        ))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            b.clone(),
+            ColumnType::Boolean,
+        ))),
     )
     .unwrap();
 

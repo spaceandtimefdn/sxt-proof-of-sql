@@ -111,22 +111,14 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
 ///
 /// Note that the table name must be provided in the column which resolved logical plans do
 /// Otherwise we error out
-pub(crate) fn column_to_column_ref(
-    column: &Column,
-    schema: &[(Ident, ColumnType)],
-) -> PlannerResult<ColumnRef> {
+pub(crate) fn column_to_column_ref(column: &Column) -> PlannerResult<ColumnRef> {
     let relation = column
         .relation
         .as_ref()
         .ok_or_else(|| PlannerError::UnresolvedLogicalPlan)?;
     let table_ref = table_reference_to_table_ref(relation)?;
     let ident: Ident = column.name.as_str().into();
-    let column_type = schema
-        .iter()
-        .find(|(i, _t)| *i == ident)
-        .ok_or(PlannerError::ColumnNotFound)?
-        .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+    Ok(ColumnRef::new(table_ref, ident))
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -472,34 +464,18 @@ mod tests {
     #[test]
     fn we_can_convert_column_to_column_ref() {
         let column = Column::new(Some("namespace.table"), "a");
-        let schema = vec![("a".into(), ColumnType::Int)];
         assert_eq!(
-            column_to_column_ref(&column, &schema).unwrap(),
-            ColumnRef::new(
-                TableRef::from_names(Some("namespace"), "table"),
-                "a".into(),
-                ColumnType::Int
-            )
+            column_to_column_ref(&column).unwrap(),
+            ColumnRef::new(TableRef::from_names(Some("namespace"), "table"), "a".into(),)
         );
     }
 
     #[test]
     fn we_cannot_convert_column_to_column_ref_without_relation() {
         let column = Column::new(None::<&str>, "a");
-        let schema = vec![("a".into(), ColumnType::Int)];
         assert!(matches!(
-            column_to_column_ref(&column, &schema),
+            column_to_column_ref(&column),
             Err(PlannerError::UnresolvedLogicalPlan)
-        ));
-    }
-
-    #[test]
-    fn we_cannot_convert_column_to_column_ref_with_invalid_column_name() {
-        let column = Column::new(Some("namespace.table"), "b");
-        let schema = vec![("a".into(), ColumnType::Int)];
-        assert!(matches!(
-            column_to_column_ref(&column, &schema),
-            Err(PlannerError::ColumnNotFound)
         ));
     }
 

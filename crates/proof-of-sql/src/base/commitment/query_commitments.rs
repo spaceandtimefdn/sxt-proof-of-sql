@@ -42,20 +42,20 @@ impl<C: Commitment> QueryCommitmentsExt<C> for QueryCommitments<C> {
                     table_columns
                         .entry(column.table_ref())
                         .or_default()
-                        .push(ColumnField::new(column.column_id(), *column.column_type()));
+                        .push(column.column_id());
                     table_columns
                 },
             )
             .into_iter()
-            .map(|(table_ref, column_fields)| {
+            .map(|(table_ref, column_ids)| {
                 let selected_column_fields = accessor
                     .lookup_schema(&table_ref)
                     .into_iter()
-                    .filter_map(|(ident, _)| {
-                        column_fields
+                    .filter_map(|(ident, column_type)| {
+                        column_ids
                             .iter()
-                            .find(|column_field| column_field.name() == ident)
-                            .cloned()
+                            .find(|column_id| **column_id == ident)
+                            .map(|_| ColumnField::new(ident, column_type))
                     })
                     .collect::<Vec<_>>();
                 let table_commitment = TableCommitment::from_accessor_with_max_bounds(
@@ -370,10 +370,10 @@ mod tests {
 
         let query_commitments = QueryCommitments::<DoryCommitment>::from_accessor_with_max_bounds(
             [
-                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
-                ColumnRef::new(table_b_id.clone(), column_a_id, ColumnType::Scalar),
-                ColumnRef::new(table_a_id, column_b_id.clone(), ColumnType::VarChar),
-                ColumnRef::new(table_b_id, column_b_id, ColumnType::Int128),
+                ColumnRef::new(table_a_id.clone(), column_a_id.clone()),
+                ColumnRef::new(table_b_id.clone(), column_a_id),
+                ColumnRef::new(table_a_id, column_b_id.clone()),
+                ColumnRef::new(table_b_id, column_b_id),
             ],
             &accessor,
         );

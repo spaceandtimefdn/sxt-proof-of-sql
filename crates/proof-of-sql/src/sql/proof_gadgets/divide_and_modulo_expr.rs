@@ -166,11 +166,17 @@ mod tests {
         let table_ref: TableRef = "sxt.t".parse().unwrap();
         let lhs_ident = Ident::from("lhs");
         let rhs_ident = Ident::from("rhs");
-        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
-        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
+        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone());
+        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone());
         let divide_and_modulo_expr = DivideAndModuloExpr::new(
-            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
-            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                lhs_ref.clone(),
+                ColumnType::Int128,
+            ))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                rhs_ref.clone(),
+                ColumnType::Int128,
+            ))),
         );
         let lhs = &[i128::MAX, i128::MIN, 2];
         let rhs = &[3i128, 3, -4];
