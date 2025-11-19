@@ -1,13 +1,13 @@
 use super::{
     aggregate_function_to_proof_expr, column_to_column_ref, expr_to_proof_expr,
-    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
+    get_column_idents_from_expr, table_reference_to_table_ref, AggregateFunc, PlannerError,
+    PlannerResult,
 };
 use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::{Alias, Cast},
-        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
+        expr::Alias, Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
         Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
@@ -54,32 +54,6 @@ fn get_aliased_dyn_proof_exprs(
             },
         )
         .collect::<PlannerResult<Vec<_>>>()
-}
-
-/// Recursively extract all column identifiers referenced in an expression
-fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
-    match expr {
-        Expr::Column(col) => {
-            let mut set = IndexSet::new();
-            set.insert(col.name.as_str().into());
-            set
-        }
-        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
-            let mut left_idents = get_column_idents_from_expr(left);
-            left_idents.extend(get_column_idents_from_expr(right));
-            left_idents
-        }
-        Expr::Not(inner) => get_column_idents_from_expr(inner),
-        Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
-            get_column_idents_from_expr(expr)
-        }
-        Expr::AggregateFunction(agg) => agg
-            .args
-            .iter()
-            .flat_map(get_column_idents_from_expr)
-            .collect(),
-        _ => IndexSet::new(),
-    }
 }
 
 /// Get column identifiers needed in a `TableScan` given its projection and filters
@@ -2109,5 +2083,218 @@ mod tests {
         let result = logical_plan_to_proof_plan(&filter_plan, &schemas);
 
         assert!(matches!(result, Err(PlannerError::ColumnNotFound)));
+    }
+
+    // table_scan_get_required_columns tests
+    #[test]
+    fn we_can_get_required_columns_from_projection_only() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![0, 2]; // Select columns 'a' and 'c'
+        let filters = vec![];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "c".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_from_filters_only() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![];
+        let filters = vec![
+            df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(10)))),
+            df_column("table", "d"),
+        ];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["b".into(), "d".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_from_projection_and_filters() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![0, 2]; // 'a' and 'c'
+        let filters = vec![df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(10))))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "c".into(), "b".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_handle_overlapping_columns_in_projection_and_filters() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+        ];
+        let projection = vec![0, 1]; // 'a' and 'b'
+        let filters = vec![df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(10))))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        // 'b' should only appear once
+        let expected: IndexSet<Ident> = ["a".into(), "b".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_complex_filter_expressions() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![0]; // Only 'a' in projection
+        let filters = vec![df_column("table", "b")
+            .gt(Expr::Literal(ScalarValue::Int32(Some(10))))
+            .and(
+                df_column("table", "c")
+                    .eq(Expr::Literal(ScalarValue::Utf8(Some("test".to_string())))),
+            )
+            .and(df_column("table", "d"))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into(), "c".into(), "d".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_empty_projection_and_filters() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+        ];
+        let projection = vec![];
+        let filters = vec![];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_all_columns_projected() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+        ];
+        let projection = vec![0, 1, 2]; // All columns
+        let filters = vec![];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into(), "c".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_out_of_order_projection() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![3, 1, 0]; // 'd', 'b', 'a' - out of order
+        let filters = vec![];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["d".into(), "b".into(), "a".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_nested_filter_expressions() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+        ];
+        let projection = vec![0];
+        // NOT (b > 10)
+        let filters = vec![Expr::Not(Box::new(
+            df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(10)))),
+        ))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_with_multiple_filters() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
+        let projection = vec![0]; // Only 'a'
+        let filters = vec![
+            df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(10)))),
+            df_column("table", "c").eq(Expr::Literal(ScalarValue::Utf8(Some("test".to_string())))),
+            df_column("table", "d"),
+        ];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into(), "c".into(), "d".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_handle_projection_indices_that_skip_columns() {
+        let input_schema = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+            ("e".into(), ColumnType::Int),
+        ];
+        let projection = vec![0, 2, 4]; // 'a', 'c', 'e' - skipping 'b' and 'd'
+        let filters = vec![df_column("table", "b").gt(Expr::Literal(ScalarValue::Int32(Some(5))))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let expected: IndexSet<Ident> = ["a".into(), "c".into(), "e".into(), "b".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_get_required_columns_preserving_order() {
+        let input_schema = vec![
+            ("z".into(), ColumnType::BigInt),
+            ("a".into(), ColumnType::Int),
+            ("m".into(), ColumnType::VarChar),
+        ];
+        let projection = vec![0, 1]; // 'z', 'a'
+        let filters =
+            vec![df_column("table", "m")
+                .eq(Expr::Literal(ScalarValue::Utf8(Some("test".to_string()))))];
+
+        let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
+        let idents: Vec<Ident> = result.into_iter().collect();
+        // Should preserve order: projection first, then filter columns
+        assert_eq!(idents, vec!["z".into(), "a".into(), "m".into()]);
     }
 }
