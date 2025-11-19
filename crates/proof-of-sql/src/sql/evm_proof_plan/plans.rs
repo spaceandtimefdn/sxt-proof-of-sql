@@ -12,7 +12,11 @@ use crate::{
         },
     },
 };
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -89,7 +93,7 @@ impl EVMDynProofPlan {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<DynProofPlan> {
         match self {
             EVMDynProofPlan::Empty(_empty_exec) => {
@@ -117,13 +121,11 @@ impl EVMDynProofPlan {
             EVMDynProofPlan::Union(union_exec) => Ok(DynProofPlan::Union(
                 union_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
-            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => Ok(
-                DynProofPlan::SortMergeJoin(sort_merge_join_exec.try_into_proof_plan(
-                    table_refs,
-                    column_refs,
-                    output_column_names,
-                )?),
-            ),
+            EVMDynProofPlan::SortMergeJoin(sort_merge_join_exec) => {
+                Ok(DynProofPlan::SortMergeJoin(
+                    sort_merge_join_exec.try_into_proof_plan(table_refs, column_refs)?,
+                ))
+            }
             EVMDynProofPlan::Filter(filter_exec) => Ok(DynProofPlan::Filter(
                 filter_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
@@ -197,6 +199,22 @@ impl EVMTableExec {
     }
 }
 
+fn try_unwrap_output_column_names(
+    output_column_names: Option<&IndexSet<String>>,
+    length: usize,
+) -> EVMProofPlanResult<IndexSet<String>> {
+    let output_column_names = match output_column_names {
+        Some(output_column_names) => {
+            if length > output_column_names.len() {
+                return Err(EVMProofPlanError::InvalidOutputColumnName);
+            }
+            output_column_names.clone()
+        }
+        None => (0..length).map(|i| i.to_string()).collect::<IndexSet<_>>(),
+    };
+    Ok(output_column_names)
+}
+
 /// Represents a filter execution plan in EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct EVMLegacyFilterExec {
@@ -229,11 +247,10 @@ impl EVMLegacyFilterExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<LegacyFilterExec> {
-        if self.results.len() > output_column_names.len() {
-            Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
+        let output_column_names =
+            try_unwrap_output_column_names(output_column_names, self.results.len())?;
         Ok(LegacyFilterExec::new(
             self.results
                 .iter()
@@ -296,14 +313,13 @@ impl EVMFilterExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<FilterExec> {
-        if self.results.len() > output_column_names.len() {
-            Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
-        let input =
-            self.input_plan
-                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let output_column_names =
+            try_unwrap_output_column_names(output_column_names, self.results.len())?;
+        let input = self
+            .input_plan
+            .try_into_proof_plan(table_refs, column_refs, None)?;
         let input_result_column_refs = input.get_column_result_fields_as_references();
         Ok(FilterExec::new(
             self.results
@@ -358,19 +374,18 @@ impl EVMProjectionExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<ProjectionExec> {
-        if self.results.len() > output_column_names.len() {
-            Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
-        let input =
-            self.input_plan
-                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let output_column_names =
+            try_unwrap_output_column_names(output_column_names, self.results.len())?;
+        let input = self
+            .input_plan
+            .try_into_proof_plan(table_refs, column_refs, None)?;
         let input_result_column_refs = input.get_column_result_fields_as_references();
         Ok(ProjectionExec::new(
             self.results
                 .iter()
-                .zip(output_column_names.iter())
+                .zip(output_column_names)
                 .map(|(expr, name)| {
                     Ok(AliasedDynProofExpr {
                         expr: expr.try_into_proof_expr(&input_result_column_refs)?,
@@ -413,7 +428,7 @@ impl EVMSliceExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<SliceExec> {
         Ok(SliceExec::new(
             Box::new(self.input_plan.try_into_proof_plan(
@@ -480,13 +495,12 @@ impl EVMGroupByExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<GroupByExec> {
         let grouping_column_count = self.group_by_exprs.len();
         let required_alias_count = grouping_column_count + self.sum_expr.len() + 1;
-        if required_alias_count > output_column_names.len() {
-            Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
+        let output_column_names =
+            try_unwrap_output_column_names(output_column_names, required_alias_count)?;
         if grouping_column_count > column_refs.len() {
             Err(EVMProofPlanError::ColumnNotFound)?;
         }
@@ -601,15 +615,14 @@ impl EVMAggregateExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<AggregateExec> {
         let required_alias_count = self.group_by_exprs.len() + self.sum_expr.len() + 1;
-        if required_alias_count > output_column_names.len() {
-            Err(EVMProofPlanError::InvalidOutputColumnName)?;
-        }
-        let input =
-            self.input_plan
-                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
+        let output_column_names =
+            try_unwrap_output_column_names(output_column_names, required_alias_count)?;
+        let input = self
+            .input_plan
+            .try_into_proof_plan(table_refs, column_refs, None)?;
         let input_result_column_refs = input.get_column_result_fields_as_references();
 
         let mut output_column_names = output_column_names.iter();
@@ -687,12 +700,19 @@ impl EVMUnionExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
+        output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<UnionExec> {
+        // We need not supply the output column names to anything other than the first input plan
+        let output_column_names_collection = core::iter::once(output_column_names)
+            .chain(core::iter::repeat_with(|| None))
+            .take(self.inputs.len());
         Ok(UnionExec::try_new(
             self.inputs
                 .iter()
-                .map(|plan| plan.try_into_proof_plan(table_refs, column_refs, output_column_names))
+                .zip(output_column_names_collection)
+                .map(|(plan, output_column_names)| {
+                    plan.try_into_proof_plan(table_refs, column_refs, output_column_names)
+                })
                 .collect::<Result<Vec<_>, _>>()?,
         )?)
     }
@@ -745,18 +765,15 @@ impl EVMSortMergeJoinExec {
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
-        output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<SortMergeJoinExec> {
-        let left = Box::new(self.left.try_into_proof_plan(
-            table_refs,
-            column_refs,
-            output_column_names,
-        )?);
-        let right = Box::new(self.right.try_into_proof_plan(
-            table_refs,
-            column_refs,
-            output_column_names,
-        )?);
+        let left = Box::new(
+            self.left
+                .try_into_proof_plan(table_refs, column_refs, None)?,
+        );
+        let right = Box::new(
+            self.right
+                .try_into_proof_plan(table_refs, column_refs, None)?,
+        );
         let left_join_column_indexes = self.left_join_column_indexes.clone();
         let right_join_column_indexes = self.right_join_column_indexes.clone();
         let result_idents = self.result_aliases.iter().map(Ident::new).collect();
@@ -839,7 +856,7 @@ mod tests {
             &evm_projection_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![alias],
+            Some(&indexset![alias]),
         )
         .unwrap();
 
@@ -859,7 +876,7 @@ mod tests {
                 &evm_projection_exec,
                 &indexset![],
                 &indexset![],
-                &indexset![],
+                Some(&indexset![]),
             )
             .unwrap_err(),
             EVMProofPlanError::InvalidOutputColumnName
@@ -908,7 +925,7 @@ mod tests {
             &evm_slice_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &IndexSet::default(),
+            Some(&IndexSet::default()),
         )
         .unwrap();
 
@@ -925,7 +942,7 @@ mod tests {
             .try_into_proof_plan(
                 &indexset![table_ref.clone()],
                 &indexset![column_ref_a.clone(), column_ref_b.clone()],
-                &IndexSet::default(),
+                Some(&IndexSet::default()),
             )
             .unwrap();
 
@@ -1067,7 +1084,7 @@ mod tests {
             &evm_filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![alias],
+            Some(&indexset![alias]),
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
@@ -1077,7 +1094,7 @@ mod tests {
                 &evm_filter_exec,
                 &indexset![],
                 &indexset![],
-                &indexset![],
+                Some(&indexset![]),
             )
             .unwrap_err(),
             EVMProofPlanError::InvalidOutputColumnName
@@ -1145,11 +1162,11 @@ mod tests {
             &evm_group_by_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![
+            Some(&indexset![
                 ident_a.value.clone(),
                 sum_alias.clone(),
                 count_alias.clone()
-            ],
+            ]),
         )
         .unwrap();
 
@@ -1308,11 +1325,11 @@ mod tests {
             &evm_group_by_exec,
             &indexset![table_ref.clone()],
             &indexset![],
-            &indexset![
+            Some(&indexset![
                 ident_a.value.clone(),
                 sum_alias.clone(),
                 count_alias.clone()
-            ],
+            ]),
         );
 
         assert!(matches!(result, Err(EVMProofPlanError::ColumnNotFound)));
@@ -1364,11 +1381,11 @@ mod tests {
             &evm_group_by_exec,
             &indexset![],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![
+            Some(&indexset![
                 ident_a.value.clone(),
                 sum_alias.clone(),
                 count_alias.clone()
-            ],
+            ]),
         );
 
         assert!(matches!(result, Err(EVMProofPlanError::TableNotFound)));
@@ -1420,7 +1437,7 @@ mod tests {
             &evm_group_by_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![ident_a.value.clone(), sum_alias.clone()], // Missing count_alias
+            Some(&indexset![ident_a.value.clone(), sum_alias.clone()]), // Missing count_alias
         );
 
         assert!(matches!(
@@ -1434,7 +1451,11 @@ mod tests {
             &evm_group_by_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![ident_a.value.clone(), sum_alias.clone(), wrong_count_alias],
+            Some(&indexset![
+                ident_a.value.clone(),
+                sum_alias.clone(),
+                wrong_count_alias
+            ]),
         );
 
         assert!(matches!(
@@ -1545,9 +1566,12 @@ mod tests {
         assert_eq!(evm_union_exec.inputs.len(), 2);
 
         let round_tripped_union_exec = evm_union_exec
-            .try_into_proof_plan(table_refs, column_refs, &output_column_names)
+            .try_into_proof_plan(table_refs, column_refs, Some(&output_column_names))
             .unwrap();
-        assert_eq!(union_exec, round_tripped_union_exec);
+        assert_eq!(
+            union_exec.get_column_result_fields(),
+            round_tripped_union_exec.get_column_result_fields()
+        );
     }
 
     #[test]
@@ -1608,7 +1632,7 @@ mod tests {
                 .unwrap();
 
         let round_tripped_sort_merge_join_exec = evm_sort_merge_join_exec
-            .try_into_proof_plan(table_refs, column_refs, &output_column_names)
+            .try_into_proof_plan(table_refs, column_refs, Some(&output_column_names))
             .unwrap();
         assert_eq!(sort_merge_join_exec, round_tripped_sort_merge_join_exec);
     }
@@ -1676,7 +1700,7 @@ mod tests {
             &evm_filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![alias],
+            Some(&indexset![alias]),
         )
         .unwrap();
 
@@ -1759,7 +1783,7 @@ mod tests {
             .try_into_proof_plan(
                 &indexset![table_ref],
                 &indexset![column_ref_a, column_ref_b],
-                &indexset![ident_a.value, ident_c.value],
+                Some(&indexset![ident_a.value, ident_c.value]),
             )
             .unwrap();
 
@@ -1769,7 +1793,7 @@ mod tests {
 
         assert!(matches!(
             evm_filter_exec
-                .try_into_proof_plan(&indexset![], &indexset![], &indexset![],)
+                .try_into_proof_plan(&indexset![], &indexset![], Some(&indexset![]),)
                 .unwrap_err(),
             EVMProofPlanError::InvalidOutputColumnName
         ));
@@ -1920,7 +1944,11 @@ mod tests {
             .try_into_proof_plan(
                 &indexset![table_ref],
                 &indexset![column_ref_a, column_ref_b, column_ref_c],
-                &indexset![ident_a.value, ident_b.value, alias_3.to_string()],
+                Some(&indexset![
+                    ident_a.value,
+                    ident_b.value,
+                    alias_3.to_string()
+                ]),
             )
             .unwrap();
 
@@ -2153,7 +2181,7 @@ mod tests {
             &evm_aggregate_exec,
             &indexset![table_ref],
             &indexset![column_ref_a, column_ref_b],
-            &indexset![ident_a.value, sum_alias, count_alias],
+            Some(&indexset![ident_a.value, sum_alias, count_alias]),
         )
         .unwrap();
 
@@ -2276,12 +2304,12 @@ mod tests {
             .try_into_proof_plan(
                 &indexset![table_ref],
                 &indexset![column_ref_a, column_ref_b, column_ref_c],
-                &indexset![
+                Some(&indexset![
                     ident_a.value,
                     sum_alias_b.clone(),
                     sum_alias_c.clone(),
                     count_alias.clone()
-                ],
+                ]),
             )
             .unwrap();
 
@@ -2405,7 +2433,7 @@ mod tests {
             &evm_aggregate_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            &indexset![ident_a.value.clone(), sum_alias.clone()], // Missing count_alias
+            Some(&indexset![ident_a.value.clone(), sum_alias.clone()]), // Missing count_alias
         );
 
         assert!(matches!(
@@ -2419,7 +2447,7 @@ mod tests {
             &evm_aggregate_exec,
             &indexset![table_ref],
             &indexset![column_ref_a, column_ref_b],
-            &indexset![ident_a.value, sum_alias, wrong_count_alias],
+            Some(&indexset![ident_a.value, sum_alias, wrong_count_alias]),
         );
 
         assert!(matches!(
