@@ -231,6 +231,9 @@ impl EVMLegacyFilterExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<LegacyFilterExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         Ok(LegacyFilterExec::new(
             self.results
                 .iter()
@@ -295,6 +298,9 @@ impl EVMFilterExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<FilterExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -354,6 +360,9 @@ impl EVMProjectionExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<ProjectionExec> {
+        if self.results.len() > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
@@ -463,53 +472,56 @@ impl EVMGroupByExec {
         })
     }
 
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "There is a check before unwrapping"
+    )]
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<GroupByExec> {
+        let grouping_column_count = self.group_by_exprs.len();
+        let required_alias_count = grouping_column_count + self.sum_expr.len() + 1;
+        if required_alias_count > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
+        if grouping_column_count > column_refs.len() {
+            Err(EVMProofPlanError::ColumnNotFound)?;
+        }
         // Convert indices back to ColumnExpr objects
-        let group_by_exprs = self
-            .group_by_exprs
+        let group_by_exprs = column_refs
             .iter()
-            .map(|&idx| {
-                let column_ref = column_refs
-                    .get_index(idx)
-                    .cloned()
-                    .ok_or(EVMProofPlanError::ColumnNotFound)?;
-                Ok(ColumnExpr::new(column_ref))
-            })
-            .collect::<EVMProofPlanResult<Vec<_>>>()?;
+            .take(grouping_column_count)
+            .cloned()
+            .map(ColumnExpr::new)
+            .collect::<Vec<_>>();
+
+        let mut output_column_names = output_column_names.iter().skip(grouping_column_count);
 
         // Map sum expressions to AliasedDynProofExpr objects
-        let sum_aliases_offset = group_by_exprs.len();
         let sum_expr = self
             .sum_expr
             .iter()
-            .enumerate()
-            .map(|(i, expr)| {
-                let alias_idx = sum_aliases_offset + i;
-                let alias_name = output_column_names
-                    .get_index(alias_idx)
-                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
-                Ok(AliasedDynProofExpr {
-                    expr: expr.try_into_proof_expr(column_refs)?,
-                    alias: Ident::new(alias_name),
-                })
-            })
-            .collect::<EVMProofPlanResult<Vec<_>>>()?;
-
-        // Get the count alias from output column names
-        let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
+            .zip(&mut output_column_names)
+            .map(
+                |(expr, alias_name)| -> EVMProofPlanResult<AliasedDynProofExpr> {
+                    Ok(AliasedDynProofExpr {
+                        expr: expr.try_into_proof_expr(column_refs)?,
+                        alias: Ident::new(alias_name),
+                    })
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         // For safety, check if the provided count_alias_name matches
-        if let Some(name) = output_column_names.get_index(count_alias_idx) {
-            if name != &self.count_alias_name {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-        } else {
-            return Err(EVMProofPlanError::InvalidOutputColumnName);
+        if &self.count_alias_name
+            != output_column_names
+                .next()
+                .expect("Value confirmed to exist")
+        {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
         }
 
         GroupByExec::try_new(
@@ -581,26 +593,32 @@ impl EVMAggregateExec {
         })
     }
 
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "There is a check before unwrapping"
+    )]
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: &IndexSet<String>,
     ) -> EVMProofPlanResult<AggregateExec> {
+        let required_alias_count = self.group_by_exprs.len() + self.sum_expr.len() + 1;
+        if required_alias_count > output_column_names.len() {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
+        }
         let input =
             self.input_plan
                 .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
         let input_result_column_refs = input.get_column_result_fields_as_references();
 
+        let mut output_column_names = output_column_names.iter();
         // Map group by expressions to AliasedDynProofExpr objects
         let group_by_exprs = self
             .group_by_exprs
             .iter()
-            .enumerate()
-            .map(|(i, expr)| {
-                let alias_name = output_column_names
-                    .get_index(i)
-                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
+            .zip(&mut output_column_names)
+            .map(|(expr, alias_name)| {
                 Ok(AliasedDynProofExpr {
                     expr: expr.try_into_proof_expr(&input_result_column_refs)?,
                     alias: Ident::new(alias_name),
@@ -609,16 +627,11 @@ impl EVMAggregateExec {
             .collect::<EVMProofPlanResult<Vec<_>>>()?;
 
         // Map sum expressions to AliasedDynProofExpr objects
-        let sum_aliases_offset = group_by_exprs.len();
         let sum_expr = self
             .sum_expr
             .iter()
-            .enumerate()
-            .map(|(i, expr)| {
-                let alias_idx = sum_aliases_offset + i;
-                let alias_name = output_column_names
-                    .get_index(alias_idx)
-                    .ok_or(EVMProofPlanError::InvalidOutputColumnName)?;
+            .zip(&mut output_column_names)
+            .map(|(expr, alias_name)| {
                 Ok(AliasedDynProofExpr {
                     expr: expr.try_into_proof_expr(&input_result_column_refs)?,
                     alias: Ident::new(alias_name),
@@ -626,16 +639,13 @@ impl EVMAggregateExec {
             })
             .collect::<EVMProofPlanResult<Vec<_>>>()?;
 
-        // Get the count alias from output column names
-        let count_alias_idx = sum_aliases_offset + self.sum_expr.len();
-
         // For safety, check if the provided count_alias_name matches
-        if let Some(name) = output_column_names.get_index(count_alias_idx) {
-            if name != &self.count_alias_name {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-        } else {
-            return Err(EVMProofPlanError::InvalidOutputColumnName);
+        if &self.count_alias_name
+            != output_column_names
+                .next()
+                .expect("Value confirmed to exist")
+        {
+            Err(EVMProofPlanError::InvalidOutputColumnName)?;
         }
 
         AggregateExec::try_new(
@@ -842,6 +852,17 @@ mod tests {
         assert!(matches!(
             *roundtripped_projection_exec.input(),
             DynProofPlan::Table(_)
+        ));
+
+        assert!(matches!(
+            EVMProjectionExec::try_into_proof_plan(
+                &evm_projection_exec,
+                &indexset![],
+                &indexset![],
+                &indexset![],
+            )
+            .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
         ));
     }
 
@@ -1050,6 +1071,17 @@ mod tests {
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
+
+        assert!(matches!(
+            EVMLegacyFilterExec::try_into_proof_plan(
+                &evm_filter_exec,
+                &indexset![],
+                &indexset![],
+                &indexset![],
+            )
+            .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
+        ));
     }
 
     #[test]
@@ -1734,6 +1766,13 @@ mod tests {
         // Verify the roundtripped plan
         assert_eq!(roundtripped.aliased_results().len(), 2);
         assert!(matches!(*roundtripped.input(), DynProofPlan::Slice(_)));
+
+        assert!(matches!(
+            evm_filter_exec
+                .try_into_proof_plan(&indexset![], &indexset![], &indexset![],)
+                .unwrap_err(),
+            EVMProofPlanError::InvalidOutputColumnName
+        ));
     }
 
     #[expect(clippy::too_many_lines)]
