@@ -200,7 +200,7 @@ impl ProofPlan for MembershipCheckTestPlan {
 mod tests {
     use super::*;
     use crate::{
-        base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
+        base::database::{table_utility::*, TableTestAccessor, TestAccessor},
         proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
         sql::proof::VerifiableQueryResult,
     };
@@ -223,16 +223,8 @@ mod tests {
         let plan = MembershipCheckTestPlan {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
-            source_columns: vec![ColumnRef::new(
-                source_table_ref,
-                "a".into(),
-                ColumnType::BigInt,
-            )],
-            candidate_columns: vec![ColumnRef::new(
-                candidate_table_ref,
-                "c".into(),
-                ColumnType::BigInt,
-            )],
+            source_columns: vec![ColumnRef::new(source_table_ref, "a".into())],
+            candidate_columns: vec![ColumnRef::new(candidate_table_ref, "c".into())],
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
@@ -272,14 +264,14 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-                ColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
+                ColumnRef::new(source_table_ref.clone(), "a".into()),
+                ColumnRef::new(source_table_ref.clone(), "b".into()),
+                ColumnRef::new(source_table_ref, "c".into()),
             ],
             candidate_columns: vec![
-                ColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
-                ColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
-                ColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
+                ColumnRef::new(candidate_table_ref.clone(), "c".into()),
+                ColumnRef::new(candidate_table_ref.clone(), "d".into()),
+                ColumnRef::new(candidate_table_ref, "e".into()),
             ],
         };
         let verifiable_res =
@@ -320,14 +312,14 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-                ColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
+                ColumnRef::new(source_table_ref.clone(), "a".into()),
+                ColumnRef::new(source_table_ref.clone(), "b".into()),
+                ColumnRef::new(source_table_ref, "c".into()),
             ],
             candidate_columns: vec![
-                ColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
-                ColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
-                ColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
+                ColumnRef::new(candidate_table_ref.clone(), "c".into()),
+                ColumnRef::new(candidate_table_ref.clone(), "d".into()),
+                ColumnRef::new(candidate_table_ref, "e".into()),
             ],
         };
         let verifiable_res =
@@ -362,14 +354,10 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref, "b".into(), ColumnType::BigInt),
+                ColumnRef::new(source_table_ref.clone(), "a".into()),
+                ColumnRef::new(source_table_ref, "b".into()),
             ],
-            candidate_columns: vec![ColumnRef::new(
-                candidate_table_ref,
-                "a".into(),
-                ColumnType::BigInt,
-            )],
+            candidate_columns: vec![ColumnRef::new(candidate_table_ref, "a".into())],
         };
         VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }

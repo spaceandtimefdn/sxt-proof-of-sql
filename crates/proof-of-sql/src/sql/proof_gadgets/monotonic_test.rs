@@ -136,11 +136,11 @@ mod tests {
         table_ref: TableRef,
         accessor: &TableTestAccessor<InnerProductProof>,
         column_name: &str,
-        column_type: ColumnType,
+        _column_type: ColumnType,
         shall_error: bool,
     ) {
         let plan = MonotonicTestPlan::<STRICT, ASC> {
-            column: ColumnRef::new(table_ref, column_name.into(), column_type),
+            column: ColumnRef::new(table_ref, column_name.into()),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&plan, accessor, &(), &[]).unwrap();

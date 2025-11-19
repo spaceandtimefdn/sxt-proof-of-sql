@@ -39,10 +39,13 @@ impl<C: Commitment> QueryCommitmentsExt<C> for QueryCommitments<C> {
             .fold(
                 IndexMap::<_, Vec<_>>::default(),
                 |mut table_columns, column| {
+                    let column_type = accessor
+                        .lookup_column(&column.table_ref(), &column.column_id())
+                        .expect("Column type should be available in accessor");
                     table_columns
                         .entry(column.table_ref())
                         .or_default()
-                        .push(ColumnField::new(column.column_id(), *column.column_type()));
+                        .push(ColumnField::new(column.column_id(), column_type));
                     table_columns
                 },
             )
@@ -370,10 +373,10 @@ mod tests {
 
         let query_commitments = QueryCommitments::<DoryCommitment>::from_accessor_with_max_bounds(
             [
-                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
-                ColumnRef::new(table_b_id.clone(), column_a_id, ColumnType::Scalar),
-                ColumnRef::new(table_a_id, column_b_id.clone(), ColumnType::VarChar),
-                ColumnRef::new(table_b_id, column_b_id, ColumnType::Int128),
+                ColumnRef::new(table_a_id.clone(), column_a_id.clone()),
+                ColumnRef::new(table_b_id.clone(), column_a_id),
+                ColumnRef::new(table_a_id, column_b_id.clone()),
+                ColumnRef::new(table_b_id, column_b_id),
             ],
             &accessor,
         );
