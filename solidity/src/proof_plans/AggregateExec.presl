@@ -6,15 +6,15 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
-/// @title GroupByExec
+/// @title AggregateExec
 /// @dev Library for handling group by execution plans
-library GroupByExec {
+library AggregateExec {
     /// @notice Evaluates a group by execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
+    /// aggregate_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
     /// ```
     /// ##### Parameters
     /// * `plan_ptr` - calldata pointer to the group by execution plan
@@ -52,7 +52,7 @@ library GroupByExec {
     /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
-    function __groupByExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __aggregateExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
@@ -224,7 +224,7 @@ library GroupByExec {
                 )
             }
 
-            function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
+            function aggregate_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
                 evaluations_ptr,
                 output_length,
@@ -259,7 +259,7 @@ library GroupByExec {
 
             let __planOutOffset
             __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
-                group_by_exec_evaluate(__plan.offset, __builder)
+                aggregate_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))

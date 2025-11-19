@@ -6,10 +6,10 @@ import {Test} from "forge-std/Test.sol";
 import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
-import {GroupByExec} from "../../src/proof_plans/GroupByExec.presl";
+import {AggregateExec} from "../../src/proof_plans/AggregateExec.presl";
 
-contract GroupByExecTest is Test {
-    function testUnprovableGroupByExec() public {
+contract AggregateExecTest is Test {
+    function testUnprovableAggregateExec() public {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
             uint64(2), // group_by_count
@@ -43,11 +43,11 @@ contract GroupByExecTest is Test {
         uint256 length;
         uint256 outputChiEval;
         vm.expectRevert(Errors.UnprovableGroupBy.selector);
-        (plan, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+        (plan, builder, evals, length, outputChiEval) = AggregateExec.__aggregateExecEvaluate(plan, builder);
     }
 
     // Shared configuration for the builder in different tests
-    function _configureBuilderForGroupByExec(VerificationBuilder.Builder memory builder)
+    function _configureBuilderForAggregateExec(VerificationBuilder.Builder memory builder)
         internal
         pure
         returns (VerificationBuilder.Builder memory configuredBuilder)
@@ -123,7 +123,7 @@ contract GroupByExecTest is Test {
         configuredBuilder = builder;
     }
 
-    function _configureForMinimalGroupByExec(VerificationBuilder.Builder memory builder)
+    function _configureForMinimalAggregateExec(VerificationBuilder.Builder memory builder)
         internal
         pure
         returns (VerificationBuilder.Builder memory configuredBuilder)
@@ -176,7 +176,7 @@ contract GroupByExecTest is Test {
         configuredBuilder = builder;
     }
 
-    function _configureForSimpleGroupByExec(VerificationBuilder.Builder memory builder)
+    function _configureForSimpleAggregateExec(VerificationBuilder.Builder memory builder)
         internal
         pure
         returns (VerificationBuilder.Builder memory configuredBuilder)
@@ -231,7 +231,7 @@ contract GroupByExecTest is Test {
         configuredBuilder = builder;
     }
 
-    function _configureForComplexGroupByExec(VerificationBuilder.Builder memory builder)
+    function _configureForComplexAggregateExec(VerificationBuilder.Builder memory builder)
         internal
         pure
         returns (VerificationBuilder.Builder memory configuredBuilder)
@@ -294,7 +294,7 @@ contract GroupByExecTest is Test {
         configuredBuilder = builder;
     }
 
-    function testMinimalGroupByExec() public pure {
+    function testMinimalAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
             uint64(1), // group_by_count
@@ -305,8 +305,8 @@ contract GroupByExecTest is Test {
             "count_0" // count_alias (unused in verification)
         );
         VerificationBuilder.Builder memory builder;
-        builder = _configureBuilderForGroupByExec(builder);
-        builder = _configureForMinimalGroupByExec(builder);
+        builder = _configureBuilderForAggregateExec(builder);
+        builder = _configureForMinimalAggregateExec(builder);
         uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
         for (uint8 i = 0; i < 4; ++i) {
             uint256[] memory evals;
@@ -319,13 +319,13 @@ contract GroupByExecTest is Test {
                 builder.singletonChiEvaluation = 0;
             }
             builder.columnEvaluations[0] = gIn[i];
-            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = AggregateExec.__aggregateExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
         assert(builder.aggregateEvaluation == 0);
     }
 
-    function testSimpleGroupByExec() public pure {
+    function testSimpleAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
             uint64(1), // group_by_count
@@ -337,8 +337,8 @@ contract GroupByExecTest is Test {
             "count_0" // count_alias (unused in verification)
         );
         VerificationBuilder.Builder memory builder;
-        builder = _configureBuilderForGroupByExec(builder);
-        builder = _configureForSimpleGroupByExec(builder);
+        builder = _configureBuilderForAggregateExec(builder);
+        builder = _configureForSimpleAggregateExec(builder);
         uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
         uint256[4] memory sumIn = [MODULUS_MINUS_ONE, 2, 3, MODULUS_MINUS_ONE];
         for (uint8 i = 0; i < 4; ++i) {
@@ -353,13 +353,13 @@ contract GroupByExecTest is Test {
             }
             builder.columnEvaluations[0] = gIn[i];
             builder.columnEvaluations[1] = sumIn[i];
-            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = AggregateExec.__aggregateExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
         assert(builder.aggregateEvaluation == 0);
     }
 
-    function testComplexGroupByExec() public pure {
+    function testComplexAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
             uint64(0), // table_number
             uint64(1), // group_by_count
@@ -372,8 +372,8 @@ contract GroupByExecTest is Test {
             "count_0" // count_alias (unused in verification)
         );
         VerificationBuilder.Builder memory builder;
-        builder = _configureBuilderForGroupByExec(builder);
-        builder = _configureForComplexGroupByExec(builder);
+        builder = _configureBuilderForAggregateExec(builder);
+        builder = _configureForComplexAggregateExec(builder);
         uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
         uint256[4] memory sumIn0 = [MODULUS_MINUS_ONE, 2, 3, MODULUS_MINUS_ONE];
         uint256[4] memory sumIn1 = [MODULUS_MINUS_ONE, 5, 7, MODULUS_MINUS_ONE];
@@ -390,7 +390,7 @@ contract GroupByExecTest is Test {
             builder.columnEvaluations[0] = gIn[i];
             builder.columnEvaluations[1] = sumIn0[i];
             builder.columnEvaluations[2] = sumIn1[i];
-            (planOut, builder, evals, length, outputChiEval) = GroupByExec.__groupByExecEvaluate(plan, builder);
+            (planOut, builder, evals, length, outputChiEval) = AggregateExec.__aggregateExecEvaluate(plan, builder);
             assert(planOut.length == 0);
         }
     }
