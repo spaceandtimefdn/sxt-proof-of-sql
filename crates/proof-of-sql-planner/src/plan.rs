@@ -6,7 +6,8 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::Alias, Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
+        expr::{Alias, Cast},
+        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
         Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
@@ -55,6 +56,45 @@ fn get_aliased_dyn_proof_exprs(
         .collect::<PlannerResult<Vec<_>>>()
 }
 
+/// Recursively extract all column identifiers referenced in an expression
+fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
+    match expr {
+        Expr::Column(col) => {
+            let mut set = IndexSet::new();
+            set.insert(col.name.as_str().into());
+            set
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            let mut left_idents = get_column_idents_from_expr(left);
+            left_idents.extend(get_column_idents_from_expr(right));
+            left_idents
+        }
+        Expr::Not(inner) => get_column_idents_from_expr(inner),
+        Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
+            get_column_idents_from_expr(expr)
+        }
+        Expr::AggregateFunction(agg) => agg
+            .args
+            .iter()
+            .flat_map(get_column_idents_from_expr)
+            .collect(),
+        _ => IndexSet::new(),
+    }
+}
+
+/// Get column identifiers needed in a `TableScan` given its projection and filters
+fn table_scan_get_required_columns(
+    projection: &[usize],
+    filters: &[Expr],
+    input_schema: &[(Ident, ColumnType)],
+) -> IndexSet<Ident> {
+    projection
+        .iter()
+        .filter_map(|&i| input_schema.get(i).map(|(ident, _)| ident.clone()))
+        .chain(filters.iter().flat_map(get_column_idents_from_expr))
+        .collect()
+}
+
 /// Convert a `TableScan` without filters or fetch limit to a `DynProofPlan`
 ///
 /// # Panics
@@ -97,9 +137,10 @@ fn table_scan_to_filter(
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
-    // TODO: We might refine it by taking all the projection columns and filter columns
+    let required_columns = table_scan_get_required_columns(projection, filters, &input_schema);
     let input_column_fields = input_schema
         .iter()
+        .filter(|(ident, _)| required_columns.contains(ident))
         .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
         .collect::<Vec<_>>();
     let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
@@ -1494,7 +1535,6 @@ mod tests {
                     vec![
                         ColumnField::new("a".into(), ColumnType::BigInt),
                         ColumnField::new("b".into(), ColumnType::Int),
-                        ColumnField::new("c".into(), ColumnType::VarChar),
                         ColumnField::new("d".into(), ColumnType::Boolean),
                     ],
                 ),
