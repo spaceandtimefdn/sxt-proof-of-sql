@@ -13,6 +13,7 @@ pub use conversion::{get_table_refs_from_statement, sql_to_proof_plans};
 mod df_util;
 mod expr;
 pub use expr::expr_to_proof_expr;
+pub(crate) use expr::get_column_idents_from_expr;
 mod error;
 pub use error::{PlannerError, PlannerResult};
 mod plan;
