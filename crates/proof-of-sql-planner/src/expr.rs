@@ -3,14 +3,41 @@ use super::{
     PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
-    expr::{Alias, Placeholder},
+    expr::{Alias, Cast, Placeholder},
     BinaryExpr, Expr, Operator,
 };
+use indexmap::IndexSet;
 use proof_of_sql::{
     base::database::ColumnType,
     sql::{proof_exprs::DynProofExpr, scale_cast_binary_op},
 };
 use sqlparser::ast::Ident;
+
+/// Recursively extract all column identifiers referenced in an expression
+pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
+    match expr {
+        Expr::Column(col) => {
+            let mut set = IndexSet::new();
+            set.insert(col.name.as_str().into());
+            set
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            let mut left_idents = get_column_idents_from_expr(left);
+            left_idents.extend(get_column_idents_from_expr(right));
+            left_idents
+        }
+        Expr::Not(inner) => get_column_idents_from_expr(inner),
+        Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
+            get_column_idents_from_expr(expr)
+        }
+        Expr::AggregateFunction(agg) => agg
+            .args
+            .iter()
+            .flat_map(get_column_idents_from_expr)
+            .collect(),
+        _ => IndexSet::new(),
+    }
+}
 
 /// Convert a [`BinaryExpr`] to [`DynProofExpr`]
 #[expect(
@@ -735,5 +762,153 @@ mod tests {
         let lhs = Expr::Literal(ScalarValue::TimestampSecond(Some(1), None));
         let rhs = Expr::Literal(ScalarValue::TimestampNanosecond(Some(1), None));
         binary_expr_to_proof_expr(&lhs, &rhs, Operator::Gt, &Vec::new()).unwrap();
+    }
+
+    // get_column_idents_from_expr tests
+    #[test]
+    fn we_can_extract_single_column_ident() {
+        let expr = df_column("table", "column_a");
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["column_a".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_binary_expr() {
+        let expr = df_column("table", "a").add(df_column("table", "b"));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_nested_binary_expr() {
+        // (a + b) * c
+        let expr = df_column("table", "a")
+            .add(df_column("table", "b"))
+            .mul(df_column("table", "c"));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into(), "c".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_not_expr() {
+        let expr = Expr::Not(Box::new(df_column("table", "bool_col")));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["bool_col".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_alias_expr() {
+        let expr = df_column("table", "col_x").alias("alias_name");
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["col_x".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_cast_expr() {
+        let expr = Expr::Cast(Cast::new(
+            Box::new(df_column("table", "num_col")),
+            DataType::Int64,
+        ));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["num_col".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_aggregate_function() {
+        let expr = Expr::AggregateFunction(datafusion::logical_expr::expr::AggregateFunction {
+            func_def: datafusion::logical_expr::expr::AggregateFunctionDefinition::BuiltIn(
+                datafusion::physical_plan::aggregates::AggregateFunction::Sum,
+            ),
+            args: vec![df_column("table", "value")],
+            distinct: false,
+            filter: None,
+            order_by: None,
+            null_treatment: None,
+        });
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["value".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_aggregate_function_with_multiple_args() {
+        let expr = Expr::AggregateFunction(datafusion::logical_expr::expr::AggregateFunction {
+            func_def: datafusion::logical_expr::expr::AggregateFunctionDefinition::BuiltIn(
+                datafusion::physical_plan::aggregates::AggregateFunction::Sum,
+            ),
+            args: vec![
+                df_column("table", "col1"),
+                df_column("table", "col2"),
+                df_column("table", "col3"),
+            ],
+            distinct: false,
+            filter: None,
+            order_by: None,
+            null_treatment: None,
+        });
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["col1".into(), "col2".into(), "col3".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_no_column_idents_from_literal() {
+        let expr = Expr::Literal(ScalarValue::Int32(Some(42)));
+        let result = get_column_idents_from_expr(&expr);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_complex_nested_expr() {
+        // NOT (a > b AND c < d)
+        let inner = df_column("table", "a")
+            .gt(df_column("table", "b"))
+            .and(df_column("table", "c").lt(df_column("table", "d")));
+        let expr = Expr::Not(Box::new(inner));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["a".into(), "b".into(), "c".into(), "d".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_preserving_order() {
+        // IndexSet should preserve insertion order
+        let expr = df_column("table", "z")
+            .add(df_column("table", "a"))
+            .add(df_column("table", "m"));
+        let result = get_column_idents_from_expr(&expr);
+        let idents: Vec<Ident> = result.into_iter().collect();
+        assert_eq!(idents, vec!["z".into(), "a".into(), "m".into()]);
+    }
+
+    #[test]
+    fn we_can_handle_duplicate_column_references() {
+        // a + a should only have 'a' once
+        let expr = df_column("table", "a").add(df_column("table", "a"));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["a".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_columns_from_comparison_operations() {
+        let expr = df_column("table", "price")
+            .gt(df_column("table", "threshold"))
+            .and(df_column("table", "active").eq(Expr::Literal(ScalarValue::Boolean(Some(true)))));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["price".into(), "threshold".into(), "active".into()]
+            .into_iter()
+            .collect();
+        assert_eq!(result, expected);
     }
 }
