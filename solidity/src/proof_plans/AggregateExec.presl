@@ -6,25 +6,25 @@ import "../base/Constants.sol";
 import "../base/Errors.sol";
 import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 
-/// @title GroupByExec
-/// @dev Library for handling group by execution plans
-library GroupByExec {
-    /// @notice Evaluates a group by execution plan
+/// @title AggregateExec
+/// @dev Library for handling aggregate execution plans
+library AggregateExec {
+    /// @notice Evaluates an aggregate execution plan
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
     /// ##### Signature
     /// ```yul
-    /// group_by_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
+    /// aggregate_exec_evaluate(plan_ptr, builder_ptr) -> plan_ptr_out, evaluations_ptr
     /// ```
     /// ##### Parameters
-    /// * `plan_ptr` - calldata pointer to the group by execution plan
+    /// * `plan_ptr` - calldata pointer to the aggregate execution plan
     /// * `builder_ptr` - memory pointer to the verification builder
     /// ##### Return Values
-    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the group by execution plan
+    /// * `plan_ptr_out` - pointer to the remaining plan after consuming the aggregate execution plan
     /// * `evaluations_ptr` - pointer to the evaluations
     /// * `output_length` - the length of the column of ones
     /// * `output_chi_eval` - pointer to the evaluation of a column of 1s with same length as output
-    /// @notice Evaluates expressions for group by operation and verifies the aggregation constraints
+    /// @notice Evaluates expressions for aggregate operation and verifies the aggregation constraints
     /// @notice ##### Constraints
     /// * Inputs: \\(G_1,\ldots,G_\ell=\texttt{g_in}\\), \\(A_1,\ldots,A_m=\texttt{sum_in}\\),
     ///   and \\(S=\texttt{sel_in}\\) with input characteristic \\(\chi_{[0,n)}=\texttt{input_chi_eval}\\).
@@ -44,15 +44,15 @@ library GroupByExec {
     /// G^{\star'} + G^{\star'} \cdot g_{out,fold} - \chi_{[0,m')} &\equiv 0\\\\
     /// \end{aligned}\\]
     /// Note: the notation \\(A\overset{\sum}{=}B\\) is used to indicate the zero-sum constraint.
-    /// @dev Evaluates a group by execution plan
-    /// @param __plan The group by execution plan data
+    /// @dev Evaluates an aggregate execution plan
+    /// @param __plan The aggregate execution plan data
     /// @param __builder The verification builder
     /// @return __planOut The remaining plan after processing
     /// @return __builderOut The verification builder result
     /// @return __evaluationsPtr The evaluations pointer
     /// @return __outputLength The length of the output chi evaluation
     /// @return __outputChiEvaluation The output chi evaluation
-    function __groupByExecEvaluate( // solhint-disable-line gas-calldata-parameters
+    function __AggregateExecEvaluate( // solhint-disable-line gas-calldata-parameters
     bytes calldata __plan, VerificationBuilder.Builder memory __builder)
         external
         pure
@@ -224,7 +224,7 @@ library GroupByExec {
                 )
             }
 
-            function group_by_exec_evaluate(plan_ptr, builder_ptr) ->
+            function aggregate_exec_evaluate(plan_ptr, builder_ptr) ->
                 plan_ptr_out,
                 evaluations_ptr,
                 output_length,
@@ -259,7 +259,7 @@ library GroupByExec {
 
             let __planOutOffset
             __planOutOffset, __evaluations, __outputLength, __outputChiEvaluation :=
-                group_by_exec_evaluate(__plan.offset, __builder)
+                aggregate_exec_evaluate(__plan.offset, __builder)
             __planOut.offset := __planOutOffset
             // slither-disable-next-line write-after-write
             __planOut.length := sub(__plan.length, sub(__planOutOffset, __plan.offset))
