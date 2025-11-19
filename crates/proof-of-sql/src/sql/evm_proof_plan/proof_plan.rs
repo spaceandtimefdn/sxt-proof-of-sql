@@ -123,7 +123,7 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
             inner: value.plan.try_into_proof_plan(
                 &table_refs,
                 &column_refs,
-                &output_column_names,
+                Some(&output_column_names),
             )?,
         })
     }

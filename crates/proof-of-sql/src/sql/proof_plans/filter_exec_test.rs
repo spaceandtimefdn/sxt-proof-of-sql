@@ -248,7 +248,6 @@ fn we_can_compose_complex_filters() {
     assert_eq!(res, expected_res);
 }
 
-#[expect(clippy::too_many_lines)]
 #[test]
 fn we_can_have_projection_as_input_plan_for_filter() {
     let alloc = Bump::new();
@@ -320,14 +319,6 @@ fn we_can_have_projection_as_input_plan_for_filter() {
                 .unwrap(),
             ),
             alias: "xplusy".into(),
-        },
-        AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "y".into(),
-                ColumnType::BigInt,
-            )),
-            alias: "y".into(),
         },
         AliasedDynProofExpr {
             expr: DynProofExpr::new_column(ColumnRef::new(
