@@ -53,8 +53,7 @@ library SortMergeJoinExec {
             // import read_binary from ../base/DataType.presl
             // import builder_consume_challenge, builder_consume_chi_evaluation_with_length, builder_consume_first_round_mle, builder_get_table_chi_evaluation, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
-            // import fold_expr_evals from ../proof_gadgets/FoldUtil.presl
-            // import fold_log_star_evaluate_from_column_exprs, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
+            // import fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
             // import monotonic_verify from ../proof_gadgets/Monotonic.presl
             // import membership_check_evaluate from ../proof_gadgets/MembershipCheck.presl
 

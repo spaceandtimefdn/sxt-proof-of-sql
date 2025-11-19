@@ -920,3 +920,133 @@ fn we_can_verify_nested_filter_using_the_evm() {
         .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
         .unwrap();
 }
+
+#[ignore = "This test requires the forge binary to be present"]
+#[test]
+#[expect(clippy::missing_panics_doc, clippy::too_many_lines)]
+fn we_can_have_projection_as_input_plan_for_filter() {
+    let (ps, vk) = load_small_setup_for_testing();
+    let data = owned_table([
+        bigint("a", [1, 4, 5, 2, 5]),
+        bigint("b", [1, 2, 3, 4, 5]),
+        bigint("c", [10, 20, 30, 40, 50]),
+    ]);
+    let t = TableRef::new("sxt", "t");
+
+    let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
+        t.clone(),
+        data,
+        0,
+        &ps[..],
+    );
+
+    let table_exec = DynProofPlan::new_table(
+        t.clone(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::BigInt),
+            ColumnField::new("c".into(), ColumnType::BigInt),
+        ],
+    );
+
+    // Create a TableExec as input
+    let projection = DynProofPlan::new_projection(
+        vec![
+            AliasedDynProofExpr {
+                expr: DynProofExpr::try_new_add(
+                    DynProofExpr::new_column(ColumnRef::new(
+                        t.clone(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    DynProofExpr::new_column(ColumnRef::new(
+                        t.clone(),
+                        "b".into(),
+                        ColumnType::BigInt,
+                    )),
+                )
+                .unwrap(),
+                alias: "x".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    t.clone(),
+                    "b".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "y".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    t.clone(),
+                    "c".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "z".into(),
+            },
+        ],
+        table_exec,
+    );
+
+    let dummy_table = TableRef::new("", "");
+    let filter_results = vec![
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "x".into(),
+                ColumnType::Decimal75(Precision::new(20).unwrap(), 0),
+            )),
+            alias: "x".into(),
+        },
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "y".into(),
+                ColumnType::BigInt,
+            )),
+            alias: "y".into(),
+        },
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "z".into(),
+                ColumnType::BigInt,
+            )),
+            alias: "z".into(),
+        },
+    ];
+    // First filter to keep rows where a > 3
+    let filter = DynProofPlan::new_filter(
+        filter_results,
+        projection,
+        DynProofExpr::try_new_inequality(
+            DynProofExpr::new_column(ColumnRef::new(
+                dummy_table.clone(),
+                "z".into(),
+                ColumnType::BigInt,
+            )),
+            DynProofExpr::new_literal(LiteralValue::BigInt(13)),
+            false,
+        )
+        .unwrap(),
+    );
+    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+        &EVMProofPlan::new(filter.clone()),
+        &accessor,
+        &&ps[..],
+        &[],
+    )
+    .unwrap();
+
+    verifiable_result
+        .clone()
+        .verify(&EVMProofPlan::new(filter.clone()), &accessor, &&vk, &[])
+        .unwrap();
+
+    assert!(evm_verifier_all(
+        &filter,
+        "[]",
+        &verifiable_result,
+        &accessor
+    ));
+}

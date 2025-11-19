@@ -82,33 +82,34 @@ library FoldLogExpr {
     /// @param __beta The beta challenge value
     /// @param __columnCount The number of columns to evaluate and fold
     /// @param __chiEval The column of ones with same length as the column evaluations
+    /// @param __accessor The collection of evals
     /// @return __builderOut The updated verification builder
-    /// @return __star The consumed star value
     function __foldLogStarEvaluateFromColumnExprs( // solhint-disable-line gas-calldata-parameters
         bytes calldata __plan,
         VerificationBuilder.Builder memory __builder,
         uint256 __alpha,
         uint256 __beta,
         uint256 __columnCount,
-        uint256 __chiEval
-    ) external pure returns (VerificationBuilder.Builder memory __builderOut, uint256 __star) {
+        uint256 __chiEval, 
+        uint256[] memory __accessor
+    ) external pure returns (VerificationBuilder.Builder memory __builderOut) {
         assembly {
             // import mulmod_bn254 from ../base/MathUtil.presl
             // import fold_log_star_evaluate_from_fold from self
             // import fold_column_expr_evals from FoldUtil.presl
 
-            function fold_log_star_evaluate_from_column_exprs(plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval) -> plan_ptr_out, star {
+            function fold_log_star_evaluate_from_column_exprs(plan_ptr, builder_ptr, alpha, beta, column_count, chi_eval, accessor) -> plan_ptr_out, star {
                 let fold
-                plan_ptr_out, fold := fold_column_expr_evals(plan_ptr, builder_ptr, beta, column_count)
+                plan_ptr_out, fold := fold_column_expr_evals(plan_ptr, accessor, beta, column_count)
                 fold := mulmod_bn254(alpha, fold)
                 star := fold_log_star_evaluate_from_fold(builder_ptr, fold, chi_eval)
             }
 
-            let __planOutOffset
             // We don't need the plan out for testing, so we leave it off to avoid local variable limits
-            __planOutOffset, __star :=
+            // solhint-disable-next-line no-unused-vars
+            let __planOutOffset, __star :=
                 fold_log_star_evaluate_from_column_exprs(
-                    __plan.offset, __builder, __alpha, __beta, __columnCount, __chiEval
+                    __plan.offset, __builder, __alpha, __beta, __columnCount, __chiEval, __accessor
                 )
         }
         __builderOut = __builder;
@@ -193,33 +194,34 @@ library FoldLogExpr {
     /// @param __alpha The beta challenge value
     /// @param __beta The beta challenge value
     /// @param __columnCount The number of columns
+    /// @param __accessor The collection of evals
     /// @return __builderOut The updated verification builder
-    /// @return __star The consumed star value
     function __foldLogStarEvaluateFromExprEvals( // solhint-disable-line gas-calldata-parameters
         bytes calldata __plan,
         VerificationBuilder.Builder memory __builder,
         uint256 __inputChiEval,
         uint256 __alpha,
         uint256 __beta,
-        uint256 __columnCount
-    ) external pure returns (VerificationBuilder.Builder memory __builderOut, uint256 __star) {
+        uint256 __columnCount,
+        uint256[] memory __accessor
+    ) external pure returns (VerificationBuilder.Builder memory __builderOut) {
         assembly {
             // import mulmod_bn254 from ../base/MathUtil.presl
             // import fold_log_star_evaluate_from_fold from self
             // import fold_expr_evals from FoldUtil.presl
 
-            function fold_log_star_evaluate_from_expr_evals(plan_ptr, builder_ptr, input_chi_eval, alpha, beta, column_count) -> plan_ptr_out, star {
+            function fold_log_star_evaluate_from_expr_evals(plan_ptr, builder_ptr, input_chi_eval, alpha, beta, column_count, accessor) -> plan_ptr_out, star {
                 let fold
-                plan_ptr, fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count)
+                plan_ptr, fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count, accessor)
                 fold := mulmod_bn254(fold, alpha)
                 star := fold_log_star_evaluate_from_fold(builder_ptr, fold, input_chi_eval)
             }
 
             // We don't keep the plan out, because it isn't needed for testing.
-            let __planOutOffset
-            __planOutOffset, __star :=
+            // solhint-disable-next-line no-unused-vars
+            let _planOutOffset, _star :=
                 fold_log_star_evaluate_from_expr_evals(
-                    __plan.offset, __builder, __inputChiEval, __alpha, __beta, __columnCount
+                    __plan.offset, __builder, __inputChiEval, __alpha, __beta, __columnCount, __accessor
                 )
         }
         __builderOut = __builder;
