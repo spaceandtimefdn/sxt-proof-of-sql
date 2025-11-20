@@ -205,12 +205,6 @@ fn aggregate_to_proof_plan(
                 .collect::<PlannerResult<Vec<_>>>()?;
             // `sum_expr`
             let table_expr = TableExpr { table_ref };
-            // Filter
-            let consolidated_filter_proof_expr = filters
-                .iter()
-                .map(|f| expr_to_proof_expr(f, &input_schema))
-                .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
-                .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
             // Aggregate
             // Prove that the ordering of `aggr_expr` is
             // 1. All group columns according to `group_columns`
@@ -268,6 +262,12 @@ fn aggregate_to_proof_plan(
                     alias: alias.clone(),
                 })
                 .collect::<Vec<_>>();
+            // Filter
+            let consolidated_filter_proof_expr = filters
+                .iter()
+                .map(|f| expr_to_proof_expr(f, &input_schema))
+                .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
+                .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
             DynProofPlan::try_new_group_by(
                 group_by_exprs,
                 sum_expr,
