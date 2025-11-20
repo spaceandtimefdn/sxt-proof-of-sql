@@ -42,7 +42,6 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
             .unwrap(),
         ),
     ));
-
     let bytes = try_standard_binary_serialization(EVMProofPlan::new(plan)).unwrap();
 
     let expected_bytes: Vec<_> = iter::empty()

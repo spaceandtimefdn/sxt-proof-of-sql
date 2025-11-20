@@ -67,6 +67,9 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
         let table_refs = value.get_table_references();
         let column_refs = value.get_column_references();
         let result_fields = value.get_column_result_fields();
+        dbg!(&table_refs);
+        dbg!(&column_refs);
+        dbg!(&result_fields);
         let output_column_names = result_fields
             .iter()
             .map(|field| field.name().to_string())
@@ -82,21 +85,28 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
                     .map(|field| (col_ref.clone(), field.data_type()))
             })
             .collect();
+        dbg!(&column_type_map);
 
         let plan = EVMDynProofPlan::try_from_proof_plan(value.inner(), &table_refs, &column_refs)?;
+        dbg!(&plan);
         let columns = column_refs
             .into_iter()
             .map(|column_ref| -> EVMProofPlanResult<_> {
                 let table_index = table_refs
                     .get_index_of(&column_ref.table_ref())
                     .ok_or(EVMProofPlanError::TableNotFound)?;
+                dbg!(&column_ref);
+                dbg!(&table_index);
+                dbg!(&column_type_map);
                 let column_type = column_type_map
                     .get(&column_ref)
                     .copied()
                     .ok_or(EVMProofPlanError::ColumnNotFound)?;
+                dbg!(&column_type);
                 Ok((table_index, column_ref.column_id().to_string(), column_type))
             })
             .try_collect()?;
+        dbg!(&columns);
         let tables = table_refs.iter().map(ToString::to_string).collect();
 
         Ok(Self {
