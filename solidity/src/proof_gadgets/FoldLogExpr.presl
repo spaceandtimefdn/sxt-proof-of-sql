@@ -215,6 +215,7 @@ library FoldLogExpr {
                 plan_ptr, fold := fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, column_count, accessor)
                 fold := mulmod_bn254(fold, alpha)
                 star := fold_log_star_evaluate_from_fold(builder_ptr, fold, input_chi_eval)
+                plan_ptr_out := plan_ptr
             }
 
             // We don't keep the plan out, because it isn't needed for testing.
