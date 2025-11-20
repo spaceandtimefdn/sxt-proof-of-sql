@@ -203,6 +203,17 @@ fn aggregate_to_proof_plan(
                     }),
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
+            // `group_by_exprs`
+            let group_by_exprs = group_columns
+                .iter()
+                .map(|column| {
+                    Ok(ColumnExpr::new(column_to_column_ref(
+                        column,
+                        &input_schema,
+                    )?))
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
+            // `sum_expr`
             let table_expr = TableExpr { table_ref };
             // Filter
             let consolidated_filter_proof_expr = filters
@@ -260,17 +271,6 @@ fn aggregate_to_proof_plan(
                 .expect("We have already checked that this exists")
                 .1
                 .clone();
-            // `group_by_exprs`
-            let group_by_exprs = group_columns
-                .iter()
-                .map(|column| {
-                    Ok(ColumnExpr::new(column_to_column_ref(
-                        column,
-                        &input_schema,
-                    )?))
-                })
-                .collect::<PlannerResult<Vec<_>>>()?;
-            // `sum_expr`
             let sum_expr = sum_tuples
                 .iter()
                 .map(|((_, expr), alias)| AliasedDynProofExpr {
