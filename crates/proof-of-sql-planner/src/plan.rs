@@ -183,16 +183,6 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<&str, &str>,
 ) -> PlannerResult<DynProofPlan> {
-    // Check that all of `group_expr` are columns and get their names
-    let group_columns = group_expr
-        .iter()
-        .map(|e| match e {
-            Expr::Column(c) => Ok(c),
-            _ => Err(PlannerError::UnsupportedLogicalPlan {
-                plan: Box::new(input.clone()),
-            }),
-        })
-        .collect::<PlannerResult<Vec<_>>>()?;
     match input {
         // Only TableScan without fetch is supported
         LogicalPlan::TableScan(TableScan {
@@ -203,6 +193,17 @@ fn aggregate_to_proof_plan(
         }) => {
             let table_ref = table_reference_to_table_ref(table_name)?;
             let input_schema = schemas.lookup_schema(&table_ref);
+            // Check that all of `group_expr` are columns and convert to `ColumnExprs`
+            let group_by_exprs = group_expr
+                .iter()
+                .map(|e| match e {
+                    Expr::Column(c) => Ok(ColumnExpr::new(column_to_column_ref(c, &input_schema)?)),
+                    _ => Err(PlannerError::UnsupportedLogicalPlan {
+                        plan: Box::new(input.clone()),
+                    }),
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
+            // `sum_expr`
             let table_expr = TableExpr { table_ref };
             // Filter
             let consolidated_filter_proof_expr = filters
@@ -260,17 +261,6 @@ fn aggregate_to_proof_plan(
                 .expect("We have already checked that this exists")
                 .1
                 .clone();
-            // `group_by_exprs`
-            let group_by_exprs = group_columns
-                .iter()
-                .map(|column| {
-                    Ok(ColumnExpr::new(column_to_column_ref(
-                        column,
-                        &input_schema,
-                    )?))
-                })
-                .collect::<PlannerResult<Vec<_>>>()?;
-            // `sum_expr`
             let sum_expr = sum_tuples
                 .iter()
                 .map(|((_, expr), alias)| AliasedDynProofExpr {
