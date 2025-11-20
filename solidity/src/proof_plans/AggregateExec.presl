@@ -69,13 +69,16 @@ library AggregateExec {
             // import err from ../base/Errors.sol
             // import addmod_bn254, mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
             // import read_binary from ../base/DataType.presl
-            // import builder_consume_challenge, builder_consume_chi_evaluation_with_length, builder_consume_first_round_mle, builder_get_table_chi_evaluation, builder_produce_zerosum_constraint, builder_get_column_evaluations from ../builder/VerificationBuilder.presl
+            // import builder_consume_challenge, builder_consume_chi_evaluation_with_length, builder_consume_first_round_mle, builder_produce_zerosum_constraint
             // import proof_expr_evaluate from ../proof_exprs/ProofExpr.presl
             // import fold_expr_evals from ../proof_gadgets/FoldUtil.presl
-            // import fold_log_star_evaluate_from_column_exprs, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
+            // import fold_log_star_evaluate_from_expr_evals, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
             // import monotonic_verify from ../proof_gadgets/Monotonic.presl
+            // import proof_plan_evaluate from ../proof_plans/ProofPlan.presl
 
-            function compute_g_in_star_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) -> plan_ptr_out, g_in_star_eval_times_selection_eval, num_group_by_columns {
+            function compute_g_in_star_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta) -> plan_ptr_out, g_in_star_eval_times_selection_eval, num_group_by_columns, input_chi_eval, input_evaluations {
+                let input_length
+                plan_ptr, input_evaluations, input_length, input_chi_eval := proof_plan_evaluate(plan_ptr, builder_ptr)
                 num_group_by_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 // We can not prove uniqueness for multiple columns yet
                 if gt(num_group_by_columns, 1) { err(ERR_UNPROVABLE_GROUP_BY) }
@@ -84,21 +87,21 @@ library AggregateExec {
                 // Process group by columns
                 let g_in_star_eval
                 plan_ptr, g_in_star_eval :=
-                    fold_log_star_evaluate_from_column_exprs(
-                        plan_ptr, builder_ptr, alpha, beta, num_group_by_columns, input_chi_eval, builder_get_column_evaluations(builder_ptr)
+                    fold_log_star_evaluate_from_expr_evals(
+                        plan_ptr, builder_ptr, input_chi_eval, alpha, beta, num_group_by_columns, input_evaluations
                     )
 
                 let selection_eval
-                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval, builder_get_column_evaluations(builder_ptr))
+                plan_ptr, selection_eval := proof_expr_evaluate(plan_ptr, builder_ptr, input_chi_eval, input_evaluations)
                 g_in_star_eval_times_selection_eval := mulmod_bn254(g_in_star_eval, selection_eval)
                 plan_ptr_out := plan_ptr
             }
 
-            function compute_sum_in_fold_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval) -> plan_ptr_out, sum_in_fold_eval, num_sum_columns {
+            function compute_sum_in_fold_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval, accessor) -> plan_ptr_out, sum_in_fold_eval, num_sum_columns {
                 num_sum_columns := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
                 plan_ptr := add(plan_ptr, UINT64_SIZE)
                 plan_ptr, sum_in_fold_eval :=
-                    fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, num_sum_columns, builder_get_column_evaluations(builder_ptr))
+                    fold_expr_evals(plan_ptr, builder_ptr, input_chi_eval, beta, num_sum_columns, accessor)
                 sum_in_fold_eval := addmod_bn254(mulmod_bn254(sum_in_fold_eval, beta), input_chi_eval)
                 plan_ptr_out := plan_ptr
             }
@@ -126,23 +129,15 @@ library AggregateExec {
             }
 
             function read_aggregate_input_evals(plan_ptr, builder_ptr, alpha, beta) -> plan_ptr_out, partial_dlog_zero_sum_constraint_eval, num_sum_columns, num_group_by_columns {
-                // Read input chi evaluation
-                let input_chi_eval
-                {
-                    let table_num := shr(UINT64_PADDING_BITS, calldataload(plan_ptr))
-                    input_chi_eval := builder_get_table_chi_evaluation(builder_ptr, table_num)
-                    plan_ptr := add(plan_ptr, UINT64_SIZE)
-                }
-
                 // Read/eval group by inputs, selection inputs, and fold and dlog them
-                let g_in_star_eval_times_selection_eval
-                plan_ptr, g_in_star_eval_times_selection_eval, num_group_by_columns :=
-                    compute_g_in_star_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                let g_in_star_eval_times_selection_eval, input_chi_eval, input_evaluations
+                plan_ptr, g_in_star_eval_times_selection_eval, num_group_by_columns, input_chi_eval, input_evaluations :=
+                    compute_g_in_star_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta)
 
                 // Read/eval sum inputs and fold them
                 let sum_in_fold_eval
                 plan_ptr, sum_in_fold_eval, num_sum_columns :=
-                    compute_sum_in_fold_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval)
+                    compute_sum_in_fold_eval_for_aggregate(plan_ptr, builder_ptr, alpha, beta, input_chi_eval, input_evaluations)
 
                 partial_dlog_zero_sum_constraint_eval :=
                     mulmod_bn254(g_in_star_eval_times_selection_eval, sum_in_fold_eval)

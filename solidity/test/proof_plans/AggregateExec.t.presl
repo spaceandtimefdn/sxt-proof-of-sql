@@ -11,39 +11,20 @@ import {AggregateExec} from "../../src/proof_plans/AggregateExec.presl";
 contract AggregateExecTest is Test {
     function testUnprovableAggregateExec() public {
         bytes memory plan = abi.encodePacked(
+            TABLE_EXEC_VARIANT,
             uint64(0), // table_number
-            uint64(2), // group_by_count
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)), // group_by_expr[0] - column 0
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)), // group_by_expr[1] - column 1
-            uint64(0), // sum_count
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
+            uint64(0), // column count
+            uint64(2) // No need to continue the plan after this point.
         );
         VerificationBuilder.Builder memory builder;
-        builder.maxDegree = 3;
-        builder.finalRoundMLEs = new uint256[](0);
-        builder.constraintMultipliers = new uint256[](0);
         builder.challenges = new uint256[](2);
         builder.challenges[0] = 501; // alpha
         builder.challenges[1] = 502; // beta
-        builder.aggregateEvaluation = 0;
-        builder.rowMultipliersEvaluation = 601;
-        builder.chiEvaluations = new uint256[](1);
-        builder.chiEvaluations[0] = 701; // output_chi_eval
         builder.tableChiEvaluations = new uint256[](2);
         builder.tableChiEvaluations[0] = 1;
         builder.tableChiEvaluations[1] = 801; // input_chi_eval
-        // Define column evaluations for ColumnExpr
-        builder.columnEvaluations = new uint256[](2);
-        builder.columnEvaluations[0] = 102;
-        builder.columnEvaluations[1] = 103;
-
-        uint256[] memory evals;
-        uint256 length;
-        uint256 outputChiEval;
         vm.expectRevert(Errors.UnprovableGroupBy.selector);
-        (plan, builder, evals, length, outputChiEval) = AggregateExec.__aggregateExecEvaluate(plan, builder);
+        AggregateExec.__aggregateExecEvaluate(plan, builder);
     }
 
     // Shared configuration for the builder in different tests
@@ -296,9 +277,12 @@ contract AggregateExecTest is Test {
 
     function testMinimalAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
+            TABLE_EXEC_VARIANT,
             uint64(0), // table_number
+            uint64(1), // column count
+            uint64(0), // column 0
             uint64(1), // group_by_count
-            uint64(0), // group_by_expr[0] - column 0
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
             uint64(0), // sum_count
             uint64(7), // count_alias_length (unused in verification)
@@ -327,9 +311,13 @@ contract AggregateExecTest is Test {
 
     function testSimpleAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
+            TABLE_EXEC_VARIANT,
             uint64(0), // table_number
+            uint64(2), // column count
+            uint64(0), // column 0
+            uint64(1), // column 1
             uint64(1), // group_by_count
-            uint64(0), // group_by_expr[0] - column 0
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
             abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
             uint64(1), // sum_count
             abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)), // sum_expr[0] - column 1;
@@ -361,12 +349,12 @@ contract AggregateExecTest is Test {
 
     function testComplexAggregateExec() public pure {
         bytes memory plan = abi.encodePacked(
-            uint64(0), // table_number
+            abi.encodePacked(TABLE_EXEC_VARIANT, uint64(0), uint64(3), uint64(0), uint64(1), uint64(2)), // input plan
             uint64(1), // group_by_count
-            uint64(0), // group_by_expr[0] - column 0
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
-            uint64(2), // sum_count
-            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(1)), // sum_expr[0] - column 1;
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            abi.encodePacked(uint32(1), uint32(0), uint8(1)), 
+            uint64(2),
+            abi.encodePacked(uint32(0), uint64(1)), // sum_expr[0] - column 1;
             abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(2)), // sum_expr[1] - column 2;
             uint64(7), // count_alias_length (unused in verification)
             "count_0" // count_alias (unused in verification)
