@@ -78,20 +78,28 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - run: cargo test --all-features
 
   testnorayon:
     name: Test Suite (without rayon)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - run: cargo test --no-default-features --features="arrow blitzar"
 
   testother:
@@ -105,10 +113,7 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
-        run: |
-          export DEBIAN_FRONTEND=non-interactive
-          sudo apt-get update
-          sudo apt-get install -y clang lld
+        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - name: Dry run cargo test (proof-of-sql) (test feature only)
         run: cargo test -p proof-of-sql --no-run --no-default-features --features="test"
       - name: Dry run cargo test (proof-of-sql) (arrow feature only)
@@ -130,6 +135,10 @@ jobs:
           uses: actions/checkout@v4
         - name: Install stable toolchain
           run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+        - name: Setup Rust cache
+          uses: Swatinem/rust-cache@v2
+        - name: Install Dependencies
+          run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
         - name: Run hello_world example (With Blitzar)
           run: cargo run --example hello_world --features="proof-of-sql/test"
         - name: Run hello_world example (Without Blitzar and With Rayon)
@@ -248,6 +257,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install stable toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install Dependencies
+        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
