@@ -20,18 +20,21 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let identifier_b = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a);
+    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b);
 
     let plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
-            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
+            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b, ColumnType::BigInt)),
             alias: identifier_alias,
         }],
         TableExpr { table_ref },
         DynProofExpr::Equals(
             EqualsExpr::try_new(
-                Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),
+                Box::new(DynProofExpr::Column(ColumnExpr::new(
+                    column_ref_a,
+                    ColumnType::BigInt,
+                ))),
                 Box::new(DynProofExpr::Literal(LiteralExpr::new(
                     LiteralValue::BigInt(5),
                 ))),
@@ -39,7 +42,6 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
             .unwrap(),
         ),
     ));
-
     let bytes = try_standard_binary_serialization(EVMProofPlan::new(plan)).unwrap();
 
     let expected_bytes: Vec<_> = iter::empty()
@@ -82,18 +84,21 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
     let identifier_b = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a);
+    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b);
 
     let expected_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
-            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
+            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b, ColumnType::BigInt)),
             alias: identifier_alias,
         }],
         TableExpr { table_ref },
         DynProofExpr::Equals(
             EqualsExpr::try_new(
-                Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),
+                Box::new(DynProofExpr::Column(ColumnExpr::new(
+                    column_ref_a,
+                    ColumnType::BigInt,
+                ))),
                 Box::new(DynProofExpr::Literal(LiteralExpr::new(
                     LiteralValue::BigInt(5),
                 ))),

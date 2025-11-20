@@ -111,8 +111,8 @@ fn evm_verifier_all(
 #[expect(clippy::missing_panics_doc)]
 fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
     let name: Ident = name.into();
-    let type_col = accessor.lookup_column(tab, &name).unwrap();
-    ColumnRef::new(tab.clone(), name, type_col)
+    let _type_col = accessor.lookup_column(tab, &name).unwrap();
+    ColumnRef::new(tab.clone(), name)
 }
 
 fn col_expr_plan(
@@ -120,8 +120,10 @@ fn col_expr_plan(
     name: &str,
     accessor: &impl SchemaAccessor,
 ) -> AliasedDynProofExpr {
+    let name_ident: Ident = name.into();
+    let column_type = accessor.lookup_column(tab, &name_ident).unwrap();
     AliasedDynProofExpr {
-        expr: DynProofExpr::Column(ColumnExpr::new(col_ref(tab, name, accessor))),
+        expr: DynProofExpr::Column(ColumnExpr::new(col_ref(tab, name, accessor), column_type)),
         alias: name.into(),
     }
 }
@@ -431,7 +433,7 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
             col_expr_plan(&t, "a", &accessor),
             aliased_plan(
                 DynProofExpr::try_new_cast(
-                    DynProofExpr::new_column(col_ref(&t, "b", &accessor)),
+                    DynProofExpr::new_column(col_ref(&t, "b", &accessor), ColumnType::Boolean),
                     ColumnType::BigInt,
                 )
                 .unwrap(),
@@ -446,7 +448,7 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
             ],
         ),
         DynProofExpr::try_new_equals(
-            DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+            DynProofExpr::new_column(col_ref(&t, "a", &accessor), ColumnType::BigInt),
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),
         )
         .unwrap(),
@@ -488,7 +490,7 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
         vec![
             aliased_plan(
                 DynProofExpr::try_new_cast(
-                    DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+                    DynProofExpr::new_column(col_ref(&t, "a", &accessor), ColumnType::BigInt),
                     ColumnType::Decimal75(Precision::new(25).unwrap(), 0),
                 )
                 .unwrap(),
@@ -504,7 +506,7 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
             ],
         ),
         DynProofExpr::try_new_equals(
-            DynProofExpr::new_column(col_ref(&t, "a", &accessor)),
+            DynProofExpr::new_column(col_ref(&t, "a", &accessor), ColumnType::BigInt),
             DynProofExpr::new_literal(LiteralValue::BigInt(4_i64)),
         )
         .unwrap(),
@@ -954,34 +956,30 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         vec![
             AliasedDynProofExpr {
                 expr: DynProofExpr::try_new_add(
-                    DynProofExpr::new_column(ColumnRef::new(
-                        t.clone(),
-                        "a".into(),
+                    DynProofExpr::new_column(
+                        ColumnRef::new(t.clone(), "a".into()),
                         ColumnType::BigInt,
-                    )),
-                    DynProofExpr::new_column(ColumnRef::new(
-                        t.clone(),
-                        "b".into(),
+                    ),
+                    DynProofExpr::new_column(
+                        ColumnRef::new(t.clone(), "b".into()),
                         ColumnType::BigInt,
-                    )),
+                    ),
                 )
                 .unwrap(),
                 alias: "x".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    t.clone(),
-                    "b".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(t.clone(), "b".into()),
                     ColumnType::BigInt,
-                )),
+                ),
                 alias: "y".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    t.clone(),
-                    "c".into(),
+                expr: DynProofExpr::new_column(
+                    ColumnRef::new(t.clone(), "c".into()),
                     ColumnType::BigInt,
-                )),
+                ),
                 alias: "z".into(),
             },
         ],
@@ -991,27 +989,24 @@ fn we_can_have_projection_as_input_plan_for_filter() {
     let dummy_table = TableRef::new("", "");
     let filter_results = vec![
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "x".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(dummy_table.clone(), "x".into()),
                 ColumnType::Decimal75(Precision::new(20).unwrap(), 0),
-            )),
+            ),
             alias: "x".into(),
         },
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "y".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(dummy_table.clone(), "y".into()),
                 ColumnType::BigInt,
-            )),
+            ),
             alias: "y".into(),
         },
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "z".into(),
+            expr: DynProofExpr::new_column(
+                ColumnRef::new(dummy_table.clone(), "z".into()),
                 ColumnType::BigInt,
-            )),
+            ),
             alias: "z".into(),
         },
     ];
@@ -1020,11 +1015,10 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         filter_results,
         projection,
         DynProofExpr::try_new_inequality(
-            DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "z".into(),
+            DynProofExpr::new_column(
+                ColumnRef::new(dummy_table.clone(), "z".into()),
                 ColumnType::BigInt,
-            )),
+            ),
             DynProofExpr::new_literal(LiteralValue::BigInt(13)),
             false,
         )
