@@ -429,6 +429,7 @@ pub fn logical_plan_to_proof_plan(
                     // Check whether the last layer is identity
                     let alias_map = expr
                         .iter()
+                        .chain(group_expr)
                         .map(|e| match e {
                             Expr::Column(c) => Ok((c.name.as_str(), c.name.as_str())),
                             Expr::Alias(Alias { expr, name, .. }) => {
@@ -444,7 +445,11 @@ pub fn logical_plan_to_proof_plan(
                                 plan: Box::new(plan.clone()),
                             }),
                         })
-                        .collect::<PlannerResult<IndexMap<_, _>>>()?;
+                        .collect::<PlannerResult<Vec<_>>>()?
+                        .into_iter()
+                        .rev()
+                        .collect();
+
                     aggregate_to_proof_plan(
                         agg_input,
                         group_expr,
