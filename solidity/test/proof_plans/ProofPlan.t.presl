@@ -408,6 +408,41 @@ contract ProofPlanTest is Test {
         assert(builder.aggregateEvaluation == 0);
     }
 
+    function testAggregateExecVariant() public pure {
+        bytes memory plan = abi.encodePacked(
+            AGGREGATE_EXEC_VARIANT,
+            TABLE_EXEC_VARIANT,
+            uint64(0), // table_number
+            uint64(1), // column count
+            uint64(0), // column 0
+            uint64(1), // group_by_count
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
+            uint64(0), // sum_count
+            uint64(7), // count_alias_length (unused in verification)
+            "count_0" // count_alias (unused in verification)
+        );
+        VerificationBuilder.Builder memory builder;
+        uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
+        builder = _configureBuilderForGroupByExec(builder);
+        builder = _configureForMinimalGroupByExec(builder);
+        for (uint8 i = 0; i < 4; ++i) {
+            uint256[] memory evals;
+            uint256 length;
+            uint256 outputChiEval;
+            bytes memory planOut;
+            if (i == 0) {
+                builder.singletonChiEvaluation = 1; // singleton_chi_eval for first test
+            } else {
+                builder.singletonChiEvaluation = 0;
+            }
+            builder.columnEvaluations[0] = gIn[i];
+            (planOut, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
+            assert(planOut.length == 0);
+        }
+        assert(builder.aggregateEvaluation == 0);
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testUnsupportedVariant() public {
         VerificationBuilder.Builder memory builder;
@@ -1050,5 +1085,6 @@ contract ProofPlanTest is Test {
         assert(uint32(ProofPlan.PlanVariant.Union) == UNION_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.SortMergeJoin) == SORT_MERGE_JOIN_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
+        assert(uint32(ProofPlan.PlanVariant.Aggregate) == AGGREGATE_EXEC_VARIANT);
     }
 }
