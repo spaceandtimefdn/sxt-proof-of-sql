@@ -148,7 +148,7 @@ impl EVMColumnExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             column_number: column_refs
-                .get_index_of(expr.column_ref())
+                .get_index_of(&expr.column_ref())
                 .or_else(|| {
                     column_refs.get_index_of(&ColumnRef::new(
                         TableRef::from_names(None, ""),
@@ -164,11 +164,13 @@ impl EVMColumnExpr {
         &self,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<ColumnExpr> {
+        let column_ref = column_refs
+            .get_index(self.column_number)
+            .ok_or(EVMProofPlanError::ColumnNotFound)?;
         Ok(ColumnExpr::new(
-            column_refs
-                .get_index(self.column_number)
-                .ok_or(EVMProofPlanError::ColumnNotFound)?
-                .clone(),
+            column_ref.table_ref(),
+            column_ref.column_id(),
+            *column_ref.column_type(),
         ))
     }
 }
@@ -688,7 +690,11 @@ mod tests {
         let column_ref = ColumnRef::new(table_ref.clone(), ident, ColumnType::BigInt);
 
         let evm_column_expr = EVMColumnExpr::try_from_proof_expr(
-            &ColumnExpr::new(column_ref.clone()),
+            &ColumnExpr::new(
+                column_ref.table_ref(),
+                column_ref.column_id(),
+                *column_ref.column_type(),
+            ),
             &indexset! {column_ref.clone()},
         )
         .unwrap();
@@ -698,7 +704,7 @@ mod tests {
         let roundtripped_column_expr = evm_column_expr
             .try_into_proof_expr(&indexset! {column_ref.clone()})
             .unwrap();
-        assert_eq!(*roundtripped_column_expr.column_ref(), column_ref);
+        assert_eq!(roundtripped_column_expr.column_ref(), column_ref);
     }
 
     #[test]
@@ -708,7 +714,14 @@ mod tests {
         let column_ref = ColumnRef::new(table_ref.clone(), ident, ColumnType::BigInt);
 
         assert_eq!(
-            EVMColumnExpr::try_from_proof_expr(&ColumnExpr::new(column_ref.clone()), &indexset! {}),
+            EVMColumnExpr::try_from_proof_expr(
+                &ColumnExpr::new(
+                    column_ref.table_ref(),
+                    column_ref.column_id(),
+                    *column_ref.column_type()
+                ),
+                &indexset! {}
+            ),
             Err(EVMProofPlanError::ColumnNotFound)
         );
     }
@@ -933,7 +946,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         let equals_expr = EqualsExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
         )
         .unwrap();
@@ -970,7 +987,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         let add_expr = AddExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
         )
         .unwrap();
@@ -1005,7 +1026,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         let subtract_expr = SubtractExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
         )
         .unwrap();
@@ -1041,7 +1066,11 @@ mod tests {
 
         // b * 10 so we see column_number = 1
         let multiply_expr = MultiplyExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(10))),
         )
         .unwrap();
@@ -1091,8 +1120,16 @@ mod tests {
         let column_ref_y = ColumnRef::new(table_ref.clone(), ident_y, ColumnType::Boolean);
 
         let and_expr = AndExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_x.clone())),
-            Box::new(DynProofExpr::new_column(column_ref_y.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_x.table_ref(),
+                column_ref_x.column_id(),
+                *column_ref_x.column_type(),
+            )),
+            Box::new(DynProofExpr::new_column(
+                column_ref_y.table_ref(),
+                column_ref_y.column_id(),
+                *column_ref_y.column_type(),
+            )),
         )
         .unwrap();
 
@@ -1139,8 +1176,16 @@ mod tests {
         let column_ref_y = ColumnRef::new(table_ref.clone(), ident_y, ColumnType::Boolean);
 
         let or_expr = OrExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_x.clone())),
-            Box::new(DynProofExpr::new_column(column_ref_y.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_x.table_ref(),
+                column_ref_x.column_id(),
+                *column_ref_x.column_type(),
+            )),
+            Box::new(DynProofExpr::new_column(
+                column_ref_y.table_ref(),
+                column_ref_y.column_id(),
+                *column_ref_y.column_type(),
+            )),
         )
         .unwrap();
 
@@ -1184,8 +1229,12 @@ mod tests {
         let ident_flag = "flag".into();
         let column_ref_flag = ColumnRef::new(table_ref.clone(), ident_flag, ColumnType::Boolean);
 
-        let not_expr =
-            NotExpr::try_new(Box::new(DynProofExpr::new_column(column_ref_flag.clone()))).unwrap();
+        let not_expr = NotExpr::try_new(Box::new(DynProofExpr::new_column(
+            column_ref_flag.table_ref(),
+            column_ref_flag.column_id(),
+            *column_ref_flag.column_type(),
+        )))
+        .unwrap();
 
         let evm_not_expr =
             EVMNotExpr::try_from_proof_expr(&not_expr, &indexset! { column_ref_flag.clone() })
@@ -1223,7 +1272,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
 
         let cast_expr = CastExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             ColumnType::BigInt,
         )
         .unwrap();
@@ -1316,7 +1369,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         let inequality_expr = InequalityExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
             true,
         )
@@ -1353,7 +1410,11 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
 
         let scaling_cast_expr = ScalingCastExpr::try_new(
-            Box::new(DynProofExpr::new_column(column_ref_b.clone())),
+            Box::new(DynProofExpr::new_column(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
         )
         .unwrap();
@@ -1424,7 +1485,11 @@ mod tests {
 
         let expr = equal(
             DynProofExpr::new_literal(LiteralValue::BigInt(5)),
-            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_column(
+                column_b.table_ref(),
+                column_b.column_id(),
+                *column_b.column_type(),
+            ),
         );
         let evm =
             EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { column_b.clone() }).unwrap();
@@ -1447,7 +1512,11 @@ mod tests {
         let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
 
         let expr = add(
-            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_column(
+                column_b.table_ref(),
+                column_b.column_id(),
+                *column_b.column_type(),
+            ),
             DynProofExpr::new_literal(LiteralValue::BigInt(3)),
         );
         let evm =
@@ -1469,7 +1538,11 @@ mod tests {
         let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
 
         let expr = subtract(
-            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_column(
+                column_b.table_ref(),
+                column_b.column_id(),
+                *column_b.column_type(),
+            ),
             DynProofExpr::new_literal(LiteralValue::BigInt(2)),
         );
         let evm =
@@ -1491,7 +1564,11 @@ mod tests {
         let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
 
         let expr = multiply(
-            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_column(
+                column_b.table_ref(),
+                column_b.column_id(),
+                *column_b.column_type(),
+            ),
             DynProofExpr::new_literal(LiteralValue::BigInt(4)),
         );
         let evm =
@@ -1514,8 +1591,8 @@ mod tests {
         let d = ColumnRef::new(table_ref.clone(), "d".into(), ColumnType::Boolean);
 
         let expr = and(
-            DynProofExpr::new_column(c.clone()),
-            DynProofExpr::new_column(d.clone()),
+            DynProofExpr::new_column(c.table_ref(), c.column_id(), *c.column_type()),
+            DynProofExpr::new_column(d.table_ref(), d.column_id(), *d.column_type()),
         );
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone(), d.clone() })
             .unwrap();
@@ -1534,8 +1611,8 @@ mod tests {
         let d = ColumnRef::new(table_ref.clone(), "d".into(), ColumnType::Boolean);
 
         let expr = or(
-            DynProofExpr::new_column(c.clone()),
-            DynProofExpr::new_column(d.clone()),
+            DynProofExpr::new_column(c.table_ref(), c.column_id(), *c.column_type()),
+            DynProofExpr::new_column(d.table_ref(), d.column_id(), *d.column_type()),
         );
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone(), d.clone() })
             .unwrap();
@@ -1552,7 +1629,11 @@ mod tests {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
         let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Boolean);
 
-        let expr = not(DynProofExpr::new_column(c.clone()));
+        let expr = not(DynProofExpr::new_column(
+            c.table_ref(),
+            c.column_id(),
+            *c.column_type(),
+        ));
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
         let expected =
             EVMDynProofExpr::Not(EVMNotExpr::new(EVMDynProofExpr::Column(EVMColumnExpr {
@@ -1567,7 +1648,10 @@ mod tests {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
         let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
 
-        let expr = cast(DynProofExpr::new_column(c.clone()), ColumnType::BigInt);
+        let expr = cast(
+            DynProofExpr::new_column(c.table_ref(), c.column_id(), *c.column_type()),
+            ColumnType::BigInt,
+        );
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
         let expected = EVMDynProofExpr::Cast(EVMCastExpr {
             from_expr: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 })),
@@ -1583,7 +1667,11 @@ mod tests {
         let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
 
         let expr = lt(
-            DynProofExpr::new_column(column_b.clone()),
+            DynProofExpr::new_column(
+                column_b.table_ref(),
+                column_b.column_id(),
+                *column_b.column_type(),
+            ),
             DynProofExpr::new_literal(LiteralValue::BigInt(4)),
         );
         let evm =
@@ -1606,7 +1694,7 @@ mod tests {
         let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
 
         let expr = DynProofExpr::try_new_scaling_cast(
-            DynProofExpr::new_column(c.clone()),
+            DynProofExpr::new_column(c.table_ref(), c.column_id(), *c.column_type()),
             ColumnType::Decimal75(Precision::new(30).unwrap(), 2),
         )
         .unwrap();

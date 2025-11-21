@@ -25,13 +25,21 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
 
     let plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
-            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
+            expr: DynProofExpr::Column(ColumnExpr::new(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             alias: identifier_alias,
         }],
         TableExpr { table_ref },
         DynProofExpr::Equals(
             EqualsExpr::try_new(
-                Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),
+                Box::new(DynProofExpr::Column(ColumnExpr::new(
+                    column_ref_a.table_ref(),
+                    column_ref_a.column_id(),
+                    *column_ref_a.column_type(),
+                ))),
                 Box::new(DynProofExpr::Literal(LiteralExpr::new(
                     LiteralValue::BigInt(5),
                 ))),
@@ -87,13 +95,21 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
 
     let expected_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
-            expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
+            expr: DynProofExpr::Column(ColumnExpr::new(
+                column_ref_b.table_ref(),
+                column_ref_b.column_id(),
+                *column_ref_b.column_type(),
+            )),
             alias: identifier_alias,
         }],
         TableExpr { table_ref },
         DynProofExpr::Equals(
             EqualsExpr::try_new(
-                Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a))),
+                Box::new(DynProofExpr::Column(ColumnExpr::new(
+                    column_ref_a.table_ref(),
+                    column_ref_a.column_id(),
+                    *column_ref_a.column_type(),
+                ))),
                 Box::new(DynProofExpr::Literal(LiteralExpr::new(
                     LiteralValue::BigInt(5),
                 ))),

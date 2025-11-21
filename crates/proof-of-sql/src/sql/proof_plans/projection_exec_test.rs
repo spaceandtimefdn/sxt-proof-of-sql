@@ -30,19 +30,11 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let provable_ast = ProjectionExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
+                DynProofExpr::Column(ColumnExpr::new(table_ref.clone(), a, ColumnType::BigInt)),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    b,
-                    ColumnType::BigInt,
-                ))),
+                DynProofExpr::Column(ColumnExpr::new(table_ref.clone(), b, ColumnType::BigInt)),
                 "b",
             ),
         ],
@@ -72,19 +64,11 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let provable_ast = projection(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    a,
-                    ColumnType::BigInt,
-                ))),
+                DynProofExpr::Column(ColumnExpr::new(table_ref.clone(), a, ColumnType::BigInt)),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
-                    f,
-                    ColumnType::BigInt,
-                ))),
+                DynProofExpr::Column(ColumnExpr::new(table_ref.clone(), f, ColumnType::BigInt)),
                 "f",
             ),
         ],

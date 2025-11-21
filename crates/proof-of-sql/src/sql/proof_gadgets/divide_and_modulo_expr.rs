@@ -169,8 +169,16 @@ mod tests {
         let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
         let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
         let divide_and_modulo_expr = DivideAndModuloExpr::new(
-            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
-            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                lhs_ref.table_ref(),
+                lhs_ref.column_id(),
+                *lhs_ref.column_type(),
+            ))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(
+                rhs_ref.table_ref(),
+                rhs_ref.column_id(),
+                *rhs_ref.column_type(),
+            ))),
         );
         let lhs = &[i128::MAX, i128::MIN, 2];
         let rhs = &[3i128, 3, -4];
