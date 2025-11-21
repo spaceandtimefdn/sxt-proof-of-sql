@@ -1,7 +1,7 @@
 use super::{DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{can_not_type, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{can_not_type, Column, ColumnField, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -95,7 +95,7 @@ impl ProofExpr for NotExpr {
         Ok(chi_eval - eval)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        self.expr.get_column_references(columns);
+    fn get_column_fields(&self, columns: &mut IndexSet<ColumnField>) {
+        self.expr.get_column_fields(columns);
     }
 }
