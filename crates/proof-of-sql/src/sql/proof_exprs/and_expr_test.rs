@@ -233,8 +233,16 @@ fn we_can_verify_a_simple_proof() {
     let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
     let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            a.table_ref(),
+            a.column_id(),
+            *a.column_type(),
+        ))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            b.table_ref(),
+            b.column_id(),
+            *b.column_type(),
+        ))),
     )
     .unwrap();
 
@@ -277,8 +285,16 @@ fn we_can_reject_a_simple_tampered_proof() {
     let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
     let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
-        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
-        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            a.table_ref(),
+            a.column_id(),
+            *a.column_type(),
+        ))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(
+            b.table_ref(),
+            b.column_id(),
+            *b.column_type(),
+        ))),
     )
     .unwrap();
 

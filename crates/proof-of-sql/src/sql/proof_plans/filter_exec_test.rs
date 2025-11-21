@@ -3,7 +3,7 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType, TableRef,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
             TableTestAccessor, TestAccessor,
         },
         try_standard_binary_deserialization, try_standard_binary_serialization,
@@ -273,27 +273,15 @@ fn we_can_have_projection_as_input_plan_for_filter() {
     let projection = projection(
         vec![
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    t.clone(),
-                    "a".into(),
-                    ColumnType::BigInt,
-                )),
+                expr: DynProofExpr::new_column(t.clone(), "a".into(), ColumnType::BigInt),
                 alias: "x".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    t.clone(),
-                    "b".into(),
-                    ColumnType::BigInt,
-                )),
+                expr: DynProofExpr::new_column(t.clone(), "b".into(), ColumnType::BigInt),
                 alias: "y".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    t.clone(),
-                    "c".into(),
-                    ColumnType::Int128,
-                )),
+                expr: DynProofExpr::new_column(t.clone(), "c".into(), ColumnType::Int128),
                 alias: "z".into(),
             },
         ],
@@ -305,27 +293,23 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         AliasedDynProofExpr {
             expr: DynProofExpr::Add(
                 AddExpr::try_new(
-                    Box::new(DynProofExpr::new_column(ColumnRef::new(
+                    Box::new(DynProofExpr::new_column(
                         dummy_table.clone(),
                         "x".into(),
                         ColumnType::BigInt,
-                    ))),
-                    Box::new(DynProofExpr::new_column(ColumnRef::new(
+                    )),
+                    Box::new(DynProofExpr::new_column(
                         dummy_table.clone(),
                         "y".into(),
                         ColumnType::BigInt,
-                    ))),
+                    )),
                 )
                 .unwrap(),
             ),
             alias: "xplusy".into(),
         },
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "z".into(),
-                ColumnType::Int128,
-            )),
+            expr: DynProofExpr::new_column(dummy_table.clone(), "z".into(), ColumnType::Int128),
             alias: "z".into(),
         },
     ];
@@ -334,11 +318,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         filter_results,
         projection,
         gt(
-            DynProofExpr::new_column(ColumnRef::new(
-                dummy_table.clone(),
-                "z".into(),
-                ColumnType::Int128,
-            )),
+            DynProofExpr::new_column(dummy_table.clone(), "z".into(), ColumnType::Int128),
             const_int128(13_i128),
         ),
     );
