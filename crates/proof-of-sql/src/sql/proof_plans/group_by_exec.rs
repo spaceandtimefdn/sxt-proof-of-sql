@@ -223,18 +223,28 @@ impl ProofPlan for GroupByExec {
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        let mut columns = IndexSet::default();
+        let mut column_fields = IndexSet::default();
 
+        // Collect all input column fields from expressions
         for col in &self.group_by_exprs {
-            columns.insert(col.get_column_reference());
+            col.get_column_fields(&mut column_fields);
         }
         for aliased_expr in &self.sum_expr {
-            aliased_expr.expr.get_column_references(&mut columns);
+            aliased_expr.expr.get_column_fields(&mut column_fields);
         }
+        self.where_clause.get_column_fields(&mut column_fields);
 
-        self.where_clause.get_column_references(&mut columns);
-
-        columns
+        // Convert ColumnFields to ColumnRefs using the TableRef from TableExpr
+        column_fields
+            .into_iter()
+            .map(|field| {
+                ColumnRef::new(
+                    self.table.table_ref.clone(),
+                    field.name(),
+                    field.data_type(),
+                )
+            })
+            .collect()
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {

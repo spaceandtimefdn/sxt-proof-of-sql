@@ -1,7 +1,9 @@
 use super::{DecimalProofExpr, DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{try_multiply_column_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            try_multiply_column_types, Column, ColumnField, ColumnType, LiteralValue, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -131,9 +133,9 @@ impl ProofExpr for MultiplyExpr {
         Ok(lhs_times_rhs)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        self.lhs.get_column_references(columns);
-        self.rhs.get_column_references(columns);
+    fn get_column_fields(&self, columns: &mut IndexSet<ColumnField>) {
+        self.lhs.get_column_fields(columns);
+        self.rhs.get_column_fields(columns);
     }
 }
 

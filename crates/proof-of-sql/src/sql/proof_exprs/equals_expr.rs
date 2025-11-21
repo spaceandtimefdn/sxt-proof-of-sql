@@ -1,7 +1,7 @@
 use super::{add_subtract_columns, DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{try_equals_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{try_equals_types, Column, ColumnField, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -122,9 +122,9 @@ impl ProofExpr for EqualsExpr {
         verifier_evaluate_equals_zero(builder, lhs_eval - rhs_eval, chi_eval)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        self.lhs.get_column_references(columns);
-        self.rhs.get_column_references(columns);
+    fn get_column_fields(&self, columns: &mut IndexSet<ColumnField>) {
+        self.lhs.get_column_fields(columns);
+        self.rhs.get_column_fields(columns);
     }
 }
 

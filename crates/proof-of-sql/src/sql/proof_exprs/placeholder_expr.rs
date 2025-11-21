@@ -1,7 +1,7 @@
 use super::ProofExpr;
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnField, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderError, PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -145,7 +145,7 @@ impl ProofExpr for PlaceholderExpr {
         Ok(chi_eval * param_value.to_scalar::<S>())
     }
 
-    fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
+    fn get_column_fields(&self, _columns: &mut IndexSet<ColumnField>) {}
 }
 
 #[cfg(test)]
