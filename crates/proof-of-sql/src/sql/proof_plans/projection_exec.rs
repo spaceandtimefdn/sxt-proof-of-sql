@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
-            TableRef,
+            Column, ColumnField, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -95,7 +95,7 @@ impl ProofPlan for ProjectionExec {
             .collect()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         // For projections any output column reference is a reference to an input column
         self.input.get_column_references()
     }

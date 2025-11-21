@@ -2,9 +2,9 @@ use super::{test_utility::*, LegacyFilterExec};
 use crate::{
     base::{
         database::{
-            owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
-            LiteralValue, OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor,
-            TestAccessor,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, LiteralValue,
+            OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
+            TypedColumnRef,
         },
         map::{indexmap, IndexMap, IndexSet},
         math::decimal::Precision,
@@ -32,7 +32,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     a,
                     ColumnType::BigInt,
@@ -40,7 +40,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     b,
                     ColumnType::BigInt,
@@ -52,7 +52,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
             table_ref: table_ref.clone(),
         },
         DynProofExpr::try_new_equals(
-            DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+            DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                 table_ref.clone(),
                 Ident::new("c"),
                 ColumnType::BigInt,
@@ -83,7 +83,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     a,
                     ColumnType::BigInt,
@@ -91,7 +91,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     f,
                     ColumnType::BigInt,
@@ -105,7 +105,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
         not(and(
             or(
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                         table_ref.clone(),
                         Ident::new("f"),
                         ColumnType::BigInt,
@@ -114,7 +114,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 )
                 .unwrap(),
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                         table_ref.clone(),
                         Ident::new("c"),
                         ColumnType::BigInt,
@@ -124,7 +124,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 .unwrap(),
             ),
             DynProofExpr::try_new_equals(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     Ident::new("b"),
                     ColumnType::BigInt,
@@ -140,10 +140,10 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     assert_eq!(
         ref_columns,
         IndexSet::from_iter([
-            ColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("c"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("b"), ColumnType::BigInt)
+            TypedColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
+            TypedColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
+            TypedColumnRef::new(table_ref.clone(), Ident::new("c"), ColumnType::BigInt),
+            TypedColumnRef::new(table_ref.clone(), Ident::new("b"), ColumnType::BigInt)
         ])
     );
 

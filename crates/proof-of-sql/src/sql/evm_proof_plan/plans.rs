@@ -1,7 +1,7 @@
 use super::{EVMDynProofExpr, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, TableRef},
+        database::{ColumnField, TableRef, TypedColumnRef},
         map::IndexSet,
     },
     sql::{
@@ -40,7 +40,7 @@ impl EVMDynProofPlan {
     pub(crate) fn try_from_proof_plan(
         plan: &DynProofPlan,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         match plan {
             DynProofPlan::Empty(empty_exec) => {
@@ -92,7 +92,7 @@ impl EVMDynProofPlan {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<DynProofPlan> {
         match self {
@@ -164,7 +164,7 @@ impl EVMTableExec {
     pub(crate) fn try_from_proof_plan(
         plan: &TableExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             table_number: table_refs
@@ -181,7 +181,7 @@ impl EVMTableExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<TableExec> {
         let table_ref = table_refs
             .get_index(self.table_number)
@@ -228,7 +228,7 @@ impl EVMLegacyFilterExec {
     pub(crate) fn try_from_proof_plan(
         plan: &LegacyFilterExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             table_number: table_refs
@@ -246,7 +246,7 @@ impl EVMLegacyFilterExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<LegacyFilterExec> {
         let output_column_names =
@@ -286,7 +286,7 @@ impl EVMFilterExec {
     pub(crate) fn try_from_proof_plan(
         plan: &FilterExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         let input_result_column_refs = plan.input().get_column_result_fields_as_references();
         Ok(Self {
@@ -312,7 +312,7 @@ impl EVMFilterExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<FilterExec> {
         let output_column_names =
@@ -351,7 +351,7 @@ impl EVMProjectionExec {
     pub(crate) fn try_from_proof_plan(
         plan: &ProjectionExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         let input_result_column_refs = plan.input().get_column_result_fields_as_references();
         Ok(Self {
@@ -373,7 +373,7 @@ impl EVMProjectionExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<ProjectionExec> {
         let output_column_names =
@@ -411,7 +411,7 @@ impl EVMSliceExec {
     pub(crate) fn try_from_proof_plan(
         plan: &SliceExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
@@ -427,7 +427,7 @@ impl EVMSliceExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<SliceExec> {
         Ok(SliceExec::new(
@@ -457,7 +457,7 @@ impl EVMGroupByExec {
     pub(crate) fn try_from_proof_plan(
         plan: &GroupByExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         // Map column expressions to their indices in column_refs
         let group_by_exprs = plan
@@ -494,7 +494,7 @@ impl EVMGroupByExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<GroupByExec> {
         let grouping_column_count = self.group_by_exprs.len();
@@ -569,7 +569,7 @@ impl EVMAggregateExec {
     pub(crate) fn try_from_proof_plan(
         plan: &AggregateExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         // Get the input result columns to use for expression conversion
         let input_result_column_refs = plan.input().get_column_result_fields_as_references();
@@ -614,7 +614,7 @@ impl EVMAggregateExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<AggregateExec> {
         let required_alias_count = self.group_by_exprs.len() + self.sum_expr.len() + 1;
@@ -684,7 +684,7 @@ impl EVMUnionExec {
     pub(crate) fn try_from_proof_plan(
         plan: &UnionExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         // Map column expressions to their indices in column_refs
         Ok(Self {
@@ -699,7 +699,7 @@ impl EVMUnionExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<UnionExec> {
         // We need not supply the output column names to anything other than the first input plan
@@ -732,7 +732,7 @@ impl EVMSortMergeJoinExec {
     pub(crate) fn try_from_proof_plan(
         plan: &SortMergeJoinExec,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         let left = Box::new(EVMDynProofPlan::try_from_proof_plan(
             plan.left_plan(),
@@ -764,7 +764,7 @@ impl EVMSortMergeJoinExec {
     pub(crate) fn try_into_proof_plan(
         &self,
         table_refs: &IndexSet<TableRef>,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<TypedColumnRef>,
     ) -> EVMProofPlanResult<SortMergeJoinExec> {
         let left = Box::new(
             self.left
@@ -813,8 +813,10 @@ mod tests {
         let ident_b: Ident = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -889,8 +891,10 @@ mod tests {
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -964,8 +968,10 @@ mod tests {
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         let column_fields = vec![
             ColumnField::new(ident_a, ColumnType::BigInt),
@@ -1039,8 +1045,8 @@ mod tests {
         let ident_b = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = TypedColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
+        let column_ref_b = TypedColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         let filter_exec = LegacyFilterExec::new(
             vec![AliasedDynProofExpr {
@@ -1109,8 +1115,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec
         let group_by_exec = GroupByExec::try_new(
@@ -1198,10 +1206,12 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
         let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
 
         // Create a group by exec with a column that doesn't exist in column_refs
         let group_by_exec = GroupByExec::try_new(
@@ -1244,8 +1254,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec with a table that doesn't exist in table_refs
         let group_by_exec = GroupByExec::try_new(
@@ -1287,8 +1299,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
@@ -1343,8 +1357,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
@@ -1399,8 +1415,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
@@ -1472,16 +1490,16 @@ mod tests {
         let ident_b: Ident = "b".into();
 
         let top_column_ref_a =
-            ColumnRef::new(top_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(top_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let top_column_ref_b =
-            ColumnRef::new(top_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(top_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
-        let bottom_column_ref_a = ColumnRef::new(
+        let bottom_column_ref_a = TypedColumnRef::new(
             bottom_table_ref.clone(),
             ident_a.clone(),
             ColumnType::BigInt,
         );
-        let bottom_column_ref_b = ColumnRef::new(
+        let bottom_column_ref_b = TypedColumnRef::new(
             bottom_table_ref.clone(),
             ident_b.clone(),
             ColumnType::BigInt,
@@ -1499,12 +1517,12 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                                 TableRef::from_names(None, ""),
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                                 TableRef::from_names(None, ""),
                                 ident_b.clone(),
                                 ColumnType::BigInt,
@@ -1523,12 +1541,12 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                                 TableRef::from_names(None, ""),
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                                 TableRef::from_names(None, ""),
                                 ident_b.clone(),
                                 ColumnType::BigInt,
@@ -1583,14 +1601,14 @@ mod tests {
         let ident_c: Ident = "c".into();
 
         let left_column_ref_a =
-            ColumnRef::new(left_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(left_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let left_column_ref_b =
-            ColumnRef::new(left_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(left_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         let right_column_ref_a =
-            ColumnRef::new(right_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(right_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let right_column_ref_b =
-            ColumnRef::new(right_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(right_table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create columns fields to use as the input
         let column_fields = vec![
@@ -1644,8 +1662,8 @@ mod tests {
         let ident_b = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = TypedColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
+        let column_ref_b = TypedColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -1727,8 +1745,10 @@ mod tests {
         let ident_b: Ident = "b".into();
         let ident_c: Ident = "c".into();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec
         let column_fields = vec![
@@ -1810,12 +1830,17 @@ mod tests {
         let alias_2 = "result_2";
         let alias_3 = "result_3";
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
-        let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_c =
+            TypedColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
 
-        let column_ref_1 = ColumnRef::new(table_ref.clone(), alias_1.into(), ColumnType::BigInt);
-        let column_ref_2 = ColumnRef::new(table_ref.clone(), alias_2.into(), ColumnType::BigInt);
+        let column_ref_1 =
+            TypedColumnRef::new(table_ref.clone(), alias_1.into(), ColumnType::BigInt);
+        let column_ref_2 =
+            TypedColumnRef::new(table_ref.clone(), alias_2.into(), ColumnType::BigInt);
 
         // Create a table exec as the base
         let column_fields = vec![
@@ -1982,10 +2007,12 @@ mod tests {
         let missing_ident: Ident = "missing".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
         let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -2029,10 +2056,12 @@ mod tests {
         let missing_ident: Ident = "missing".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
         let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+            TypedColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -2076,8 +2105,10 @@ mod tests {
         let ident_b: Ident = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec with a missing table reference
         let column_fields = vec![
@@ -2121,8 +2152,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec as input
         let column_fields = vec![
@@ -2132,12 +2165,12 @@ mod tests {
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
         // Create output column refs for aggregate (these come from the table's output)
-        let output_col_a = ColumnRef::new(
+        let output_col_a = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_a.clone(),
             ColumnType::BigInt,
         );
-        let output_col_b = ColumnRef::new(
+        let output_col_b = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_b.clone(),
             ColumnType::BigInt,
@@ -2198,6 +2231,7 @@ mod tests {
         ));
     }
 
+    #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_put_complex_aggregate_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
@@ -2208,9 +2242,12 @@ mod tests {
         let sum_alias_c = "sum_c".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
-        let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_c =
+            TypedColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
 
         // Create a table exec
         let column_fields = vec![
@@ -2241,17 +2278,17 @@ mod tests {
         );
 
         // Output columns from filter (used by aggregate)
-        let filter_output_col_a = ColumnRef::new(
+        let filter_output_col_a = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_a.clone(),
             ColumnType::BigInt,
         );
-        let filter_output_col_b = ColumnRef::new(
+        let filter_output_col_b = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_b.clone(),
             ColumnType::BigInt,
         );
-        let filter_output_col_c = ColumnRef::new(
+        let filter_output_col_c = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_c.clone(),
             ColumnType::BigInt,
@@ -2328,16 +2365,18 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Output columns (from table's perspective)
-        let output_col_a = ColumnRef::new(
+        let output_col_a = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_a.clone(),
             ColumnType::BigInt,
         );
-        let output_col_b = ColumnRef::new(
+        let output_col_b = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_b.clone(),
             ColumnType::BigInt,
@@ -2383,8 +2422,10 @@ mod tests {
         let sum_alias = "sum_b".to_string();
         let count_alias = "count".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let column_ref_a =
+            TypedColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b =
+            TypedColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec as input
         let column_fields = vec![
@@ -2394,12 +2435,12 @@ mod tests {
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
         // Output columns
-        let output_col_a = ColumnRef::new(
+        let output_col_a = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_a.clone(),
             ColumnType::BigInt,
         );
-        let output_col_b = ColumnRef::new(
+        let output_col_b = TypedColumnRef::new(
             TableRef::from_names(None, ""),
             ident_b.clone(),
             ColumnType::BigInt,

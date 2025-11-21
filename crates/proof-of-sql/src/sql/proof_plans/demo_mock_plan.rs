@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{ColumnField, LiteralValue, Table, TableEvaluation, TableRef, TypedColumnRef},
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -16,7 +16,7 @@ use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DemoMockPlan {
-    pub column: ColumnRef,
+    pub column: TypedColumnRef,
 }
 
 impl ProofPlan for DemoMockPlan {
@@ -42,7 +42,7 @@ impl ProofPlan for DemoMockPlan {
         )]
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         indexset! {self.column.clone()}
     }
 
@@ -82,7 +82,7 @@ mod tests {
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            ColumnType, OwnedTableTestAccessor, TableRef, TypedColumnRef,
         },
         sql::proof::VerifiableQueryResult,
     };
@@ -95,7 +95,7 @@ mod tests {
         let table_ref = "namespace.table_name".parse::<TableRef>().unwrap();
         let table = owned_table([bigint("column_name", [0, 1, 2, 3])]);
         let column_ref =
-            ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
+            TypedColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
         let plan = DemoMockPlan { column: column_ref };
         let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
             table_ref,

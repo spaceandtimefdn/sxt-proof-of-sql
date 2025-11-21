@@ -183,13 +183,13 @@ mod tests {
         logical_expr::{expr::Placeholder, Cast},
     };
     use proof_of_sql::base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnType, LiteralValue, TableRef, TypedColumnRef},
         math::decimal::Precision,
     };
 
     #[expect(non_snake_case)]
     fn COLUMN_INT() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column".into(),
             ColumnType::Int,
@@ -198,7 +198,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN1_SMALLINT() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::SmallInt,
@@ -207,7 +207,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN2_BIGINT() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column2".into(),
             ColumnType::BigInt,
@@ -216,7 +216,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN1_BOOLEAN() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::Boolean,
@@ -225,7 +225,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN2_BOOLEAN() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column2".into(),
             ColumnType::Boolean,
@@ -234,7 +234,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN3_DECIMAL_75_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column3".into(),
             ColumnType::Decimal75(
@@ -246,7 +246,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN2_DECIMAL_25_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column2".into(),
             ColumnType::Decimal75(
@@ -591,12 +591,12 @@ mod tests {
             expr_to_proof_expr(&expr, &schema).unwrap(),
             DynProofExpr::try_new_not(
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::new_column(ColumnRef::new(
+                    DynProofExpr::new_column(TypedColumnRef::new(
                         TableRef::from_names(Some("namespace"), "table_name"),
                         "column1".into(),
                         ColumnType::BigInt,
                     )),
-                    DynProofExpr::new_column(ColumnRef::new(
+                    DynProofExpr::new_column(TypedColumnRef::new(
                         TableRef::from_names(Some("namespace"), "table_name"),
                         "column2".into(),
                         ColumnType::BigInt,
@@ -643,7 +643,7 @@ mod tests {
         let schema = vec![("column".into(), ColumnType::Boolean)];
         assert_eq!(
             expr_to_proof_expr(&expr, &schema).unwrap(),
-            DynProofExpr::try_new_not(DynProofExpr::new_column(ColumnRef::new(
+            DynProofExpr::try_new_not(DynProofExpr::new_column(TypedColumnRef::new(
                 TableRef::from_names(None, "table_name"),
                 "column".into(),
                 ColumnType::Boolean

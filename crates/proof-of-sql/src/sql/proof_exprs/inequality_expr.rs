@@ -1,7 +1,7 @@
 use super::{add_subtract_columns, DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{try_inequality_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{try_inequality_types, Column, ColumnType, LiteralValue, Table, TypedColumnRef},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -153,7 +153,7 @@ impl ProofExpr for InequalityExpr {
         verifier_evaluate_sign(builder, diff_eval, chi_eval, None)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
+    fn get_column_references(&self, columns: &mut IndexSet<TypedColumnRef>) {
         self.lhs.get_column_references(columns);
         self.rhs.get_column_references(columns);
     }

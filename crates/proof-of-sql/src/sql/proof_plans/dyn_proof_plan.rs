@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{ColumnField, LiteralValue, Table, TableEvaluation, TableRef, TypedColumnRef},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -177,10 +177,10 @@ impl DynProofPlan {
     }
 
     /// Returns the resulting column fields of the plan as column references
-    pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<ColumnRef> {
+    pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<TypedColumnRef> {
         self.get_column_result_fields()
             .into_iter()
-            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
+            .map(|f| TypedColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
             .collect()
     }
 }

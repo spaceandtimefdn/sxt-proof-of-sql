@@ -7,8 +7,8 @@ use super::membership_check::{
 use crate::{
     base::{
         database::{
-            owned_table_utility::*, table_utility::table, Column, ColumnField, ColumnRef,
-            ColumnType, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            owned_table_utility::*, table_utility::table, Column, ColumnField, ColumnType,
+            LiteralValue, Table, TableEvaluation, TableOptions, TableRef, TypedColumnRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -29,8 +29,8 @@ use sqlparser::ast::Ident;
 pub struct MembershipCheckTestPlan {
     pub source_table: TableRef,
     pub candidate_table: TableRef,
-    pub source_columns: Vec<ColumnRef>,
-    pub candidate_columns: Vec<ColumnRef>,
+    pub source_columns: Vec<TypedColumnRef>,
+    pub candidate_columns: Vec<TypedColumnRef>,
 }
 
 impl ProverEvaluate for MembershipCheckTestPlan {
@@ -148,7 +148,7 @@ impl ProofPlan for MembershipCheckTestPlan {
         )]
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.source_columns
             .iter()
             .chain(self.candidate_columns.iter())
@@ -223,12 +223,12 @@ mod tests {
         let plan = MembershipCheckTestPlan {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
-            source_columns: vec![ColumnRef::new(
+            source_columns: vec![TypedColumnRef::new(
                 source_table_ref,
                 "a".into(),
                 ColumnType::BigInt,
             )],
-            candidate_columns: vec![ColumnRef::new(
+            candidate_columns: vec![TypedColumnRef::new(
                 candidate_table_ref,
                 "c".into(),
                 ColumnType::BigInt,
@@ -272,14 +272,14 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-                ColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
+                TypedColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
+                TypedColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
+                TypedColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
             ],
             candidate_columns: vec![
-                ColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
-                ColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
-                ColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
+                TypedColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
+                TypedColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
+                TypedColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
             ],
         };
         let verifiable_res =
@@ -320,14 +320,14 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-                ColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
+                TypedColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
+                TypedColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
+                TypedColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
             ],
             candidate_columns: vec![
-                ColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
-                ColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
-                ColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
+                TypedColumnRef::new(candidate_table_ref.clone(), "c".into(), ColumnType::BigInt),
+                TypedColumnRef::new(candidate_table_ref.clone(), "d".into(), ColumnType::VarChar),
+                TypedColumnRef::new(candidate_table_ref, "e".into(), ColumnType::Boolean),
             ],
         };
         let verifiable_res =
@@ -362,10 +362,10 @@ mod tests {
             source_table: source_table_ref.clone(),
             candidate_table: candidate_table_ref.clone(),
             source_columns: vec![
-                ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-                ColumnRef::new(source_table_ref, "b".into(), ColumnType::BigInt),
+                TypedColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
+                TypedColumnRef::new(source_table_ref, "b".into(), ColumnType::BigInt),
             ],
-            candidate_columns: vec![ColumnRef::new(
+            candidate_columns: vec![TypedColumnRef::new(
                 candidate_table_ref,
                 "a".into(),
                 ColumnType::BigInt,

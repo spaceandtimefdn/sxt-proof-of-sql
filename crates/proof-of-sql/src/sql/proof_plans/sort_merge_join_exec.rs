@@ -7,7 +7,8 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -296,7 +297,7 @@ where
             .collect()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.left
             .get_column_references()
             .into_iter()

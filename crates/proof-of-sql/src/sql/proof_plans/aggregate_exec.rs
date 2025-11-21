@@ -3,8 +3,8 @@ use crate::{
     base::{
         database::{
             group_by_util::{aggregate_columns, AggregatedColumns},
-            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation,
-            TableRef,
+            Column, ColumnField, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
+            TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -233,7 +233,7 @@ impl ProofPlan for AggregateExec {
             .collect()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.input.get_column_references()
     }
 

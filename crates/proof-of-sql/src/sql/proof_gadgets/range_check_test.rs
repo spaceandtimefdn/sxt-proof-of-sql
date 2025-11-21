@@ -5,8 +5,8 @@ use super::range_check::{
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableRef,
+            ColumnField, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation, TableRef,
+            TypedColumnRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -24,7 +24,7 @@ use sqlparser::ast::Ident;
 // A test plan for performing range checks on a specified column.
 struct RangeCheckTestPlan {
     // The column reference for the range check test.
-    column: ColumnRef,
+    column: TypedColumnRef,
 }
 
 macro_rules! handle_column_with_match {
@@ -149,7 +149,7 @@ impl ProofPlan for RangeCheckTestPlan {
         )]
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         indexset! {self.column.clone()}
     }
 
@@ -183,7 +183,9 @@ mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{owned_table_utility::*, ColumnRef, ColumnType, OwnedTableTestAccessor},
+            database::{
+                owned_table_utility::*, ColumnType, OwnedTableTestAccessor, TypedColumnRef,
+            },
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         },
@@ -200,7 +202,7 @@ mod tests {
         accessor: &OwnedTableTestAccessor<InnerProductProof>,
     ) {
         let ast = RangeCheckTestPlan {
-            column: ColumnRef::new(table_name, col_name.into(), col_type),
+            column: TypedColumnRef::new(table_name, col_name.into(), col_type),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&ast, accessor, &(), &[]).unwrap();
@@ -273,7 +275,7 @@ mod tests {
         let accessor =
             OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
-            column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
+            column: TypedColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
@@ -303,7 +305,7 @@ mod tests {
         let accessor =
             OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
-            column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
+            column: TypedColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
@@ -342,7 +344,7 @@ mod tests {
         let accessor =
             OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
-            column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
+            column: TypedColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
@@ -383,7 +385,7 @@ mod tests {
         let accessor =
             OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
-            column: ColumnRef::new(t, "a".into(), ColumnType::Scalar),
+            column: TypedColumnRef::new(t, "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();

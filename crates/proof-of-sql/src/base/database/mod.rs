@@ -12,6 +12,8 @@ pub use column_type::ColumnType;
 
 mod column_ref;
 pub use column_ref::ColumnRef;
+mod typed_column_ref;
+pub use typed_column_ref::TypedColumnRef;
 
 mod column_field;
 pub use column_field::ColumnField;

@@ -1,8 +1,8 @@
 use super::{Commitment, TableCommitment};
 use crate::base::{
     database::{
-        ColumnField, ColumnRef, ColumnType, CommitmentAccessor, MetadataAccessor, SchemaAccessor,
-        TableRef,
+        ColumnField, ColumnType, CommitmentAccessor, MetadataAccessor, SchemaAccessor, TableRef,
+        TypedColumnRef,
     },
     map::IndexMap,
 };
@@ -24,14 +24,14 @@ where
 {
     /// Create a new `QueryCommitments` from a collection of columns and an accessor.
     fn from_accessor_with_max_bounds(
-        columns: impl IntoIterator<Item = ColumnRef>,
+        columns: impl IntoIterator<Item = TypedColumnRef>,
         accessor: &(impl CommitmentAccessor<C> + SchemaAccessor),
     ) -> Self;
 }
 
 impl<C: Commitment> QueryCommitmentsExt<C> for QueryCommitments<C> {
     fn from_accessor_with_max_bounds(
-        columns: impl IntoIterator<Item = ColumnRef>,
+        columns: impl IntoIterator<Item = TypedColumnRef>,
         accessor: &(impl CommitmentAccessor<C> + SchemaAccessor),
     ) -> Self {
         columns
@@ -370,10 +370,10 @@ mod tests {
 
         let query_commitments = QueryCommitments::<DoryCommitment>::from_accessor_with_max_bounds(
             [
-                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
-                ColumnRef::new(table_b_id.clone(), column_a_id, ColumnType::Scalar),
-                ColumnRef::new(table_a_id, column_b_id.clone(), ColumnType::VarChar),
-                ColumnRef::new(table_b_id, column_b_id, ColumnType::Int128),
+                TypedColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
+                TypedColumnRef::new(table_b_id.clone(), column_a_id, ColumnType::Scalar),
+                TypedColumnRef::new(table_a_id, column_b_id.clone(), ColumnType::VarChar),
+                TypedColumnRef::new(table_b_id, column_b_id, ColumnType::Int128),
             ],
             &accessor,
         );

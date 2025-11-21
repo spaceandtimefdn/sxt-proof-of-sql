@@ -7,8 +7,8 @@ use crate::{
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
-            TableEvaluation, TableRef,
+            ColumnField, ColumnType, LiteralValue, OwnedTableTestAccessor, Table, TableEvaluation,
+            TableRef, TypedColumnRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -85,7 +85,7 @@ impl ProofPlan for EmptyTestQueryExpr {
             .collect()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         indexset! {}
     }
 
