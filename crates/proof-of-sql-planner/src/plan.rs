@@ -17,7 +17,7 @@ use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
         proof::ProofPlan,
-        proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr},
         proof_plans::{DynProofPlan, SortMergeJoinExec},
     },
 };
@@ -176,6 +176,7 @@ fn projection_to_proof_plan(
 ///
 /// # Panics
 /// The code should never panic
+#[expect(clippy::too_many_lines)]
 fn aggregate_to_proof_plan(
     input: &LogicalPlan,
     group_expr: &[Expr],
@@ -193,18 +194,33 @@ fn aggregate_to_proof_plan(
         }) => {
             let table_ref = table_reference_to_table_ref(table_name)?;
             let input_schema = schemas.lookup_schema(&table_ref);
+            let input_plan = DynProofPlan::new_table(
+                table_ref,
+                input_schema
+                    .iter()
+                    .map(|(name, data_type)| ColumnField::new(name.clone(), *data_type))
+                    .collect(),
+            );
             // Check that all of `group_expr` are columns and convert to `ColumnExprs`
             let group_by_exprs = group_expr
                 .iter()
                 .map(|e| match e {
-                    Expr::Column(c) => Ok(ColumnExpr::new(column_to_column_ref(c, &input_schema)?)),
+                    Expr::Column(c) => {
+                        let alias = alias_map.get(c.name.as_str()).ok_or_else(|| {
+                            PlannerError::UnsupportedLogicalPlan {
+                                plan: Box::new(input.clone()),
+                            }
+                        })?;
+                        Ok(AliasedDynProofExpr {
+                            expr: DynProofExpr::new_column(column_to_column_ref(c, &input_schema)?),
+                            alias: (*alias).into(),
+                        })
+                    }
                     _ => Err(PlannerError::UnsupportedLogicalPlan {
                         plan: Box::new(input.clone()),
                     }),
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
-            // `sum_expr`
-            let table_expr = TableExpr { table_ref };
             // Aggregate
             // Prove that the ordering of `aggr_expr` is
             // 1. All group columns according to `group_columns`
@@ -268,11 +284,11 @@ fn aggregate_to_proof_plan(
                 .map(|f| expr_to_proof_expr(f, &input_schema))
                 .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
                 .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
-            DynProofPlan::try_new_group_by(
+            DynProofPlan::try_new_aggregate(
                 group_by_exprs,
                 sum_expr,
                 count_alias,
-                table_expr,
+                input_plan,
                 consolidated_filter_proof_expr,
             )
             .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
@@ -521,9 +537,12 @@ mod tests {
         physical_plan,
     };
     use indexmap::{indexmap, indexmap_with_default};
-    use proof_of_sql::base::{
-        database::{ColumnField, TestSchemaAccessor},
-        math::decimal::Precision,
+    use proof_of_sql::{
+        base::{
+            database::{ColumnField, TestSchemaAccessor},
+            math::decimal::Precision,
+        },
+        sql::proof_exprs::{ColumnExpr, TableExpr},
     };
     use std::hash::BuildHasherDefault;
 
