@@ -109,10 +109,12 @@ impl ProofExpr for ColumnExpr {
             })?)
     }
 
-    /// Insert in the [`IndexSet`] `columns` all the column
-    /// references in the `BoolExpr` or forwards the call to some
-    /// subsequent `bool_expr`
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        columns.insert(self.column_ref.clone());
+    /// Insert in the [`IndexSet`] `columns` all the column fields
+    /// that are inputs to this expression (or forwards the call to some
+    /// subsequent expression).
+    /// Note: these are column fields of the input plan, NOT necessarily
+    /// related to column fields of the source tables.
+    fn get_column_fields(&self, columns: &mut IndexSet<ColumnField>) {
+        columns.insert(self.get_column_field());
     }
 }
