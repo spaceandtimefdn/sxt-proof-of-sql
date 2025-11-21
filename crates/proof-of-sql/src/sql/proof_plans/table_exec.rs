@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{ColumnField, LiteralValue, Table, TableEvaluation, TableRef, TypedColumnRef},
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -76,10 +76,12 @@ impl ProofPlan for TableExec {
         self.schema.clone()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.schema
             .iter()
-            .map(|field| ColumnRef::new(self.table_ref.clone(), field.name(), field.data_type()))
+            .map(|field| {
+                TypedColumnRef::new(self.table_ref.clone(), field.name(), field.data_type())
+            })
             .collect()
     }
 

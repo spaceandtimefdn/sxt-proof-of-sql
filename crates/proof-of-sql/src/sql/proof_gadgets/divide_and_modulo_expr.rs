@@ -143,7 +143,7 @@ mod tests {
     use super::DivideAndModuloExpr;
     use crate::{
         base::{
-            database::{Column, ColumnRef, ColumnType, Table, TableRef},
+            database::{Column, ColumnType, Table, TableRef, TypedColumnRef},
             map::indexmap,
             polynomial::MultilinearExtension,
             scalar::test_scalar::TestScalar,
@@ -166,8 +166,8 @@ mod tests {
         let table_ref: TableRef = "sxt.t".parse().unwrap();
         let lhs_ident = Ident::from("lhs");
         let rhs_ident = Ident::from("rhs");
-        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
-        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
+        let lhs_ref = TypedColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
+        let rhs_ref = TypedColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
         let divide_and_modulo_expr = DivideAndModuloExpr::new(
             Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
             Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),

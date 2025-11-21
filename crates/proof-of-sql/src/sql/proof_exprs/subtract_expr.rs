@@ -2,7 +2,7 @@ use super::{add_subtract_columns, DecimalProofExpr, DynProofExpr, ProofExpr};
 use crate::{
     base::{
         database::{
-            try_add_subtract_column_types, Column, ColumnRef, ColumnType, LiteralValue, Table,
+            try_add_subtract_column_types, Column, ColumnType, LiteralValue, Table, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -111,7 +111,7 @@ impl ProofExpr for SubtractExpr {
         Ok(lhs_eval - rhs_eval)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
+    fn get_column_references(&self, columns: &mut IndexSet<TypedColumnRef>) {
         self.lhs.get_column_references(columns);
         self.rhs.get_column_references(columns);
     }

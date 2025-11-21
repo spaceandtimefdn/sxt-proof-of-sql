@@ -207,8 +207,8 @@ mod tests {
     use crate::{
         base::{
             database::{
-                table_utility::*, ColumnField, ColumnRef, ColumnType, LiteralValue, Table,
-                TableEvaluation, TableOptions, TableRef, TableTestAccessor, TestAccessor,
+                table_utility::*, ColumnField, ColumnType, LiteralValue, Table, TableEvaluation,
+                TableOptions, TableRef, TableTestAccessor, TestAccessor, TypedColumnRef,
             },
             map::{indexset, IndexMap, IndexSet},
             proof::{PlaceholderResult, ProofError},
@@ -226,8 +226,8 @@ mod tests {
 
     #[derive(Debug, Serialize)]
     pub struct ShiftTestPlan {
-        pub column: ColumnRef,
-        pub candidate_shifted_column: ColumnRef,
+        pub column: TypedColumnRef,
+        pub candidate_shifted_column: TypedColumnRef,
         /// The length can be wrong in the test plan and that should error out
         pub column_length: usize,
     }
@@ -318,7 +318,7 @@ mod tests {
             vec![]
         }
 
-        fn get_column_references(&self) -> IndexSet<ColumnRef> {
+        fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
             indexset! {self.column.clone(), self.candidate_shifted_column.clone()}
         }
 
@@ -372,8 +372,8 @@ mod tests {
 
         // BigInt column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref.clone(),
                 "c".into(),
                 ColumnType::BigInt,
@@ -387,8 +387,8 @@ mod tests {
 
         // Varchar column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref.clone(),
                 "d".into(),
                 ColumnType::VarChar,
@@ -402,8 +402,8 @@ mod tests {
 
         // Boolean column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref, "c".into(), ColumnType::Boolean),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref,
                 "e".into(),
                 ColumnType::Boolean,
@@ -443,8 +443,8 @@ mod tests {
 
         // BigInt column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref.clone(), "a".into(), ColumnType::BigInt),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref.clone(),
                 "c".into(),
                 ColumnType::BigInt,
@@ -457,8 +457,8 @@ mod tests {
 
         // Varchar column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref.clone(), "b".into(), ColumnType::VarChar),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref.clone(),
                 "d".into(),
                 ColumnType::VarChar,
@@ -471,8 +471,8 @@ mod tests {
 
         // Boolean column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref.clone(), "c".into(), ColumnType::Boolean),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref.clone(), "c".into(), ColumnType::Boolean),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref.clone(),
                 "e".into(),
                 ColumnType::Boolean,
@@ -485,8 +485,8 @@ mod tests {
 
         // Success case: The last pair of columns is correct even though the others are not
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref, "d".into(), ColumnType::BigInt),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref, "d".into(), ColumnType::BigInt),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref,
                 "f".into(),
                 ColumnType::BigInt,
@@ -520,8 +520,8 @@ mod tests {
 
         // BigInt column
         let plan = ShiftTestPlan {
-            column: ColumnRef::new(source_table_ref, "a".into(), ColumnType::BigInt),
-            candidate_shifted_column: ColumnRef::new(
+            column: TypedColumnRef::new(source_table_ref, "a".into(), ColumnType::BigInt),
+            candidate_shifted_column: TypedColumnRef::new(
                 candidate_table_ref,
                 "a".into(),
                 ColumnType::BigInt,

@@ -1,15 +1,15 @@
 use super::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr};
 use crate::base::{
-    database::{ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
+    database::{ColumnType, LiteralValue, SchemaAccessor, TableRef, TypedColumnRef},
     math::{decimal::Precision, i256::I256},
     scalar::Scalar,
 };
 use sqlparser::ast::Ident;
 
-pub fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
+pub fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> TypedColumnRef {
     let name: Ident = name.into();
     let type_col = accessor.lookup_column(tab, &name).unwrap();
-    ColumnRef::new(tab.clone(), name, type_col)
+    TypedColumnRef::new(tab.clone(), name, type_col)
 }
 
 /// # Panics
@@ -18,7 +18,11 @@ pub fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> Co
 pub fn column(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> DynProofExpr {
     let name: Ident = name.into();
     let type_col = accessor.lookup_column(tab, &name).unwrap();
-    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(tab.clone(), name, type_col)))
+    DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
+        tab.clone(),
+        name,
+        type_col,
+    )))
 }
 
 /// # Panics

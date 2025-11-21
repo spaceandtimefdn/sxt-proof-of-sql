@@ -6,7 +6,8 @@ use super::monotonic::{
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            TypedColumnRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -22,7 +23,7 @@ use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub struct MonotonicTestPlan<const STRICT: bool, const ASC: bool> {
-    pub column: ColumnRef,
+    pub column: TypedColumnRef,
 }
 
 impl<const STRICT: bool, const ASC: bool> ProverEvaluate for MonotonicTestPlan<STRICT, ASC> {
@@ -89,7 +90,7 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
         vec![]
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         indexset! {self.column.clone()}
     }
 
@@ -140,7 +141,7 @@ mod tests {
         shall_error: bool,
     ) {
         let plan = MonotonicTestPlan::<STRICT, ASC> {
-            column: ColumnRef::new(table_ref, column_name.into(), column_type),
+            column: TypedColumnRef::new(table_ref, column_name.into(), column_type),
         };
         let verifiable_res =
             VerifiableQueryResult::<InnerProductProof>::new(&plan, accessor, &(), &[]).unwrap();

@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            filter_util::filter_columns, ColumnField, LiteralValue, Table, TableEvaluation,
+            TableOptions, TableRef, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -138,7 +138,7 @@ where
         self.input.get_column_result_fields()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.input.get_column_references()
     }
 

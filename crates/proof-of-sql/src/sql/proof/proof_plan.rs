@@ -1,6 +1,6 @@
 use super::{verification_builder::VerificationBuilder, FinalRoundBuilder, FirstRoundBuilder};
 use crate::base::{
-    database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+    database::{ColumnField, LiteralValue, Table, TableEvaluation, TableRef, TypedColumnRef},
     map::{IndexMap, IndexSet},
     proof::{PlaceholderResult, ProofError},
     scalar::Scalar,
@@ -26,7 +26,7 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
     fn get_column_result_fields(&self) -> Vec<ColumnField>;
 
     /// Return all the columns referenced in the Query
-    fn get_column_references(&self) -> IndexSet<ColumnRef>;
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef>;
 
     /// Return all the tables referenced in the Query
     fn get_table_references(&self) -> IndexSet<TableRef>;

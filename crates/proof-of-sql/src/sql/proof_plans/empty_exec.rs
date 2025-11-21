@@ -1,7 +1,8 @@
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -54,7 +55,7 @@ impl ProofPlan for EmptyExec {
         Vec::new()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         IndexSet::default()
     }
 

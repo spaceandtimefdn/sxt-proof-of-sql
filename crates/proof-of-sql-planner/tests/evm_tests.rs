@@ -10,8 +10,8 @@ use proof_of_sql::{
                 bigint, boolean, decimal75, int, owned_table, smallint, timestamptz, tinyint,
                 varbinary, varchar,
             },
-            ColumnField, ColumnRef, ColumnType, CommitmentAccessor, LiteralValue,
-            OwnedTableTestAccessor, SchemaAccessor, TableRef, TestAccessor,
+            ColumnField, ColumnType, CommitmentAccessor, LiteralValue, OwnedTableTestAccessor,
+            SchemaAccessor, TableRef, TestAccessor, TypedColumnRef,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
@@ -109,10 +109,10 @@ fn evm_verifier_all(
 }
 
 #[expect(clippy::missing_panics_doc)]
-fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnRef {
+fn col_ref(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> TypedColumnRef {
     let name: Ident = name.into();
     let type_col = accessor.lookup_column(tab, &name).unwrap();
-    ColumnRef::new(tab.clone(), name, type_col)
+    TypedColumnRef::new(tab.clone(), name, type_col)
 }
 
 fn col_expr_plan(
@@ -954,12 +954,12 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         vec![
             AliasedDynProofExpr {
                 expr: DynProofExpr::try_new_add(
-                    DynProofExpr::new_column(ColumnRef::new(
+                    DynProofExpr::new_column(TypedColumnRef::new(
                         t.clone(),
                         "a".into(),
                         ColumnType::BigInt,
                     )),
-                    DynProofExpr::new_column(ColumnRef::new(
+                    DynProofExpr::new_column(TypedColumnRef::new(
                         t.clone(),
                         "b".into(),
                         ColumnType::BigInt,
@@ -969,7 +969,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
                 alias: "x".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
+                expr: DynProofExpr::new_column(TypedColumnRef::new(
                     t.clone(),
                     "b".into(),
                     ColumnType::BigInt,
@@ -977,7 +977,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
                 alias: "y".into(),
             },
             AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
+                expr: DynProofExpr::new_column(TypedColumnRef::new(
                     t.clone(),
                     "c".into(),
                     ColumnType::BigInt,
@@ -991,7 +991,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
     let dummy_table = TableRef::new("", "");
     let filter_results = vec![
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
+            expr: DynProofExpr::new_column(TypedColumnRef::new(
                 dummy_table.clone(),
                 "x".into(),
                 ColumnType::Decimal75(Precision::new(20).unwrap(), 0),
@@ -999,7 +999,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
             alias: "x".into(),
         },
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
+            expr: DynProofExpr::new_column(TypedColumnRef::new(
                 dummy_table.clone(),
                 "y".into(),
                 ColumnType::BigInt,
@@ -1007,7 +1007,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
             alias: "y".into(),
         },
         AliasedDynProofExpr {
-            expr: DynProofExpr::new_column(ColumnRef::new(
+            expr: DynProofExpr::new_column(TypedColumnRef::new(
                 dummy_table.clone(),
                 "z".into(),
                 ColumnType::BigInt,
@@ -1020,7 +1020,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         filter_results,
         projection,
         DynProofExpr::try_new_inequality(
-            DynProofExpr::new_column(ColumnRef::new(
+            DynProofExpr::new_column(TypedColumnRef::new(
                 dummy_table.clone(),
                 "z".into(),
                 ColumnType::BigInt,

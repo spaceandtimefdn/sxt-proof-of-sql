@@ -1,7 +1,7 @@
 use super::{numerical_util::cast_column, DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{try_cast_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{try_cast_types, Column, ColumnType, LiteralValue, Table, TypedColumnRef},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -95,7 +95,7 @@ impl ProofExpr for CastExpr {
             .verifier_evaluate(builder, accessor, chi_eval, params)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
+    fn get_column_references(&self, columns: &mut IndexSet<TypedColumnRef>) {
         self.from_expr.get_column_references(columns);
     }
 }

@@ -7,7 +7,7 @@ use datafusion::{
 };
 use proof_of_sql::{
     base::{
-        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnType, LiteralValue, TableRef, TypedColumnRef},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
@@ -107,14 +107,14 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
     }
 }
 
-/// Find a column in a schema and return its info as a [`ColumnRef`]
+/// Find a column in a schema and return its info as a [`TypedColumnRef`]
 ///
 /// Note that the table name must be provided in the column which resolved logical plans do
 /// Otherwise we error out
 pub(crate) fn column_to_column_ref(
     column: &Column,
     schema: &[(Ident, ColumnType)],
-) -> PlannerResult<ColumnRef> {
+) -> PlannerResult<TypedColumnRef> {
     let relation = column
         .relation
         .as_ref()
@@ -126,7 +126,7 @@ pub(crate) fn column_to_column_ref(
         .find(|(i, _t)| *i == ident)
         .ok_or(PlannerError::ColumnNotFound)?
         .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+    Ok(TypedColumnRef::new(table_ref, ident, column_type))
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -468,14 +468,14 @@ mod tests {
         ));
     }
 
-    // Column to ColumnRef
+    // Column to TypedColumnRef
     #[test]
     fn we_can_convert_column_to_column_ref() {
         let column = Column::new(Some("namespace.table"), "a");
         let schema = vec![("a".into(), ColumnType::Int)];
         assert_eq!(
             column_to_column_ref(&column, &schema).unwrap(),
-            ColumnRef::new(
+            TypedColumnRef::new(
                 TableRef::from_names(Some("namespace"), "table"),
                 "a".into(),
                 ColumnType::Int

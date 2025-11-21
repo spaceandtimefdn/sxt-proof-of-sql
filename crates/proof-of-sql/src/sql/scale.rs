@@ -73,11 +73,11 @@ pub fn scale_cast_binary_op(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::database::{ColumnRef, TableRef};
+    use crate::base::database::{TableRef, TypedColumnRef};
 
     #[expect(non_snake_case)]
     fn COLUMN1_BOOLEAN() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::Boolean,
@@ -86,7 +86,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN1_SMALLINT() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::SmallInt,
@@ -95,7 +95,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN1_DECIMAL_3_MINUS2() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::Decimal75(
@@ -107,7 +107,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN1_DECIMAL_10_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column1".into(),
             ColumnType::Decimal75(
@@ -119,7 +119,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN3_DECIMAL_75_10() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column3".into(),
             ColumnType::Decimal75(
@@ -131,7 +131,7 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COLUMN2_DECIMAL_25_5() -> DynProofExpr {
-        DynProofExpr::new_column(ColumnRef::new(
+        DynProofExpr::new_column(TypedColumnRef::new(
             TableRef::from_names(Some("namespace"), "table_name"),
             "column2".into(),
             ColumnType::Decimal75(

@@ -2,7 +2,7 @@ use super::{plans::EVMDynProofPlan, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
+            ColumnField, ColumnType, LiteralValue, Table, TableEvaluation, TableRef, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -107,7 +107,7 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
             .map(|table| TableRef::from_str(table).map_err(|_| EVMProofPlanError::InvalidTableName))
             .try_collect()?;
         let table_refs_clone = table_refs.clone();
-        let column_refs: IndexSet<ColumnRef> = value
+        let column_refs: IndexSet<TypedColumnRef> = value
             .columns
             .iter()
             .map(|(i, ident, column_type)| -> EVMProofPlanResult<_> {
@@ -115,7 +115,11 @@ impl TryFrom<CompactPlan> for EVMProofPlan {
                     .get_index(*i)
                     .cloned()
                     .ok_or(EVMProofPlanError::TableNotFound)?;
-                Ok(ColumnRef::new(table_ref, Ident::new(ident), *column_type))
+                Ok(TypedColumnRef::new(
+                    table_ref,
+                    Ident::new(ident),
+                    *column_type,
+                ))
             })
             .try_collect()?;
         let output_column_names: IndexSet<String> = value.output_column_names.into_iter().collect();
@@ -162,7 +166,7 @@ impl ProofPlan for EVMProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.inner().get_column_result_fields()
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.inner().get_column_references()
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {

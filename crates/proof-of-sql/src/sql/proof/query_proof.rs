@@ -8,8 +8,8 @@ use crate::{
         bit::BitDistribution,
         commitment::{Commitment, CommitmentEvaluationProof, CommittableColumn},
         database::{
-            ColumnRef, CommitmentAccessor, DataAccessor, LiteralValue, MetadataAccessor,
-            OwnedTable, Table, TableRef,
+            CommitmentAccessor, DataAccessor, LiteralValue, MetadataAccessor, OwnedTable, Table,
+            TableRef, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         math::log2_up,
@@ -124,7 +124,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 let idents: IndexSet<Ident> = total_col_refs
                     .iter()
                     .filter(|col_ref| col_ref.table_ref() == table_ref)
-                    .map(ColumnRef::column_id)
+                    .map(TypedColumnRef::column_id)
                     .collect();
                 (table_ref.clone(), accessor.get_table(&table_ref, &idents))
             })

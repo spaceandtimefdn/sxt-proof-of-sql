@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            union_util::table_union, Column, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableRef,
+            union_util::table_union, Column, ColumnField, LiteralValue, Table, TableEvaluation,
+            TableRef, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         polynomial::MultilinearExtension,
@@ -108,7 +108,7 @@ where
             .get_column_result_fields()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         self.inputs
             .iter()
             .flat_map(ProofPlan::get_column_references)

@@ -2,8 +2,8 @@ use super::fold_vals;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            filter_util::filter_columns, Column, ColumnField, LiteralValue, Table, TableEvaluation,
+            TableOptions, TableRef, TypedColumnRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -143,7 +143,7 @@ where
             .collect()
     }
 
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         let mut columns = IndexSet::default();
 
         for aliased_expr in &self.aliased_results {

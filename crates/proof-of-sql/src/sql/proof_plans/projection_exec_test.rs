@@ -2,8 +2,8 @@ use super::{test_utility::*, DynProofPlan, ProjectionExec};
 use crate::{
     base::{
         database::{
-            owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
-            OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, OwnedTable,
+            OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor, TypedColumnRef,
         },
         map::{indexmap, IndexMap, IndexSet},
         math::decimal::Precision,
@@ -30,7 +30,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let provable_ast = ProjectionExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     a,
                     ColumnType::BigInt,
@@ -38,7 +38,7 @@ fn we_can_correctly_fetch_the_query_result_schema() {
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     b,
                     ColumnType::BigInt,
@@ -72,7 +72,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let provable_ast = projection(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     a,
                     ColumnType::BigInt,
@@ -80,7 +80,7 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                DynProofExpr::Column(ColumnExpr::new(TypedColumnRef::new(
                     table_ref.clone(),
                     f,
                     ColumnType::BigInt,
@@ -102,8 +102,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     assert_eq!(
         ref_columns,
         IndexSet::from_iter([
-            ColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
-            ColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
+            TypedColumnRef::new(table_ref.clone(), Ident::new("a"), ColumnType::BigInt),
+            TypedColumnRef::new(table_ref.clone(), Ident::new("f"), ColumnType::BigInt),
         ])
     );
 
@@ -181,7 +181,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_nontrivial_projection() {
 
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_composed_projection() {
-    //TODO: Remove `ColumnType` from `ColumnRef` so that we don't need an intermediate accessor
+    //TODO: Remove `ColumnType` from `TypedColumnRef` so that we don't need an intermediate accessor
     let data = owned_table([
         bigint("a", [1_i64, 4_i64, 5_i64, 2_i64, 5_i64]),
         bigint("b", [1_i64, 2, 3, 4, 5]),

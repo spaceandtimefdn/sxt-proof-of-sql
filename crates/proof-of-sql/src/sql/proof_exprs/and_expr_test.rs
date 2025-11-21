@@ -2,8 +2,8 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
-            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
+            Table, TableRef, TableTestAccessor, TypedColumnRef,
         },
         map::indexmap,
         polynomial::MultilinearExtension,
@@ -230,8 +230,8 @@ fn we_can_verify_a_simple_proof() {
         "b".into() => Column::Boolean::<TestScalar>(rhs),
     })
     .unwrap();
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = TypedColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
+    let b = TypedColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
         Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
         Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
@@ -274,8 +274,8 @@ fn we_can_reject_a_simple_tampered_proof() {
     let t: TableRef = "sxt.t".parse().unwrap();
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = TypedColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
+    let b = TypedColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
         Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
         Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),

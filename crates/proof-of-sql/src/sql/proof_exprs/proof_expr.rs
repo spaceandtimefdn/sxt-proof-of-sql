@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnType, LiteralValue, Table, TypedColumnRef},
         map::{IndexMap, IndexSet},
         math::decimal::Precision,
         proof::{PlaceholderResult, ProofError},
@@ -52,7 +52,7 @@ pub trait ProofExpr: Debug + Send + Sync {
     /// Insert in the [`IndexSet`] `columns` all the column
     /// references in the `BoolExpr` or forwards the call to some
     /// subsequent `bool_expr`
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>);
+    fn get_column_references(&self, columns: &mut IndexSet<TypedColumnRef>);
 }
 
 /// A trait for `ProofExpr`s that always return a decimal type

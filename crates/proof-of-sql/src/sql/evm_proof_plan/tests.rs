@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnType, LiteralValue, TableRef, TypedColumnRef},
         try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     sql::{
@@ -20,8 +20,8 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let identifier_b = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = TypedColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
+    let column_ref_b = TypedColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
 
     let plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {
@@ -82,8 +82,8 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
     let identifier_b = "b".into();
     let identifier_alias = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
+    let column_ref_a = TypedColumnRef::new(table_ref.clone(), identifier_a, ColumnType::BigInt);
+    let column_ref_b = TypedColumnRef::new(table_ref.clone(), identifier_b, ColumnType::BigInt);
 
     let expected_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
         vec![AliasedDynProofExpr {

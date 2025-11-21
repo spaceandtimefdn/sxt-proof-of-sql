@@ -6,8 +6,8 @@ use crate::{
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
-            TableEvaluation, TableRef,
+            ColumnField, ColumnType, LiteralValue, OwnedTableTestAccessor, Table, TableEvaluation,
+            TableRef, TypedColumnRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -111,7 +111,7 @@ impl ProofPlan for TrivialTestProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
         indexset! {}
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
@@ -328,8 +328,8 @@ impl ProofPlan for SquareTestProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
+        indexset! {TypedColumnRef::new(
         TableRef::new("sxt", "test"),
               "x".into(),
               ColumnType::BigInt,
@@ -529,8 +529,8 @@ impl ProofPlan for DoubleSquareTestProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
+        indexset! {TypedColumnRef::new(
         TableRef::new("sxt", "test"),
               "x".into(),
               ColumnType::BigInt,
@@ -723,8 +723,8 @@ impl ProofPlan for ChallengeTestProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
+        indexset! {TypedColumnRef::new(
             TableRef::new("sxt", "test"),
             "x".into(),
             ColumnType::BigInt,
@@ -864,8 +864,8 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
     }
-    fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        indexset! {ColumnRef::new(
+    fn get_column_references(&self) -> IndexSet<TypedColumnRef> {
+        indexset! {TypedColumnRef::new(
             TableRef::new("sxt", "test"),
             "x".into(),
             ColumnType::BigInt,

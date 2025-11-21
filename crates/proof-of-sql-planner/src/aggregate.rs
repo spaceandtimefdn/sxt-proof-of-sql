@@ -64,7 +64,7 @@ pub(crate) fn aggregate_function_to_proof_expr(
 mod tests {
     use super::*;
     use crate::df_util::*;
-    use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
+    use proof_of_sql::base::database::{ColumnType, TableRef, TypedColumnRef};
 
     // AggregateFunction to DynProofExpr
     #[test]
@@ -93,7 +93,7 @@ mod tests {
                 aggregate_function_to_proof_expr(&function, &schema).unwrap(),
                 (
                     *operator,
-                    DynProofExpr::new_column(ColumnRef::new(
+                    DynProofExpr::new_column(TypedColumnRef::new(
                         TableRef::from_names(None, "table"),
                         "a".into(),
                         ColumnType::BigInt

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnType, LiteralValue, Table, TypedColumnRef},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -106,7 +106,7 @@ impl ProofExpr for ScalingCastExpr {
             .map(|unscaled_eval| S::from(self.scaling_factor) * unscaled_eval)
     }
 
-    fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
+    fn get_column_references(&self, columns: &mut IndexSet<TypedColumnRef>) {
         self.from_expr.get_column_references(columns);
     }
 }

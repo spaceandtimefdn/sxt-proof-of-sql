@@ -2,16 +2,16 @@ use super::{ColumnType, TableRef};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
-/// Reference of a SQL column
+/// Reference of a SQL column with type information
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
-pub struct ColumnRef {
+pub struct TypedColumnRef {
     column_id: Ident,
     table_ref: TableRef,
     column_type: ColumnType,
 }
 
-impl ColumnRef {
-    /// Create a new `ColumnRef` from a table, column identifier and column type
+impl TypedColumnRef {
+    /// Create a new `TypedColumnRef` from a table, column identifier and column type
     #[must_use]
     pub fn new(table_ref: TableRef, column_id: Ident, column_type: ColumnType) -> Self {
         Self {
