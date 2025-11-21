@@ -2231,6 +2231,7 @@ mod tests {
         ));
     }
 
+    #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_put_complex_aggregate_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
