@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{And Expr}
+\author{MakeInfinite Inc}
+\date{Aug 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $a$ and $b$ be two columns with length $n$ and all its elements 0 or 1. $c$ is the Hadamard product $a \odot b$ if and only if the constraints hold.
+\section{Constraints}
+\begin{itemize}
+    \item Inputs: Input columns $a$, $b$.
+    \item Assumptions: The length of $a$ and $b$ is confirmed to be $n$ and all elements are 0 or 1.
+    \item Outputs: The Hadamard product $a \odot b$.
+    \item Hints and gadgets: None.
+    \item Challenges: None.
+    \item Constraints: $a_i\cdot b_i&=&c_i$
+\end{itemize}
+\section{Completeness}
+Trivially true.
+\section{Soundness}
+True due to the constraint.
+\end{document}

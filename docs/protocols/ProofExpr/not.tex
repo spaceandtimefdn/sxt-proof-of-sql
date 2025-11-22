@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{todonotes}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\title{Not Expr}
+\author{MakeInfinite Inc}
+\date{Aug 2025}
+
+\begin{document}
+\maketitle
+
+\section{Definition}
+\noindent Let $a$ be a column with length $n$. $c$ is NOT $a$ if and only if $C(c) = C(\chi_n) - C(a)$.
+\section{Constraints}
+\begin{itemize}
+    \item Inputs: Input column $a$.
+    \item Assumptions: The length of $a$ is confirmed to be $n$.
+    \item Outputs: The difference $\chi_n - a$.
+    \item Hints and gadgets: None.
+    \item Challenges: None.
+    \item Constraints: None.
+\end{itemize}
+\section{Completeness}
+Trivially true since Pedersen commitment is homomorphic with respect to addition.
+\section{Soundness}
+True since the possibility of any random vector having commitment identical to $C(\chi_n-a) = C(\chi_n) - C(a)$ is negligible.
+\end{document}
