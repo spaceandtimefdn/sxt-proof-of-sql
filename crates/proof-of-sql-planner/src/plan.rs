@@ -176,7 +176,6 @@ fn projection_to_proof_plan(
 ///
 /// # Panics
 /// The code should never panic
-#[expect(clippy::too_many_lines)]
 fn aggregate_to_proof_plan(
     input: &LogicalPlan,
     group_expr: &[Expr],
@@ -184,23 +183,16 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<&str, &str>,
 ) -> PlannerResult<DynProofPlan> {
+    let input_plan = logical_plan_to_proof_plan(input, schemas)?;
     match input {
         // Only TableScan without fetch is supported
         LogicalPlan::TableScan(TableScan {
             table_name,
-            filters,
             fetch: None,
             ..
         }) => {
             let table_ref = table_reference_to_table_ref(table_name)?;
             let input_schema = schemas.lookup_schema(&table_ref);
-            let input_plan = DynProofPlan::new_table(
-                table_ref,
-                input_schema
-                    .iter()
-                    .map(|(name, data_type)| ColumnField::new(name.clone(), *data_type))
-                    .collect(),
-            );
             // Check that all of `group_expr` are columns and convert to `ColumnExprs`
             let group_by_exprs = group_expr
                 .iter()
@@ -278,18 +270,12 @@ fn aggregate_to_proof_plan(
                     alias: alias.clone(),
                 })
                 .collect::<Vec<_>>();
-            // Filter
-            let consolidated_filter_proof_expr = filters
-                .iter()
-                .map(|f| expr_to_proof_expr(f, &input_schema))
-                .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
-                .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
             DynProofPlan::try_new_aggregate(
                 group_by_exprs,
                 sum_expr,
                 count_alias,
                 input_plan,
-                consolidated_filter_proof_expr,
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
             )
             .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
                 plan: Box::new(input.clone()),
