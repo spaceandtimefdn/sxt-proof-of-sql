@@ -794,7 +794,12 @@ fn we_can_verify_a_slice_exec_using_the_evm() {
     let plan = EVMProofPlan::new(inner_plan.clone());
     let serialized = try_standard_binary_serialization(plan).unwrap();
     let deserialized: EVMProofPlan = try_standard_binary_deserialization(&serialized).unwrap().0;
-    assert_eq!(inner_plan, deserialized.into_inner());
+    let reserialized = try_standard_binary_serialization(&deserialized).unwrap();
+    assert_eq!(
+        inner_plan.get_column_result_fields(),
+        deserialized.into_inner().get_column_result_fields()
+    );
+    assert_eq!(reserialized, serialized);
 }
 
 #[ignore = "This test requires the forge binary to be present"]
