@@ -13,6 +13,7 @@ use datafusion::{
     sql::{sqlparser::ast::Ident, TableReference},
 };
 use indexmap::{IndexMap, IndexSet};
+use itertools::Itertools;
 use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
@@ -252,6 +253,10 @@ fn aggregate_to_proof_plan(
                     }),
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
+            let agg_aliased_proof_exprs: Vec<_> = agg_aliased_proof_exprs
+                .iter()
+                .sorted_by_key(|((a, _), _)| *a)
+                .collect();
             // Check that the last expression is COUNT and the rest are SUMs
             let (sum_tuples, count_tuple) =
                 agg_aliased_proof_exprs.split_at(agg_aliased_proof_exprs.len() - 1);

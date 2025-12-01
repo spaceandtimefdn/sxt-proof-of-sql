@@ -19,6 +19,7 @@ datafusion = { workspace = true }
 # getrandom and uuid must be compiled with js feature
 getrandom = { workspace = true, features = ["js"] }
 indexmap = { workspace = true }
+itertools = { workspace = true }
 postcard = { workspace = true }
 proof-of-sql = { workspace = true, features = ["arrow"] }
 rand = { workspace = true, default-features = false }

@@ -14,7 +14,7 @@ use proof_of_sql::{
 use sqlparser::ast::Ident;
 
 /// An aggregate function we support
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AggregateFunc {
     /// Sum
     Sum,
