@@ -115,11 +115,12 @@ pub(crate) fn column_to_column_ref(
     column: &Column,
     schema: &[(Ident, ColumnType)],
 ) -> PlannerResult<ColumnRef> {
-    let relation = column
+    let table_ref = column
         .relation
         .as_ref()
-        .ok_or_else(|| PlannerError::UnresolvedLogicalPlan)?;
-    let table_ref = table_reference_to_table_ref(relation)?;
+        .map(table_reference_to_table_ref)
+        .transpose()?
+        .unwrap_or_else(|| TableRef::from_names(None, ""));
     let ident: Ident = column.name.as_str().into();
     let column_type = schema
         .iter()
@@ -484,13 +485,13 @@ mod tests {
     }
 
     #[test]
-    fn we_cannot_convert_column_to_column_ref_without_relation() {
+    fn we_can_convert_column_to_column_ref_without_relation() {
         let column = Column::new(None::<&str>, "a");
         let schema = vec![("a".into(), ColumnType::Int)];
-        assert!(matches!(
-            column_to_column_ref(&column, &schema),
-            Err(PlannerError::UnresolvedLogicalPlan)
-        ));
+        assert_eq!(
+            column_to_column_ref(&column, &schema).unwrap(),
+            ColumnRef::new(TableRef::from_names(None, ""), "a".into(), ColumnType::Int)
+        );
     }
 
     #[test]
