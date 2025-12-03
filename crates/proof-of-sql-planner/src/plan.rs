@@ -11,7 +11,6 @@ use datafusion::{
     sql::{sqlparser::ast::Ident, TableReference},
 };
 use indexmap::{IndexMap, IndexSet};
-use itertools::Itertools;
 use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
@@ -178,7 +177,8 @@ fn aggregate_to_proof_plan(
         .map(|field| (field.name(), field.data_type()))
         .collect::<Vec<_>>();
     let dummy_table_ref = TableRef::from_names(None, "");
-    let mut inner_aliases = 0..(group_expr.len() + aggr_expr.len());
+    // We keep an extra alias just in case there is no count in the aggregate expr list
+    let mut inner_aliases = 0..=(group_expr.len() + aggr_expr.len());
     let (inner_group_by_exprs, group_by_exprs): (Vec<_>, Vec<_>) = group_expr
         .iter()
         .zip(&mut inner_aliases)
@@ -210,16 +210,6 @@ fn aggregate_to_proof_plan(
         .collect::<PlannerResult<Vec<_>>>()?
         .into_iter()
         .unzip();
-    // Aggregate
-    // Prove that the ordering of `aggr_expr` is
-    // 1. All group columns according to `group_columns`
-    // 2. (Optional) All the SUMs
-    // 3. COUNT
-    if aggr_expr.is_empty() {
-        return Err(PlannerError::UnsupportedLogicalPlan {
-            plan: Box::new(input.clone()),
-        });
-    }
     let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
         .iter()
         .map(|e| {
@@ -243,33 +233,18 @@ fn aggregate_to_proof_plan(
             }
         })
         .collect::<PlannerResult<Vec<_>>>()?;
-    let agg_aliased_proof_exprs: Vec<_> = agg_aliased_proof_exprs
+    let sum_tuples: Vec<_> = agg_aliased_proof_exprs
         .iter()
-        .sorted_by_key(|((a, _), _)| *a)
+        .filter_map(|((a, expr), alias)| matches!(a, AggregateFunc::Sum).then_some((expr, alias)))
         .collect();
-    // Check that the last expression is COUNT and the rest are SUMs
-    let (sum_tuples, count_tuple) =
-        agg_aliased_proof_exprs.split_at(agg_aliased_proof_exprs.len() - 1);
-    let sum_is_compliant = sum_tuples
+    let count_aliases: Vec<_> = agg_aliased_proof_exprs
         .iter()
-        .all(|((op, _), _)| matches!(op, AggregateFunc::Sum));
-    let count_is_compliant = count_tuple
-        .iter()
-        .all(|((op, _), _)| matches!(op, AggregateFunc::Count));
-    if !sum_is_compliant || !count_is_compliant {
-        return Err(PlannerError::UnsupportedLogicalPlan {
-            plan: Box::new(input.clone()),
-        });
-    }
-    let count_alias = agg_aliased_proof_exprs
-        .last()
-        .expect("We have already checked that this exists")
-        .1
-        .clone();
+        .filter_map(|((a, _), alias)| matches!(a, AggregateFunc::Count).then_some(alias))
+        .collect();
     let (inner_sum_expr, sum_exprs): (Vec<_>, Vec<_>) = sum_tuples
-        .iter()
+        .into_iter()
         .zip(&mut inner_aliases)
-        .map(|(((_, expr), alias), inner_alias)| {
+        .map(|((expr, alias), inner_alias)| {
             let inner_alias: Ident = inner_alias.to_string().as_str().into();
             let proof_expr = DynProofExpr::new_column(ColumnRef::new(
                 dummy_table_ref.clone(),
@@ -294,18 +269,18 @@ fn aggregate_to_proof_plan(
         .to_string()
         .as_str()
         .into();
-    let count_expr = AliasedDynProofExpr {
-        alias: count_alias,
+    let count_exprs = count_aliases.into_iter().map(|alias| AliasedDynProofExpr {
+        alias: alias.clone(),
         expr: DynProofExpr::new_column(ColumnRef::new(
             dummy_table_ref.clone(),
             inner_count_alias.clone(),
             ColumnType::BigInt,
         )),
-    };
+    });
     let projection_exprs = group_by_exprs
         .into_iter()
         .chain(sum_exprs)
-        .chain(core::iter::once(count_expr))
+        .chain(count_exprs)
         .collect();
     let inner_aggregate_plan = DynProofPlan::try_new_aggregate(
         inner_group_by_exprs,

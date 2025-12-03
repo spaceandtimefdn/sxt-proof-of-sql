@@ -676,24 +676,29 @@ fn we_can_verify_a_groupby_query_using_the_evm() {
     let statements = Parser::parse_sql(
         &GenericDialect {},
         "SELECT a, count(1) as count_0, sum(b) as sum_b FROM namespace.table WHERE c = 2 GROUP BY a HAVING sum(b) > 1;
-        SELECT a+b as a_plus_b, count(1) as count_0 FROM namespace.table GROUP BY a+b HAVING sum(c)>0;",
+        SELECT a+b as a_plus_b, count(1) as count_0 FROM namespace.table GROUP BY a+b HAVING sum(c)>0;
+        SELECT a+b as a_plus_b FROM namespace.table GROUP BY a+b HAVING sum(c)>0;
+        SELECT a+b as a_plus_b, count(1) as count_0, count(2) as count_1 FROM namespace.table GROUP BY a+b HAVING sum(c)>0;
+        SELECT a+b as a_plus_b FROM namespace.table GROUP BY a+b;
+        SELECT SUM(a+c) as a_plus_c_total, SUM(b+c) as b_plus_c_total, a+b as a_plus_b, COUNT(*) as count_total FROM namespace.table GROUP BY a+b HAVING COUNT(b) < SUM(b);",
     )
     .unwrap();
-    let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
-    let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
-        &EVMProofPlan::new(plan.clone()),
-        &accessor,
-        &&ps[..],
-        &[],
-    )
-    .unwrap();
-
-    assert!(evm_verifier_all(plan, "[]", &verifiable_result, &accessor));
-
-    verifiable_result
-        .clone()
-        .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+    for plan in sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap() {
+        let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(
+            &EVMProofPlan::new(plan.clone()),
+            &accessor,
+            &&ps[..],
+            &[],
+        )
         .unwrap();
+
+        assert!(evm_verifier_all(&plan, "[]", &verifiable_result, &accessor));
+
+        verifiable_result
+            .clone()
+            .verify(&EVMProofPlan::new(plan.clone()), &accessor, &&vk, &[])
+            .unwrap();
+    }
 }
 
 #[ignore = "This test requires the forge binary to be present"]
