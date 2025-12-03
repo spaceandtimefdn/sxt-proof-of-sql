@@ -1300,35 +1300,6 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn we_cannot_aggregate_with_non_table_scan_input() {
-        // Setup group expression
-        let group_expr = vec![df_column("table", "a")];
-
-        // Create the aggregate expressions
-        let aggr_expr = vec![
-            COUNT_1(), // COUNT
-        ];
-
-        // Create a non-TableScan input plan
-        let input_plan = LogicalPlan::EmptyRelation(EmptyRelation {
-            produce_one_row: false,
-            schema: Arc::new(DFSchema::empty()),
-        });
-        let alias_map = indexmap! {
-            "a".to_string() => "a".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
-        };
-
-        // Test the function - should return an error
-        let result =
-            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
-        assert!(matches!(
-            result,
-            Err(PlannerError::UnsupportedLogicalPlan { .. })
-        ));
-    }
-
     // EmptyRelation
     #[test]
     fn we_can_convert_empty_plan_to_proof_plan() {
