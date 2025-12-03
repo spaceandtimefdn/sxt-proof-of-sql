@@ -131,22 +131,6 @@ fn table_scan_to_filter(
     ))
 }
 
-fn try_get_schema_as_vec_from_df_schema(
-    df_schema: &DFSchema,
-) -> PlannerResult<Vec<(Ident, ColumnType)>> {
-    df_schema
-        .fields()
-        .iter()
-        .map(|f| {
-            ColumnType::try_from(f.data_type().clone())
-                .map_err(|_| PlannerError::UnsupportedDataType {
-                    data_type: f.data_type().clone(),
-                })
-                .map(|t| (Ident::from(f.name().as_ref()), t))
-        })
-        .collect::<Result<Vec<_>, _>>()
-}
-
 /// Converts a [`datafusion::logical_expr::Projection`] to a [`DynProofPlan`]
 fn projection_to_proof_plan(
     expr: &[Expr],
@@ -155,7 +139,11 @@ fn projection_to_proof_plan(
     schemas: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+    let input_schema = input_plan
+        .get_column_result_fields()
+        .iter()
+        .map(|field| (field.name(), field.data_type()))
+        .collect::<Vec<_>>();
     let aliased_exprs = expr
         .iter()
         .zip(output_schema.fields().iter())
@@ -505,7 +493,11 @@ pub fn logical_plan_to_proof_plan(
             input, predicate, ..
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            let input_schema = try_get_schema_as_vec_from_df_schema(input.schema())?;
+            let input_schema = input_plan
+                .get_column_result_fields()
+                .iter()
+                .map(|field| (field.name(), field.data_type()))
+                .collect::<Vec<_>>();
             let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
             let aliased_exprs = input_plan
                 .get_column_result_fields()
