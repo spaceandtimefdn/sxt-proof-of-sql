@@ -1,14 +1,12 @@
 use super::{
-    aggregate_function_to_proof_expr, column_to_column_ref, expr_to_proof_expr,
-    get_column_idents_from_expr, table_reference_to_table_ref, AggregateFunc, PlannerError,
-    PlannerResult,
+    aggregate_function_to_proof_expr, expr_to_proof_expr, get_column_idents_from_expr,
+    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
 };
 use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        expr::Alias, Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan,
-        Union,
+        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -165,7 +163,6 @@ fn projection_to_proof_plan(
 ///
 /// # Panics
 /// The code should never panic
-#[expect(clippy::too_many_lines)]
 fn aggregate_to_proof_plan(
     input: &LogicalPlan,
     group_expr: &[Expr],
@@ -173,41 +170,30 @@ fn aggregate_to_proof_plan(
     schemas: &impl SchemaAccessor,
     alias_map: &IndexMap<String, String>,
 ) -> PlannerResult<DynProofPlan> {
+    let input_plan = logical_plan_to_proof_plan(input, schemas)?;
+    let input_schema = input_plan
+        .get_column_result_fields()
+        .iter()
+        .map(|field| (field.name(), field.data_type()))
+        .collect::<Vec<_>>();
     match input {
         // Only TableScan without fetch is supported
-        LogicalPlan::TableScan(TableScan {
-            table_name,
-            filters,
-            fetch: None,
-            ..
-        }) => {
-            let table_ref = table_reference_to_table_ref(table_name)?;
-            let input_schema = schemas.lookup_schema(&table_ref);
-            let input_plan = DynProofPlan::new_table(
-                table_ref,
-                input_schema
-                    .iter()
-                    .map(|(name, data_type)| ColumnField::new(name.clone(), *data_type))
-                    .collect(),
-            );
+        LogicalPlan::TableScan(TableScan { fetch: None, .. }) => {
             // Check that all of `group_expr` are columns and convert to `ColumnExprs`
             let group_by_exprs = group_expr
                 .iter()
-                .map(|e| match e {
-                    Expr::Column(c) => {
-                        let alias = alias_map.get(&c.name).ok_or_else(|| {
-                            PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(input.clone()),
-                            }
-                        })?;
-                        Ok(AliasedDynProofExpr {
-                            expr: DynProofExpr::new_column(column_to_column_ref(c, &input_schema)?),
-                            alias: alias.as_str().into(),
-                        })
-                    }
-                    _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: Box::new(input.clone()),
-                    }),
+                .map(|e| -> PlannerResult<AliasedDynProofExpr> {
+                    let proof_expr = expr_to_proof_expr(e, &input_schema)?;
+                    let name_string = e.clone().unalias().display_name()?;
+                    let alias = alias_map.get(&name_string).ok_or_else(|| {
+                        PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(input.clone()),
+                        }
+                    })?;
+                    Ok(AliasedDynProofExpr {
+                        expr: proof_expr,
+                        alias: alias.as_str().into(),
+                    })
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
             // Aggregate
@@ -222,22 +208,25 @@ fn aggregate_to_proof_plan(
             }
             let agg_aliased_proof_exprs: Vec<((AggregateFunc, DynProofExpr), Ident)> = aggr_expr
                 .iter()
-                .map(|e| match e.clone().unalias() {
-                    Expr::AggregateFunction(agg) => {
-                        let name_string = e.display_name()?;
-                        let alias = alias_map.get(&name_string).ok_or_else(|| {
-                            PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(input.clone()),
-                            }
-                        })?;
-                        Ok((
-                            aggregate_function_to_proof_expr(&agg, &input_schema)?,
-                            alias.as_str().into(),
-                        ))
+                .map(|e| {
+                    let expr = e.clone().unalias();
+                    match &expr {
+                        Expr::AggregateFunction(agg) => {
+                            let name_string = expr.display_name()?;
+                            let alias = alias_map.get(&name_string).ok_or_else(|| {
+                                PlannerError::UnsupportedLogicalPlan {
+                                    plan: Box::new(input.clone()),
+                                }
+                            })?;
+                            Ok((
+                                aggregate_function_to_proof_expr(agg, &input_schema)?,
+                                alias.as_str().into(),
+                            ))
+                        }
+                        _ => Err(PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(input.clone()),
+                        }),
                     }
-                    _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: Box::new(input.clone()),
-                    }),
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
             let agg_aliased_proof_exprs: Vec<_> = agg_aliased_proof_exprs
@@ -270,18 +259,12 @@ fn aggregate_to_proof_plan(
                     alias: alias.clone(),
                 })
                 .collect::<Vec<_>>();
-            // Filter
-            let consolidated_filter_proof_expr = filters
-                .iter()
-                .map(|f| expr_to_proof_expr(f, &input_schema))
-                .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
-                .unwrap_or_else(|| Ok(DynProofExpr::new_literal(LiteralValue::Boolean(true))))?;
             DynProofPlan::try_new_aggregate(
                 group_by_exprs,
                 sum_expr,
                 count_alias,
                 input_plan,
-                consolidated_filter_proof_expr,
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
             )
             .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
                 plan: Box::new(input.clone()),
@@ -363,7 +346,6 @@ fn join_to_proof_plan(
 }
 
 /// Visit a [`datafusion::logical_plan::LogicalPlan`] and return a [`DynProofPlan`]
-#[expect(clippy::too_many_lines)]
 pub fn logical_plan_to_proof_plan(
     plan: &LogicalPlan,
     schema_accessor: &impl SchemaAccessor,
@@ -406,26 +388,8 @@ pub fn logical_plan_to_proof_plan(
         }) => {
             let name_strings = group_expr
                 .iter()
-                .map(|e| match e {
-                    Expr::Column(c) => Ok(c.name.clone()),
-                    Expr::Alias(Alias { expr, name: _, .. }) => {
-                        if let Expr::Column(c) = expr.as_ref() {
-                            Ok(c.name.clone())
-                        } else {
-                            Err(PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(plan.clone()),
-                            })
-                        }
-                    }
-                    _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: Box::new(plan.clone()),
-                    }),
-                })
-                .chain(
-                    aggr_expr
-                        .iter()
-                        .map(|val| -> PlannerResult<_> { Ok(val.display_name()?) }),
-                )
+                .chain(aggr_expr.iter())
+                .map(|expr| expr.clone().unalias().display_name())
                 .collect::<Result<Vec<_>, _>>()?;
             let alias_map = name_strings
                 .into_iter()
@@ -440,49 +404,7 @@ pub fn logical_plan_to_proof_plan(
             expr,
             schema,
             ..
-        }) => {
-            match &**input {
-                LogicalPlan::Aggregate(Aggregate {
-                    input: agg_input,
-                    group_expr,
-                    aggr_expr,
-                    ..
-                }) => {
-                    // Check whether the last layer is identity
-                    let alias_map = expr
-                        .iter()
-                        .chain(group_expr)
-                        .map(|e| match e {
-                            Expr::Column(c) => Ok((c.name.clone(), c.name.clone())),
-                            Expr::Alias(Alias { expr, name, .. }) => {
-                                if let Expr::Column(c) = expr.as_ref() {
-                                    Ok((c.name.clone(), name.clone()))
-                                } else {
-                                    Err(PlannerError::UnsupportedLogicalPlan {
-                                        plan: Box::new(plan.clone()),
-                                    })
-                                }
-                            }
-                            _ => Err(PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(plan.clone()),
-                            }),
-                        })
-                        .collect::<PlannerResult<Vec<_>>>()?
-                        .into_iter()
-                        .rev()
-                        .collect();
-
-                    aggregate_to_proof_plan(
-                        agg_input,
-                        group_expr,
-                        aggr_expr,
-                        schema_accessor,
-                        &alias_map,
-                    )
-                }
-                _ => projection_to_proof_plan(expr, input, schema, schema_accessor),
-            }
-        }
+        }) => projection_to_proof_plan(expr, input, schema, schema_accessor),
         // Filter
         LogicalPlan::Filter(Filter {
             input, predicate, ..
@@ -546,7 +468,7 @@ mod tests {
     use datafusion::{
         common::{Column, ScalarValue},
         logical_expr::{
-            expr::{AggregateFunction, AggregateFunctionDefinition},
+            expr::{AggregateFunction, AggregateFunctionDefinition, Alias},
             not, BinaryExpr, EmptyRelation, Operator, Prepare, TableScan, TableSource,
         },
         physical_plan,
@@ -588,6 +510,57 @@ mod tests {
             table_ref => schema
         };
         TestSchemaAccessor::new(schema_accessor)
+    }
+
+    #[expect(non_snake_case)]
+    fn ALIASED_FILTER_RESULTS() -> Vec<AliasedDynProofExpr> {
+        vec![
+            AliasedDynProofExpr {
+                alias: "a".into(),
+                expr: DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "a".into(),
+                    ColumnType::BigInt,
+                ))),
+            },
+            AliasedDynProofExpr {
+                alias: "b".into(),
+                expr: DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "b".into(),
+                    ColumnType::Int,
+                ))),
+            },
+            AliasedDynProofExpr {
+                alias: "c".into(),
+                expr: DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "c".into(),
+                    ColumnType::VarChar,
+                ))),
+            },
+            AliasedDynProofExpr {
+                alias: "d".into(),
+                expr: DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "d".into(),
+                    ColumnType::Boolean,
+                ))),
+            },
+        ]
+    }
+
+    #[expect(non_snake_case)]
+    fn FILTER_EXEC() -> DynProofPlan {
+        DynProofPlan::new_filter(
+            ALIASED_FILTER_RESULTS(),
+            TABLE_EXEC(),
+            DynProofExpr::new_column(ColumnRef::new(
+                TABLE_REF_TABLE(),
+                "d".into(),
+                ColumnType::Boolean,
+            )),
+        )
     }
 
     #[expect(non_snake_case)]
@@ -790,7 +763,7 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a".to_string() => "a".to_string(),
+            "table.a".to_string() => "a".to_string(),
             "SUM(table.b)".to_string() => "sum_b".to_string(),
             "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
@@ -855,7 +828,7 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a".to_string() => "a".to_string(),
+            "table.a".to_string() => "a".to_string(),
             "SUM(table.b)".to_string() => "sum_b".to_string(),
             "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
@@ -884,12 +857,8 @@ mod tests {
                 alias: "sum_b".into(),
             }],
             "count_1".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
-                ColumnType::Boolean,
-            )),
+            FILTER_EXEC(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
         )
         .unwrap();
 
@@ -990,7 +959,7 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a".to_string() => "a".to_string(),
+            "table.a".to_string() => "a".to_string(),
             "SUM(table.b)".to_string() => "sum_b".to_string(),
             "SUM(table.d)".to_string() => "sum_d".to_string(),
             "COUNT(Int64(1))".to_string() => "count_1".to_string(),
@@ -1060,7 +1029,7 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a".to_string() => "a".to_string(),
+            "table.a".to_string() => "a".to_string(),
             "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
@@ -1857,12 +1826,8 @@ mod tests {
                 alias: "SUM(table.b)".into(),
             }],
             "COUNT(Int64(1))".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
-                ColumnType::Boolean,
-            )),
+            FILTER_EXEC(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
         )
         .unwrap();
 
@@ -1927,32 +1892,56 @@ mod tests {
         let result = logical_plan_to_proof_plan(&proj_plan, &SCHEMAS()).unwrap();
 
         // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
-                    ColumnType::BigInt,
-                )),
-                alias: "a".into(),
-            }],
-            vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
-                    ColumnType::Int,
-                )),
-                alias: "sum_b".into(),
-            }],
-            "count_1".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_column(ColumnRef::new(
-                TABLE_REF_TABLE(),
-                "d".into(),
-                ColumnType::Boolean,
-            )),
-        )
-        .unwrap();
+        let expected = DynProofPlan::new_projection(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "a".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TableRef::from_names(None, ""),
+                        "SUM(table.b)".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "sum_b".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TableRef::from_names(None, ""),
+                        "COUNT(Int64(1))".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "count_1".into(),
+                },
+            ],
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "a".into(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "b".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "SUM(table.b)".into(),
+                }],
+                "COUNT(Int64(1))".into(),
+                FILTER_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
@@ -1999,10 +1988,7 @@ mod tests {
         );
 
         // Test the function
-        assert!(matches!(
-            logical_plan_to_proof_plan(&proj_plan, &SCHEMAS()),
-            Err(PlannerError::UnsupportedLogicalPlan { .. })
-        ));
+        logical_plan_to_proof_plan(&proj_plan, &SCHEMAS()).unwrap();
     }
 
     // Unsupported
