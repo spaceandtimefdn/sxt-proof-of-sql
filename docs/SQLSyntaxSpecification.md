@@ -23,19 +23,18 @@ Proof of SQL uses [sqlparser](https://github.com/apache/datafusion-sqlparser-rs)
 |                          | >, ≥, <, ≤                | ✅        | ✅                  |
 | **Aggregate Functions**[^3]  | SUM                       | ✅        | ✅                  |
 |                          | COUNT                     | ✅        | ✅                  |
-| **SELECT Syntax**[^5]        | WHERE clause              | ✅        | ✅                  |
+| **SELECT Syntax**        | WHERE clause              | ✅        | ✅                  |
 |                          | GROUP BY clause           | ✅        | ✅                  |
 |                          | LIMIT clause              | ✅        | ✅                  |
 |                          | OFFSET clause             | ✅        | ✅                  |
 |                          | UNION ALL operator        | ✅        | ✅                  |
-|                          | JOIN clause[^2]           | ✅        | ❌                  |
+|                          | JOIN clause[^2]           | ✅        | ✅                  |
 
 
 [^1]: Currently, we do not support any string or binary operations beyond = and !=.
 [^2]: Currently, we only support some inner joins on one column.
 [^3]: Currently there are restrictions on aggregations we support.
 [^4]: Currently, we only support decimals up to 75 digits of precision and inequality operators only operate on decimals up to 38 digits of precision.
-[^5]: Currently, we support filters only on tables.
 
 For more details please refer to [DataFusion SELECT syntax](https://datafusion.apache.org/user-guide/sql/select.html).
 
