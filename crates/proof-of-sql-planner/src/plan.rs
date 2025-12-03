@@ -16,7 +16,7 @@ use proof_of_sql::{
     base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     sql::{
         proof::ProofPlan,
-        proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
         proof_plans::{DynProofPlan, SortMergeJoinExec},
     },
 };
@@ -163,6 +163,7 @@ fn projection_to_proof_plan(
 ///
 /// # Panics
 /// The code should never panic
+#[expect(clippy::too_many_lines)]
 fn aggregate_to_proof_plan(
     input: &LogicalPlan,
     group_expr: &[Expr],
@@ -176,22 +177,39 @@ fn aggregate_to_proof_plan(
         .iter()
         .map(|field| (field.name(), field.data_type()))
         .collect::<Vec<_>>();
-    let group_by_exprs = group_expr
+    let dummy_table_ref = TableRef::from_names(None, "");
+    let mut inner_aliases = 0..(group_expr.len() + aggr_expr.len());
+    let (inner_group_by_exprs, group_by_exprs): (Vec<_>, Vec<_>) = group_expr
         .iter()
-        .map(|e| -> PlannerResult<AliasedDynProofExpr> {
-            let proof_expr = expr_to_proof_expr(e, &input_schema)?;
+        .zip(&mut inner_aliases)
+        .map(|(e, aggregate_alias)| -> PlannerResult<_> {
+            let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
+            let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
             let name_string = e.clone().unalias().display_name()?;
             let alias = alias_map.get(&name_string).ok_or_else(|| {
                 PlannerError::UnsupportedLogicalPlan {
                     plan: Box::new(input.clone()),
                 }
             })?;
-            Ok(AliasedDynProofExpr {
-                expr: proof_expr,
-                alias: alias.as_str().into(),
-            })
+            let proof_expr = DynProofExpr::new_column(ColumnRef::new(
+                dummy_table_ref.clone(),
+                aggregate_alias.clone(),
+                aggregate_proof_expr.data_type(),
+            ));
+            Ok((
+                AliasedDynProofExpr {
+                    expr: aggregate_proof_expr,
+                    alias: aggregate_alias,
+                },
+                AliasedDynProofExpr {
+                    expr: proof_expr,
+                    alias: alias.as_str().into(),
+                },
+            ))
         })
-        .collect::<PlannerResult<Vec<_>>>()?;
+        .collect::<PlannerResult<Vec<_>>>()?
+        .into_iter()
+        .unzip();
     // Aggregate
     // Prove that the ordering of `aggr_expr` is
     // 1. All group columns according to `group_columns`
@@ -248,23 +266,61 @@ fn aggregate_to_proof_plan(
         .expect("We have already checked that this exists")
         .1
         .clone();
-    let sum_expr = sum_tuples
+    let (inner_sum_expr, sum_exprs): (Vec<_>, Vec<_>) = sum_tuples
         .iter()
-        .map(|((_, expr), alias)| AliasedDynProofExpr {
-            expr: expr.clone(),
-            alias: alias.clone(),
+        .zip(&mut inner_aliases)
+        .map(|(((_, expr), alias), inner_alias)| {
+            let inner_alias: Ident = inner_alias.to_string().as_str().into();
+            let proof_expr = DynProofExpr::new_column(ColumnRef::new(
+                dummy_table_ref.clone(),
+                inner_alias.clone(),
+                expr.data_type(),
+            ));
+            (
+                AliasedDynProofExpr {
+                    expr: expr.clone(),
+                    alias: inner_alias,
+                },
+                AliasedDynProofExpr {
+                    expr: proof_expr,
+                    alias: alias.clone(),
+                },
+            )
         })
-        .collect::<Vec<_>>();
-    DynProofPlan::try_new_aggregate(
-        group_by_exprs,
-        sum_expr,
-        count_alias,
+        .unzip();
+    let inner_count_alias: Ident = inner_aliases
+        .next()
+        .expect("Next item is confirmed to exist")
+        .to_string()
+        .as_str()
+        .into();
+    let count_expr = AliasedDynProofExpr {
+        alias: count_alias,
+        expr: DynProofExpr::new_column(ColumnRef::new(
+            dummy_table_ref.clone(),
+            inner_count_alias.clone(),
+            ColumnType::BigInt,
+        )),
+    };
+    let projection_exprs = group_by_exprs
+        .into_iter()
+        .chain(sum_exprs)
+        .chain(core::iter::once(count_expr))
+        .collect();
+    let inner_aggregate_plan = DynProofPlan::try_new_aggregate(
+        inner_group_by_exprs,
+        inner_sum_expr,
+        inner_count_alias,
         input_plan,
         DynProofExpr::new_literal(LiteralValue::Boolean(true)),
     )
     .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
         plan: Box::new(input.clone()),
-    })
+    })?;
+    Ok(DynProofPlan::new_projection(
+        projection_exprs,
+        inner_aggregate_plan,
+    ))
 }
 
 fn join_to_proof_plan(
@@ -764,29 +820,61 @@ mod tests {
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
                 .unwrap();
 
-        // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                    dummy_ref_table.clone(),
+                    "0".into(),
                     ColumnType::BigInt,
                 )),
                 alias: "a".into(),
-            }],
-            vec![AliasedDynProofExpr {
+            },
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                    dummy_ref_table.clone(),
+                    "1".into(),
                     ColumnType::Int,
                 )),
                 alias: "sum_b".into(),
-            }],
-            "count_1".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "2".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "count_1".into(),
+            },
+        ];
+
+        // Expected result
+        let expected = DynProofPlan::new_projection(
+            projection_exprs,
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "0".into(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "b".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "1".into(),
+                }],
+                "2".into(),
+                TABLE_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
@@ -829,29 +917,61 @@ mod tests {
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
                 .unwrap();
 
-        // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                    dummy_ref_table.clone(),
+                    "0".into(),
                     ColumnType::BigInt,
                 )),
                 alias: "a".into(),
-            }],
-            vec![AliasedDynProofExpr {
+            },
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                    dummy_ref_table.clone(),
+                    "1".into(),
                     ColumnType::Int,
                 )),
                 alias: "sum_b".into(),
-            }],
-            "count_1".into(),
-            FILTER_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "2".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "count_1".into(),
+            },
+        ];
+
+        // Expected result
+        let expected = DynProofPlan::new_projection(
+            projection_exprs,
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "0".into(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "b".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "1".into(),
+                }],
+                "2".into(),
+                FILTER_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
@@ -961,39 +1081,79 @@ mod tests {
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
                 .unwrap();
 
-        // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                    dummy_ref_table.clone(),
+                    "0".into(),
                     ColumnType::BigInt,
                 )),
                 alias: "a".into(),
-            }],
-            vec![
-                AliasedDynProofExpr {
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table.clone(),
+                    "1".into(),
+                    ColumnType::Int,
+                )),
+                alias: "sum_b".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table.clone(),
+                    "2".into(),
+                    ColumnType::Boolean,
+                )),
+                alias: "sum_d".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "3".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "count_1".into(),
+            },
+        ];
+
+        // Expected result
+        let expected = DynProofPlan::new_projection(
+            projection_exprs,
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
                     expr: DynProofExpr::new_column(ColumnRef::new(
                         TABLE_REF_TABLE(),
-                        "b".into(),
-                        ColumnType::Int,
+                        "a".into(),
+                        ColumnType::BigInt,
                     )),
-                    alias: "sum_b".into(),
-                },
-                AliasedDynProofExpr {
-                    expr: DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "d".into(),
-                        ColumnType::Boolean,
-                    )),
-                    alias: "sum_d".into(),
-                },
-            ],
-            "count_1".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+                    alias: "0".into(),
+                }],
+                vec![
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TABLE_REF_TABLE(),
+                            "b".into(),
+                            ColumnType::Int,
+                        )),
+                        alias: "1".into(),
+                    },
+                    AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TABLE_REF_TABLE(),
+                            "d".into(),
+                            ColumnType::Boolean,
+                        )),
+                        alias: "2".into(),
+                    },
+                ],
+                "3".into(),
+                TABLE_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
@@ -1029,22 +1189,46 @@ mod tests {
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map)
                 .unwrap();
 
-        // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                    dummy_ref_table.clone(),
+                    "0".into(),
                     ColumnType::BigInt,
                 )),
                 alias: "a".into(),
-            }],
-            vec![], // No SUMs
-            "count_1".into(),
-            TABLE_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "1".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "count_1".into(),
+            },
+        ];
+
+        // Expected result
+        let expected = DynProofPlan::new_projection(
+            projection_exprs,
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "0".into(),
+                }],
+                vec![], // No SUMs
+                "1".into(),
+                TABLE_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
@@ -1769,34 +1953,67 @@ mod tests {
         // Test the function
         let result = logical_plan_to_proof_plan(&agg_plan, &SCHEMAS()).unwrap();
 
-        // Expected result
-        let expected = DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
+                    dummy_ref_table.clone(),
+                    "0".into(),
                     ColumnType::BigInt,
                 )),
                 alias: "a".into(),
-            }],
-            vec![AliasedDynProofExpr {
+            },
+            AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
+                    dummy_ref_table.clone(),
+                    "1".into(),
                     ColumnType::Int,
                 )),
                 alias: "SUM(table.b)".into(),
-            }],
-            "COUNT(Int64(1))".into(),
-            FILTER_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        )
-        .unwrap();
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "2".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "COUNT(Int64(1))".into(),
+            },
+        ];
+
+        // Expected result
+        let expected = DynProofPlan::new_projection(
+            projection_exprs,
+            DynProofPlan::try_new_aggregate(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "0".into(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "b".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "1".into(),
+                }],
+                "2".into(),
+                FILTER_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+            )
+            .unwrap(),
+        );
 
         assert_eq!(result, expected);
     }
 
     // Aggregate + Projection
+    #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_convert_supported_agg_plan_to_proof_plan() {
         // Setup group expression
@@ -1853,6 +2070,35 @@ mod tests {
         // Test the function
         let result = logical_plan_to_proof_plan(&proj_plan, &SCHEMAS()).unwrap();
 
+        let dummy_ref_table = TableRef::from_names(None, "");
+
+        let projection_exprs = vec![
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table.clone(),
+                    "0".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "a".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table.clone(),
+                    "1".into(),
+                    ColumnType::Int,
+                )),
+                alias: "SUM(table.b)".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    dummy_ref_table,
+                    "2".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "COUNT(Int64(1))".into(),
+            },
+        ];
+
         // Expected result
         let expected = DynProofPlan::new_projection(
             vec![
@@ -1881,28 +2127,31 @@ mod tests {
                     alias: "count_1".into(),
                 },
             ],
-            DynProofPlan::try_new_aggregate(
-                vec![AliasedDynProofExpr {
-                    expr: DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "a".into(),
-                        ColumnType::BigInt,
-                    )),
-                    alias: "a".into(),
-                }],
-                vec![AliasedDynProofExpr {
-                    expr: DynProofExpr::new_column(ColumnRef::new(
-                        TABLE_REF_TABLE(),
-                        "b".into(),
-                        ColumnType::Int,
-                    )),
-                    alias: "SUM(table.b)".into(),
-                }],
-                "COUNT(Int64(1))".into(),
-                FILTER_EXEC(),
-                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-            )
-            .unwrap(),
+            DynProofPlan::new_projection(
+                projection_exprs,
+                DynProofPlan::try_new_aggregate(
+                    vec![AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TABLE_REF_TABLE(),
+                            "a".into(),
+                            ColumnType::BigInt,
+                        )),
+                        alias: "0".into(),
+                    }],
+                    vec![AliasedDynProofExpr {
+                        expr: DynProofExpr::new_column(ColumnRef::new(
+                            TABLE_REF_TABLE(),
+                            "b".into(),
+                            ColumnType::Int,
+                        )),
+                        alias: "1".into(),
+                    }],
+                    "2".into(),
+                    FILTER_EXEC(),
+                    DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                )
+                .unwrap(),
+            ),
         );
 
         assert_eq!(result, expected);
