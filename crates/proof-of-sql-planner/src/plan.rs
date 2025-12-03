@@ -176,10 +176,6 @@ fn aggregate_to_proof_plan(
         .iter()
         .map(|field| (field.name(), field.data_type()))
         .collect::<Vec<_>>();
-    match input {
-        // Only TableScan without fetch is supported
-        LogicalPlan::TableScan(TableScan { fetch: None, .. }) => {
-            // Check that all of `group_expr` are columns and convert to `ColumnExprs`
             let group_by_exprs = group_expr
                 .iter()
                 .map(|e| -> PlannerResult<AliasedDynProofExpr> {
@@ -269,11 +265,6 @@ fn aggregate_to_proof_plan(
             .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
                 plan: Box::new(input.clone()),
             })
-        }
-        _ => Err(PlannerError::UnsupportedLogicalPlan {
-            plan: Box::new(input.clone()),
-        }),
-    }
 }
 
 fn join_to_proof_plan(
