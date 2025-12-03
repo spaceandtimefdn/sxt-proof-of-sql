@@ -185,15 +185,15 @@ fn aggregate_to_proof_plan(
                 .map(|e| -> PlannerResult<AliasedDynProofExpr> {
                     let proof_expr = expr_to_proof_expr(e, &input_schema)?;
                     let name_string = e.clone().unalias().display_name()?;
-                        let alias = alias_map.get(&name_string).ok_or_else(|| {
-                            PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(input.clone()),
-                            }
-                        })?;
-                        Ok(AliasedDynProofExpr {
-                            expr: proof_expr,
-                            alias: alias.as_str().into(),
-                        })
+                    let alias = alias_map.get(&name_string).ok_or_else(|| {
+                        PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(input.clone()),
+                        }
+                    })?;
+                    Ok(AliasedDynProofExpr {
+                        expr: proof_expr,
+                        alias: alias.as_str().into(),
+                    })
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
             // Aggregate
@@ -211,21 +211,21 @@ fn aggregate_to_proof_plan(
                 .map(|e| {
                     let expr = e.clone().unalias();
                     match &expr {
-                    Expr::AggregateFunction(agg) => {
-                        let name_string = expr.display_name()?;
-                        let alias = alias_map.get(&name_string).ok_or_else(|| {
-                            PlannerError::UnsupportedLogicalPlan {
-                                plan: Box::new(input.clone()),
-                            }
-                        })?;
-                        Ok((
-                            aggregate_function_to_proof_expr(agg, &input_schema)?,
-                            alias.as_str().into(),
-                        ))
-                    }
-                    _ => Err(PlannerError::UnsupportedLogicalPlan {
-                        plan: Box::new(input.clone()),
-                    }),
+                        Expr::AggregateFunction(agg) => {
+                            let name_string = expr.display_name()?;
+                            let alias = alias_map.get(&name_string).ok_or_else(|| {
+                                PlannerError::UnsupportedLogicalPlan {
+                                    plan: Box::new(input.clone()),
+                                }
+                            })?;
+                            Ok((
+                                aggregate_function_to_proof_expr(agg, &input_schema)?,
+                                alias.as_str().into(),
+                            ))
+                        }
+                        _ => Err(PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(input.clone()),
+                        }),
                     }
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
@@ -1920,25 +1920,25 @@ mod tests {
                 },
             ],
             DynProofPlan::try_new_aggregate(
-            vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
-                    ColumnType::BigInt,
-                )),
-                alias: "a".into(),
-            }],
-            vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
-                    ColumnType::Int,
-                )),
-                alias: "SUM(table.b)".into(),
-            }],
-            "COUNT(Int64(1))".into(),
-            FILTER_EXEC(),
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "a".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "a".into(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        TABLE_REF_TABLE(),
+                        "b".into(),
+                        ColumnType::Int,
+                    )),
+                    alias: "SUM(table.b)".into(),
+                }],
+                "COUNT(Int64(1))".into(),
+                FILTER_EXEC(),
+                DynProofExpr::new_literal(LiteralValue::Boolean(true)),
             )
             .unwrap(),
         );
