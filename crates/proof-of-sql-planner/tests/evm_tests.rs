@@ -675,7 +675,8 @@ fn we_can_verify_a_groupby_query_using_the_evm() {
     );
     let statements = Parser::parse_sql(
         &GenericDialect {},
-        "SELECT a, count(1) as count_0, sum(b) as sum_b FROM namespace.table WHERE c = 2 GROUP BY a HAVING sum(b) > 1",
+        "SELECT a, count(1) as count_0, sum(b) as sum_b FROM namespace.table WHERE c = 2 GROUP BY a HAVING sum(b) > 1;
+        SELECT a+b as a_plus_b, count(1) as count_0 FROM namespace.table GROUP BY a+b HAVING sum(c)>0;",
     )
     .unwrap();
     let plan = &sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap()[0];
