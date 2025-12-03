@@ -171,7 +171,7 @@ fn aggregate_to_proof_plan(
     group_expr: &[Expr],
     aggr_expr: &[Expr],
     schemas: &impl SchemaAccessor,
-    alias_map: &IndexMap<&str, &str>,
+    alias_map: &IndexMap<String, String>,
 ) -> PlannerResult<DynProofPlan> {
     match input {
         // Only TableScan without fetch is supported
@@ -195,14 +195,14 @@ fn aggregate_to_proof_plan(
                 .iter()
                 .map(|e| match e {
                     Expr::Column(c) => {
-                        let alias = alias_map.get(c.name.as_str()).ok_or_else(|| {
+                        let alias = alias_map.get(&c.name).ok_or_else(|| {
                             PlannerError::UnsupportedLogicalPlan {
                                 plan: Box::new(input.clone()),
                             }
                         })?;
                         Ok(AliasedDynProofExpr {
                             expr: DynProofExpr::new_column(column_to_column_ref(c, &input_schema)?),
-                            alias: (*alias).into(),
+                            alias: alias.as_str().into(),
                         })
                     }
                     _ => Err(PlannerError::UnsupportedLogicalPlan {
@@ -225,15 +225,14 @@ fn aggregate_to_proof_plan(
                 .map(|e| match e.clone().unalias() {
                     Expr::AggregateFunction(agg) => {
                         let name_string = e.display_name()?;
-                        let name = name_string.as_str();
-                        let alias = alias_map.get(&name).ok_or_else(|| {
+                        let alias = alias_map.get(&name_string).ok_or_else(|| {
                             PlannerError::UnsupportedLogicalPlan {
                                 plan: Box::new(input.clone()),
                             }
                         })?;
                         Ok((
                             aggregate_function_to_proof_expr(&agg, &input_schema)?,
-                            (*alias).into(),
+                            alias.as_str().into(),
                         ))
                     }
                     _ => Err(PlannerError::UnsupportedLogicalPlan {
@@ -429,13 +428,9 @@ pub fn logical_plan_to_proof_plan(
                 )
                 .collect::<Result<Vec<_>, _>>()?;
             let alias_map = name_strings
-                .iter()
+                .into_iter()
                 .zip(schema.fields().iter())
-                .map(|(name_string, field)| {
-                    let name = name_string.as_str();
-                    let alias = field.name().as_str();
-                    Ok((name, alias))
-                })
+                .map(|(name_string, field)| Ok((name_string, field.name().clone())))
                 .collect::<PlannerResult<IndexMap<_, _>>>()?;
             aggregate_to_proof_plan(input, group_expr, aggr_expr, schema_accessor, &alias_map)
         }
@@ -458,10 +453,10 @@ pub fn logical_plan_to_proof_plan(
                         .iter()
                         .chain(group_expr)
                         .map(|e| match e {
-                            Expr::Column(c) => Ok((c.name.as_str(), c.name.as_str())),
+                            Expr::Column(c) => Ok((c.name.clone(), c.name.clone())),
                             Expr::Alias(Alias { expr, name, .. }) => {
                                 if let Expr::Column(c) = expr.as_ref() {
-                                    Ok((c.name.as_str(), name.as_str()))
+                                    Ok((c.name.clone(), name.clone()))
                                 } else {
                                     Err(PlannerError::UnsupportedLogicalPlan {
                                         plan: Box::new(plan.clone()),
@@ -795,9 +790,9 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "SUM(table.b)" => "sum_b",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -860,9 +855,9 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "SUM(table.b)" => "sum_b",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -924,10 +919,10 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "c" => "c",
-            "SUM(table.b)" => "sum_b",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "c".to_string() => "c".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -995,10 +990,10 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "SUM(table.b)" => "sum_b",
-            "SUM(table.d)" => "sum_d",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "SUM(table.d)".to_string() => "sum_d".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -1065,8 +1060,8 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -1126,8 +1121,8 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a+b" => "res",
-            "COUNT(Int64(1))" => "count_1",
+            "a+b".to_string() => "res".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error
@@ -1175,7 +1170,7 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "b+c" => "b_plus_c",
+            "b+c".to_string() => "b_plus_c".to_string(),
         };
 
         // Test the function - should return an error
@@ -1227,9 +1222,9 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "AVG(table.b)" => "avg_b",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "AVG(table.b)".to_string() => "avg_b".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error
@@ -1296,9 +1291,9 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "SUM(table.b)" => "sum_b",
-            "SUM(c)" => "sum_c",
+            "a".to_string() => "a".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "SUM(c)".to_string() => "sum_c".to_string(),
         };
 
         // Test the function - should return an error
@@ -1332,8 +1327,8 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
-            "a" => "a",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error because fetch limit is not supported
@@ -1361,8 +1356,8 @@ mod tests {
             schema: Arc::new(DFSchema::empty()),
         });
         let alias_map = indexmap! {
-            "a" => "a",
-            "COUNT(Int64(1))" => "count_1",
+            "a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error
