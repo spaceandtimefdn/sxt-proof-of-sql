@@ -324,14 +324,17 @@ fn join_to_proof_plan(
     let on_indices_and_idents = join
         .on
         .iter()
-        .filter_map(|(left_expr, right_expr)| {
-            Some(match (left_expr, right_expr) {
+        .map(|(left_expr, right_expr)| match (left_expr, right_expr) {
                 (Expr::Column(col_a), Expr::Column(col_b)) if col_a.name == col_b.name => {
                     let column_id = Ident::new(col_a.name.clone());
                     Ok((
                         (
-                            left_column_result_fields.get_index_of(&column_id)?,
-                            right_column_result_fields.get_index_of(&column_id)?,
+                            left_column_result_fields
+                                .get_index_of(&column_id)
+                                .ok_or(PlannerError::ColumnNotFound)?,
+                            right_column_result_fields
+                                .get_index_of(&column_id)
+                                .ok_or(PlannerError::ColumnNotFound)?,
                         ),
                         column_id,
                     ))
@@ -339,7 +342,6 @@ fn join_to_proof_plan(
                 _ => Err(PlannerError::UnsupportedLogicalPlan {
                     plan: Box::new(plan.clone()),
                 }),
-            })
         })
         .collect::<Result<Vec<_>, _>>()?;
     let (on_indices, join_idents): (Vec<(usize, usize)>, Vec<Ident>) =
