@@ -1,8 +1,8 @@
 use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::{
-    catalog::TableReference,
     common::{Column, DFSchema},
     logical_expr::Expr,
+    sql::TableReference,
 };
 
 /// Create a `Expr::Column` from full table name and column

@@ -4,7 +4,7 @@ use alloc::{
     vec::Vec,
 };
 use sqlparser::{
-    ast::{DataType, ExactNumberInfo, Statement},
+    ast::{CreateTable, DataType, ExactNumberInfo, Statement},
     dialect::GenericDialect,
     parser::Parser,
 };
@@ -21,7 +21,7 @@ pub fn find_bigdecimals(queries: &str) -> IndexMap<String, Vec<(String, u8, i8)>
     // Find all `CREATE TABLE` statements
     ast.iter()
         .filter_map(|statement| match statement {
-            Statement::CreateTable { name, columns, .. } => {
+            Statement::CreateTable(CreateTable { name, columns, .. }) => {
                 // Find all `DECIMAL` columns where precision > 38
                 // Find the table name
                 // Add the table name and column name to the map

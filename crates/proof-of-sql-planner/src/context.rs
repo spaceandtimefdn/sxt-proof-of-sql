@@ -9,6 +9,7 @@ use datafusion::{
         DataFusionError,
     },
     config::ConfigOptions,
+    functions_aggregate::{count::count_udaf, sum::sum_udaf},
     logical_expr::{
         AggregateUDF, Expr, ScalarUDF, TableProviderFilterPushDown, TableSource, WindowUDF,
     },
@@ -49,9 +50,12 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
     fn get_function_meta(&self, _name: &str) -> Option<Arc<ScalarUDF>> {
         None
     }
-    //TODO: add count and sum
-    fn get_aggregate_meta(&self, _name: &str) -> Option<Arc<AggregateUDF>> {
-        None
+    fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>> {
+        match name {
+            "sum" => Some(sum_udaf()),
+            "count" => Some(count_udaf()),
+            _ => None,
+        }
     }
     fn get_window_meta(&self, _name: &str) -> Option<Arc<WindowUDF>> {
         None
@@ -62,13 +66,13 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
     fn options(&self) -> &ConfigOptions {
         &self.options
     }
-    fn udfs_names(&self) -> Vec<String> {
+    fn udf_names(&self) -> Vec<String> {
         Vec::new()
     }
-    fn udafs_names(&self) -> Vec<String> {
-        Vec::new()
+    fn udaf_names(&self) -> Vec<String> {
+        vec!["sum".to_string(), "count".to_string()]
     }
-    fn udwfs_names(&self) -> Vec<String> {
+    fn udwf_names(&self) -> Vec<String> {
         Vec::new()
     }
 }
@@ -128,7 +132,10 @@ mod tests {
     fn we_can_create_a_posql_table_source() {
         // Empty
         let table_source = PoSqlTableSource::new(vec![]);
-        assert_eq!(table_source.schema().all_fields(), Vec::<&Field>::new());
+        assert_eq!(
+            table_source.schema().flattened_fields(),
+            Vec::<&Field>::new()
+        );
         assert_eq!(
             table_source.as_any().type_id(),
             TypeId::of::<PoSqlTableSource>()
@@ -141,7 +148,7 @@ mod tests {
         ];
         let table_source = PoSqlTableSource::new(column_fields);
         assert_eq!(
-            table_source.schema().all_fields(),
+            table_source.schema().flattened_fields(),
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
@@ -159,12 +166,17 @@ mod tests {
         // Empty
         let accessor = TestSchemaAccessor::new(indexmap_with_default! {AHasher;});
         let context_provider = PoSqlContextProvider::new(accessor);
-        assert_eq!(context_provider.udfs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udafs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udwfs_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udf_names(), Vec::<String>::new());
+        assert_eq!(
+            context_provider.udaf_names(),
+            vec!["sum".to_string(), "count".to_string()]
+        );
+        assert_eq!(context_provider.udwf_names(), Vec::<String>::new());
         assert_eq!(context_provider.get_variable_type(&[]), None);
         assert_eq!(context_provider.get_function_meta(""), None);
-        assert_eq!(context_provider.get_aggregate_meta(""), None);
+        assert!(context_provider.get_aggregate_meta("sum").is_some());
+        assert!(context_provider.get_aggregate_meta("count").is_some());
+        assert!(context_provider.get_aggregate_meta("unknown").is_none());
         assert_eq!(context_provider.get_window_meta(""), None);
         assert_eq!(
             context_provider
@@ -186,12 +198,17 @@ mod tests {
             },
         });
         let context_provider = PoSqlContextProvider::new(accessor);
-        assert_eq!(context_provider.udfs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udafs_names(), Vec::<String>::new());
-        assert_eq!(context_provider.udwfs_names(), Vec::<String>::new());
+        assert_eq!(context_provider.udf_names(), Vec::<String>::new());
+        assert_eq!(
+            context_provider.udaf_names(),
+            vec!["sum".to_string(), "count".to_string()]
+        );
+        assert_eq!(context_provider.udwf_names(), Vec::<String>::new());
         assert_eq!(context_provider.get_variable_type(&[]), None);
         assert_eq!(context_provider.get_function_meta(""), None);
-        assert_eq!(context_provider.get_aggregate_meta(""), None);
+        assert!(context_provider.get_aggregate_meta("sum").is_some());
+        assert!(context_provider.get_aggregate_meta("count").is_some());
+        assert!(context_provider.get_aggregate_meta("unknown").is_none());
         assert_eq!(context_provider.get_window_meta(""), None);
         assert_eq!(
             context_provider
