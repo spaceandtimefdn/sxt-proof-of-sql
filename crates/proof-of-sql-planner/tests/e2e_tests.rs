@@ -544,7 +544,7 @@ fn test_corporate_query() {
 FROM projects p
 JOIN (
     SELECT eph.project_id,
-           10000 AS budget_spent
+           SUM(e.hourly_wage * eph.hours_logged) AS budget_spent
     FROM employee_project_hours eph
     JOIN employees e
       ON eph.employee_id = e.employee_id
@@ -598,7 +598,7 @@ JOIN (
         bigint(
             "budget_spent",
             [
-                10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000,
+                10_900, 8_780, 7_680, 8_000, 16_000, 9_600, 2_240, 5_600, 2_200, 6_600,
             ],
         ),
         decimal75(
@@ -606,7 +606,7 @@ JOIN (
             20,
             0,
             [
-                20_000, 40_000, 10_000, 50_000, 90_000, 30_000, 10_000, 20_000, 10_000, 80_000,
+                19_100, 41_220, 12_320, 52_000, 84_000, 30_400, 17_760, 24_400, 17_800, 83_400,
             ],
         ),
         decimal75(
