@@ -6,7 +6,8 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, TableScan, Union,
+        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias, TableScan,
+        Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -368,6 +369,7 @@ fn join_to_proof_plan(
 }
 
 /// Visit a [`datafusion::logical_plan::LogicalPlan`] and return a [`DynProofPlan`]
+#[expect(clippy::too_many_lines)]
 pub fn logical_plan_to_proof_plan(
     plan: &LogicalPlan,
     schema_accessor: &impl SchemaAccessor,
@@ -473,6 +475,9 @@ pub fn logical_plan_to_proof_plan(
             Ok(DynProofPlan::try_new_union(input_plans)?)
         }
         LogicalPlan::Join(join) => join_to_proof_plan(join, schema_accessor, plan),
+        LogicalPlan::SubqueryAlias(SubqueryAlias { input, .. }) => {
+            logical_plan_to_proof_plan(input, schema_accessor)
+        }
         _ => Err(PlannerError::UnsupportedLogicalPlan {
             plan: Box::new(plan.clone()),
         }),
@@ -2510,5 +2515,17 @@ mod tests {
         let idents: Vec<Ident> = result.into_iter().collect();
         // Should preserve order: projection first, then filter columns
         assert_eq!(idents, vec!["z".into(), "a".into(), "m".into()]);
+    }
+
+    #[test]
+    fn we_can_convert_subquery_plan_to_proof_plan() {
+        let empty_plan = LogicalPlan::EmptyRelation(EmptyRelation {
+            produce_one_row: false,
+            schema: Arc::new(DFSchema::empty()),
+        });
+        let subquery_plan =
+            LogicalPlan::SubqueryAlias(SubqueryAlias::try_new(empty_plan.into(), "test").unwrap());
+        let result = logical_plan_to_proof_plan(&subquery_plan, &EMPTY_SCHEMAS()).unwrap();
+        assert_eq!(result, DynProofPlan::new_empty());
     }
 }

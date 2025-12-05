@@ -533,6 +533,107 @@ fn test_join() {
 }
 
 #[test]
+fn test_corporate_query() {
+    let alloc = Bump::new();
+    let sql = "SELECT p.project_id,
+       p.budget,
+       p.percent_complete,
+       spent.budget_spent,
+       (p.budget - spent.budget_spent) AS budget_remaining,
+       (p.budget * p.percent_complete) AS expected_spent
+FROM projects p
+JOIN (
+    SELECT eph.project_id,
+           10000 AS budget_spent
+    FROM employee_project_hours eph
+    JOIN employees e
+      ON eph.employee_id = e.employee_id
+    GROUP BY eph.project_id
+) spent
+  ON p.project_id = spent.project_id;
+";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "employees") => table(
+            vec![
+                borrowed_smallint("employee_id", [101i16,102,103,104,105,106,107,108,109,110], &alloc),
+                borrowed_smallint("department_id", [1i16, 1, 1, 2, 2, 2, 3, 3, 3, 3], &alloc),
+                borrowed_smallint("hourly_wage", [40i16, 45, 38, 30, 32, 35, 50, 55, 60, 100], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "departments") => table(
+            vec![
+                borrowed_int("department_id", [1, 2, 3], &alloc),
+                borrowed_varchar("department_name", ["Engineering", "HR", "Marketing"], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "projects") => table(
+            vec![
+                borrowed_smallint("project_id", [1i16,2,3,4,5,6,7,8,9,10], &alloc),
+                borrowed_bigint("budget", [30_000, 50_000, 20_000, 60_000, 100_000, 40_000, 20_000, 30_000, 20_000, 90_000], &alloc),
+                borrowed_decimal75("percent_complete", 2, 2, [25, 60, 40, 75, 10, 95, 50, 80, 20, 33], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "employee_project_hours") => table(
+            vec![
+                borrowed_smallint("employee_id", [101i16,102,102,103,104,105,105,106,107,108,108,109,110], &alloc),
+                borrowed_smallint("project_id", [1i16, 1, 2, 2, 3, 3, 7, 8, 4, 10, 9, 6, 5], &alloc),
+                borrowed_smallint("hours_logged", [160i16, 100, 60, 160, 160, 90, 70, 160, 160, 120, 40, 160, 160], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([
+        smallint("project_id", [1i16, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        bigint(
+            "budget",
+            [
+                30_000, 50_000, 20_000, 60_000, 100_000, 40_000, 20_000, 30_000, 20_000, 90_000,
+            ],
+        ),
+        decimal75(
+            "percent_complete",
+            2,
+            2,
+            [25, 60, 40, 75, 10, 95, 50, 80, 20, 33],
+        ),
+        bigint(
+            "budget_spent",
+            [
+                10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000,
+            ],
+        ),
+        decimal75(
+            "budget_remaining",
+            20,
+            0,
+            [
+                20_000, 40_000, 10_000, 50_000, 90_000, 30_000, 10_000, 20_000, 10_000, 80_000,
+            ],
+        ),
+        decimal75(
+            "expected_spent",
+            23,
+            2,
+            [
+                750_000, 3_000_000, 800_000, 4_500_000, 1_000_000, 3_800_000, 1_000_000, 2_400_000,
+                400_000, 2_970_000,
+            ],
+        ),
+    ])];
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+#[test]
 fn test_union() {
     let alloc = Bump::new();
     // WE do not yet support regular UNION
