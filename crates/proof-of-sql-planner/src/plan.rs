@@ -4,7 +4,7 @@ use super::{
 };
 use alloc::vec::Vec;
 use datafusion::{
-    common::{DFSchema, JoinConstraint, JoinType},
+    common::{DFSchema, JoinConstraint, JoinType, ScalarValue},
     logical_expr::{
         Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias, TableScan,
         Union,
@@ -20,6 +20,22 @@ use proof_of_sql::{
         proof_plans::{DynProofPlan, SortMergeJoinExec},
     },
 };
+
+/// Extract a usize value from a `DataFusion` expression (typically a literal)
+///
+/// This is used for LIMIT and OFFSET values which are now expressions in `DataFusion` 43+
+#[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+fn expr_to_usize(expr: &Expr) -> PlannerResult<usize> {
+    match expr {
+        Expr::Literal(ScalarValue::Int64(Some(v))) if *v >= 0 => Ok(*v as usize),
+        Expr::Literal(ScalarValue::UInt64(Some(v))) => Ok(*v as usize),
+        Expr::Literal(ScalarValue::Int32(Some(v))) if *v >= 0 => Ok(*v as usize),
+        Expr::Literal(ScalarValue::UInt32(Some(v))) => Ok(*v as usize),
+        _ => Err(PlannerError::UnsupportedLogicalExpression {
+            expr: Box::new(expr.clone()),
+        }),
+    }
+}
 
 /// Get `AliasedDynProofExpr` from a `TableRef`, column indices for projection as well as
 /// input and output schemas
@@ -186,7 +202,7 @@ fn aggregate_to_proof_plan(
         .map(|(e, aggregate_alias)| -> PlannerResult<_> {
             let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
             let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
-            let name_string = e.clone().unalias().display_name()?;
+            let name_string = e.clone().unalias().schema_name().to_string();
             let alias = alias_map.get(&name_string).ok_or_else(|| {
                 PlannerError::UnsupportedLogicalPlan {
                     plan: Box::new(input.clone()),
@@ -217,7 +233,7 @@ fn aggregate_to_proof_plan(
             let expr = e.clone().unalias();
             match &expr {
                 Expr::AggregateFunction(agg) => {
-                    let name_string = expr.display_name()?;
+                    let name_string = expr.schema_name().to_string();
                     let alias = alias_map.get(&name_string).ok_or_else(|| {
                         PlannerError::UnsupportedLogicalPlan {
                             plan: Box::new(input.clone()),
@@ -410,11 +426,11 @@ pub fn logical_plan_to_proof_plan(
             schema,
             ..
         }) => {
-            let name_strings = group_expr
+            let name_strings: Vec<String> = group_expr
                 .iter()
                 .chain(aggr_expr.iter())
-                .map(|expr| expr.clone().unalias().display_name())
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|expr| expr.clone().unalias().schema_name().to_string())
+                .collect();
             let alias_map = name_strings
                 .into_iter()
                 .zip(schema.fields().iter())
@@ -464,7 +480,14 @@ pub fn logical_plan_to_proof_plan(
         // Limit
         LogicalPlan::Limit(Limit { input, fetch, skip }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            Ok(DynProofPlan::new_slice(input_plan, *skip, *fetch))
+            // Extract usize values from the expressions
+            let skip_value = skip
+                .as_ref()
+                .map(|expr| expr_to_usize(expr))
+                .transpose()?
+                .unwrap_or(0);
+            let fetch_value = fetch.as_ref().map(|expr| expr_to_usize(expr)).transpose()?;
+            Ok(DynProofPlan::new_slice(input_plan, skip_value, fetch_value))
         }
         // Union
         LogicalPlan::Union(Union { inputs, schema: _ }) => {
@@ -494,11 +517,11 @@ mod tests {
     use core::ops::Add;
     use datafusion::{
         common::{Column, ScalarValue},
+        functions_aggregate::{average::avg_udaf, count::count_udaf, sum::sum_udaf},
         logical_expr::{
-            expr::{AggregateFunction, AggregateFunctionDefinition, Alias},
+            expr::{AggregateFunction, Alias},
             not, BinaryExpr, EmptyRelation, Operator, Prepare, TableScan, TableSource,
         },
-        physical_plan,
     };
     use indexmap::{indexmap, indexmap_with_default};
     use proof_of_sql::{
@@ -509,13 +532,6 @@ mod tests {
         sql::proof_exprs::{ColumnExpr, TableExpr},
     };
     use std::hash::BuildHasherDefault;
-
-    const SUM: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Sum);
-    const COUNT: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Count);
-    const AVG: AggregateFunctionDefinition =
-        AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Avg);
 
     #[expect(non_snake_case)]
     fn TABLE_REF_TABLE() -> TableRef {
@@ -685,38 +701,38 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn COUNT_1() -> Expr {
-        Expr::AggregateFunction(AggregateFunction {
-            func_def: COUNT,
-            args: vec![Expr::Literal(ScalarValue::Int64(Some(1)))],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        })
+        Expr::AggregateFunction(AggregateFunction::new_udf(
+            count_udaf(),
+            vec![Expr::Literal(ScalarValue::Int64(Some(1)))],
+            false,
+            None,
+            None,
+            None,
+        ))
     }
 
     #[expect(non_snake_case)]
     fn SUM_B() -> Expr {
-        Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        })
+        Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![df_column("table", "b")],
+            false,
+            None,
+            None,
+            None,
+        ))
     }
 
     #[expect(non_snake_case)]
     fn SUM_D() -> Expr {
-        Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "d")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        })
+        Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![df_column("table", "d")],
+            false,
+            None,
+            None,
+            None,
+        ))
     }
 
     // get_aliased_dyn_proof_exprs
@@ -791,8 +807,8 @@ mod tests {
         );
         let alias_map = indexmap! {
             "table.a".to_string() => "a".to_string(),
-            "SUM(table.b)".to_string() => "sum_b".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "sum(table.b)".to_string() => "sum_b".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -888,8 +904,8 @@ mod tests {
         );
         let alias_map = indexmap! {
             "table.a".to_string() => "a".to_string(),
-            "SUM(table.b)".to_string() => "sum_b".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "sum(table.b)".to_string() => "sum_b".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -981,8 +997,8 @@ mod tests {
         let alias_map = indexmap! {
             "a".to_string() => "a".to_string(),
             "c".to_string() => "c".to_string(),
-            "SUM(table.b)".to_string() => "sum_b".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "sum(table.b)".to_string() => "sum_b".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -1051,9 +1067,9 @@ mod tests {
         );
         let alias_map = indexmap! {
             "table.a".to_string() => "a".to_string(),
-            "SUM(table.b)".to_string() => "sum_b".to_string(),
-            "SUM(table.d)".to_string() => "sum_d".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "sum(table.b)".to_string() => "sum_b".to_string(),
+            "sum(table.d)".to_string() => "sum_d".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -1161,7 +1177,7 @@ mod tests {
         );
         let alias_map = indexmap! {
             "table.a".to_string() => "a".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function
@@ -1246,7 +1262,7 @@ mod tests {
         );
         let alias_map = indexmap! {
             "a+b".to_string() => "res".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error
@@ -1312,14 +1328,14 @@ mod tests {
         let group_expr = vec![df_column("table", "a")];
 
         // Setup a non-SUM aggregate function (e.g., Avg)
-        let avg_expr = Expr::AggregateFunction(AggregateFunction {
-            func_def: AVG,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        });
+        let avg_expr = Expr::AggregateFunction(AggregateFunction::new_udf(
+            avg_udaf(),
+            vec![df_column("table", "b")],
+            false,
+            None,
+            None,
+            None,
+        ));
 
         // Setup aliased expressions
         let aliased_avg = Expr::Alias(Alias {
@@ -1347,8 +1363,8 @@ mod tests {
         );
         let alias_map = indexmap! {
             "a".to_string() => "a".to_string(),
-            "AVG(table.b)".to_string() => "avg_b".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "avg(table.b)".to_string() => "avg_b".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error
@@ -1366,23 +1382,23 @@ mod tests {
         let group_expr = vec![df_column("table", "a")];
 
         // Setup SUM aggregates
-        let sum_expr1 = Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "b")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        });
+        let sum_expr1 = Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![df_column("table", "b")],
+            false,
+            None,
+            None,
+            None,
+        ));
 
-        let sum_expr2 = Expr::AggregateFunction(AggregateFunction {
-            func_def: SUM,
-            args: vec![df_column("table", "c")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        });
+        let sum_expr2 = Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![df_column("table", "c")],
+            false,
+            None,
+            None,
+            None,
+        ));
 
         // Setup aliased expressions
         let aliased_sum1 = Expr::Alias(Alias {
@@ -1416,8 +1432,8 @@ mod tests {
         );
         let alias_map = indexmap! {
             "a".to_string() => "a".to_string(),
-            "SUM(table.b)".to_string() => "sum_b".to_string(),
-            "SUM(c)".to_string() => "sum_c".to_string(),
+            "sum(table.b)".to_string() => "sum_b".to_string(),
+            "sum(c)".to_string() => "sum_c".to_string(),
         };
 
         // Test the function - should return an error
@@ -1452,7 +1468,7 @@ mod tests {
         );
         let alias_map = indexmap! {
             "a".to_string() => "a".to_string(),
-            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+            "count(Int64(1))".to_string() => "count_1".to_string(),
         };
 
         // Test the function - should return an error because fetch limit is not supported
@@ -1739,6 +1755,12 @@ mod tests {
     }
 
     // Limit
+    // Helper to create a literal expression for limit/offset values
+    #[expect(clippy::cast_possible_wrap)]
+    fn lit_usize(val: usize) -> Box<Expr> {
+        Box::new(Expr::Literal(ScalarValue::Int64(Some(val as i64))))
+    }
+
     // Note that either fetch or skip will exist or optimizer will remove the Limit node
     #[test]
     fn we_can_convert_limit_plan_with_fetch_and_skip_to_proof_plan() {
@@ -1754,8 +1776,8 @@ mod tests {
                 )
                 .unwrap(),
             )),
-            fetch: Some(3),
-            skip: 2,
+            fetch: Some(lit_usize(3)),
+            skip: Some(lit_usize(2)),
         });
         let schemas = SCHEMAS();
         let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
@@ -1785,8 +1807,8 @@ mod tests {
                 TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], Some(3))
                     .unwrap(),
             )),
-            fetch: Some(3),
-            skip: 0,
+            fetch: Some(lit_usize(3)),
+            skip: None,
         });
 
         let schemas = SCHEMAS();
@@ -1818,7 +1840,7 @@ mod tests {
                     .unwrap(),
             )),
             fetch: None,
-            skip: 2,
+            skip: Some(lit_usize(2)),
         });
 
         let schemas = SCHEMAS();
@@ -1950,7 +1972,7 @@ mod tests {
                     "1".into(),
                     ColumnType::Int,
                 )),
-                alias: "SUM(table.b)".into(),
+                alias: "sum(table.b)".into(),
             },
             AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
@@ -1958,7 +1980,7 @@ mod tests {
                     "2".into(),
                     ColumnType::BigInt,
                 )),
-                alias: "COUNT(Int64(1))".into(),
+                alias: "count(Int64(1))".into(),
             },
         ];
 
@@ -2033,12 +2055,12 @@ mod tests {
                     df_column("table", "a"),
                     Expr::Column(Column::new(
                         None::<TableReference>,
-                        "SUM(table.b)".to_string(),
+                        "sum(table.b)".to_string(),
                     ))
                     .alias("sum_b"),
                     Expr::Column(Column::new(
                         None::<TableReference>,
-                        "COUNT(Int64(1))".to_string(),
+                        "count(Int64(1))".to_string(),
                     ))
                     .alias("count_1"),
                 ],
@@ -2067,7 +2089,7 @@ mod tests {
                     "1".into(),
                     ColumnType::Int,
                 )),
-                alias: "SUM(table.b)".into(),
+                alias: "sum(table.b)".into(),
             },
             AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(ColumnRef::new(
@@ -2075,7 +2097,7 @@ mod tests {
                     "2".into(),
                     ColumnType::BigInt,
                 )),
-                alias: "COUNT(Int64(1))".into(),
+                alias: "count(Int64(1))".into(),
             },
         ];
 
@@ -2093,7 +2115,7 @@ mod tests {
                 AliasedDynProofExpr {
                     expr: DynProofExpr::new_column(ColumnRef::new(
                         TableRef::from_names(None, ""),
-                        "SUM(table.b)".into(),
+                        "sum(table.b)".into(),
                         ColumnType::Int,
                     )),
                     alias: "sum_b".into(),
@@ -2101,7 +2123,7 @@ mod tests {
                 AliasedDynProofExpr {
                     expr: DynProofExpr::new_column(ColumnRef::new(
                         TableRef::from_names(None, ""),
-                        "COUNT(Int64(1))".into(),
+                        "count(Int64(1))".into(),
                         ColumnType::BigInt,
                     )),
                     alias: "count_1".into(),
