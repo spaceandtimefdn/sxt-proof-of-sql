@@ -225,6 +225,7 @@ pub fn try_cast_types(from: ColumnType, to: ColumnType) -> ColumnOperationResult
             to.precision_value().unwrap() >= from.precision_value().unwrap()
                 && to.scale() == from.scale()
         }
+        (ColumnType::Decimal75(precision, 0), ColumnType::BigInt) if precision.value() < 19 => true,
         _ => false,
     }
     .then_some(())
@@ -1173,6 +1174,20 @@ mod test {
             .unwrap();
             try_cast_types(from, ColumnType::Decimal75(Precision::new(2).unwrap(), 0)).unwrap_err();
         }
+    }
+
+    #[test]
+    fn we_can_cast_decimal_to_bigint_with_zero_scale() {
+        try_cast_types(
+            ColumnType::Decimal75(Precision::new(18).unwrap(), 0),
+            ColumnType::BigInt,
+        )
+        .unwrap();
+        try_cast_types(
+            ColumnType::Decimal75(Precision::new(19).unwrap(), 0),
+            ColumnType::BigInt,
+        )
+        .unwrap_err();
     }
 
     #[test]

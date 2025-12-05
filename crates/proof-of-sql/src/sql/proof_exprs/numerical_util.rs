@@ -605,6 +605,9 @@ pub fn cast_column<'a, S: Scalar>(
             );
             Column::Decimal75(to_precision, to_scale, vals)
         }
+        (Column::Decimal75(precision, 0, vals), ColumnType::BigInt) if precision.value() < 19 => {
+            cast_scalar_slice_to_int_column(alloc, vals, to_type)
+        }
         _ => panic!("Casting not supported between {from_type} and {to_type}"),
     }
 }
@@ -1304,6 +1307,62 @@ mod tests {
         assert_eq!(
             cast_column_with_scaling(&alloc, decimal_column, ColumnType::Decimal75(prec, scale)),
             Column::<TestScalar>::Decimal75(prec, scale, &scalar_slice)
+        );
+    }
+
+    #[test]
+    fn we_can_scale_cast_decimal_with_zero_scale_to_bigint() {
+        let alloc = Bump::new();
+        let decimal_slice = [TestScalar::ONE, TestScalar::TEN];
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(11).unwrap(), 0, &decimal_slice);
+        assert_eq!(
+            cast_column(
+                &alloc,
+                decimal_column,
+                ColumnType::Decimal75(Precision::new(11).unwrap(), 0),
+                ColumnType::BigInt
+            ),
+            Column::BigInt(&[1, 10])
+        );
+    }
+
+    #[should_panic(
+        expected = "Unable to cast between types DECIMAL75(PRECISION: 19, SCALE: 0) and BIGINT"
+    )]
+    #[test]
+    fn we_cannot_scale_cast_decimal_with_zero_scale_to_bigint_if_precision_is_too_high() {
+        let alloc = Bump::new();
+        let decimal_slice = [TestScalar::ONE, TestScalar::TEN, TestScalar::from(i64::MAX)];
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(19).unwrap(), 0, &decimal_slice);
+        cast_column(
+            &alloc,
+            decimal_column,
+            ColumnType::Decimal75(Precision::new(19).unwrap(), 0),
+            ColumnType::BigInt,
+        );
+    }
+
+    #[test]
+    fn we_can_scale_cast_decimal_with_zero_scale_to_bigint_if_precision_is_18() {
+        let alloc = Bump::new();
+        let supported_bigint = i64::MIN / 10;
+        let decimal_slice = [
+            TestScalar::ONE,
+            TestScalar::TEN,
+            TestScalar::from(supported_bigint),
+        ];
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(18).unwrap(), 0, &decimal_slice);
+        assert_eq!(
+            cast_column(
+                &alloc,
+                decimal_column,
+                ColumnType::Decimal75(Precision::new(18).unwrap(), 0),
+                ColumnType::BigInt
+            ),
+            Column::BigInt(&[1, 10, supported_bigint])
         );
     }
 }
