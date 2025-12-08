@@ -188,7 +188,7 @@ library SortMergeJoinExec {
 
             // Assembles the collection of output columns that will be compared to the right hat collection.
             // Additionally, computes the i_eval
-            function consume_right_evals_for_join(builder_ptr, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations) -> i_eval, right_output_column_evals {
+            function consume_right_evals_for_join(builder_ptr, num_join_columns, hat_evals, chi_eval, left_right_and_output_evaluations) -> i_eval, right_output_column_evals {
                 // The length of hat_evals is the length of the collection which will be used in the membership check
                 let num_hat_columns := mload(hat_evals)
                 right_output_column_evals := mload(FREE_PTR)
@@ -254,7 +254,7 @@ library SortMergeJoinExec {
                 let right_column_evals
                 i_eval, right_column_evals :=
                     consume_right_evals_for_join(
-                        builder_ptr, num_join_columns, hat_evals, res_chi_eval, chi_eval, left_right_and_output_evaluations
+                        builder_ptr, num_join_columns, hat_evals, chi_eval, left_right_and_output_evaluations
                     )
 
                 // Finally, we can do our membership check
