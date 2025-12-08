@@ -65,17 +65,17 @@ library ParamsBuilder {
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
             }
             function exclude_coverage_stop_read_data_type() {} // solhint-disable-line no-empty-blocks
-            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
-            function case_const(lhs, rhs) {
-                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
-            }
-            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
             function exclude_coverage_start_err() {} // solhint-disable-line no-empty-blocks
             function err(code) {
                 mstore(0, code)
                 revert(28, 4)
             }
             function exclude_coverage_stop_err() {} // solhint-disable-line no-empty-blocks
+            function exclude_coverage_start_case_const() {} // solhint-disable-line no-empty-blocks
+            function case_const(lhs, rhs) {
+                if sub(lhs, rhs) { err(ERR_INCORRECT_CASE_CONST) }
+            }
+            function exclude_coverage_stop_case_const() {} // solhint-disable-line no-empty-blocks
             function exclude_coverage_start_read_entry() {} // solhint-disable-line no-empty-blocks
             // slither-disable-start cyclomatic-complexity
             function read_entry(result_ptr, data_type_variant) -> result_ptr_out, entry {
@@ -277,13 +277,6 @@ library ParamsBuilder {
     function unixTimestampMillisParam(int64 param) internal pure returns (bytes memory serializedParam) {
         serializedParam =
             abi.encodePacked(DATA_TYPE_TIMESTAMP_VARIANT, TIMEUNIT_MILLISECOND_VARIANT, TIMEZONE_UTC, param);
-    }
-
-    /// @dev Serializes a scalar parameter
-    /// @param param The parameter
-    /// @return serializedParam The serialized parameter
-    function scalarParam(uint256 param) internal pure returns (bytes memory serializedParam) {
-        serializedParam = abi.encodePacked(DATA_TYPE_SCALAR_VARIANT, param);
     }
 
     /// @dev Serializes a varbinary parameter

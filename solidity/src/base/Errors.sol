@@ -25,7 +25,7 @@ uint32 constant ERR_HYPER_KZG_INCONSISTENT_V = 0x6a5ae827;
 uint32 constant ERR_HYPER_KZG_EMPTY_POINT = 0xf1c6069e;
 /// @dev Error code for when the HyperKZG proof fails the pairing check.
 uint32 constant ERR_HYPER_KZG_PAIRING_CHECK_FAILED = 0xa41148a3;
-/// @dev Error code for when the produces constraint degree is higher than the provided proof.
+/// @dev Error code for when the produced constraint degree is higher than the provided proof.
 uint32 constant ERR_CONSTRAINT_DEGREE_TOO_HIGH = 0x8568ae69;
 /// @dev Error code for when the case literal in a switch statement is incorrect.
 uint32 constant ERR_INCORRECT_CASE_CONST = 0x9324fb03;
@@ -77,6 +77,8 @@ uint32 constant ERR_INTERNAL = 0xfe835e35;
 uint32 constant ERR_UNPROVABLE_GROUP_BY = 0x6bd33da2;
 /// @dev Error code for unsupported table commitments.
 uint32 constant ERR_TABLE_COMMITMENT_UNSUPPORTED = 0x4b35c9c3;
+/// @dev Error code for when a plan has a number of join columns other than one.
+uint32 constant ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE = 0xf81ffd2a;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -102,7 +104,7 @@ library Errors {
     error HyperKZGEmptyPoint();
     /// @notice Error thrown when the HyperKZG proof fails the pairing check.
     error HyperKZGPairingCheckFailed();
-    /// @notice Error thrown when the produces constraint degree is higher than the provided proof.
+    /// @notice Error thrown when the produced constraint degree is higher than the provided proof.
     error ConstraintDegreeTooHigh();
     /// @notice Error thrown when the case literal in a switch statement is incorrect.
     error IncorrectCaseConst();
@@ -158,6 +160,8 @@ library Errors {
     error TableCommitmentUnsupported();
     /// @notice Error thrown for having too many parameters.
     error TooManyParameters();
+    /// @notice Error thrown when a plan has a number of join columns other than one.
+    error NumberOfJoinColumnsNotOne();
 
     function __err(uint32 __code) internal pure {
         assembly {

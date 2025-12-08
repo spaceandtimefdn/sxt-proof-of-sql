@@ -20,6 +20,7 @@ library ProofOfSqlTable {
         VarChar,
         Decimal75,
         TimeStampTZ,
+        // Not currently supported
         Scalar,
         VarBinary
     }
@@ -54,7 +55,7 @@ library ProofOfSqlTable {
     /// @param __serializedTable The serialized table
     /// @return __serializedTableOut The data that remains after consuming the serialized table
     /// @return __table The deserialized table
-    function __deserializeFromBytes(bytes memory __serializedTable)
+    function deserializeFromBytes(bytes memory __serializedTable)
         internal
         pure
         returns (bytes memory __serializedTableOut, Table memory __table)
@@ -132,8 +133,6 @@ library ProofOfSqlTable {
                 case 8 { copy_size := mul(column_length, WORD_SIZE) }
                 // DATA_TYPE_TIMESTAMP_VARIANT
                 case 9 { copy_size := mul(column_length, INT64_SIZE) }
-                // DATA_TYPE_SCALAR_VARIANT
-                case 10 { copy_size := mul(column_length, WORD_SIZE) }
                 // DATA_TYPE_VARBINARY_VARIANT
                 case 11 { copy_size := get_byte_array_copy_size(source_ptr, column_length) }
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
