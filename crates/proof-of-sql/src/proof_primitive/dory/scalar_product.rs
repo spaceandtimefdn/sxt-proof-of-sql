@@ -35,7 +35,7 @@ pub fn scalar_product_prove(
     let (_d, _d_inv) = messages.verifier_F_message(transcript);
 }
 
-/// This is the verifier side of the Scalar-Product algorithm in section 3.1 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the verifier side of the Scalar-Product algorithm in section 3.1 of <https://eprint.iacr.org/2020/1274.pdf>.
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn scalar_product_verify(
     messages: &mut DoryMessages,

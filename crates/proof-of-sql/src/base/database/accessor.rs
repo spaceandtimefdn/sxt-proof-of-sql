@@ -85,7 +85,7 @@ pub trait CommitmentAccessor<C: Commitment>: MetadataAccessor {
 /// will only be accessing information about columns that exist in the database.
 pub trait DataAccessor<S: Scalar>: MetadataAccessor {
     /// Return the data span in the table (not the full-table data)
-    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<S>;
+    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, S>;
 
     /// Creates a new [`Table`] from a [`TableRef`] and [`Ident`]s.
     ///
@@ -93,7 +93,7 @@ pub trait DataAccessor<S: Scalar>: MetadataAccessor {
     /// The only reason why [`table_ref`] is needed is because [`column_ids`] can be empty.
     /// # Panics
     /// Column length mismatches can occur in theory. In practice, this should not happen.
-    fn get_table(&self, table_ref: &TableRef, column_ids: &IndexSet<Ident>) -> Table<S> {
+    fn get_table(&self, table_ref: &TableRef, column_ids: &IndexSet<Ident>) -> Table<'_, S> {
         if column_ids.is_empty() {
             let input_length = self.get_length(table_ref);
             Table::<S>::try_new_with_options(

@@ -54,7 +54,7 @@ fn output_bit_table(
 /// # Arguments
 ///
 /// * `sub_commits` - A reference to the signed sub-commits.
-/// * `bit_table` - A reference to the bit table used by the packed_msm function.
+/// * `bit_table` - A reference to the bit table used by the `packed_msm` function.
 /// * `committable_columns` - A reference to the committable columns.
 /// * `offset` - The offset to the data.
 /// * `num_matrix_commitment_columns` - The number of generators used for msm.
@@ -218,7 +218,7 @@ fn offset_column(
                     0
                 };
 
-                let last_value = if total_length % num_matrix_commitment_columns == 0 {
+                let last_value = if total_length.is_multiple_of(num_matrix_commitment_columns) {
                     num_matrix_commitment_columns
                 } else {
                     total_length % num_matrix_commitment_columns
@@ -304,7 +304,7 @@ fn compute_cumulative_bit_sum_table(
         .collect()
 }
 
-/// Returns the bit table and packed scalar array to be used in Blitzar's packed_msm function.
+/// Returns the bit table and packed scalar array to be used in Blitzar's `packed_msm` function.
 ///
 /// # Arguments
 ///

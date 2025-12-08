@@ -11,7 +11,7 @@ use crate::{
     utils::log,
 };
 
-/// This is the prover side of the extended Dory-Innerproduct algorithm in section 4.3 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the prover side of the extended Dory-Innerproduct algorithm in section 4.3 of <https://eprint.iacr.org/2020/1274.pdf>.
 /// This function builds/enqueues `messages`, appends to `transcript`, and consumes `state`.
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_inner_product_prove(
@@ -33,7 +33,7 @@ pub fn extended_dory_inner_product_prove(
     log::log_memory_usage("End");
 }
 
-/// This is the verifier side of the extended Dory-Innerproduct algorithm in section 4.3 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the verifier side of the extended Dory-Innerproduct algorithm in section 4.3 of <https://eprint.iacr.org/2020/1274.pdf>.
 /// This function consumes/dequeues from `messages`, appends to `transcript`, and consumes `state`.
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_inner_product_verify(

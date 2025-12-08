@@ -12,7 +12,7 @@ use super::{
 };
 use crate::{base::proof::Transcript, utils::log};
 
-/// This is the prover side of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the prover side of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_reduce_prove(
     messages: &mut DoryMessages,
@@ -51,7 +51,7 @@ pub fn extended_dory_reduce_prove(
     log::log_memory_usage("End");
 }
 
-/// This is the verifier side of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the verifier side of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_reduce_verify(
     messages: &mut DoryMessages,

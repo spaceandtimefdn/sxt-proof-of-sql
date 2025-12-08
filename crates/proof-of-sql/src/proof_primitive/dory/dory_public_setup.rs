@@ -24,7 +24,7 @@ impl<'a> DoryProverPublicSetup<'a> {
     }
     /// The public setup for the Dory protocol.
     #[must_use]
-    pub fn prover_setup(&self) -> &ProverSetup {
+    pub fn prover_setup(&self) -> &ProverSetup<'_> {
         self.prover_setup
     }
 }

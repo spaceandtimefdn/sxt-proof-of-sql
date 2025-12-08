@@ -66,7 +66,7 @@ impl<C: Commitment> DataAccessor<C::Scalar> for BenchmarkAccessor<'_, C> {
     /// # Panics
     ///
     /// Will panic if the [`TableRef`]-[`Ident`] pair does not exist in the accessor.
-    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<C::Scalar> {
+    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, C::Scalar> {
         *self
             .columns
             .get(&(table_ref.clone(), column_id.clone()))

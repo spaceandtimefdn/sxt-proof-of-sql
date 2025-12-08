@@ -22,7 +22,7 @@ impl RecordBatchAccessor {
     }
 }
 impl<S: Scalar> DataAccessor<S> for RecordBatchAccessor {
-    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<S> {
+    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, S> {
         let table = self.tables.get(table_ref).expect("Table not found.");
         let arrow_column = table
             .column_by_name(column_id.value.as_str())

@@ -19,9 +19,9 @@ impl VisitorMut for UppercaseColumnVisitor {
         match expr {
             Expr::Identifier(ident) => *ident = uppercase_identifier(ident.clone()),
             Expr::CompoundIdentifier(idents) => {
-                idents
-                    .iter_mut()
-                    .for_each(|ident| *ident = uppercase_identifier(ident.clone()));
+                for ident in idents.iter_mut() {
+                    *ident = uppercase_identifier(ident.clone());
+                }
             }
             _ => (),
         }

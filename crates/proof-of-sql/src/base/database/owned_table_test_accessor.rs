@@ -81,7 +81,7 @@ impl<CP: CommitmentEvaluationProof> TestAccessor<CP::Commitment>
 /// the `column_id` is not found in the inner table for that reference,
 /// indicating that an invalid column reference was provided.
 impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for OwnedTableTestAccessor<'_, CP> {
-    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<CP::Scalar> {
+    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, CP::Scalar> {
         match self
             .tables
             .get(table_ref)

@@ -54,7 +54,7 @@ pub enum DynProofPlan {
     ///     WHERE <where_clause>
     ///     GROUP BY <group_by_expr1>.expr, ..., <group_by_exprM>.expr
     /// ```
-    /// Similar to GroupBy but accepts a DynProofPlan as input
+    /// Similar to `GroupBy` but accepts a [`DynProofPlan`] as input
     Aggregate(AggregateExec),
     /// Provable expressions for queries of the form, where the result is sent in a dense form
     /// ```ignore
@@ -65,7 +65,7 @@ pub enum DynProofPlan {
     /// ```ignore
     ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
     /// ```
-    /// Accepts a DynProofPlan as input
+    /// Accepts a [`DynProofPlan`] as input
     Filter(FilterExec),
     /// `ProofPlan` for queries of the form
     /// ```ignore
