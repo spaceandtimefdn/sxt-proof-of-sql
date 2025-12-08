@@ -84,7 +84,7 @@ impl CsvDataAccessor {
     }
 }
 impl<S: Scalar> DataAccessor<S> for CsvDataAccessor {
-    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<S> {
+    fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, S> {
         self.inner.get_column(table_ref, column_id)
     }
 }

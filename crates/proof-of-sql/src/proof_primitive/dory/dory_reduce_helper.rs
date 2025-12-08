@@ -9,15 +9,15 @@ use rayon::{
     prelude::{IntoParallelRefMutIterator, ParallelIterator},
 };
 
-/// From the Dory-Reduce algorithm in section 3.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the Dory-Reduce algorithm in section 3.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
 /// Computes
-/// * D_1L = <v_1L, Gamma_2'>
-/// * D_1R = <v_1R, Gamma_2'>
-/// * D_2L = <Gamma_1', v_2L>
-/// * D_2R = <Gamma_1', v_2R>
+/// * `D_1L` = <`v_1L`, `Gamma_2`'>
+/// * `D_1R` = <`v_1R`, `Gamma_2`'>
+/// * `D_2L` = <`Gamma_1`', `v_2L`>
+/// * `D_2R` = <`Gamma_1`', `v_2R`>
 ///
-/// Returns (D_1L, D_1R, D_2L, D_2R).
+/// Returns (`D_1L`, `D_1R`, `D_2L`, `D_2R`).
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn dory_reduce_prove_compute_Ds(
     state: &ProverState,
@@ -39,11 +39,11 @@ pub fn dory_reduce_prove_compute_Ds(
 
     (D_1L, D_1R, D_2L, D_2R)
 }
-/// From the Dory-Reduce algorithm in section 3.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the Dory-Reduce algorithm in section 3.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
-/// Mutates v_1 and v_2.
-/// * v_1 <- v_1 + beta * Gamma_1
-/// * v_2 <- v_2 + beta_inv * Gamma_2
+/// Mutates `v_1` and `v_2`.
+/// * `v_1` <- `v_1` + beta * `Gamma_1`
+/// * `v_2` <- `v_2` + `beta_inv` * `Gamma_2`
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn dory_reduce_prove_mutate_v_vecs(
     state: &mut ProverState,
@@ -61,11 +61,11 @@ pub fn dory_reduce_prove_mutate_v_vecs(
 
     log::log_memory_usage("End");
 }
-/// From the Dory-Reduce algorithm in section 3.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the Dory-Reduce algorithm in section 3.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
 /// Computes
-/// * C_plus = <v_1L, v_2R>
-/// * C_minus = <v_1R, v_2L>
+/// * `C_plus` = <`v_1L`, `v_2R`>
+/// * `C_minus` = <`v_1R`, `v_2L`>
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn dory_reduce_prove_compute_Cs(state: &ProverState, half_n: usize) -> (GT, GT) {
     log::log_memory_usage("Start");
@@ -79,11 +79,11 @@ pub fn dory_reduce_prove_compute_Cs(state: &ProverState, half_n: usize) -> (GT, 
     (C_plus, C_minus)
 }
 
-/// From the Dory-Reduce algorithm in section 3.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the Dory-Reduce algorithm in section 3.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
-/// Folds v_1 and v_2.
-/// * v_1' <- alpha * v_1L + v_1R
-/// * v_2' <- alpha_inv * v_2L + v_2R
+/// Folds `v_1` and `v_2`.
+/// * `v_1`' <- alpha * `v_1L` + `v_1R`
+/// * `v_2`' <- `alpha_inv` * `v_2L` + `v_2R`
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn dory_reduce_prove_fold_v_vecs(
     state: &mut ProverState,

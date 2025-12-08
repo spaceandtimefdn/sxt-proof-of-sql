@@ -66,7 +66,9 @@ pub(super) fn compute_dynamic_dory_commitments(
     let all_sub_commits: Vec<G1Affine> = slice_cast(&blitzar_sub_commits);
     let signed_sub_commits = signed_commits(&all_sub_commits, committable_columns);
     assert!(
-        signed_sub_commits.len() % committable_columns.len() == 0,
+        signed_sub_commits
+            .len()
+            .is_multiple_of(committable_columns.len()),
         "Invalid number of sub commits"
     );
     let num_commits = signed_sub_commits.len() / committable_columns.len();

@@ -6,11 +6,11 @@ use crate::utils::log;
 use ark_ec::VariableBaseMSM;
 use ark_ff::Field;
 
-/// From the extended Dory-Reduce algorithm in section 4.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the extended Dory-Reduce algorithm in section 4.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
 /// Computes
-/// * E_1beta = <Gamma_1, s_2>
-/// * E_2beta = <s_1, Gamma_2>
+/// * `E_1beta` = <`Gamma_1`, `s_2`>
+/// * `E_2beta` = <`s_1`, `Gamma_2`>
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_reduce_prove_compute_E_betas(
     state: &ExtendedProverState,
@@ -27,13 +27,13 @@ pub fn extended_dory_reduce_prove_compute_E_betas(
 
     (E_1beta, E_2beta)
 }
-/// From the extended Dory-Reduce algorithm in section 4.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the extended Dory-Reduce algorithm in section 4.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
 /// Computes
-/// * E_1plus = <v_1L, s_2R>
-/// * E_1minus = <v_1R, s_2L>
-/// * E_2plus = <s_1L, v_2R>
-/// * E_2minus = <s_1R, v_2L>
+/// * `E_1plus` = <`v_1L`, `s_2R`>
+/// * `E_1minus` = <`v_1R`, `s_2L`>
+/// * `E_2plus` = <`s_1L`, `v_2R`>
+/// * `E_2minus` = <`s_1R`, `v_2L`>
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_reduce_prove_compute_signed_Es(
     state: &ExtendedProverState,
@@ -54,11 +54,11 @@ pub fn extended_dory_reduce_prove_compute_signed_Es(
 
     (E_1plus, E_1minus, E_2plus, E_2minus)
 }
-/// From the extended Dory-Reduce algorithm in section 4.2 of https://eprint.iacr.org/2020/1274.pdf.
+/// From the extended Dory-Reduce algorithm in section 4.2 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
-/// Folds s1 and s2.
-/// * s_1' <- alpha * s_1L + s_1R
-/// * s_2' <- alpha_inv * s_2L + s_2R
+/// Folds `s1` and `s2`.
+/// * `s_1`' <- alpha * `s_1L` + `s_1R`
+/// * `s_2`' <- `alpha_inv` * `s_2L` + `s_2R`
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn extended_dory_reduce_prove_fold_s_vecs(
     state: &mut ExtendedProverState,

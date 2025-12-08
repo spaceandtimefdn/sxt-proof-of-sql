@@ -69,7 +69,7 @@ impl<S: Scalar> SumcheckProof<S> {
         log::log_memory_usage("Start");
 
         let coefficients_len = self.coefficients.len();
-        if coefficients_len % num_variables != 0 {
+        if !coefficients_len.is_multiple_of(num_variables) {
             return Err(ProofError::VerificationError {
                 error: "invalid proof size",
             });

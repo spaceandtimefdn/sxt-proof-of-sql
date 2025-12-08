@@ -1,5 +1,5 @@
 use super::PoSQLTimestampError;
-use alloc::{string::ToString, sync::Arc};
+use alloc::sync::Arc;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +50,7 @@ impl TryFrom<&Option<Arc<str>>> for PoSQLTimeZone {
                         Ok(PoSQLTimeZone::new(total_seconds))
                     }
                     _ => Err(PoSQLTimestampError::InvalidTimezone {
-                        timezone: tz.to_string(),
+                        timezone: tz.clone(),
                     }),
                 }
             }

@@ -112,7 +112,7 @@ impl<C: Commitment> ColumnCommitments<C> {
     }
 
     /// Iterate over the metadata and commitments by reference.
-    pub fn iter(&self) -> Iter<C> {
+    pub fn iter(&self) -> Iter<'_, C> {
         self.into_iter()
     }
 

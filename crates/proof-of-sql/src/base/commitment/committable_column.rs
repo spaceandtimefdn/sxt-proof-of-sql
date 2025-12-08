@@ -993,7 +993,7 @@ mod tests {
 
     // Committing to Int128 columns is blocked by PROOF-772 without a workaround
     #[test]
-    #[ignore]
+    #[ignore = "Blocked by PROOF-772"]
     fn we_can_commit_to_int128_column_through_committable_column() {
         // empty case
         let committable_column = CommittableColumn::Int128(&[]);

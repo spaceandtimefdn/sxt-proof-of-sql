@@ -22,7 +22,7 @@ pub fn fold_scalars_0_prove(
     state.base_state
 }
 
-/// This is the verifier side of the Fold-Scalars algorithm in section 4.1 of https://eprint.iacr.org/2020/1274.pdf.
+/// This is the verifier side of the Fold-Scalars algorithm in section 4.1 of <https://eprint.iacr.org/2020/1274.pdf>.
 ///
 /// Note: this only works for nu = 0.
 ///

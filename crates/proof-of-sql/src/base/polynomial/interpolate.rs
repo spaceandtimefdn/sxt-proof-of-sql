@@ -62,7 +62,7 @@ where
                 );
 
         // This handles the (-1)^(d-i) sign.
-        if (degree - i) % 2 == 0 {
+        if (degree - i).is_multiple_of(2) {
             sum += new_term;
         } else {
             sum -= new_term;

@@ -32,7 +32,7 @@ fn we_can_pseudo_invert_arrays_of_length_1_with_zero() {
 
 #[test]
 fn we_can_pseudo_invert_arrays_of_length_bigger_than_1_with_zeros_and_non_zeros() {
-    let input = vec![
+    let input = [
         TestScalar::from(0_u32),
         TestScalar::from(2_u32),
         (-33_i32).into(),
