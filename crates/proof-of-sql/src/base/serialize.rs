@@ -1,4 +1,4 @@
-/// Implements serde Serialize/Deserialize for types using `ark_serialize` with checked deserialization.
+/// Implements serde Serialize/Deserialize for types using [`ark_serialize`] with checked deserialization.
 ///
 /// Uses `serialize_compressed` and `deserialize_compressed` which validates data on deserialization.
 macro_rules! impl_serde_for_ark_serde_checked {
