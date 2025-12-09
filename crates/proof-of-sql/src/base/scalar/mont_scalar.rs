@@ -138,7 +138,7 @@ impl<T: MontConfig<4>> From<&[u8]> for MontScalar<T> {
     }
 }
 
-/// Implements `From<T>` for `MontScalar` for string-like types by hashing the bytes.
+/// Implements `From<T>` for [`MontScalar`] for string-like types by hashing the bytes.
 macro_rules! impl_from_for_mont_scalar_for_string {
     ($tt:ty) => {
         impl<T: MontConfig<4>> From<$tt> for MontScalar<T> {
