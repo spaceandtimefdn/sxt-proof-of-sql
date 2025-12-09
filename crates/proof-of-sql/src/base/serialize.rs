@@ -25,7 +25,7 @@ macro_rules! impl_serde_for_ark_serde_checked {
 
 /// Implements serde Serialize/Deserialize for types using `ark_serialize` with unchecked deserialization.
 ///
-/// Uses `serialize_compressed` and `deserialize_compressed_unchecked` which skips validation.
+/// Uses [`serialize_compressed`] and [`deserialize_compressed_unchecked`] which skips validation.
 /// This is faster but should only be used when the data source is trusted.
 macro_rules! impl_serde_for_ark_serde_unchecked {
     ($t:ty) => {
