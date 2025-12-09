@@ -1,5 +1,5 @@
 //! This module contains basic shared functionalities of the library.
-/// TODO: add docs
+/// Module for Arrow interoperability including conversion between Arrow arrays and columns.
 #[cfg(feature = "arrow")]
 pub mod arrow;
 
@@ -7,10 +7,10 @@ pub(crate) mod bit;
 pub(crate) mod byte;
 pub mod commitment;
 pub mod database;
-/// TODO: add docs
+/// Module providing encoding utilities including varint encoding for compact serialization.
 pub(crate) mod encode;
 pub mod math;
-/// TODO: add docs
+/// Module for polynomial operations including multilinear extensions used in proof systems.
 pub(crate) mod polynomial;
 /// Module for Proof of SQL datetime types.
 pub mod posql_time;

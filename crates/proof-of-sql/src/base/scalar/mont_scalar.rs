@@ -120,7 +120,7 @@ impl<T: MontConfig<4>> Ord for MontScalar<T> {
 // end replacement for #[derive(...)]
 // --------------------------------------------------------------------------------
 
-/// TODO: add docs
+/// Implements `From<T>` for `MontScalar` for types that `Fp256` supports via its own `From` impl.
 macro_rules! impl_from_for_mont_scalar_for_type_supported_by_from {
     ($tt:ty) => {
         impl<T: MontConfig<4>> From<$tt> for MontScalar<T> {
@@ -138,7 +138,7 @@ impl<T: MontConfig<4>> From<&[u8]> for MontScalar<T> {
     }
 }
 
-/// TODO: add docs
+/// Implements `From<T>` for [`MontScalar`] for string-like types by hashing the bytes.
 macro_rules! impl_from_for_mont_scalar_for_string {
     ($tt:ty) => {
         impl<T: MontConfig<4>> From<$tt> for MontScalar<T> {

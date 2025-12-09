@@ -60,7 +60,7 @@ where
     }
 }
 
-/// TODO: add docs
+/// Macro to implement [`MultilinearExtension`] for slice-like types by delegating to the slice impl.
 macro_rules! slice_like_mle_impl {
     () => {
         fn inner_product(&self, evaluation_vec: &[S]) -> S {
