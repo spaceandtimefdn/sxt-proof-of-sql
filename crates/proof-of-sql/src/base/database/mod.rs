@@ -75,7 +75,11 @@ mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
 
-/// TODO: add docs
+/// Module providing element-wise operations on [`OwnedColumn`] types.
+///
+/// This module implements arithmetic, comparison, and logical operations
+/// for columns including NOT, AND, OR, addition, subtraction, multiplication,
+/// division, and equality/inequality comparisons.
 pub(crate) mod owned_column_operation;
 
 mod owned_table;
@@ -112,7 +116,10 @@ pub use table_test_accessor::TableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]
 mod table_test_accessor_test;
 
-/// TODO: add docs
+/// Module providing utilities for filtering columns based on selection vectors.
+///
+/// This module contains functions to filter columns by boolean selection vectors
+/// or by index vectors, returning new columns containing only the selected rows.
 pub(crate) mod filter_util;
 #[cfg(test)]
 mod filter_util_test;

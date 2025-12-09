@@ -9,5 +9,5 @@ mod log;
 pub(crate) use log::log2_up;
 mod big_decimal_ext;
 pub use big_decimal_ext::BigDecimalExt;
-/// TODO: add docs
+/// Module providing permutation utilities for reordering data in proof computations.
 pub(crate) mod permutation;

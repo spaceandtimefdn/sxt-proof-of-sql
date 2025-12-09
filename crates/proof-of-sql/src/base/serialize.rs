@@ -1,4 +1,6 @@
-/// TODO: add docs
+/// Implements serde Serialize/Deserialize for types using `ark_serialize` with checked deserialization.
+///
+/// Uses `serialize_compressed` and `deserialize_compressed` which validates data on deserialization.
 macro_rules! impl_serde_for_ark_serde_checked {
     ($t:ty) => {
         impl serde::Serialize for $t {
@@ -21,7 +23,10 @@ macro_rules! impl_serde_for_ark_serde_checked {
     };
 }
 
-/// TODO: add docs
+/// Implements serde Serialize/Deserialize for types using `ark_serialize` with unchecked deserialization.
+///
+/// Uses `serialize_compressed` and `deserialize_compressed_unchecked` which skips validation.
+/// This is faster but should only be used when the data source is trusted.
 macro_rules! impl_serde_for_ark_serde_unchecked {
     ($t:ty) => {
         impl serde::Serialize for $t {

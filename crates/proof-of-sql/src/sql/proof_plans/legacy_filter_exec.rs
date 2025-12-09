@@ -35,7 +35,7 @@ use sqlparser::ast::Ident;
 pub struct OstensibleLegacyFilterExec<H: ProverHonestyMarker> {
     aliased_results: Vec<AliasedDynProofExpr>,
     table: TableExpr,
-    /// TODO: add docs
+    /// The boolean expression used to filter rows from the table.
     where_clause: DynProofExpr,
     phantom: PhantomData<H>,
 }

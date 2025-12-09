@@ -1,4 +1,7 @@
-//! TODO: add docs
+//! This module provides the proof generation and verification infrastructure.
+//!
+//! It contains builders for constructing proofs from SQL query plans and
+//! verifiers for checking the validity of generated proofs.
 
 mod final_round_builder;
 #[cfg(test)]
