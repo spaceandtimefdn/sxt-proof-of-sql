@@ -357,14 +357,14 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let column_references = expr.get_column_references();
 
 
-        // // construct a transcript for the proof
-        // let mut transcript: Keccak256Transcript = Transcript::new();
-        // transcript.extend_as_le([SETUP_HASH]);
-        // transcript.challenge_as_le();
-        // transcript.extend_serialize_as_le(expr);
-        // transcript.challenge_as_le();
-        // transcript.extend_serialize_as_le(&result);
-        // transcript.challenge_as_le();
+        // construct a transcript for the proof
+        let mut transcript: Keccak256Transcript = Transcript::new();
+        transcript.extend_as_le([SETUP_HASH]);
+        transcript.challenge_as_le();
+        transcript.extend_serialize_as_le(expr);
+        transcript.challenge_as_le();
+        transcript.extend_serialize_as_le(&result);
+        transcript.challenge_as_le();
 
         // for table in expr.get_table_references() {
         //     let length = accessor.get_length(&table);
