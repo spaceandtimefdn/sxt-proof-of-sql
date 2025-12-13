@@ -366,53 +366,53 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         transcript.extend_serialize_as_le(&result);
         transcript.challenge_as_le();
 
-        // for table in expr.get_table_references() {
-        //     let length = accessor.get_length(&table);
-        //     transcript.extend_serialize_as_le(&[0, 0, 0, length]);
-        // }
-        // transcript.challenge_as_le();
+        for table in expr.get_table_references() {
+            let length = accessor.get_length(&table);
+            transcript.extend_serialize_as_le(&[0, 0, 0, length]);
+        }
+        transcript.challenge_as_le();
 
-        // for commitment in expr
-        //     .get_column_references()
-        //     .into_iter()
-        //     .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id()))
-        // {
-        //     transcript.extend_serialize_as_le(&commitment);
-        // }
-        // transcript.challenge_as_le();
+        for commitment in expr
+            .get_column_references()
+            .into_iter()
+            .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id()))
+        {
+            transcript.extend_serialize_as_le(&commitment);
+        }
+        transcript.challenge_as_le();
 
-        // transcript.extend_serialize_as_le(&min_row_num);
-        // transcript.challenge_as_le();
+        transcript.extend_serialize_as_le(&min_row_num);
+        transcript.challenge_as_le();
 
-        // transcript.extend_serialize_as_le(&self.first_round_message);
+        transcript.extend_serialize_as_le(&self.first_round_message);
 
-        // // These are the challenges that will be consumed by the proof
-        // // Specifically, these are the challenges that the verifier sends to
-        // // the prover after the prover sends the result, but before the prover
-        // // send commitments to the intermediate witness columns.
-        // // Note: the last challenge in the vec is the first one that is consumed.
-        // let post_result_challenges =
-        //     core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-        //         .take(self.first_round_message.post_result_challenge_count)
-        //         .collect();
+        // These are the challenges that will be consumed by the proof
+        // Specifically, these are the challenges that the verifier sends to
+        // the prover after the prover sends the result, but before the prover
+        // send commitments to the intermediate witness columns.
+        // Note: the last challenge in the vec is the first one that is consumed.
+        let post_result_challenges: alloc::collections::vec_deque::VecDeque<<CP as CommitmentEvaluationProof>::Scalar> =
+            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+                .take(self.first_round_message.post_result_challenge_count)
+                .collect();
 
-        // // add the commitments and bit distributions to the proof
-        // transcript.challenge_as_le();
-        // transcript.extend_serialize_as_le(&self.final_round_message);
+        // add the commitments and bit distributions to the proof
+        transcript.challenge_as_le();
+        transcript.extend_serialize_as_le(&self.final_round_message);
 
-        // // draw the random scalars for sumcheck
-        // let num_random_scalars =
-        //     num_sumcheck_variables + self.final_round_message.subpolynomial_constraint_count;
-        // let random_scalars: Vec<_> =
-        //     core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-        //         .take(num_random_scalars)
-        //         .collect();
-        // let sumcheck_random_scalars = SumcheckRandomScalars::new(
-        //     &random_scalars,
-        //     self.first_round_message.range_length,
-        //     num_sumcheck_variables,
-        // );
-        // transcript.challenge_as_le();
+        // draw the random scalars for sumcheck
+        let num_random_scalars =
+            num_sumcheck_variables + self.final_round_message.subpolynomial_constraint_count;
+        let random_scalars: Vec<<CP as CommitmentEvaluationProof>::Scalar> =
+            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+                .take(num_random_scalars)
+                .collect();
+        let sumcheck_random_scalars = SumcheckRandomScalars::new(
+            &random_scalars,
+            self.first_round_message.range_length,
+            num_sumcheck_variables,
+        );
+        transcript.challenge_as_le();
 
         // // verify sumcheck up to the evaluation check
         // let subclaim = self.sumcheck_proof.verify_without_evaluation(
