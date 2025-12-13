@@ -512,37 +512,37 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             })?;
         }
 
-        // // perform the evaluation check of the sumcheck polynomial
-        // if builder.sumcheck_evaluation() != subclaim.expected_evaluation {
-        //     Err(ProofError::VerificationError {
-        //         error: "sumcheck evaluation check failed",
-        //     })?;
-        // }
+        // perform the evaluation check of the sumcheck polynomial
+        if builder.sumcheck_evaluation() != subclaim.expected_evaluation {
+            Err(ProofError::VerificationError {
+                error: "sumcheck evaluation check failed",
+            })?;
+        }
 
-        // let pcs_proof_evaluations: Vec<_> = self
-        //     .pcs_proof_evaluations
-        //     .first_round
-        //     .iter()
-        //     .chain(self.pcs_proof_evaluations.column_ref.iter())
-        //     .chain(self.pcs_proof_evaluations.final_round.iter())
-        //     .copied()
-        //     .collect();
+        let pcs_proof_evaluations: Vec<_> = self
+            .pcs_proof_evaluations
+            .first_round
+            .iter()
+            .chain(self.pcs_proof_evaluations.column_ref.iter())
+            .chain(self.pcs_proof_evaluations.final_round.iter())
+            .copied()
+            .collect();
 
-        // // finally, check the MLE evaluations with the inner product proof
-        // self.evaluation_proof
-        //     .verify_batched_proof(
-        //         &mut transcript,
-        //         &pcs_proof_commitments,
-        //         &evaluation_random_scalars,
-        //         &pcs_proof_evaluations,
-        //         &subclaim.evaluation_point,
-        //         min_row_num as u64,
-        //         self.first_round_message.range_length,
-        //         setup,
-        //     )
-        //     .map_err(|_e| ProofError::VerificationError {
-        //         error: "Inner product proof of MLE evaluations failed",
-        //     })?;
+        // finally, check the MLE evaluations with the inner product proof
+        self.evaluation_proof
+            .verify_batched_proof(
+                &mut transcript,
+                &pcs_proof_commitments,
+                &evaluation_random_scalars,
+                &pcs_proof_evaluations,
+                &subclaim.evaluation_point,
+                min_row_num as u64,
+                self.first_round_message.range_length,
+                setup,
+            )
+            .map_err(|_e| ProofError::VerificationError {
+                error: "Inner product proof of MLE evaluations failed",
+            })?;
 
         // let verification_hash = transcript.challenge_as_le();
 
