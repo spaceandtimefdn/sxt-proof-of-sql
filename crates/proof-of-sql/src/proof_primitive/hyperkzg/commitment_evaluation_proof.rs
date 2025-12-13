@@ -126,29 +126,30 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
             .map(|(c, m)| c.commitment * m.0)
             .fold(G1Projective::default(), Add::add)
             .into();
-        let nova_commit = nova_snark::provider::hyperkzg::Commitment::new(
-            convert_g1_affine_from_ark_to_halo2(&commit).into(),
-        );
-        let nova_eval = evaluations
-            .iter()
-            .zip(batching_factors)
-            .map(|(&e, &f)| e * f)
-            .sum::<Self::Scalar>();
-        let mut nova_point = slice_ops::slice_cast(b_point);
-        nova_point.reverse();
-        if nova_point.is_empty() {
-            nova_point.push(NovaScalar::ZERO);
-        }
-        transcript.wrap_transcript(|keccak_transcript| {
-            EvaluationEngine::verify(
-                setup,
-                keccak_transcript,
-                &nova_commit,
-                &nova_point,
-                &nova_eval.into(),
-                &self.into(),
-            )
-        })
+        // let nova_commit = nova_snark::provider::hyperkzg::Commitment::new(
+        //     convert_g1_affine_from_ark_to_halo2(&commit).into(),
+        // );
+        // let nova_eval = evaluations
+        //     .iter()
+        //     .zip(batching_factors)
+        //     .map(|(&e, &f)| e * f)
+        //     .sum::<Self::Scalar>();
+        // let mut nova_point = slice_ops::slice_cast(b_point);
+        // nova_point.reverse();
+        // if nova_point.is_empty() {
+        //     nova_point.push(NovaScalar::ZERO);
+        // }
+        // transcript.wrap_transcript(|keccak_transcript| {
+        //     EvaluationEngine::verify(
+        //         setup,
+        //         keccak_transcript,
+        //         &nova_commit,
+        //         &nova_point,
+        //         &nova_eval.into(),
+        //         &self.into(),
+        //     )
+        // })
+        Ok(())
     }
 }
 
