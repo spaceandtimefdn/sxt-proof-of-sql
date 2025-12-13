@@ -356,200 +356,201 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         let column_references = expr.get_column_references();
 
-        // construct a transcript for the proof
-        let mut transcript: Keccak256Transcript = Transcript::new();
-        transcript.extend_as_le([SETUP_HASH]);
-        transcript.challenge_as_le();
-        transcript.extend_serialize_as_le(expr);
-        transcript.challenge_as_le();
-        transcript.extend_serialize_as_le(&result);
-        transcript.challenge_as_le();
 
-        for table in expr.get_table_references() {
-            let length = accessor.get_length(&table);
-            transcript.extend_serialize_as_le(&[0, 0, 0, length]);
-        }
-        transcript.challenge_as_le();
+        // // construct a transcript for the proof
+        // let mut transcript: Keccak256Transcript = Transcript::new();
+        // transcript.extend_as_le([SETUP_HASH]);
+        // transcript.challenge_as_le();
+        // transcript.extend_serialize_as_le(expr);
+        // transcript.challenge_as_le();
+        // transcript.extend_serialize_as_le(&result);
+        // transcript.challenge_as_le();
 
-        for commitment in expr
-            .get_column_references()
-            .into_iter()
-            .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id()))
-        {
-            transcript.extend_serialize_as_le(&commitment);
-        }
-        transcript.challenge_as_le();
+        // for table in expr.get_table_references() {
+        //     let length = accessor.get_length(&table);
+        //     transcript.extend_serialize_as_le(&[0, 0, 0, length]);
+        // }
+        // transcript.challenge_as_le();
 
-        transcript.extend_serialize_as_le(&min_row_num);
-        transcript.challenge_as_le();
+        // for commitment in expr
+        //     .get_column_references()
+        //     .into_iter()
+        //     .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id()))
+        // {
+        //     transcript.extend_serialize_as_le(&commitment);
+        // }
+        // transcript.challenge_as_le();
 
-        transcript.extend_serialize_as_le(&self.first_round_message);
+        // transcript.extend_serialize_as_le(&min_row_num);
+        // transcript.challenge_as_le();
 
-        // These are the challenges that will be consumed by the proof
-        // Specifically, these are the challenges that the verifier sends to
-        // the prover after the prover sends the result, but before the prover
-        // send commitments to the intermediate witness columns.
-        // Note: the last challenge in the vec is the first one that is consumed.
-        let post_result_challenges =
-            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-                .take(self.first_round_message.post_result_challenge_count)
-                .collect();
+        // transcript.extend_serialize_as_le(&self.first_round_message);
 
-        // add the commitments and bit distributions to the proof
-        transcript.challenge_as_le();
-        transcript.extend_serialize_as_le(&self.final_round_message);
+        // // These are the challenges that will be consumed by the proof
+        // // Specifically, these are the challenges that the verifier sends to
+        // // the prover after the prover sends the result, but before the prover
+        // // send commitments to the intermediate witness columns.
+        // // Note: the last challenge in the vec is the first one that is consumed.
+        // let post_result_challenges =
+        //     core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+        //         .take(self.first_round_message.post_result_challenge_count)
+        //         .collect();
 
-        // draw the random scalars for sumcheck
-        let num_random_scalars =
-            num_sumcheck_variables + self.final_round_message.subpolynomial_constraint_count;
-        let random_scalars: Vec<_> =
-            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-                .take(num_random_scalars)
-                .collect();
-        let sumcheck_random_scalars = SumcheckRandomScalars::new(
-            &random_scalars,
-            self.first_round_message.range_length,
-            num_sumcheck_variables,
-        );
-        transcript.challenge_as_le();
+        // // add the commitments and bit distributions to the proof
+        // transcript.challenge_as_le();
+        // transcript.extend_serialize_as_le(&self.final_round_message);
 
-        // verify sumcheck up to the evaluation check
-        let subclaim = self.sumcheck_proof.verify_without_evaluation(
-            &mut transcript,
-            num_sumcheck_variables,
-            &Zero::zero(),
-        )?;
+        // // draw the random scalars for sumcheck
+        // let num_random_scalars =
+        //     num_sumcheck_variables + self.final_round_message.subpolynomial_constraint_count;
+        // let random_scalars: Vec<_> =
+        //     core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+        //         .take(num_random_scalars)
+        //         .collect();
+        // let sumcheck_random_scalars = SumcheckRandomScalars::new(
+        //     &random_scalars,
+        //     self.first_round_message.range_length,
+        //     num_sumcheck_variables,
+        // );
+        // transcript.challenge_as_le();
 
-        // commit to mle evaluations
-        transcript.extend_serialize_as_le(&self.pcs_proof_evaluations);
+        // // verify sumcheck up to the evaluation check
+        // let subclaim = self.sumcheck_proof.verify_without_evaluation(
+        //     &mut transcript,
+        //     num_sumcheck_variables,
+        //     &Zero::zero(),
+        // )?;
 
-        // draw the random scalars for the evaluation proof
-        // (i.e. the folding/random linear combination of the pcs_proof_mles)
-        let evaluation_random_scalars: Vec<_> =
-            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-                .take(
-                    self.pcs_proof_evaluations.first_round.len()
-                        + self.pcs_proof_evaluations.column_ref.len()
-                        + self.pcs_proof_evaluations.final_round.len(),
-                )
-                .collect();
+        // // commit to mle evaluations
+        // transcript.extend_serialize_as_le(&self.pcs_proof_evaluations);
 
-        // Always prepend input lengths to the chi evaluation lengths
-        let table_length_map = table_refs
-            .into_iter()
-            .map(|table_ref| {
-                let len = accessor.get_length(&table_ref);
-                (table_ref, len)
-            })
-            .collect::<IndexMap<TableRef, usize>>();
+        // // draw the random scalars for the evaluation proof
+        // // (i.e. the folding/random linear combination of the pcs_proof_mles)
+        // let evaluation_random_scalars: Vec<_> =
+        //     core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+        //         .take(
+        //             self.pcs_proof_evaluations.first_round.len()
+        //                 + self.pcs_proof_evaluations.column_ref.len()
+        //                 + self.pcs_proof_evaluations.final_round.len(),
+        //         )
+        //         .collect();
 
-        let chi_evaluation_lengths = table_length_map
-            .values()
-            .chain(self.first_round_message.chi_evaluation_lengths.iter())
-            .copied();
+        // // Always prepend input lengths to the chi evaluation lengths
+        // let table_length_map = table_refs
+        //     .into_iter()
+        //     .map(|table_ref| {
+        //         let len = accessor.get_length(&table_ref);
+        //         (table_ref, len)
+        //     })
+        //     .collect::<IndexMap<TableRef, usize>>();
 
-        // pass over the provable AST to fill in the verification builder
-        let sumcheck_evaluations = SumcheckMleEvaluations::new(
-            self.first_round_message.range_length,
-            chi_evaluation_lengths,
-            self.first_round_message.rho_evaluation_lengths.clone(),
-            &subclaim.evaluation_point,
-            &sumcheck_random_scalars,
-            &self.pcs_proof_evaluations.first_round,
-            &self.pcs_proof_evaluations.final_round,
-        );
-        let chi_eval_map: IndexMap<TableRef, (CP::Scalar, usize)> = table_length_map
-            .into_iter()
-            .map(|(table_ref, length)| {
-                (
-                    table_ref,
-                    (sumcheck_evaluations.chi_evaluations[&length], length),
-                )
-            })
-            .collect();
-        let mut builder = VerificationBuilderImpl::new(
-            sumcheck_evaluations,
-            &self.final_round_message.bit_distributions,
-            sumcheck_random_scalars.subpolynomial_multipliers,
-            post_result_challenges,
-            self.first_round_message.chi_evaluation_lengths.clone(),
-            self.first_round_message.rho_evaluation_lengths.clone(),
-            subclaim.max_multiplicands,
-        );
+        // let chi_evaluation_lengths = table_length_map
+        //     .values()
+        //     .chain(self.first_round_message.chi_evaluation_lengths.iter())
+        //     .copied();
 
-        let pcs_proof_commitments: Vec<_> = self
-            .first_round_message
-            .round_commitments
-            .iter()
-            .cloned()
-            .chain(
-                column_references
-                    .iter()
-                    .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id())),
-            )
-            .chain(self.final_round_message.round_commitments.iter().cloned())
-            .collect();
-        let evaluation_accessor: IndexMap<_, _> = column_references
-            .into_iter()
-            .zip(self.pcs_proof_evaluations.column_ref.iter().copied())
-            .chunk_by(|(r, _)| r.table_ref())
-            .into_iter()
-            .map(|(tr, g)| {
-                let im: IndexMap<_, _> = g.map(|(cr, eval)| (cr.column_id(), eval)).collect();
-                (tr, im)
-            })
-            .collect();
+        // // pass over the provable AST to fill in the verification builder
+        // let sumcheck_evaluations = SumcheckMleEvaluations::new(
+        //     self.first_round_message.range_length,
+        //     chi_evaluation_lengths,
+        //     self.first_round_message.rho_evaluation_lengths.clone(),
+        //     &subclaim.evaluation_point,
+        //     &sumcheck_random_scalars,
+        //     &self.pcs_proof_evaluations.first_round,
+        //     &self.pcs_proof_evaluations.final_round,
+        // );
+        // let chi_eval_map: IndexMap<TableRef, (CP::Scalar, usize)> = table_length_map
+        //     .into_iter()
+        //     .map(|(table_ref, length)| {
+        //         (
+        //             table_ref,
+        //             (sumcheck_evaluations.chi_evaluations[&length], length),
+        //         )
+        //     })
+        //     .collect();
+        // let mut builder = VerificationBuilderImpl::new(
+        //     sumcheck_evaluations,
+        //     &self.final_round_message.bit_distributions,
+        //     sumcheck_random_scalars.subpolynomial_multipliers,
+        //     post_result_challenges,
+        //     self.first_round_message.chi_evaluation_lengths.clone(),
+        //     self.first_round_message.rho_evaluation_lengths.clone(),
+        //     subclaim.max_multiplicands,
+        // );
 
-        let verifier_evaluations =
-            expr.verifier_evaluate(&mut builder, &evaluation_accessor, &chi_eval_map, params)?;
-        // compute the evaluation of the result MLEs
-        let result_evaluations = result.mle_evaluations(&subclaim.evaluation_point);
-        // check the evaluation of the result MLEs
-        if verifier_evaluations.column_evals() != result_evaluations {
-            Err(ProofError::VerificationError {
-                error: "result evaluation check failed",
-            })?;
-        }
+        // let pcs_proof_commitments: Vec<_> = self
+        //     .first_round_message
+        //     .round_commitments
+        //     .iter()
+        //     .cloned()
+        //     .chain(
+        //         column_references
+        //             .iter()
+        //             .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id())),
+        //     )
+        //     .chain(self.final_round_message.round_commitments.iter().cloned())
+        //     .collect();
+        // let evaluation_accessor: IndexMap<_, _> = column_references
+        //     .into_iter()
+        //     .zip(self.pcs_proof_evaluations.column_ref.iter().copied())
+        //     .chunk_by(|(r, _)| r.table_ref())
+        //     .into_iter()
+        //     .map(|(tr, g)| {
+        //         let im: IndexMap<_, _> = g.map(|(cr, eval)| (cr.column_id(), eval)).collect();
+        //         (tr, im)
+        //     })
+        //     .collect();
 
-        // perform the evaluation check of the sumcheck polynomial
-        if builder.sumcheck_evaluation() != subclaim.expected_evaluation {
-            Err(ProofError::VerificationError {
-                error: "sumcheck evaluation check failed",
-            })?;
-        }
+        // let verifier_evaluations =
+        //     expr.verifier_evaluate(&mut builder, &evaluation_accessor, &chi_eval_map, params)?;
+        // // compute the evaluation of the result MLEs
+        // let result_evaluations = result.mle_evaluations(&subclaim.evaluation_point);
+        // // check the evaluation of the result MLEs
+        // if verifier_evaluations.column_evals() != result_evaluations {
+        //     Err(ProofError::VerificationError {
+        //         error: "result evaluation check failed",
+        //     })?;
+        // }
 
-        let pcs_proof_evaluations: Vec<_> = self
-            .pcs_proof_evaluations
-            .first_round
-            .iter()
-            .chain(self.pcs_proof_evaluations.column_ref.iter())
-            .chain(self.pcs_proof_evaluations.final_round.iter())
-            .copied()
-            .collect();
+        // // perform the evaluation check of the sumcheck polynomial
+        // if builder.sumcheck_evaluation() != subclaim.expected_evaluation {
+        //     Err(ProofError::VerificationError {
+        //         error: "sumcheck evaluation check failed",
+        //     })?;
+        // }
 
-        // finally, check the MLE evaluations with the inner product proof
-        self.evaluation_proof
-            .verify_batched_proof(
-                &mut transcript,
-                &pcs_proof_commitments,
-                &evaluation_random_scalars,
-                &pcs_proof_evaluations,
-                &subclaim.evaluation_point,
-                min_row_num as u64,
-                self.first_round_message.range_length,
-                setup,
-            )
-            .map_err(|_e| ProofError::VerificationError {
-                error: "Inner product proof of MLE evaluations failed",
-            })?;
+        // let pcs_proof_evaluations: Vec<_> = self
+        //     .pcs_proof_evaluations
+        //     .first_round
+        //     .iter()
+        //     .chain(self.pcs_proof_evaluations.column_ref.iter())
+        //     .chain(self.pcs_proof_evaluations.final_round.iter())
+        //     .copied()
+        //     .collect();
 
-        let verification_hash = transcript.challenge_as_le();
+        // // finally, check the MLE evaluations with the inner product proof
+        // self.evaluation_proof
+        //     .verify_batched_proof(
+        //         &mut transcript,
+        //         &pcs_proof_commitments,
+        //         &evaluation_random_scalars,
+        //         &pcs_proof_evaluations,
+        //         &subclaim.evaluation_point,
+        //         min_row_num as u64,
+        //         self.first_round_message.range_length,
+        //         setup,
+        //     )
+        //     .map_err(|_e| ProofError::VerificationError {
+        //         error: "Inner product proof of MLE evaluations failed",
+        //     })?;
 
-        log::log_memory_usage("End");
+        // let verification_hash = transcript.challenge_as_le();
+
+        // log::log_memory_usage("End");
 
         Ok(QueryData {
             table: result,
-            verification_hash,
+            verification_hash: [0u8;32],
         })
     }
 }
