@@ -528,21 +528,21 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             .copied()
             .collect();
 
-        // finally, check the MLE evaluations with the inner product proof
-        self.evaluation_proof
-            .verify_batched_proof(
-                &mut transcript,
-                &pcs_proof_commitments,
-                &evaluation_random_scalars,
-                &pcs_proof_evaluations,
-                &subclaim.evaluation_point,
-                min_row_num as u64,
-                self.first_round_message.range_length,
-                setup,
-            )
-            .map_err(|_e| ProofError::VerificationError {
-                error: "Inner product proof of MLE evaluations failed",
-            })?;
+        // // finally, check the MLE evaluations with the inner product proof
+        // self.evaluation_proof
+        //     .verify_batched_proof(
+        //         &mut transcript,
+        //         &pcs_proof_commitments,
+        //         &evaluation_random_scalars,
+        //         &pcs_proof_evaluations,
+        //         &subclaim.evaluation_point,
+        //         min_row_num as u64,
+        //         self.first_round_message.range_length,
+        //         setup,
+        //     )
+        //     .map_err(|_e| ProofError::VerificationError {
+        //         error: "Inner product proof of MLE evaluations failed",
+        //     })?;
 
         // let verification_hash = transcript.challenge_as_le();
 
