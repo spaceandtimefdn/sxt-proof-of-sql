@@ -478,39 +478,39 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             subclaim.max_multiplicands,
         );
 
-        // let pcs_proof_commitments: Vec<_> = self
-        //     .first_round_message
-        //     .round_commitments
-        //     .iter()
-        //     .cloned()
-        //     .chain(
-        //         column_references
-        //             .iter()
-        //             .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id())),
-        //     )
-        //     .chain(self.final_round_message.round_commitments.iter().cloned())
-        //     .collect();
-        // let evaluation_accessor: IndexMap<_, _> = column_references
-        //     .into_iter()
-        //     .zip(self.pcs_proof_evaluations.column_ref.iter().copied())
-        //     .chunk_by(|(r, _)| r.table_ref())
-        //     .into_iter()
-        //     .map(|(tr, g)| {
-        //         let im: IndexMap<_, _> = g.map(|(cr, eval)| (cr.column_id(), eval)).collect();
-        //         (tr, im)
-        //     })
-        //     .collect();
+        let pcs_proof_commitments: Vec<_> = self
+            .first_round_message
+            .round_commitments
+            .iter()
+            .cloned()
+            .chain(
+                column_references
+                    .iter()
+                    .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id())),
+            )
+            .chain(self.final_round_message.round_commitments.iter().cloned())
+            .collect();
+        let evaluation_accessor: IndexMap<_, _> = column_references
+            .into_iter()
+            .zip(self.pcs_proof_evaluations.column_ref.iter().copied())
+            .chunk_by(|(r, _)| r.table_ref())
+            .into_iter()
+            .map(|(tr, g)| {
+                let im: IndexMap<_, _> = g.map(|(cr, eval)| (cr.column_id(), eval)).collect();
+                (tr, im)
+            })
+            .collect();
 
-        // let verifier_evaluations =
-        //     expr.verifier_evaluate(&mut builder, &evaluation_accessor, &chi_eval_map, params)?;
-        // // compute the evaluation of the result MLEs
-        // let result_evaluations = result.mle_evaluations(&subclaim.evaluation_point);
-        // // check the evaluation of the result MLEs
-        // if verifier_evaluations.column_evals() != result_evaluations {
-        //     Err(ProofError::VerificationError {
-        //         error: "result evaluation check failed",
-        //     })?;
-        // }
+        let verifier_evaluations =
+            expr.verifier_evaluate(&mut builder, &evaluation_accessor, &chi_eval_map, params)?;
+        // compute the evaluation of the result MLEs
+        let result_evaluations = result.mle_evaluations(&subclaim.evaluation_point);
+        // check the evaluation of the result MLEs
+        if verifier_evaluations.column_evals() != result_evaluations {
+            Err(ProofError::VerificationError {
+                error: "result evaluation check failed",
+            })?;
+        }
 
         // // perform the evaluation check of the sumcheck polynomial
         // if builder.sumcheck_evaluation() != subclaim.expected_evaluation {
