@@ -506,7 +506,7 @@ mod tests {
             database::{ColumnField, TestSchemaAccessor},
             math::decimal::Precision,
         },
-        sql::proof_exprs::{ColumnExpr, TableExpr},
+        sql::proof_exprs::ColumnExpr,
     };
     use std::hash::BuildHasherDefault;
 
@@ -993,37 +993,6 @@ mod tests {
             err,
             PlannerError::UnsupportedLogicalPlan { plan: _ }
         ));
-
-        // Expected result
-        let expected = DynProofPlan::try_new_group_by(
-            vec![
-                ColumnExpr::new(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "a".into(),
-                    ColumnType::BigInt,
-                )),
-                ColumnExpr::new(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "c".into(),
-                    ColumnType::VarChar,
-                )),
-            ],
-            vec![AliasedDynProofExpr {
-                expr: DynProofExpr::new_column(ColumnRef::new(
-                    TABLE_REF_TABLE(),
-                    "b".into(),
-                    ColumnType::Int,
-                )),
-                alias: "sum_b".into(),
-            }],
-            "count_1".into(),
-            TableExpr {
-                table_ref: TABLE_REF_TABLE(),
-            },
-            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
-        );
-
-        assert!(expected.is_none());
     }
 
     #[test]

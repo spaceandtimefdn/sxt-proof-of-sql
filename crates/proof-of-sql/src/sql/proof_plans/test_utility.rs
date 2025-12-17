@@ -1,10 +1,9 @@
 use super::{
-    DynProofPlan, EmptyExec, GroupByExec, LegacyFilterExec, ProjectionExec, SliceExec,
-    SortMergeJoinExec, TableExec, UnionExec,
+    DynProofPlan, EmptyExec, ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
 };
 use crate::{
     base::database::{ColumnField, ColumnType, TableRef},
-    sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+    sql::proof_exprs::{AliasedDynProofExpr, DynProofExpr},
 };
 use alloc::boxed::Box;
 use sqlparser::ast::Ident;
@@ -25,42 +24,12 @@ pub fn projection(results: Vec<AliasedDynProofExpr>, input: DynProofPlan) -> Dyn
     DynProofPlan::Projection(ProjectionExec::new(results, Box::new(input)))
 }
 
-pub fn legacy_filter(
-    results: Vec<AliasedDynProofExpr>,
-    table: TableExpr,
-    where_clause: DynProofExpr,
-) -> DynProofPlan {
-    DynProofPlan::LegacyFilter(LegacyFilterExec::new(results, table, where_clause))
-}
-
 pub fn filter(
     results: Vec<AliasedDynProofExpr>,
     input: DynProofPlan,
     where_clause: DynProofExpr,
 ) -> DynProofPlan {
     DynProofPlan::new_filter(results, input, where_clause)
-}
-
-/// # Panics
-///
-/// Will panic if `count_alias` cannot be parsed as a valid identifier.
-pub fn group_by(
-    group_by_exprs: Vec<ColumnExpr>,
-    sum_expr: Vec<AliasedDynProofExpr>,
-    count_alias: &str,
-    table: TableExpr,
-    where_clause: DynProofExpr,
-) -> DynProofPlan {
-    DynProofPlan::GroupBy(
-        GroupByExec::try_new(
-            group_by_exprs,
-            sum_expr,
-            count_alias.into(),
-            table,
-            where_clause,
-        )
-        .unwrap(),
-    )
 }
 
 /// # Panics

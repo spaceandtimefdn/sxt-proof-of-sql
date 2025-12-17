@@ -1,4 +1,4 @@
-use super::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr};
+use super::{AliasedDynProofExpr, ColumnExpr, DynProofExpr};
 use crate::base::{
     database::{ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     math::{decimal::Precision, i256::I256},
@@ -156,12 +156,6 @@ pub fn aliased_placeholder(index: usize, col_type: ColumnType, alias: &str) -> A
     AliasedDynProofExpr {
         expr: DynProofExpr::try_new_placeholder(index, col_type).unwrap(),
         alias: alias.into(),
-    }
-}
-
-pub fn tab(tab: &TableRef) -> TableExpr {
-    TableExpr {
-        table_ref: tab.clone(),
     }
 }
 
