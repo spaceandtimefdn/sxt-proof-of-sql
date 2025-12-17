@@ -10,12 +10,10 @@ import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
 /// @dev Library for handling proof plans
 library ProofPlan {
     enum PlanVariant {
-        LegacyFilter,
         Empty,
         Table,
         Projection,
         Slice,
-        GroupBy,
         Union,
         SortMergeJoin,
         Filter,
@@ -61,11 +59,9 @@ library ProofPlan {
             // import err from ../base/Errors.sol
             // import case_const from ../base/SwitchUtil.presl
             // import empty_exec_evaluate from EmptyExec.presl
-            // import legacy_filter_exec_evaluate from LegacyFilterExec.presl
             // import table_exec_evaluate from TableExec.presl
             // import projection_exec_evaluate from ProjectionExec.presl
             // import slice_exec_evaluate from SliceExec.presl
-            // import group_by_exec_evaluate from GroupByExec.presl
             // import union_exec_evaluate from UnionExec.presl
             // import sort_merge_join_evaluate from SortMergeJoinExec.presl
             // import filter_exec_evaluate from FilterExec.presl
@@ -77,52 +73,42 @@ library ProofPlan {
 
                 switch proof_plan_variant
                 case 0 {
-                    case_const(0, LEGACY_FILTER_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
-                        legacy_filter_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                case 1 {
-                    case_const(1, EMPTY_EXEC_VARIANT)
+                    case_const(0, EMPTY_EXEC_VARIANT)
                     evaluations_ptr, output_length, output_chi_eval := empty_exec_evaluate(builder_ptr)
                     plan_ptr_out := plan_ptr
                 }
-                case 2 {
-                    case_const(2, TABLE_EXEC_VARIANT)
+                case 1 {
+                    case_const(1, TABLE_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         table_exec_evaluate(plan_ptr, builder_ptr)
                 }
-                case 3 {
-                    case_const(3, PROJECTION_EXEC_VARIANT)
+                case 2 {
+                    case_const(2, PROJECTION_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         projection_exec_evaluate(plan_ptr, builder_ptr)
                 }
-                case 4 {
-                    case_const(4, SLICE_EXEC_VARIANT)
+                case 3 {
+                    case_const(3, SLICE_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         slice_exec_evaluate(plan_ptr, builder_ptr)
                 }
-                case 5 {
-                    case_const(5, GROUP_BY_EXEC_VARIANT)
-                    plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
-                        group_by_exec_evaluate(plan_ptr, builder_ptr)
-                }
-                case 6 {
-                    case_const(6, UNION_EXEC_VARIANT)
+                case 4 {
+                    case_const(4, UNION_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         union_exec_evaluate(plan_ptr, builder_ptr)
                 }
-                case 7 {
-                    case_const(7, SORT_MERGE_JOIN_EXEC_VARIANT)
+                case 5 {
+                    case_const(5, SORT_MERGE_JOIN_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         sort_merge_join_evaluate(plan_ptr, builder_ptr)
                 }
-                case 8 {
-                    case_const(8, FILTER_EXEC_VARIANT)
+                case 6 {
+                    case_const(6, FILTER_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         filter_exec_evaluate(plan_ptr, builder_ptr)
                 }
-                case 9 {
-                    case_const(9, AGGREGATE_EXEC_VARIANT)
+                case 7 {
+                    case_const(7, AGGREGATE_EXEC_VARIANT)
                     plan_ptr_out, evaluations_ptr, output_length, output_chi_eval :=
                         aggregate_exec_evaluate(plan_ptr, builder_ptr)
                 }

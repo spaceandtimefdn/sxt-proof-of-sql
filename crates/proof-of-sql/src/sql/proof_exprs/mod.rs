@@ -63,9 +63,6 @@ pub(crate) use equals_expr::EqualsExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod equals_expr_test;
 
-mod table_expr;
-pub use table_expr::TableExpr;
-
 #[cfg(test)]
 pub(crate) mod test_utility;
 
