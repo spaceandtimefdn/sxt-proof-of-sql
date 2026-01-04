@@ -464,6 +464,7 @@ mod test {
     use super::*;
     use crate::base::{
         math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::{test_scalar::TestScalar, ScalarExt},
     };
     use alloc::vec;
@@ -906,5 +907,455 @@ mod test {
             lhs_hashes[0] * scalars[0] + lhs_hashes[1] * scalars[1] + lhs_hashes[2] * scalars[2];
 
         assert_eq!(product, expected);
+    }
+
+    #[test]
+    fn we_can_check_is_empty_for_all_column_types() {
+        // Boolean
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Boolean(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Boolean(vec![true]);
+        assert!(!col.is_empty());
+
+        // TinyInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1]);
+        assert!(!col.is_empty());
+
+        // Uint8
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1]);
+        assert!(!col.is_empty());
+
+        // SmallInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1]);
+        assert!(!col.is_empty());
+
+        // Int
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![1]);
+        assert!(!col.is_empty());
+
+        // BigInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1]);
+        assert!(!col.is_empty());
+
+        // Int128
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1]);
+        assert!(!col.is_empty());
+
+        // VarChar
+        let col: OwnedColumn<TestScalar> = OwnedColumn::VarChar(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::VarChar(vec!["test".to_string()]);
+        assert!(!col.is_empty());
+
+        // VarBinary
+        let col: OwnedColumn<TestScalar> = OwnedColumn::VarBinary(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::VarBinary(vec![vec![1, 2]]);
+        assert!(!col.is_empty());
+
+        // Scalar
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Scalar(vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Scalar(vec![TestScalar::from(1)]);
+        assert!(!col.is_empty());
+
+        // Decimal75
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::Decimal75(Precision::new(10).unwrap(), 2, vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::Decimal75(Precision::new(10).unwrap(), 2, vec![TestScalar::from(1)]);
+        assert!(!col.is_empty());
+
+        // TimestampTZ
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![]);
+        assert!(col.is_empty());
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![100]);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn we_can_slice_all_column_types() {
+        // Boolean
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Boolean(vec![true, false, true, false]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::Boolean(vec![false, true]));
+
+        // TinyInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3, 4]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::TinyInt(vec![2, 3]));
+
+        // Uint8
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3, 4]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::Uint8(vec![2, 3]));
+
+        // SmallInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 20, 30, 40]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::SmallInt(vec![20, 30]));
+
+        // Int
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![100, 200, 300, 400]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::Int(vec![200, 300]));
+
+        // BigInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1000, 2000, 3000, 4000]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::BigInt(vec![2000, 3000]));
+
+        // Int128
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![10000, 20000, 30000, 40000]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::Int128(vec![20000, 30000]));
+
+        // VarChar
+        let col: OwnedColumn<TestScalar> = OwnedColumn::VarChar(vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        ]);
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::VarChar(vec!["b".to_string(), "c".to_string()])
+        );
+
+        // VarBinary
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::VarBinary(vec![vec![1, 2], vec![3, 4], vec![5, 6], vec![7, 8]]);
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::VarBinary(vec![vec![3, 4], vec![5, 6]])
+        );
+
+        // Scalar
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Scalar(vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(4),
+        ]);
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::Scalar(vec![TestScalar::from(2), TestScalar::from(3)])
+        );
+
+        // Decimal75
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Decimal75(
+            Precision::new(10).unwrap(),
+            2,
+            vec![
+                TestScalar::from(10),
+                TestScalar::from(20),
+                TestScalar::from(30),
+                TestScalar::from(40),
+            ],
+        );
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::Decimal75(
+                Precision::new(10).unwrap(),
+                2,
+                vec![TestScalar::from(20), TestScalar::from(30)]
+            )
+        );
+
+        // TimestampTZ
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![1, 2, 3, 4],
+        );
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![2, 3])
+        );
+    }
+
+    #[test]
+    fn we_can_permute_all_column_types() {
+        let permutation = Permutation::try_new(vec![2, 0, 1]).unwrap();
+
+        // Boolean
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Boolean(vec![true, false, true]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Boolean(vec![true, true, false])
+        );
+
+        // TinyInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::TinyInt(vec![3, 1, 2])
+        );
+
+        // Uint8
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![10, 20, 30]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Uint8(vec![30, 10, 20])
+        );
+
+        // SmallInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![100, 200, 300]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::SmallInt(vec![300, 100, 200])
+        );
+
+        // Int
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![1000, 2000, 3000]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Int(vec![3000, 1000, 2000])
+        );
+
+        // BigInt
+        let col: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10000, 20000, 30000]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::BigInt(vec![30000, 10000, 20000])
+        );
+
+        // Int128
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![100_000, 200_000, 300_000]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Int128(vec![300_000, 100_000, 200_000])
+        );
+
+        // VarChar
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::VarChar(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::VarChar(vec!["c".to_string(), "a".to_string(), "b".to_string()])
+        );
+
+        // VarBinary
+        let col: OwnedColumn<TestScalar> =
+            OwnedColumn::VarBinary(vec![vec![1, 2], vec![3, 4], vec![5, 6]]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::VarBinary(vec![vec![5, 6], vec![1, 2], vec![3, 4]])
+        );
+
+        // Scalar
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Scalar(vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ]);
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Scalar(vec![
+                TestScalar::from(3),
+                TestScalar::from(1),
+                TestScalar::from(2)
+            ])
+        );
+
+        // Decimal75
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Decimal75(
+            Precision::new(10).unwrap(),
+            2,
+            vec![
+                TestScalar::from(10),
+                TestScalar::from(20),
+                TestScalar::from(30),
+            ],
+        );
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::Decimal75(
+                Precision::new(10).unwrap(),
+                2,
+                vec![
+                    TestScalar::from(30),
+                    TestScalar::from(10),
+                    TestScalar::from(20)
+                ]
+            )
+        );
+
+        // TimestampTZ
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![100, 200, 300],
+        );
+        assert_eq!(
+            col.try_permute(&permutation).unwrap(),
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![300, 100, 200]
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_scalars_to_numeric_types() {
+        let scalars = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+
+        // Uint8
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Uint8).unwrap();
+        assert_eq!(col, OwnedColumn::Uint8(vec![1, 2, 3]));
+
+        // TinyInt
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::TinyInt).unwrap();
+        assert_eq!(col, OwnedColumn::TinyInt(vec![1, 2, 3]));
+
+        // SmallInt
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::SmallInt).unwrap();
+        assert_eq!(col, OwnedColumn::SmallInt(vec![1, 2, 3]));
+
+        // Int
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Int).unwrap();
+        assert_eq!(col, OwnedColumn::Int(vec![1, 2, 3]));
+
+        // BigInt
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::BigInt).unwrap();
+        assert_eq!(col, OwnedColumn::BigInt(vec![1, 2, 3]));
+
+        // Int128
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Int128).unwrap();
+        assert_eq!(col, OwnedColumn::Int128(vec![1, 2, 3]));
+
+        // Scalar
+        let col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Scalar).unwrap();
+        assert_eq!(col, OwnedColumn::Scalar(scalars.clone()));
+
+        // TimestampTZ
+        let col = OwnedColumn::try_from_scalars(
+            &scalars,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        )
+        .unwrap();
+        assert_eq!(
+            col,
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn we_can_use_iterator_methods() {
+        // u8_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let values: Vec<_> = col.u8_iter().copied().collect();
+        assert_eq!(values, vec![1, 2, 3]);
+
+        // i8_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let values: Vec<_> = col.i8_iter().copied().collect();
+        assert_eq!(values, vec![1, 2, 3]);
+
+        // i16_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 20, 30]);
+        let values: Vec<_> = col.i16_iter().copied().collect();
+        assert_eq!(values, vec![10, 20, 30]);
+
+        // i32_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![100, 200, 300]);
+        let values: Vec<_> = col.i32_iter().copied().collect();
+        assert_eq!(values, vec![100, 200, 300]);
+
+        // i64_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1000, 2000, 3000]);
+        let values: Vec<_> = col.i64_iter().copied().collect();
+        assert_eq!(values, vec![1000, 2000, 3000]);
+
+        // i128_iter
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1000, 2000, 3000]);
+        let values: Vec<_> = col.i128_iter().copied().collect();
+        assert_eq!(values, vec![1000, 2000, 3000]);
+
+        // scalar_iter
+        let scalars = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+        let col: OwnedColumn<TestScalar> = OwnedColumn::Scalar(scalars.clone());
+        let values: Vec<_> = col.scalar_iter().copied().collect();
+        assert_eq!(values, scalars);
+    }
+
+    #[test]
+    fn we_can_coerce_scalar_to_uint8() {
+        let scalars = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+        let col = OwnedColumn::Scalar(scalars);
+
+        let coerced = col.try_coerce_scalar_to_numeric(ColumnType::Uint8).unwrap();
+        assert_eq!(coerced, OwnedColumn::Uint8(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn we_cannot_convert_scalars_to_numeric_with_overflow() {
+        let large_scalars = vec![TestScalar::from(i128::MAX)];
+
+        // Uint8 overflow
+        let res = OwnedColumn::try_from_scalars(&large_scalars, ColumnType::Uint8);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+
+        // TinyInt overflow
+        let res = OwnedColumn::try_from_scalars(&large_scalars, ColumnType::TinyInt);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+
+        // SmallInt overflow
+        let res = OwnedColumn::try_from_scalars(&large_scalars, ColumnType::SmallInt);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+
+        // Int overflow
+        let res = OwnedColumn::try_from_scalars(&large_scalars, ColumnType::Int);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+
+        // BigInt overflow
+        let res = OwnedColumn::try_from_scalars(&large_scalars, ColumnType::BigInt);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+
+        // TimestampTZ overflow
+        let res = OwnedColumn::try_from_scalars(
+            &large_scalars,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        );
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
     }
 }
