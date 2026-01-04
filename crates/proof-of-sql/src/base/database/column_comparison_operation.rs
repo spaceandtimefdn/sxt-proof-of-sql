@@ -414,3 +414,398 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    fn decimal_column(
+        precision: u8,
+        scale: i8,
+        values: Vec<TestScalar>,
+    ) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(Precision::new(precision).unwrap(), scale, values)
+    }
+
+    // Uint8 tests
+    #[test]
+    fn test_uint8_with_tinyint_comparison_error() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn test_uint8_with_uint8_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 4, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_uint8_with_smallint_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![5, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 4, 3]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_uint8_with_int_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_uint8_with_bigint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_uint8_with_int128_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_uint8_with_decimal75_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(2),
+                TestScalar::from(1),
+                TestScalar::from(3),
+            ],
+        );
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // TinyInt tests
+    #[test]
+    fn test_tinyint_with_uint8_comparison_error() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn test_tinyint_with_tinyint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 4, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_tinyint_with_smallint_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![5, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 4, 3]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_tinyint_with_int_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_tinyint_with_bigint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_tinyint_with_int128_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_tinyint_with_decimal75_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(2),
+                TestScalar::from(1),
+                TestScalar::from(3),
+            ],
+        );
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // SmallInt tests
+    #[test]
+    fn test_smallint_with_smallint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_smallint_with_int_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_smallint_with_bigint_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_smallint_with_int128_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![100, 200, 300]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![100, 250, 300]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_smallint_with_decimal75_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 20, 30]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(5),
+                TestScalar::from(25),
+                TestScalar::from(30),
+            ],
+        );
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // Int tests
+    #[test]
+    fn test_int_with_tinyint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_int_with_int_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_int_with_bigint_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_int_with_int128_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![100, 200, 300]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![100, 250, 300]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_int_with_decimal75_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![10, 20, 30]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(5),
+                TestScalar::from(25),
+                TestScalar::from(30),
+            ],
+        );
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // BigInt tests
+    #[test]
+    fn test_bigint_with_tinyint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_bigint_with_smallint_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_bigint_with_int_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_bigint_with_bigint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![100, 200, 300]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![100, 250, 300]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_bigint_with_int128_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_bigint_with_decimal75_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1, 5, 3]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(2),
+                TestScalar::from(4),
+                TestScalar::from(3),
+            ],
+        );
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // Int128 tests
+    #[test]
+    fn test_int128_with_tinyint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_int128_with_smallint_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_int128_with_int_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1, 5, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![2, 4, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_int128_with_bigint_eq() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![100, 200, 300]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![100, 250, 300]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_int128_with_int128_gt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn test_int128_with_decimal75_lt() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1, 5, 3]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(2),
+                TestScalar::from(4),
+                TestScalar::from(3),
+            ],
+        );
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    // Decimal75 tests
+    #[test]
+    fn test_decimal75_with_smallint_eq() {
+        let lhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(10),
+                TestScalar::from(20),
+                TestScalar::from(30),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![10, 25, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_decimal75_with_int128_gt() {
+        let lhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(10),
+                TestScalar::from(20),
+                TestScalar::from(30),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 25, 30]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+}

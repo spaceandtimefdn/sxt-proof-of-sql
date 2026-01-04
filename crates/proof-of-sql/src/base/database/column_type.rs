@@ -673,4 +673,173 @@ mod tests {
             assert_eq!(column_type.sqrt_negative_min(), None);
         }
     }
+
+    #[test]
+    fn we_can_get_to_integer_bits() {
+        assert_eq!(ColumnType::Uint8.to_integer_bits(), Some(8));
+        assert_eq!(ColumnType::TinyInt.to_integer_bits(), Some(8));
+        assert_eq!(ColumnType::SmallInt.to_integer_bits(), Some(16));
+        assert_eq!(ColumnType::Int.to_integer_bits(), Some(32));
+        assert_eq!(ColumnType::BigInt.to_integer_bits(), Some(64));
+        assert_eq!(ColumnType::Int128.to_integer_bits(), Some(128));
+        assert_eq!(ColumnType::Boolean.to_integer_bits(), None);
+        assert_eq!(ColumnType::VarChar.to_integer_bits(), None);
+        assert_eq!(ColumnType::Scalar.to_integer_bits(), None);
+        assert_eq!(
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2).to_integer_bits(),
+            None
+        );
+    }
+
+    #[test]
+    fn we_can_get_from_signed_integer_bits() {
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(8),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(16),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(32),
+            Some(ColumnType::Int)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(64),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(128),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(ColumnType::from_signed_integer_bits(256), None);
+        assert_eq!(ColumnType::from_signed_integer_bits(1), None);
+    }
+
+    #[test]
+    fn we_can_get_from_unsigned_integer_bits() {
+        assert_eq!(
+            ColumnType::from_unsigned_integer_bits(8),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(ColumnType::from_unsigned_integer_bits(16), None);
+        assert_eq!(ColumnType::from_unsigned_integer_bits(32), None);
+        assert_eq!(ColumnType::from_unsigned_integer_bits(64), None);
+        assert_eq!(ColumnType::from_unsigned_integer_bits(128), None);
+    }
+
+    #[test]
+    fn we_can_get_max_integer_type() {
+        assert_eq!(
+            ColumnType::TinyInt.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::SmallInt.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Int.max_integer_type(&ColumnType::BigInt),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::Int128),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::TinyInt.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::TinyInt)
+        );
+        // non-integer types should return None
+        assert_eq!(ColumnType::Boolean.max_integer_type(&ColumnType::Int), None);
+        assert_eq!(ColumnType::Int.max_integer_type(&ColumnType::VarChar), None);
+        assert_eq!(
+            ColumnType::Scalar.max_integer_type(&ColumnType::BigInt),
+            None
+        );
+    }
+
+    #[test]
+    fn we_can_get_max_unsigned_integer_type() {
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::TinyInt.max_unsigned_integer_type(&ColumnType::Uint8),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::SmallInt.max_unsigned_integer_type(&ColumnType::Int),
+            None
+        );
+        assert_eq!(
+            ColumnType::Int.max_unsigned_integer_type(&ColumnType::BigInt),
+            None
+        );
+        // non-integer types should return None
+        assert_eq!(
+            ColumnType::Boolean.max_unsigned_integer_type(&ColumnType::Int),
+            None
+        );
+        assert_eq!(
+            ColumnType::VarChar.max_unsigned_integer_type(&ColumnType::TinyInt),
+            None
+        );
+    }
+
+    #[test]
+    fn we_can_get_precision_value_for_all_types() {
+        assert_eq!(ColumnType::Uint8.precision_value(), Some(3));
+        assert_eq!(ColumnType::TinyInt.precision_value(), Some(3));
+        assert_eq!(ColumnType::SmallInt.precision_value(), Some(5));
+        assert_eq!(ColumnType::Int.precision_value(), Some(10));
+        assert_eq!(ColumnType::BigInt.precision_value(), Some(19));
+        assert_eq!(ColumnType::Int128.precision_value(), Some(39));
+        assert_eq!(
+            ColumnType::Decimal75(Precision::new(20).unwrap(), 5).precision_value(),
+            Some(20)
+        );
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0)).precision_value(),
+            Some(19)
+        );
+        assert_eq!(ColumnType::Scalar.precision_value(), Some(0));
+        assert_eq!(ColumnType::Boolean.precision_value(), None);
+        assert_eq!(ColumnType::VarChar.precision_value(), None);
+        assert_eq!(ColumnType::VarBinary.precision_value(), None);
+    }
+
+    #[test]
+    fn we_can_get_scale_for_timestamptz_microsecond() {
+        let column_type =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::new(0));
+        assert_eq!(column_type.scale(), Some(6));
+    }
+
+    #[test]
+    fn we_can_display_int128_column_type() {
+        let column_type = ColumnType::Int128;
+        assert_eq!(format!("{column_type}"), "DECIMAL");
+    }
+
+    #[test]
+    fn we_can_display_timestamptz_column_type() {
+        let column_type = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(3600));
+        let displayed = format!("{column_type}");
+        assert!(displayed.contains("TIMESTAMP"));
+        assert!(displayed.contains("seconds (precision: 0)"));
+        assert!(displayed.contains("+01:00"));
+    }
+
+    #[test]
+    fn we_can_display_uint8_column_type() {
+        let column_type = ColumnType::Uint8;
+        assert_eq!(format!("{column_type}"), "UINT8");
+    }
 }

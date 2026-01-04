@@ -120,7 +120,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::ColumnOperationError, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::ColumnOperationError,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_apply_index_op() {
@@ -188,5 +192,172 @@ mod tests {
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_apply_index_op_tinyint() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::TinyInt(&[10, 20, 30, 40]);
+        let indexes = [3, 0, 2];
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::TinyInt(&[40, 10, 30]));
+    }
+
+    #[test]
+    fn test_apply_index_op_tinyint_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::TinyInt(&[10, 20, 30]);
+        let indexes = [0, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_uint8() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::Uint8(&[1, 2, 3, 4, 5]);
+        let indexes = [4, 2, 0];
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::Uint8(&[5, 3, 1]));
+    }
+
+    #[test]
+    fn test_apply_index_op_uint8_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::Uint8(&[1, 2, 3]);
+        let indexes = [0, 1, 5];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_smallint_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::SmallInt(&[100, 200, 300]);
+        let indexes = [0, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_bigint_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::BigInt(&[1000, 2000]);
+        let indexes = [0, 1, 2];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_int128() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::Int128(&[100, 200, 300, 400]);
+        let indexes = [1, 3, 0];
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::Int128(&[200, 400, 100]));
+    }
+
+    #[test]
+    fn test_apply_index_op_int128_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::Int128(&[100, 200, 300]);
+        let indexes = [0, 1, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_scalar_out_of_bounds() {
+        let bump = Bump::new();
+        let scalars = [10, 20, 30]
+            .iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let column: Column<TestScalar> = Column::Scalar(&scalars);
+        let indexes = [0, 1, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_decimal75_out_of_bounds() {
+        let bump = Bump::new();
+        let scalars = [100, 200, 300]
+            .iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let column: Column<TestScalar> = Column::Decimal75(
+            crate::base::math::decimal::Precision::new(10).unwrap(),
+            2,
+            &scalars,
+        );
+        let indexes = [0, 1, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_boolean_out_of_bounds() {
+        let bump = Bump::new();
+        let column: Column<TestScalar> = Column::Boolean(&[true, false, true]);
+        let indexes = [0, 1, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_timestamptz() {
+        let bump = Bump::new();
+        let timestamps = [1000i64, 2000i64, 3000i64, 4000i64];
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0), &timestamps);
+        let indexes = [3, 1, 0];
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::new(0),
+                &[4000i64, 2000i64, 1000i64]
+            )
+        );
+    }
+
+    #[test]
+    fn test_apply_index_op_timestamptz_out_of_bounds() {
+        let bump = Bump::new();
+        let timestamps = [1000i64, 2000i64, 3000i64];
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0), &timestamps);
+        let indexes = [0, 1, 3];
+        let result = apply_column_to_indexes(&column, &bump, &indexes);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
     }
 }
