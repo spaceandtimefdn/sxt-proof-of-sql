@@ -137,7 +137,8 @@ pub fn const_varbinary(val: &[u8]) -> DynProofExpr {
 
 /// Create a constant scalar value. Used if we don't want to specify column types.
 pub fn const_scalar<S: Scalar, T: Into<S>>(val: T) -> DynProofExpr {
-    DynProofExpr::new_literal(LiteralValue::Scalar(val.into().into()))
+    let scalar: S = val.into();
+    DynProofExpr::new_literal(LiteralValue::Scalar(scalar.to_limbs()))
 }
 
 /// # Panics
