@@ -2,6 +2,7 @@
     "extends": "solhint:all",
     "rules": {
         "comprehensive-interface": "off",
+        "foundry-test-function-naming": "off",
         "foundry-test-functions": "off",
         "function-max-lines": "off",
         "gas-calldata-parameters": "off",
