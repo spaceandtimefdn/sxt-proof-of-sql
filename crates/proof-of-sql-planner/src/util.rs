@@ -1,9 +1,9 @@
 use super::{PlannerError, PlannerResult};
 use arrow::datatypes::{Field, Schema};
 use datafusion::{
-    catalog::TableReference,
     common::{Column, ScalarValue},
     logical_expr::expr::Placeholder,
+    sql::TableReference,
 };
 use proof_of_sql::{
     base::{
@@ -510,7 +510,7 @@ mod tests {
         // Empty
         let column_fields = vec![];
         let schema = column_fields_to_schema(column_fields);
-        assert_eq!(schema.all_fields(), Vec::<&Field>::new());
+        assert_eq!(schema.flattened_fields(), Vec::<&Field>::new());
 
         // Non-empty
         let column_fields = vec![
@@ -519,7 +519,7 @@ mod tests {
         ];
         let schema = column_fields_to_schema(column_fields);
         assert_eq!(
-            schema.all_fields(),
+            schema.flattened_fields(),
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
