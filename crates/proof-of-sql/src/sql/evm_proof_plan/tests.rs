@@ -34,10 +34,10 @@ static SIMPLE_FILTER_SERIALIZED_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| {
         .chain(&1_usize.to_be_bytes()) //   output_column_names.len()
         .chain(&5_usize.to_be_bytes()) //   output_column_names[0] length
         .chain("alias".as_bytes()) //       output_column_names[0]
-        // Plan: FilterExec (variant 8)
-        .chain(&8_u32.to_be_bytes()) //   FilterExec
-        // Input plan: TableExec (variant 2)
-        .chain(&2_u32.to_be_bytes()) //     TableExec
+        // Plan: FilterExec (variant 6 in EVMDynProofPlan)
+        .chain(&6_u32.to_be_bytes()) //   FilterExec
+        // Input plan: TableExec (variant 1 in EVMDynProofPlan)
+        .chain(&1_u32.to_be_bytes()) //     TableExec
         .chain(&0_usize.to_be_bytes()) //     table_number
         .chain(&2_usize.to_be_bytes()) //     column_numbers.len()
         .chain(&0_usize.to_be_bytes()) //     column_numbers[0] (column "a" at index 0)
