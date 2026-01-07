@@ -4,6 +4,9 @@ members = ["crates/powers-of-tau-util", "crates/proof-of-sql", "crates/proof-of-
 
 [workspace.package]
 edition = "2021"
+# MSRV: `cargo install wasm-pack` (without --locked) can pull in home 0.5.12,
+# which inherits cargo's workspace MSRV of 1.89.
+rust-version = "1.89"
 exclude = ["**/.gitignore", ".gitignore"]
 repository = "https://github.com/spaceandtimelabs/sxt-proof-of-sql"
 version = "0.0.0" # DO NOT CHANGE THIS LINE! This will be automatically updated

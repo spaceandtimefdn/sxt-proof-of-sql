@@ -13,19 +13,35 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   BLITZAR_BACKEND: cpu
+  # MSRV: `cargo install wasm-pack` can pull in home 0.5.12, which requires Rust 1.89
+  MSRV: "1.89"
 
 jobs:
   # Run cargo check (with various feature permutations)
   check:
-    name: Check Package
+    name: Check Package (${{ matrix.rust }})
     runs-on: large-8-core-32gb-22-04
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, stable, nightly]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Determine Rust version
+        id: rust-version
+        run: |
+          if [ "${{ matrix.rust }}" = "msrv" ]; then
+            echo "version=${{ env.MSRV }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Install toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld     
       - name: Run cargo check (no features, exclude examples)
@@ -75,43 +91,85 @@ jobs:
           wasm-pack build --target deno
 
   test:
-    name: Test Suite
+    name: Test Suite (${{ matrix.rust }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, stable, nightly]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Determine Rust version
+        id: rust-version
+        run: |
+          if [ "${{ matrix.rust }}" = "msrv" ]; then
+            echo "version=${{ env.MSRV }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Install toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - run: cargo test --all-features
 
   testnorayon:
-    name: Test Suite (without rayon)
+    name: Test Suite without rayon (${{ matrix.rust }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, stable, nightly]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Determine Rust version
+        id: rust-version
+        run: |
+          if [ "${{ matrix.rust }}" = "msrv" ]; then
+            echo "version=${{ env.MSRV }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Install toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - run: cargo test --no-default-features --features="arrow blitzar"
 
   testother:
-    name: Test Suite (other)
+    name: Test Suite other (${{ matrix.rust }})
     runs-on: large-8-core-32gb-22-04
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, stable, nightly]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Determine Rust version
+        id: rust-version
+        run: |
+          if [ "${{ matrix.rust }}" = "msrv" ]; then
+            echo "version=${{ env.MSRV }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Install toolchain
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
       - name: Dry run cargo test (proof-of-sql) (test feature only)
@@ -128,15 +186,29 @@ jobs:
             cargo test proof_primitive::dory::dynamic_dory_compute_commitments_test --no-default-features --features="std"
 
   examples:
-      name: Run Examples (Heavy)
+      name: Run Examples (${{ matrix.rust }})
       runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          rust: [msrv, stable, nightly]
       steps:
         - name: Checkout sources
           uses: actions/checkout@v4
-        - name: Install stable toolchain
-          run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+        - name: Determine Rust version
+          id: rust-version
+          run: |
+            if [ "${{ matrix.rust }}" = "msrv" ]; then
+              echo "version=${{ env.MSRV }}" >> $GITHUB_OUTPUT
+            else
+              echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
+            fi
+        - name: Install toolchain
+          run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
         - name: Setup Rust cache
           uses: Swatinem/rust-cache@v2
+          with:
+            key: ${{ matrix.rust }}
         - name: Install Dependencies
           run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
         - name: Run hello_world example (With Blitzar)
@@ -162,7 +234,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
+      - name: Install toolchain from rust-toolchain.toml
         run: |
           curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
           rustup component add clippy
@@ -180,7 +252,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install stable toolchain
+      - name: Install toolchain from rust-toolchain.toml
         run: |
           curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
           rustup component add rustfmt
@@ -297,3 +369,30 @@ jobs:
         run: black --check solidity/preprocessor/
       - name: Run pytest
         run: pytest solidity/preprocessor/
+
+  # Aggregate jobs for branch protection (stable check names)
+  check-aggregate:
+    name: Check Package
+    runs-on: ubuntu-latest
+    needs: [check]
+    if: always()
+    steps:
+      - name: Check matrix status
+        run: |
+          if [[ "${{ needs.check.result }}" != "success" ]]; then
+            echo "Check matrix failed"
+            exit 1
+          fi
+
+  test-aggregate:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always()
+    steps:
+      - name: Check matrix status
+        run: |
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "Test matrix failed"
+            exit 1
+          fi
