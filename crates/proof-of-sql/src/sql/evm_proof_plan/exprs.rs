@@ -136,11 +136,6 @@ pub(crate) struct EVMColumnExpr {
 }
 
 impl EVMColumnExpr {
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(column_number: usize) -> Self {
-        Self { column_number }
-    }
-
     /// Try to create a `EVMColumnExpr` from a `ColumnExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &ColumnExpr,
@@ -199,14 +194,6 @@ pub(crate) struct EVMEqualsExpr {
 }
 
 impl EVMEqualsExpr {
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) fn new(lhs: EVMDynProofExpr, rhs: EVMDynProofExpr) -> Self {
-        Self {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        }
-    }
-
     /// Try to create an `EVMEqualsExpr` from a `EqualsExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &EqualsExpr,

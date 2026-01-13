@@ -27,8 +27,6 @@ use sqlparser::ast::Ident;
 /// ```ignore
 ///     SELECT <result_expr1>, ..., <result_exprN> FROM <input> WHERE <where_clause>
 /// ```
-///
-/// This differs from the [`LegacyFilterExec`] in that it accepts a `DynProofPlan` as input.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct FilterExec {
     aliased_results: Vec<AliasedDynProofExpr>,
