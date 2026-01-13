@@ -23,7 +23,7 @@ ark-poly = { version = "0.5.0" }
 ark-serialize = { version = "0.5.0" }
 ark-std = { version = "0.5.0", default-features = false }
 arrayvec = { version = "0.7", default-features = false }
-arrow = { version = "51.0.0" }
+arrow = { version = "53" }
 bincode = { version = "2.0.0-rc.3", default-features = false }
 bit-iter = { version = "1.1.1" }
 bigdecimal = { version = "0.4.5", default-features = false, features = ["serde"] }
@@ -37,7 +37,7 @@ criterion = { version = "0.5.1" }
 chrono = { version = "=0.4.39", default-features = false }
 csv = { version = "1.3.1" }
 curve25519-dalek = { version = "4", features = ["rand_core"] }
-datafusion = { version = "38.0.0", default-features = false }
+datafusion = { version = "43", default-features = false }
 derive_more = { version = "0.99" }
 enum_dispatch = { version = "0.3.13" }
 getrandom = { version = "0.2.15", default-features = false }
@@ -65,7 +65,7 @@ serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.10.8", default-features = false }
 snafu = { version = "0.8.4", default-features = false }
-sqlparser = { version = "0.45.0", default-features = false }
+sqlparser = { version = "0.51.0", default-features = false }
 sysinfo = { version = "0.33" }
 tiny-keccak = { version = "2.0.2", features = [ "keccak" ] }
 tempfile = { version = "3.13.0", default-features = false }
@@ -88,4 +88,4 @@ allow_attributes = "warn"
 [patch.crates-io]
 # patch for sqlparser no_std compatibility with the serde feature enabled.
 # required until proof-of-sql upgrades to at least sqlparser 0.56.0.
-sqlparser = { git = "https://github.com/tlovell-sxt/datafusion-sqlparser-rs.git", rev = "a828cbea22cf19bb6b4596f902bdd6f4d14a00b8" }
+sqlparser = { git = "https://github.com/iajoiner/datafusion-sqlparser-rs.git", rev = "ebf993d4726060b2be12e0cdcfd72b1d56ae2f41" }

@@ -92,7 +92,7 @@ jobs:
 
   test:
     name: Test Suite (${{ matrix.rust }})
-    runs-on: ubuntu-latest
+    runs-on: large-8-core-32gb-22-04
     strategy:
       fail-fast: false
       matrix:

@@ -178,9 +178,9 @@ mod tests {
     use arrow::datatypes::DataType;
     use core::ops::{Add, Mul, Sub};
     use datafusion::{
-        catalog::TableReference,
         common::{Column, ScalarValue},
         logical_expr::{expr::Placeholder, Cast},
+        sql::TableReference,
     };
     use proof_of_sql::base::{
         database::{ColumnRef, ColumnType, LiteralValue, TableRef},
@@ -821,16 +821,17 @@ mod tests {
 
     #[test]
     fn we_can_extract_column_idents_from_aggregate_function() {
-        let expr = Expr::AggregateFunction(datafusion::logical_expr::expr::AggregateFunction {
-            func_def: datafusion::logical_expr::expr::AggregateFunctionDefinition::BuiltIn(
-                datafusion::physical_plan::aggregates::AggregateFunction::Sum,
-            ),
-            args: vec![df_column("table", "value")],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        });
+        use datafusion::{
+            functions_aggregate::sum::sum_udaf, logical_expr::expr::AggregateFunction,
+        };
+        let expr = Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![df_column("table", "value")],
+            false,
+            None,
+            None,
+            None,
+        ));
         let result = get_column_idents_from_expr(&expr);
         let expected: IndexSet<Ident> = ["value".into()].into_iter().collect();
         assert_eq!(result, expected);
@@ -838,20 +839,21 @@ mod tests {
 
     #[test]
     fn we_can_extract_column_idents_from_aggregate_function_with_multiple_args() {
-        let expr = Expr::AggregateFunction(datafusion::logical_expr::expr::AggregateFunction {
-            func_def: datafusion::logical_expr::expr::AggregateFunctionDefinition::BuiltIn(
-                datafusion::physical_plan::aggregates::AggregateFunction::Sum,
-            ),
-            args: vec![
+        use datafusion::{
+            functions_aggregate::sum::sum_udaf, logical_expr::expr::AggregateFunction,
+        };
+        let expr = Expr::AggregateFunction(AggregateFunction::new_udf(
+            sum_udaf(),
+            vec![
                 df_column("table", "col1"),
                 df_column("table", "col2"),
                 df_column("table", "col3"),
             ],
-            distinct: false,
-            filter: None,
-            order_by: None,
-            null_treatment: None,
-        });
+            false,
+            None,
+            None,
+            None,
+        ));
         let result = get_column_idents_from_expr(&expr);
         let expected: IndexSet<Ident> = ["col1".into(), "col2".into(), "col3".into()]
             .into_iter()
