@@ -11,6 +11,7 @@ use crate::base::{
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::Scalar,
     slice_ops::{inner_product_ref_cast, inner_product_with_bytes},
+    standard_serializations::bigint::serialize_bigint_as_string_for_json,
 };
 use alloc::{
     string::{String, ToString},
@@ -35,7 +36,7 @@ pub enum OwnedColumn<S: Scalar> {
     /// i32 columns
     Int(Vec<i32>),
     /// i64 columns
-    BigInt(Vec<i64>),
+    BigInt(#[serde(serialize_with = "serialize_bigint_as_string_for_json")] Vec<i64>),
     /// i128 columns
     Int128(Vec<i128>),
     /// String columns
@@ -45,7 +46,11 @@ pub enum OwnedColumn<S: Scalar> {
     Decimal75(Precision, i8, Vec<S>),
     /// Timestamp columns
     #[cfg_attr(test, proptest(skip))]
-    TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, Vec<i64>),
+    TimestampTZ(
+        PoSQLTimeUnit,
+        PoSQLTimeZone,
+        #[serde(serialize_with = "serialize_bigint_as_string_for_json")] Vec<i64>,
+    ),
     /// Scalar columns
     #[cfg_attr(test, proptest(skip))]
     Scalar(Vec<S>),
