@@ -136,3 +136,16 @@ mod order_by_util_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod join_util;
+
+/// Module providing validity mask utilities for nullable column support.
+///
+/// This module contains functions for combining, manipulating, and enforcing
+/// canonical null values in validity masks used for nullable columns.
+pub mod validity;
+
+/// Module providing nullable column types and operations.
+///
+/// This module contains [`NullableColumn`] and [`NullableOwnedColumn`] types
+/// which wrap regular columns with optional validity masks to support NULL values.
+pub mod nullable_column;
+pub use nullable_column::{NullableColumn, NullableOwnedColumn};
