@@ -1,8 +1,10 @@
 # Add Nullable Column Support
 
+**Addresses #183**
+
 ## Summary
 
-This PR implements nullable column support for Proof of SQL, addressing Issue #183. The implementation provides:
+This PR implements nullable column support for Proof of SQL. The implementation provides:
 
 - **Type-safe nullable column representation** with validity masks
 - **Canonical null invariant** for proof soundness (null values = 0 for numeric types)
@@ -59,16 +61,37 @@ This prevents provers from hiding arbitrary values under NULL entries.
 | `NULL + NULL` | NULL |
 | `nullable + non_nullable` | nullable result |
 
-## PoC Demonstration
+## PoC (required by #183)
 
-The first commits demonstrate a working proof-compatible nullable column:
+The PoC demonstrates a **non-trivial proof involving at least one null type** as required by Issue #183.
 
-1. **Validity module** with mask combination and canonicalization
-2. **NullableOwnedColumn** type with BigInt operations
-3. **Proof integration tests** showing commitment compatibility
-4. **Arrow conversion** for nullable arrays
+### PoC Test File
+`crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs`
 
-## Test Commands
+### Key PoC Tests
+
+1. **`test_nullable_column_to_committable`** - Creates a nullable BigInt column with nulls, canonicalizes values, and creates `CommittableColumn` instances for both data and validity mask (proof commitment).
+
+2. **`test_canonical_null_invariant_preserved`** - Proves null propagation: adds two nullable columns with overlapping nulls, verifies combined validity mask (AND logic), confirms canonical values at null positions.
+
+3. **`test_nullable_plus_nonnullable_bigint_requirement`** - **Explicit Issue #183 requirement**: adds a nullable bigint to a non-nullable bigint, verifies result is nullable with correct propagation.
+
+### Run PoC Test
+```bash
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
+```
+
+---
+
+## Acceptance Criteria Checklist
+
+- [x] **Nullable flag/mechanism implemented** - `NullableOwnedColumn` wrapper with `Option<Vec<bool>>` validity mask
+- [x] **Nullable + non-nullable bigint add supported** - `add_nullable_to_nonnullable_bigint()` function with test
+- [x] **PoC proof with at least one null type** - `nullable_column_proof_test.rs` with committable column tests
+
+---
+
+## How to Test
 
 ```bash
 # Run nullable column tests

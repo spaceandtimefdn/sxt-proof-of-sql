@@ -1,91 +1,78 @@
 # Demo Video Script: Nullable Column Support
 
 ## Overview
-Duration: ~2-3 minutes
-Purpose: Demonstrate nullable column support working with Proof of SQL
+- **Duration:** 60-120 seconds
+- **Purpose:** Demonstrate nullable column support for Proof of SQL (Issue #183)
+- **Output:** `deliverables/demo_nullable_columns_183.mp4`
 
 ---
 
-## Script
+## Recording Instructions
 
-### Scene 1: Introduction (15 seconds)
-```
-[Screen: Terminal in project directory]
-"This demo shows nullable column support for Proof of SQL, implementing Issue #183."
-```
+### Setup
+1. Open terminal in `/Users/nicholastoledo/b5`
+2. Use large font (14pt+) for readability
+3. Use a screen recorder (QuickTime, OBS, etc.)
+4. Record at 1920x1080 or higher
 
-### Scene 2: Run Tests (30 seconds)
-```
-[Type command]
-$ cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable --nocapture
+---
 
-[Narration]
-"Running all nullable column tests. 21 tests covering validity masks, 
-null propagation, Arrow conversion, and proof integration."
+## Script (60-120 seconds)
 
-[Wait for output showing all tests pass]
-```
+### Scene 1: Introduction (10 sec)
+**Show:** Terminal with repo directory
+**Say:** "Demonstrating nullable column support for Proof of SQL, Issue #183."
 
-### Scene 3: Key Test - Nullable + Non-Nullable (30 seconds)
+### Scene 2: Run PoC Proof Test (25 sec)
+**Type:**
+```bash
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
 ```
-[Highlight test output]
-test_nullable_plus_nonnullable_bigint_requirement ... ok
+**Wait for:** Test passes
+**Say:** "This PoC test creates a nullable BigInt column and commits both data and validity mask."
 
-[Narration]
-"This test specifically verifies the Issue #183 requirement: 
-adding a nullable bigint to a non-nullable bigint."
+### Scene 3: Run Issue Requirement Test (25 sec)
+**Type:**
+```bash
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_plus_nonnullable_bigint_requirement --nocapture
 ```
+**Wait for:** Test passes
+**Say:** "This test verifies the explicit Issue 183 requirement: adding a nullable bigint to a non-nullable bigint."
 
-### Scene 4: Code Walkthrough - Validity Module (30 seconds)
+### Scene 4: Run Full Test Suite (20 sec)
+**Type:**
+```bash
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
 ```
-[Open file: crates/proof-of-sql/src/base/database/validity.rs]
+**Wait for:** "21 passed" output
+**Say:** "All 21 nullable column tests pass, covering validity masks, null propagation, and Arrow conversion."
 
-[Scroll to combine_validity function]
-[Narration]
-"The validity module provides mask combination and canonicalization.
-combine_validity ANDs two masks for null propagation."
-```
+### Scene 5: Conclusion (10 sec)
+**Show:** Terminal with successful output
+**Say:** "PR 1120 is ready for review. Nicholas Toledo, Toledo Technologies."
 
-### Scene 5: Code Walkthrough - Nullable Column (30 seconds)
-```
-[Open file: crates/proof-of-sql/src/base/database/nullable_column.rs]
+---
 
-[Scroll to NullableOwnedColumn struct]
-[Narration]
-"NullableOwnedColumn wraps an OwnedColumn with an optional validity mask.
-The canonical null invariant ensures proof soundness."
-```
+## Quick Record Commands (copy-paste ready)
 
-### Scene 6: Arrow Conversion (20 seconds)
-```
-[Open file: crates/proof-of-sql/src/base/arrow/nullable_conversion.rs]
+```bash
+# Change to repo directory
+cd /Users/nicholastoledo/b5
 
-[Highlight nullable_bigint_from_arrow function]
-[Narration]
-"Arrow arrays with nulls are converted while preserving validity bitmaps
-and enforcing canonical null values."
-```
+# Test 1: PoC proof test with nulls
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
 
-### Scene 7: Conclusion (15 seconds)
-```
-[Screen: PR page]
-"PR #1120 is ready for review. The implementation provides a foundation
-for full nullable column support with proof soundness guarantees."
+# Test 2: Issue #183 requirement (nullable + non-nullable)
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_plus_nonnullable_bigint_requirement --nocapture
+
+# Test 3: Full nullable test suite
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
 ```
 
 ---
 
-## Recording Notes
+## Post-Recording
 
-1. Use a clean terminal with large font
-2. Pause briefly after each command for readability
-3. Highlight relevant code sections
-4. Keep narration concise and technical
-5. End with PR link visible
-
-## Files to Show
-
-- `crates/proof-of-sql/src/base/database/validity.rs`
-- `crates/proof-of-sql/src/base/database/nullable_column.rs`
-- `crates/proof-of-sql/src/base/arrow/nullable_conversion.rs`
-- Test output showing all 21 tests pass
+1. Save as: `deliverables/demo_nullable_columns_183.mp4`
+2. Verify video shows all tests passing
+3. Upload to PR or provide download link

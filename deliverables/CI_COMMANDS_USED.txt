@@ -1,0 +1,66 @@
+# CI Commands Used for Nullable Column Support PR #1120
+# Date: 2026-01-16
+# Author: Nicholas Toledo / Toledo Technologies LLC
+
+## 1. Format Check
+Command: cargo fmt --all --check
+Result: PASS (exit code 0, no formatting issues)
+
+## 2. Nullable Tests
+Command: cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
+Result: PASS
+  - 21 tests passed
+  - 0 tests failed
+  - 0 tests ignored
+  - Tests include:
+    * test_extract_validity_no_nulls
+    * test_extract_validity_with_nulls
+    * test_validity_for_range_with_nulls
+    * test_validity_for_range_no_nulls_in_range
+    * test_nullable_bigint_from_arrow_no_nulls
+    * test_nullable_bigint_from_arrow_slice
+    * test_nullable_bigint_from_arrow_all_nulls
+    * test_nullable_bigint_from_arrow_with_nulls
+    * test_add_nullable_to_nonnullable
+    * test_add_nullable_bigint
+    * test_canonical_nulls
+    * test_multiply_nullable_bigint
+    * test_non_nullable_column
+    * test_nullable_column_creation
+    * test_all_null_column
+    * test_empty_nullable_column
+    * test_no_null_nullable_column
+    * test_canonical_null_invariant_preserved
+    * test_null_propagation_chain
+    * test_nullable_column_to_committable
+    * test_nullable_plus_nonnullable_bigint_requirement
+
+## 3. Validity Tests
+Command: cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- validity
+Result: PASS
+  - 8 tests passed
+  - Tests include:
+    * test_combine_validity_both_none
+    * test_combine_validity_one_none
+    * test_combine_validity_both_some
+    * test_has_nulls
+    * test_null_count
+    * test_canonicalize_nulls_numeric
+    * test_with_canonical_nulls_numeric
+    * test_slice_validity
+
+## 4. Clippy
+Command: cargo clippy -p proof-of-sql --no-default-features --features="arrow cpu-perf test"
+Result: PASS (warnings only, no errors)
+  - Doc-related warnings in new code (backtick formatting suggestions)
+  - Pre-existing warnings in upstream code (not introduced by this PR)
+  - No errors blocking compilation
+
+## 5. Full Test Suite (CPU features)
+Command: cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test"
+Result: PASS
+  - All tests pass including existing tests
+  - No regressions introduced
+
+## Summary
+All CI checks pass. Code is ready for review.
