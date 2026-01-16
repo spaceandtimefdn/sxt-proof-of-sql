@@ -21,3 +21,9 @@ pub mod scalar_and_i256_conversions;
 
 /// Module for handling conversions between columns and Arrow arrays.
 pub mod column_arrow_conversions;
+
+/// Module for nullable Arrow array conversions.
+///
+/// Provides utilities to convert Arrow arrays with null values into
+/// Proof of SQL nullable column types while preserving validity information.
+pub mod nullable_conversion;
