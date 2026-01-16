@@ -45,8 +45,8 @@ Implemented nullable column support for Proof of SQL.
    - Enforces canonical null values on import
 
 4. **Tests**
-   - 21 tests covering all nullable functionality
-   - Proof integration tests demonstrating commitment compatibility
+   - 31 tests (std+arrow) covering nullable functionality
+   - New end-to-end proof: `test_nullable_bigint_filter_proves_with_validity` (cfg `blitzar`)
    - Specific test for Issue requirement: nullable + non-nullable bigint
 
 ### PR Reference

@@ -76,32 +76,38 @@ The PoC demonstrates a **non-trivial proof involving at least one null type** as
 
 3. **`test_nullable_plus_nonnullable_bigint_requirement`** - **Explicit Issue #183 requirement**: adds a nullable bigint to a non-nullable bigint, verifies result is nullable with correct propagation.
 
+4. **`test_nullable_bigint_filter_proves_with_validity`** *(cfg `blitzar`)* - Builds a table from a nullable column, filters by the validity mask, and runs proof generation + verification end-to-end.
+
 ### Run PoC Test
 ```bash
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
+# Mac/local (no blitzar): compile + run nullable suite
+cargo test -p proof-of-sql --no-default-features --features="std,arrow" -- nullable_column_proof_test
+
+# Linux CI (with blitzar): end-to-end proof
+cargo test -p proof-of-sql --features "perf,arrow" test_nullable_bigint_filter_proves_with_validity
 ```
 
 ---
 
 ## Acceptance Criteria Checklist
 
-- [x] **Nullable flag/mechanism implemented** - `NullableOwnedColumn` wrapper with `Option<Vec<bool>>` validity mask
+- [x] **Nullable flag/mechanism implemented** - `NullableOwnedColumn` wrapper + `ColumnType::NullableBigInt`/`OwnedColumn::NullableBigInt`/`CommittableColumn::NullableBigInt`
 - [x] **Nullable + non-nullable bigint add supported** - `add_nullable_to_nonnullable_bigint()` function with test
-- [x] **PoC proof with at least one null type** - `nullable_column_proof_test.rs` with committable column tests
+- [x] **PoC proof with at least one null type** - Commitment tests + `test_nullable_bigint_filter_proves_with_validity` (proof generate/verify)
 
 ---
 
 ## How to Test
 
 ```bash
-# Run nullable column tests
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
+# Run nullable column tests (std + arrow)
+cargo test -p proof-of-sql --no-default-features --features="std,arrow" -- nullable
 
 # Run validity tests
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- validity
+cargo test -p proof-of-sql --no-default-features --features="std,arrow" -- validity
 
-# Run all tests
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test"
+# Run blitzar-only proof (Linux CI)
+cargo test -p proof-of-sql --features "perf,arrow" test_nullable_bigint_filter_proves_with_validity
 ```
 
 ## Files Changed

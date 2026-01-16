@@ -200,17 +200,20 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                     .to_vec(),
             )),
             DataType::Int64 => {
-                let array = value
-                    .as_any()
-                    .downcast_ref::<Int64Array>()
-                    .unwrap();
+                let array = value.as_any().downcast_ref::<Int64Array>().unwrap();
                 if array.null_count() == 0 {
                     Ok(Self::BigInt(array.values().to_vec()))
                 } else {
                     let presence: Vec<bool> =
                         (0..array.len()).map(|idx| array.is_valid(idx)).collect();
                     let values: Vec<i64> = (0..array.len())
-                        .map(|idx| if array.is_valid(idx) { array.value(idx) } else { 0 })
+                        .map(|idx| {
+                            if array.is_valid(idx) {
+                                array.value(idx)
+                            } else {
+                                0
+                            }
+                        })
                         .collect();
                     Ok(Self::NullableBigInt(values, presence))
                 }

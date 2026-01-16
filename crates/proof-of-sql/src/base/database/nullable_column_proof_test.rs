@@ -18,10 +18,7 @@ use super::{
     },
     validity, OwnedColumn,
 };
-use crate::base::{
-    commitment::CommittableColumn,
-    scalar::test_scalar::TestScalar,
-};
+use crate::base::{commitment::CommittableColumn, scalar::test_scalar::TestScalar};
 
 /// Test that we can create a committable column from nullable column data.
 ///
@@ -188,8 +185,12 @@ fn test_nullable_bigint_filter_proves_with_validity() {
         boolean(Ident::new("is_valid"), validity.clone()),
     ]);
     let table_ref = TableRef::new("sxt", "nullable_values");
-    let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(table_ref.clone(), table, 0, ());
+    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        table_ref.clone(),
+        table,
+        0,
+        (),
+    );
 
     // SELECT value FROM t WHERE is_valid = true
     let projection: Vec<DynProofExpr> = vec![col_expr_plan(&table_ref, "value", &accessor)];
@@ -200,10 +201,7 @@ fn test_nullable_bigint_filter_proves_with_validity() {
             column_field("is_valid", ColumnType::Boolean),
         ],
     );
-    let predicate = equal(
-        column(&table_ref, "is_valid", &accessor),
-        const_bool(true),
-    );
+    let predicate = equal(column(&table_ref, "is_valid", &accessor), const_bool(true));
     let ast = filter(projection, source, predicate);
 
     // Prove + verify end-to-end.

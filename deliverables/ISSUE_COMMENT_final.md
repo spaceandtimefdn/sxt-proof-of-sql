@@ -6,22 +6,17 @@ I've submitted a pull request implementing nullable column support for BigInt:
 
 ### Implementation Summary
 
-- **New `NullableBigInt` variant** added to `ColumnType` and `OwnedColumn`
+- **`NullableBigInt` variants** across `ColumnType`, `OwnedColumn`, and `CommittableColumn`
 - **Validity bitmap pattern**: `(Vec<i64>, Vec<bool>)` where `presence[i] = true` means valid, `false` means null
-- **Arrow integration**: Int64 arrays with nulls automatically convert to `NullableBigInt`
-- **All proof system paths updated** for the new variant
+- **Arrow integration**: Int64 arrays with nulls convert to `NullableBigInt` + validity; Arrow fields marked nullable
+- **Proof/commitment plumbing updated** for NullableBigInt (bounds, packing, KZG/Dory helpers)
+- **PoC proof**: nullable BigInt filtered by validity and fully proved/verified (cfg `blitzar`)
 
 ### Testing
 
-7 unit tests covering:
-- Direct NullableBigInt creation
-- Arrow conversion (with and without nulls)
-- Slice/permute operations preserve validity
-- Column type properties
-
-```bash
-cargo test --no-default-features --features "std,arrow" nullable_column_test
-```
+- `cargo test -p proof-of-sql --no-default-features --features "std,arrow" --no-run`
+- `cargo test -p proof-of-sql --no-default-features --features "std,arrow" -- nullable_column_proof_test`
+- Linux/CI: `cargo test -p proof-of-sql --features "perf,arrow" test_nullable_bigint_filter_proves_with_validity` (blitzar not available on macOS)
 
 ### Next Steps (if desired)
 
