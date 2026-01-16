@@ -149,3 +149,6 @@ pub mod validity;
 /// which wrap regular columns with optional validity masks to support NULL values.
 pub mod nullable_column;
 pub use nullable_column::{NullableColumn, NullableOwnedColumn};
+
+#[cfg(test)]
+mod nullable_column_proof_test;
