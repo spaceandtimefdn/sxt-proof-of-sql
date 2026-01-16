@@ -171,6 +171,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             OwnedColumn::SmallInt(col) => Column::SmallInt(col.as_slice()),
             OwnedColumn::Int(col) => Column::Int(col.as_slice()),
             OwnedColumn::BigInt(col) => Column::BigInt(col.as_slice()),
+            OwnedColumn::NullableBigInt(col, _) => Column::BigInt(col.as_slice()),
             OwnedColumn::Int128(col) => Column::Int128(col.as_slice()),
             OwnedColumn::Decimal75(precision, scale, col) => {
                 Column::Decimal75(*precision, *scale, col.as_slice())

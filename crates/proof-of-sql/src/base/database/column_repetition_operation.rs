@@ -54,6 +54,12 @@ pub trait RepetitionOp {
                     iter.next().expect("Iterator should have enough elements")
                 }) as &[_])
             }
+            ColumnType::NullableBigInt => {
+                let mut iter = Self::op(column.as_bigint().expect("Column types should match"), n);
+                Column::BigInt(alloc.alloc_slice_fill_with(len, |_| {
+                    iter.next().expect("Iterator should have enough elements")
+                }) as &[_])
+            }
             ColumnType::Int128 => {
                 let mut iter = Self::op(column.as_int128().expect("Column types should match"), n);
                 Column::Int128(alloc.alloc_slice_fill_with(len, |_| {

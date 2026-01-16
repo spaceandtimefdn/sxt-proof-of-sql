@@ -111,7 +111,9 @@ impl ProvableQueryResult {
                     ColumnType::TinyInt => decode_and_convert::<i8, S>(&self.data[offset..]),
                     ColumnType::SmallInt => decode_and_convert::<i16, S>(&self.data[offset..]),
                     ColumnType::Int => decode_and_convert::<i32, S>(&self.data[offset..]),
-                    ColumnType::BigInt => decode_and_convert::<i64, S>(&self.data[offset..]),
+                    ColumnType::BigInt | ColumnType::NullableBigInt => {
+                        decode_and_convert::<i64, S>(&self.data[offset..])
+                    }
                     ColumnType::Int128 => decode_and_convert::<i128, S>(&self.data[offset..]),
                     ColumnType::Decimal75(_, _) | ColumnType::Scalar => {
                         decode_and_convert::<S, S>(&self.data[offset..])
@@ -191,6 +193,12 @@ impl ProvableQueryResult {
                         let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;
                         offset += num_read;
                         Ok((field.name(), OwnedColumn::BigInt(col)))
+                    }
+                    ColumnType::NullableBigInt => {
+                        let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;
+                        offset += num_read;
+                        let presence = vec![true; col.len()];
+                        Ok((field.name(), OwnedColumn::NullableBigInt(col, presence)))
                     }
                     ColumnType::Int128 => {
                         let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;

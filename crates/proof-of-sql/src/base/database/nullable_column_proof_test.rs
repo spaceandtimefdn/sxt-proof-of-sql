@@ -19,10 +19,9 @@ use super::{
     validity, OwnedColumn,
 };
 use crate::base::{
-    commitment::{Commitment, CommittableColumn, VecCommitmentExt},
+    commitment::CommittableColumn,
     scalar::test_scalar::TestScalar,
 };
-use alloc::vec::Vec;
 
 /// Test that we can create a committable column from nullable column data.
 ///
@@ -143,6 +142,79 @@ fn test_commit_nullable_column_with_validity() {
     // Both commitments should be non-empty
     assert_eq!(data_commitments.len(), 1);
     assert_eq!(validity_commitments.len(), 1);
+}
+
+/// End-to-end proof: filter a nullable column by its validity mask.
+///
+/// This proves that rows marked as null are removed from the result set while
+/// keeping the canonicalized values committed.
+#[cfg(feature = "blitzar")]
+#[test]
+fn test_nullable_bigint_filter_proves_with_validity() {
+    use crate::{
+        base::{
+            commitment::InnerProductProof,
+            database::{
+                owned_table_utility::{bigint, boolean, owned_table},
+                ColumnType, OwnedTableTestAccessor, TableRef,
+            },
+        },
+        sql::{
+            proof::{exercise_verification, VerifiableQueryResult},
+            proof_exprs::{test_utility::*, DynProofExpr},
+            proof_plans::test_utility::*,
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    // Start with a nullable column (values + validity mask).
+    let nullable = NullableOwnedColumn::<TestScalar>::new_with_canonical_nulls(
+        OwnedColumn::BigInt(vec![10, 20, 30, 40]),
+        Some(vec![true, false, true, false]),
+    );
+    let validity = nullable
+        .validity()
+        .expect("validity mask should exist")
+        .to_vec();
+    let canonical_values = match nullable.column() {
+        OwnedColumn::BigInt(vals) => vals.clone(),
+        OwnedColumn::NullableBigInt(vals, _) => vals.clone(),
+        _ => panic!("Expected BigInt backing column"),
+    };
+
+    // Build a table that carries both the canonicalized values and the validity bitmap.
+    let table = owned_table([
+        bigint(Ident::new("value"), canonical_values),
+        boolean(Ident::new("is_valid"), validity.clone()),
+    ]);
+    let table_ref = TableRef::new("sxt", "nullable_values");
+    let accessor =
+        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(table_ref.clone(), table, 0, ());
+
+    // SELECT value FROM t WHERE is_valid = true
+    let projection: Vec<DynProofExpr> = vec![col_expr_plan(&table_ref, "value", &accessor)];
+    let source = table_exec(
+        table_ref.clone(),
+        vec![
+            column_field("value", ColumnType::BigInt),
+            column_field("is_valid", ColumnType::Boolean),
+        ],
+    );
+    let predicate = equal(
+        column(&table_ref, "is_valid", &accessor),
+        const_bool(true),
+    );
+    let ast = filter(projection, source, predicate);
+
+    // Prove + verify end-to-end.
+    let verifiable =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    exercise_verification(&verifiable, &ast, &accessor, &table_ref);
+    let verified = verifiable.verify(&ast, &accessor, &(), &[]).unwrap().table;
+
+    // Only rows with is_valid = true remain.
+    let expected = owned_table([bigint(Ident::new("value"), [10_i64, 30])]);
+    assert_eq!(verified, expected);
 }
 
 /// Test null propagation through multiple operations.

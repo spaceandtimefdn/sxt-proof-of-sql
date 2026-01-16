@@ -14,6 +14,7 @@ use crate::base::{
 };
 use alloc::{
     string::{String, ToString},
+    vec,
     vec::Vec,
 };
 use itertools::Itertools;
@@ -51,6 +52,9 @@ pub enum OwnedColumn<S: Scalar> {
     Scalar(Vec<S>),
     /// Variable length binary columns
     VarBinary(Vec<Vec<u8>>),
+    /// Nullable i64 columns (values, presence bitmap where true = valid, false = null)
+    #[cfg_attr(test, proptest(skip))]
+    NullableBigInt(Vec<i64>, Vec<bool>),
 }
 
 impl<S: Scalar> OwnedColumn<S> {
@@ -62,9 +66,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TinyInt(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::SmallInt(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::Int(col) => inner_product_ref_cast(col, vec),
-            OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => {
-                inner_product_ref_cast(col, vec)
-            }
+            OwnedColumn::BigInt(col)
+            | OwnedColumn::TimestampTZ(_, _, col)
+            | OwnedColumn::NullableBigInt(col, _) => inner_product_ref_cast(col, vec),
             OwnedColumn::VarChar(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::VarBinary(col) => inner_product_with_bytes(col, vec),
             OwnedColumn::Int128(col) => inner_product_ref_cast(col, vec),
@@ -83,7 +87,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::Uint8(col) => col.len(),
             OwnedColumn::SmallInt(col) => col.len(),
             OwnedColumn::Int(col) => col.len(),
-            OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => col.len(),
+            OwnedColumn::BigInt(col)
+            | OwnedColumn::TimestampTZ(_, _, col)
+            | OwnedColumn::NullableBigInt(col, _) => col.len(),
             OwnedColumn::VarChar(col) => col.len(),
             OwnedColumn::VarBinary(col) => col.len(),
             OwnedColumn::Int128(col) => col.len(),
@@ -110,6 +116,10 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, permutation.try_apply(col)?)
             }
+            OwnedColumn::NullableBigInt(col, presence) => OwnedColumn::NullableBigInt(
+                permutation.try_apply(col)?,
+                permutation.try_apply(presence)?,
+            ),
         })
     }
 
@@ -133,6 +143,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, col[start..end].to_vec())
             }
+            OwnedColumn::NullableBigInt(col, presence) => {
+                OwnedColumn::NullableBigInt(col[start..end].to_vec(), presence[start..end].to_vec())
+            }
         }
     }
 
@@ -145,7 +158,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::Uint8(col) => col.is_empty(),
             OwnedColumn::SmallInt(col) => col.is_empty(),
             OwnedColumn::Int(col) => col.is_empty(),
-            OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => col.is_empty(),
+            OwnedColumn::BigInt(col)
+            | OwnedColumn::TimestampTZ(_, _, col)
+            | OwnedColumn::NullableBigInt(col, _) => col.is_empty(),
             OwnedColumn::VarChar(col) => col.is_empty(),
             OwnedColumn::VarBinary(col) => col.is_empty(),
             OwnedColumn::Int128(col) => col.is_empty(),
@@ -170,6 +185,7 @@ impl<S: Scalar> OwnedColumn<S> {
                 ColumnType::Decimal75(*precision, *scale)
             }
             OwnedColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            OwnedColumn::NullableBigInt(_, _) => ColumnType::NullableBigInt,
         }
     }
 
@@ -258,6 +274,18 @@ impl<S: Scalar> OwnedColumn<S> {
                 from_type: ColumnType::Scalar,
                 to_type: ColumnType::VarChar,
             }),
+            ColumnType::NullableBigInt => {
+                // For NullableBigInt, we create with all-valid presence bitmap
+                let values: Vec<i64> = scalars
+                    .iter()
+                    .map(|s| -> Result<i64, _> { TryInto::<i64>::try_into(*s) })
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| OwnedColumnError::ScalarConversionError {
+                        error: "Overflow in scalar conversions".to_string(),
+                    })?;
+                let presence = vec![true; values.len()];
+                Ok(OwnedColumn::NullableBigInt(values, presence))
+            }
         }
     }
 

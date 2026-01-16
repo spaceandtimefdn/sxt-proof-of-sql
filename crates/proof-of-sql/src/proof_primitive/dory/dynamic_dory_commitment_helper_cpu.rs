@@ -79,7 +79,10 @@ fn compute_dory_commitment(
         CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::Int(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::BigInt(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::BigInt(column)
+        | CommittableColumn::NullableBigInt(column, _) => {
+            compute_dory_commitment_impl(column, offset, setup)
+        }
         CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::VarChar(column)
         | CommittableColumn::VarBinary(column)

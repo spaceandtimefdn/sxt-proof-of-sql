@@ -50,6 +50,8 @@ pub enum CommittableColumn<'a> {
     VarBinary(Vec<[u64; 4]>),
     /// Borrowed Timestamp column with Timezone, mapped to `i64`.
     TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, &'a [i64]),
+    /// Nullable BigInt column - values with presence bitmap
+    NullableBigInt(&'a [i64], &'a [bool]),
 }
 
 impl CommittableColumn<'_> {
@@ -61,7 +63,9 @@ impl CommittableColumn<'_> {
             CommittableColumn::TinyInt(col) => col.len(),
             CommittableColumn::SmallInt(col) => col.len(),
             CommittableColumn::Int(col) => col.len(),
-            CommittableColumn::BigInt(col) | CommittableColumn::TimestampTZ(_, _, col) => col.len(),
+            CommittableColumn::BigInt(col)
+            | CommittableColumn::TimestampTZ(_, _, col)
+            | CommittableColumn::NullableBigInt(col, _) => col.len(),
             CommittableColumn::Int128(col) => col.len(),
             CommittableColumn::Decimal75(_, _, col)
             | CommittableColumn::Scalar(col)
@@ -101,6 +105,7 @@ impl<'a> From<&CommittableColumn<'a>> for ColumnType {
             CommittableColumn::VarBinary(_) => ColumnType::VarBinary,
             CommittableColumn::Boolean(_) => ColumnType::Boolean,
             CommittableColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            CommittableColumn::NullableBigInt(_, _) => ColumnType::NullableBigInt,
         }
     }
 }
@@ -176,6 +181,9 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::TimestampTZ(tu, tz, times) => {
                 CommittableColumn::TimestampTZ(*tu, *tz, times as &[_])
             }
+            OwnedColumn::NullableBigInt(values, presence) => {
+                CommittableColumn::NullableBigInt(values as &[_], presence as &[_])
+            }
         }
     }
 }
@@ -235,7 +243,9 @@ impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
             CommittableColumn::TinyInt(ints) => Sequence::from(*ints),
             CommittableColumn::SmallInt(ints) => Sequence::from(*ints),
             CommittableColumn::Int(ints) => Sequence::from(*ints),
-            CommittableColumn::BigInt(ints) => Sequence::from(*ints),
+            CommittableColumn::BigInt(ints) | CommittableColumn::NullableBigInt(ints, _) => {
+                Sequence::from(*ints)
+            }
             CommittableColumn::Int128(ints) => Sequence::from(*ints),
             CommittableColumn::Decimal75(_, _, limbs)
             | CommittableColumn::Scalar(limbs)

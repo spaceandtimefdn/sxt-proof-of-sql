@@ -23,7 +23,7 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
         Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
         TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
     },
@@ -80,6 +80,13 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
             OwnedColumn::SmallInt(col) => Arc::new(Int16Array::from(col)),
             OwnedColumn::Int(col) => Arc::new(Int32Array::from(col)),
             OwnedColumn::BigInt(col) => Arc::new(Int64Array::from(col)),
+            OwnedColumn::NullableBigInt(col, presence) => {
+                let values = col
+                    .into_iter()
+                    .zip(presence.into_iter())
+                    .map(|(v, is_valid)| is_valid.then_some(v));
+                Arc::new(Int64Array::from_iter(values))
+            }
             OwnedColumn::Int128(col) => Arc::new(
                 Decimal128Array::from(col)
                     .with_precision_and_scale(38, 0)
@@ -192,14 +199,22 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                     .values()
                     .to_vec(),
             )),
-            DataType::Int64 => Ok(Self::BigInt(
-                value
+            DataType::Int64 => {
+                let array = value
                     .as_any()
                     .downcast_ref::<Int64Array>()
-                    .unwrap()
-                    .values()
-                    .to_vec(),
-            )),
+                    .unwrap();
+                if array.null_count() == 0 {
+                    Ok(Self::BigInt(array.values().to_vec()))
+                } else {
+                    let presence: Vec<bool> =
+                        (0..array.len()).map(|idx| array.is_valid(idx)).collect();
+                    let values: Vec<i64> = (0..array.len())
+                        .map(|idx| if array.is_valid(idx) { array.value(idx) } else { 0 })
+                        .collect();
+                    Ok(Self::NullableBigInt(values, presence))
+                }
+            }
             DataType::Decimal128(38, 0) => Ok(Self::Int128(
                 value
                     .as_any()

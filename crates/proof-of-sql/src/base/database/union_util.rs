@@ -103,6 +103,16 @@ pub fn column_union<'a, S: Scalar>(
                 iter.next().expect("Iterator should have enough elements")
             }) as &[_])
         }
+        ColumnType::NullableBigInt => {
+            let mut iter = columns
+                .iter()
+                .flat_map(|col| col.as_bigint().expect("Column types should match"))
+                .copied();
+
+            Column::BigInt(alloc.alloc_slice_fill_with(len, |_| {
+                iter.next().expect("Iterator should have enough elements")
+            }) as &[_])
+        }
         ColumnType::Int128 => {
             let mut iter = columns
                 .iter()

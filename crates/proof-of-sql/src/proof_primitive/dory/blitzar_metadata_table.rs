@@ -34,7 +34,9 @@ pub const fn min_as_f(column_type: ColumnType) -> F {
         ColumnType::TinyInt => MontFp!("-128"),
         ColumnType::SmallInt => MontFp!("-32768"),
         ColumnType::Int => MontFp!("-2147483648"),
-        ColumnType::BigInt | ColumnType::TimestampTZ(_, _) => MontFp!("-9223372036854775808"),
+        ColumnType::BigInt | ColumnType::NullableBigInt | ColumnType::TimestampTZ(_, _) => {
+            MontFp!("-9223372036854775808")
+        }
         ColumnType::Int128 => MontFp!("-170141183460469231731687303715884105728"),
         ColumnType::Decimal75(_, _)
         | ColumnType::Uint8
@@ -124,7 +126,9 @@ fn copy_column_data_to_slice(
         CommittableColumn::Int(column) => {
             scalar_row_slice[start..end].copy_from_slice(&column[index].offset_to_bytes());
         }
-        CommittableColumn::BigInt(column) | CommittableColumn::TimestampTZ(_, _, column) => {
+        CommittableColumn::BigInt(column)
+        | CommittableColumn::NullableBigInt(column, _)
+        | CommittableColumn::TimestampTZ(_, _, column) => {
             scalar_row_slice[start..end].copy_from_slice(&column[index].offset_to_bytes());
         }
         CommittableColumn::Int128(column) => {

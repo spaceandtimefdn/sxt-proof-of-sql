@@ -58,6 +58,13 @@ where
             )?;
             Ok(Column::BigInt(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
+        ColumnType::NullableBigInt => {
+            let raw_values = apply_slice_to_indexes(
+                column.as_bigint().expect("Column types should match"),
+                indexes,
+            )?;
+            Ok(Column::BigInt(alloc.alloc_slice_copy(&raw_values) as &[_]))
+        }
         ColumnType::Int128 => {
             let raw_values = apply_slice_to_indexes(
                 column.as_int128().expect("Column types should match"),

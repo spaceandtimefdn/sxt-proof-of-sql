@@ -230,7 +230,10 @@ impl ColumnBounds {
             CommittableColumn::Uint8(ints) => ColumnBounds::Uint8(Bounds::from_iter(*ints)),
             CommittableColumn::SmallInt(ints) => ColumnBounds::SmallInt(Bounds::from_iter(*ints)),
             CommittableColumn::Int(ints) => ColumnBounds::Int(Bounds::from_iter(*ints)),
-            CommittableColumn::BigInt(ints) => ColumnBounds::BigInt(Bounds::from_iter(*ints)),
+            CommittableColumn::BigInt(ints)
+            | CommittableColumn::NullableBigInt(ints, _) => {
+                ColumnBounds::BigInt(Bounds::from_iter(*ints))
+            }
             CommittableColumn::Int128(ints) => ColumnBounds::Int128(Bounds::from_iter(*ints)),
             CommittableColumn::TimestampTZ(_, _, times) => {
                 ColumnBounds::TimestampTZ(Bounds::from_iter(*times))

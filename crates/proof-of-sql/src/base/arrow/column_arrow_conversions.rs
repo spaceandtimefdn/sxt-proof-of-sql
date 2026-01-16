@@ -16,6 +16,7 @@ impl From<&ColumnType> for DataType {
             ColumnType::SmallInt => DataType::Int16,
             ColumnType::Int => DataType::Int32,
             ColumnType::BigInt => DataType::Int64,
+            ColumnType::NullableBigInt => DataType::Int64,
             ColumnType::Int128 => DataType::Decimal128(38, 0),
             ColumnType::Decimal75(precision, scale) => {
                 DataType::Decimal256(precision.value(), *scale)
@@ -74,10 +75,11 @@ impl TryFrom<DataType> for ColumnType {
 /// Convert [`ColumnField`] values to arrow Field
 impl From<&ColumnField> for Field {
     fn from(column_field: &ColumnField) -> Self {
+        let is_nullable = matches!(column_field.data_type(), ColumnType::NullableBigInt);
         Field::new(
             column_field.name().value.as_str(),
             (&column_field.data_type()).into(),
-            false,
+            is_nullable,
         )
     }
 }

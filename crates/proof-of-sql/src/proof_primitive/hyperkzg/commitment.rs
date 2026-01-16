@@ -149,7 +149,9 @@ fn compute_commitments_impl(
                 compute_commitment_generic_impl(setup, offset, vals)
             }
             CommittableColumn::Int(vals) => compute_commitment_generic_impl(setup, offset, vals),
-            CommittableColumn::BigInt(vals) | CommittableColumn::TimestampTZ(_, _, vals) => {
+            CommittableColumn::BigInt(vals)
+            | CommittableColumn::NullableBigInt(vals, _)
+            | CommittableColumn::TimestampTZ(_, _, vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)
             }
             CommittableColumn::Int128(vals) => compute_commitment_generic_impl(setup, offset, vals),

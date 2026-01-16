@@ -154,6 +154,9 @@ impl Commitment for NaiveCommitment {
                     CommittableColumn::TimestampTZ(_, _, i64_vec) => {
                         i64_vec.iter().map(core::convert::Into::into).collect()
                     }
+                    CommittableColumn::NullableBigInt(i64_vec, _) => {
+                        i64_vec.iter().map(core::convert::Into::into).collect()
+                    }
                 };
                 vectors.append(&mut existing_scalars);
                 NaiveCommitment(vectors)
