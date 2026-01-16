@@ -27,30 +27,17 @@ cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test
 
 Expected output:
 ```
-running 21 tests
-test base::database::nullable_column::tests::test_add_nullable_bigint ... ok
-test base::database::nullable_column::tests::test_add_nullable_to_nonnullable ... ok
-test base::database::nullable_column::tests::test_canonical_nulls ... ok
-test base::database::nullable_column::tests::test_multiply_nullable_bigint ... ok
-test base::database::nullable_column::tests::test_non_nullable_column ... ok
-test base::database::nullable_column::tests::test_nullable_column_creation ... ok
-test base::database::nullable_column_proof_test::test_all_null_column ... ok
-test base::database::nullable_column_proof_test::test_canonical_null_invariant_preserved ... ok
-test base::database::nullable_column_proof_test::test_empty_nullable_column ... ok
-test base::database::nullable_column_proof_test::test_no_null_nullable_column ... ok
-test base::database::nullable_column_proof_test::test_null_propagation_chain ... ok
-test base::database::nullable_column_proof_test::test_nullable_column_to_committable ... ok
-test base::database::nullable_column_proof_test::test_nullable_plus_nonnullable_bigint_requirement ... ok
-test base::arrow::nullable_conversion::tests::test_extract_validity_no_nulls ... ok
-test base::arrow::nullable_conversion::tests::test_extract_validity_with_nulls ... ok
-test base::arrow::nullable_conversion::tests::test_nullable_bigint_from_arrow_all_nulls ... ok
-test base::arrow::nullable_conversion::tests::test_nullable_bigint_from_arrow_no_nulls ... ok
-test base::arrow::nullable_conversion::tests::test_nullable_bigint_from_arrow_slice ... ok
-test base::arrow::nullable_conversion::tests::test_nullable_bigint_from_arrow_with_nulls ... ok
-test base::arrow::nullable_conversion::tests::test_validity_for_range_no_nulls_in_range ... ok
-test base::arrow::nullable_conversion::tests::test_validity_for_range_with_nulls ... ok
+running 22 tests
+...
+test base::database::nullable_column_proof_test::test_nullable_bigint_proof_with_nulls_and_nonnullable_mix ... ok
 
-test result: ok. 21 passed; 0 failed; 0 ignored
+test result: ok. 22 passed; 0 failed; 0 ignored
+```
+
+### Non-trivial proof PoC (nullable + non-nullable mix)
+
+```bash
+cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_bigint_proof_with_nulls_and_nonnullable_mix --nocapture
 ```
 
 ### Validity Module Tests

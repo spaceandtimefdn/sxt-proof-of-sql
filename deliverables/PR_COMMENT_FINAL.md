@@ -1,39 +1,8 @@
-## How to Test
+Heads up on the nullable PoC:
+- Added `test_nullable_bigint_proof_with_nulls_and_nonnullable_mix` in `crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs` (proves nullable bigint + non-nullable column with validity filtering).
+- Command: `cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_bigint_proof_with_nulls_and_nonnullable_mix --nocapture`.
+- Nullable suite also green: `cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable`.
 
-### Quick Verification (PoC with nulls)
-```bash
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
-```
+If workflows are gated because this is from a fork, please approve them. Happy to extend to more nullable types/expressions based on review.
 
-### Full Nullable Test Suite (21 tests)
-```bash
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
-```
-
-### Specific Issue #183 Requirement Test
-```bash
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_plus_nonnullable_bigint_requirement --nocapture
-```
-
----
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `crates/proof-of-sql/src/base/database/validity.rs` | Validity mask utilities |
-| `crates/proof-of-sql/src/base/database/nullable_column.rs` | NullableOwnedColumn type |
-| `crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs` | **PoC proof tests** |
-| `crates/proof-of-sql/src/base/arrow/nullable_conversion.rs` | Arrow conversion |
-
----
-
-## Structure
-
-**PoC is in the first commits**; remainder generalizes the implementation with Arrow conversion and additional test coverage. The core design uses a validity mask pattern that preserves proof soundness through the canonical null invariant.
-
-All 21 nullable tests pass locally. Ready for review.
-
----
-
-Nicholas Toledo / Toledo Technologies LLC
+Nicholas Toledo

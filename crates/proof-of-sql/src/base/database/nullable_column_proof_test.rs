@@ -215,6 +215,107 @@ fn test_nullable_bigint_filter_proves_with_validity() {
     assert_eq!(verified, expected);
 }
 
+/// End-to-end proof without the blitzar backend using the naive evaluation proof.
+///
+/// This demonstrates a non-trivial proof involving nullable data by:
+/// - carrying both canonicalized values and a validity mask
+/// - mixing nullable data with a non-nullable column in the projection
+/// - filtering out nulls via the validity column
+#[test]
+fn test_nullable_bigint_proof_with_nulls_and_nonnullable_mix() {
+    use crate::{
+        base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
+            database::{
+                owned_table_utility::{bigint, boolean, decimal75, owned_table},
+                ColumnType, OwnedColumn, OwnedTableTestAccessor, TableRef,
+            },
+        },
+        sql::{
+            proof::VerifiableQueryResult,
+            proof_exprs::test_utility::*,
+            proof_plans::test_utility::*,
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    // Nullable column with interleaved nulls.
+    let nullable = NullableOwnedColumn::<TestScalar>::new_with_canonical_nulls(
+        OwnedColumn::BigInt(vec![7, 11, 13, 17, 19]),
+        Some(vec![true, false, true, false, true]),
+    );
+
+    // Extract canonicalized values and validity.
+    let canonical_values = match nullable.column() {
+        OwnedColumn::BigInt(values) | OwnedColumn::NullableBigInt(values, _) => values.clone(),
+        _ => panic!("Expected BigInt column"),
+    };
+    let validity = nullable
+        .validity()
+        .expect("validity mask should exist")
+        .to_vec();
+
+    // Non-nullable companion column to make the query non-trivial.
+    let bonus = vec![3_i64, 3, 3, 3, 3];
+
+    // Build a table with canonicalized values, a validity column, and a non-nullable column.
+    let table = owned_table([
+        bigint(Ident::new("value"), canonical_values.clone()),
+        bigint(Ident::new("bonus"), bonus.clone()),
+        boolean(Ident::new("is_valid"), validity.clone()),
+    ]);
+    let table_ref = TableRef::new("sxt", "nullable_proof");
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        table,
+        0,
+        (),
+    );
+
+    // SELECT (value + bonus) AS total FROM t WHERE is_valid = true
+    let projection = vec![aliased_plan(
+        add(
+            column(&table_ref, "value", &accessor),
+            column(&table_ref, "bonus", &accessor),
+        ),
+        "total",
+    )];
+    let source = table_exec(
+        table_ref.clone(),
+        vec![
+            column_field("value", ColumnType::BigInt),
+            column_field("bonus", ColumnType::BigInt),
+            column_field("is_valid", ColumnType::Boolean),
+        ],
+    );
+    let predicate = equal(column(&table_ref, "is_valid", &accessor), const_bool(true));
+    let plan = filter(projection, source, predicate);
+
+    let verifiable =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+    let verified = verifiable.verify(&plan, &accessor, &(), &[]).unwrap().table;
+
+    // Only valid rows remain, and they include the non-nullable mix.
+    let expected_values: Vec<i64> = canonical_values
+        .iter()
+        .zip(bonus.iter())
+        .zip(validity.iter())
+        .filter_map(|((value, delta), is_valid)| is_valid.then_some(value + delta))
+        .collect();
+    let expected = owned_table([decimal75(
+        Ident::new("total"),
+        20,
+        0,
+        expected_values
+            .iter()
+            .copied()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>(),
+    )]);
+
+    assert_eq!(verified, expected);
+}
+
 /// Test null propagation through multiple operations.
 ///
 /// Verifies that nulls propagate correctly through a chain of operations:

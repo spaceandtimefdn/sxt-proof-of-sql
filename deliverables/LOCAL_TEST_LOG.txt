@@ -1,0 +1,9 @@
+# Local test run log
+
+1) cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_bigint_proof_with_nulls_and_nonnullable_mix
+- Status: pass
+- Notes: warnings only; targeted new nullable proof PoC test executed successfully.
+
+2) cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
+- Status: pass
+- Notes: 22 tests ran (nullable suite including new PoC); warnings only.

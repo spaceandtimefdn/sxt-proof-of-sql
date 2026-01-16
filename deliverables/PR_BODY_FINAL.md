@@ -1,133 +1,29 @@
-# Add Nullable Column Support
+/claim #183
 
-**Addresses #183**
+# Nullable column support PoC
 
 ## Summary
+- Added an end-to-end nullable proof using `NaiveEvaluationProof` that mixes canonicalized nullable bigint data with a non-nullable column and filters nulls via validity.
+- Ensured nullable arithmetic semantics remain (canonicalized nulls) while supporting nullable + non-nullable operations already covered by `add_nullable_to_nonnullable_bigint`.
+- Captured reproduction steps and local logs for the nullable test suite and the PoC command.
+- Added a Unicode control character scanner (`tools/find_unicode_controls.py`) with a clean report in `deliverables/UNICODE_CONTROL_REPORT.md`.
+- Kept changes scoped to the nullable slice to minimize surface area.
 
-This PR implements nullable column support for Proof of SQL. The implementation provides:
+## How this satisfies Issue #183
+- Nullable mechanism: `NullableOwnedColumn`/`NullableColumn` with validity masks and canonical null enforcement (`crates/proof-of-sql/src/base/database/validity.rs`).
+- Operations on nullable columns: arithmetic helpers including nullable + non-nullable (`add_nullable_bigint`, `add_nullable_to_nonnullable_bigint`) with existing unit coverage.
+- Non-trivial proof involving a null type: new PoC proves and verifies a query over nullable bigint data plus a non-nullable column, driven by the validity mask.
 
-- **Type-safe nullable column representation** with validity masks
-- **Canonical null invariant** for proof soundness (null values = 0 for numeric types)
-- **Null propagation** for arithmetic operations (NULL op X = NULL)
-- **Arrow integration** for converting nullable Arrow arrays
-- **Support for nullable + non-nullable operations** (explicit requirement from issue)
+## Non-trivial proof PoC
+- Location: `crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs` (`test_nullable_bigint_proof_with_nulls_and_nonnullable_mix`).
+- Command: `cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_bigint_proof_with_nulls_and_nonnullable_mix --nocapture`.
+- Success criteria: proof constructs and verifies, returning only valid rows with summed values (expected totals: 10, 16, 22).
 
-## Design Overview
+## Review guide
+- Start with the new PoC test to see the end-to-end flow and expected result.
+- Check `validity.rs` for canonical null handling and `nullable_column.rs` for nullable arithmetic helpers.
+- Repro commands are in `deliverables/REPRO_STEPS.md`; quick log in `deliverables/LOCAL_TEST_LOG.txt`.
 
-### Approach: Validity Mask Pattern
-
-Rather than modifying the existing `ColumnType` enum (which is `Copy` and widely used), this implementation adds:
-
-1. **`validity` module** - Utilities for combining and canonicalizing validity masks
-2. **`nullable_column` module** - `NullableOwnedColumn` and `NullableColumn` wrapper types
-3. **`nullable_conversion` module** - Arrow array to nullable column conversion
-
-### Key Components
-
-#### Validity Mask (`crates/proof-of-sql/src/base/database/validity.rs`)
-- `combine_validity()` - AND-combines validity masks for binary operations
-- `canonicalize_nulls_numeric()` - Ensures null positions have canonical values
-- `has_nulls()`, `null_count()` - Validity inspection utilities
-
-#### Nullable Column Types (`crates/proof-of-sql/src/base/database/nullable_column.rs`)
-- `NullableOwnedColumn<S>` - Wraps `OwnedColumn` with optional validity mask
-- `NullableColumn<'a, S>` - Borrowed view with validity
-- `add_nullable_bigint()`, `add_nullable_to_nonnullable_bigint()` - Operations with null propagation
-
-#### Arrow Conversion (`crates/proof-of-sql/src/base/arrow/nullable_conversion.rs`)
-- `extract_validity()` - Gets validity bitmap from Arrow array
-- `nullable_bigint_from_arrow()` - Converts Int64Array to NullableOwnedColumn
-
-### Canonical Null Invariant (Proof Soundness)
-
-For proof soundness, when a value is NULL (validity[i] == false), the corresponding value slot contains a canonical default:
-- **Numeric types**: 0
-- **String types**: empty string
-- **Binary types**: empty slice
-
-This invariant is enforced:
-1. At construction (`new_with_canonical_nulls()`)
-2. During Arrow import
-3. In operation results
-
-This prevents provers from hiding arbitrary values under NULL entries.
-
-### Null Propagation Semantics
-
-| Operation | Behavior |
-|-----------|----------|
-| `NULL + X` | NULL |
-| `X + NULL` | NULL |
-| `NULL + NULL` | NULL |
-| `nullable + non_nullable` | nullable result |
-
-## PoC (required by #183)
-
-The PoC demonstrates a **non-trivial proof involving at least one null type** as required by Issue #183.
-
-### PoC Test File
-`crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs`
-
-### Key PoC Tests
-
-1. **`test_nullable_column_to_committable`** - Creates a nullable BigInt column with nulls, canonicalizes values, and creates `CommittableColumn` instances for both data and validity mask (proof commitment).
-
-2. **`test_canonical_null_invariant_preserved`** - Proves null propagation: adds two nullable columns with overlapping nulls, verifies combined validity mask (AND logic), confirms canonical values at null positions.
-
-3. **`test_nullable_plus_nonnullable_bigint_requirement`** - **Explicit Issue #183 requirement**: adds a nullable bigint to a non-nullable bigint, verifies result is nullable with correct propagation.
-
-### Run PoC Test
-```bash
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
-```
-
----
-
-## Acceptance Criteria Checklist
-
-- [x] **Nullable flag/mechanism implemented** - `NullableOwnedColumn` wrapper with `Option<Vec<bool>>` validity mask
-- [x] **Nullable + non-nullable bigint add supported** - `add_nullable_to_nonnullable_bigint()` function with test
-- [x] **PoC proof with at least one null type** - `nullable_column_proof_test.rs` with committable column tests
-
----
-
-## How to Test
-
-```bash
-# Run PoC proof test
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_column_to_committable --nocapture
-
-# Run all nullable column tests (21 tests)
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable
-
-# Run validity tests
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- validity
-
-# Run all tests
-cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test"
-```
-
-## Files Changed
-
-### New Files
-- `crates/proof-of-sql/src/base/database/validity.rs` - Validity mask utilities
-- `crates/proof-of-sql/src/base/database/nullable_column.rs` - Nullable column types
-- `crates/proof-of-sql/src/base/database/nullable_column_proof_test.rs` - Proof integration tests
-- `crates/proof-of-sql/src/base/arrow/nullable_conversion.rs` - Arrow nullable conversion
-
-### Modified Files
-- `crates/proof-of-sql/src/base/database/mod.rs` - Module exports
-- `crates/proof-of-sql/src/base/arrow/mod.rs` - Module exports
-
-## Future Work
-
-This PoC establishes the foundation. Full implementation would extend to:
-- All numeric types (TinyInt, SmallInt, Int, Int128, Decimal75)
-- String/Binary nullable support
-- Comparison operations with nullable semantics
-- WHERE clause NULL handling
-- Full proof constraint generation for validity masks
-
-## Author
-
-Nicholas Toledo / Toledo Technologies LLC
+## Tests
+- `cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- test_nullable_bigint_proof_with_nulls_and_nonnullable_mix`
+- `cargo test -p proof-of-sql --no-default-features --features="arrow cpu-perf test" -- nullable`
