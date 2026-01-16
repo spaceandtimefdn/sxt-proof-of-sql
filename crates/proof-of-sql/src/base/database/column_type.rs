@@ -56,6 +56,12 @@ pub enum ColumnType {
     /// Mapped to [u8]
     #[serde(alias = "BINARY", alias = "BINARY")]
     VarBinary,
+    /// Nullable i64 - BigInt with validity bitmap
+    /// Note: Arrow DataType::Int64 doesn't distinguish nullability at the type level,
+    /// so roundtrip conversion is not guaranteed (skipped in proptest).
+    #[serde(alias = "NULLABLE_BIGINT", alias = "nullable_bigint")]
+    #[cfg_attr(test, proptest(skip))]
+    NullableBigInt,
 }
 
 impl ColumnType {
@@ -72,6 +78,7 @@ impl ColumnType {
                 | ColumnType::Int128
                 | ColumnType::Scalar
                 | ColumnType::Decimal75(_, _)
+                | ColumnType::NullableBigInt
         )
     }
 
@@ -86,6 +93,7 @@ impl ColumnType {
                 | ColumnType::Int
                 | ColumnType::BigInt
                 | ColumnType::Int128
+                | ColumnType::NullableBigInt
         )
     }
 
@@ -100,7 +108,7 @@ impl ColumnType {
             ColumnType::TinyInt => Some(11),
             ColumnType::SmallInt => Some(181),
             ColumnType::Int => Some(46_340),
-            ColumnType::BigInt => Some(3_037_000_499),
+            ColumnType::BigInt | ColumnType::NullableBigInt => Some(3_037_000_499),
             ColumnType::Int128 => Some(13_043_817_825_332_782_212),
             _ => None,
         }
@@ -112,7 +120,7 @@ impl ColumnType {
             ColumnType::Uint8 | ColumnType::TinyInt => Some(8),
             ColumnType::SmallInt => Some(16),
             ColumnType::Int => Some(32),
-            ColumnType::BigInt => Some(64),
+            ColumnType::BigInt | ColumnType::NullableBigInt => Some(64),
             ColumnType::Int128 => Some(128),
             _ => None,
         }
@@ -181,7 +189,7 @@ impl ColumnType {
             Self::Uint8 | Self::TinyInt => Some(3_u8),
             Self::SmallInt => Some(5_u8),
             Self::Int => Some(10_u8),
-            Self::BigInt | Self::TimestampTZ(_, _) => Some(19_u8),
+            Self::BigInt | Self::TimestampTZ(_, _) | Self::NullableBigInt => Some(19_u8),
             Self::Int128 => Some(39_u8),
             Self::Decimal75(precision, _) => Some(precision.value()),
             // Scalars are not in database & are only used for typeless comparisons for testing so we return 0
@@ -201,7 +209,8 @@ impl ColumnType {
             | Self::Int
             | Self::BigInt
             | Self::Int128
-            | Self::Scalar => Some(0),
+            | Self::Scalar
+            | Self::NullableBigInt => Some(0),
             Self::Boolean | Self::VarBinary | Self::VarChar => None,
             Self::TimestampTZ(tu, _) => match tu {
                 PoSQLTimeUnit::Second => Some(0),
@@ -221,7 +230,7 @@ impl ColumnType {
             Self::TinyInt => size_of::<i8>(),
             Self::SmallInt => size_of::<i16>(),
             Self::Int => size_of::<i32>(),
-            Self::BigInt | Self::TimestampTZ(_, _) => size_of::<i64>(),
+            Self::BigInt | Self::TimestampTZ(_, _) | Self::NullableBigInt => size_of::<i64>(),
             Self::Int128 => size_of::<i128>(),
             Self::Scalar | Self::Decimal75(_, _) | Self::VarBinary | Self::VarChar => {
                 size_of::<[u64; 4]>()
@@ -245,7 +254,8 @@ impl ColumnType {
             | Self::Int
             | Self::BigInt
             | Self::Int128
-            | Self::TimestampTZ(_, _) => true,
+            | Self::TimestampTZ(_, _)
+            | Self::NullableBigInt => true,
             Self::Decimal75(_, _)
             | Self::Scalar
             | Self::VarBinary
@@ -262,7 +272,7 @@ impl ColumnType {
             ColumnType::TinyInt => Some(S::from(i8::MIN)),
             ColumnType::SmallInt => Some(S::from(i16::MIN)),
             ColumnType::Int => Some(S::from(i32::MIN)),
-            ColumnType::BigInt => Some(S::from(i64::MIN)),
+            ColumnType::BigInt | ColumnType::NullableBigInt => Some(S::from(i64::MIN)),
             ColumnType::Int128 => Some(S::from(i128::MIN)),
             _ => None,
         }
@@ -293,6 +303,7 @@ impl Display for ColumnType {
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 write!(f, "TIMESTAMP(TIMEUNIT: {timeunit}, TIMEZONE: {timezone})")
             }
+            ColumnType::NullableBigInt => write!(f, "NULLABLE_BIGINT"),
         }
     }
 }

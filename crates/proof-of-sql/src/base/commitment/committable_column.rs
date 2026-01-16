@@ -1121,4 +1121,68 @@ mod tests {
         );
         assert_eq!(commitment_buffer[0], commitment_buffer[1]);
     }
+
+    /// Test that NullableBigInt columns can be committed through the proof system.
+    /// This demonstrates the PoC requirement from issue #183: nullable columns work
+    /// through the commitment/proof infrastructure.
+    ///
+    /// The commitment for NullableBigInt uses the same scalar representation as BigInt,
+    /// allowing nullable columns to participate in cryptographic proofs.
+    #[test]
+    fn we_can_commit_to_nullable_bigint_column_through_committable_column() {
+        // Empty case
+        let presence: [bool; 0] = [];
+        let committable_column = CommittableColumn::NullableBigInt(&[], &presence);
+        let sequence = Sequence::from(&committable_column);
+        let mut commitment_buffer = [CompressedRistretto::default()];
+        compute_curve25519_commitments(&mut commitment_buffer, &[sequence], 0);
+        assert_eq!(commitment_buffer[0], CompressedRistretto::default());
+
+        // Non-empty case with mixed valid/null values
+        // Values: [100, 200, 300] with presence: [true, false, true]
+        // This represents: [100, NULL, 300]
+        let values = [100_i64, 200, 300];
+        let presence = [true, false, true];
+        let committable_column = CommittableColumn::NullableBigInt(&values, &presence);
+
+        // The commitment should match committing to the raw i64 values
+        // (the validity bitmap is tracked separately for SQL semantics)
+        let sequence_actual = Sequence::from(&committable_column);
+        let sequence_expected = Sequence::from(values.as_slice());
+        let mut commitment_buffer = [CompressedRistretto::default(); 2];
+        compute_curve25519_commitments(
+            &mut commitment_buffer,
+            &[sequence_actual, sequence_expected],
+            0,
+        );
+        assert_eq!(commitment_buffer[0], commitment_buffer[1]);
+    }
+
+    /// Test that NullableBigInt converts correctly from OwnedColumn for commitment.
+    #[test]
+    fn we_can_convert_from_owned_nullable_bigint_column() {
+        // empty case
+        let owned_column = OwnedColumn::<TestScalar>::NullableBigInt(Vec::new(), Vec::new());
+        let from_owned_column = CommittableColumn::from(&owned_column);
+        let empty_presence: &[bool] = &[];
+        assert_eq!(
+            from_owned_column,
+            CommittableColumn::NullableBigInt(&[], empty_presence)
+        );
+
+        // non-empty case with nulls
+        let values = vec![10_i64, 20, 30];
+        let presence = vec![true, false, true]; // middle value is NULL
+        let owned_column =
+            OwnedColumn::<TestScalar>::NullableBigInt(values.clone(), presence.clone());
+        let from_owned_column = CommittableColumn::from(&owned_column);
+
+        match from_owned_column {
+            CommittableColumn::NullableBigInt(v, p) => {
+                assert_eq!(v, &[10_i64, 20, 30]);
+                assert_eq!(p, &[true, false, true]);
+            }
+            _ => panic!("Expected NullableBigInt"),
+        }
+    }
 }
