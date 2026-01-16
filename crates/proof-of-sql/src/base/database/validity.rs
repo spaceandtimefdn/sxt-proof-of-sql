@@ -46,10 +46,7 @@ pub fn combine_validity(lhs: Option<&[bool]>, rhs: Option<&[bool]>) -> Option<Ve
 ///
 /// More efficient version when we already own the vectors.
 #[must_use]
-pub fn combine_validity_owned(
-    lhs: Option<Vec<bool>>,
-    rhs: Option<Vec<bool>>,
-) -> Option<Vec<bool>> {
+pub fn combine_validity_owned(lhs: Option<Vec<bool>>, rhs: Option<Vec<bool>>) -> Option<Vec<bool>> {
     match (lhs, rhs) {
         (None, None) => None,
         (Some(v), None) | (None, Some(v)) => Some(v),
@@ -217,7 +214,10 @@ mod tests {
     #[test]
     fn test_slice_validity() {
         let v = vec![true, false, true, false, true];
-        assert_eq!(slice_validity(Some(&v), 1, 4), Some(vec![false, true, false]));
+        assert_eq!(
+            slice_validity(Some(&v), 1, 4),
+            Some(vec![false, true, false])
+        );
         assert!(slice_validity(None, 1, 4).is_none());
     }
 }

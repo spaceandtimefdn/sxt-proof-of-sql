@@ -18,7 +18,7 @@
 //! ```
 
 use crate::base::{
-    database::{validity, NullableOwnedColumn, OwnedColumn},
+    database::{NullableOwnedColumn, OwnedColumn},
     scalar::Scalar,
 };
 use alloc::vec::Vec;
