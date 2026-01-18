@@ -50,7 +50,7 @@ pub enum CommittableColumn<'a> {
     VarBinary(Vec<[u64; 4]>),
     /// Borrowed Timestamp column with Timezone, mapped to `i64`.
     TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, &'a [i64]),
-    /// Nullable BigInt column - values with presence bitmap
+    /// Nullable `BigInt` column - values with presence bitmap
     NullableBigInt(&'a [i64], &'a [bool]),
 }
 

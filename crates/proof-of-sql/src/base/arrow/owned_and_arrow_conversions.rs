@@ -83,9 +83,9 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
             OwnedColumn::NullableBigInt(col, presence) => {
                 let values = col
                     .into_iter()
-                    .zip(presence.into_iter())
+                    .zip(presence)
                     .map(|(v, is_valid)| is_valid.then_some(v));
-                Arc::new(Int64Array::from_iter(values))
+                Arc::new(values.collect::<Int64Array>())
             }
             OwnedColumn::Int128(col) => Arc::new(
                 Decimal128Array::from(col)

@@ -96,8 +96,7 @@ impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for OwnedTableTestA
             OwnedColumn::Uint8(col) => Column::Uint8(col),
             OwnedColumn::SmallInt(col) => Column::SmallInt(col),
             OwnedColumn::Int(col) => Column::Int(col),
-            OwnedColumn::BigInt(col) => Column::BigInt(col),
-            OwnedColumn::NullableBigInt(col, _) => Column::BigInt(col),
+            OwnedColumn::BigInt(col) | OwnedColumn::NullableBigInt(col, _) => Column::BigInt(col),
             OwnedColumn::Int128(col) => Column::Int128(col),
             OwnedColumn::Decimal75(precision, scale, col) => {
                 Column::Decimal75(*precision, *scale, col)

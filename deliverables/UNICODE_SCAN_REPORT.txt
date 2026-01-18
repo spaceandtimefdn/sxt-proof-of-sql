@@ -1,0 +1,5 @@
+Scanning for hidden/bidi unicode control characters in: .
+======================================================================
+Scanned 453 text files
+
+STATUS: PASS - No hidden/bidi unicode control characters found

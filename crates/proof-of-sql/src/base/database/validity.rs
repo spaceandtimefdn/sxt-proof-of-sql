@@ -33,8 +33,7 @@ use alloc::vec::Vec;
 pub fn combine_validity(lhs: Option<&[bool]>, rhs: Option<&[bool]>) -> Option<Vec<bool>> {
     match (lhs, rhs) {
         (None, None) => None,
-        (Some(v), None) => Some(v.to_vec()),
-        (None, Some(v)) => Some(v.to_vec()),
+        (Some(v), None) | (None, Some(v)) => Some(v.to_vec()),
         (Some(l), Some(r)) => {
             debug_assert_eq!(l.len(), r.len(), "Validity masks must have same length");
             Some(l.iter().zip(r.iter()).map(|(&a, &b)| a && b).collect())

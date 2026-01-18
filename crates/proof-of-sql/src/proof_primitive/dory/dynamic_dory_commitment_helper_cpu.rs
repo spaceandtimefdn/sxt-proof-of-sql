@@ -74,24 +74,23 @@ fn compute_dory_commitment(
     setup: &ProverSetup,
 ) -> DynamicDoryCommitment {
     match committable_column {
-        CommittableColumn::Scalar(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Uint8(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Int(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::BigInt(column) | CommittableColumn::NullableBigInt(column, _) => {
-            compute_dory_commitment_impl(column, offset, setup)
-        }
-        CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::VarChar(column)
+        CommittableColumn::Scalar(column)
+        | CommittableColumn::VarChar(column)
         | CommittableColumn::VarBinary(column)
         | CommittableColumn::Decimal75(_, _, column) => {
             compute_dory_commitment_impl(column, offset, setup)
         }
-        CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::TimestampTZ(_, _, column) => {
+        CommittableColumn::Uint8(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::Int(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::BigInt(column)
+        | CommittableColumn::NullableBigInt(column, _)
+        | CommittableColumn::TimestampTZ(_, _, column) => {
             compute_dory_commitment_impl(column, offset, setup)
         }
+        CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
     }
 }
 
@@ -102,10 +101,11 @@ pub(super) fn compute_dynamic_dory_commitments(
 ) -> Vec<DynamicDoryCommitment> {
     if_rayon!(committable_columns.par_iter(), committable_columns.iter())
         .map(|column| {
-            column
-                .is_empty()
-                .then(|| DynamicDoryCommitment(GT::zero()))
-                .unwrap_or_else(|| compute_dory_commitment(column, offset, setup))
+            if column.is_empty() {
+                DynamicDoryCommitment(GT::zero())
+            } else {
+                compute_dory_commitment(column, offset, setup)
+            }
         })
         .collect()
 }

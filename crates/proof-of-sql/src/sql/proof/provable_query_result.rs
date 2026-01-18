@@ -111,7 +111,9 @@ impl ProvableQueryResult {
                     ColumnType::TinyInt => decode_and_convert::<i8, S>(&self.data[offset..]),
                     ColumnType::SmallInt => decode_and_convert::<i16, S>(&self.data[offset..]),
                     ColumnType::Int => decode_and_convert::<i32, S>(&self.data[offset..]),
-                    ColumnType::BigInt | ColumnType::NullableBigInt => {
+                    ColumnType::BigInt
+                    | ColumnType::NullableBigInt
+                    | ColumnType::TimestampTZ(_, _) => {
                         decode_and_convert::<i64, S>(&self.data[offset..])
                     }
                     ColumnType::Int128 => decode_and_convert::<i128, S>(&self.data[offset..]),
@@ -125,9 +127,6 @@ impl ProvableQueryResult {
                             decode_and_convert::<&[u8], &[u8]>(&self.data[offset..])?;
                         let x = S::from_byte_slice_via_hash(raw_bytes);
                         Ok((x, used))
-                    }
-                    ColumnType::TimestampTZ(_, _) => {
-                        decode_and_convert::<i64, S>(&self.data[offset..])
                     }
                 }?;
                 val += *entry * x;

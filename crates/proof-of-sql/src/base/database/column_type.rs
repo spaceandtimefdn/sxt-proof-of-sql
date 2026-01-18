@@ -56,8 +56,8 @@ pub enum ColumnType {
     /// Mapped to [u8]
     #[serde(alias = "BINARY", alias = "BINARY")]
     VarBinary,
-    /// Nullable i64 - BigInt with validity bitmap
-    /// Note: Arrow DataType::Int64 doesn't distinguish nullability at the type level,
+    /// Nullable i64 - `BigInt` with validity bitmap
+    /// Note: Arrow `DataType::Int64` doesn't distinguish nullability at the type level,
     /// so roundtrip conversion is not guaranteed (skipped in proptest).
     #[serde(alias = "NULLABLE_BIGINT", alias = "nullable_bigint")]
     #[cfg_attr(test, proptest(skip))]

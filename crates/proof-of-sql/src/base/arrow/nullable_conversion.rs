@@ -47,17 +47,17 @@ pub fn extract_validity(array: &dyn Array) -> Option<Vec<bool>> {
     Some(validity)
 }
 
-/// Converts an Arrow Int64Array to a NullableOwnedColumn<BigInt>.
+/// Converts an Arrow `Int64Array` to a `NullableOwnedColumn<BigInt>`.
 ///
 /// - Extracts the validity bitmap
 /// - Enforces canonical null values (0 for null positions)
-/// - Returns a NullableOwnedColumn with both data and validity
+/// - Returns a `NullableOwnedColumn` with both data and validity
 ///
 /// # Arguments
-/// * `array` - The Arrow Int64Array to convert
+/// * `array` - The Arrow `Int64Array` to convert
 ///
 /// # Returns
-/// A `NullableOwnedColumn` containing BigInt values with validity mask.
+/// A `NullableOwnedColumn` containing `BigInt` values with validity mask.
 #[must_use]
 pub fn nullable_bigint_from_arrow<S: Scalar>(array: &Int64Array) -> NullableOwnedColumn<S> {
     let validity = extract_validity(array);
@@ -76,10 +76,10 @@ pub fn nullable_bigint_from_arrow<S: Scalar>(array: &Int64Array) -> NullableOwne
     NullableOwnedColumn::new(OwnedColumn::BigInt(values), validity)
 }
 
-/// Converts an Arrow Int64Array slice to a NullableOwnedColumn<BigInt>.
+/// Converts an Arrow `Int64Array` slice to a `NullableOwnedColumn<BigInt>`.
 ///
 /// # Arguments
-/// * `array` - The Arrow Int64Array to convert
+/// * `array` - The Arrow `Int64Array` to convert
 /// * `start` - Start index (inclusive)
 /// * `end` - End index (exclusive)
 #[must_use]

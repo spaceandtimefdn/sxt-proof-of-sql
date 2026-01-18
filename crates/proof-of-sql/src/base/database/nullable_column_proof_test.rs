@@ -232,8 +232,7 @@ fn test_nullable_bigint_proof_with_nulls_and_nonnullable_mix() {
             },
         },
         sql::{
-            proof::VerifiableQueryResult,
-            proof_exprs::test_utility::*,
+            proof::VerifiableQueryResult, proof_exprs::test_utility::*,
             proof_plans::test_utility::*,
         },
     };

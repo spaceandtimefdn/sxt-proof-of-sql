@@ -139,7 +139,7 @@ impl<S: Scalar> NullableOwnedColumn<S> {
     pub fn is_valid(&self, index: usize) -> bool {
         self.validity
             .as_ref()
-            .map_or(true, |v| v.get(index).copied().unwrap_or(false))
+            .is_none_or(|v| v.get(index).copied().unwrap_or(false))
     }
 
     /// Consumes self and returns the inner column and validity.
@@ -244,7 +244,7 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
         self.column.column_type()
     }
 
-    /// Creates a NullableColumn from a NullableOwnedColumn.
+    /// Creates a `NullableColumn` from a `NullableOwnedColumn`.
     #[must_use]
     pub fn from_nullable_owned(
         owned: &'a NullableOwnedColumn<S>,
@@ -256,23 +256,25 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
     }
 }
 
-/// Adds two nullable BigInt columns element-wise.
+/// Adds two nullable `BigInt` columns element-wise.
 ///
 /// Null propagation: if either operand is null, the result is null.
 /// Result values at null positions are set to 0 (canonical null).
+///
+/// # Panics
+///
+/// Panics if either column is not a `BigInt` column, or if column lengths don't match.
 #[must_use]
 pub fn add_nullable_bigint<S: Scalar>(
     lhs: &NullableOwnedColumn<S>,
     rhs: &NullableOwnedColumn<S>,
 ) -> NullableOwnedColumn<S> {
     // Extract BigInt values
-    let lhs_values = match lhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for lhs"),
+    let OwnedColumn::BigInt(lhs_values) = lhs.column() else {
+        panic!("Expected BigInt column for lhs")
     };
-    let rhs_values = match rhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for rhs"),
+    let OwnedColumn::BigInt(rhs_values) = rhs.column() else {
+        panic!("Expected BigInt column for rhs")
     };
 
     assert_eq!(
@@ -303,19 +305,21 @@ pub fn add_nullable_bigint<S: Scalar>(
     NullableOwnedColumn::new(OwnedColumn::BigInt(result_values), result_validity)
 }
 
-/// Subtracts two nullable BigInt columns element-wise.
+/// Subtracts two nullable `BigInt` columns element-wise.
+///
+/// # Panics
+///
+/// Panics if either column is not a `BigInt` column, or if column lengths don't match.
 #[must_use]
 pub fn subtract_nullable_bigint<S: Scalar>(
     lhs: &NullableOwnedColumn<S>,
     rhs: &NullableOwnedColumn<S>,
 ) -> NullableOwnedColumn<S> {
-    let lhs_values = match lhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for lhs"),
+    let OwnedColumn::BigInt(lhs_values) = lhs.column() else {
+        panic!("Expected BigInt column for lhs")
     };
-    let rhs_values = match rhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for rhs"),
+    let OwnedColumn::BigInt(rhs_values) = rhs.column() else {
+        panic!("Expected BigInt column for rhs")
     };
 
     assert_eq!(
@@ -343,19 +347,21 @@ pub fn subtract_nullable_bigint<S: Scalar>(
     NullableOwnedColumn::new(OwnedColumn::BigInt(result_values), result_validity)
 }
 
-/// Multiplies two nullable BigInt columns element-wise.
+/// Multiplies two nullable `BigInt` columns element-wise.
+///
+/// # Panics
+///
+/// Panics if either column is not a `BigInt` column, or if column lengths don't match.
 #[must_use]
 pub fn multiply_nullable_bigint<S: Scalar>(
     lhs: &NullableOwnedColumn<S>,
     rhs: &NullableOwnedColumn<S>,
 ) -> NullableOwnedColumn<S> {
-    let lhs_values = match lhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for lhs"),
+    let OwnedColumn::BigInt(lhs_values) = lhs.column() else {
+        panic!("Expected BigInt column for lhs")
     };
-    let rhs_values = match rhs.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for rhs"),
+    let OwnedColumn::BigInt(rhs_values) = rhs.column() else {
+        panic!("Expected BigInt column for rhs")
     };
 
     assert_eq!(
@@ -383,21 +389,23 @@ pub fn multiply_nullable_bigint<S: Scalar>(
     NullableOwnedColumn::new(OwnedColumn::BigInt(result_values), result_validity)
 }
 
-/// Adds a nullable BigInt column to a non-nullable BigInt column.
+/// Adds a nullable `BigInt` column to a non-nullable `BigInt` column.
 ///
 /// This demonstrates the required functionality: nullable + non-nullable.
+///
+/// # Panics
+///
+/// Panics if either column is not a `BigInt` column, or if column lengths don't match.
 #[must_use]
 pub fn add_nullable_to_nonnullable_bigint<S: Scalar>(
     nullable: &NullableOwnedColumn<S>,
     non_nullable: &OwnedColumn<S>,
 ) -> NullableOwnedColumn<S> {
-    let nullable_values = match nullable.column() {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for nullable"),
+    let OwnedColumn::BigInt(nullable_values) = nullable.column() else {
+        panic!("Expected BigInt column for nullable")
     };
-    let nonnull_values = match non_nullable {
-        OwnedColumn::BigInt(v) => v,
-        _ => panic!("Expected BigInt column for non-nullable"),
+    let OwnedColumn::BigInt(nonnull_values) = non_nullable else {
+        panic!("Expected BigInt column for non-nullable")
     };
 
     assert_eq!(
@@ -407,7 +415,7 @@ pub fn add_nullable_to_nonnullable_bigint<S: Scalar>(
     );
 
     // Result is nullable if input is nullable
-    let result_validity = nullable.validity().map(|v| v.to_vec());
+    let result_validity = nullable.validity().map(<[bool]>::to_vec);
 
     let result_values: Vec<i64> = nullable_values
         .iter()

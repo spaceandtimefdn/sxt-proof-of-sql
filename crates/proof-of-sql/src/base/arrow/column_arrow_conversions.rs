@@ -15,8 +15,7 @@ impl From<&ColumnType> for DataType {
             ColumnType::TinyInt => DataType::Int8,
             ColumnType::SmallInt => DataType::Int16,
             ColumnType::Int => DataType::Int32,
-            ColumnType::BigInt => DataType::Int64,
-            ColumnType::NullableBigInt => DataType::Int64,
+            ColumnType::BigInt | ColumnType::NullableBigInt => DataType::Int64,
             ColumnType::Int128 => DataType::Decimal128(38, 0),
             ColumnType::Decimal75(precision, scale) => {
                 DataType::Decimal256(precision.value(), *scale)
