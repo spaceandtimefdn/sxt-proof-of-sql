@@ -11,6 +11,7 @@
 ///     ...
 /// }
 /// ```
+#[allow(dead_code)]
 pub trait RefInto<T> {
     /// Converts a reference to this type into the (usually inferred) input type.
     fn ref_into(&self) -> T;
