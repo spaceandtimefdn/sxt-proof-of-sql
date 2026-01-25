@@ -26,6 +26,25 @@ contract VerifierTest is Test {
         });
     }
 
+    // Test a simple filter query using __internalVerify (commitments passed directly)
+    //
+    // SQL: SELECT b FROM namespace.table WHERE a = 5
+    //
+    // Table data (6 rows, columns a and b are BigInt):
+    //   | a | b |
+    //   |---|---|
+    //   | 5 | 0 |
+    //   | 1 | 1 |
+    //   | 2 | 2 |
+    //   | 5 | 3 |
+    //   | 4 | 4 |
+    //   | 3 | 5 |
+    //
+    // Expected result (2 rows where a = 5):
+    //   | b |
+    //   |---|
+    //   | 0 |
+    //   | 3 |
     function testSimpleFull() public view {
         uint256[] memory tableLengths = new uint256[](1);
         tableLengths[0] = 6;
@@ -45,6 +64,25 @@ contract VerifierTest is Test {
         });
     }
 
+    // Test an aggregate query with filter using __internalVerify
+    //
+    // SQL: SELECT sum(b) as sum_b, count(*) as count_0 FROM namespace.table WHERE c = 2
+    //
+    // Table data (5 rows, columns b and c are BigInt):
+    //   | b | c |
+    //   |---|---|
+    //   | 0 | 2 |
+    //   | 1 | 3 |
+    //   | 2 | 2 |
+    //   | 3 | 1 |
+    //   | 5 | 2 |
+    //
+    // Expected result (aggregation over 3 rows where c = 2):
+    //   | sum_b | count_0 |
+    //   |-------|---------|
+    //   |   7   |    3    |
+    //
+    // Note: sum_b = 0 + 2 + 5 = 7, count_0 = 3 rows match
     function testZeroColumnGroupByFull() public view {
         uint256[] memory tableLengths = new uint256[](1);
         tableLengths[0] = 5;
@@ -91,6 +129,28 @@ contract VerifierTest is Test {
         });
     }
 
+    // Test the same filter query as testSimpleFull but using the high-level verify() function
+    // which accepts serialized tableCommitments instead of raw commitment arrays.
+    //
+    // SQL: SELECT b FROM namespace.table WHERE a = 5
+    //
+    // Table data (6 rows, columns a and b are BigInt):
+    //   | a | b |
+    //   |---|---|
+    //   | 5 | 0 |
+    //   | 1 | 1 |
+    //   | 2 | 2 |
+    //   | 5 | 3 |
+    //   | 4 | 4 |
+    //   | 3 | 5 |
+    //
+    // Expected result (2 rows where a = 5):
+    //   | b |
+    //   |---|
+    //   | 0 |
+    //   | 3 |
+    //
+    // Note: This test exercises the tableCommitments deserialization path
     function testVerify() public view {
         bytes[] memory tableCommitments = new bytes[](1);
         tableCommitments[0] =
