@@ -1,4 +1,4 @@
-use super::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr};
+use super::{AliasedDynProofExpr, ColumnExpr, DynProofExpr};
 use crate::base::{
     database::{ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
     math::{decimal::Precision, i256::I256},
@@ -159,12 +159,6 @@ pub fn aliased_placeholder(index: usize, col_type: ColumnType, alias: &str) -> A
     }
 }
 
-pub fn tab(tab: &TableRef) -> TableExpr {
-    TableExpr {
-        table_ref: tab.clone(),
-    }
-}
-
 /// # Panics
 /// Panics if:
 /// - `alias.parse()` fails to parse the provided alias string.
@@ -198,21 +192,6 @@ pub fn cols_expr_plan(
     names
         .iter()
         .map(|name| col_expr_plan(tab, name, accessor))
-        .collect()
-}
-
-pub fn col_expr(tab: &TableRef, name: &str, accessor: &impl SchemaAccessor) -> ColumnExpr {
-    ColumnExpr::new(col_ref(tab, name, accessor))
-}
-
-pub fn cols_expr(
-    tab: &TableRef,
-    names: &[&str],
-    accessor: &impl SchemaAccessor,
-) -> Vec<ColumnExpr> {
-    names
-        .iter()
-        .map(|name| col_expr(tab, name, accessor))
         .collect()
 }
 

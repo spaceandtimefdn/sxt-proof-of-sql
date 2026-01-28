@@ -7,80 +7,8 @@ import "../../src/base/Constants.sol";
 import {Errors} from "../../src/base/Errors.sol";
 import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
 import {ProofPlan} from "../../src/proof_plans/ProofPlan.presl";
-import {FF, F} from "../base/FieldUtil.sol";
 
 contract ProofPlanTest is Test {
-    function testLegacyFilterExecVariant() public pure {
-        bytes memory plan = abi.encodePacked(
-            LEGACY_FILTER_EXEC_VARIANT,
-            uint64(0), // table_number
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(101)), // where clause
-            abi.encodePacked( // select clause
-                uint64(3),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(102)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(103)),
-                abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BIGINT_VARIANT, int64(104))
-            ),
-            hex"abcdef"
-        );
-        VerificationBuilder.Builder memory builder;
-        builder.maxDegree = 3;
-        builder.firstRoundMLEs = new uint256[](3);
-        builder.finalRoundMLEs = new uint256[](2);
-        builder.firstRoundMLEs[0] = 202;
-        builder.firstRoundMLEs[1] = 203;
-        builder.firstRoundMLEs[2] = 204;
-        builder.finalRoundMLEs[0] = 301;
-        builder.finalRoundMLEs[1] = 302;
-        builder.constraintMultipliers = new uint256[](4);
-        builder.constraintMultipliers[0] = 402;
-        builder.constraintMultipliers[1] = 403;
-        builder.constraintMultipliers[2] = 401;
-        builder.constraintMultipliers[3] = 404;
-        builder.challenges = new uint256[](2);
-        builder.challenges[0] = 501;
-        builder.challenges[1] = 502;
-        builder.aggregateEvaluation = 0;
-        builder.rowMultipliersEvaluation = 601;
-        builder.chiEvaluations = new uint256[](2);
-        builder.chiEvaluations[0] = 1;
-        builder.chiEvaluations[1] = 701;
-        builder.tableChiEvaluations = new uint256[](2);
-        builder.tableChiEvaluations[0] = 1;
-        builder.tableChiEvaluations[1] = 801;
-
-        uint256[] memory evals;
-        uint256 length;
-        uint256 outputChiEval;
-        (plan, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
-
-        FF cFold = FF.wrap(502 * 502) * FF.wrap(102 * 801) + FF.wrap(502) * FF.wrap(103 * 801) + FF.wrap(104 * 801);
-        FF dFold = FF.wrap(502 * 502) * FF.wrap(202) + FF.wrap(502) * FF.wrap(203) + FF.wrap(204);
-
-        FF zeroSumConstraint0 = FF.wrap(301) * FF.wrap(101 * 801) - FF.wrap(302);
-        FF identityConstraint1 = (F.ONE + FF.wrap(501) * cFold) * FF.wrap(301) - FF.wrap(801);
-        FF identityConstraint2 = (F.ONE + FF.wrap(501) * dFold) * FF.wrap(302) - FF.wrap(701);
-        FF identityConstraint3 = FF.wrap(501) * dFold * (FF.wrap(701) - F.ONE);
-
-        FF expectedAggregateEvaluation = zeroSumConstraint0 * FF.wrap(401) + identityConstraint1 * FF.wrap(402 * 601)
-            + identityConstraint2 * FF.wrap(403 * 601) + identityConstraint3 * FF.wrap(404 * 601);
-
-        assert(evals.length == 3);
-        assert(evals[0] == 202);
-        assert(evals[1] == 203);
-        assert(evals[2] == 204);
-        assert(builder.aggregateEvaluation == expectedAggregateEvaluation.into());
-        assert(builder.finalRoundMLEs.length == 0);
-        assert(builder.constraintMultipliers.length == 0);
-
-        bytes memory expectedExprOut = hex"abcdef";
-        assert(plan.length == expectedExprOut.length);
-        uint256 exprOutLength = plan.length;
-        for (uint256 i = 0; i < exprOutLength; ++i) {
-            assert(plan[i] == expectedExprOut[i]);
-        }
-    }
-
     function testFilterExecVariant() public pure {
         bytes memory plan = abi.encodePacked(
             FILTER_EXEC_VARIANT,
@@ -306,38 +234,6 @@ contract ProofPlanTest is Test {
             }
         }
         configuredBuilder = builder;
-    }
-
-    function testGroupByExecVariant() public pure {
-        bytes memory plan = abi.encodePacked(
-            GROUP_BY_EXEC_VARIANT,
-            uint64(0), // table_number
-            uint64(1), // group_by_count
-            uint64(0), // group_by_expr[0] - column 0
-            abi.encodePacked(LITERAL_EXPR_VARIANT, DATA_TYPE_BOOLEAN_VARIANT, uint8(1)), // where clause
-            uint64(0), // sum_count
-            uint64(7), // count_alias_length (unused in verification)
-            "count_0" // count_alias (unused in verification)
-        );
-        VerificationBuilder.Builder memory builder;
-        uint256[4] memory gIn = [MODULUS_MINUS_ONE, 1, 1, MODULUS_MINUS_ONE];
-        builder = _configureBuilderForGroupByExec(builder);
-        builder = _configureForMinimalGroupByExec(builder);
-        for (uint8 i = 0; i < 4; ++i) {
-            uint256[] memory evals;
-            uint256 length;
-            uint256 outputChiEval;
-            bytes memory planOut;
-            if (i == 0) {
-                builder.singletonChiEvaluation = 1; // singleton_chi_eval for first test
-            } else {
-                builder.singletonChiEvaluation = 0;
-            }
-            builder.columnEvaluations[0] = gIn[i];
-            (planOut, builder, evals, length, outputChiEval) = ProofPlan.__proofPlanEvaluate(plan, builder);
-            assert(planOut.length == 0);
-        }
-        assert(builder.aggregateEvaluation == 0);
     }
 
     function testAggregateExecVariant() public pure {
@@ -1054,12 +950,10 @@ contract ProofPlanTest is Test {
     /* solhint-enable code-complexity */
 
     function testVariantsMatchEnum() public pure {
-        assert(uint32(ProofPlan.PlanVariant.LegacyFilter) == LEGACY_FILTER_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Empty) == EMPTY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Table) == TABLE_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Projection) == PROJECTION_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Slice) == SLICE_EXEC_VARIANT);
-        assert(uint32(ProofPlan.PlanVariant.GroupBy) == GROUP_BY_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Union) == UNION_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.SortMergeJoin) == SORT_MERGE_JOIN_EXEC_VARIANT);
         assert(uint32(ProofPlan.PlanVariant.Filter) == FILTER_EXEC_VARIANT);
