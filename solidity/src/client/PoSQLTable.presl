@@ -20,7 +20,6 @@ library ProofOfSqlTable {
         VarChar,
         Decimal75,
         TimeStampTZ,
-        // Not currently supported
         Scalar,
         VarBinary
     }
@@ -126,6 +125,8 @@ library ProofOfSqlTable {
                 case 8 { copy_size := mul(column_length, WORD_SIZE) }
                 // DATA_TYPE_TIMESTAMP_VARIANT
                 case 9 { copy_size := mul(column_length, INT64_SIZE) }
+                // DATA_TYPE_SCALAR_VARIANT
+                case 10 { copy_size := mul(column_length, WORD_SIZE) }
                 // DATA_TYPE_VARBINARY_VARIANT
                 case 11 { copy_size := get_byte_array_copy_size(source_ptr, column_length) }
                 default { err(ERR_UNSUPPORTED_DATA_TYPE_VARIANT) }
@@ -460,6 +461,23 @@ library ProofOfSqlTable {
         uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, WORD_SIZE);
         assembly {
             __decimal75Column := __columnPtr
+        }
+    }
+
+    /// @dev Deserializes a column into a scalar column.
+    /// @param __table The table
+    /// @param __index The index of the column to be deserialized
+    /// @return __scalarColumn The deserialized scalar column
+    function readScalarColumn(Table memory __table, uint256 __index)
+        internal
+        pure
+        returns (uint256[] memory __scalarColumn)
+    {
+        Column memory __column = __table.columns[__index];
+        assert(__column.columnType == ColumnType.Scalar);
+        uint256 __columnPtr = returnPointerToTypedColumnForFixedSizeElement(__column, WORD_SIZE);
+        assembly {
+            __scalarColumn := __columnPtr
         }
     }
 
