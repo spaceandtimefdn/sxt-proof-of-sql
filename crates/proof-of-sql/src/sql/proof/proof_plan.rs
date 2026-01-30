@@ -57,13 +57,3 @@ pub trait ProverEvaluate {
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>>;
 }
-
-/// Marker used as a trait bound for generic [`ProofPlan`] types to indicate the honesty of their implementation.
-///
-/// This allows us to define alternative prover implementations that misbehave, and test that the verifier rejects their results.
-pub trait ProverHonestyMarker: Debug + Send + Sync + PartialEq + 'static {}
-
-/// [`ProverHonestyMarker`] for generic [`ProofPlan`] types whose implementation is canonical/honest.
-#[derive(Debug, PartialEq, Clone)]
-pub struct HonestProver;
-impl ProverHonestyMarker for HonestProver {}
