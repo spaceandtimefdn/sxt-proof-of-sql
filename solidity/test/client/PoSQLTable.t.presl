@@ -107,6 +107,26 @@ contract PoSQLTableTest is Test {
         ProofOfSqlTable.readBigIntColumn(table, 1);
     }
 
+    function testReadingScalar() public pure {
+        bytes memory serializedTable = 
+            hex"0000000000000001000000000000000474657374000000000a00000000000000010000000000000000000000000000000000000000000000000000000000000064";
+        ProofOfSqlTable.Table memory table;
+        (serializedTable, table) = ProofOfSqlTable.deserializeFromBytes(serializedTable);
+        assert(table.columns.length == 1);
+        assert(table.columns[0].columnType == ProofOfSqlTable.ColumnType.Scalar);
+        bytes memory expectedName = bytes("test");
+        bytes memory actualName = bytes(table.columns[0].name);
+        uint256 actualLength = actualName.length;
+        assert(actualLength == expectedName.length);
+        assert(actualLength == 4);
+        for (uint8 i = 0; i < actualLength; ++i) {
+            assert(actualName[i] == expectedName[i]);
+        }
+        uint256[] memory scalarColumn = ProofOfSqlTable.readScalarColumn(table, 0);
+        assert(scalarColumn.length == 1);
+        assert(scalarColumn[0] == 100);
+    }
+
     //solhint-disable-next-line code-complexity
     function testComplexTableDeserialization() public pure {
         bytes memory serializedTable =
