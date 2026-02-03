@@ -372,17 +372,17 @@ fn test_group_by() {
     let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
         owned_table([
             int("human_id", [1, 2]),
-            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            bigint("count(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([int("human_id", [1, 2]), bigint("num_cats", [3_i64, 2])]),
         owned_table([
             int("human_id", [1, 2]),
-            decimal75("SUM(cats.weight)", 3, 1, [240, 100]),
-            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            decimal75("sum(cats.weight)", 3, 1, [240, 100]),
+            bigint("count(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
             int("human_id", [1, 2]),
-            decimal75("SUM(cats.weight)", 3, 1, [240, 100]),
+            decimal75("sum(cats.weight)", 3, 1, [240, 100]),
             bigint("num_cats", [3_i64, 2]),
         ]),
         owned_table([
@@ -392,27 +392,27 @@ fn test_group_by() {
         ]),
         owned_table([
             int("human_id", [1, 2]),
-            decimal75("SUM(Int64(2) * cats.weight)", 24, 1, [480, 200]),
-            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            decimal75("sum(Int64(2) * cats.weight)", 24, 1, [480, 200]),
+            bigint("count(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
             int("human_id", [1, 2]),
             decimal75("total_transformed_weight", 25, 1, [510, 220]),
-            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            bigint("count(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
             int("human_id", [1, 2]),
             decimal75("total_transformed_weight", 25, 1, [540, 240]),
-            bigint("COUNT(Int64(1))", [3_i64, 2]),
+            bigint("count(Int64(1))", [3_i64, 2]),
         ]),
         owned_table([
             decimal75("total_transformed_weight", 25, 1, [730]),
             bigint("num_cats", [5_i64]),
         ]),
         owned_table([bigint("num_cats", [5_i64])]),
-        owned_table([bigint("COUNT(Int64(1))", [5_i64])]),
-        owned_table([bigint("COUNT(cats.id)", [5_i64])]),
-        owned_table([bigint("COUNT(*)", [5_i64])]),
+        owned_table([bigint("count(Int64(1))", [5_i64])]),
+        owned_table([bigint("count(cats.id)", [5_i64])]),
+        owned_table([bigint("count(*)", [5_i64])]),
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
