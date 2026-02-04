@@ -67,3 +67,9 @@ pub use dyn_proof_plan::DynProofPlan;
 
 #[cfg(test)]
 mod demo_mock_plan;
+
+#[cfg(test)]
+mod empty_exec_test;
+
+#[cfg(test)]
+mod dyn_proof_plan_test;
