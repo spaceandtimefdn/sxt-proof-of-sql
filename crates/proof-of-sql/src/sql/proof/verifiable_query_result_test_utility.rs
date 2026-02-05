@@ -113,6 +113,7 @@ fn append_single_row_to_column<S: Scalar>(column: &OwnedColumn<S>) -> OwnedColum
         OwnedColumn::VarBinary(col) => col.push(vec![0u8]),
         OwnedColumn::Int128(col) => col.push(0),
         OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => col.push(S::ZERO),
+        OwnedColumn::Address(col) => col.push([0u8; 20]),
     }
     column
 }
@@ -150,6 +151,7 @@ pub fn tamper_first_row_of_column<S: Scalar>(column: &OwnedColumn<S>) -> OwnedCo
         OwnedColumn::VarBinary(col) => col[0].push(1u8),
         OwnedColumn::Int128(col) => col[0] = col[0].wrapping_add(1),
         OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => col[0] += S::ONE,
+        OwnedColumn::Address(col) => unimplemented!(),
     }
     column
 }

@@ -173,6 +173,7 @@ pub(crate) fn sum_aggregate_column_by_index_counts<'a, S: Scalar>(
         | Column::VarBinary(_) => {
             unreachable!("SUM can not be applied to non-numeric types")
         }
+        Column::Address(col) => sum_aggregate_slice_by_index_counts(alloc, col, counts, indexes),
     }
 }
 
@@ -210,6 +211,7 @@ pub(crate) fn max_aggregate_column_by_index_counts<'a, S: Scalar>(
         Column::VarChar(_) => {
             unreachable!("MAX can not be applied to varchar")
         }
+        Column::Address(col) => max_aggregate_slice_by_index_counts(alloc, col, counts, indexes),
     }
 }
 
@@ -245,6 +247,7 @@ pub(crate) fn min_aggregate_column_by_index_counts<'a, S: Scalar>(
         Column::VarChar(_) => {
             unreachable!("MIN can not be applied to varchar")
         }
+        Column::Address(col) => min_aggregate_slice_by_index_counts(alloc, col, counts, indexes),
     }
 }
 

@@ -127,6 +127,7 @@ impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for OwnedTableTestA
                 Column::VarBinary((col_as_slices, scals))
             }
             OwnedColumn::TimestampTZ(tu, tz, col) => Column::TimestampTZ(*tu, *tz, col),
+            OwnedColumn::Address(col) => Column::Address(col),
         }
     }
 }

@@ -33,12 +33,14 @@ pub trait Scalar:
     + for<'a> core::convert::From<&'a i128> // Required for `Column` to implement `MultilinearExtension`
     + for<'a> core::convert::From<&'a u8> // Required for `Column` to implement `MultilinearExtension`
     + for<'a> core::convert::From<&'a u64> // Required for `Column` to implement `MultilinearExtension`
+    + for<'a> core::convert::From<&'a [u8; 20]>
     + core::convert::TryInto <bool>
     + core::convert::TryInto <u8>
     + core::convert::TryInto <i8>
     + core::convert::TryInto <i16>
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
+    + core::convert::TryInto <[u8; 20]>
     + core::convert::TryInto <i128>
     + core::convert::Into<[u64; 4]>
     + core::convert::From<[u64; 4]>
@@ -61,6 +63,7 @@ pub trait Scalar:
     + core::convert::From<i16>
     + core::convert::From<i8>
     + core::convert::From<u64>
+    + core::convert::From<[u8; 20]>
     + core::convert::From<bool>
     + core::convert::Into<BigInt>
     + TryFrom<BigInt, Error = ScalarConversionError>

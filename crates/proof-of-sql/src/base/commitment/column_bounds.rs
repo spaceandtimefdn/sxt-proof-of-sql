@@ -217,6 +217,8 @@ pub enum ColumnBounds {
     Int128(Bounds<i128>),
     /// The bounds of a Timestamp column.
     TimestampTZ(Bounds<i64>),
+    /// The bounds of an Address column.
+    Address(Bounds<[u8; 20]>),
 }
 
 impl ColumnBounds {
@@ -240,6 +242,9 @@ impl ColumnBounds {
             | CommittableColumn::Scalar(_)
             | CommittableColumn::VarBinary(_)
             | CommittableColumn::VarChar(_) => ColumnBounds::NoOrder,
+            CommittableColumn::Address(addresses) => {
+                ColumnBounds::Address(Bounds::from_iter(*addresses))
+            }
         }
     }
 

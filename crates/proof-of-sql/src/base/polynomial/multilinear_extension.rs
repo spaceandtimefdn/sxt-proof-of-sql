@@ -109,6 +109,7 @@ impl<S: Scalar> MultilinearExtension<S> for &Column<'_, S> {
             Column::Int(c) => c.inner_product(evaluation_vec),
             Column::BigInt(c) | Column::TimestampTZ(_, _, c) => c.inner_product(evaluation_vec),
             Column::Int128(c) => c.inner_product(evaluation_vec),
+            Column::Address(c) => c.inner_product(evaluation_vec),
         }
     }
 
@@ -127,6 +128,7 @@ impl<S: Scalar> MultilinearExtension<S> for &Column<'_, S> {
             Column::Int(c) => c.mul_add(res, multiplier),
             Column::BigInt(c) | Column::TimestampTZ(_, _, c) => c.mul_add(res, multiplier),
             Column::Int128(c) => c.mul_add(res, multiplier),
+            Column::Address(c) => c.mul_add(res, multiplier),
         }
     }
 
@@ -143,6 +145,7 @@ impl<S: Scalar> MultilinearExtension<S> for &Column<'_, S> {
             Column::Int(c) => c.to_sumcheck_term(num_vars),
             Column::BigInt(c) | Column::TimestampTZ(_, _, c) => c.to_sumcheck_term(num_vars),
             Column::Int128(c) => c.to_sumcheck_term(num_vars),
+            Column::Address(c) => c.to_sumcheck_term(num_vars),
         }
     }
 
@@ -159,6 +162,7 @@ impl<S: Scalar> MultilinearExtension<S> for &Column<'_, S> {
             Column::Int(c) => MultilinearExtension::<S>::id(c),
             Column::BigInt(c) | Column::TimestampTZ(_, _, c) => MultilinearExtension::<S>::id(c),
             Column::Int128(c) => MultilinearExtension::<S>::id(c),
+            Column::Address(c) => MultilinearExtension::<S>::id(c),
         }
     }
 }

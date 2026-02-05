@@ -51,6 +51,8 @@ pub enum OwnedColumn<S: Scalar> {
     Scalar(Vec<S>),
     /// Variable length binary columns
     VarBinary(Vec<Vec<u8>>),
+    /// address columns
+    Address(Vec<[u8; 20]>),
 }
 
 impl<S: Scalar> OwnedColumn<S> {
@@ -71,6 +73,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => {
                 inner_product_ref_cast(col, vec)
             }
+            OwnedColumn::Address(col) => inner_product_ref_cast(col, vec),
         }
     }
 
@@ -88,6 +91,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::VarBinary(col) => col.len(),
             OwnedColumn::Int128(col) => col.len(),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => col.len(),
+            OwnedColumn::Address(col) => col.len(),
         }
     }
 
@@ -110,6 +114,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, permutation.try_apply(col)?)
             }
+            OwnedColumn::Address(col) => OwnedColumn::Address(permutation.try_apply(col)?),
         })
     }
 
@@ -133,6 +138,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::TimestampTZ(tu, tz, col) => {
                 OwnedColumn::TimestampTZ(*tu, *tz, col[start..end].to_vec())
             }
+            OwnedColumn::Address(col) => OwnedColumn::Address(col[start..end].to_vec()),
         }
     }
 
@@ -150,6 +156,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::VarBinary(col) => col.is_empty(),
             OwnedColumn::Int128(col) => col.is_empty(),
             OwnedColumn::Scalar(col) | OwnedColumn::Decimal75(_, _, col) => col.is_empty(),
+            OwnedColumn::Address(col) => col.is_empty(),
         }
     }
     /// Returns the type of the column.
@@ -170,6 +177,7 @@ impl<S: Scalar> OwnedColumn<S> {
                 ColumnType::Decimal75(*precision, *scale)
             }
             OwnedColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            OwnedColumn::Address(_) => ColumnType::Address,
         }
     }
 
@@ -258,6 +266,15 @@ impl<S: Scalar> OwnedColumn<S> {
                 from_type: ColumnType::Scalar,
                 to_type: ColumnType::VarChar,
             }),
+            ColumnType::Address => Ok(OwnedColumn::Address(
+                scalars
+                    .iter()
+                    .map(|s| -> Result<[u8; 20], _> { TryInto::<[u8; 20]>::try_into(*s) })
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| OwnedColumnError::ScalarConversionError {
+                        error: "Overflow in scalar conversions".to_string(),
+                    })?,
+            )),
         }
     }
 
@@ -379,6 +396,7 @@ impl<'a, S: Scalar> From<&Column<'a, S>> for OwnedColumn<S> {
             }
             Column::Scalar(col) => OwnedColumn::Scalar(col.to_vec()),
             Column::TimestampTZ(tu, tz, col) => OwnedColumn::TimestampTZ(*tu, *tz, col.to_vec()),
+            Column::Address(col) => OwnedColumn::Address(col.to_vec()),
         }
     }
 }

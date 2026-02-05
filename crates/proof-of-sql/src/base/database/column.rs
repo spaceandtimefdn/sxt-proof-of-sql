@@ -47,6 +47,8 @@ pub enum Column<'a, S: Scalar> {
     Scalar(&'a [S]),
     /// Variable length binary columns
     VarBinary((&'a [&'a [u8]], &'a [S])),
+    /// address columns
+    Address(&'a [[u8; 20]]),
 }
 
 impl<'a, S: Scalar> Column<'a, S> {
@@ -68,6 +70,7 @@ impl<'a, S: Scalar> Column<'a, S> {
                 ColumnType::TimestampTZ(*time_unit, *timezone)
             }
             Self::VarBinary(..) => ColumnType::VarBinary,
+            Self::Address(_) => ColumnType::Address,
         }
     }
     /// Returns the length of the column.
@@ -92,6 +95,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             Self::Int128(col) => col.len(),
             Self::Scalar(col) | Self::Decimal75(_, _, col) => col.len(),
+            Self::Address(col) => col.len(),
         }
     }
     /// Returns `true` if the column has no elements.
@@ -199,6 +203,7 @@ impl<'a, S: Scalar> Column<'a, S> {
                 ))
             }
             OwnedColumn::TimestampTZ(tu, tz, col) => Column::TimestampTZ(*tu, *tz, col.as_slice()),
+            OwnedColumn::Address(col) => Column::Address(col.as_slice()),
         }
     }
 
@@ -298,6 +303,13 @@ impl<'a, S: Scalar> Column<'a, S> {
         }
     }
 
+    pub(crate) fn as_address(&self) -> Option<&'a [[u8; 20]]> {
+        match self {
+            Self::Address(col) => Some(col),
+            _ => None,
+        }
+    }
+
     /// Returns element at index as scalar
     ///
     /// Note that if index is out of bounds, this function will return None
@@ -312,6 +324,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::Int128(col) => S::from(col[index]),
             Self::Scalar(col) | Self::Decimal75(_, _, col) => col[index],
             Self::VarChar((_, scals)) | Self::VarBinary((_, scals)) => scals[index],
+            Self::Address(col) => S::from(col[index]),
         })
     }
 
@@ -331,6 +344,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::Int128(col) => slice_cast_with(col, |i| S::from(i)),
             Self::Scalar(col) => slice_cast_with(col, |i| S::from(i)),
             Self::TimestampTZ(_, _, col) => slice_cast_with(col, |i| S::from(i)),
+            Self::Address(col) => slice_cast_with(col, |i| S::from(i)),
         }
     }
 }

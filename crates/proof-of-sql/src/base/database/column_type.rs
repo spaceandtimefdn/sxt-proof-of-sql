@@ -56,6 +56,9 @@ pub enum ColumnType {
     /// Mapped to [u8]
     #[serde(alias = "BINARY", alias = "BINARY")]
     VarBinary,
+    /// Mapped to [u8]
+    #[serde(alias = "ADDRESS", alias = "ADDRESS")]
+    Address,
 }
 
 impl ColumnType {
@@ -188,6 +191,7 @@ impl ColumnType {
             // so that they do not cause errors when used in comparisons.
             Self::Scalar => Some(0_u8),
             Self::Boolean | Self::VarChar | Self::VarBinary => None,
+            Self::Address => Some(49),
         }
     }
     /// Returns scale of a [`ColumnType`] if it is convertible to a decimal wrapped in `Some()`. Otherwise return None.
@@ -201,7 +205,8 @@ impl ColumnType {
             | Self::Int
             | Self::BigInt
             | Self::Int128
-            | Self::Scalar => Some(0),
+            | Self::Scalar
+            | Self::Address => Some(0),
             Self::Boolean | Self::VarBinary | Self::VarChar => None,
             Self::TimestampTZ(tu, _) => match tu {
                 PoSQLTimeUnit::Second => Some(0),
@@ -226,6 +231,7 @@ impl ColumnType {
             Self::Scalar | Self::Decimal75(_, _) | Self::VarBinary | Self::VarChar => {
                 size_of::<[u64; 4]>()
             }
+            Self::Address => size_of::<[u8; 20]>(),
         }
     }
 
@@ -251,7 +257,8 @@ impl ColumnType {
             | Self::VarBinary
             | Self::VarChar
             | Self::Boolean
-            | Self::Uint8 => false,
+            | Self::Uint8
+            | Self::Address => false,
         }
     }
 
@@ -293,6 +300,7 @@ impl Display for ColumnType {
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 write!(f, "TIMESTAMP(TIMEUNIT: {timeunit}, TIMEZONE: {timezone})")
             }
+            ColumnType::Address => write!(f, "ADDRESS"),
         }
     }
 }

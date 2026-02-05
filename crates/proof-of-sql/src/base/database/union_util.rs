@@ -197,6 +197,16 @@ pub fn column_union<'a, S: Scalar>(
                 }) as &[_],
             )
         }
+        ColumnType::Address => {
+            let mut iter = columns
+                .iter()
+                .flat_map(|col| col.as_address().expect("Column types should match"))
+                .copied();
+
+            Column::Address(alloc.alloc_slice_fill_with(len, |_| {
+                iter.next().expect("Iterator should have enough elements")
+            }) as &[_])
+        }
     })
 }
 

@@ -159,6 +159,9 @@ fn compute_commitments_impl(
             | CommittableColumn::VarBinary(vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)
             }
+            CommittableColumn::Address(vals) => {
+                compute_commitment_generic_impl(setup, offset, vals)
+            }
         })
         .collect()
 }

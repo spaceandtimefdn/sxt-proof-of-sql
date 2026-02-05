@@ -23,10 +23,12 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, FixedSizeBinaryArray, Int16Array,
+        Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
+    buffer::MutableBuffer,
     datatypes::{i256, DataType, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
     error::ArrowError,
     record_batch::RecordBatch,
@@ -105,6 +107,17 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
                 PoSQLTimeUnit::Microsecond => Arc::new(TimestampMicrosecondArray::from(col)),
                 PoSQLTimeUnit::Nanosecond => Arc::new(TimestampNanosecondArray::from(col)),
             },
+            OwnedColumn::Address(addresses) => {
+                let mut buffer = MutableBuffer::new(addresses.len());
+                buffer.reserve(addresses.len() * 20);
+                for address in addresses {
+                    buffer.extend_from_slice(&address);
+                }
+                Arc::new(
+                    FixedSizeBinaryArray::try_new(20, buffer.into(), None)
+                        .expect("Object creation has been handled correctly"),
+                )
+            }
         }
     }
 }

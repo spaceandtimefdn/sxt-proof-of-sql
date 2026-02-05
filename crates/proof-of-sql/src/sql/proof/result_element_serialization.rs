@@ -27,6 +27,20 @@ impl<T: VarInt> ProvableResultElement<'_> for T {
     }
 }
 
+impl ProvableResultElement<'_> for [u8; 20] {
+    fn required_bytes(&self) -> usize {
+        20
+    }
+
+    fn encode(&self, out: &mut [u8]) -> usize {
+        todo!()
+    }
+
+    fn decode(data: &[u8]) -> Result<(Self, usize), QueryError> {
+        todo!()
+    }
+}
+
 /// Implement encode for u8 buffer arrays
 impl<'a> ProvableResultElement<'a> for &'a [u8] {
     fn required_bytes(&self) -> usize {

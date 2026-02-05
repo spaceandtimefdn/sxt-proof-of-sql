@@ -132,6 +132,12 @@ pub trait RepetitionOp {
                     }) as &[_],
                 )
             }
+            ColumnType::Address => {
+                let mut iter = Self::op(column.as_address().expect("Column types should match"), n);
+                Column::Address(alloc.alloc_slice_fill_with(len, |_| {
+                    iter.next().expect("Iterator should have enough elements")
+                }) as &[_])
+            }
         }
     }
 }

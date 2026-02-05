@@ -114,6 +114,13 @@ where
                 alloc.alloc_slice_copy(&raw_values) as &[_],
             ))
         }
+        ColumnType::Address => {
+            let raw_values = apply_slice_to_indexes(
+                column.as_address().expect("Column types should match"),
+                indexes,
+            )?;
+            Ok(Column::Address(alloc.alloc_slice_copy(&raw_values) as &[_]))
+        }
     }
 }
 

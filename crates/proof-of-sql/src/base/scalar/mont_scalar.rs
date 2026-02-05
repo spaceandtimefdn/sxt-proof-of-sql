@@ -243,6 +243,24 @@ impl<T: MontConfig<4>> From<[u64; 4]> for MontScalar<T> {
     }
 }
 
+impl<T: MontConfig<4>> From<[u8; 20]> for MontScalar<T> {
+    fn from(value: [u8; 20]) -> Self {
+        todo!()
+    }
+}
+
+impl<T> TryFrom<MontScalar<T>> for [u8; 20]
+where
+    T: MontConfig<4>,
+    MontScalar<T>: Scalar,
+{
+    type Error = ScalarConversionError;
+
+    fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
 impl<T: MontConfig<4>> ark_std::UniformRand for MontScalar<T> {
     fn rand<R: ark_std::rand::Rng + ?Sized>(rng: &mut R) -> Self {
         Self(ark_ff::UniformRand::rand(rng))

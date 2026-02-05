@@ -26,6 +26,7 @@ pub(crate) fn compare_indexes_by_columns<S: Scalar>(
             Column::Scalar(col) => col[i].cmp(&col[j]),
             Column::VarChar((col, _)) => col[i].cmp(col[j]),
             Column::VarBinary((col, _)) => col[i].cmp(col[j]),
+            Column::Address(col) => col[i].cmp(&col[j]),
         })
         .find(|&ord| ord != Ordering::Equal)
         .unwrap_or(Ordering::Equal)

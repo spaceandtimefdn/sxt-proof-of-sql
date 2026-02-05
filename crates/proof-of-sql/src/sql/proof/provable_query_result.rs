@@ -127,6 +127,7 @@ impl ProvableQueryResult {
                     ColumnType::TimestampTZ(_, _) => {
                         decode_and_convert::<i64, S>(&self.data[offset..])
                     }
+                    ColumnType::Address => decode_and_convert::<[u8; 20], S>(&self.data[offset..]),
                 }?;
                 val += *entry * x;
                 offset += sz;
@@ -227,6 +228,11 @@ impl ProvableQueryResult {
                         let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;
                         offset += num_read;
                         Ok((field.name(), OwnedColumn::TimestampTZ(tu, tz, col)))
+                    }
+                    ColumnType::Address => {
+                        let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;
+                        offset += num_read;
+                        Ok((field.name(), OwnedColumn::Address(col)))
                     }
                 })
                 .collect::<Result<_, QueryError>>()?,

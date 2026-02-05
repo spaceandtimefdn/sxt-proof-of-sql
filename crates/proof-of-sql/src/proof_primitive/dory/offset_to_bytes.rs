@@ -43,6 +43,12 @@ impl OffsetToBytes<16> for i128 {
     }
 }
 
+impl OffsetToBytes<20> for [u8; 20] {
+    fn offset_to_bytes(&self) -> [u8; 20] {
+        todo!()
+    }
+}
+
 impl OffsetToBytes<1> for bool {
     fn offset_to_bytes(&self) -> [u8; 1] {
         [u8::from(*self)]

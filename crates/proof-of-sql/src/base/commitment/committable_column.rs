@@ -50,6 +50,8 @@ pub enum CommittableColumn<'a> {
     VarBinary(Vec<[u64; 4]>),
     /// Borrowed Timestamp column with Timezone, mapped to `i64`.
     TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, &'a [i64]),
+    /// Borrowed `Address` column, mapped to `[u8; 20]`.
+    Address(&'a [[u8; 20]]),
 }
 
 impl CommittableColumn<'_> {
@@ -68,6 +70,7 @@ impl CommittableColumn<'_> {
             | CommittableColumn::VarChar(col)
             | CommittableColumn::VarBinary(col) => col.len(),
             CommittableColumn::Boolean(col) => col.len(),
+            CommittableColumn::Address(col) => col.len(),
         }
     }
 
@@ -101,6 +104,7 @@ impl<'a> From<&CommittableColumn<'a>> for ColumnType {
             CommittableColumn::VarBinary(_) => ColumnType::VarBinary,
             CommittableColumn::Boolean(_) => ColumnType::Boolean,
             CommittableColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
+            CommittableColumn::Address(_) => ColumnType::Address,
         }
     }
 }
@@ -129,6 +133,7 @@ impl<'a, S: Scalar> From<&Column<'a, S>> for CommittableColumn<'a> {
                 CommittableColumn::VarBinary(as_limbs)
             }
             Column::TimestampTZ(tu, tz, times) => CommittableColumn::TimestampTZ(*tu, *tz, times),
+            Column::Address(addresses) => CommittableColumn::Address(addresses),
         }
     }
 }
@@ -176,6 +181,7 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::TimestampTZ(tu, tz, times) => {
                 CommittableColumn::TimestampTZ(*tu, *tz, times as &[_])
             }
+            OwnedColumn::Address(addresses) => CommittableColumn::Address(addresses.as_slice()),
         }
     }
 }
@@ -243,6 +249,7 @@ impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
             | CommittableColumn::VarBinary(limbs) => Sequence::from(limbs),
             CommittableColumn::Boolean(bools) => Sequence::from(*bools),
             CommittableColumn::TimestampTZ(_, _, times) => Sequence::from(*times),
+            CommittableColumn::Address(addresses) => Sequence::from(*addresses),
         }
     }
 }

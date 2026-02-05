@@ -97,6 +97,9 @@ mod tests {
                 | CommittableColumn::VarBinary(vals) => {
                     expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
                 }
+                CommittableColumn::Address(vals) => {
+                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                }
             }
         }
         expected

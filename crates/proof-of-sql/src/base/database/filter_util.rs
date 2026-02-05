@@ -82,5 +82,8 @@ pub fn filter_column_by_index<'a, S: Scalar>(
             *tz,
             alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| col[i])),
         ),
+        Column::Address(col) => {
+            Column::Address(alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| col[i])))
+        }
     }
 }
