@@ -129,9 +129,9 @@ impl EVMDynProofExpr {
             EVMDynProofExpr::Placeholder(placeholder_expr) => {
                 Ok(DynProofExpr::Placeholder(placeholder_expr.to_proof_expr()))
             }
-            EVMDynProofExpr::Abs(abs_expr) => {
-                Ok(DynProofExpr::Abs(abs_expr.try_into_proof_expr(column_refs)?))
-            }
+            EVMDynProofExpr::Abs(abs_expr) => Ok(DynProofExpr::Abs(
+                abs_expr.try_into_proof_expr(column_refs)?,
+            )),
         }
     }
 }

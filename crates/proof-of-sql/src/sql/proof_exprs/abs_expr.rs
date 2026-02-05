@@ -111,10 +111,7 @@ impl ProofExpr for AbsExpr {
                 (-S::one(), vec![Box::new(expr_scalars as &[_])]),
                 (
                     S::TWO,
-                    vec![
-                        Box::new(expr_scalars as &[_]),
-                        Box::new(signs as &[_]),
-                    ],
+                    vec![Box::new(expr_scalars as &[_]), Box::new(signs as &[_])],
                 ),
             ],
         );
@@ -177,11 +174,12 @@ mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{owned_table_utility::*, OwnedTable, OwnedTableTestAccessor},
+            commitment::InnerProductProof,
+            database::{owned_table_utility::*, OwnedTable, OwnedTableTestAccessor, TableRef},
             scalar::test_scalar::TestScalar,
         },
         sql::{
-            proof::{ProofPlan, VerifiableQueryResult},
+            proof::{exercise_verification, VerifiableQueryResult},
             proof_exprs::test_utility::*,
             proof_plans::test_utility::*,
         },
