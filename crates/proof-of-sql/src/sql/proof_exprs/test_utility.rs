@@ -65,6 +65,13 @@ pub fn not(expr: DynProofExpr) -> DynProofExpr {
 
 /// # Panics
 /// Panics if:
+/// - `DynProofExpr::try_new_abs()` returns an error.
+pub fn abs(expr: DynProofExpr) -> DynProofExpr {
+    DynProofExpr::try_new_abs(expr).unwrap()
+}
+
+/// # Panics
+/// Panics if:
 /// - `DynProofExpr::try_new_and()` returns an error.
 pub fn and(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
     DynProofExpr::try_new_and(left, right).unwrap()

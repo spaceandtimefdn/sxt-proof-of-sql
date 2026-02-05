@@ -53,6 +53,9 @@ pub(crate) use not_expr::NotExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod not_expr_test;
 
+mod abs_expr;
+pub(crate) use abs_expr::AbsExpr;
+
 mod numerical_util;
 pub(crate) use numerical_util::{add_subtract_columns, multiply_columns};
 #[cfg(test)]

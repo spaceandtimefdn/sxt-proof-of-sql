@@ -5,7 +5,7 @@ use crate::{
         map::IndexSet,
     },
     sql::proof_exprs::{
-        AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
+        AbsExpr, AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
         LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr,
         SubtractExpr,
     },
@@ -29,6 +29,7 @@ pub(crate) enum EVMDynProofExpr {
     Inequality(EVMInequalityExpr),
     Placeholder(EVMPlaceholderExpr),
     ScalingCast(EVMScalingCastExpr),
+    Abs(EVMAbsExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -78,6 +79,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            DynProofExpr::Abs(abs_expr) => {
+                EVMAbsExpr::try_from_proof_expr(abs_expr, column_refs).map(Self::Abs)
+            }
         }
     }
 
@@ -124,6 +128,9 @@ impl EVMDynProofExpr {
             )),
             EVMDynProofExpr::Placeholder(placeholder_expr) => {
                 Ok(DynProofExpr::Placeholder(placeholder_expr.to_proof_expr()))
+            }
+            EVMDynProofExpr::Abs(abs_expr) => {
+                Ok(DynProofExpr::Abs(abs_expr.try_into_proof_expr(column_refs)?))
             }
         }
     }
@@ -662,6 +669,43 @@ impl EVMPlaceholderExpr {
 
     pub(crate) fn to_proof_expr(&self) -> PlaceholderExpr {
         PlaceholderExpr::new_from_index(self.index, self.column_type)
+    }
+}
+
+/// Represents an ABS expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMAbsExpr {
+    expr: Box<EVMDynProofExpr>,
+}
+
+impl EVMAbsExpr {
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn new(expr: EVMDynProofExpr) -> Self {
+        Self {
+            expr: Box::new(expr),
+        }
+    }
+
+    /// Try to create an `EVMAbsExpr` from an `AbsExpr`.
+    pub(crate) fn try_from_proof_expr(
+        expr: &AbsExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(EVMAbsExpr {
+            expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.input(),
+                column_refs,
+            )?),
+        })
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<AbsExpr> {
+        Ok(AbsExpr::try_new(Box::new(
+            self.expr.try_into_proof_expr(column_refs)?,
+        ))?)
     }
 }
 

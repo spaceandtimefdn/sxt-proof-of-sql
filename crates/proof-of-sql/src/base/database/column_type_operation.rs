@@ -375,6 +375,12 @@ pub fn can_not_type(datatype: ColumnType) -> bool {
     datatype == ColumnType::Boolean
 }
 
+/// Verifies that the ABS function can be applied to an expression (numeric types only)
+#[must_use]
+pub fn can_abs_type(datatype: ColumnType) -> bool {
+    datatype.is_numeric()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
