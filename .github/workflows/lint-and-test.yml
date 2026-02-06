@@ -396,3 +396,15 @@ jobs:
             echo "Test matrix failed"
             exit 1
           fi
+
+  check-nix-flake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install nix
+        uses: cachix/install-nix-action@v31
+      - name: Check flake
+        run: nix flake check
+      - name: Check project with flake
+        run: nix develop --command cargo check
