@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // This is licensed under the Cryptographic Open Software License 1.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {Errors} from "../../src/base/Errors.sol";

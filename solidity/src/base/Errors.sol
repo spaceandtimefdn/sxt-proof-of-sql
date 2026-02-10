@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // This is licensed under the Cryptographic Open Software License 1.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.26;
 
 /// @dev Error code for when ECADD inputs are invalid.
 uint32 constant ERR_INVALID_EC_ADD_INPUTS = 0x765bcba0;

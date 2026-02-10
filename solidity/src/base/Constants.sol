@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // This is licensed under the Cryptographic Open Software License 1.0
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.26;
 
 /// @dev The modulus of the bn254 scalar field.
 uint256 constant MODULUS = 0x30644e72_e131a029_b85045b6_8181585d_2833e848_79b97091_43e1f593_f0000001;
