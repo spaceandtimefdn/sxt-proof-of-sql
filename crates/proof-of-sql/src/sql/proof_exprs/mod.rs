@@ -9,6 +9,9 @@ mod aliased_dyn_proof_expr;
 pub use aliased_dyn_proof_expr::AliasedDynProofExpr;
 
 mod abs_expr;
+pub(crate) use abs_expr::AbsExpr;
+#[cfg(all(test, feature = "blitzar"))]
+mod abs_expr_test;
 
 mod add_expr;
 pub(crate) use add_expr::AddExpr;

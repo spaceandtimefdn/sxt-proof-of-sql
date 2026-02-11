@@ -78,6 +78,7 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            DynProofExpr::Abs(_) => Err(EVMProofPlanError::NotSupported),
         }
     }
 
@@ -1618,6 +1619,17 @@ mod tests {
         });
         assert_eq!(evm, expected);
         assert_eq!(evm.try_into_proof_expr(&indexset! { c }).unwrap(), expr);
+    }
+
+    #[test]
+    fn we_cannot_put_into_evm_a_dyn_proof_expr_abs_expr() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
+
+        let expr = DynProofExpr::try_new_abs(DynProofExpr::new_column(c.clone())).unwrap();
+        let err =
+            EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap_err();
+        assert_eq!(err, EVMProofPlanError::NotSupported);
     }
 
     #[test]
