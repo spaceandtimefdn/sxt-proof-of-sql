@@ -1,7 +1,10 @@
 //! In this file we run end-to-end tests for the evm verifier.
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
-use datafusion::config::ConfigOptions;
+use datafusion::{
+    config::ConfigOptions,
+    sql::parser::{DFParser, Statement},
+};
 use itertools::Itertools;
 use proof_of_sql::{
     base::{
@@ -197,7 +200,18 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
         SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i64 = 0;
         SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where d = 1;";
 
-    let statements = Parser::parse_sql(&GenericDialect {}, sql_list).unwrap();
+    let statements = DFParser::parse_sql_with_dialect(sql_list, &GenericDialect {})
+        .unwrap()
+        .iter()
+        .map(|statement| {
+            if let Statement::Statement(statement) = statement {
+                Ok(*statement.clone())
+            } else {
+                Err("Not statement")
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     let plans = sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap();
     for plan in plans {
         let verifiable_result = VerifiableQueryResult::<HyperKZGCommitmentEvaluationProof>::new(

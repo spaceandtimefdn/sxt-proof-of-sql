@@ -1,7 +1,10 @@
 //! In this file we run end-to-end tests for Proof of SQL.
 use ark_std::test_rng;
 use bumpalo::Bump;
-use datafusion::config::ConfigOptions;
+use datafusion::{
+    config::ConfigOptions,
+    sql::parser::{DFParser, Statement},
+};
 use indexmap::{indexmap, IndexMap};
 use proof_of_sql::{
     base::{
@@ -18,7 +21,7 @@ use proof_of_sql::{
     sql::proof::VerifiableQueryResult,
 };
 use proof_of_sql_planner::sql_to_proof_plans;
-use sqlparser::{dialect::GenericDialect, parser::Parser};
+use sqlparser::dialect::GenericDialect;
 
 /// Get a new `TableTestAccessor` with the provided tables
 fn new_test_accessor<'a, CP: CommitmentEvaluationProof>(
@@ -47,7 +50,18 @@ fn posql_end_to_end_test<'a, CP: CommitmentEvaluationProof>(
     // Get accessor
     let accessor: TableTestAccessor<'a, CP> = new_test_accessor(tables, prover_setup);
     let config = ConfigOptions::default();
-    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let statements = DFParser::parse_sql_with_dialect(sql, &GenericDialect {})
+        .unwrap()
+        .iter()
+        .map(|statement| {
+            if let Statement::Statement(statement) = statement {
+                Ok(*statement.clone())
+            } else {
+                Err("Not statement")
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     let plans = sql_to_proof_plans(&statements, &accessor, &config).unwrap();
     // Prove and verify the plans
     for (plan, expected) in plans.iter().zip(expected_results.iter()) {
