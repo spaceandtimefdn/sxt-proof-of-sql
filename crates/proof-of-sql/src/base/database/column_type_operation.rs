@@ -317,6 +317,29 @@ pub fn try_inequality_types(lhs: ColumnType, rhs: ColumnType) -> ColumnOperation
     })
 }
 
+/// Determines the output type of a negation operation
+#[expect(clippy::missing_panics_doc)]
+pub fn try_neg_type(datatype: ColumnType) -> ColumnOperationResult<ColumnType> {
+    match datatype {
+        ColumnType::Uint8
+        | ColumnType::TinyInt
+        | ColumnType::SmallInt
+        | ColumnType::Int
+        | ColumnType::BigInt
+        | ColumnType::Int128 => Ok(ColumnType::Decimal75(
+            Precision::new(datatype.precision_value().expect("Datatype is numeric"))
+                .expect("Precision confirmed to be valid"),
+            0,
+        )),
+        ColumnType::Decimal75(_, _) => Ok(datatype),
+        ColumnType::Scalar => Ok(ColumnType::Scalar),
+        _ => Err(ColumnOperationError::UnaryOperationInvalidColumnType {
+            operator: "negation".to_string(),
+            operand_type: datatype,
+        }),
+    }
+}
+
 /// Verfies that the equality operator can be used on the two types with scaling allowed
 pub fn try_equals_types_with_scaling(
     lhs: ColumnType,
@@ -1352,5 +1375,30 @@ mod test {
     #[test]
     fn we_cannot_scale_cast_nonsense_pairings() {
         try_scale_cast_types(ColumnType::Int128, ColumnType::Boolean).unwrap_err();
+    }
+
+    #[test]
+    fn we_can_try_neg_type() {
+        for (input_type, precision) in [
+            (ColumnType::Uint8, 3u8),
+            (ColumnType::TinyInt, 3),
+            (ColumnType::SmallInt, 5),
+            (ColumnType::Int, 10),
+            (ColumnType::BigInt, 19),
+            (ColumnType::Int128, 39),
+        ] {
+            let expected_output = ColumnType::Decimal75(Precision::new(precision).unwrap(), 0);
+            assert_eq!(try_neg_type(input_type).unwrap(), expected_output);
+        }
+        for input_type in [
+            ColumnType::Scalar,
+            ColumnType::Decimal75(Precision::new(3).unwrap(), 1),
+            ColumnType::Decimal75(Precision::new(74).unwrap(), 5),
+        ] {
+            assert_eq!(try_neg_type(input_type).unwrap(), input_type);
+        }
+        assert!(
+            matches!(try_neg_type(ColumnType::VarChar).unwrap_err(), ColumnOperationError::UnaryOperationInvalidColumnType { operator, operand_type } if operator == "negation" && operand_type == ColumnType::VarChar)
+        );
     }
 }
