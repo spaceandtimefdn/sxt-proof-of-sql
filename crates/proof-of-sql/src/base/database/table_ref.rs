@@ -142,3 +142,144 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_get_schema_id() {
+        let table_ref = TableRef::new("my_schema", "my_table");
+        let schema_id = table_ref.schema_id();
+        assert!(schema_id.is_some());
+        assert_eq!(schema_id.unwrap().value, "my_schema");
+
+        let table_ref_no_schema = TableRef::new("", "my_table");
+        assert!(table_ref_no_schema.schema_id().is_none());
+    }
+
+    #[test]
+    fn we_can_get_table_id() {
+        let table_ref = TableRef::new("my_schema", "my_table");
+        let table_id = table_ref.table_id();
+        assert_eq!(table_id.value, "my_table");
+
+        let table_ref_no_schema = TableRef::new("", "another_table");
+        assert_eq!(table_ref_no_schema.table_id().value, "another_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_idents() {
+        let schema_ident = Ident::new("test_schema".to_string());
+        let table_ident = Ident::new("test_table".to_string());
+
+        let table_ref = TableRef::from_idents(Some(schema_ident.clone()), table_ident.clone());
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "test_schema");
+        assert_eq!(table_ref.table_id().value, "test_table");
+
+        // test with None schema
+        let table_ref_no_schema = TableRef::from_idents(None, table_ident);
+        assert!(table_ref_no_schema.schema_id().is_none());
+        assert_eq!(table_ref_no_schema.table_id().value, "test_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_strs_with_one_component() {
+        let components = vec!["my_table"];
+        let table_ref = TableRef::from_strs(&components).unwrap();
+
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_strs_with_two_components() {
+        let components = vec!["my_schema", "my_table"];
+        let table_ref = TableRef::from_strs(&components).unwrap();
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "my_schema");
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_cannot_create_table_ref_from_strs_with_invalid_components() {
+        let components = vec!["one", "two", "three"];
+        let result = TableRef::from_strs(&components);
+
+        assert!(matches!(
+            result,
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+
+        // test with empty components
+        let empty_components: Vec<&str> = vec![];
+        let result = TableRef::from_strs(&empty_components);
+        assert!(matches!(
+            result,
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_create_table_ref_from_str_with_too_many_dots() {
+        let result = TableRef::try_from("one.two.three");
+
+        assert!(matches!(
+            result,
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_deserialize_table_ref_from_json() {
+        let json = r#""schema.table""#;
+        let table_ref: TableRef = serde_json::from_str(json).unwrap();
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "schema");
+        assert_eq!(table_ref.table_id().value, "table");
+
+        // test without schema
+        let json_no_schema = r#""table""#;
+        let table_ref_no_schema: TableRef = serde_json::from_str(json_no_schema).unwrap();
+
+        assert!(table_ref_no_schema.schema_id().is_none());
+        assert_eq!(table_ref_no_schema.table_id().value, "table");
+    }
+
+    #[test]
+    fn we_can_serialize_and_deserialize_table_ref() {
+        let table_ref = TableRef::new("my_schema", "my_table");
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(table_ref, deserialized);
+
+        // test without schema
+        let table_ref_no_schema = TableRef::new("", "my_table");
+        let serialized = serde_json::to_string(&table_ref_no_schema).unwrap();
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(table_ref_no_schema, deserialized);
+    }
+
+    #[test]
+    fn we_can_use_display_trait_for_table_ref() {
+        let table_ref = TableRef::new("my_schema", "my_table");
+        assert_eq!(format!("{table_ref}"), "my_schema.my_table");
+
+        let table_ref_no_schema = TableRef::new("", "my_table");
+        assert_eq!(format!("{table_ref_no_schema}"), "my_table");
+    }
+
+    #[test]
+    fn we_can_use_from_str_trait_for_table_ref() {
+        let table_ref: TableRef = "schema.table".parse().unwrap();
+        assert_eq!(table_ref.schema_id().unwrap().value, "schema");
+        assert_eq!(table_ref.table_id().value, "table");
+
+        let table_ref_no_schema: TableRef = "table".parse().unwrap();
+        assert!(table_ref_no_schema.schema_id().is_none());
+        assert_eq!(table_ref_no_schema.table_id().value, "table");
+    }
+}

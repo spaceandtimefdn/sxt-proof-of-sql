@@ -371,3 +371,371 @@ where
             .min_by(super::super::scalar::ScalarExt::signed_cmp)
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::Column,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn we_can_aggregate_with_column_length_mismatch_error() {
+        let alloc = Bump::new();
+        let group_by: Vec<Column<TestScalar>> = vec![Column::BigInt(&[1, 2, 3])];
+        let sum_columns: Vec<Column<TestScalar>> = vec![Column::BigInt(&[10, 20])]; // Wrong length
+        let selection = vec![true, true, true];
+
+        let result = aggregate_columns(&alloc, &group_by, &sum_columns, &[], &[], &selection);
+
+        assert!(matches!(
+            result,
+            Err(AggregateColumnsError::ColumnLengthMismatch)
+        ));
+    }
+
+    #[test]
+    fn we_can_sum_aggregate_uint8_column() {
+        let alloc = Bump::new();
+        let data: &[u8] = &[10, 20, 30];
+        let column = Column::Uint8(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[TestScalar] =
+            sum_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], TestScalar::from(30));
+        assert_eq!(result[1], TestScalar::from(30));
+    }
+
+    #[test]
+    fn we_can_sum_aggregate_tinyint_column() {
+        let alloc = Bump::new();
+        let data: &[i8] = &[10, 20, 30];
+        let column = Column::TinyInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[TestScalar] =
+            sum_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], TestScalar::from(30));
+        assert_eq!(result[1], TestScalar::from(30));
+    }
+
+    #[test]
+    fn we_can_sum_aggregate_smallint_column() {
+        let alloc = Bump::new();
+        let data: &[i16] = &[100, 200, 300];
+        let column = Column::SmallInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[TestScalar] =
+            sum_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], TestScalar::from(300));
+        assert_eq!(result[1], TestScalar::from(300));
+    }
+
+    #[test]
+    fn we_can_sum_aggregate_int_column() {
+        let alloc = Bump::new();
+        let data: &[i32] = &[1000, 2000, 3000];
+        let column = Column::Int(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[TestScalar] =
+            sum_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], TestScalar::from(3000));
+        assert_eq!(result[1], TestScalar::from(3000));
+    }
+
+    #[test]
+    #[should_panic(expected = "SUM can not be applied to non-numeric types")]
+    fn sum_aggregate_panics_on_varchar_column() {
+        let alloc = Bump::new();
+        let data: &[&str] = &["a", "b", "c"];
+        let column: Column<TestScalar> = Column::VarChar((data, &[]));
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        sum_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+    }
+
+    #[test]
+    fn we_can_max_aggregate_boolean_column() {
+        let alloc = Bump::new();
+        let data: &[bool] = &[true, false, true];
+        let column = Column::Boolean(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(true)));
+        assert_eq!(result[1], Some(TestScalar::from(true)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_uint8_column() {
+        let alloc = Bump::new();
+        let data: &[u8] = &[10, 20, 30];
+        let column = Column::Uint8(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(30)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_tinyint_column() {
+        let alloc = Bump::new();
+        let data: &[i8] = &[10, 20, 30];
+        let column = Column::TinyInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(30)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_smallint_column() {
+        let alloc = Bump::new();
+        let data: &[i16] = &[100, 200, 300];
+        let column = Column::SmallInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(200)));
+        assert_eq!(result[1], Some(TestScalar::from(300)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_int_column() {
+        let alloc = Bump::new();
+        let data: &[i32] = &[1000, 2000, 3000];
+        let column = Column::Int(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(2000)));
+        assert_eq!(result[1], Some(TestScalar::from(3000)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_decimal75_column() {
+        let alloc = Bump::new();
+        let data = [
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+        ];
+        let column: Column<TestScalar> = Column::Decimal75(Precision::new(10).unwrap(), 2, &data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(30)));
+    }
+
+    #[test]
+    fn we_can_max_aggregate_timestamptz_column() {
+        let alloc = Bump::new();
+        let data: &[i64] = &[100, 200, 300];
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(200)));
+        assert_eq!(result[1], Some(TestScalar::from(300)));
+    }
+
+    #[test]
+    #[should_panic(expected = "MAX can not be applied to varchar")]
+    fn max_aggregate_panics_on_varchar_column() {
+        let alloc = Bump::new();
+        let data: &[&str] = &["a", "b", "c"];
+        let column: Column<TestScalar> = Column::VarChar((data, &[]));
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+    }
+
+    #[test]
+    #[should_panic(expected = "MAX can not be applied to varbinary")]
+    fn max_aggregate_panics_on_varbinary_column() {
+        let alloc = Bump::new();
+        let data: &[&[u8]] = &[&[1, 2], &[3, 4], &[5, 6]];
+        let scalars: &[TestScalar] = &[];
+        let column: Column<TestScalar> = Column::VarBinary((data, scalars));
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        max_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+    }
+
+    #[test]
+    fn we_can_min_aggregate_boolean_column() {
+        let alloc = Bump::new();
+        let data: &[bool] = &[true, false, true];
+        let column = Column::Boolean(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(false)));
+        assert_eq!(result[1], Some(TestScalar::from(true)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_uint8_column() {
+        let alloc = Bump::new();
+        let data: &[u8] = &[30, 20, 10];
+        let column = Column::Uint8(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(10)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_tinyint_column() {
+        let alloc = Bump::new();
+        let data: &[i8] = &[30, 20, 10];
+        let column = Column::TinyInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(10)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_smallint_column() {
+        let alloc = Bump::new();
+        let data: &[i16] = &[300, 200, 100];
+        let column = Column::SmallInt(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(200)));
+        assert_eq!(result[1], Some(TestScalar::from(100)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_int_column() {
+        let alloc = Bump::new();
+        let data: &[i32] = &[3000, 2000, 1000];
+        let column = Column::Int(data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(2000)));
+        assert_eq!(result[1], Some(TestScalar::from(1000)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_decimal75_column() {
+        let alloc = Bump::new();
+        let data = [
+            TestScalar::from(30),
+            TestScalar::from(20),
+            TestScalar::from(10),
+        ];
+        let column: Column<TestScalar> = Column::Decimal75(Precision::new(10).unwrap(), 2, &data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(20)));
+        assert_eq!(result[1], Some(TestScalar::from(10)));
+    }
+
+    #[test]
+    fn we_can_min_aggregate_timestamptz_column() {
+        let alloc = Bump::new();
+        let data: &[i64] = &[300, 200, 100];
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), data);
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        let result: &[Option<TestScalar>] =
+            min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+
+        assert_eq!(result[0], Some(TestScalar::from(200)));
+        assert_eq!(result[1], Some(TestScalar::from(100)));
+    }
+
+    #[test]
+    #[should_panic(expected = "MIN can not be applied to varchar")]
+    fn min_aggregate_panics_on_varchar_column() {
+        let alloc = Bump::new();
+        let data: &[&str] = &["a", "b", "c"];
+        let column: Column<TestScalar> = Column::VarChar((data, &[]));
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+    }
+
+    #[test]
+    #[should_panic(expected = "MIN can not be applied to varbinary")]
+    fn min_aggregate_panics_on_varbinary_column() {
+        let alloc = Bump::new();
+        let data: &[&[u8]] = &[&[1, 2], &[3, 4], &[5, 6]];
+        let scalars: &[TestScalar] = &[];
+        let column: Column<TestScalar> = Column::VarBinary((data, scalars));
+        let counts = &[2, 1];
+        let indexes = &[0, 1, 2];
+
+        min_aggregate_column_by_index_counts(&alloc, &column, counts, indexes);
+    }
+}

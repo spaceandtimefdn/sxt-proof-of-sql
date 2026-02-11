@@ -323,3 +323,328 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    // create Decimal75 column for testing
+    fn decimal_column(
+        precision: u8,
+        scale: i8,
+        values: Vec<TestScalar>,
+    ) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(Precision::new(precision).unwrap(), scale, values)
+    }
+
+    #[test]
+    fn test_uint8_with_tinyint_error() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn test_tinyint_with_uint8_error() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn test_uint8_with_uint8_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Uint8(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_uint8_with_smallint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::SmallInt(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_uint8_with_int_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_uint8_with_bigint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_uint8_with_int128_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_uint8_with_decimal75_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let rhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(400),
+                TestScalar::from(500),
+                TestScalar::from(600),
+            ],
+        );
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_tinyint_with_smallint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::SmallInt(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_smallint_with_tinyint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::SmallInt(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_smallint_with_int_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_smallint_with_bigint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_smallint_with_int128_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn test_int_with_tinyint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn test_int_with_smallint_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn test_bigint_with_tinyint_sub() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![9, 18, 27]));
+    }
+
+    #[test]
+    fn test_bigint_with_smallint_sub() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![9, 18, 27]));
+    }
+
+    #[test]
+    fn test_bigint_with_int_sub() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![10, 20, 30]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![9, 18, 27]));
+    }
+
+    #[test]
+    fn test_bigint_with_int128_mul() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![2, 3, 4]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn test_bigint_with_decimal75_add() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![1, 2, 3]);
+        let rhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(400),
+                TestScalar::from(500),
+                TestScalar::from(600),
+            ],
+        );
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_int128_with_tinyint_mul() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![2, 3, 4]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn test_int128_with_smallint_mul() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![2, 3, 4]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn test_int128_with_bigint_mul() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![2, 3, 4]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn test_int128_with_int128_mul() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![2, 3, 4]);
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int128(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn test_int128_with_decimal75_div() {
+        let lhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![10, 20, 30]);
+        let rhs = decimal_column(
+            10,
+            0,
+            vec![
+                TestScalar::from(2),
+                TestScalar::from(4),
+                TestScalar::from(5),
+            ],
+        );
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_decimal75_with_tinyint_add() {
+        let lhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(100),
+                TestScalar::from(200),
+                TestScalar::from(300),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::TinyInt(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_decimal75_with_smallint_sub() {
+        let lhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(500),
+                TestScalar::from(600),
+                TestScalar::from(700),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::SmallInt(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_decimal75_with_int_mul() {
+        let lhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(100),
+                TestScalar::from(200),
+                TestScalar::from(300),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int(vec![2, 3, 4]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_decimal75_with_bigint_div() {
+        let lhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(1000),
+                TestScalar::from(2000),
+                TestScalar::from(3000),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::BigInt(vec![2, 4, 5]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+
+    #[test]
+    fn test_decimal75_with_int128_add() {
+        let lhs = decimal_column(
+            10,
+            2,
+            vec![
+                TestScalar::from(100),
+                TestScalar::from(200),
+                TestScalar::from(300),
+            ],
+        );
+        let rhs: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert!(matches!(result, OwnedColumn::Decimal75(_, _, ref values) if values.len() == 3));
+    }
+}
