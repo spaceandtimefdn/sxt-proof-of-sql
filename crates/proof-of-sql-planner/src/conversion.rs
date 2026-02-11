@@ -113,8 +113,13 @@ pub fn get_table_refs_from_statement(
 #[cfg(test)]
 mod tests {
     use super::get_table_refs_from_statement;
+    use crate::{conversion::sql_to_posql_plans, PlannerResult};
+    use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
     use indexmap::IndexSet;
-    use proof_of_sql::base::database::TableRef;
+    use proof_of_sql::{
+        base::database::{TableRef, TableTestAccessor},
+        proof_primitive::dory::DynamicDoryEvaluationProof,
+    };
     use sqlparser::{dialect::GenericDialect, parser::Parser};
 
     #[test]
@@ -157,5 +162,17 @@ AND s.salary > (
         .into_iter()
         .collect();
         assert_eq!(table_refs, expected_table_refs);
+    }
+
+    #[test]
+    fn we_can_use_abs() {
+        let statements = Parser::parse_sql(&GenericDialect {}, "SELECT ABS(-1-1);").unwrap();
+        sql_to_posql_plans(
+            &statements,
+            &TableTestAccessor::<DynamicDoryEvaluationProof>::default(),
+            &ConfigOptions::default(),
+            |a, _| -> PlannerResult<LogicalPlan> { Ok(a.clone()) },
+        )
+        .unwrap();
     }
 }
