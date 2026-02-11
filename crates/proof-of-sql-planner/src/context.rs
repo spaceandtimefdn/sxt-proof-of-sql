@@ -9,9 +9,11 @@ use datafusion::{
         DataFusionError,
     },
     config::ConfigOptions,
+    execution::{context::SessionState, runtime_env::RuntimeEnv},
     logical_expr::{
         AggregateUDF, Expr, ScalarUDF, TableProviderFilterPushDown, TableSource, WindowUDF,
     },
+    prelude::SessionConfig,
     sql::{planner::ContextProvider, TableReference},
 };
 use proof_of_sql::base::database::{ColumnField, SchemaAccessor};
@@ -22,6 +24,7 @@ use proof_of_sql::base::database::{ColumnField, SchemaAccessor};
 pub struct PoSqlContextProvider<A: SchemaAccessor> {
     accessor: A,
     options: ConfigOptions,
+    state: SessionState,
 }
 
 impl<A: SchemaAccessor> PoSqlContextProvider<A> {
@@ -31,6 +34,10 @@ impl<A: SchemaAccessor> PoSqlContextProvider<A> {
         Self {
             accessor,
             options: ConfigOptions::default(),
+            state: SessionState::new_with_config_rt(
+                SessionConfig::default(),
+                RuntimeEnv::default().into(),
+            ),
         }
     }
 }
@@ -46,8 +53,8 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
         let column_fields = schema_to_column_fields(schema);
         Ok(Arc::new(PoSqlTableSource::new(column_fields)) as Arc<dyn TableSource>)
     }
-    fn get_function_meta(&self, _name: &str) -> Option<Arc<ScalarUDF>> {
-        None
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
+        self.state.scalar_functions().get(name).cloned()
     }
     //TODO: add count and sum
     fn get_aggregate_meta(&self, _name: &str) -> Option<Arc<AggregateUDF>> {
@@ -63,7 +70,7 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
         &self.options
     }
     fn udfs_names(&self) -> Vec<String> {
-        Vec::new()
+        self.state.scalar_functions().keys().cloned().collect()
     }
     fn udafs_names(&self) -> Vec<String> {
         Vec::new()
