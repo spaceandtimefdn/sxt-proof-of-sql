@@ -35,6 +35,10 @@ impl AbsExpr {
                 expr_type: input_data_type,
             })
     }
+
+    pub(crate) fn input(&self) -> &DynProofExpr {
+        &self.input_expr
+    }
 }
 
 /// # Panics
