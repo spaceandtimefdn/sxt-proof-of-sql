@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import "../../src/base/Constants.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {AbsExpr} from "../../src/proof_exprs/AbsExpr.presl";
+
+contract AbsExprTest is Test {
+    function testSimpleAbsExpr() public pure {
+        bytes memory expr = abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0), hex"abcdef");
+
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory bitDistribution = new uint256[](6);
+        bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[1] = 0;
+        bitDistribution[2] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[3] = 0;
+        bitDistribution[4] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[5] = 0;
+        VerificationBuilder.__setBitDistributions(builder, bitDistribution);
+
+        builder.maxDegree = 3;
+        builder.constraintMultipliers = new uint256[](12);
+        builder.constraintMultipliers[0] = 1;
+        builder.constraintMultipliers[1] = 1;
+        builder.constraintMultipliers[2] = 1;
+        builder.constraintMultipliers[3] = 1;
+        builder.constraintMultipliers[4] = 1;
+        builder.constraintMultipliers[5] = 1;
+        builder.constraintMultipliers[6] = 1;
+        builder.constraintMultipliers[7] = 1;
+        builder.constraintMultipliers[8] = 1;
+        builder.constraintMultipliers[9] = 1;
+        builder.constraintMultipliers[10] = 1;
+        builder.constraintMultipliers[11] = 1;
+        builder.aggregateEvaluation = 0;
+        builder.rowMultipliersEvaluation = 1;
+
+        uint256[] memory finalRoundMles = new uint256[](12);
+        finalRoundMles[0] = 0;
+        finalRoundMles[1] = 1;
+        finalRoundMles[2] = 1;
+        finalRoundMles[3] = 2;
+        finalRoundMles[4] = 0;
+        finalRoundMles[5] = 0;
+        finalRoundMles[6] = 1;
+        finalRoundMles[7] = 0;
+        finalRoundMles[8] = 0;
+        finalRoundMles[9] = 1;
+        finalRoundMles[10] = 0;
+        finalRoundMles[11] = 2;
+
+        VerificationBuilder.__setFinalRoundMLEs(builder, finalRoundMles);
+
+        uint256 absEval;
+        uint256[] memory accessor = new uint256[](1);
+        accessor[0] = 2;
+        bytes memory exprOut;
+        (exprOut, builder, absEval) = AbsExpr.__absExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 2);
+        accessor[0] = 0;
+        (exprOut, builder, absEval) = AbsExpr.__absExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 0);
+        // 2
+        accessor[0] = MODULUS_MINUS_ONE - 1;
+        (exprOut, builder, absEval) = AbsExpr.__absExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 2);
+        assert(builder.aggregateEvaluation == 0);
+    }
+}

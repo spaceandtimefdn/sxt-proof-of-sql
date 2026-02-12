@@ -96,6 +96,68 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testAbsExprVariant() public pure {
+        bytes memory expr = abi.encodePacked(ABS_EXPR_VARIANT, COLUMN_EXPR_VARIANT, uint64(0), hex"abcdef");
+
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory bitDistribution = new uint256[](6);
+        bitDistribution[0] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[1] = 0;
+        bitDistribution[2] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[3] = 0;
+        bitDistribution[4] = 0x8000000000000000000000000000000000000000000000000000000000000003;
+        bitDistribution[5] = 0;
+        VerificationBuilder.__setBitDistributions(builder, bitDistribution);
+
+        builder.maxDegree = 3;
+        builder.constraintMultipliers = new uint256[](12);
+        builder.constraintMultipliers[0] = 1;
+        builder.constraintMultipliers[1] = 1;
+        builder.constraintMultipliers[2] = 1;
+        builder.constraintMultipliers[3] = 1;
+        builder.constraintMultipliers[4] = 1;
+        builder.constraintMultipliers[5] = 1;
+        builder.constraintMultipliers[6] = 1;
+        builder.constraintMultipliers[7] = 1;
+        builder.constraintMultipliers[8] = 1;
+        builder.constraintMultipliers[9] = 1;
+        builder.constraintMultipliers[10] = 1;
+        builder.constraintMultipliers[11] = 1;
+        builder.aggregateEvaluation = 0;
+        builder.rowMultipliersEvaluation = 1;
+
+        uint256[] memory finalRoundMles = new uint256[](12);
+        finalRoundMles[0] = 0;
+        finalRoundMles[1] = 1;
+        finalRoundMles[2] = 1;
+        finalRoundMles[3] = 2;
+        finalRoundMles[4] = 0;
+        finalRoundMles[5] = 0;
+        finalRoundMles[6] = 1;
+        finalRoundMles[7] = 0;
+        finalRoundMles[8] = 0;
+        finalRoundMles[9] = 1;
+        finalRoundMles[10] = 0;
+        finalRoundMles[11] = 2;
+
+        VerificationBuilder.__setFinalRoundMLEs(builder, finalRoundMles);
+
+        uint256 absEval;
+        uint256[] memory accessor = new uint256[](1);
+        accessor[0] = 2;
+        bytes memory exprOut;
+        (exprOut, builder, absEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 2);
+        accessor[0] = 0;
+        (exprOut, builder, absEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 0);
+        // 2
+        accessor[0] = MODULUS_MINUS_ONE - 1;
+        (exprOut, builder, absEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(absEval == 2);
+        assert(builder.aggregateEvaluation == 0);
+    }
+
     function testSubtractExprVariant() public pure {
         VerificationBuilder.Builder memory builder;
         bytes memory expr = abi.encodePacked(
@@ -381,5 +443,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Placeholder) == PLACEHOLDER_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.ScalingCast) == SCALING_CAST_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.Abs) == ABS_EXPR_VARIANT);
     }
 }
