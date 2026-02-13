@@ -1,8 +1,25 @@
+use crate::{
+    base::{
+        database::{
+            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
+        },
+        map::{IndexMap, IndexSet},
+        proof::ProofError,
+        scalar::Scalar,
+        PlaceholderResult,
+    },
+    sql::{
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
+        },
+        proof_exprs::{DynProofExpr, ProofExpr},
+        proof_plans::DynProofPlan,
+    },
+};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
-
-use crate::{base::{PlaceholderResult, database::{Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef}, map::{IndexMap, IndexSet}, proof::ProofError, scalar::Scalar}, sql::{proof::{FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder}, proof_exprs::DynProofExpr, proof_plans::DynProofPlan}};
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -24,7 +41,7 @@ impl OrderByExec {
     }
 }
 
-impl ProofPlan for OrderByExec{
+impl ProofPlan for OrderByExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -32,7 +49,23 @@ impl ProofPlan for OrderByExec{
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let input_evals = self.input.verifier_evaluate(builder, accessor, chi_eval_map, params)?;
+        let input_evals = self
+            .input
+            .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
+        let accessor = self
+            .input
+            .get_column_result_fields()
+            .iter()
+            .map(ColumnField::name)
+            .zip(input_evals.column_evals().iter().copied())
+            .collect::<IndexMap<_, _>>();
+        let order_by_evals: Vec<S> = self
+            .order_by_exprs
+            .iter()
+            .map(|expr| expr.verifier_evaluate(builder, &accessor, input_evals.chi_eval(), params))
+            .collect::<Result<Vec<_>, _>>()?;
+        let order_by_eval = order_by_evals.first().expect("Only one column is being used for now.");
+        
         todo!()
     }
 
