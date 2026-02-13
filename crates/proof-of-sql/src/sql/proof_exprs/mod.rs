@@ -1,4 +1,5 @@
 //! This module proves provable expressions.
+mod neg_expr;
 mod proof_expr;
 pub(crate) use proof_expr::DecimalProofExpr;
 pub use proof_expr::ProofExpr;
