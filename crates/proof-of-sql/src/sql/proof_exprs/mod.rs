@@ -1,5 +1,9 @@
 //! This module proves provable expressions.
 mod neg_expr;
+#[cfg(all(test, feature = "blitzar"))]
+mod neg_expr_test;
+pub(crate) use neg_expr::NegExpr;
+
 mod proof_expr;
 pub(crate) use proof_expr::DecimalProofExpr;
 pub use proof_expr::ProofExpr;

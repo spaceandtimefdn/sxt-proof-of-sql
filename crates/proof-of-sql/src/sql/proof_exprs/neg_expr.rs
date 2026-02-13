@@ -24,7 +24,6 @@ pub struct NegExpr {
 
 impl NegExpr {
     /// Create numerical `-` expression
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn try_new(input_expr: Box<DynProofExpr>) -> AnalyzeResult<Self> {
         let input_data_type = input_expr.data_type();
         try_neg_type(input_data_type)
@@ -32,6 +31,10 @@ impl NegExpr {
             .map_err(|_| AnalyzeError::InvalidDataType {
                 expr_type: input_data_type,
             })
+    }
+
+    pub(crate) fn input(&self) -> &DynProofExpr {
+        &self.input_expr
     }
 }
 
