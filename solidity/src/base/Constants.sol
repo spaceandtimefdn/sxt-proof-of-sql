@@ -119,6 +119,8 @@ uint32 constant INEQUALITY_EXPR_VARIANT = 10;
 uint32 constant PLACEHOLDER_EXPR_VARIANT = 11;
 /// @dev Scaling cast variant constant for proof expressions
 uint32 constant SCALING_CAST_EXPR_VARIANT = 12;
+/// @dev Neg variant constant for proof expressions
+uint32 constant NEG_EXPR_VARIANT = 13;
 
 /// @dev Legacy Filter variant constant for proof plans
 uint32 constant LEGACY_FILTER_EXEC_VARIANT = 0;

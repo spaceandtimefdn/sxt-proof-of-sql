@@ -221,6 +221,33 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testNegExprVariant() public pure {
+        bytes memory expr = abi.encodePacked(
+            NEG_EXPR_VARIANT, COLUMN_EXPR_VARIANT, uint64(0), hex"abcdef"
+        );
+
+        VerificationBuilder.Builder memory builder;
+
+        builder.maxDegree = 0;
+        builder.aggregateEvaluation = 0;
+        builder.rowMultipliersEvaluation = 1;
+
+        uint256 negEval;
+        uint256[] memory accessor = new uint256[](1);
+        accessor[0] = 2;
+        bytes memory exprOut;
+        (exprOut, builder, negEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == MODULUS_MINUS_ONE - 1);
+        accessor[0] = 0;
+        (exprOut, builder, negEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == 0);
+        // -2
+        accessor[0] = MODULUS_MINUS_ONE - 1;
+        (exprOut, builder, negEval) = ProofExpr.__proofExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == 2);
+        assert(builder.aggregateEvaluation == 0);
+    }
+
     function testCastExprVariant() public pure {
         VerificationBuilder.Builder memory builder;
         bytes memory expr = abi.encodePacked(
@@ -381,5 +408,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Placeholder) == PLACEHOLDER_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.ScalingCast) == SCALING_CAST_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.Neg) == NEG_EXPR_VARIANT);
     }
 }

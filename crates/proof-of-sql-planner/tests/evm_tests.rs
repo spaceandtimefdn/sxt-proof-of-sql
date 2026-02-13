@@ -195,7 +195,8 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
         SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i16 = 0;
         SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i32 = 1;
         SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where i64 = 0;
-        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where d = 1;";
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where d = 1;
+        SELECT b, i8, i16, i32, i64, d, t, lang, sxt, bin from namespace.table where -d = 1;";
 
     let statements = Parser::parse_sql(&GenericDialect {}, sql_list).unwrap();
     let plans = sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap();
