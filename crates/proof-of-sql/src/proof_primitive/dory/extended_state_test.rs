@@ -1,6 +1,6 @@
 use super::{
-    rand_F_tensors, rand_G_vecs, test_rng, ExtendedProverState, G1Projective, G2Projective,
-    PublicParameters,
+    cached_prover_setup, rand_F_tensors, rand_G_vecs, test_rng, ExtendedProverState, G1Projective,
+    G2Projective, PublicParameters,
 };
 use crate::base::polynomial::compute_evaluation_vector;
 use ark_ec::{pairing::Pairing, VariableBaseMSM};
@@ -10,8 +10,8 @@ use ark_ff::Fp;
 pub fn we_can_create_an_extended_verifier_state_from_an_extended_prover_state() {
     let mut rng = test_rng();
     let max_nu = 5;
-    let pp = PublicParameters::test_rand(max_nu, &mut rng);
-    let prover_setup = (&pp).into();
+    let prover_setup = cached_prover_setup(max_nu);
+    let _pp = PublicParameters::test_rand(max_nu, &mut rng);
     for nu in 0..max_nu {
         let (v1, v2) = rand_G_vecs(nu, &mut rng);
         let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
@@ -28,7 +28,7 @@ pub fn we_can_create_an_extended_verifier_state_from_an_extended_prover_state() 
         );
         assert_eq!(extended_prover_state.s1, s1);
         assert_eq!(extended_prover_state.s2, s2);
-        let extended_verifier_state = extended_prover_state.calculate_verifier_state(&prover_setup);
+        let extended_verifier_state = extended_prover_state.calculate_verifier_state(prover_setup);
 
         let C = Pairing::multi_pairing(&v1, &v2);
         let D_1 = Pairing::multi_pairing(&v1, prover_setup.Gamma_2[nu]);
