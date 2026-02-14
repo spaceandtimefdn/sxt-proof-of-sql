@@ -127,7 +127,7 @@ pub(super) fn fold_dynamic_tensors(state: &ExtendedVerifierState) -> (F, F) {
 mod tests {
     use super::*;
     use crate::proof_primitive::{
-        dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters, VerifierState},
+        dory::{cached_prover_setup, deferred_msm::DeferredMSM, VerifierState},
         dynamic_matrix_utils::standard_basis_helper::{compute_dynamic_vecs, tests::naive_fold},
     };
 
@@ -213,8 +213,7 @@ mod tests {
 
     #[test]
     fn we_can_compute_dynamic_T_vec_prime() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let prover_setup = cached_prover_setup(5);
 
         let a: Vec<F> = (100..109).map(Into::into).collect();
         let nu = 3;

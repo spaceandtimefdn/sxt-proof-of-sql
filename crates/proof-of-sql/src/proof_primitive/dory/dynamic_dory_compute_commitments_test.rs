@@ -5,7 +5,7 @@ use crate::{
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     proof_primitive::dory::{
-        compute_dynamic_dory_commitments, test_rng, ProverSetup, PublicParameters, F, GT,
+        cached_prover_setup, cached_public_parameters, compute_dynamic_dory_commitments, F, GT,
     },
 };
 use ark_ec::pairing::Pairing;
@@ -13,8 +13,7 @@ use num_traits::Zero;
 
 #[test]
 fn we_can_handle_calling_with_an_empty_committable_column() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(&[], 0, &setup);
 
     assert!(res.is_empty());
@@ -22,8 +21,8 @@ fn we_can_handle_calling_with_an_empty_committable_column() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[CommittableColumn::BigInt(&[
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
@@ -31,8 +30,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values() {
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(1)
         + Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(2)
@@ -57,8 +56,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values_and_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[CommittableColumn::BigInt(&[
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
@@ -66,8 +65,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values_and_an_o
         5,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[3]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[3]) * F::from(1)
         + Pairing::pairing(Gamma_1[3], Gamma_2[3]) * F::from(2)
@@ -92,11 +91,11 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values_and_an_o
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_signed_bigint_values_and_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(&[CommittableColumn::BigInt(&[-2, -3])], 2, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(-2)
         + Pairing::pairing(Gamma_1[1], Gamma_2[2]) * F::from(-3);
     assert_eq!(res[0].0, expected);
@@ -104,8 +103,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_signed_bigint_values_and_an_off
 
 #[test]
 fn we_can_compute_three_dynamic_dory_commitments_with_unsigned_bigint_and_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[
             CommittableColumn::BigInt(&[
@@ -121,8 +120,8 @@ fn we_can_compute_three_dynamic_dory_commitments_with_unsigned_bigint_and_offset
         5,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[3]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[3]) * F::from(1)
         + Pairing::pairing(Gamma_1[3], Gamma_2[3]) * F::from(2)
@@ -189,8 +188,7 @@ fn we_can_compute_three_dynamic_dory_commitments_with_unsigned_bigint_and_offset
 
 #[test]
 fn we_can_compute_an_empty_dynamic_dory_commitment() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(&[CommittableColumn::BigInt(&[0; 0])], 0, &setup);
     assert_eq!(res[0].0, GT::zero());
     let res = compute_dynamic_dory_commitments(&[CommittableColumn::BigInt(&[0; 0])], 5, &setup);
@@ -231,8 +229,8 @@ fn we_can_compute_an_empty_dynamic_dory_commitment() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[
             CommittableColumn::TinyInt(&[0, 1]),
@@ -257,8 +255,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns() {
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(1);
     assert_eq!(res[0].0, expected);
@@ -306,8 +304,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[
             CommittableColumn::TinyInt(&[0, 1]),
@@ -332,8 +330,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
         2,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[2]) * F::from(1);
     assert_eq!(res[0].0, expected);
@@ -381,8 +379,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_signed_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[
             CommittableColumn::TinyInt(&[-2, -1, 0, 1, 2]),
@@ -407,8 +405,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(-2)
         + Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(-1)
         + Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(0)
@@ -469,8 +467,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_an_offset_and_signed_values(
 ) {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(5);
+    let setup = cached_prover_setup(5);
     let res = compute_dynamic_dory_commitments(
         &[
             CommittableColumn::TinyInt(&[-2, -1, 0, 1, 2]),
@@ -495,8 +493,8 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
         4,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[3]) * F::from(-2)
         + Pairing::pairing(Gamma_1[1], Gamma_2[3]) * F::from(-1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[3]) * F::from(0)

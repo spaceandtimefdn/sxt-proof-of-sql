@@ -1,5 +1,6 @@
 use super::{
-    test_rng, DoryScalar, DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
+    cached_prover_setup, cached_public_parameters, cached_verifier_setup, test_rng, DoryScalar,
+    DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
 };
 use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof};
 use ark_std::UniformRand;
@@ -7,23 +8,21 @@ use merlin::Transcript;
 
 #[test]
 fn test_simple_ipa() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let prover_setup = cached_prover_setup(4);
+    let verifier_setup = cached_verifier_setup(4);
     test_simple_commitment_evaluation_proof::<DynamicDoryEvaluationProof>(
-        &&prover_setup,
-        &&verifier_setup,
+        &prover_setup,
+        &verifier_setup,
     );
 }
 
 #[test]
 fn test_random_ipa_with_length_1() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let prover_setup = cached_prover_setup(4);
+    let verifier_setup = cached_verifier_setup(4);
     test_commitment_evaluation_proof_with_length_1::<DynamicDoryEvaluationProof>(
-        &&prover_setup,
-        &&verifier_setup,
+        &prover_setup,
+        &verifier_setup,
     );
 }
 
@@ -45,15 +44,14 @@ fn test_random_ipa_fails_with_too_small_of_verifier_setup() {
 #[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let prover_setup = cached_prover_setup(6);
+    let verifier_setup = cached_verifier_setup(6);
     for length in lengths {
         test_random_commitment_evaluation_proof::<DynamicDoryEvaluationProof>(
             length,
             0,
-            &&prover_setup,
-            &&verifier_setup,
+            &prover_setup,
+            &verifier_setup,
         );
     }
 }
@@ -61,8 +59,8 @@ fn test_random_ipa_with_various_lengths() {
 #[test]
 fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let mut rng = test_rng();
-    let public_parameters = PublicParameters::test_rand(4, &mut rng);
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = cached_public_parameters(4);
+    let prover_setup = ProverSetup::from(public_parameters);
     let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
         .take(30)
         .collect::<Vec<_>>();
