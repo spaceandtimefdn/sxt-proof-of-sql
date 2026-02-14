@@ -85,7 +85,7 @@ impl LiteralValue {
             Self::VarBinary(bytes) => S::from_byte_slice_via_hash(bytes),
             Self::Decimal75(_, _, i) => i.into_scalar(),
             Self::Int128(i) => i.into(),
-            Self::Scalar(limbs) => (*limbs).into(),
+            Self::Scalar(limbs) => S::from_limbs(*limbs),
             Self::TimeStampTZ(_, _, time) => time.into(),
         }
     }

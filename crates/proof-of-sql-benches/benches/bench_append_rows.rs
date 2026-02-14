@@ -98,27 +98,32 @@ pub fn generate_random_owned_table<S: Scalar>(
         let identifier = format!("column_{}", rng.gen::<u32>());
 
         match column_type {
-            "bigint" => columns.push(bigint(&*identifier, vec![rng.gen::<i64>(); num_rows])),
-            "boolean" => columns.push(boolean(
+            "bigint" => columns.push(bigint::<S>(&*identifier, vec![rng.gen::<i64>(); num_rows])),
+            "boolean" => columns.push(boolean::<S>(
                 &*identifier,
                 generate_random_boolean_vector(num_rows),
             )),
-            "int128" => columns.push(int128(&*identifier, vec![rng.gen::<i128>(); num_rows])),
-            "scalar" => columns.push(scalar(
+            "int128" => columns.push(int128::<S>(&*identifier, vec![rng.gen::<i128>(); num_rows])),
+            "scalar" => {
+                let data: Vec<_> = (0..num_rows)
+                    .map(|_| S::from_limbs(generate_random_u64_array()))
+                    .collect();
+                columns.push(scalar::<S>(&*identifier, data))
+            }
+            "varchar" => columns.push(varchar::<S>(&*identifier, gen_rnd_str(num_rows))),
+            "decimal75" => {
+                let data: Vec<_> = (0..num_rows)
+                    .map(|_| S::from_limbs(generate_random_u64_array()))
+                    .collect();
+                columns.push(decimal75::<S>(&*identifier, 12, 2, data))
+            }
+            "tinyint" => columns.push(tinyint::<S>(&*identifier, vec![rng.gen::<i8>(); num_rows])),
+            "smallint" => columns.push(smallint::<S>(
                 &*identifier,
-                vec![generate_random_u64_array(); num_rows],
+                vec![rng.gen::<i16>(); num_rows],
             )),
-            "varchar" => columns.push(varchar(&*identifier, gen_rnd_str(num_rows))),
-            "decimal75" => columns.push(decimal75(
-                &*identifier,
-                12,
-                2,
-                vec![generate_random_u64_array(); num_rows],
-            )),
-            "tinyint" => columns.push(tinyint(&*identifier, vec![rng.gen::<i8>(); num_rows])),
-            "smallint" => columns.push(smallint(&*identifier, vec![rng.gen::<i16>(); num_rows])),
-            "int" => columns.push(int(&*identifier, vec![rng.gen::<i32>(); num_rows])),
-            "timestamptz" => columns.push(timestamptz(
+            "int" => columns.push(int::<S>(&*identifier, vec![rng.gen::<i32>(); num_rows])),
+            "timestamptz" => columns.push(timestamptz::<S>(
                 &*identifier,
                 PoSQLTimeUnit::Second,
                 PoSQLTimeZone::utc(),
