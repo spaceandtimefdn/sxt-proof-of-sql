@@ -1,19 +1,65 @@
 use crate::{
-    base::{database::Column, proof::ProofError, scalar::Scalar, slice_ops},
+    base::{
+        database::{apply_column_to_indexes, Column},
+        proof::ProofError,
+        scalar::Scalar,
+    },
     sql::{
-        proof::{FinalRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder},
-        proof_plans::{fold_columns, fold_vals},
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder,
+        },
+        proof_gadgets::fold_log_expr::FoldLogExpr,
     },
 };
 use alloc::{boxed::Box, vec};
 use bumpalo::Bump;
-use num_traits::{One, Zero};
+use itertools::Itertools;
+
+/// Perform first round evaluation of the permutation check.
+///
+/// # Panics
+/// Panics if the number of columns is zero.
+/// Panics if the relevant columns do not all have the same length.
+pub(crate) fn first_round_evaluate_permutation_check<'a, S: Scalar>(
+    builder: &mut FirstRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    chi: &'a [bool],
+    columns: &[Column<'a, S>],
+    permutation: &[usize],
+) -> Vec<Column<'a, S>> {
+    assert!(
+        !columns.is_empty(),
+        "The number of columns should be greater than 0"
+    );
+    let table_length = chi.len();
+    builder.produce_rho_evaluation_length(table_length);
+    assert!(
+        core::iter::once(table_length)
+            .chain(columns.iter().map(Column::len))
+            .chain(core::iter::once(permutation.len()))
+            .all_equal(),
+        "The length of all relevant columns should be the same"
+    );
+    let rho = Column::<S>::rho(table_length, alloc);
+    let columns_with_rho = columns.iter().copied().chain(core::iter::once(rho));
+    let permuted_columns_with_rho = columns_with_rho.clone().map(|column| {
+        apply_column_to_indexes(&column, alloc, permutation)
+            .expect("Permutation confirmed to be valid at this point")
+    });
+    for column in permuted_columns_with_rho.clone() {
+        builder.produce_intermediate_mle(column);
+    }
+
+    builder.request_post_result_challenges(2);
+
+    permuted_columns_with_rho.collect()
+}
 
 /// Perform final round evaluation of the permutation check.
 ///
 /// # Panics
-/// Panics if the number of source and candidate columns are not equal
-/// or if the number of columns is zero.
+/// Panics if the number of columns is zero.
+/// Panics if the relevant columns do not all have the same length.
 pub(crate) fn final_round_evaluate_permutation_check<'a, S: Scalar>(
     builder: &mut FinalRoundBuilder<'a, S>,
     alloc: &'a Bump,
@@ -21,33 +67,45 @@ pub(crate) fn final_round_evaluate_permutation_check<'a, S: Scalar>(
     beta: S,
     chi: &'a [bool],
     columns: &[Column<'a, S>],
-    candidate_subset: &[Column<'a, S>],
-) {
-    assert_eq!(
-        columns.len(),
-        candidate_subset.len(),
-        "The number of source and candidate columns should be equal"
-    );
+    permutation: &[usize],
+) -> Vec<Column<'a, S>> {
     assert!(
         !columns.is_empty(),
-        "The number of source columns should be greater than 0"
+        "The number of columns should be greater than 0"
     );
-    // Fold the columns
-    let c_fold = alloc.alloc_slice_fill_copy(chi.len(), Zero::zero());
-    fold_columns(c_fold, alpha, beta, columns);
-    let d_fold = alloc.alloc_slice_fill_copy(chi.len(), Zero::zero());
-    fold_columns(d_fold, alpha, beta, candidate_subset);
+    let table_length = chi.len();
+    assert!(
+        core::iter::once(table_length)
+            .chain(columns.iter().map(Column::len))
+            .chain(core::iter::once(permutation.len()))
+            .all_equal(),
+        "The length of all relevant columns should be the same"
+    );
+    let rho = Column::<S>::rho(table_length, alloc);
+    let columns_with_rho = columns.iter().copied().chain(core::iter::once(rho));
+    let mut permuted_columns_with_rho = columns_with_rho
+        .clone()
+        .map(|column| {
+            apply_column_to_indexes(&column, alloc, permutation)
+                .expect("Permutation confirmed to be valid at this point")
+        })
+        .collect::<Vec<_>>();
 
-    let c_star = alloc.alloc_slice_copy(c_fold);
-    slice_ops::add_const::<S, S>(c_star, One::one());
-    slice_ops::batch_inversion(c_star);
-
-    let d_star = alloc.alloc_slice_copy(d_fold);
-    slice_ops::add_const::<S, S>(d_star, One::one());
-    slice_ops::batch_inversion(d_star);
-
-    builder.produce_intermediate_mle(c_star as &[_]);
-    builder.produce_intermediate_mle(d_star as &[_]);
+    let fold_gadget = FoldLogExpr::new(alpha, beta);
+    let (c_star, _) = fold_gadget.final_round_evaluate_with_chi(
+        builder,
+        alloc,
+        &columns_with_rho.collect::<Vec<_>>(),
+        table_length,
+        chi,
+    );
+    let (d_star, _) = fold_gadget.final_round_evaluate_with_chi(
+        builder,
+        alloc,
+        &permuted_columns_with_rho,
+        table_length,
+        chi,
+    );
 
     // sum c_star - d_star = 0
     builder.produce_sumcheck_subpolynomial(
@@ -58,51 +116,36 @@ pub(crate) fn final_round_evaluate_permutation_check<'a, S: Scalar>(
         ],
     );
 
-    // c_star + c_fold * c_star - chi = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(c_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(c_star as &[_]), Box::new(c_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi as &[_])]),
-        ],
-    );
+    permuted_columns_with_rho
+        .pop()
+        .expect("permuted_column_evals should have at least one element");
 
-    // d_star + d_fold * d_star - chi = 0
-    builder.produce_sumcheck_subpolynomial(
-        SumcheckSubpolynomialType::Identity,
-        vec![
-            (S::one(), vec![Box::new(d_star as &[_])]),
-            (
-                S::one(),
-                vec![Box::new(d_star as &[_]), Box::new(d_fold as &[_])],
-            ),
-            (-S::one(), vec![Box::new(chi as &[_])]),
-        ],
-    );
+    permuted_columns_with_rho
 }
 
+#[expect(clippy::missing_panics_doc)]
 pub(crate) fn verify_permutation_check<S: Scalar>(
     builder: &mut impl VerificationBuilder<S>,
     alpha: S,
     beta: S,
     chi_eval: S,
     column_evals: &[S],
-    candidate_evals: &[S],
-) -> Result<(), ProofError> {
-    // Check that the source and candidate columns have the same amount of columns
-    if column_evals.len() != candidate_evals.len() {
-        return Err(ProofError::VerificationError {
-            error: "The number of source and candidate columns should be equal",
-        });
-    }
-    let c_fold_eval = fold_vals(beta, column_evals);
-    let d_fold_eval = fold_vals(beta, candidate_evals);
-    let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
-    let d_star_eval = builder.try_consume_final_round_mle_evaluation()?;
+) -> Result<Vec<S>, ProofError> {
+    let column_evals: Vec<_> = column_evals
+        .iter()
+        .copied()
+        .chain(core::iter::once(builder.try_consume_rho_evaluation()?))
+        .collect();
+    let mut permuted_column_evals =
+        builder.try_consume_first_round_mle_evaluations(column_evals.len())?;
+
+    let fold_gadget = FoldLogExpr::new(alpha, beta);
+    let c_star_eval = fold_gadget
+        .verify_evaluate(builder, &column_evals, chi_eval)?
+        .0;
+    let d_star_eval = fold_gadget
+        .verify_evaluate(builder, &permuted_column_evals, chi_eval)?
+        .0;
 
     // sum c_star - d_star = 0
     builder.try_produce_sumcheck_subpolynomial_evaluation(
@@ -111,21 +154,11 @@ pub(crate) fn verify_permutation_check<S: Scalar>(
         1,
     )?;
 
-    // c_star + c_fold * c_star - chi = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        (S::ONE + alpha * c_fold_eval) * c_star_eval - chi_eval,
-        2,
-    )?;
+    permuted_column_evals
+        .pop()
+        .expect("permuted_column_evals confirmed to have at least one element");
 
-    // d_star + d_fold * d_star - chi = 0
-    builder.try_produce_sumcheck_subpolynomial_evaluation(
-        SumcheckSubpolynomialType::Identity,
-        (S::ONE + alpha * d_fold_eval) * d_star_eval - chi_eval,
-        2,
-    )?;
-
-    Ok(())
+    Ok(permuted_column_evals)
 }
 
 #[cfg(test)]
@@ -137,9 +170,12 @@ mod tests {
             polynomial::MultilinearExtension,
             scalar::{test_scalar::TestScalar, Scalar},
         },
-        sql::proof::{
-            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-            FirstRoundBuilder,
+        sql::{
+            proof::{
+                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+                FirstRoundBuilder,
+            },
+            proof_gadgets::permutation_check::first_round_evaluate_permutation_check,
         },
     };
     use bumpalo::Bump;
@@ -149,10 +185,17 @@ mod tests {
     fn we_can_do_permutation_check() {
         let alloc = Bump::new();
         let column = borrowed_bigint::<TestScalar>("a", [1, 2, 3], &alloc).1;
-        let candidate_table = borrowed_bigint::<TestScalar>("c", [2, 3, 1], &alloc).1;
-        let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(3);
+        let permutation = vec![1usize, 2, 0];
+        let mut first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(3);
         let mut final_round_builder: FinalRoundBuilder<TestScalar> =
             FinalRoundBuilder::new(3, VecDeque::new());
+        first_round_evaluate_permutation_check(
+            &mut first_round_builder,
+            &alloc,
+            &[true, true, true],
+            &[column],
+            &permutation,
+        );
         final_round_evaluate_permutation_check(
             &mut final_round_builder,
             &alloc,
@@ -160,13 +203,13 @@ mod tests {
             TestScalar::TEN,
             &[true, true, true],
             &[column],
-            &[candidate_table],
+            &permutation,
         );
         let verification_builder = run_verify_for_each_row(
             3,
             &first_round_builder,
             &final_round_builder,
-            Vec::new(),
+            vec![TestScalar::TWO, TestScalar::TEN],
             3,
             |verification_builder, chi_eval, evaluation_point| {
                 verify_permutation_check(
@@ -175,7 +218,6 @@ mod tests {
                     TestScalar::TEN,
                     chi_eval,
                     &[column.inner_product(evaluation_point)],
-                    &[candidate_table.inner_product(evaluation_point)],
                 )
                 .unwrap();
             },
