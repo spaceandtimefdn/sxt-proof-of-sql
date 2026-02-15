@@ -479,18 +479,20 @@ pub fn logical_plan_to_proof_plan(
             logical_plan_to_proof_plan(input, schema_accessor)
         }
         LogicalPlan::Sort(sort) => {
+            let sort_expr = match sort.expr.first(){
+                Some(Expr::Sort(sort)) => sort,
+                _ => return Err(PlannerError::UnsupportedLogicalPlan {
+            plan: Box::new(plan.clone()),
+        })
+            };
             let order_by_plan = logical_plan_to_proof_plan(&sort.input, schema_accessor)?;
             let input_schema = order_by_plan
                 .get_column_result_fields()
                 .iter()
                 .map(|field| (field.name(), field.data_type()))
                 .collect::<Vec<_>>();
-            let aliased_exprs = sort
-                .expr
-                .iter()
-                .map(|e| -> PlannerResult<DynProofExpr> { expr_to_proof_expr(e, &input_schema) })
-                .collect::<PlannerResult<Vec<_>>>()?;
-            let order_by = OrderByExec::try_new(Box::new(order_by_plan), aliased_exprs, true)
+            let exprs = vec![expr_to_proof_expr(&sort_expr.expr, &input_schema)?];
+            let order_by = OrderByExec::try_new(Box::new(order_by_plan), exprs, true)
                 .map(DynProofPlan::OrderBy)
                 .ok_or(PlannerError::UnsupportedLogicalPlan {
                     plan: Box::new(plan.clone()),

@@ -42,17 +42,17 @@ pub(crate) fn first_round_evaluate_permutation_check<'a, S: Scalar>(
     );
     let rho = Column::<S>::rho(table_length, alloc);
     let columns_with_rho = columns.iter().copied().chain(core::iter::once(rho));
-    let permuted_columns_with_rho = columns_with_rho.clone().map(|column| {
+    let mut permuted_columns_with_rho = columns_with_rho.clone().map(|column| {
         apply_column_to_indexes(&column, alloc, permutation)
             .expect("Permutation confirmed to be valid at this point")
-    });
+    }).collect::<Vec<_>>();
     for column in permuted_columns_with_rho.clone() {
         builder.produce_intermediate_mle(column);
     }
 
-    builder.request_post_result_challenges(2);
+    permuted_columns_with_rho.pop().expect("permuted_column_evals should have at least one element");
 
-    permuted_columns_with_rho.collect()
+    permuted_columns_with_rho
 }
 
 /// Perform final round evaluation of the permutation check.

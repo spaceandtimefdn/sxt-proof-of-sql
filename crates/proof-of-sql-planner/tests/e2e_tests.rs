@@ -174,15 +174,15 @@ fn test_simple_filter_queries() {
 fn test_complex_filter_queries() {
     let alloc = Bump::new();
     let sql = "
-        SELECT id, value FROM (SELECT * FROM data WHERE value > 10) WHERE id < 4;
+        SELECT id, value FROM (SELECT * FROM data WHERE value > 10) WHERE id < 4 ORDER BY value;
         SELECT id, name FROM (SELECT * FROM pets WHERE age > 2) WHERE id < 4 OR name = $1;
         SELECT a, double_b as b FROM (SELECT b * 2 as double_b, a + 1 as a FROM numbers WHERE a >= 0) WHERE double_b == 100;
     ";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "data") => table(
             vec![
-                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
-                borrowed_int("value", [5, 12, 18, 8, 25], &alloc),
+                borrowed_int("id", [1, 2, 3, 5, 4], &alloc),
+                borrowed_int("value", [5, 12, 18, 25, 8], &alloc),
             ]
         ),
         TableRef::from_names(None, "pets") => table(
