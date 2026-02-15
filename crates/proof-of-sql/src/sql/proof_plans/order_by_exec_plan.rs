@@ -38,6 +38,7 @@ pub struct OrderByExec {
 
 impl OrderByExec {
     /// Creates a new order by expression.
+    #[must_use]
     pub fn try_new(
         input: Box<DynProofPlan>,
         order_by_exprs: Vec<(DynProofExpr, bool)>,
@@ -51,6 +52,18 @@ impl OrderByExec {
             input,
             order_by_exprs,
         })
+    }
+
+    /// Get a reference to the input plan
+    #[must_use]
+    pub fn input(&self) -> &DynProofPlan {
+        &self.input
+    }
+
+    /// Get a reference to the order by expressions
+    #[must_use]
+    pub fn order_by_exprs(&self) -> &Vec<(DynProofExpr, bool)> {
+        &self.order_by_exprs
     }
 }
 

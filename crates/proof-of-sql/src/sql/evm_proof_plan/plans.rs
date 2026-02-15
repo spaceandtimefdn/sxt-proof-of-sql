@@ -8,7 +8,7 @@ use crate::{
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, TableExpr},
         proof_plans::{
             AggregateExec, DynProofPlan, EmptyExec, FilterExec, GroupByExec, LegacyFilterExec,
-            ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
+            OrderByExec, ProjectionExec, SliceExec, SortMergeJoinExec, TableExec, UnionExec,
         },
     },
 };
@@ -34,6 +34,7 @@ pub(crate) enum EVMDynProofPlan {
     SortMergeJoin(EVMSortMergeJoinExec),
     Filter(EVMFilterExec),
     Aggregate(EVMAggregateExec),
+    OrderBy(EVMOrderByExec),
 }
 
 impl EVMDynProofPlan {
@@ -87,7 +88,10 @@ impl EVMDynProofPlan {
                 EVMAggregateExec::try_from_proof_plan(aggregate_exec, table_refs, column_refs)
                     .map(Self::Aggregate)
             }
-            DynProofPlan::OrderBy(order_by_exec) => todo!(),
+            DynProofPlan::OrderBy(order_by_exec) => {
+                EVMOrderByExec::try_from_proof_plan(order_by_exec, table_refs, column_refs)
+                    .map(Self::OrderBy)
+            }
         }
     }
 
@@ -133,6 +137,9 @@ impl EVMDynProofPlan {
             )),
             EVMDynProofPlan::Aggregate(aggregate_exec) => Ok(DynProofPlan::Aggregate(
                 aggregate_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
+            )),
+            EVMDynProofPlan::OrderBy(order_by_exec) => Ok(DynProofPlan::OrderBy(
+                order_by_exec.try_into_proof_plan(table_refs, column_refs, output_column_names)?,
             )),
         }
     }
@@ -463,6 +470,62 @@ impl EVMSliceExec {
             self.skip,
             self.fetch,
         ))
+    }
+}
+
+/// Represents an order by execution plan in EVM.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMOrderByExec {
+    input_plan: Box<EVMDynProofPlan>,
+    order_by_exprs: Vec<(EVMDynProofExpr, bool)>,
+}
+
+impl EVMOrderByExec {
+    /// Try to create a `EVMOrderByExec` from a `OrderByExec`.
+    pub(crate) fn try_from_proof_plan(
+        plan: &OrderByExec,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(Self {
+            input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
+                plan.input(),
+                table_refs,
+                column_refs,
+            )?),
+            order_by_exprs: plan
+                .order_by_exprs()
+                .iter()
+                .map(|(expr, asc)| {
+                    Ok((
+                        EVMDynProofExpr::try_from_proof_expr(expr, column_refs)?,
+                        *asc,
+                    ))
+                })
+                .collect::<EVMProofPlanResult<Vec<_>>>()?,
+        })
+    }
+
+    pub(crate) fn try_into_proof_plan(
+        &self,
+        table_refs: &IndexSet<TableRef>,
+        column_refs: &IndexSet<ColumnRef>,
+        output_column_names: Option<&IndexSet<String>>,
+    ) -> EVMProofPlanResult<OrderByExec> {
+        OrderByExec::try_new(
+            Box::new(self.input_plan.try_into_proof_plan(
+                table_refs,
+                column_refs,
+                output_column_names,
+            )?),
+            self.order_by_exprs
+                .iter()
+                .map(|(expr, asc)| -> EVMProofPlanResult<(_, bool)> {
+                    Ok((expr.try_into_proof_expr(column_refs)?, *asc))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        )
+        .ok_or(EVMProofPlanError::NotSupported)
     }
 }
 
