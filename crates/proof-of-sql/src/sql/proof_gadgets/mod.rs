@@ -6,7 +6,6 @@ pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter
 pub(crate) mod fold_log_expr;
 mod membership_check;
 mod monotonic;
-#[cfg_attr(not(test), expect(dead_code))]
 mod permutation_check;
 pub(crate) use permutation_check::{
     final_round_evaluate_permutation_check, first_round_evaluate_permutation_check,

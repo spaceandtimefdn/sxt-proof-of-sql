@@ -33,28 +33,24 @@ use sqlparser::ast::Ident;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct OrderByExec {
     pub(super) input: Box<DynProofPlan>,
-    pub(super) order_by_exprs: Vec<DynProofExpr>,
-    pub(super) asc: bool,
+    pub(super) order_by_exprs: Vec<(DynProofExpr, bool)>,
 }
 
 impl OrderByExec {
     /// Creates a new order by expression.
     pub fn try_new(
         input: Box<DynProofPlan>,
-        order_by_exprs: Vec<DynProofExpr>,
-        asc: bool,
+        order_by_exprs: Vec<(DynProofExpr, bool)>,
     ) -> Option<Self> {
-        (order_by_exprs.len() == 1)
-            .then(|| order_by_exprs[0].data_type())
-            .and_then(|data_type| {
-                (data_type != ColumnType::VarChar && data_type != ColumnType::VarBinary).then(
-                    || Self {
-                        input,
-                        order_by_exprs,
-                        asc,
-                    },
-                )
-            })
+        let is_one_order_by = order_by_exprs.len() == 1;
+        let all_exprs_valid_type = order_by_exprs.iter().all(|(expr, _)| {
+            let column_type = expr.data_type();
+            column_type != ColumnType::VarChar && column_type != ColumnType::VarBinary
+        });
+        (is_one_order_by && all_exprs_valid_type).then_some(Self {
+            input,
+            order_by_exprs,
+        })
     }
 }
 
@@ -78,19 +74,25 @@ impl ProofPlan for OrderByExec {
             .map(ColumnField::name)
             .zip(input_evals.column_evals().iter().copied())
             .collect::<IndexMap<_, _>>();
-        let order_by_evals: Vec<S> = self
+        let sort_expr_evals: Vec<(S, bool)> = self
             .order_by_exprs
             .iter()
-            .map(|expr| expr.verifier_evaluate(builder, &accessor, input_evals.chi_eval(), params))
+            .map(|(expr, asc)| -> Result<(S, bool), ProofError> {
+                Ok((
+                    expr.verifier_evaluate(builder, &accessor, input_evals.chi_eval(), params)?,
+                    *asc,
+                ))
+            })
             .collect::<Result<Vec<_>, _>>()?;
-        let order_by_eval = order_by_evals
+        let (order_by_eval, asc) = sort_expr_evals
             .first()
+            .copied()
             .expect("Only one column is being used for now.");
         let columns_to_permute: Vec<_> = input_evals
             .column_evals()
             .iter()
-            .chain(core::iter::once(order_by_eval))
             .copied()
+            .chain(core::iter::once(order_by_eval))
             .collect();
         let mut permuted_columns = verify_permutation_check(
             builder,
@@ -101,7 +103,7 @@ impl ProofPlan for OrderByExec {
         )?;
         let permuted_order_by_eval = permuted_columns.pop().expect("At least once column exists");
 
-        if self.asc {
+        if asc {
             // For ASC, we want to verify that the order by column is monotonically increasing
             verify_monotonic::<S, false, true>(
                 builder,
@@ -168,16 +170,20 @@ impl ProverEvaluate for OrderByExec {
         let order_by_columns = self
             .order_by_exprs
             .iter()
-            .map(|expr| expr.first_round_evaluate(alloc, &input_columns, params))
+            .map(|(expr, asc)| {
+                expr.first_round_evaluate(alloc, &input_columns, params)
+                    .map(|col| (col, *asc))
+            })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let order_by_column = order_by_columns
+        let (order_by_column, asc) = order_by_columns
             .first()
+            .copied()
             .expect("Only one column is being used for now.");
-        let permutation = get_sorting_permuation(order_by_column, self.asc);
+        let permutation = get_sorting_permuation(&order_by_column, asc);
         let columns_to_permute: Vec<_> = input_columns
             .columns()
-            .chain(core::iter::once(order_by_column))
             .copied()
+            .chain(core::iter::once(order_by_column))
             .collect();
         let mut permuted_columns = first_round_evaluate_permutation_check(
             builder,
@@ -219,16 +225,20 @@ impl ProverEvaluate for OrderByExec {
         let order_by_columns = self
             .order_by_exprs
             .iter()
-            .map(|expr| expr.final_round_evaluate(builder, alloc, &input_columns, params))
+            .map(|(expr, asc)| {
+                expr.final_round_evaluate(builder, alloc, &input_columns, params)
+                    .map(|col| (col, *asc))
+            })
             .collect::<PlaceholderResult<Vec<_>>>()?;
-        let order_by_column = order_by_columns
+        let (order_by_column, asc) = order_by_columns
             .first()
+            .copied()
             .expect("Only one column is being used for now.");
-        let permutation = get_sorting_permuation(order_by_column, self.asc);
+        let permutation = get_sorting_permuation(&order_by_column, asc);
         let columns_to_permute: Vec<_> = input_columns
             .columns()
-            .chain(core::iter::once(order_by_column))
             .copied()
+            .chain(core::iter::once(order_by_column))
             .collect();
         let mut permuted_columns = final_round_evaluate_permutation_check(
             builder,
@@ -245,7 +255,7 @@ impl ProverEvaluate for OrderByExec {
                 .expect("At least once column exists")
                 .to_scalar(),
         );
-        if self.asc {
+        if asc {
             // For ASC, we want to verify that the order by column is monotonically increasing
             final_round_evaluate_monotonic::<_, false, true>(
                 builder,

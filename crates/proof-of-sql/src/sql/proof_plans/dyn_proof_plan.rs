@@ -89,6 +89,10 @@ pub enum DynProofPlan {
     ///     ON col1 = col2
     /// ```
     SortMergeJoin(SortMergeJoinExec),
+    /// `ProofPlan` for queries of the form
+    /// ```ignore
+    ///     <ProofPlan> ORDER BY <order_by_expr>
+    /// ```
     OrderBy(OrderByExec),
 }
 
