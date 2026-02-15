@@ -14,6 +14,7 @@ use crate::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
+        proof_plans::order_by_exec_plan::OrderByExec,
         AnalyzeResult,
     },
 };
@@ -88,6 +89,7 @@ pub enum DynProofPlan {
     ///     ON col1 = col2
     /// ```
     SortMergeJoin(SortMergeJoinExec),
+    OrderBy(OrderByExec),
 }
 
 impl DynProofPlan {

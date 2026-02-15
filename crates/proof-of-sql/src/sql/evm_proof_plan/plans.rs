@@ -87,6 +87,7 @@ impl EVMDynProofPlan {
                 EVMAggregateExec::try_from_proof_plan(aggregate_exec, table_refs, column_refs)
                     .map(Self::Aggregate)
             }
+            DynProofPlan::OrderBy(order_by_exec) => todo!(),
         }
     }
 
