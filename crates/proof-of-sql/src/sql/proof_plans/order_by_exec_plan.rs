@@ -1,20 +1,14 @@
 use crate::{
     base::{
-        database::{
+        PlaceholderResult, database::{
             Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
             TableRef,
-        },
-        map::{IndexMap, IndexSet},
-        proof::ProofError,
-        scalar::Scalar,
-        PlaceholderResult,
+        }, map::{IndexMap, IndexSet}, proof::ProofError, scalar::Scalar
     },
     sql::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
-        },
-        proof_exprs::{DynProofExpr, ProofExpr},
-        proof_plans::DynProofPlan,
+        }, proof_exprs::{DynProofExpr, ProofExpr}, proof_gadgets::{verify_monotonic, verify_permutation_check}, proof_plans::DynProofPlan
     },
 };
 use bumpalo::Bump;
@@ -65,6 +59,11 @@ impl ProofPlan for OrderByExec {
             .map(|expr| expr.verifier_evaluate(builder, &accessor, input_evals.chi_eval(), params))
             .collect::<Result<Vec<_>, _>>()?;
         let order_by_eval = order_by_evals.first().expect("Only one column is being used for now.");
+        let columns_to_permute: Vec<_> = input_evals.column_evals().iter().chain(core::iter::once(order_by_eval)).copied().collect();
+        let mut permuted_columns =verify_permutation_check(builder, input_evals.chi_eval(), &columns_to_permute)?;
+        let permuted_order_by_eval = permuted_columns.pop().expect("At least once column exists");
+
+        verify_monotonic(builder, input_evals.chi_eval(), &permuted_order_by_eval)?;
         
         todo!()
     }

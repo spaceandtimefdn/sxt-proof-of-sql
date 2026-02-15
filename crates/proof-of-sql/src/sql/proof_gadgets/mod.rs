@@ -8,6 +8,7 @@ mod membership_check;
 mod monotonic;
 #[cfg_attr(not(test), expect(dead_code))]
 mod permutation_check;
+pub(crate) use permutation_check::{final_round_evaluate_permutation_check, verify_permutation_check, first_round_evaluate_permutation_check};
 mod shift;
 pub(crate) use membership_check::{
     final_round_evaluate_membership_check, first_round_evaluate_membership_check,
