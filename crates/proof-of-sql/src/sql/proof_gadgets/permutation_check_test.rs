@@ -145,9 +145,9 @@ impl ProofPlan for PermutationCheckTestPlan {
         // Get the columns
         let column_evals = builder.try_consume_first_round_mle_evaluations(num_columns)?;
         // Get the chi evaluations
-        let chi_eval = builder.try_consume_chi_evaluation()?.0;
+        let (chi_eval, chi_length) = builder.try_consume_chi_evaluation()?;
         // Evaluate the verifier
-        verify_permutation_check(builder, alpha, beta, chi_eval, &column_evals)?;
+        verify_permutation_check(builder, alpha, beta, chi_eval, &column_evals, chi_length)?;
         Ok(TableEvaluation::new(vec![], (S::ZERO, 0)))
     }
 }

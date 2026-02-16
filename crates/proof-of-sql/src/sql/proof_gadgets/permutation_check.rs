@@ -135,11 +135,18 @@ pub(crate) fn verify_permutation_check<S: Scalar>(
     beta: S,
     chi_eval: S,
     column_evals: &[S],
+    num_rows: usize,
 ) -> Result<Vec<S>, ProofError> {
+    let (rho_eval, rho_length) = builder.try_consume_rho_evaluation()?;
+    if num_rows != rho_length {
+        return Err(ProofError::VerificationError {
+            error: "Rho evaluation length does not match the number of rows",
+        });
+    }
     let column_evals: Vec<_> = column_evals
         .iter()
         .copied()
-        .chain(core::iter::once(builder.try_consume_rho_evaluation()?))
+        .chain(core::iter::once(rho_eval))
         .collect();
     let mut permuted_column_evals =
         builder.try_consume_first_round_mle_evaluations(column_evals.len())?;
@@ -223,6 +230,7 @@ mod tests {
                     TestScalar::TEN,
                     chi_eval,
                     &[column.inner_product(evaluation_point)],
+                    3,
                 )
                 .unwrap();
             },

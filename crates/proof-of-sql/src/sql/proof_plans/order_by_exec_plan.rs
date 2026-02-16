@@ -80,6 +80,7 @@ impl ProofPlan for OrderByExec {
         let input_evals = self
             .input
             .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
+        let (chi_eval, num_rows) = input_evals.chi();
         let accessor = self
             .input
             .get_column_result_fields()
@@ -111,8 +112,9 @@ impl ProofPlan for OrderByExec {
             builder,
             alpha,
             beta,
-            input_evals.chi_eval(),
+            chi_eval,
             &columns_to_permute,
+            num_rows,
         )?;
         let permuted_order_by_eval = permuted_columns.pop().expect("At least once column exists");
 
@@ -123,7 +125,7 @@ impl ProofPlan for OrderByExec {
                 alpha,
                 beta,
                 permuted_order_by_eval,
-                input_evals.chi_eval(),
+                chi_eval,
             )?;
         } else {
             // For DESC, we want to verify that the order by column is monotonically decreasing
@@ -132,7 +134,7 @@ impl ProofPlan for OrderByExec {
                 alpha,
                 beta,
                 permuted_order_by_eval,
-                input_evals.chi_eval(),
+                chi_eval,
             )?;
         }
 

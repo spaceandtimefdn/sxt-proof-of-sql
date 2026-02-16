@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title PermutationCheck
+/// @dev Library for handling permutation checks
+library PermutationCheck {
+    /// @notice verifies that the output is a permutation of the input
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// permutation_check_evaluate(builder_ptr, alpha, beta, chi_eval, column_evals) -> permuted_column_evals
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `alpha` - a challenge
+    /// * `beta` - a challenge
+    /// * `chi_eval` - the evaluation of a column of 1s with length same as every other column
+    /// * `column_evals` - the evaluations of the columns
+    /// * `permutation` - the order in which to permute the rows in the columns
+    /// ##### Return Values
+    /// * `permuted_column_evals` - the evaluations of the permuted columns
+    /// @notice verifies that the output is a permutation of the input
+    /// @param __builder The verification builder
+    /// @param __alpha a challenge
+    /// @param __beta a challenge
+    /// @param __chiEval The evaluation of a column of 1s with length same as every other column
+    /// @param __columnEvals The evaluations of the columns
+    /// @param __permutation The order in which to permute the rows in the columns
+    /// @return __builderOut The verification builder result
+    /// @return __permutedColumnEvals The permuted columns
+    function __permutationCheckEvaluate( // solhint-disable-line gas-calldata-parameters
+        VerificationBuilder.Builder memory __builder,
+        uint256 __alpha,
+        uint256 __beta,
+        uint256 __chiEval,
+        uint256[] memory __columnEvals,
+        uint256[] memory __permutation
+    ) internal pure returns (VerificationBuilder.Builder memory __builderOut, uint256[] memory __permutedColumnEvals) {
+        assembly {
+            // import err from ../base/Errors.sol
+            // import mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_first_round_mle, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
+            // import fold_log_star_evaluate from ../proof_gadgets/FoldLogExpr.presl
+
+            function permutation_check_evaluate(
+                builder_ptr, alpha, beta, chi_eval, column_evals
+            ) -> permuted_column_evals {
+                let num_columns := mload(column_evals)
+                let num_candidate_columns := mload(candidate_evals)
+                if sub(num_columns, num_candidate_columns) { err(ERR_INTERNAL) }
+                multiplicity_eval := builder_consume_first_round_mle(builder_ptr)
+                let c_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_n_eval)
+                let d_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, candidate_evals, chi_m_eval)
+
+                // sum c_star * multiplicity_eval - d_star = 0
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(mulmod_bn254(c_star_eval, multiplicity_eval), d_star_eval), 2
+                )
+            }
+
+            __multiplicityEval :=
+                permutation_check_evaluate(
+                    __builder, __alpha, __beta, __chiNEval, __chiMEval, __columnEvals, __candidateEvals
+                )
+        }
+        __builderOut = __builder;
+    }
+}

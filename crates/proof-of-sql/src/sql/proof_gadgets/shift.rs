@@ -170,8 +170,8 @@ pub(crate) fn verify_shift<S: Scalar>(
 ) -> Result<(S, S), ProofError> {
     let chi_n_plus_1_eval = builder.try_consume_chi_evaluation()?.0;
     let shifted_column_eval = builder.try_consume_first_round_mle_evaluation()?;
-    let rho_n_eval = builder.try_consume_rho_evaluation()?;
-    let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?;
+    let rho_n_eval = builder.try_consume_rho_evaluation()?.0;
+    let rho_n_plus_1_eval = builder.try_consume_rho_evaluation()?.0;
     let c_fold_eval = alpha * fold_vals(beta, &[rho_n_eval + chi_n_eval, column_eval]);
     let d_fold_eval = alpha * fold_vals(beta, &[rho_n_plus_1_eval, shifted_column_eval]);
     let c_star_eval = builder.try_consume_final_round_mle_evaluation()?;
