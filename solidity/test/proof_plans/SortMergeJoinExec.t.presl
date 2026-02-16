@@ -107,7 +107,7 @@ contract SortMergeJoinExecTest is Test {
         builder.singletonChiEvaluation = 1;
 
         // rho evals
-        builder.rhoEvaluations = new uint256[](_ROW_TOTAL * _RHO_TOTAL);
+        builder.rhoEvaluations = new uint256[](2 * _ROW_TOTAL * _RHO_TOTAL);
         {
             uint256[_RHO_TOTAL] memory lengths = [
                 uint256(3), // left
@@ -123,7 +123,8 @@ contract SortMergeJoinExecTest is Test {
                     if (lengths[j] > i) {
                         eval = i;
                     }
-                    builder.rhoEvaluations[i * _RHO_TOTAL + j] = eval;
+                    builder.rhoEvaluations[2 * (i * _RHO_TOTAL + j)] = lengths[j];
+                    builder.rhoEvaluations[2 * (i * _RHO_TOTAL + j) + 1] = eval;
                 }
             }
         }

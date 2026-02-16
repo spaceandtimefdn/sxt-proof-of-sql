@@ -51,22 +51,12 @@ library PermutationCheck {
             function permutation_check_evaluate(
                 builder_ptr, alpha, beta, chi_eval, column_evals
             ) -> permuted_column_evals {
-                let num_columns := mload(column_evals)
-                let num_candidate_columns := mload(candidate_evals)
-                if sub(num_columns, num_candidate_columns) { err(ERR_INTERNAL) }
-                multiplicity_eval := builder_consume_first_round_mle(builder_ptr)
-                let c_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, column_evals, chi_n_eval)
-                let d_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, candidate_evals, chi_m_eval)
-
-                // sum c_star * multiplicity_eval - d_star = 0
-                builder_produce_zerosum_constraint(
-                    builder_ptr, submod_bn254(mulmod_bn254(c_star_eval, multiplicity_eval), d_star_eval), 2
-                )
+                
             }
 
-            __multiplicityEval :=
+            __permutedColumnEvals :=
                 permutation_check_evaluate(
-                    __builder, __alpha, __beta, __chiNEval, __chiMEval, __columnEvals, __candidateEvals
+                    __builder, __alpha, __beta, __chiEval, __columnEvals
                 )
         }
         __builderOut = __builder;

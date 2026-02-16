@@ -361,11 +361,42 @@ library VerificationBuilder {
     /// @return __value The consumed rho column evaluation value
     function __consumeRhoEvaluation(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // import dequeue from ../base/Queue.presl
+            // import dequeue_uint512 from ../base/Queue.presl
             function builder_consume_rho_evaluation(builder_ptr) -> value {
-                value := dequeue(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
+                let length
+                length, value := dequeue_uint512(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
             }
             __value := builder_consume_rho_evaluation(__builder)
+        }
+    }
+
+    /// @notice Consumes a rho column length and evaluation from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function builder_consume_rho_evaluation_with_length(builder_ptr) -> length, rho_eval
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// ##### Return Values
+    /// * `length` - the length of the column of ones
+    /// * `rho_eval` - the consumed rho evaluation value
+    /// @dev Dequeues and returns a rho column length and evaluation value. Reverts with Errors.EmptyQueue if no values remain
+    /// @param __builder The builder struct
+    /// @return __length The length of the column of ones
+    /// @return __rhoEval The consumed rho column evaluation value
+    function __consumerhoEvaluationWithLength(Builder memory __builder)
+        internal
+        pure
+        returns (uint256 __length, uint256 __rhoEval)
+    {
+        assembly {
+            // import dequeue_uint512 from ../base/Queue.presl
+            function builder_consume_rho_evaluation_with_length(builder_ptr) -> length, rho_eval {
+                length, rho_eval := dequeue_uint512(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
+            }
+            __length, __rhoEval := builder_consume_rho_evaluation_with_length(__builder)
         }
     }
 

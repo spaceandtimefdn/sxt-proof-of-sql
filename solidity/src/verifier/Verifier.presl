@@ -293,7 +293,7 @@ library Verifier {
             // import err from ../base/Errors.sol
             // import mulmod_bn254, log2_up from ../base/MathUtil.presl
             // import read_uint64_array, read_uint64_array_as_uint512_array, read_word_array, read_word_array_as_uint512_array, read_wordx2_array from ../base/Array.presl
-            // import compute_evaluations_with_length, compute_rho_evaluations, compute_truncated_lagrange_basis_inner_product, compute_truncated_lagrange_basis_sum from ../base/LagrangeBasisEvaluation.presl
+            // import compute_evaluations_with_length, compute_rho_evaluations_with_length, compute_truncated_lagrange_basis_inner_product, compute_truncated_lagrange_basis_sum from ../base/LagrangeBasisEvaluation.presl
             // import append_array, append_calldata, draw_challenges from ../base/Transcript.sol
             // import builder_check_aggregate_evaluation, builder_get_chi_evaluations, builder_get_column_evaluations, builder_get_final_round_commitments, builder_get_final_round_mles, builder_get_first_round_commitments, builder_get_first_round_mles, builder_get_rho_evaluations, builder_new, builder_set_aggregate_evaluation, builder_set_bit_distributions, builder_set_challenges, builder_set_chi_evaluations, builder_set_column_evaluations, builder_set_constraint_multipliers, builder_set_final_round_commitments, builder_set_final_round_mles, builder_set_first_round_commitments, builder_set_first_round_mles, builder_set_max_degree, builder_set_placeholder_parameters, builder_set_rho_evaluations, builder_set_row_multipliers_evaluation, builder_set_singleton_chi_evaluation, builder_set_table_chi_evaluations from ../builder/VerificationBuilder.presl
             // import batch_pcs from ../hyperkzg/HyperKZGBatch.presl
@@ -321,7 +321,7 @@ library Verifier {
                 proof_ptr, array_ptr := read_uint64_array_as_uint512_array(proof_ptr)
                 builder_set_chi_evaluations(builder_ptr, array_ptr)
 
-                proof_ptr, array_ptr := read_uint64_array(proof_ptr)
+                proof_ptr, array_ptr := read_uint64_array_as_uint512_array(proof_ptr)
                 builder_set_rho_evaluations(builder_ptr, array_ptr)
 
                 proof_ptr, array_ptr := read_wordx2_array(proof_ptr)
@@ -469,7 +469,7 @@ library Verifier {
                 builder_set_singleton_chi_evaluation(
                     builder_ptr, compute_truncated_lagrange_basis_sum(1, add(evaluation_point_ptr, WORD_SIZE), num_vars)
                 )
-                compute_rho_evaluations(evaluation_point_ptr, builder_get_rho_evaluations(builder_ptr))
+                compute_rho_evaluations_with_length(evaluation_point_ptr, builder_get_rho_evaluations(builder_ptr))
 
                 builder_set_row_multipliers_evaluation(
                     builder_ptr,

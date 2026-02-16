@@ -58,15 +58,23 @@ contract GroupByExecTest is Test {
         builder.tableChiEvaluations[1] = 1;
 
         // rho and chi evals
-        builder.rhoEvaluations = new uint256[](8);
-        builder.rhoEvaluations[0] = 0;
+        builder.rhoEvaluations = new uint256[](16);
+        builder.rhoEvaluations[0] = 2;
         builder.rhoEvaluations[1] = 0;
-        builder.rhoEvaluations[2] = 1;
-        builder.rhoEvaluations[3] = 1;
-        builder.rhoEvaluations[4] = 0;
-        builder.rhoEvaluations[5] = 2;
-        builder.rhoEvaluations[6] = 0;
-        builder.rhoEvaluations[7] = 0;
+        builder.rhoEvaluations[2] = 3;
+        builder.rhoEvaluations[3] = 0;
+        builder.rhoEvaluations[4] = 2;
+        builder.rhoEvaluations[5] = 1;
+        builder.rhoEvaluations[6] = 3;
+        builder.rhoEvaluations[7] = 1;
+        builder.rhoEvaluations[8] = 2;
+        builder.rhoEvaluations[9] = 0;
+        builder.rhoEvaluations[10] = 3;
+        builder.rhoEvaluations[11] = 2;
+        builder.rhoEvaluations[12] = 2;
+        builder.rhoEvaluations[13] = 0;
+        builder.rhoEvaluations[14] = 3;
+        builder.rhoEvaluations[15] = 0;
         builder.chiEvaluations = new uint256[](16);
         builder.chiEvaluations[0] = 4;
         builder.chiEvaluations[1] = 1; // output_chi_eval

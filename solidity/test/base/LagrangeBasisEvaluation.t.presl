@@ -355,9 +355,13 @@ contract LagrangeBasisEvaluationTest is Test {
         point[1] = 5;
         point[2] = 7;
 
-        uint256[] memory evaluations = new uint256[](9);
+        uint256[] memory evaluations = new uint256[](18);
         for (uint256 i = 0; i < 9; ++i) {
-            evaluations[i] = i;
+            evaluations[i * 2] = i;
+            evaluations[i * 2 + 1] = 0;
+        }
+        assembly{
+            mstore(evaluations, 9)
         }
 
         // These values were retrieved using the rust test
@@ -373,10 +377,10 @@ contract LagrangeBasisEvaluationTest is Test {
         expectedEvaluations[7] = MODULUS - 450;
         expectedEvaluations[8] = 40;
 
-        LagrangeBasisEvaluation.__computeRhoEvaluations(point, evaluations);
+        LagrangeBasisEvaluation.__computeRhoEvaluationsWithLength(point, evaluations);
 
         for (uint256 i = 0; i < 2; ++i) {
-            assert(evaluations[i] == expectedEvaluations[i]);
+            assert(evaluations[i * 2 + 1] == expectedEvaluations[i]);
         }
     }
 }
