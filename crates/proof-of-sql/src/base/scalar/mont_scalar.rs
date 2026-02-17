@@ -377,6 +377,9 @@ where
     T: MontConfig<4>,
 {
     const MAX_SIGNED: Self = Self(Fp::new(T::MODULUS.divide_by_2_round_down()));
+    const HALF_MAX_SIGNED: Self = Self(Fp::new(
+        T::MODULUS.divide_by_2_round_down().divide_by_2_round_down(),
+    ));
     const ZERO: Self = Self(Fp::ZERO);
     const ONE: Self = Self(Fp::ONE);
     const TWO: Self = Self(Fp::new(ark_ff::BigInt([2, 0, 0, 0])));
