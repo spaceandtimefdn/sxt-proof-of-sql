@@ -69,11 +69,7 @@ pub trait Scalar:
     /// It is the largest signed value that can be represented in the field with the natural embedding.
     const MAX_SIGNED: Self;
     /// This is the value (p - 1) / 4 rounded down to the nearest power of 2.
-    /// This value is .
     const HALF_MAX_SIGNED: Self;
-    fn should_check_trail_bit() -> bool {
-        Self::HALF_MAX_SIGNED * Self::TWO == Self::MAX_SIGNED
-    }
     /// The 0 (additive identity) element of the field.
     const ZERO: Self;
     /// The 1 (multiplicative identity) element of the field.

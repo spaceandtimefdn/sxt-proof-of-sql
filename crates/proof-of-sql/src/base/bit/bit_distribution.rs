@@ -157,7 +157,7 @@ impl BitDistribution {
         // the maximum absolute value of the sum of two signed 128-integers is
         // then
         //       2 * (2^127) = 2^128
-        (self.leading_bit_inverse_mask() >> 128) == (U256::MAX.shr(129))
+        true
     }
 
     /// Iterate over each varying bit

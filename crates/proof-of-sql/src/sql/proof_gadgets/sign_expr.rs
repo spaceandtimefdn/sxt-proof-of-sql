@@ -128,7 +128,7 @@ pub fn verifier_evaluate_sign<S: Scalar>(
 
 /// Allocate a vector of signs for a column of scalars.
 #[tracing::instrument(name = "SignExpr::alloc_signs", level = "debug", skip_all)]
-fn alloc_signs<'a, S: Scalar>(alloc: &'a Bump, expr: &'a [S]) -> &'a [bool] {
+pub(super) fn alloc_signs<'a, S: Scalar>(alloc: &'a Bump, expr: &'a [S]) -> &'a [bool] {
     let signs = if_rayon!(expr.par_iter(), expr.iter())
         .copied()
         .map(|val| is_bit_mask_negative_representation(make_bit_mask(val)))

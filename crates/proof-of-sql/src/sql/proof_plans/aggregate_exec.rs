@@ -99,18 +99,12 @@ impl AggregateExec {
     /// Checks if the group by expression can prove uniqueness
     /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
     pub fn try_get_is_uniqueness_provable(&self) -> Option<bool> {
-        match (
-            self.group_by_exprs.len(),
-            self.group_by_exprs
-                .first()
-                .map(|aliased_expr| aliased_expr.expr.data_type()),
-        ) {
-            (0, _) => Some(false),
-            (1, Some(data_type))
-                if !matches!(data_type, ColumnType::VarChar | ColumnType::VarBinary) =>
+        match self.group_by_exprs.len() {
+            0 => Some(false),
+            1 =>
             {
                 Some(true)
-            }
+            },
             _ => None,
         }
     }

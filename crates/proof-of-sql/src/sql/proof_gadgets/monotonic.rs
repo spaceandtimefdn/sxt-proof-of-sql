@@ -1,11 +1,16 @@
 //! Prove that a column is increasing or decreasing, strictly or non-strictly.
-use super::{
-    final_round_evaluate_shift, final_round_evaluate_sign, first_round_evaluate_shift,
-    verifier_evaluate_sign, verify_shift,
-};
+use super::{final_round_evaluate_shift, verify_shift};
 use crate::{
     base::{proof::ProofError, scalar::Scalar},
-    sql::proof::{FinalRoundBuilder, FirstRoundBuilder, VerificationBuilder},
+    sql::{
+        proof::{FinalRoundBuilder, FirstRoundBuilder, VerificationBuilder},
+        proof_gadgets::{
+            shift::first_round_evaluate_shift,
+            sign_expr_for_scalars::{
+                final_round_evaluate_sign_for_scalars, verifier_evaluate_sign_for_scalars,
+            },
+        },
+    },
 };
 use alloc::vec;
 use bumpalo::Bump;
@@ -73,7 +78,7 @@ pub(crate) fn final_round_evaluate_monotonic<'a, S: Scalar, const STRICT: bool, 
     span.exit();
 
     // 3. Prove the sign of `ind`
-    final_round_evaluate_sign(builder, alloc, ind);
+    final_round_evaluate_sign_for_scalars(builder, alloc, ind);
 }
 
 pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
@@ -91,7 +96,7 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
         (true, true) | (false, false) => shifted_column_eval - column_eval,
         _ => column_eval - shifted_column_eval,
     };
-    let sign_eval = verifier_evaluate_sign(builder, ind_eval, shifted_chi_eval, None)?;
+    let sign_eval = verifier_evaluate_sign_for_scalars(builder, ind_eval, shifted_chi_eval)?;
     let singleton_chi_eval = builder.singleton_chi_evaluation();
     let allowed_evals = if STRICT {
         // sign(ind) == 1 for all but the first element and the last element
