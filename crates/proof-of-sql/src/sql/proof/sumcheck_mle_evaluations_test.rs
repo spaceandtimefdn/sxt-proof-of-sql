@@ -15,14 +15,15 @@ fn we_can_track_the_evaluation_of_mles_used_within_sumcheck() {
 
     let sumcheck_random_scalars = SumcheckRandomScalars::new(&random_scalars, 3, 2);
 
-    let pcs_proof_evaluations = [Curve25519Scalar::from(42u64)];
+    let inner_pcs_proof_evaluations = vec![Curve25519Scalar::from(42u64)];
+    let pcs_proof_evaluations = vec![inner_pcs_proof_evaluations.as_slice()];
     let evals = SumcheckMleEvaluations::new(
         3,
         [3, 3],
         [],
         &evaluation_point,
         &sumcheck_random_scalars,
-        &pcs_proof_evaluations,
+        pcs_proof_evaluations,
         &[],
     );
     let expected_eval = (Curve25519Scalar::one() - evaluation_point[0])

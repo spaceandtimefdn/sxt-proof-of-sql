@@ -269,7 +269,9 @@ pub fn run_verify_for_each_row(
         .collect();
     let first_round_mles: Vec<_> = evaluation_points
         .iter()
-        .map(|evaluation_point| first_round_builder.evaluate_pcs_proof_mles(evaluation_point))
+        .map(|evaluation_point| {
+            first_round_builder.evaluate_pcs_proof_mles(evaluation_point)[0].clone()
+        })
         .collect();
     let final_round_mles: Vec<_> = evaluation_points
         .iter()

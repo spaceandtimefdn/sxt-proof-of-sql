@@ -50,7 +50,7 @@ fn we_can_verify_a_constant_decomposition() {
         [],
         &evaluation_point,
         &sumcheck_random_scalars,
-        &[],
+        vec![&[]],
         &[],
     );
     let chi_evals = sumcheck_evaluations.chi_evaluations.clone();
@@ -60,7 +60,7 @@ fn we_can_verify_a_constant_decomposition() {
         sumcheck_evaluations,
         &dists,
         &[],
-        VecDeque::new(),
+        vec![VecDeque::new()],
         Vec::new(),
         Vec::new(),
         3,
@@ -84,7 +84,7 @@ fn verification_of_constant_data_fails_if_the_commitment_doesnt_match_the_bit_di
         [],
         &evaluation_point,
         &sumcheck_random_scalars,
-        &[],
+        vec![&[]],
         &[],
     );
     let chi_evals = sumcheck_evaluations.chi_evaluations.clone();
@@ -94,7 +94,7 @@ fn verification_of_constant_data_fails_if_the_commitment_doesnt_match_the_bit_di
         sumcheck_evaluations,
         &dists,
         &[],
-        VecDeque::new(),
+        vec![VecDeque::new()],
         Vec::new(),
         Vec::new(),
         3,

@@ -67,7 +67,7 @@ pub(crate) use result_element_serialization::{
 };
 
 mod first_round_builder;
-pub(crate) use first_round_builder::FirstRoundBuilder;
+pub(crate) use first_round_builder::{FirstRoundBuilder, FirstRoundMessage};
 #[cfg(all(test, feature = "blitzar"))]
 mod first_round_builder_test;
 

@@ -17,9 +17,10 @@ use crate::{
         proof::{Keccak256Transcript, PlaceholderResult, ProofError, Transcript},
     },
     proof_primitive::sumcheck::SumcheckProof,
+    sql::proof::FirstRoundMessage,
     utils::log,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, collections::VecDeque, vec, vec::Vec};
 use bumpalo::Bump;
 use core::cmp;
 use itertools::Itertools;
@@ -54,19 +55,6 @@ fn get_index_range<'a>(
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct FirstRoundMessage<C> {
-    /// Length of the range of generators we use
-    pub range_length: usize,
-    pub post_result_challenge_count: usize,
-    /// Chi evaluation lengths
-    pub chi_evaluation_lengths: Vec<usize>,
-    /// Rho evaluation lengths
-    pub rho_evaluation_lengths: Vec<usize>,
-    /// First Round Commitments
-    pub round_commitments: Vec<C>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
 pub struct FinalRoundMessage<C> {
     pub subpolynomial_constraint_count: usize,
     /// Final Round Commitments
@@ -77,7 +65,7 @@ pub struct FinalRoundMessage<C> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct QueryProofPCSProofEvaluations<S> {
     /// MLEs used in first round sumcheck except for the result columns
-    pub first_round: Vec<S>,
+    pub first_round: Vec<Vec<S>>,
     /// evaluations of the columns referenced in the query
     pub column_ref: Vec<S>,
     /// MLEs used in final round sumcheck except for the result columns
@@ -91,7 +79,7 @@ pub struct QueryProofPCSProofEvaluations<S> {
 /// all public so as to allow for easy manipulation for testing.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct QueryProof<CP: CommitmentEvaluationProof> {
-    pub(super) first_round_message: FirstRoundMessage<CP::Commitment>,
+    pub(super) first_round_messages: Vec<FirstRoundMessage<CP::Commitment>>,
     pub(super) final_round_message: FinalRoundMessage<CP::Commitment>,
     /// Sumcheck Proof
     pub(super) sumcheck_proof: SumcheckProof<CP::Scalar>,
@@ -134,22 +122,17 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let mut first_round_builder = FirstRoundBuilder::new(initial_range_length);
         let query_result =
             expr.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, params)?;
+
+        let (first_round_messages, post_result_challenges, mut transcript) =
+            first_round_builder.get_first_round_messages(min_row_num, setup);
         let owned_table_result = OwnedTable::from(&query_result);
         let provable_result = query_result.into();
-        let chi_evaluation_lengths = first_round_builder.chi_evaluation_lengths();
-        let rho_evaluation_lengths = first_round_builder.rho_evaluation_lengths();
 
         let range_length = first_round_builder.range_length();
         let num_sumcheck_variables = cmp::max(log2_up(range_length), 1);
         assert!(num_sumcheck_variables > 0);
-        let post_result_challenge_count = first_round_builder.num_post_result_challenges();
-
-        // commit to any intermediate MLEs
-        let first_round_commitments =
-            first_round_builder.commit_intermediate_mles(min_row_num, setup);
 
         // construct a transcript for the proof
-        let mut transcript: Keccak256Transcript = Transcript::new();
         transcript.extend_as_le([SETUP_HASH]);
         transcript.challenge_as_le();
         transcript.extend_serialize_as_le(expr);
@@ -180,26 +163,6 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         transcript.extend_serialize_as_le(&min_row_num);
         transcript.challenge_as_le();
-
-        let first_round_message = FirstRoundMessage {
-            range_length,
-            chi_evaluation_lengths: chi_evaluation_lengths.to_vec(),
-            rho_evaluation_lengths: rho_evaluation_lengths.to_vec(),
-            post_result_challenge_count,
-            round_commitments: first_round_commitments,
-        };
-        transcript.extend_serialize_as_le(&first_round_message);
-
-        // These are the challenges that will be consumed by the proof
-        // Specifically, these are the challenges that the verifier sends to
-        // the prover after the prover sends the result, but before the prover
-        // send commitments to the intermediate witness columns.
-        // Note: the last challenge in the vec is the first one that is consumed.
-        let post_result_challenges =
-            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-                .take(post_result_challenge_count)
-                .collect();
-
         let mut final_round_builder =
             FinalRoundBuilder::new(num_sumcheck_variables, post_result_challenges);
 
@@ -274,7 +237,11 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let random_scalars: Vec<_> =
             core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
                 .take(
-                    pcs_proof_evaluations.first_round.len()
+                    pcs_proof_evaluations
+                        .first_round
+                        .iter()
+                        .map(|round| round.len())
+                        .fold(0, |acc, n| acc + n)
                         + pcs_proof_evaluations.column_ref.len()
                         + pcs_proof_evaluations.final_round.len(),
                 )
@@ -293,8 +260,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         for (multiplier, evaluator) in random_scalars.iter().zip(
             first_round_builder
                 .pcs_proof_mles()
-                .iter()
-                .chain(&column_ref_mles)
+                .into_iter()
+                .flat_map(|v| v.iter())
+                .chain(column_ref_mles.iter())
                 .chain(final_round_builder.pcs_proof_mles().iter()),
         ) {
             evaluator.mul_add(&mut folded_mle, multiplier);
@@ -311,7 +279,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         );
 
         let proof = Self {
-            first_round_message,
+            first_round_messages,
             final_round_message,
             sumcheck_proof,
             pcs_proof_evaluations,
@@ -338,7 +306,12 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         let table_refs = expr.get_table_references();
         let (min_row_num, _) = get_index_range(accessor, &table_refs);
-        let num_sumcheck_variables = cmp::max(log2_up(self.first_round_message.range_length), 1);
+        let range_length = self
+            .first_round_messages
+            .last()
+            .expect("There must be at least one first round message")
+            .range_length;
+        let num_sumcheck_variables = cmp::max(log2_up(range_length), 1);
         assert!(num_sumcheck_variables > 0);
 
         // validate bit decompositions
@@ -358,6 +331,16 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
 
         // construct a transcript for the proof
         let mut transcript: Keccak256Transcript = Transcript::new();
+        let post_result_challenges: Vec<VecDeque<CP::Scalar>> = self
+            .first_round_messages
+            .iter()
+            .map(|msg| {
+                transcript.extend_serialize_as_le(msg);
+                core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
+                    .take(msg.post_result_challenge_count)
+                    .collect::<VecDeque<_>>()
+            })
+            .collect::<Vec<_>>();
         transcript.extend_as_le([SETUP_HASH]);
         transcript.challenge_as_le();
         transcript.extend_serialize_as_le(expr);
@@ -383,18 +366,6 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         transcript.extend_serialize_as_le(&min_row_num);
         transcript.challenge_as_le();
 
-        transcript.extend_serialize_as_le(&self.first_round_message);
-
-        // These are the challenges that will be consumed by the proof
-        // Specifically, these are the challenges that the verifier sends to
-        // the prover after the prover sends the result, but before the prover
-        // send commitments to the intermediate witness columns.
-        // Note: the last challenge in the vec is the first one that is consumed.
-        let post_result_challenges =
-            core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
-                .take(self.first_round_message.post_result_challenge_count)
-                .collect();
-
         // add the commitments and bit distributions to the proof
         transcript.challenge_as_le();
         transcript.extend_serialize_as_le(&self.final_round_message);
@@ -406,11 +377,8 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
                 .take(num_random_scalars)
                 .collect();
-        let sumcheck_random_scalars = SumcheckRandomScalars::new(
-            &random_scalars,
-            self.first_round_message.range_length,
-            num_sumcheck_variables,
-        );
+        let sumcheck_random_scalars =
+            SumcheckRandomScalars::new(&random_scalars, range_length, num_sumcheck_variables);
         transcript.challenge_as_le();
 
         // verify sumcheck up to the evaluation check
@@ -428,7 +396,11 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let evaluation_random_scalars: Vec<_> =
             core::iter::repeat_with(|| transcript.scalar_challenge_as_be())
                 .take(
-                    self.pcs_proof_evaluations.first_round.len()
+                    self.pcs_proof_evaluations
+                        .first_round
+                        .iter()
+                        .map(|round| round.len())
+                        .fold(0, |acc, n| acc + n)
                         + self.pcs_proof_evaluations.column_ref.len()
                         + self.pcs_proof_evaluations.final_round.len(),
                 )
@@ -443,19 +415,38 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             })
             .collect::<IndexMap<TableRef, usize>>();
 
+        let chi_evaluation_lengths_from_messages = self
+            .first_round_messages
+            .iter()
+            .map(|msg| msg.chi_evaluation_lengths.clone())
+            .collect::<Vec<_>>();
+        let rho_evaluation_lengths = self
+            .first_round_messages
+            .iter()
+            .map(|msg| msg.rho_evaluation_lengths.clone())
+            .collect::<Vec<_>>();
+
         let chi_evaluation_lengths = table_length_map
             .values()
-            .chain(self.first_round_message.chi_evaluation_lengths.iter())
+            .chain(chi_evaluation_lengths_from_messages.iter().flatten())
             .copied();
 
         // pass over the provable AST to fill in the verification builder
         let sumcheck_evaluations = SumcheckMleEvaluations::new(
-            self.first_round_message.range_length,
+            range_length,
             chi_evaluation_lengths,
-            self.first_round_message.rho_evaluation_lengths.clone(),
+            rho_evaluation_lengths
+                .iter()
+                .cloned()
+                .flatten()
+                .collect_vec(),
             &subclaim.evaluation_point,
             &sumcheck_random_scalars,
-            &self.pcs_proof_evaluations.first_round,
+            self.pcs_proof_evaluations
+                .first_round
+                .iter()
+                .map(|v| v.as_slice())
+                .collect(),
             &self.pcs_proof_evaluations.final_round,
         );
         let chi_eval_map: IndexMap<TableRef, (CP::Scalar, usize)> = table_length_map
@@ -472,16 +463,15 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             &self.final_round_message.bit_distributions,
             sumcheck_random_scalars.subpolynomial_multipliers,
             post_result_challenges,
-            self.first_round_message.chi_evaluation_lengths.clone(),
-            self.first_round_message.rho_evaluation_lengths.clone(),
+            chi_evaluation_lengths_from_messages.clone(),
+            rho_evaluation_lengths,
             subclaim.max_multiplicands,
         );
 
         let pcs_proof_commitments: Vec<_> = self
-            .first_round_message
-            .round_commitments
+            .first_round_messages
             .iter()
-            .cloned()
+            .flat_map(|msg| msg.round_commitments.clone())
             .chain(
                 column_references
                     .iter()
@@ -522,6 +512,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             .pcs_proof_evaluations
             .first_round
             .iter()
+            .flatten()
             .chain(self.pcs_proof_evaluations.column_ref.iter())
             .chain(self.pcs_proof_evaluations.final_round.iter())
             .copied()
@@ -536,7 +527,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 &pcs_proof_evaluations,
                 &subclaim.evaluation_point,
                 min_row_num as u64,
-                self.first_round_message.range_length,
+                range_length,
                 setup,
             )
             .map_err(|_e| ProofError::VerificationError {

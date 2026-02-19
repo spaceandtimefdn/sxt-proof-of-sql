@@ -15,7 +15,7 @@ fn an_empty_sumcheck_polynomial_evaluates_to_zero() {
         mle_evaluations,
         &[][..],
         &[][..],
-        VecDeque::new(),
+        vec![VecDeque::new()],
         Vec::new(),
         Vec::new(),
         0,
@@ -36,7 +36,7 @@ fn we_build_up_a_sumcheck_polynomial_evaluation_from_subpolynomial_evaluations()
         mle_evaluations,
         &[][..],
         &subpolynomial_multipliers,
-        VecDeque::new(),
+        vec![VecDeque::new()],
         Vec::new(),
         Vec::new(),
         1,
@@ -66,12 +66,12 @@ fn we_can_consume_post_result_challenges_in_verification_builder() {
         SumcheckMleEvaluations::default(),
         &[][..],
         &[][..],
-        [
+        vec![[
             Curve25519Scalar::from(123),
             Curve25519Scalar::from(456),
             Curve25519Scalar::from(789),
         ]
-        .into(),
+        .into()],
         Vec::new(),
         Vec::new(),
         0,
