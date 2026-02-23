@@ -40,7 +40,6 @@ library PermutationCheck {
         uint256 __beta,
         uint256 __chiEval,
         uint256[] memory __columnEvals,
-        uint256[] memory __permutation,
         uint256 __length
     ) internal pure returns (VerificationBuilder.Builder memory __builderOut, uint256[] memory __permutedColumnEvals) {
         assembly {

@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import "../../src/base/Constants.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {PermutationCheck} from "../../src/proof_gadgets/PermutationCheck.presl";
+import {F} from "../base/FieldUtil.sol";
+
+contract PermutationCheckTest is Test {
+    function testSimplePermutationCheck() public pure {
+        VerificationBuilder.Builder memory builder;
+        builder.maxDegree = 3;
+        builder.rowMultipliersEvaluation = 1;
+        uint256 alpha = 1;
+        uint256 beta = 2;
+        uint256[3][2] memory columns = [[uint256(2),12,12], [uint256(3),18,18]];
+        uint256[3][2] memory permutedColumns = [[uint256(3),18,18], [uint256(2),12,12]];
+        uint256[2] memory chi = [uint256(1), 1];
+        builder.constraintMultipliers = new uint256[](9);
+        for (uint8 i = 0; i < 9; ++i) {
+            builder.constraintMultipliers[i] = 1;
+        }
+        builder.rhoEvaluations = new uint256[](4);
+        builder.rhoEvaluations[0] = 2;
+        builder.rhoEvaluations[1] = 0;
+        builder.rhoEvaluations[2] = 2;
+        builder.rhoEvaluations[3] = 1;
+        builder.chiEvaluations = new uint256[](4);
+        builder.chiEvaluations[0] = 2;
+        builder.chiEvaluations[1] = 1;
+        builder.chiEvaluations[2] = 2;
+        builder.chiEvaluations[3] = 1;
+        builder.firstRoundMLEs = new uint256[](8);
+        builder.firstRoundMLEs[0] = permutedColumns[0][0];
+        builder.firstRoundMLEs[1] = permutedColumns[0][1];
+        builder.firstRoundMLEs[2] = permutedColumns[0][2];
+        builder.firstRoundMLEs[3] = 1;
+        builder.firstRoundMLEs[4] = permutedColumns[1][0];
+        builder.firstRoundMLEs[5] = permutedColumns[1][1];
+        builder.firstRoundMLEs[6] = permutedColumns[1][2];
+        builder.firstRoundMLEs[7] = 0;
+        builder.finalRoundMLEs = new uint256[](4);
+        builder.finalRoundMLEs[0] = 11313024405669737755318367014402636562620502948529635728203566208791990907847;
+        builder.finalRoundMLEs[1] = 15844474317674699228044039979775788683501427961495189039841237358939204657275;
+        builder.finalRoundMLEs[2] = 15844474317674699228044039979775788683501427961495189039841237358939204657275;
+        builder.finalRoundMLEs[3] = 11313024405669737755318367014402636562620502948529635728203566208791990907847;
+
+        for (uint8 i = 0; i < 2; ++i) {
+            uint256 chiEval = chi[i];
+            uint256[] memory columnEvals = new uint256[](3);
+            columnEvals[0] = columns[i][0];
+            columnEvals[1] = columns[i][1];
+            columnEvals[2] = columns[i][2];
+            PermutationCheck.__permutationCheckEvaluate({
+                __builder: builder,
+                __alpha: alpha,
+                __beta: beta,
+                __columnEvals: columnEvals,
+                __chiEval: chiEval,
+                __length: 2
+            });
+        }
+        assert(builder.aggregateEvaluation == 0);
+    }
+}
