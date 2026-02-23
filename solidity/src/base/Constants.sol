@@ -140,6 +140,8 @@ uint32 constant SORT_MERGE_JOIN_EXEC_VARIANT = 7;
 uint32 constant FILTER_EXEC_VARIANT = 8;
 /// @dev Aggregate variant constant for proof plans
 uint32 constant AGGREGATE_EXEC_VARIANT = 9;
+/// @dev Order by variant constant for proof plans
+uint32 constant ORDER_BY_EXEC_VARIANT = 10;
 
 /// @dev Boolean variant constant for column types
 uint32 constant DATA_TYPE_BOOLEAN_VARIANT = 0;

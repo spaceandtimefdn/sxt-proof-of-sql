@@ -63,8 +63,8 @@ library OrderByExec {
                     proof_plan_evaluate(plan_ptr, builder_ptr)
 
                 // For now, we only support ordering on exactly one column
-                if sub(mload(plan_ptr), 1) { err(ERR_NUMBER_OF_ORDER_BY_COLUMNS_NOT_ONE) }
-                plan_ptr := add(plan_ptr, WORD_SIZE)
+                if sub(shr(UINT64_PADDING_BITS, calldataload(plan_ptr)), 1) { err(ERR_NUMBER_OF_ORDER_BY_COLUMNS_NOT_ONE) }
+                plan_ptr := add(plan_ptr, UINT64_SIZE)
 
                 let sort_expr_eval
                 plan_ptr, sort_expr_eval := proof_expr_evaluate(plan_ptr, builder_ptr, output_chi_eval, input_evaluations_ptr)
@@ -86,7 +86,7 @@ library OrderByExec {
                 }
 
                 // plan_ptr_out is being used instead of alpha for variable re-use
-                monotonic_verify(builder_ptr, plan_ptr_out, beta, sort_expr_eval, output_chi_eval, false, shr(mload(plan_ptr), BOOLEAN_PADDING_BITS))
+                monotonic_verify(builder_ptr, plan_ptr_out, beta, sort_expr_eval, output_chi_eval, false, shr(BOOLEAN_PADDING_BITS, calldataload(plan_ptr)))
                 plan_ptr_out := add(plan_ptr, 1)
             }
 

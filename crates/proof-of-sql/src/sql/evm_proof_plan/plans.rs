@@ -487,6 +487,7 @@ impl EVMOrderByExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        let input_result_column_refs = plan.input().get_column_result_fields_as_references();
         Ok(Self {
             input_plan: Box::new(EVMDynProofPlan::try_from_proof_plan(
                 plan.input(),
@@ -498,7 +499,7 @@ impl EVMOrderByExec {
                 .iter()
                 .map(|(expr, asc)| {
                     Ok((
-                        EVMDynProofExpr::try_from_proof_expr(expr, column_refs)?,
+                        EVMDynProofExpr::try_from_proof_expr(expr, &input_result_column_refs)?,
                         *asc,
                     ))
                 })
@@ -512,16 +513,18 @@ impl EVMOrderByExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<OrderByExec> {
-        OrderByExec::try_new(
-            Box::new(self.input_plan.try_into_proof_plan(
+        let input = self.input_plan.try_into_proof_plan(
                 table_refs,
                 column_refs,
                 output_column_names,
-            )?),
+            )?;
+        let input_result_column_refs = input.get_column_result_fields_as_references();
+        OrderByExec::try_new(
+            Box::new(input),
             self.order_by_exprs
                 .iter()
                 .map(|(expr, asc)| -> EVMProofPlanResult<(_, bool)> {
-                    Ok((expr.try_into_proof_expr(column_refs)?, *asc))
+                    Ok((expr.try_into_proof_expr(&input_result_column_refs)?, *asc))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         )
