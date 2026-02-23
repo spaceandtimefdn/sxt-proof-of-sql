@@ -81,6 +81,8 @@ uint32 constant ERR_TABLE_COMMITMENT_UNSUPPORTED = 0x4b35c9c3;
 uint32 constant ERR_NUMBER_OF_JOIN_COLUMNS_NOT_ONE = 0xf81ffd2a;
 /// @dev Error code for when a plan has a number of join columns other than one.
 uint32 constant ERR_RHO_LENGTH_INCORRECT = 0xb0b2369a;
+/// @dev Error code for when a plan has a number of order by columns other than one.
+uint32 constant ERR_NUMBER_OF_ORDER_BY_COLUMNS_NOT_ONE = 0xf9f7a24f;
 
 library Errors {
     /// @notice Error thrown when the inputs to the ECADD precompile are invalid.
@@ -166,6 +168,8 @@ library Errors {
     error NumberOfJoinColumnsNotOne();
     /// @notice Error thrown when a consumed rho evaluation has an incorrect length.
     error RhoLengthIncorrect();
+    /// @notice Error thrown when a plan has a number of order by columns other than one.
+    error NumberOfOrderByColumnsNotOne();
 
     function __err(uint32 __code) internal pure {
         assembly {
