@@ -8,6 +8,7 @@ use crate::{
         proof_plans::UnionExec,
     },
 };
+use alloc::{string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 
 /// Represents a union execution plan in EVM.

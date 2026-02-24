@@ -8,6 +8,7 @@ use crate::{
         proof_plans::TableExec,
     },
 };
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 /// Represents a table execution plan in EVM.

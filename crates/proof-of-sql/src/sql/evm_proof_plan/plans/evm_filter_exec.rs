@@ -12,6 +12,7 @@ use crate::{
         proof_plans::FilterExec,
     },
 };
+use alloc::{boxed::Box, string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 

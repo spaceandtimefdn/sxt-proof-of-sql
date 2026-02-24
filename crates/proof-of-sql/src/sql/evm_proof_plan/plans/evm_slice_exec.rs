@@ -8,6 +8,7 @@ use crate::{
         proof_plans::SliceExec,
     },
 };
+use alloc::{boxed::Box, string::String};
 use serde::{Deserialize, Serialize};
 
 /// Represents a slice execution plan in EVM.

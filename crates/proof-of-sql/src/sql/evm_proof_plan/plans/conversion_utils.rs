@@ -2,6 +2,7 @@ use crate::{
     base::map::IndexSet,
     sql::evm_proof_plan::{EVMProofPlanError, EVMProofPlanResult},
 };
+use alloc::string::{String, ToString};
 use core::iter;
 
 pub(crate) fn try_unwrap_output_column_names(
