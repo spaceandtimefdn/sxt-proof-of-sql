@@ -12,12 +12,7 @@ use crate::{
         },
     },
 };
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
-};
-use core::iter;
+use alloc::{boxed::Box, string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -26,6 +21,11 @@ pub(super) use evm_empty_exec::EVMEmptyExec;
 
 mod evm_table_exec;
 pub(super) use evm_table_exec::EVMTableExec;
+
+mod conversion_utils;
+pub(super) use conversion_utils::{
+    try_unwrap_output_column_names, try_unwrap_output_column_names_with_count_alias,
+};
 
 /// Represents a plan that can be serialized for EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -141,44 +141,6 @@ impl EVMDynProofPlan {
             )),
         }
     }
-}
-
-fn try_unwrap_output_column_names(
-    output_column_names: Option<&IndexSet<String>>,
-    length: usize,
-) -> EVMProofPlanResult<IndexSet<String>> {
-    let output_column_names = match output_column_names {
-        Some(output_column_names) => {
-            if length > output_column_names.len() {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-            output_column_names.clone()
-        }
-        None => (0..length).map(|i| i.to_string()).collect::<IndexSet<_>>(),
-    };
-    Ok(output_column_names)
-}
-
-fn try_unwrap_output_column_names_with_count_alias(
-    output_column_names: Option<&IndexSet<String>>,
-    length: usize,
-    count_alias: &String,
-) -> EVMProofPlanResult<IndexSet<String>> {
-    let output_column_names = match output_column_names {
-        Some(output_column_names) => {
-            if length > output_column_names.len() {
-                return Err(EVMProofPlanError::InvalidOutputColumnName);
-            }
-            output_column_names.clone()
-        }
-        None => (0..length)
-            .map(|i| i.to_string())
-            .filter(|name| name != count_alias)
-            .take(length - 1)
-            .chain(iter::once(count_alias.clone()))
-            .collect::<IndexSet<_>>(),
-    };
-    Ok(output_column_names)
 }
 
 /// Represents a filter execution plan in EVM.
@@ -2341,44 +2303,5 @@ mod tests {
             result,
             Err(EVMProofPlanError::InvalidOutputColumnName)
         ));
-    }
-
-    #[test]
-    fn we_can_unwrap_correct_output_column_names_when_none() {
-        let output_column_names =
-            try_unwrap_output_column_names_with_count_alias(None, 2, &"0".to_string()).unwrap();
-        let expected_output_column_names: IndexSet<
-            String,
-            core::hash::BuildHasherDefault<ahash::AHasher>,
-        > = vec!["1".to_string(), "0".to_string()].into_iter().collect();
-        assert_eq!(output_column_names, expected_output_column_names);
-    }
-
-    #[test]
-    fn we_can_unwrap_correct_output_column_names_when_some() {
-        let expected_output_column_names: IndexSet<String, _> =
-            vec!["a".to_string(), "b".to_string()].into_iter().collect();
-        let output_column_names = try_unwrap_output_column_names_with_count_alias(
-            Some(&expected_output_column_names),
-            2,
-            &"b".to_string(),
-        )
-        .unwrap();
-
-        assert_eq!(output_column_names, expected_output_column_names);
-    }
-
-    #[test]
-    fn we_can_unwrap_err_when_mismatching_count_alias() {
-        let expected_output_column_names: IndexSet<String, _> =
-            vec!["a".to_string(), "b".to_string()].into_iter().collect();
-        let err = try_unwrap_output_column_names_with_count_alias(
-            Some(&expected_output_column_names),
-            3,
-            &"b".to_string(),
-        )
-        .unwrap_err();
-
-        assert!(matches!(err, EVMProofPlanError::InvalidOutputColumnName));
     }
 }

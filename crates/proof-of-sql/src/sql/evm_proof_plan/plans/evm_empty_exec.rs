@@ -18,9 +18,8 @@ impl EVMEmptyExec {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use crate::sql::{evm_proof_plan::plans::EVMEmptyExec, proof_plans::EmptyExec};
-
 
     #[test]
     fn we_can_put_empty_exec_in_evm() {
@@ -30,5 +29,4 @@ mod tests{
         let roundtripped_empty_exec = EVMEmptyExec::try_into_proof_plan();
         assert_eq!(roundtripped_empty_exec, empty_exec);
     }
-
 }
