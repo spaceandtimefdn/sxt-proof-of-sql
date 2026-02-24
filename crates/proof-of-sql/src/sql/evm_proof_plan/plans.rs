@@ -513,11 +513,9 @@ impl EVMOrderByExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<OrderByExec> {
-        let input = self.input_plan.try_into_proof_plan(
-                table_refs,
-                column_refs,
-                output_column_names,
-            )?;
+        let input =
+            self.input_plan
+                .try_into_proof_plan(table_refs, column_refs, output_column_names)?;
         let input_result_column_refs = input.get_column_result_fields_as_references();
         OrderByExec::try_new(
             Box::new(input),
