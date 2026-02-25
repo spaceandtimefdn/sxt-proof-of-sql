@@ -11,7 +11,7 @@ use crate::{
     },
     sql::{
         proof::{
-            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, StreamlinedProoPlan,
             StreamlinedProverEvaluate, VerificationBuilder,
         },
         proof_plans::DynProofPlan,
@@ -196,7 +196,7 @@ impl ProverEvaluate for EVMProofPlan {
 
 impl CompactPlan {}
 
-impl ProofPlan for CompactPlan{
+impl ProofPlan for CompactPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
@@ -204,7 +204,37 @@ impl ProofPlan for CompactPlan{
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        unimplemented!()
+        let mut tables = chi_eval_map
+            .iter()
+            .map(|(table_ref, chi)| {
+                let table_index = self
+                    .tables
+                    .iter()
+                    .find_position(|table_id| **table_id == table_ref.to_string())
+                    .expect("Table not found")
+                    .0;
+                (table_index, chi)
+            })
+            .collect::<Vec<_>>();
+        tables.sort_by_key(|(table_index, _)| *table_index);
+        let chi_eval_map: Vec<(S, usize)> =
+            tables.into_iter().map(|(_, chi)| chi.clone()).collect();
+        let accessor = self
+            .columns
+            .iter()
+            .map(|(table_index, id, _)| {
+                let table_id = self.tables.get(*table_index).expect("Table not found");
+                let table_ref = TableRef::from_str(table_id).expect("Invalid table name");
+                accessor
+                    .get(&table_ref)
+                    .expect("Table not found")
+                    .get(&Ident::new(id))
+                    .expect("Column not found")
+                    .clone()
+            })
+            .collect::<Vec<_>>();
+        self.plan
+            .verifier_evaluate(builder, &accessor, &chi_eval_map, params)
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         unimplemented!()
@@ -272,6 +302,7 @@ impl ProverEvaluate for CompactPlan {
         )
         .expect("Table unable to be constructed"))
     }
+    
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
