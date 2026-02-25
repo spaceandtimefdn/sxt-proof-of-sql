@@ -36,7 +36,10 @@ pub(crate) use sumcheck_random_scalars::SumcheckRandomScalars;
 
 mod proof_plan;
 pub use proof_plan::ProofPlan;
-pub(crate) use proof_plan::{HonestProver, ProverEvaluate, ProverHonestyMarker};
+pub(crate) use proof_plan::{
+    HonestProver, ProverEvaluate, ProverHonestyMarker, StreamlinedProoPlan,
+    StreamlinedProverEvaluate,
+};
 
 mod query_proof;
 pub use query_proof::QueryProof;

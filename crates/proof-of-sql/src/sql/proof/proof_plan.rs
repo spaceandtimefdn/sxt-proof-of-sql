@@ -1,9 +1,14 @@
 use super::{verification_builder::VerificationBuilder, FinalRoundBuilder, FirstRoundBuilder};
-use crate::base::{
-    database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
-    map::{IndexMap, IndexSet},
-    proof::{PlaceholderResult, ProofError},
-    scalar::Scalar,
+use crate::{
+    base::{
+        database::{
+            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef,
+        },
+        map::{IndexMap, IndexSet},
+        proof::{PlaceholderResult, ProofError},
+        scalar::Scalar,
+    },
+    sql::evm_proof_plan::plans::*,
 };
 use alloc::vec::Vec;
 use bumpalo::Bump;
@@ -56,6 +61,38 @@ pub trait ProverEvaluate {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>>;
+}
+
+#[enum_dispatch::enum_dispatch(EVMDynProofPlan)]
+pub trait StreamlinedProoPlan: Debug + Send + Sync + StreamlinedProverEvaluate {
+    fn verifier_evaluate<S: Scalar>(
+        &self,
+        _builder: &mut impl VerificationBuilder<S>,
+        _accessor: &Vec<S>,
+        _chi_eval_map: &Vec<(S, usize)>,
+        _params: &[LiteralValue],
+    ) -> Result<TableEvaluation<S>, ProofError>;
+}
+
+#[enum_dispatch::enum_dispatch(EVMDynProofPlan)]
+pub trait StreamlinedProverEvaluate {
+    fn first_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FirstRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)>;
+
+    fn final_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FinalRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)>;
 }
 
 /// Marker used as a trait bound for generic [`ProofPlan`] types to indicate the honesty of their implementation.

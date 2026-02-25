@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents a plan that can be serialized for EVM.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[enum_dispatch::enum_dispatch]
 pub(crate) enum EVMDynProofPlan {
     LegacyFilter(EVMLegacyFilterExec),
     Empty(EVMEmptyExec),

@@ -2,7 +2,8 @@ use super::{plans::EVMDynProofPlan, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
+            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -10,7 +11,8 @@ use crate::{
     },
     sql::{
         proof::{
-            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            StreamlinedProverEvaluate, VerificationBuilder,
         },
         proof_plans::DynProofPlan,
     },
@@ -52,7 +54,7 @@ impl EVMProofPlan {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct CompactPlan {
     tables: Vec<String>,
     columns: Vec<(usize, String, ColumnType)>,
@@ -189,5 +191,139 @@ impl ProverEvaluate for EVMProofPlan {
     ) -> PlaceholderResult<Table<'a, S>> {
         self.inner()
             .final_round_evaluate(builder, alloc, table_map, params)
+    }
+}
+
+impl CompactPlan {}
+
+impl ProofPlan for CompactPlan{
+    fn verifier_evaluate<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        chi_eval_map: &IndexMap<TableRef, (S, usize)>,
+        params: &[LiteralValue],
+    ) -> Result<TableEvaluation<S>, ProofError> {
+        unimplemented!()
+    }
+    fn get_column_result_fields(&self) -> Vec<ColumnField> {
+        unimplemented!()
+    }
+    fn get_column_references(&self) -> IndexSet<ColumnRef> {
+        unimplemented!()
+    }
+    fn get_table_references(&self) -> IndexSet<TableRef> {
+        unimplemented!()
+    }
+}
+
+impl ProverEvaluate for CompactPlan {
+    fn first_round_evaluate<'a, S: Scalar>(
+        &self,
+        builder: &mut FirstRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table_map: &IndexMap<TableRef, Table<'a, S>>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<Table<'a, S>> {
+        let mut tables = table_map
+            .iter()
+            .map(|(table_ref, table)| {
+                let table_index = self
+                    .tables
+                    .iter()
+                    .find_position(|table_id| **table_id == table_ref.to_string())
+                    .expect("Table not found")
+                    .0;
+                let num_rows = table.num_rows();
+                (table_index, num_rows)
+            })
+            .collect::<Vec<_>>();
+        tables.sort_by_key(|(table_index, _)| *table_index);
+        let table_length_lookup: Vec<usize> =
+            tables.into_iter().map(|(_, num_rows)| num_rows).collect();
+        let columns = self
+            .columns
+            .iter()
+            .map(|(table_index, id, _)| {
+                let table_id = self.tables.get(*table_index).expect("Table not found");
+                let table_ref = TableRef::from_str(table_id).expect("Invalid table name");
+                table_map
+                    .get(&table_ref)
+                    .expect("Table not found")
+                    .inner_table()
+                    .get(&Ident::new(id))
+                    .expect("Column not found")
+                    .clone()
+            })
+            .collect::<Vec<_>>();
+        let (table, num_rows) = self.plan.first_round_evaluate(
+            builder,
+            alloc,
+            &columns,
+            table_length_lookup,
+            params,
+        )?;
+        Ok(Table::try_from_iter_with_options(
+            table
+                .iter()
+                .zip(self.output_column_names.iter())
+                .map(|(columns, name)| (Ident::new(name), columns.clone())),
+            TableOptions::new(Some(num_rows)),
+        )
+        .expect("Table unable to be constructed"))
+    }
+    fn final_round_evaluate<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table_map: &IndexMap<TableRef, Table<'a, S>>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<Table<'a, S>> {
+        let mut tables = table_map
+            .iter()
+            .map(|(table_ref, table)| {
+                let table_index = self
+                    .tables
+                    .iter()
+                    .find_position(|table_id| **table_id == table_ref.to_string())
+                    .expect("Table not found")
+                    .0;
+                let num_rows = table.num_rows();
+                (table_index, num_rows)
+            })
+            .collect::<Vec<_>>();
+        tables.sort_by_key(|(table_index, _)| *table_index);
+        let table_length_lookup: Vec<usize> =
+            tables.into_iter().map(|(_, num_rows)| num_rows).collect();
+        let columns = self
+            .columns
+            .iter()
+            .map(|(table_index, id, _)| {
+                let table_id = self.tables.get(*table_index).expect("Table not found");
+                let table_ref = TableRef::from_str(table_id).expect("Invalid table name");
+                table_map
+                    .get(&table_ref)
+                    .expect("Table not found")
+                    .inner_table()
+                    .get(&Ident::new(id))
+                    .expect("Column not found")
+                    .clone()
+            })
+            .collect::<Vec<_>>();
+        let (table, num_rows) = self.plan.final_round_evaluate(
+            builder,
+            alloc,
+            &columns,
+            table_length_lookup,
+            params,
+        )?;
+        Ok(Table::try_from_iter_with_options(
+            table
+                .iter()
+                .zip(self.output_column_names.iter())
+                .map(|(columns, name)| (Ident::new(name), columns.clone())),
+            TableOptions::new(Some(num_rows)),
+        )
+        .expect("Table unable to be constructed"))
     }
 }

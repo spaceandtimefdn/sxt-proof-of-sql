@@ -1,18 +1,26 @@
 use crate::{
     base::{
-        database::{ColumnRef, TableRef},
+        database::{Column, ColumnRef, LiteralValue, TableEvaluation, TableRef},
         map::IndexSet,
+        proof::ProofError,
+        scalar::Scalar,
+        PlaceholderResult,
     },
     sql::{
         evm_proof_plan::{
             plans::{try_unwrap_output_column_names, EVMDynProofPlan},
             EVMDynProofExpr, EVMProofPlanResult,
         },
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, StreamlinedProoPlan, StreamlinedProverEvaluate,
+            VerificationBuilder,
+        },
         proof_exprs::AliasedDynProofExpr,
         proof_plans::FilterExec,
     },
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
+use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -79,6 +87,42 @@ impl EVMFilterExec {
             self.where_clause
                 .try_into_proof_expr(&input_result_column_refs)?,
         ))
+    }
+}
+
+impl StreamlinedProoPlan for EVMFilterExec {
+    fn verifier_evaluate<S: Scalar>(
+        &self,
+        _builder: &mut impl VerificationBuilder<S>,
+        _accessor: &Vec<S>,
+        _chi_eval_map: &Vec<(S, usize)>,
+        _params: &[LiteralValue],
+    ) -> Result<TableEvaluation<S>, ProofError> {
+        unimplemented!()
+    }
+}
+
+impl StreamlinedProverEvaluate for EVMFilterExec {
+    fn first_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FirstRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)> {
+        unimplemented!()
+    }
+
+    fn final_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FinalRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)> {
+        unimplemented!()
     }
 }
 

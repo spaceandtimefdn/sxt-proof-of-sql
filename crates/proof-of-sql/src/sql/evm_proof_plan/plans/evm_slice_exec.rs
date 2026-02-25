@@ -1,14 +1,22 @@
 use crate::{
     base::{
-        database::{ColumnRef, TableRef},
+        database::{Column, ColumnRef, LiteralValue, TableEvaluation, TableRef},
         map::IndexSet,
+        proof::ProofError,
+        scalar::Scalar,
+        PlaceholderResult,
     },
     sql::{
         evm_proof_plan::{plans::EVMDynProofPlan, EVMProofPlanResult},
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, StreamlinedProoPlan, StreamlinedProverEvaluate,
+            VerificationBuilder,
+        },
         proof_plans::SliceExec,
     },
 };
 use alloc::{boxed::Box, string::String};
+use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
 
 /// Represents a slice execution plan in EVM.
@@ -52,6 +60,42 @@ impl EVMSliceExec {
             self.skip,
             self.fetch,
         ))
+    }
+}
+
+impl StreamlinedProoPlan for EVMSliceExec {
+    fn verifier_evaluate<S: Scalar>(
+        &self,
+        _builder: &mut impl VerificationBuilder<S>,
+        _accessor: &Vec<S>,
+        _chi_eval_map: &Vec<(S, usize)>,
+        _params: &[LiteralValue],
+    ) -> Result<TableEvaluation<S>, ProofError> {
+        unimplemented!()
+    }
+}
+
+impl StreamlinedProverEvaluate for EVMSliceExec {
+    fn first_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FirstRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)> {
+        unimplemented!()
+    }
+
+    fn final_round_evaluate<'a, S: Scalar>(
+        &self,
+        _builder: &mut FinalRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        _column_map: &Vec<Column<'a, S>>,
+        _table_length_lookup: Vec<usize>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<(Vec<Column<'a, S>>, usize)> {
+        unimplemented!()
     }
 }
 
