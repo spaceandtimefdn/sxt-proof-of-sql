@@ -54,7 +54,7 @@ impl EVMProofPlan {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct CompactPlan {
     tables: Vec<String>,
     columns: Vec<(usize, String, ColumnType)>,
@@ -96,6 +96,14 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
             output_column_names,
             plan,
         })
+    }
+}
+
+impl TryFrom<&CompactPlan> for EVMProofPlan {
+    type Error = EVMProofPlanError;
+
+    fn try_from(value: &CompactPlan) -> Result<Self, Self::Error> {
+        EVMProofPlan::try_from(value.clone())
     }
 }
 
@@ -194,7 +202,11 @@ impl ProverEvaluate for EVMProofPlan {
     }
 }
 
-impl CompactPlan {}
+impl CompactPlan {
+    fn get_dyn_plan(&self) -> EVMProofPlan {
+        EVMProofPlan::try_from(self).expect("Invalid compact plan")
+    }
+}
 
 impl ProofPlan for CompactPlan {
     fn verifier_evaluate<S: Scalar>(
@@ -237,13 +249,13 @@ impl ProofPlan for CompactPlan {
             .verifier_evaluate(builder, &accessor, &chi_eval_map, params)
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        unimplemented!()
+        self.get_dyn_plan().get_column_result_fields()
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        unimplemented!()
+        self.get_dyn_plan().get_column_references()
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
-        unimplemented!()
+        self.get_dyn_plan().get_table_references()
     }
 }
 
@@ -302,7 +314,7 @@ impl ProverEvaluate for CompactPlan {
         )
         .expect("Table unable to be constructed"))
     }
-    
+
     fn final_round_evaluate<'a, S: Scalar>(
         &self,
         builder: &mut FinalRoundBuilder<'a, S>,
