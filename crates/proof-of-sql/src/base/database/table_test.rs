@@ -114,11 +114,11 @@ fn we_can_create_an_empty_table_with_some_columns() {
         borrowed_boolean("boolean", [true; 0], &alloc),
     ]);
     let mut table = IndexMap::default();
-    table.insert(Ident::new("bigint"), Column::BigInt(&[]));
-    table.insert(Ident::new("decimal"), Column::Int128(&[]));
-    table.insert(Ident::new("varchar"), Column::VarChar((&[], &[])));
-    table.insert(Ident::new("scalar"), Column::Scalar(&[]));
-    table.insert(Ident::new("boolean"), Column::Boolean(&[]));
+    table.insert(Ident::new("bigint").into(), Column::BigInt(&[]));
+    table.insert(Ident::new("decimal").into(), Column::Int128(&[]));
+    table.insert(Ident::new("varchar").into(), Column::VarChar((&[], &[])));
+    table.insert(Ident::new("scalar").into(), Column::Scalar(&[]));
+    table.insert(Ident::new("boolean").into(), Column::Boolean(&[]));
     assert_eq!(borrowed_table.into_inner(), table);
 }
 
@@ -161,15 +161,15 @@ fn we_can_create_a_table_with_data() {
 
     let time_stamp_data = alloc.alloc_slice_copy(&[0_i64, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX]);
     expected_table.insert(
-        Ident::new("time_stamp"),
+        Ident::new("time_stamp").into(),
         Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), time_stamp_data),
     );
 
     let bigint_data = alloc.alloc_slice_copy(&[0_i64, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX]);
-    expected_table.insert(Ident::new("bigint"), Column::BigInt(bigint_data));
+    expected_table.insert(Ident::new("bigint").into(), Column::BigInt(bigint_data));
 
     let decimal_data = alloc.alloc_slice_copy(&[0_i128, 1, 2, 3, 4, 5, 6, i128::MIN, i128::MAX]);
-    expected_table.insert(Ident::new("decimal"), Column::Int128(decimal_data));
+    expected_table.insert(Ident::new("decimal").into(), Column::Int128(decimal_data));
 
     let varchar_data: Vec<&str> = ["0", "1", "2", "3", "4", "5", "6", "7", "8"]
         .iter()
@@ -179,17 +179,17 @@ fn we_can_create_a_table_with_data() {
     let varchar_scalars: Vec<TestScalar> = varchar_data.iter().map(Into::into).collect();
     let varchar_scalars_slice = alloc.alloc_slice_clone(&varchar_scalars);
     expected_table.insert(
-        Ident::new("varchar"),
+        Ident::new("varchar").into(),
         Column::VarChar((varchar_str_slice, varchar_scalars_slice)),
     );
 
     let scalar_data: Vec<TestScalar> = (0..=8).map(TestScalar::from).collect();
     let scalar_slice = alloc.alloc_slice_copy(&scalar_data);
-    expected_table.insert(Ident::new("scalar"), Column::Scalar(scalar_slice));
+    expected_table.insert(Ident::new("scalar").into(), Column::Scalar(scalar_slice));
 
     let boolean_data =
         alloc.alloc_slice_copy(&[true, false, true, false, true, false, true, false, true]);
-    expected_table.insert(Ident::new("boolean"), Column::Boolean(boolean_data));
+    expected_table.insert(Ident::new("boolean").into(), Column::Boolean(boolean_data));
 
     assert_eq!(borrowed_table.into_inner(), expected_table);
 }

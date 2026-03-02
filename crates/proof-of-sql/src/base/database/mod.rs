@@ -16,6 +16,9 @@ pub use column_ref::ColumnRef;
 mod column_field;
 pub use column_field::ColumnField;
 
+mod column_id;
+pub use column_id::ColumnId;
+
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
 
