@@ -1,4 +1,5 @@
 use super::{ColumnType, TableRef};
+use crate::base::database::ColumnId;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -27,10 +28,16 @@ impl ColumnRef {
         self.table_ref.clone()
     }
 
+    /// Returns the column name
+    #[must_use]
+    pub fn column_name(&self) -> Ident {
+        self.column_id.clone()
+    }
+
     /// Returns the column identifier of this column
     #[must_use]
-    pub fn column_id(&self) -> Ident {
-        self.column_id.clone()
+    pub fn column_id(&self) -> ColumnId {
+        ColumnId::new(self.column_id.clone(), None)
     }
 
     /// Returns the column type of this column

@@ -1,6 +1,6 @@
 use super::{verification_builder::VerificationBuilder, FinalRoundBuilder, FirstRoundBuilder};
 use crate::base::{
-    database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+    database::{ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
     map::{IndexMap, IndexSet},
     proof::{PlaceholderResult, ProofError},
     scalar::Scalar,
@@ -8,7 +8,6 @@ use crate::base::{
 use alloc::vec::Vec;
 use bumpalo::Bump;
 use core::fmt::Debug;
-use sqlparser::ast::Ident;
 
 /// Provable nodes in the provable AST.
 #[enum_dispatch::enum_dispatch(DynProofPlan)]
@@ -17,13 +16,16 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError>;
 
     /// Return all the result column fields
     fn get_column_result_fields(&self) -> Vec<ColumnField>;
+
+    /// Return all the column identifiers
+    fn get_column_identifiers(&self) -> Vec<ColumnId>;
 
     /// Return all the columns referenced in the Query
     fn get_column_references(&self) -> IndexSet<ColumnRef>;

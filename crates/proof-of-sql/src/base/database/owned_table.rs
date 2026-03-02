@@ -173,7 +173,7 @@ impl<'a, S: Scalar> From<&Table<'a, S>> for OwnedTable<S> {
             value
                 .inner_table()
                 .iter()
-                .map(|(name, column)| (name.clone(), OwnedColumn::from(column))),
+                .map(|(name, column)| (name.name().clone(), OwnedColumn::from(column))),
         )
         .expect("Tables should not have columns with differing lengths")
     }
@@ -185,7 +185,7 @@ impl<'a, S: Scalar> From<Table<'a, S>> for OwnedTable<S> {
             value
                 .into_inner()
                 .into_iter()
-                .map(|(name, column)| (name, OwnedColumn::from(&column))),
+                .map(|(name, column)| (name.name().clone(), OwnedColumn::from(&column))),
         )
         .expect("Tables should not have columns with differing lengths")
     }

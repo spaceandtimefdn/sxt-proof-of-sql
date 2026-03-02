@@ -1,6 +1,8 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef,
+        },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -13,7 +15,6 @@ use crate::{
 use alloc::vec::Vec;
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Source [`ProofPlan`] for (sub)queries with table source such as `SELECT col from tab;`
 /// Inspired by `DataFusion` data source [`ExecutionPlan`]s such as [`ArrowExec`] and [`CsvExec`].
@@ -51,7 +52,7 @@ impl ProofPlan for TableExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -59,10 +60,11 @@ impl ProofPlan for TableExec {
             .schema
             .iter()
             .map(|field| {
+                let column_id: ColumnId = field.name().into();
                 *accessor
                     .get(self.table_ref())
                     .expect("Table does not exist")
-                    .get(&field.name())
+                    .get(&column_id)
                     .expect("Column does not exist")
             })
             .collect::<Vec<_>>();
@@ -85,6 +87,13 @@ impl ProofPlan for TableExec {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset! {self.table_ref.clone()}
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.schema
+            .iter()
+            .map(|field| field.name().into())
+            .collect()
     }
 }
 

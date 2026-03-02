@@ -232,7 +232,7 @@ pub fn table_union<'a, S: Scalar>(
                 .map(|table| table.column(i).expect("Schemas should be compatible"))
                 .collect();
             (
-                field.name(),
+                field.name().into(),
                 column_union(&columns, alloc, field.data_type()).expect("Failed to union columns"),
             )
         }),
