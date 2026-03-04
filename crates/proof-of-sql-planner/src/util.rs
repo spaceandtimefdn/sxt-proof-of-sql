@@ -81,6 +81,9 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
             PoSQLTimeZone::utc(),
             v,
         )),
+        ScalarValue::TimestampMillisecond(Some(v), Some(tz)) if tz.to_string() == "+00:00" => Ok(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), v),
+        ),
         ScalarValue::TimestampMicrosecond(Some(v), None) => Ok(LiteralValue::TimeStampTZ(
             PoSQLTimeUnit::Microsecond,
             PoSQLTimeZone::utc(),
@@ -336,6 +339,18 @@ mod tests {
 
         // TimestampMillisecond
         let value = ScalarValue::TimestampMillisecond(Some(1_741_236_192_004_i64), None);
+        assert_eq!(
+            scalar_value_to_literal_value(value).unwrap(),
+            LiteralValue::TimeStampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                1_741_236_192_004_i64
+            )
+        );
+
+        // TimestampMillisecond
+        let value =
+            ScalarValue::TimestampMillisecond(Some(1_741_236_192_004_i64), Some("+00:00".into()));
         assert_eq!(
             scalar_value_to_literal_value(value).unwrap(),
             LiteralValue::TimeStampTZ(
