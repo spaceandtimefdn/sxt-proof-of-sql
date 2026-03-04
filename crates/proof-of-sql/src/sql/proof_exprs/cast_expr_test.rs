@@ -201,7 +201,7 @@ fn we_get_error_if_we_cast_uncastable_type() {
 #[test]
 fn we_cannot_cast_mismatching_types() {
     let alloc = Bump::new();
-    let data = table([borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc)]);
+    let data = table([borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor =
         TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());

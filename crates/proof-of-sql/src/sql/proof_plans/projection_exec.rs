@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
-            TableRef,
+            Column, ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation,
+            TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -20,7 +20,6 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -56,7 +55,7 @@ impl ProofPlan for ProjectionExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -68,11 +67,10 @@ impl ProofPlan for ProjectionExec {
         // Build new accessors
         // TODO: Make this work with inputs with multiple tables such as join
         // and union results
-        let input_schema = self.input.get_column_result_fields();
+        let input_schema = self.input.get_column_identifiers();
         let current_accessor = input_schema
-            .iter()
-            .zip(input_eval.column_evals())
-            .map(|(field, eval)| (field.name().clone(), *eval))
+            .into_iter()
+            .zip(input_eval.column_evals().iter().copied())
             .collect::<IndexMap<_, _>>();
         let output_column_evals = self
             .aliased_results
@@ -90,7 +88,10 @@ impl ProofPlan for ProjectionExec {
         self.aliased_results
             .iter()
             .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             })
             .collect()
     }
@@ -102,6 +103,13 @@ impl ProofPlan for ProjectionExec {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         self.input.get_table_references()
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.aliased_results
+            .iter()
+            .map(|expr| expr.alias.clone())
+            .collect()
     }
 }
 
@@ -128,7 +136,7 @@ impl ProverEvaluate for ProjectionExec {
             .aliased_results
             .iter()
             .map(
-                |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
+                |aliased_expr| -> PlaceholderResult<(ColumnId, Column<'a, S>)> {
                     Ok((
                         aliased_expr.alias.clone(),
                         aliased_expr
@@ -171,7 +179,7 @@ impl ProverEvaluate for ProjectionExec {
             .aliased_results
             .iter()
             .map(
-                |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
+                |aliased_expr| -> PlaceholderResult<(ColumnId, Column<'a, S>)> {
                     Ok((
                         aliased_expr.alias.clone(),
                         aliased_expr

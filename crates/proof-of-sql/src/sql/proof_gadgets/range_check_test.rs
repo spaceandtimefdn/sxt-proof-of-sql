@@ -5,8 +5,8 @@ use super::range_check::{
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableRef,
+            ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table,
+            TableEvaluation, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -18,7 +18,6 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 // A test plan for performing range checks on a specified column.
@@ -144,7 +143,7 @@ impl ProverEvaluate for RangeCheckTestPlan {
 impl ProofPlan for RangeCheckTestPlan {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new(
-            self.column.column_id(),
+            self.column.column_name(),
             *self.column.column_type(),
         )]
     }
@@ -162,7 +161,7 @@ impl ProofPlan for RangeCheckTestPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -176,6 +175,10 @@ impl ProofPlan for RangeCheckTestPlan {
             chi_eval_map[&self.column.table_ref()],
         ))
     }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec![self.column.column_id()]
+    }
 }
 
 #[cfg(all(test, feature = "blitzar"))]
@@ -183,7 +186,7 @@ mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{owned_table_utility::*, ColumnRef, ColumnType, OwnedTableTestAccessor},
+            database::{owned_table_utility::*, ColumnType, OwnedTableTestAccessor},
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         },

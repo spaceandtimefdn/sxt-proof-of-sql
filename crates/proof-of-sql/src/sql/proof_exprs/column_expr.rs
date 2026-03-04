@@ -1,7 +1,9 @@
 use super::ProofExpr;
 use crate::{
     base::{
-        database::{Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            Column, ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, NewColumnRef, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -16,37 +18,46 @@ use sqlparser::ast::Ident;
 /// Note: this is currently limited to named column expressions.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct ColumnExpr {
-    column_ref: ColumnRef,
+    column_ref: NewColumnRef,
 }
 
 impl ColumnExpr {
     /// Create a new column expression
     #[must_use]
-    pub fn new(column_ref: ColumnRef) -> Self {
+    pub fn new(column_ref: NewColumnRef) -> Self {
         Self { column_ref }
     }
 
     /// Return the column referenced by this [`ColumnExpr`]
     #[must_use]
-    pub fn get_column_reference(&self) -> ColumnRef {
+    pub fn get_column_reference(&self) -> NewColumnRef {
         self.column_ref.clone()
     }
 
     /// Get the column reference
     #[must_use]
-    pub fn column_ref(&self) -> &ColumnRef {
+    pub fn column_ref(&self) -> &NewColumnRef {
         &self.column_ref
     }
 
     /// Wrap the column output name and its type within the [`ColumnField`]
     #[must_use]
     pub fn get_column_field(&self) -> ColumnField {
-        ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        ColumnField::new(
+            self.column_ref.column_name(),
+            *self.column_ref.column_type(),
+        )
+    }
+
+    /// Get the column name
+    #[must_use]
+    pub fn column_name(&self) -> Ident {
+        self.column_ref.column_name()
     }
 
     /// Get the column identifier
     #[must_use]
-    pub fn column_id(&self) -> Ident {
+    pub fn column_id(&self) -> ColumnId {
         self.column_ref.column_id()
     }
 
@@ -98,7 +109,7 @@ impl ProofExpr for ColumnExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         _chi_eval: S,
         _params: &[LiteralValue],
     ) -> Result<S, ProofError> {
@@ -113,6 +124,12 @@ impl ProofExpr for ColumnExpr {
     /// references in the `BoolExpr` or forwards the call to some
     /// subsequent `bool_expr`
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        columns.insert(self.column_ref.clone());
+        if let Some(table_ref) = self.column_ref().table_ref() {
+            columns.insert(ColumnRef::new(
+                table_ref,
+                self.column_name(),
+                self.data_type(),
+            ));
+        }
     }
 }

@@ -3,8 +3,8 @@ use crate::{
     base::{
         database::{
             group_by_util::{aggregate_columns, AggregatedColumns},
-            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation,
-            TableRef,
+            Column, ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, Table,
+            TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -29,7 +29,6 @@ use bumpalo::Bump;
 use core::iter;
 use num_traits::One;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 use tracing::{span, Level};
 
 /// Provable expressions for queries of the form
@@ -47,7 +46,7 @@ use tracing::{span, Level};
 pub struct AggregateExec {
     group_by_exprs: Vec<AliasedDynProofExpr>,
     sum_expr: Vec<AliasedDynProofExpr>,
-    count_alias: Ident,
+    count_alias: ColumnId,
     input: Box<DynProofPlan>,
     where_clause: DynProofExpr,
 }
@@ -57,7 +56,7 @@ impl AggregateExec {
     pub fn try_new(
         group_by_exprs: Vec<AliasedDynProofExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
-        count_alias: Ident,
+        count_alias: ColumnId,
         input: Box<DynProofPlan>,
         where_clause: DynProofExpr,
     ) -> Option<Self> {
@@ -92,7 +91,7 @@ impl AggregateExec {
     }
 
     /// Get a reference to the count alias
-    pub fn count_alias(&self) -> &Ident {
+    pub fn count_alias(&self) -> &ColumnId {
         &self.count_alias
     }
 
@@ -120,7 +119,7 @@ impl ProofPlan for AggregateExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -131,12 +130,11 @@ impl ProofPlan for AggregateExec {
             .verifier_evaluate(builder, accessor, chi_eval_map, params)?;
         let input_chi_eval = input_eval.chi_eval();
         // Build new accessors
-        let input_schema = self.input.get_column_result_fields();
+        let input_schema = self.input.get_column_identifiers();
         // Check for tables - this is just error handling, we don't need the table ref
         let accessor = input_schema
-            .iter()
-            .zip(input_eval.column_evals())
-            .map(|(field, eval)| (field.name().clone(), *eval))
+            .into_iter()
+            .zip(input_eval.column_evals().iter().copied())
             .collect::<IndexMap<_, _>>();
 
         // Compute g_in_star
@@ -221,15 +219,34 @@ impl ProofPlan for AggregateExec {
         self.group_by_exprs
             .iter()
             .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             })
             .chain(self.sum_expr.iter().map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             }))
             .chain(iter::once(ColumnField::new(
-                self.count_alias.clone(),
+                self.count_alias.name().clone(),
                 ColumnType::BigInt,
             )))
+            .collect()
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.group_by_exprs
+            .iter()
+            .map(|aliased_expr| aliased_expr.alias.clone())
+            .chain(
+                self.sum_expr
+                    .iter()
+                    .map(|aliased_expr| aliased_expr.alias.clone()),
+            )
+            .chain(iter::once(self.count_alias().clone()))
             .collect()
     }
 
@@ -313,15 +330,12 @@ impl ProverEvaluate for AggregateExec {
             .map(|col| Column::Scalar(col))
             .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|field| field.name())
-                .zip(
-                    group_by_result_columns
-                        .iter()
-                        .copied()
-                        .chain(sum_result_columns_iter.clone()),
-                ),
+            self.get_column_identifiers().into_iter().zip(
+                group_by_result_columns
+                    .iter()
+                    .copied()
+                    .chain(sum_result_columns_iter.clone()),
+            ),
         )
         .expect("Failed to create table from column references");
         // Prove result uniqueness if possible
@@ -458,9 +472,8 @@ impl ProverEvaluate for AggregateExec {
             .chain(sum_result_columns_iter.clone())
             .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
-            self.get_column_result_fields()
+            self.get_column_identifiers()
                 .into_iter()
-                .map(|field| field.name())
                 .zip(columns.clone()),
         )
         .expect("Failed to create table from column references");

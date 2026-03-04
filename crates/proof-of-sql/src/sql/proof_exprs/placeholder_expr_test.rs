@@ -181,7 +181,7 @@ fn we_can_compute_the_correct_output_of_a_placeholder_expr_using_first_round_eva
 #[test]
 fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
+    let data: Table<Curve25519Scalar> = table([borrowed_bigint("sxt.t.a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
@@ -198,7 +198,7 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
 #[test]
 fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
+    let data: Table<Curve25519Scalar> = table([borrowed_bigint("sxt.t.a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
@@ -224,7 +224,7 @@ fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
 #[test]
 fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_same_valid_params() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64, 456], &alloc)]);
+    let data: Table<Curve25519Scalar> = table([borrowed_bigint("sxt.t.a", [123_i64, 456], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(

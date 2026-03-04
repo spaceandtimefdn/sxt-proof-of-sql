@@ -1,6 +1,8 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef,
+        },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -12,7 +14,6 @@ use crate::{
 use alloc::vec::Vec;
 use bumpalo::Bump;
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DemoMockPlan {
@@ -23,7 +24,7 @@ impl ProofPlan for DemoMockPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -37,7 +38,7 @@ impl ProofPlan for DemoMockPlan {
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         vec![ColumnField::new(
-            self.column.column_id(),
+            self.column.column_name(),
             *self.column.column_type(),
         )]
     }
@@ -48,6 +49,10 @@ impl ProofPlan for DemoMockPlan {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset! {self.column.table_ref()}
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec![self.column.column_id()]
     }
 }
 
@@ -79,10 +84,12 @@ impl ProverEvaluate for DemoMockPlan {
 
 mod tests {
     use super::DemoMockPlan;
+    #[cfg(feature = "blitzar")]
+    use crate::base::database::ColumnRef;
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            ColumnType, OwnedTableTestAccessor, TableRef,
         },
         sql::proof::VerifiableQueryResult,
     };

@@ -8,10 +8,9 @@ use datafusion::{
     physical_plan,
 };
 use proof_of_sql::{
-    base::database::{ColumnType, LiteralValue},
+    base::database::{ColumnId, ColumnType, LiteralValue},
     sql::proof_exprs::DynProofExpr,
 };
-use sqlparser::ast::Ident;
 
 /// An aggregate function we support
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,7 +26,7 @@ pub enum AggregateFunc {
 /// TODO: Some moderate changes are necessary once we upgrade `DataFusion` to 46.0.0
 pub(crate) fn aggregate_function_to_proof_expr(
     function: &AggregateFunction,
-    schema: &[(Ident, ColumnType)],
+    schema: &[(ColumnId, ColumnType)],
 ) -> PlannerResult<(AggregateFunc, DynProofExpr)> {
     match function {
         AggregateFunction {
@@ -64,13 +63,13 @@ pub(crate) fn aggregate_function_to_proof_expr(
 mod tests {
     use super::*;
     use crate::df_util::*;
-    use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
+    use proof_of_sql::base::database::{ColumnType, NewColumnRef, TableRef};
 
     // AggregateFunction to DynProofExpr
     #[test]
     fn we_can_convert_an_aggregate_function_to_proof_expr() {
         let expr = df_column("table", "a");
-        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let schema: Vec<(ColumnId, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
         for (function, operator) in &[
             (
                 physical_plan::aggregates::AggregateFunction::Sum,
@@ -93,8 +92,8 @@ mod tests {
                 aggregate_function_to_proof_expr(&function, &schema).unwrap(),
                 (
                     *operator,
-                    DynProofExpr::new_column(ColumnRef::new(
-                        TableRef::from_names(None, "table"),
+                    DynProofExpr::new_column(NewColumnRef::new(
+                        Some(TableRef::from_names(None, "table")),
                         "a".into(),
                         ColumnType::BigInt
                     ))
@@ -108,7 +107,7 @@ mod tests {
         use proof_of_sql::base::database::LiteralValue;
 
         let wildcard_expr = Expr::Wildcard { qualifier: None };
-        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let schema: Vec<(ColumnId, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
         let function = AggregateFunction::new(
             physical_plan::aggregates::AggregateFunction::Count,
             vec![wildcard_expr],

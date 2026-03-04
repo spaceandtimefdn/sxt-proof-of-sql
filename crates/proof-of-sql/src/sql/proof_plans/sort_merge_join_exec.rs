@@ -7,7 +7,8 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -29,7 +30,6 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bumpalo::Bump;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 use tracing::{span, Level};
 
 /// `ProofPlan` for queries of the form
@@ -45,7 +45,6 @@ pub struct SortMergeJoinExec {
     pub(super) left_join_column_indexes: Vec<usize>,
     // `j_r` in the protocol
     pub(super) right_join_column_indexes: Vec<usize>,
-    pub(super) result_idents: Vec<Ident>,
 }
 
 impl SortMergeJoinExec {
@@ -62,7 +61,6 @@ impl SortMergeJoinExec {
         right: Box<DynProofPlan>,
         left_join_column_indexes: Vec<usize>,
         right_join_column_indexes: Vec<usize>,
-        result_idents: Vec<Ident>,
     ) -> Self {
         let num_columns_left = left.get_column_result_fields().len();
         let num_columns_right = right.get_column_result_fields().len();
@@ -78,16 +76,11 @@ impl SortMergeJoinExec {
             (num_join_columns == right_join_column_indexes.len()),
             "Join columns should have the same number of columns"
         );
-        assert!(
-            (result_idents.len() == num_columns_left + num_columns_right - num_join_columns),
-            "The amount of result idents should be the same as the expected number of columns"
-        );
         Self {
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
-            result_idents,
         }
     }
 
@@ -105,10 +98,6 @@ impl SortMergeJoinExec {
 
     pub(crate) fn right_join_column_indexes(&self) -> &Vec<usize> {
         &self.right_join_column_indexes
-    }
-
-    pub(crate) fn result_idents(&self) -> &Vec<Ident> {
-        &self.result_idents
     }
 }
 
@@ -145,7 +134,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -254,7 +243,9 @@ where
         // 9. Return the result
         // Drop the two rho columns of `\hat{J}` to get `J`
         let res_column_evals = res_u_column_evals
-            .into_iter()
+            .iter()
+            .copied()
+            .chain(res_u_column_evals.iter().copied())
             .chain(res_left_column_evals)
             .chain(res_right_column_evals)
             .collect();
@@ -273,6 +264,11 @@ where
             &self.left_join_column_indexes,
         )
         .expect("Indexes can not be out of bounds");
+        let right_join_column_fields = apply_slice_to_indexes(
+            &self.right.get_column_result_fields(),
+            &self.right_join_column_indexes,
+        )
+        .expect("Indexes can not be out of bounds");
         let left_other_column_fields = apply_slice_to_indexes(
             &self.left.get_column_result_fields(),
             &left_other_column_indexes,
@@ -283,16 +279,11 @@ where
             &right_other_column_indexes,
         )
         .expect("Indexes can not be out of bounds");
-        let column_types = left_join_column_fields
-            .iter()
-            .chain(left_other_column_fields.iter())
-            .chain(right_other_column_fields.iter())
-            .map(ColumnField::data_type)
-            .collect::<Vec<_>>();
-        self.result_idents
-            .iter()
-            .zip_eq(column_types)
-            .map(|(ident, column_type)| ColumnField::new(ident.clone(), column_type))
+        left_join_column_fields
+            .into_iter()
+            .chain(right_join_column_fields)
+            .chain(left_other_column_fields)
+            .chain(right_other_column_fields)
             .collect()
     }
 
@@ -309,6 +300,35 @@ where
             .get_table_references()
             .into_iter()
             .chain(self.right.get_table_references())
+            .collect()
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        let left_column_identifiers = self.left.get_column_identifiers();
+        let right_column_identifiers = self.right.get_column_identifiers();
+        let left_other_column_indexes = (0..left_column_identifiers.len())
+            .filter(|i| !self.left_join_column_indexes.contains(i))
+            .collect::<Vec<_>>();
+        let right_other_column_indexes = (0..right_column_identifiers.len())
+            .filter(|i| !self.right_join_column_indexes.contains(i))
+            .collect::<Vec<_>>();
+        let left_join_column_fields =
+            apply_slice_to_indexes(&left_column_identifiers, &self.left_join_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        let right_join_column_fields =
+            apply_slice_to_indexes(&right_column_identifiers, &self.right_join_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        let left_other_column_fields =
+            apply_slice_to_indexes(&left_column_identifiers, &left_other_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        let right_other_column_fields =
+            apply_slice_to_indexes(&right_column_identifiers, &right_other_column_indexes)
+                .expect("Indexes can not be out of bounds");
+        left_join_column_fields
+            .into_iter()
+            .chain(right_join_column_fields)
+            .chain(left_other_column_fields)
+            .chain(right_other_column_fields)
             .collect()
     }
 }
@@ -425,9 +445,8 @@ impl ProverEvaluate for SortMergeJoinExec {
         first_round_evaluate_membership_check(builder, alloc, &u, &c_r);
         // 5. Return join result
         let tab = Table::try_from_iter_with_options(
-            self.result_idents
-                .iter()
-                .cloned()
+            self.get_column_identifiers()
+                .into_iter()
                 .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )
@@ -575,9 +594,8 @@ impl ProverEvaluate for SortMergeJoinExec {
 
         // 6. Return join result
         Ok(Table::try_from_iter_with_options(
-            self.result_idents
-                .iter()
-                .cloned()
+            self.get_column_identifiers()
+                .into_iter()
                 .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )

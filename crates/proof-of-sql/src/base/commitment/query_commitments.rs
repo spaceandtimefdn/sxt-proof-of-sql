@@ -42,7 +42,10 @@ impl<C: Commitment> QueryCommitmentsExt<C> for QueryCommitments<C> {
                     table_columns
                         .entry(column.table_ref())
                         .or_default()
-                        .push(ColumnField::new(column.column_id(), *column.column_type()));
+                        .push(ColumnField::new(
+                            column.column_name(),
+                            *column.column_type(),
+                        ));
                     table_columns
                 },
             )

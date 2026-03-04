@@ -11,10 +11,13 @@ mod column_type;
 pub use column_type::ColumnType;
 
 mod column_ref;
-pub use column_ref::ColumnRef;
+pub use column_ref::{ColumnRef, NewColumnRef};
 
 mod column_field;
 pub use column_field::ColumnField;
+
+mod column_id;
+pub use column_id::ColumnId;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;

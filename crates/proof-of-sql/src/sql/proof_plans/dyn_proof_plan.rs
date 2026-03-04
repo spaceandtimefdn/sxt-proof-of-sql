@@ -4,7 +4,10 @@ use super::{
 };
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{
+            ColumnField, ColumnId, ColumnRef, LiteralValue, NewColumnRef, Table, TableEvaluation,
+            TableRef,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -137,7 +140,7 @@ impl DynProofPlan {
     pub fn try_new_aggregate(
         group_by_exprs: Vec<AliasedDynProofExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
-        count_alias: Ident,
+        count_alias: ColumnId,
         input: DynProofPlan,
         where_clause: DynProofExpr,
     ) -> Option<Self> {
@@ -177,10 +180,10 @@ impl DynProofPlan {
     }
 
     /// Returns the resulting column fields of the plan as column references
-    pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<ColumnRef> {
+    pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<NewColumnRef> {
         self.get_column_result_fields()
             .into_iter()
-            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
+            .map(|f| NewColumnRef::new(None, f.name(), f.data_type()))
             .collect()
     }
 }

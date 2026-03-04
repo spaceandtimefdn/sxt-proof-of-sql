@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{Column, LiteralValue, Table},
+        database::{Column, ColumnId, LiteralValue, Table},
         map::IndexMap,
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -14,7 +14,6 @@ use crate::{
 use alloc::boxed::Box;
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// TODO: This struct is only partially complete. This should not be used yet. Several constraints still need to be added.
 /// A gadget for proving divide and modulo expressions in tandem.
@@ -119,7 +118,7 @@ impl DivideAndModuloExpr {
     fn verifier_evaluate<S: Scalar, B: VerificationBuilder<S>>(
         &self,
         builder: &mut B,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         one_eval: S,
         params: &[LiteralValue],
     ) -> Result<(S, S), ProofError> {
@@ -143,7 +142,7 @@ mod tests {
     use super::DivideAndModuloExpr;
     use crate::{
         base::{
-            database::{Column, ColumnRef, ColumnType, Table, TableRef},
+            database::{Column, ColumnType, NewColumnRef, Table, TableRef},
             map::indexmap,
             polynomial::MultilinearExtension,
             scalar::test_scalar::TestScalar,
@@ -166,8 +165,12 @@ mod tests {
         let table_ref: TableRef = "sxt.t".parse().unwrap();
         let lhs_ident = Ident::from("lhs");
         let rhs_ident = Ident::from("rhs");
-        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
-        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
+        let lhs_ref = NewColumnRef::new(
+            Some(table_ref.clone()),
+            lhs_ident.clone(),
+            ColumnType::Int128,
+        );
+        let rhs_ref = NewColumnRef::new(Some(table_ref), rhs_ident.clone(), ColumnType::Int128);
         let divide_and_modulo_expr = DivideAndModuloExpr::new(
             Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
             Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
@@ -177,8 +180,8 @@ mod tests {
         let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(lhs.len());
         let mut final_round_builder = FinalRoundBuilder::new(lhs.len(), VecDeque::new());
         let table = Table::try_new(indexmap! {
-            lhs_ident => Column::Int128::<TestScalar>(lhs),
-            rhs_ident => Column::Int128::<TestScalar>(rhs),
+            lhs_ident.into() => Column::Int128::<TestScalar>(lhs),
+            rhs_ident.into() => Column::Int128::<TestScalar>(rhs),
         })
         .unwrap();
         divide_and_modulo_expr

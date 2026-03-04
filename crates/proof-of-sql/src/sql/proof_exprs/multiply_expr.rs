@@ -1,7 +1,9 @@
 use super::{DecimalProofExpr, DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{try_multiply_column_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            try_multiply_column_types, Column, ColumnId, ColumnRef, ColumnType, LiteralValue, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -16,7 +18,6 @@ use crate::{
 use alloc::{boxed::Box, string::ToString, vec};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable numerical * expression
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -106,7 +107,7 @@ impl ProofExpr for MultiplyExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {
