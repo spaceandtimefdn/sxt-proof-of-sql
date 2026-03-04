@@ -483,6 +483,37 @@ fn test_coin() {
 }
 
 #[test]
+fn test_timestamp() {
+    let alloc = Bump::new();
+    let sql = "SELECT CAST(timestamp as bigint) AS cast_timestamp FROM transactions WHERE timestamp <= '2026-03-01';";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "transactions") => table(
+            vec![
+                borrowed_timestamptz("timestamp", PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), [1_740_787_100_000, 1_840_787_300_000], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([bigint(
+        "cast_timestamp",
+        [1_740_787_100_000i64],
+    )])];
+
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[LiteralValue::VarChar("0x2".to_string())],
+    );
+}
+
+#[test]
 fn test_join() {
     let alloc = Bump::new();
     let sql = "SELECT column1, column2, column3 FROM table1 JOIN table2 ON table1.common_column = table2.common_column JOIN table3 on table3.another_column = table2.another_column;
