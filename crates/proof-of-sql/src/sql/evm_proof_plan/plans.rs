@@ -1,7 +1,7 @@
 use super::{EVMDynProofExpr, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, TableRef},
+        database::{ColumnField, ColumnRef, NewColumnRef, TableRef},
         map::IndexSet,
     },
     sql::{
@@ -174,7 +174,9 @@ impl EVMTableExec {
             column_numbers: column_refs
                 .iter()
                 .enumerate()
-                .filter_map(|(i, col_ref)| (&col_ref.table_ref() == plan.table_ref()).then_some(i))
+                .filter_map(|(i, col_ref)| {
+                    (col_ref.table_ref() == plan.table_ref().clone()).then_some(i)
+                })
                 .collect(),
         })
     }
@@ -260,9 +262,14 @@ impl EVMLegacyFilterExec {
             results: plan
                 .aliased_results()
                 .iter()
-                .map(|result| EVMDynProofExpr::try_from_proof_expr(&result.expr, column_refs))
+                .map(|result| {
+                    EVMDynProofExpr::try_from_proof_expr_with_column_refs(&result.expr, column_refs)
+                })
                 .collect::<Result<_, _>>()?,
-            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+            where_clause: EVMDynProofExpr::try_from_proof_expr_with_column_refs(
+                plan.where_clause(),
+                column_refs,
+            )?,
         })
     }
 
@@ -280,7 +287,7 @@ impl EVMLegacyFilterExec {
                 .zip(output_column_names.iter())
                 .map(|(expr, name)| {
                     Ok(AliasedDynProofExpr {
-                        expr: expr.try_into_proof_expr(column_refs)?,
+                        expr: expr.try_into_proof_expr_with_column_refs(column_refs)?,
                         alias: name.into(),
                     })
                 })
@@ -291,7 +298,8 @@ impl EVMLegacyFilterExec {
                     .cloned()
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
-            self.where_clause.try_into_proof_expr(column_refs)?,
+            self.where_clause
+                .try_into_proof_expr_with_column_refs(column_refs)?,
         ))
     }
 }
@@ -482,6 +490,16 @@ impl EVMGroupByExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        let column_refs: IndexSet<_> = column_refs
+            .iter()
+            .map(|col_ref| {
+                NewColumnRef::new(
+                    Some(col_ref.table_ref()),
+                    col_ref.column_name(),
+                    *col_ref.column_type(),
+                )
+            })
+            .collect();
         // Map column expressions to their indices in column_refs
         let group_by_exprs = plan
             .group_by_exprs()
@@ -502,11 +520,11 @@ impl EVMGroupByExec {
                 .sum_expr()
                 .iter()
                 .map(|aliased_expr| {
-                    EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, column_refs)
+                    EVMDynProofExpr::try_from_proof_expr(&aliased_expr.expr, &column_refs)
                 })
                 .collect::<Result<_, _>>()?,
             count_alias_name: plan.count_alias().value.clone(),
-            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), column_refs)?,
+            where_clause: EVMDynProofExpr::try_from_proof_expr(plan.where_clause(), &column_refs)?,
         })
     }
 
@@ -520,6 +538,16 @@ impl EVMGroupByExec {
         column_refs: &IndexSet<ColumnRef>,
         output_column_names: Option<&IndexSet<String>>,
     ) -> EVMProofPlanResult<GroupByExec> {
+        let column_refs: IndexSet<_> = column_refs
+            .iter()
+            .map(|col_ref| {
+                NewColumnRef::new(
+                    Some(col_ref.table_ref()),
+                    col_ref.column_name(),
+                    *col_ref.column_type(),
+                )
+            })
+            .collect();
         let grouping_column_count = self.group_by_exprs.len();
         let required_alias_count = grouping_column_count + self.sum_expr.len() + 1;
         let output_column_names =
@@ -545,7 +573,7 @@ impl EVMGroupByExec {
             .map(
                 |(expr, alias_name)| -> EVMProofPlanResult<AliasedDynProofExpr> {
                     Ok(AliasedDynProofExpr {
-                        expr: expr.try_into_proof_expr(column_refs)?,
+                        expr: expr.try_into_proof_expr(&column_refs)?,
                         alias: alias_name.into(),
                     })
                 },
@@ -571,7 +599,7 @@ impl EVMGroupByExec {
                     .cloned()
                     .ok_or(EVMProofPlanError::TableNotFound)?,
             },
-            self.where_clause.try_into_proof_expr(column_refs)?,
+            self.where_clause.try_into_proof_expr(&column_refs)?,
         )
         .ok_or(EVMProofPlanError::NotSupported)
     }
@@ -622,7 +650,7 @@ impl EVMAggregateExec {
                     )
                 })
                 .collect::<Result<_, _>>()?,
-            count_alias_name: plan.count_alias().value.clone(),
+            count_alias_name: plan.count_alias().name().value.clone(),
             where_clause: EVMDynProofExpr::try_from_proof_expr(
                 plan.where_clause(),
                 &input_result_column_refs,
@@ -690,7 +718,7 @@ impl EVMAggregateExec {
         AggregateExec::try_new(
             group_by_exprs,
             sum_expr,
-            Ident::new(&self.count_alias_name),
+            (&self.count_alias_name).into(),
             Box::new(input),
             self.where_clause
                 .try_into_proof_expr(&input_result_column_refs)?,
@@ -751,6 +779,7 @@ pub(crate) struct EVMSortMergeJoinExec {
     right: Box<EVMDynProofPlan>,
     left_join_column_indexes: Vec<usize>,
     right_join_column_indexes: Vec<usize>,
+    /// This is a meaningless field at this point. For now we leave so as to not interfere with on cahin deserialization
     result_aliases: Vec<String>,
 }
 
@@ -772,18 +801,13 @@ impl EVMSortMergeJoinExec {
         )?);
         let left_join_column_indexes = plan.left_join_column_indexes().clone();
         let right_join_column_indexes = plan.right_join_column_indexes().clone();
-        let result_aliases = plan
-            .result_idents()
-            .iter()
-            .map(|id| id.value.clone())
-            .collect();
 
         Ok(Self {
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
-            result_aliases,
+            result_aliases: Vec::new(),
         })
     }
 
@@ -802,14 +826,12 @@ impl EVMSortMergeJoinExec {
         );
         let left_join_column_indexes = self.left_join_column_indexes.clone();
         let right_join_column_indexes = self.right_join_column_indexes.clone();
-        let result_idents = self.result_aliases.iter().map(Ident::new).collect();
 
         Ok(SortMergeJoinExec::new(
             left,
             right,
             left_join_column_indexes,
             right_join_column_indexes,
-            result_idents,
         ))
     }
 }
@@ -853,7 +875,11 @@ mod tests {
         // Create a projection exec
         let projection_exec = ProjectionExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
+                    ident_b.clone(),
+                    ColumnType::BigInt,
+                ))),
                 alias: (&alias).into(),
             }],
             Box::new(DynProofPlan::Table(table_exec)),
@@ -1062,16 +1088,20 @@ mod tests {
     #[test]
     fn we_can_put_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
-        let ident_a = "a".into();
-        let ident_b = "b".into();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         let filter_exec = LegacyFilterExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&alias).into(),
             }],
             TableExpr {
@@ -1079,7 +1109,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1137,13 +1167,17 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![ColumnExpr::new(new_column_ref_a.clone())],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias.clone()),
@@ -1152,7 +1186,9 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(
+                        new_column_ref_a.clone(),
+                    ))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1201,7 +1237,7 @@ mod tests {
         assert_eq!(roundtripped_group_by_exec.group_by_exprs().len(), 1);
         assert_eq!(
             roundtripped_group_by_exec.group_by_exprs()[0].get_column_reference(),
-            column_ref_a
+            new_column_ref_a
         );
         assert_eq!(roundtripped_group_by_exec.sum_expr().len(), 1);
         assert!(matches!(
@@ -1227,14 +1263,21 @@ mod tests {
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
-        let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
+        let new_missing_column = NewColumnRef::new(
+            Some(table_ref.clone()),
+            missing_ident.clone(),
+            ColumnType::BigInt,
+        );
 
         // Create a group by exec with a column that doesn't exist in column_refs
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(missing_column)],
+            vec![ColumnExpr::new(new_missing_column)],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias),
@@ -1243,7 +1286,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1272,13 +1315,17 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a group by exec with a table that doesn't exist in table_refs
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![ColumnExpr::new(new_column_ref_a.clone())],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias),
@@ -1287,7 +1334,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1315,13 +1362,17 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![ColumnExpr::new(new_column_ref_a.clone())],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias.clone()),
@@ -1330,7 +1381,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1371,13 +1422,17 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![ColumnExpr::new(new_column_ref_a.clone())],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias.clone()),
@@ -1386,7 +1441,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1427,13 +1482,17 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a valid group by exec first
         let group_by_exec = GroupByExec::try_new(
-            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![ColumnExpr::new(new_column_ref_a.clone())],
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b.clone())),
                 alias: (&sum_alias).into(),
             }],
             Ident::new(count_alias.clone()),
@@ -1442,7 +1501,7 @@ mod tests {
             },
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1526,13 +1585,13 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::from_names(None, ""),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                                None,
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::from_names(None, ""),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                                None,
                                 ident_b.clone(),
                                 ColumnType::BigInt,
                             )))),
@@ -1550,13 +1609,13 @@ mod tests {
                 vec![AliasedDynProofExpr {
                     expr: DynProofExpr::Add(
                         AddExpr::try_new(
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::from_names(None, ""),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                                None,
                                 ident_a.clone(),
                                 ColumnType::BigInt,
                             )))),
-                            Box::new(DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                                TableRef::from_names(None, ""),
+                            Box::new(DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                                None,
                                 ident_b.clone(),
                                 ColumnType::BigInt,
                             )))),
@@ -1607,7 +1666,6 @@ mod tests {
         let right_table_ref: TableRef = "namespace.right_table".parse().unwrap();
         let ident_a: Ident = "a".into();
         let ident_b: Ident = "b".into();
-        let ident_c: Ident = "c".into();
 
         let left_column_ref_a =
             ColumnRef::new(left_table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
@@ -1637,7 +1695,6 @@ mod tests {
             )),
             vec![0],
             vec![0],
-            vec![ident_a, ident_b, ident_c],
         ));
         let output_column_names = sort_merge_join_exec
             .get_column_result_fields()
@@ -1667,12 +1724,16 @@ mod tests {
     #[test]
     fn we_can_put_simple_filter_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
-        let ident_a = "a".into();
-        let ident_b = "b".into();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
         let alias = "alias".to_string();
 
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -1684,13 +1745,13 @@ mod tests {
         // Create a filter exec
         let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&alias).into(),
             }],
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -1755,7 +1816,11 @@ mod tests {
         let ident_c: Ident = "c".into();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec
         let column_fields = vec![
@@ -1771,18 +1836,18 @@ mod tests {
         let filter_exec = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_a)),
                     alias: (&ident_a).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b.clone())),
                     alias: (&ident_c).into(),
                 },
             ],
             Box::new(DynProofPlan::Slice(slice_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_b))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(42),
                     ))),
@@ -1838,11 +1903,19 @@ mod tests {
         let alias_3 = "result_3";
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
         let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+        let new_column_ref_c =
+            NewColumnRef::new(Some(table_ref.clone()), ident_c.clone(), ColumnType::BigInt);
 
-        let column_ref_1 = ColumnRef::new(table_ref.clone(), alias_1.into(), ColumnType::BigInt);
-        let column_ref_2 = ColumnRef::new(table_ref.clone(), alias_2.into(), ColumnType::BigInt);
+        let column_ref_1 =
+            NewColumnRef::new(Some(table_ref.clone()), alias_1.into(), ColumnType::BigInt);
+        let column_ref_2 =
+            NewColumnRef::new(Some(table_ref.clone()), alias_2.into(), ColumnType::BigInt);
 
         // Create a table exec as the base
         let column_fields = vec![
@@ -1856,22 +1929,24 @@ mod tests {
         let filter_1 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_a.clone())),
                     alias: alias_1.into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b.clone())),
                     alias: (&ident_b).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_c.clone())),
                     alias: (&ident_c).into(),
                 },
             ],
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(
+                        new_column_ref_a.clone(),
+                    ))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(10),
                     ))),
@@ -1888,18 +1963,18 @@ mod tests {
                     alias: (&ident_a).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b.clone())),
                     alias: alias_2.into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_c.clone())),
                     alias: (&ident_c).into(),
                 },
             ],
             Box::new(DynProofPlan::Filter(filter_1)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_b))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(20),
                     ))),
@@ -1912,7 +1987,7 @@ mod tests {
         let filter_3 = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_a)),
                     alias: (&ident_a).into(),
                 },
                 AliasedDynProofExpr {
@@ -1920,14 +1995,14 @@ mod tests {
                     alias: (&ident_b).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_c.clone())),
                     alias: alias_3.into(),
                 },
             ],
             Box::new(DynProofPlan::Filter(filter_2)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_c))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(30),
                     ))),
@@ -2011,8 +2086,13 @@ mod tests {
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
-        let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
+        let new_missing_column = NewColumnRef::new(
+            Some(table_ref.clone()),
+            missing_ident.clone(),
+            ColumnType::BigInt,
+        );
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -2024,13 +2104,13 @@ mod tests {
         // Create a filter exec with a where clause that references a missing column
         let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&alias).into(),
             }],
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(missing_column))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_missing_column))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -2058,8 +2138,13 @@ mod tests {
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
-        let missing_column =
-            ColumnRef::new(table_ref.clone(), missing_ident.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
+        let new_missing_column = NewColumnRef::new(
+            Some(table_ref.clone()),
+            missing_ident.clone(),
+            ColumnType::BigInt,
+        );
 
         // Create a table exec to use as the input
         let column_fields = vec![
@@ -2071,13 +2156,13 @@ mod tests {
         // Create a filter exec with a result that references a missing column
         let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(missing_column)),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_missing_column)),
                 alias: (&alias).into(),
             }],
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -2104,7 +2189,11 @@ mod tests {
         let alias = "alias".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec with a missing table reference
         let column_fields = vec![
@@ -2116,13 +2205,13 @@ mod tests {
         // Create a filter exec
         let filter_exec = FilterExec::new(
             vec![AliasedDynProofExpr {
-                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                 alias: (&alias).into(),
             }],
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Equals(
                 EqualsExpr::try_new(
-                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(new_column_ref_a))),
                     Box::new(DynProofExpr::Literal(LiteralExpr::new(
                         LiteralValue::BigInt(5),
                     ))),
@@ -2159,16 +2248,8 @@ mod tests {
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
         // Create output column refs for aggregate (these come from the table's output)
-        let output_col_a = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_a.clone(),
-            ColumnType::BigInt,
-        );
-        let output_col_b = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_b.clone(),
-            ColumnType::BigInt,
-        );
+        let output_col_a = NewColumnRef::new(None, ident_a.clone(), ColumnType::BigInt);
+        let output_col_b = NewColumnRef::new(None, ident_b.clone(), ColumnType::BigInt);
 
         // Create an aggregate exec
         let aggregate_exec = AggregateExec::try_new(
@@ -2180,7 +2261,7 @@ mod tests {
                 expr: DynProofExpr::Column(ColumnExpr::new(output_col_b.clone())),
                 alias: (&sum_alias).into(),
             }],
-            Ident::new(count_alias.clone()),
+            (&count_alias).into(),
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
         )
@@ -2236,8 +2317,14 @@ mod tests {
         let count_alias = "count".to_string();
 
         let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let new_column_ref_a =
+            NewColumnRef::new(Some(table_ref.clone()), ident_a.clone(), ColumnType::BigInt);
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let new_column_ref_b =
+            NewColumnRef::new(Some(table_ref.clone()), ident_b.clone(), ColumnType::BigInt);
         let column_ref_c = ColumnRef::new(table_ref.clone(), ident_c.clone(), ColumnType::BigInt);
+        let new_column_ref_c =
+            NewColumnRef::new(Some(table_ref.clone()), ident_c.clone(), ColumnType::BigInt);
 
         // Create a table exec
         let column_fields = vec![
@@ -2251,15 +2338,15 @@ mod tests {
         let filter_exec = FilterExec::new(
             vec![
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_a)),
                     alias: (&ident_a).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_b)),
                     alias: (&ident_b).into(),
                 },
                 AliasedDynProofExpr {
-                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_c.clone())),
+                    expr: DynProofExpr::Column(ColumnExpr::new(new_column_ref_c)),
                     alias: (&ident_c).into(),
                 },
             ],
@@ -2268,21 +2355,9 @@ mod tests {
         );
 
         // Output columns from filter (used by aggregate)
-        let filter_output_col_a = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_a.clone(),
-            ColumnType::BigInt,
-        );
-        let filter_output_col_b = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_b.clone(),
-            ColumnType::BigInt,
-        );
-        let filter_output_col_c = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_c.clone(),
-            ColumnType::BigInt,
-        );
+        let filter_output_col_a = NewColumnRef::new(None, ident_a.clone(), ColumnType::BigInt);
+        let filter_output_col_b = NewColumnRef::new(None, ident_b.clone(), ColumnType::BigInt);
+        let filter_output_col_c = NewColumnRef::new(None, ident_c.clone(), ColumnType::BigInt);
 
         // Create an aggregate exec with the filter as input
         let aggregate_exec = AggregateExec::try_new(
@@ -2300,7 +2375,7 @@ mod tests {
                     alias: (&sum_alias_c).into(),
                 },
             ],
-            Ident::new(count_alias.clone()),
+            (&count_alias).into(),
             Box::new(DynProofPlan::Filter(filter_exec)),
             DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
         )
@@ -2359,16 +2434,8 @@ mod tests {
         let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
 
         // Output columns (from table's perspective)
-        let output_col_a = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_a.clone(),
-            ColumnType::BigInt,
-        );
-        let output_col_b = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_b.clone(),
-            ColumnType::BigInt,
-        );
+        let output_col_a = NewColumnRef::new(None, ident_a.clone(), ColumnType::BigInt);
+        let output_col_b = NewColumnRef::new(None, ident_b.clone(), ColumnType::BigInt);
 
         // Create a table exec with a missing table reference
         let column_fields = vec![
@@ -2387,7 +2454,7 @@ mod tests {
                 expr: DynProofExpr::Column(ColumnExpr::new(output_col_b)),
                 alias: (&sum_alias).into(),
             }],
-            Ident::new(count_alias),
+            (&count_alias).into(),
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
         )
@@ -2421,16 +2488,8 @@ mod tests {
         let table_exec = TableExec::new(table_ref.clone(), column_fields);
 
         // Output columns
-        let output_col_a = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_a.clone(),
-            ColumnType::BigInt,
-        );
-        let output_col_b = ColumnRef::new(
-            TableRef::from_names(None, ""),
-            ident_b.clone(),
-            ColumnType::BigInt,
-        );
+        let output_col_a = NewColumnRef::new(None, ident_a.clone(), ColumnType::BigInt);
+        let output_col_b = NewColumnRef::new(None, ident_b.clone(), ColumnType::BigInt);
 
         // Create an aggregate exec
         let aggregate_exec = AggregateExec::try_new(
@@ -2442,7 +2501,7 @@ mod tests {
                 expr: DynProofExpr::Column(ColumnExpr::new(output_col_b)),
                 alias: (&sum_alias).into(),
             }],
-            Ident::new(count_alias.clone()),
+            (&count_alias).into(),
             Box::new(DynProofPlan::Table(table_exec)),
             DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
         )

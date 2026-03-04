@@ -29,7 +29,6 @@ use bumpalo::Bump;
 use core::iter;
 use num_traits::One;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 use tracing::{span, Level};
 
 /// Provable expressions for queries of the form
@@ -47,7 +46,7 @@ use tracing::{span, Level};
 pub struct AggregateExec {
     group_by_exprs: Vec<AliasedDynProofExpr>,
     sum_expr: Vec<AliasedDynProofExpr>,
-    count_alias: Ident,
+    count_alias: ColumnId,
     input: Box<DynProofPlan>,
     where_clause: DynProofExpr,
 }
@@ -57,7 +56,7 @@ impl AggregateExec {
     pub fn try_new(
         group_by_exprs: Vec<AliasedDynProofExpr>,
         sum_expr: Vec<AliasedDynProofExpr>,
-        count_alias: Ident,
+        count_alias: ColumnId,
         input: Box<DynProofPlan>,
         where_clause: DynProofExpr,
     ) -> Option<Self> {
@@ -92,7 +91,7 @@ impl AggregateExec {
     }
 
     /// Get a reference to the count alias
-    pub fn count_alias(&self) -> &Ident {
+    pub fn count_alias(&self) -> &ColumnId {
         &self.count_alias
     }
 
@@ -232,7 +231,7 @@ impl ProofPlan for AggregateExec {
                 )
             }))
             .chain(iter::once(ColumnField::new(
-                self.count_alias.clone(),
+                self.count_alias.name().clone(),
                 ColumnType::BigInt,
             )))
             .collect()
@@ -247,7 +246,7 @@ impl ProofPlan for AggregateExec {
                     .iter()
                     .map(|aliased_expr| aliased_expr.alias.clone()),
             )
-            .chain(iter::once((&self.count_alias).into()))
+            .chain(iter::once(self.count_alias().clone()))
             .collect()
     }
 

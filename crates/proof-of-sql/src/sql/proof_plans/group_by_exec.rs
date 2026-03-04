@@ -229,7 +229,7 @@ impl ProofPlan for GroupByExec {
         let mut columns = IndexSet::default();
 
         for col in &self.group_by_exprs {
-            columns.insert(col.get_column_reference());
+            col.get_column_references(&mut columns);
         }
         for aliased_expr in &self.sum_expr {
             aliased_expr.expr.get_column_references(&mut columns);

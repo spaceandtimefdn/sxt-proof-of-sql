@@ -1,7 +1,7 @@
 use super::{EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnRef, ColumnType, LiteralValue, NewColumnRef},
         map::IndexSet,
     },
     sql::proof_exprs::{
@@ -31,10 +31,27 @@ pub(crate) enum EVMDynProofExpr {
     ScalingCast(EVMScalingCastExpr),
 }
 impl EVMDynProofExpr {
+    pub(crate) fn try_from_proof_expr_with_column_refs(
+        expr: &DynProofExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        let column_refs: IndexSet<_> = column_refs
+            .iter()
+            .map(|col_ref| {
+                NewColumnRef::new(
+                    Some(col_ref.table_ref()),
+                    col_ref.column_name(),
+                    *col_ref.column_type(),
+                )
+            })
+            .collect();
+        EVMDynProofExpr::try_from_proof_expr(expr, &column_refs)
+    }
+
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &DynProofExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         match expr {
             DynProofExpr::Column(column_expr) => {
@@ -81,9 +98,26 @@ impl EVMDynProofExpr {
         }
     }
 
-    pub(crate) fn try_into_proof_expr(
+    pub(crate) fn try_into_proof_expr_with_column_refs(
         &self,
         column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<DynProofExpr> {
+        let column_refs: IndexSet<_> = column_refs
+            .iter()
+            .map(|col_ref| {
+                NewColumnRef::new(
+                    Some(col_ref.table_ref()),
+                    col_ref.column_name(),
+                    *col_ref.column_type(),
+                )
+            })
+            .collect();
+        self.try_into_proof_expr(&column_refs)
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<DynProofExpr> {
         match self {
             EVMDynProofExpr::Column(column_expr) => Ok(DynProofExpr::Column(
@@ -144,14 +178,14 @@ impl EVMColumnExpr {
     /// Try to create a `EVMColumnExpr` from a `ColumnExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &ColumnExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             column_number: column_refs
                 .get_index_of(expr.column_ref())
                 .or_else(|| {
-                    column_refs.get_index_of(&ColumnRef::new(
-                        TableRef::from_names(None, ""),
+                    column_refs.get_index_of(&NewColumnRef::new(
+                        None,
                         expr.column_name(),
                         expr.data_type(),
                     ))
@@ -162,7 +196,7 @@ impl EVMColumnExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<ColumnExpr> {
         Ok(ColumnExpr::new(
             column_refs
@@ -210,7 +244,7 @@ impl EVMEqualsExpr {
     /// Try to create an `EVMEqualsExpr` from a `EqualsExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &EqualsExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMEqualsExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -226,7 +260,7 @@ impl EVMEqualsExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<EqualsExpr> {
         Ok(EqualsExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -256,7 +290,7 @@ impl EVMInequalityExpr {
     /// Try to create an `EVMInequalityExpr` from a `InequalityExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &InequalityExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMInequalityExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -273,7 +307,7 @@ impl EVMInequalityExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<InequalityExpr> {
         Ok(InequalityExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -302,7 +336,7 @@ impl EVMAddExpr {
     /// Try to create an `EVMAddExpr` from a `AddExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &AddExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMAddExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -318,7 +352,7 @@ impl EVMAddExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<AddExpr> {
         Ok(AddExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -346,7 +380,7 @@ impl EVMSubtractExpr {
     /// Try to create an `EVMSubtractExpr` from a `SubtractExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &SubtractExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMSubtractExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -362,7 +396,7 @@ impl EVMSubtractExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<SubtractExpr> {
         Ok(SubtractExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -390,7 +424,7 @@ impl EVMMultiplyExpr {
     /// Try to create an `EVMMultiplyExpr` from a `MultiplyExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &MultiplyExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMMultiplyExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -406,7 +440,7 @@ impl EVMMultiplyExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<MultiplyExpr> {
         Ok(MultiplyExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -434,7 +468,7 @@ impl EVMAndExpr {
     /// Try to create an `EVMAndExpr` from a `AndExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &AndExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMAndExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -450,7 +484,7 @@ impl EVMAndExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<AndExpr> {
         Ok(AndExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -478,7 +512,7 @@ impl EVMOrExpr {
     /// Try to create an `EVMOrExpr` from a `OrExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &OrExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMOrExpr {
             lhs: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -494,7 +528,7 @@ impl EVMOrExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<OrExpr> {
         Ok(OrExpr::try_new(
             Box::new(self.lhs.try_into_proof_expr(column_refs)?),
@@ -520,7 +554,7 @@ impl EVMNotExpr {
     /// Try to create an `EVMNotExpr` from a `NotExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &NotExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMNotExpr {
             expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -532,7 +566,7 @@ impl EVMNotExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<NotExpr> {
         Ok(NotExpr::try_new(Box::new(
             self.expr.try_into_proof_expr(column_refs)?,
@@ -559,7 +593,7 @@ impl EVMCastExpr {
     /// Try to create an `EVMCastExpr` from a `CastExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &CastExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         Ok(EVMCastExpr {
             from_expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
@@ -572,7 +606,7 @@ impl EVMCastExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<CastExpr> {
         Ok(CastExpr::try_new(
             Box::new(self.from_expr.try_into_proof_expr(column_refs)?),
@@ -606,7 +640,7 @@ impl EVMScalingCastExpr {
     /// Try to create an `EVMScalingCastExpr` from a `ScalingCastExpr`.
     pub(crate) fn try_from_proof_expr(
         expr: &ScalingCastExpr,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<Self> {
         let scaling_factor = expr.scaling_factor();
         Ok(EVMScalingCastExpr {
@@ -626,7 +660,7 @@ impl EVMScalingCastExpr {
 
     pub(crate) fn try_into_proof_expr(
         &self,
-        column_refs: &IndexSet<ColumnRef>,
+        column_refs: &IndexSet<NewColumnRef>,
     ) -> EVMProofPlanResult<ScalingCastExpr> {
         let expr = ScalingCastExpr::try_new(
             Box::new(self.from_expr.try_into_proof_expr(column_refs)?),
@@ -685,7 +719,7 @@ mod tests {
     fn we_can_put_a_column_expr_in_evm() {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident = "a".into();
-        let column_ref = ColumnRef::new(table_ref.clone(), ident, ColumnType::BigInt);
+        let column_ref = NewColumnRef::new(Some(table_ref.clone()), ident, ColumnType::BigInt);
 
         let evm_column_expr = EVMColumnExpr::try_from_proof_expr(
             &ColumnExpr::new(column_ref.clone()),
@@ -705,7 +739,7 @@ mod tests {
     fn we_cannot_put_a_column_expr_in_evm_if_column_not_found() {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident = "a".into();
-        let column_ref = ColumnRef::new(table_ref.clone(), ident, ColumnType::BigInt);
+        let column_ref = NewColumnRef::new(Some(table_ref.clone()), ident, ColumnType::BigInt);
 
         assert_eq!(
             EVMColumnExpr::try_from_proof_expr(&ColumnExpr::new(column_ref.clone()), &indexset! {}),
@@ -716,7 +750,7 @@ mod tests {
     #[test]
     fn we_cannot_get_a_column_expr_from_evm_if_column_number_out_of_bounds() {
         let evm_column_expr = EVMColumnExpr { column_number: 0 };
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_column_expr
                 .try_into_proof_expr(&column_refs)
@@ -929,8 +963,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::BigInt);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::BigInt);
 
         let equals_expr = EqualsExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -966,8 +1000,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::BigInt);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::BigInt);
 
         let add_expr = AddExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -1001,8 +1035,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::BigInt);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::BigInt);
 
         let subtract_expr = SubtractExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -1036,8 +1070,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::BigInt);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::BigInt);
 
         // b * 10 so we see column_number = 1
         let multiply_expr = MultiplyExpr::try_new(
@@ -1072,7 +1106,7 @@ mod tests {
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
         );
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_column_expr
                 .try_into_proof_expr(&column_refs)
@@ -1087,8 +1121,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_x = "x".into();
         let ident_y = "y".into();
-        let column_ref_x = ColumnRef::new(table_ref.clone(), ident_x, ColumnType::Boolean);
-        let column_ref_y = ColumnRef::new(table_ref.clone(), ident_y, ColumnType::Boolean);
+        let column_ref_x = NewColumnRef::new(Some(table_ref.clone()), ident_x, ColumnType::Boolean);
+        let column_ref_y = NewColumnRef::new(Some(table_ref.clone()), ident_y, ColumnType::Boolean);
 
         let and_expr = AndExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_x.clone())),
@@ -1122,7 +1156,7 @@ mod tests {
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
         );
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_and_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
@@ -1135,8 +1169,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_x = "x".into();
         let ident_y = "y".into();
-        let column_ref_x = ColumnRef::new(table_ref.clone(), ident_x, ColumnType::Boolean);
-        let column_ref_y = ColumnRef::new(table_ref.clone(), ident_y, ColumnType::Boolean);
+        let column_ref_x = NewColumnRef::new(Some(table_ref.clone()), ident_x, ColumnType::Boolean);
+        let column_ref_y = NewColumnRef::new(Some(table_ref.clone()), ident_y, ColumnType::Boolean);
 
         let or_expr = OrExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_x.clone())),
@@ -1170,7 +1204,7 @@ mod tests {
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
         );
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_or_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
@@ -1182,7 +1216,8 @@ mod tests {
     fn we_can_put_a_not_expr_in_evm() {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_flag = "flag".into();
-        let column_ref_flag = ColumnRef::new(table_ref.clone(), ident_flag, ColumnType::Boolean);
+        let column_ref_flag =
+            NewColumnRef::new(Some(table_ref.clone()), ident_flag, ColumnType::Boolean);
 
         let not_expr =
             NotExpr::try_new(Box::new(DynProofExpr::new_column(column_ref_flag.clone()))).unwrap();
@@ -1206,7 +1241,7 @@ mod tests {
     fn we_cannot_get_a_not_expr_from_evm_if_column_number_out_of_bounds() {
         let evm_not_expr =
             EVMNotExpr::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }));
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_not_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
@@ -1219,8 +1254,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::Int);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::Int);
 
         let cast_expr = CastExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -1254,7 +1289,7 @@ mod tests {
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
             ColumnType::BigInt,
         );
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_cast_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
@@ -1312,8 +1347,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::BigInt);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::BigInt);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::BigInt);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::BigInt);
 
         let inequality_expr = InequalityExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -1349,8 +1384,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::Int);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::Int);
 
         let scaling_cast_expr = ScalingCastExpr::try_new(
             Box::new(DynProofExpr::new_column(column_ref_b.clone())),
@@ -1386,7 +1421,7 @@ mod tests {
             ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
             [0, 0, 0, 100],
         );
-        let column_refs = IndexSet::<ColumnRef>::default();
+        let column_refs = IndexSet::<NewColumnRef>::default();
         assert_eq!(
             evm_scaling_cast_expr
                 .try_into_proof_expr(&column_refs)
@@ -1400,8 +1435,8 @@ mod tests {
         let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
         let ident_a = "a".into();
         let ident_b = "b".into();
-        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a, ColumnType::Int);
-        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b, ColumnType::Int);
+        let column_ref_a = NewColumnRef::new(Some(table_ref.clone()), ident_a, ColumnType::Int);
+        let column_ref_b = NewColumnRef::new(Some(table_ref.clone()), ident_b, ColumnType::Int);
 
         let evm_scaling_cast_expr = EVMScalingCastExpr::new(
             EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
@@ -1420,7 +1455,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_equals_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let column_b = NewColumnRef::new(Some(table_ref.clone()), "b".into(), ColumnType::BigInt);
 
         let expr = equal(
             DynProofExpr::new_literal(LiteralValue::BigInt(5)),
@@ -1444,7 +1479,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_add_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let column_b = NewColumnRef::new(Some(table_ref.clone()), "b".into(), ColumnType::BigInt);
 
         let expr = add(
             DynProofExpr::new_column(column_b.clone()),
@@ -1466,7 +1501,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_subtract_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let column_b = NewColumnRef::new(Some(table_ref.clone()), "b".into(), ColumnType::BigInt);
 
         let expr = subtract(
             DynProofExpr::new_column(column_b.clone()),
@@ -1488,7 +1523,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_multiply_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let column_b = NewColumnRef::new(Some(table_ref.clone()), "b".into(), ColumnType::BigInt);
 
         let expr = multiply(
             DynProofExpr::new_column(column_b.clone()),
@@ -1510,8 +1545,8 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_and_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Boolean);
-        let d = ColumnRef::new(table_ref.clone(), "d".into(), ColumnType::Boolean);
+        let c = NewColumnRef::new(Some(table_ref.clone()), "c".into(), ColumnType::Boolean);
+        let d = NewColumnRef::new(Some(table_ref.clone()), "d".into(), ColumnType::Boolean);
 
         let expr = and(
             DynProofExpr::new_column(c.clone()),
@@ -1530,8 +1565,8 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_or_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Boolean);
-        let d = ColumnRef::new(table_ref.clone(), "d".into(), ColumnType::Boolean);
+        let c = NewColumnRef::new(Some(table_ref.clone()), "c".into(), ColumnType::Boolean);
+        let d = NewColumnRef::new(Some(table_ref.clone()), "d".into(), ColumnType::Boolean);
 
         let expr = or(
             DynProofExpr::new_column(c.clone()),
@@ -1550,7 +1585,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_not_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Boolean);
+        let c = NewColumnRef::new(Some(table_ref.clone()), "c".into(), ColumnType::Boolean);
 
         let expr = not(DynProofExpr::new_column(c.clone()));
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
@@ -1565,7 +1600,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_cast_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
+        let c = NewColumnRef::new(Some(table_ref.clone()), "c".into(), ColumnType::Int);
 
         let expr = cast(DynProofExpr::new_column(c.clone()), ColumnType::BigInt);
         let evm = EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
@@ -1580,7 +1615,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_inequality_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let column_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let column_b = NewColumnRef::new(Some(table_ref.clone()), "b".into(), ColumnType::BigInt);
 
         let expr = lt(
             DynProofExpr::new_column(column_b.clone()),
@@ -1603,7 +1638,7 @@ mod tests {
     #[test]
     fn we_can_put_into_evm_a_dyn_proof_expr_scaling_cast_expr() {
         let table_ref = TableRef::try_from("namespace.table").unwrap();
-        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
+        let c = NewColumnRef::new(Some(table_ref.clone()), "c".into(), ColumnType::Int);
 
         let expr = DynProofExpr::try_new_scaling_cast(
             DynProofExpr::new_column(c.clone()),

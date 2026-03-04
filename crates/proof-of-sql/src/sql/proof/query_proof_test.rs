@@ -285,9 +285,10 @@ impl ProverEvaluate for SquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
             .get(&column_id)
@@ -312,13 +313,10 @@ impl ProofPlan for SquareTestProofPlan {
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x_eval = S::from(self.anchored_commit_multiplier)
-            * *accessor
-                .get(&TableRef::new("sxt", "test"))
-                .unwrap()
-                .get(&column_id)
-                .unwrap();
+            * *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
@@ -470,9 +468,10 @@ impl ProverEvaluate for DoubleSquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
             .get(&column_id)
@@ -510,12 +509,9 @@ impl ProofPlan for DoubleSquareTestProofPlan {
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let column_id: ColumnId = "x".into();
-        let x_eval = *accessor
-            .get(&TableRef::new("sxt", "test"))
-            .unwrap()
-            .get(&column_id)
-            .unwrap();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
+        let x_eval = *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let z_eval = builder.try_consume_final_round_mle_evaluation()?;
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
 
@@ -689,9 +685,10 @@ impl ProverEvaluate for ChallengeTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
             .get(&column_id)
@@ -718,14 +715,11 @@ impl ProofPlan for ChallengeTestProofPlan {
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let alpha = builder.try_consume_post_result_challenge()?;
         let _beta = builder.try_consume_post_result_challenge()?;
-        let x_eval = *accessor
-            .get(&TableRef::new("sxt", "test"))
-            .unwrap()
-            .get(&column_id)
-            .unwrap();
+        let x_eval = *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
@@ -836,9 +830,10 @@ impl ProverEvaluate for FirstRoundSquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
             .get(&column_id)
@@ -863,13 +858,10 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let column_id: ColumnId = "x".into();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x_eval = S::from(self.anchored_commit_multiplier)
-            * *accessor
-                .get(&TableRef::new("sxt", "test"))
-                .unwrap()
-                .get(&column_id)
-                .unwrap();
+            * *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let first_round_res_eval = builder.try_consume_first_round_mle_evaluation()?;
         let final_round_res_eval = builder.try_consume_final_round_mle_evaluation()?;
         assert_eq!(first_round_res_eval, final_round_res_eval);

@@ -84,10 +84,12 @@ impl ProverEvaluate for DemoMockPlan {
 
 mod tests {
     use super::DemoMockPlan;
+    #[cfg(feature = "blitzar")]
+    use crate::base::database::ColumnRef;
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            ColumnType, OwnedTableTestAccessor, TableRef,
         },
         sql::proof::VerifiableQueryResult,
     };

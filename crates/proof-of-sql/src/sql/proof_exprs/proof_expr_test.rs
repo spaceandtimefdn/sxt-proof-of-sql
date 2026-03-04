@@ -10,12 +10,12 @@ fn we_can_compute_the_correct_result_of_a_complex_bool_expr_using_first_round_ev
     let alloc = Bump::new();
     let data = table([
         borrowed_bigint(
-            "a",
+            "sxt.t.a",
             [1, 2, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 6, 7, 8, 9, 999],
             &alloc,
         ),
         borrowed_varchar(
-            "b",
+            "sxt.t.b",
             [
                 "g", "g", "t", "ghi", "g", "g", "jj", "f", "g", "g", "gar", "qwe", "g", "g", "poi",
                 "zxc", "999",
@@ -23,7 +23,7 @@ fn we_can_compute_the_correct_result_of_a_complex_bool_expr_using_first_round_ev
             &alloc,
         ),
         borrowed_int128(
-            "c",
+            "sxt.t.c",
             [
                 3, 123, 3, 234, 3, 345, 3, 456, 3, 567, 3, 678, 3, 789, 3, 890, 999,
             ],

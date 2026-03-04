@@ -1,9 +1,16 @@
 use super::{ColumnField, OwnedColumn, Table};
 use crate::base::{
-    database::ColumnCoercionError, map::IndexMap, polynomial::compute_evaluation_vector,
+    database::{ColumnCoercionError, ColumnId},
+    map::IndexMap,
+    polynomial::compute_evaluation_vector,
     scalar::Scalar,
 };
-use alloc::{vec, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use itertools::{EitherOrBoth, Itertools};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -86,11 +93,10 @@ impl<S: Scalar> OwnedTable<S> {
                 EitherOrBoth::Left(_) | EitherOrBoth::Right(_) => {
                     Err(TableCoercionError::ColumnCountMismatch)
                 }
-                EitherOrBoth::Both((name, column), field) if name == field.name() => Ok((
+                EitherOrBoth::Both((name, column), field) => Ok((
                     name,
                     column.try_coerce_scalar_to_numeric(field.data_type())?,
                 )),
-                EitherOrBoth::Both(_, _) => Err(TableCoercionError::NameMismatch),
             })
             .process_results(|iter| {
                 Self::try_from_iter(iter).expect("Columns should have the same length")
@@ -169,24 +175,52 @@ impl<S: Scalar> core::ops::Index<&str> for OwnedTable<S> {
 
 impl<'a, S: Scalar> From<&Table<'a, S>> for OwnedTable<S> {
     fn from(value: &Table<'a, S>) -> Self {
-        OwnedTable::try_from_iter(
-            value
-                .inner_table()
-                .iter()
-                .map(|(name, column)| (name.name().clone(), OwnedColumn::from(column))),
-        )
+        let duplicate_names = value
+            .column_names()
+            .map(ColumnId::name)
+            .chunk_by(|name| *name)
+            .into_iter()
+            .filter_map(|(name, ch)| (ch.count() > 1).then_some(name))
+            .collect::<Vec<_>>();
+        OwnedTable::try_from_iter(value.inner_table().iter().map(|(name, column)| {
+            let short_name = name.name();
+            let long_name = if duplicate_names.contains(&short_name) {
+                let prefix = name
+                    .qualifier()
+                    .clone()
+                    .map_or(String::new(), |table| table.to_string());
+                format!("{}.{}", prefix, short_name.value)
+            } else {
+                short_name.value.clone()
+            };
+            (Ident::new(long_name), OwnedColumn::from(column))
+        }))
         .expect("Tables should not have columns with differing lengths")
     }
 }
 
 impl<'a, S: Scalar> From<Table<'a, S>> for OwnedTable<S> {
     fn from(value: Table<'a, S>) -> Self {
-        OwnedTable::try_from_iter(
-            value
-                .into_inner()
-                .into_iter()
-                .map(|(name, column)| (name.name().clone(), OwnedColumn::from(&column))),
-        )
+        let duplicate_names = value
+            .column_names()
+            .map(ColumnId::name)
+            .chunk_by(|name| *name)
+            .into_iter()
+            .filter_map(|(name, ch)| (ch.count() > 1).then_some(name))
+            .collect::<Vec<_>>();
+        OwnedTable::try_from_iter(value.inner_table().iter().map(|(name, column)| {
+            let short_name = name.name();
+            let long_name = if duplicate_names.contains(&short_name) {
+                let prefix = name
+                    .qualifier()
+                    .clone()
+                    .map_or(String::new(), |table| table.to_string());
+                format!("{}.{}", prefix, short_name.value)
+            } else {
+                short_name.value.clone()
+            };
+            (Ident::new(long_name), OwnedColumn::from(column))
+        }))
         .expect("Tables should not have columns with differing lengths")
     }
 }

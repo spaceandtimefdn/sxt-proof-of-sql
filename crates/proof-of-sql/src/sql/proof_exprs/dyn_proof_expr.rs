@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     base::{
-        database::{Column, ColumnId, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnId, ColumnRef, ColumnType, LiteralValue, NewColumnRef, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -53,7 +53,7 @@ pub enum DynProofExpr {
 impl DynProofExpr {
     /// Create column expression
     #[must_use]
-    pub fn new_column(column_ref: ColumnRef) -> Self {
+    pub fn new_column(column_ref: NewColumnRef) -> Self {
         Self::Column(ColumnExpr::new(column_ref))
     }
     /// Create logical AND expression

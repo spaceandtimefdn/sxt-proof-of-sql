@@ -60,7 +60,8 @@ impl ProofPlan for TableExec {
             .schema
             .iter()
             .map(|field| {
-                let column_id: ColumnId = field.name().into();
+                let column_id: ColumnId =
+                    ColumnId::new(field.name(), Some(self.table_ref().clone()));
                 *accessor
                     .get(self.table_ref())
                     .expect("Table does not exist")
@@ -92,7 +93,7 @@ impl ProofPlan for TableExec {
     fn get_column_identifiers(&self) -> Vec<ColumnId> {
         self.schema
             .iter()
-            .map(|field| field.name().into())
+            .map(|field| ColumnId::new(field.name(), Some(self.table_ref().clone())))
             .collect()
     }
 }

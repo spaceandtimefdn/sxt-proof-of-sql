@@ -2,7 +2,7 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, NewColumnRef,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
         map::indexmap,
@@ -202,10 +202,10 @@ fn we_can_query_random_tables_using_a_non_zero_offset() {
 fn we_can_compute_the_correct_output_of_an_and_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_bigint("a", [1, 2, 3, 4], &alloc),
-        borrowed_bigint("b", [0, 1, 0, 1], &alloc),
-        borrowed_varchar("d", ["ab", "t", "efg", "g"], &alloc),
-        borrowed_bigint("c", [0, 2, 2, 0], &alloc),
+        borrowed_bigint("sxt.t.a", [1, 2, 3, 4], &alloc),
+        borrowed_bigint("sxt.t.b", [0, 1, 0, 1], &alloc),
+        borrowed_varchar("sxt.t.d", ["ab", "t", "efg", "g"], &alloc),
+        borrowed_bigint("sxt.t.c", [0, 2, 2, 0], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
@@ -226,12 +226,12 @@ fn we_can_verify_a_simple_proof() {
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
     let table = Table::try_new(indexmap! {
-        "a".into() => Column::Boolean::<TestScalar>(lhs),
-        "b".into() => Column::Boolean::<TestScalar>(rhs),
+        "sxt.t.a".into() => Column::Boolean::<TestScalar>(lhs),
+        "sxt.t.b".into() => Column::Boolean::<TestScalar>(rhs),
     })
     .unwrap();
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = NewColumnRef::new(Some(t.clone()), Ident::from("a"), ColumnType::Boolean);
+    let b = NewColumnRef::new(Some(t), Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
         Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
         Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
@@ -274,8 +274,8 @@ fn we_can_reject_a_simple_tampered_proof() {
     let t: TableRef = "sxt.t".parse().unwrap();
     let lhs = &[true, true, false, false];
     let rhs = &[true, false, true, false];
-    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
-    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let a = NewColumnRef::new(Some(t.clone()), Ident::from("a"), ColumnType::Boolean);
+    let b = NewColumnRef::new(Some(t), Ident::from("b"), ColumnType::Boolean);
     let and_expr = AndExpr::try_new(
         Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
         Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
@@ -333,8 +333,8 @@ fn we_can_reject_a_simple_tampered_proof() {
 fn we_cannot_and_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
-        borrowed_varchar("b", ["a", "b", "s", "z"], &alloc),
+        borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_varchar("sxt.t.b", ["a", "b", "s", "z"], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =

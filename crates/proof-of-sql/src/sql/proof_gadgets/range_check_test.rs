@@ -186,7 +186,7 @@ mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{owned_table_utility::*, ColumnRef, ColumnType, OwnedTableTestAccessor},
+            database::{owned_table_utility::*, ColumnType, OwnedTableTestAccessor},
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         },

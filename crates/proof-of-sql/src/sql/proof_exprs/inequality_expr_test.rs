@@ -796,8 +796,8 @@ fn we_can_query_random_tables_using_a_non_zero_offset() {
 fn we_can_compute_the_correct_output_of_a_lte_inequality_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_bigint("a", [-1, 9, 1], &alloc),
-        borrowed_bigint("b", [1, 2, 3], &alloc),
+        borrowed_bigint("sxt.t.a", [-1, 9, 1], &alloc),
+        borrowed_bigint("sxt.t.b", [1, 2, 3], &alloc),
     ]);
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
@@ -814,8 +814,8 @@ fn we_can_compute_the_correct_output_of_a_lte_inequality_expr_using_first_round_
 fn we_can_compute_the_correct_output_of_a_gte_inequality_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_bigint("a", [-1, 9, 1], &alloc),
-        borrowed_bigint("b", [1, 2, 3], &alloc),
+        borrowed_bigint("sxt.t.a", [-1, 9, 1], &alloc),
+        borrowed_bigint("sxt.t.b", [1, 2, 3], &alloc),
     ]);
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
@@ -832,8 +832,8 @@ fn we_can_compute_the_correct_output_of_a_gte_inequality_expr_using_first_round_
 fn we_cannot_inequality_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
-        borrowed_varchar("b", ["a", "b", "s", "z"], &alloc),
+        borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_varchar("sxt.t.b", ["a", "b", "s", "z"], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =

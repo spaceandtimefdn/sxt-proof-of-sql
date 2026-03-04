@@ -127,7 +127,7 @@ pub fn borrowed_tinyint<S: Scalar>(
 /// # pub type MyScalar = MontScalar<ark_curve25519::FrConfig>;
 /// let alloc = Bump::new();
 /// let result = table::<MyScalar>([
-///     borrowed_smallint("a", [1_i16, 2, 3], &alloc),
+///     borrowed_smallint("sxt.t.a", [1_i16, 2, 3], &alloc),
 /// ]);
 /// ```
 ///

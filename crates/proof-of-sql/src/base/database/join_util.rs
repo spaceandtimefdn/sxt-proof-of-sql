@@ -376,6 +376,7 @@ impl<'a, S: Scalar> JoinProverUtilities<'a, S> {
         self.join_columns
             .iter()
             .copied()
+            .chain(self.join_columns.iter().copied())
             .chain(self.remaining_left_columns.iter().copied())
             .chain(self.remaining_right_columns.iter().copied())
             .collect()

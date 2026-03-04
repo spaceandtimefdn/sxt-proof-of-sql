@@ -7,7 +7,7 @@ use datafusion::{
 };
 use proof_of_sql::{
     base::{
-        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnId, ColumnType, LiteralValue, NewColumnRef, TableRef},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
@@ -113,21 +113,27 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
 /// Otherwise we error out
 pub(crate) fn column_to_column_ref(
     column: &Column,
-    schema: &[(Ident, ColumnType)],
-) -> PlannerResult<ColumnRef> {
+    schema: &[(ColumnId, ColumnType)],
+) -> PlannerResult<NewColumnRef> {
     let table_ref = column
         .relation
         .as_ref()
         .map(table_reference_to_table_ref)
-        .transpose()?
-        .unwrap_or_else(|| TableRef::from_names(None, ""));
+        .transpose()?;
     let ident: Ident = column.name.as_str().into();
+    let column_id = ColumnId::new(
+        ident.clone(),
+        column
+            .relation
+            .clone()
+            .map(|table_ref| TableRef::from_names(table_ref.schema(), table_ref.table())),
+    );
     let column_type = schema
         .iter()
-        .find(|(i, _t)| *i == ident)
+        .find(|(i, _t)| *i == column_id)
         .ok_or(PlannerError::ColumnNotFound)?
         .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+    Ok(NewColumnRef::new(table_ref, ident, column_type))
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -476,8 +482,8 @@ mod tests {
         let schema = vec![("a".into(), ColumnType::Int)];
         assert_eq!(
             column_to_column_ref(&column, &schema).unwrap(),
-            ColumnRef::new(
-                TableRef::from_names(Some("namespace"), "table"),
+            NewColumnRef::new(
+                Some(TableRef::from_names(Some("namespace"), "table")),
                 "a".into(),
                 ColumnType::Int
             )
@@ -490,7 +496,7 @@ mod tests {
         let schema = vec![("a".into(), ColumnType::Int)];
         assert_eq!(
             column_to_column_ref(&column, &schema).unwrap(),
-            ColumnRef::new(TableRef::from_names(None, ""), "a".into(), ColumnType::Int)
+            NewColumnRef::new(None, "a".into(), ColumnType::Int)
         );
     }
 

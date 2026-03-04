@@ -22,6 +22,12 @@ impl ColumnId {
     pub fn name(&self) -> &Ident {
         &self.name
     }
+
+    /// Get the qualfier of the column
+    #[must_use]
+    pub fn qualifier(&self) -> &Option<TableRef> {
+        &self.qualifier
+    }
 }
 
 impl From<Ident> for ColumnId {
@@ -41,10 +47,16 @@ impl From<&Ident> for ColumnId {
 
 impl From<&str> for ColumnId {
     fn from(value: &str) -> Self {
-        ColumnId {
-            name: value.into(),
-            qualifier: None,
-        }
+        value.rsplit_once('.').map_or_else(
+            || ColumnId {
+                name: value.into(),
+                qualifier: None,
+            },
+            |(table, column)| ColumnId {
+                name: column.into(),
+                qualifier: Some(TableRef::try_from(table).expect("Invalid column id")),
+            },
+        )
     }
 }
 

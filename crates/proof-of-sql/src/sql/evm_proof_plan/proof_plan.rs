@@ -53,7 +53,7 @@ impl EVMProofPlan {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct CompactPlan {
     tables: Vec<String>,
     columns: Vec<(usize, String, ColumnType)>,
