@@ -12,8 +12,9 @@ library Verifier {
         uint256[] memory __placeholderParameters,
         bytes calldata __proof,
         bytes[] calldata __tableCommitments
-    ) public view {
-        (uint256[] memory tableLengths, uint256[] memory commitments) =
+    ) public view returns (uint256[] memory tableLengths) {
+        uint256[] memory commitments;
+        (tableLengths, commitments) =
             getCommitmentsAndLength(__plan, __tableCommitments);
         __internalVerify({
             __result: __result,
