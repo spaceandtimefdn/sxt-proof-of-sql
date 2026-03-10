@@ -77,6 +77,17 @@ where
     }
 }
 
+fn next_chi_accumulator<F>(length: usize, previous_accumulator: F, i: usize, alpha: F) -> F
+where
+    F: One + Zero + Mul<Output = F> + Sub<Output = F> + Copy,
+{
+    if (length >> i) & 1 == 0 {
+        previous_accumulator * (F::one() - alpha)
+    } else {
+        F::one() - (F::one() - previous_accumulator) * alpha
+    }
+}
+
 /// Given the point `point` (or `a`) with length nu, we can evaluate the lagrange basis of length 2^nu at that point.
 /// This is what [`super::compute_evaluation_vector`] does.
 ///
@@ -101,11 +112,7 @@ where
             .iter()
             .enumerate()
             .fold(F::zero(), |chi, (i, &alpha)| {
-                if (length >> i) & 1 == 0 {
-                    chi * (F::one() - alpha)
-                } else {
-                    F::one() - (F::one() - chi) * alpha
-                }
+                next_chi_accumulator(length, chi, i, alpha)
             })
     }
 }
