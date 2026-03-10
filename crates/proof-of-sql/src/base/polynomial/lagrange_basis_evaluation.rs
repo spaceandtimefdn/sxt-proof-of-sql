@@ -1,9 +1,4 @@
-use super::compute_evaluation_vector;
-use alloc::vec;
-use core::{
-    iter::Sum,
-    ops::{Add, Mul, MulAssign, Sub, SubAssign},
-};
+use core::ops::{Add, Mul, Sub};
 use num_traits::{One, Zero};
 
 /// Given the points a and b with length nu, we can evaluate the lagrange basis of length 2^nu at the two points.
@@ -88,6 +83,26 @@ where
     }
 }
 
+fn next_rho_accumulator<F>(
+    length: usize,
+    previous_accumulator: F,
+    i: usize,
+    alpha: F,
+    previous_chi: F,
+    rho_of_power_of_two: F,
+    power_of_two: F,
+) -> F
+where
+    F: One + Zero + Mul<Output = F> + Sub<Output = F> + Copy,
+{
+    if (length >> i) & 1 == 0 {
+        previous_accumulator * (F::one() - alpha)
+    } else {
+        (F::one() - alpha) * rho_of_power_of_two
+            + alpha * (previous_accumulator + power_of_two * previous_chi)
+    }
+}
+
 /// Given the point `point` (or `a`) with length nu, we can evaluate the lagrange basis of length 2^nu at that point.
 /// This is what [`super::compute_evaluation_vector`] does.
 ///
@@ -119,14 +134,43 @@ where
 
 pub fn compute_rho_eval<F>(length: usize, point: &[F]) -> F
 where
-    F: One + Sub<Output = F> + MulAssign + SubAssign + Mul<Output = F> + Send + Sync + Copy + Sum,
-    u64: Into<F>,
+    F: One + Zero + Mul<Output = F> + Sub<Output = F> + Copy,
 {
-    let mut eval_vec = vec![F::one(); length];
-    compute_evaluation_vector(&mut eval_vec, point);
-    eval_vec
-        .into_iter()
-        .enumerate()
-        .map(|(i, v)| v * Into::<F>::into(i as u64))
-        .sum()
+    if length == 1 << point.len() {
+        let res = point.iter().fold(
+            (F::zero(), F::one()),
+            |(acc, current_power_of_two), &alpha| {
+                (
+                    acc + current_power_of_two * alpha,
+                    current_power_of_two + current_power_of_two,
+                )
+            },
+        );
+        res.0
+    } else {
+        let (rho, _, _, _) = point.iter().enumerate().fold(
+            (F::zero(), F::zero(), F::zero(), F::one()),
+            |(previous_rho, previous_chi, current_rho_of_power_of_two, current_power_of_two),
+             (i, &alpha)| {
+                let next_rho_of_power_of_two =
+                    current_power_of_two * alpha + current_rho_of_power_of_two;
+                let next_power_of_two = current_power_of_two + current_power_of_two;
+                (
+                    next_rho_accumulator(
+                        length,
+                        previous_rho,
+                        i,
+                        alpha,
+                        previous_chi,
+                        current_rho_of_power_of_two,
+                        current_power_of_two,
+                    ),
+                    next_chi_accumulator(length, previous_chi, i, alpha),
+                    next_rho_of_power_of_two,
+                    next_power_of_two,
+                )
+            },
+        );
+        rho
+    }
 }
