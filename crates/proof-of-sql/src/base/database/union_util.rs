@@ -481,4 +481,109 @@ mod tests {
 
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn we_can_union_uint8_columns() {
+        let alloc = Bump::new();
+        let col0: Column<TestScalar> = Column::Uint8(&[1, 2, 3]);
+        let col1: Column<TestScalar> = Column::Uint8(&[4, 5, 6]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Uint8).unwrap();
+        assert_eq!(result, Column::Uint8(&[1, 2, 3, 4, 5, 6]));
+    }
+
+    #[test]
+    fn we_can_union_tinyint_columns() {
+        let alloc = Bump::new();
+        let col0: Column<TestScalar> = Column::TinyInt(&[-1, 0, 1]);
+        let col1: Column<TestScalar> = Column::TinyInt(&[2, 3, 4]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::TinyInt).unwrap();
+        assert_eq!(result, Column::TinyInt(&[-1, 0, 1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn we_can_union_int128_columns() {
+        let alloc = Bump::new();
+        let col0: Column<TestScalar> = Column::Int128(&[100, 200, 300]);
+        let col1: Column<TestScalar> = Column::Int128(&[400, 500, 600]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Int128).unwrap();
+        assert_eq!(result, Column::Int128(&[100, 200, 300, 400, 500, 600]));
+    }
+
+    #[test]
+    fn we_can_union_scalar_columns() {
+        let alloc = Bump::new();
+        let data0 = [TestScalar::from(10), TestScalar::from(20)];
+        let data1 = [TestScalar::from(30), TestScalar::from(40)];
+        let col0: Column<TestScalar> = Column::Scalar(&data0);
+        let col1: Column<TestScalar> = Column::Scalar(&data1);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Scalar).unwrap();
+
+        let expected_data = [
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+            TestScalar::from(40),
+        ];
+        assert_eq!(result, Column::Scalar(&expected_data));
+    }
+
+    #[test]
+    fn we_can_union_decimal75_columns() {
+        use crate::base::math::decimal::Precision;
+
+        let alloc = Bump::new();
+        let data0 = [TestScalar::from(100), TestScalar::from(200)];
+        let data1 = [TestScalar::from(300), TestScalar::from(400)];
+        let col0: Column<TestScalar> = Column::Decimal75(Precision::new(10).unwrap(), 2, &data0);
+        let col1: Column<TestScalar> = Column::Decimal75(Precision::new(10).unwrap(), 2, &data1);
+        let result = column_union(
+            &[&col0, &col1],
+            &alloc,
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+        )
+        .unwrap();
+
+        let expected_data = [
+            TestScalar::from(100),
+            TestScalar::from(200),
+            TestScalar::from(300),
+            TestScalar::from(400),
+        ];
+        assert_eq!(
+            result,
+            Column::Decimal75(Precision::new(10).unwrap(), 2, &expected_data)
+        );
+    }
+
+    #[test]
+    fn we_can_union_timestamptz_columns() {
+        use crate::base::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
+
+        let alloc = Bump::new();
+        let col0: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[100, 200, 300],
+        );
+        let col1: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[400, 500, 600],
+        );
+        let result = column_union(
+            &[&col0, &col1],
+            &alloc,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[100, 200, 300, 400, 500, 600]
+            )
+        );
+    }
 }
