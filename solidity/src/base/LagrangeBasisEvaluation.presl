@@ -167,21 +167,33 @@ library LagrangeBasisEvaluation {
     function __computeRhoEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
         assembly {
             // import err from Errors.sol
-            // import addmod_bn254, mulmod_bn254 from MathUtil.presl
-            // import compute_evaluation_vec from self
+            // import addmod_bn254, mulmod_bn254, submod_bn254 from MathUtil.presl
+            // import compute_evaluation_vec, next_chi_accumulator from self
+            function compute_rho_evaluation(length, evaluation_point_ptr) -> product{
+                product := 0
+                let power_of_two := 1
+                let rho_of_power_of_two := 0
+                let chi := 0
+                for {let num_vars := mload(evaluation_point_ptr)} num_vars {num_vars := sub(num_vars, 1)} {
+                    evaluation_point_ptr := add(evaluation_point_ptr, WORD_SIZE)
+                    let alpha := mload(evaluation_point_ptr)
+                    switch and(length, 1)
+                    case 0 { product := mulmod_bn254(product, submod_bn254(1, alpha)) }
+                    default {
+                        product := addmod_bn254(mulmod_bn254(submod_bn254(1, alpha), rho_of_power_of_two), mulmod_bn254(alpha, addmod_bn254(product, mulmod_bn254(power_of_two, chi))))
+                    }
+                    chi := next_chi_accumulator(length, chi, alpha)
+                    rho_of_power_of_two := addmod_bn254(mulmod_bn254(power_of_two, alpha), rho_of_power_of_two)
+                    power_of_two := mulmod_bn254(2, power_of_two)
+                    length := shr(1, length)
+                }
+                if length {product := rho_of_power_of_two}
+            }
             function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
                 let array_len := mload(array_ptr)
                 for {} array_len { array_len := sub(array_len, 1) } {
                     array_ptr := add(array_ptr, WORD_SIZE)
-                    let length := mload(array_ptr)
-                    let evaluation_vec := compute_evaluation_vec(length, evaluation_point_ptr)
-                    let product := 0
-                    for {} length {} {
-                        let i := sub(length, 1)
-                        product := addmod_bn254(product, mulmod_bn254(i, mload(add(evaluation_vec, mul(i, WORD_SIZE)))))
-                        length := i
-                    }
-                    mstore(array_ptr, product)
+                    mstore(array_ptr, compute_rho_evaluation(mload(array_ptr), evaluation_point_ptr))
                 }
             }
             compute_rho_evaluations(__evaluationPoint, __array)
