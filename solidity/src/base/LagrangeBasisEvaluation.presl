@@ -38,6 +38,13 @@ library LagrangeBasisEvaluation {
         returns (uint256 __result)
     {
         assembly {
+            function next_chi_accumulator(length, previous_chi, alpha) -> chi{
+                switch and(length, 1)
+                case 0 { chi := mulmod(previous_chi, sub(MODULUS_PLUS_ONE, mod(alpha, MODULUS)), MODULUS) }
+                default {
+                    chi := sub(MODULUS_PLUS_ONE, mulmod(sub(MODULUS_PLUS_ONE, previous_chi), alpha, MODULUS))
+                }
+            }
             function compute_truncated_lagrange_basis_sum(length, x_ptr, num_vars) -> result {
                 result := 0
 
@@ -45,11 +52,7 @@ library LagrangeBasisEvaluation {
                 // 0 <= result <= modulus + 1
                 // This invariant reduces modulus operations.
                 for {} num_vars {} {
-                    switch and(length, 1)
-                    case 0 { result := mulmod(result, sub(MODULUS_PLUS_ONE, mod(mload(x_ptr), MODULUS)), MODULUS) }
-                    default {
-                        result := sub(MODULUS_PLUS_ONE, mulmod(sub(MODULUS_PLUS_ONE, result), mload(x_ptr), MODULUS))
-                    }
+                    result := next_chi_accumulator(length, result, mload(x_ptr))
                     num_vars := sub(num_vars, 1)
                     length := shr(1, length)
                     x_ptr := add(x_ptr, WORD_SIZE)
