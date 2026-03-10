@@ -1,12 +1,11 @@
-use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+use super::{cached_public_parameters, test_rng, ProverSetup, PublicParameters, VerifierSetup};
 use ark_ec::pairing::Pairing;
 use std::{fs, path::Path};
 
 #[test]
 fn we_can_create_and_manually_check_a_small_prover_setup() {
-    let mut rng = test_rng();
-    let pp = PublicParameters::test_rand(2, &mut rng);
-    let setup = ProverSetup::from(&pp);
+    let pp = cached_public_parameters(2);
+    let setup = ProverSetup::from(pp);
     assert_eq!(setup.max_nu, 2);
     assert_eq!(setup.Gamma_1.len(), 3);
     assert_eq!(setup.Gamma_2.len(), 3);
@@ -23,9 +22,8 @@ fn we_can_create_and_manually_check_a_small_prover_setup() {
 
 #[test]
 fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
-    let mut rng = test_rng();
-    let pp = PublicParameters::test_rand(2, &mut rng);
-    let v_setup = VerifierSetup::from(&pp);
+    let pp = cached_public_parameters(2);
+    let v_setup = VerifierSetup::from(pp);
 
     v_setup.save_to_file(Path::new("setup.bin")).unwrap();
     let setup = VerifierSetup::load_from_file(Path::new("setup.bin"));

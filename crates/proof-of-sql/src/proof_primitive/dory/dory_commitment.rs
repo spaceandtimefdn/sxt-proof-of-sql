@@ -103,7 +103,7 @@ mod tests {
             database::{Column, OwnedColumn},
             scalar::test_scalar_constants,
         },
-        proof_primitive::dory::{rand_util::test_rng, ProverSetup, PublicParameters},
+        proof_primitive::dory::{cached_prover_setup, cached_public_parameters},
     };
     use ark_ec::pairing::Pairing;
     use ark_ff::UniformRand;
@@ -116,9 +116,9 @@ mod tests {
 
     #[test]
     fn we_can_convert_from_columns() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let public_parameters = cached_public_parameters(5);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
 
@@ -161,9 +161,9 @@ mod tests {
 
     #[test]
     fn we_can_append_rows() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let public_parameters = cached_public_parameters(5);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
 
@@ -211,9 +211,8 @@ mod tests {
 
     #[test]
     fn we_cannot_append_rows_with_different_column_count() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
         let column_b = ["Lorem", "ipsum", "dolor", "sit", "amet"].map(String::from);
@@ -250,9 +249,9 @@ mod tests {
 
     #[test]
     fn we_can_extend_columns() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let public_parameters = cached_public_parameters(5);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
 
@@ -307,9 +306,9 @@ mod tests {
 
     #[test]
     fn we_can_add_commitment_collections() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let public_parameters = cached_public_parameters(5);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
 
@@ -358,9 +357,8 @@ mod tests {
 
     #[test]
     fn we_cannot_add_commitment_collections_of_mixed_column_counts() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
         let column_b = ["Lorem", "ipsum", "dolor", "sit", "amet"].map(String::from);
@@ -403,9 +401,9 @@ mod tests {
 
     #[test]
     fn we_can_sub_commitment_collections() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let public_parameters = cached_public_parameters(5);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
 
@@ -446,9 +444,8 @@ mod tests {
 
     #[test]
     fn we_cannot_sub_commitment_collections_of_mixed_column_counts() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        let prover_setup = cached_prover_setup(5);
+        let setup = DoryProverPublicSetup::new(prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
         let column_b = ["Lorem", "ipsum", "dolor", "sit", "amet"].map(String::from);

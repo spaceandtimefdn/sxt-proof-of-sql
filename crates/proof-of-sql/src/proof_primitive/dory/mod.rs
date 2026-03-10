@@ -30,6 +30,13 @@ use rand_util::rand_G_vecs;
 #[cfg(test)]
 pub use rand_util::test_rng;
 
+#[cfg(test)]
+mod test_dory_setup_cache;
+#[cfg(test)]
+pub(crate) use test_dory_setup_cache::{
+    cached_prover_setup, cached_public_parameters, cached_verifier_setup,
+};
+
 mod dory_messages;
 pub(crate) use dory_messages::DoryMessages;
 #[cfg(test)]
