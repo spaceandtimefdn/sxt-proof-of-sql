@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
             TableRef, TableTestAccessor, TestAccessor,
@@ -20,6 +20,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_prove_a_simple_or_query() {
@@ -46,7 +48,7 @@ fn we_can_prove_a_simple_or_query() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -81,7 +83,7 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -118,7 +120,7 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -178,7 +180,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 equal(column(&t, "c", &accessor), const_bigint(filter_val2)),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])

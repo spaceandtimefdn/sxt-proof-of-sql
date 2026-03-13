@@ -1,15 +1,14 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-        scalar::{Scalar, ScalarExt},
+        scalar::{test_scalar::TestScalar as Curve25519Scalar, Scalar, ScalarExt},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{inequality_expr::InequalityExpr, test_utility::*, DynProofExpr, ProofExpr},
@@ -24,6 +23,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_compare_columns_with_small_timestamp_values_gte() {
@@ -59,8 +60,7 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
         ),
     );
 
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -107,8 +107,7 @@ fn we_can_compare_columns_with_small_timestamp_values_lte() {
         ),
     );
 
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -139,7 +138,7 @@ fn we_can_compare_a_constant_column() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -166,7 +165,7 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -214,7 +213,7 @@ fn we_can_compare_columns_with_extreme_values() {
             column(&t, "boolean", &accessor),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -250,7 +249,7 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
         ),
         lte(column(&t, "e", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -299,7 +298,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
             .unwrap(),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -349,7 +348,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
             .unwrap(),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -394,7 +393,7 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
         ),
         lte(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -452,7 +451,7 @@ fn we_can_compare_two_columns() {
         ),
         lte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -482,7 +481,7 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -512,7 +511,7 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -542,7 +541,7 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -569,7 +568,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(1)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -596,7 +595,7 @@ fn we_can_compare_column_with_greater_than_or_equal() {
         ),
         gte(column(&t, "a", &accessor), const_bigint(1)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -631,7 +630,7 @@ fn we_can_run_nested_comparison() {
             column(&t, "boolean", &accessor),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -658,7 +657,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -685,7 +684,7 @@ fn we_can_compare_a_constant_column_of_zeros() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -712,7 +711,7 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -758,7 +757,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
             lte(column(&t, "a", &accessor), const_bigint(filter_val)),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])

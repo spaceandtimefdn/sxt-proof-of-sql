@@ -1,6 +1,6 @@
 use super::{test_utility::*, DynProofExpr, ProofExpr};
 use crate::base::{
-    commitment::InnerProductProof,
+    commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
     database::{table_utility::*, Column, TableRef, TableTestAccessor, TestAccessor},
 };
 use bumpalo::Bump;

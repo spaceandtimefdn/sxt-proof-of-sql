@@ -56,9 +56,9 @@ pub use verifiable_query_result::VerifiableQueryResult;
 #[cfg(all(test, feature = "blitzar"))]
 mod verifiable_query_result_test;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod verifiable_query_result_test_utility;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 pub(crate) use verifiable_query_result_test_utility::exercise_verification;
 
 mod result_element_serialization;

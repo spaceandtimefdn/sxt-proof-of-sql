@@ -1,7 +1,7 @@
 use super::{test_utility::*, DynProofPlan};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType, TableRef,
             TableTestAccessor, TestAccessor,
@@ -80,7 +80,7 @@ fn we_can_correctly_filter_data_with_filter() {
         where_clause,
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([bigint("b", [3_i64, 5])]);
@@ -120,7 +120,7 @@ fn we_can_correctly_filter_with_complex_condition() {
         where_clause,
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
@@ -167,7 +167,7 @@ fn we_can_compose_multiple_filters() {
         lt(column(&t, "b", &accessor), const_int128(4_i128)),
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
@@ -237,7 +237,7 @@ fn we_can_compose_complex_filters() {
             const_int128(11_i128),
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
@@ -343,7 +343,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         ),
     );
     let res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&filter, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<InnerProductProof>::new(&filter, &accessor, &(), &[]).unwrap();
     res.verify(&filter, &accessor, &(), &[]).unwrap();
     let expected_evm_proof_plan = EVMProofPlan::new(filter);
     let deserialized_evem_proof_plan: EVMProofPlan = try_standard_binary_deserialization(
@@ -352,7 +352,13 @@ fn we_can_have_projection_as_input_plan_for_filter() {
     .unwrap()
     .0;
     let res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&deserialized_evem_proof_plan, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<InnerProductProof>::new(
+            &deserialized_evem_proof_plan,
+            &accessor,
+            &(),
+            &[],
+        )
+        .unwrap();
     res.verify(&deserialized_evem_proof_plan, &accessor, &(), &[])
         .unwrap();
 }

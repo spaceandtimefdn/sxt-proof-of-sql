@@ -122,17 +122,19 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::base::{
+        commitment::naive_commitment::NaiveCommitment,
+        database::{owned_table_utility::*, OwnedColumn, OwnedTable},
+        scalar::test_scalar::TestScalar,
+    };
+    #[cfg(feature = "blitzar")]
     use crate::{
         base::{
-            commitment::{naive_commitment::NaiveCommitment, Bounds, ColumnBounds},
-            database::{
-                owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor,
-                TestAccessor,
-            },
-            scalar::test_scalar::TestScalar,
+            commitment::{Bounds, ColumnBounds},
+            database::{OwnedTableTestAccessor, TestAccessor},
         },
         proof_primitive::dory::{
             test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
@@ -318,6 +320,7 @@ mod tests {
 
     #[expect(clippy::similar_names)]
     #[test]
+    #[cfg(feature = "blitzar")]
     fn we_can_get_query_commitments_from_accessor() {
         let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);

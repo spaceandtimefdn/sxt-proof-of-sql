@@ -414,38 +414,38 @@ impl<S: Scalar> OwnedColumn<S> {
             match to_type {
                 ColumnType::Uint8 => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<u8, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::Uint8),
                 ColumnType::TinyInt => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<i8, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::TinyInt),
                 ColumnType::SmallInt => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<i16, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::SmallInt),
                 ColumnType::Int => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<i32, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::Int),
                 ColumnType::BigInt => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<i64, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::BigInt),
                 ColumnType::Int128 => vec
                     .into_iter()
-                    .map(TryInto::try_into)
-                    .try_collect()
+                    .map(|value| value.try_into())
+                    .try_collect::<i128, Vec<_>, _>()
                     .map_err(|_| ColumnCoercionError::Overflow)
                     .map(OwnedColumn::Int128),
                 ColumnType::Decimal75(precision, scale) => {
@@ -464,6 +464,7 @@ mod test {
     use super::*;
     use crate::base::{
         math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::{test_scalar::TestScalar, ScalarExt},
     };
     use alloc::vec;
@@ -613,6 +614,23 @@ mod test {
             res,
             Err(OwnedColumnError::ScalarConversionError { .. })
         ));
+
+        let huge_scalars = [TestScalar::from([0, 0, 1, 0]); 2];
+
+        for column_type in [
+            ColumnType::Uint8,
+            ColumnType::TinyInt,
+            ColumnType::SmallInt,
+            ColumnType::Int,
+            ColumnType::Int128,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        ] {
+            let res = OwnedColumn::try_from_scalars(&huge_scalars, column_type);
+            assert!(matches!(
+                res,
+                Err(OwnedColumnError::ScalarConversionError { .. })
+            ));
+        }
     }
 
     #[test]

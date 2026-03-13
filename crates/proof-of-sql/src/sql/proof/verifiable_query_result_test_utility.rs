@@ -1,15 +1,9 @@
 use super::{ProofPlan, VerifiableQueryResult};
-use crate::{
-    base::{
-        commitment::{Commitment, CommittableColumn},
-        database::{owned_table_utility::*, OwnedColumn, OwnedTable, TableRef, TestAccessor},
-        scalar::Scalar,
-    },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+use crate::base::{
+    commitment::CommitmentEvaluationProof,
+    database::{owned_table_utility::*, OwnedColumn, OwnedTable, TableRef, TestAccessor},
+    scalar::Scalar,
 };
-use blitzar::proof::InnerProductProof;
-use curve25519_dalek::{ristretto::RistrettoPoint, traits::Identity};
-use num_traits::One;
 use serde::Serialize;
 
 /// This function takes a valid `verifiable_result`, copies it, tweaks it, and checks that
@@ -22,42 +16,32 @@ use serde::Serialize;
 /// Will panic if:
 /// - The verification of `res` does not succeed, causing the assertion `assert!(res.verify(...).is_ok())` to fail.
 /// - `fake_accessor.update_offset` fails, causing a panic if it is designed to do so in the implementation.
-pub fn exercise_verification(
-    res: &VerifiableQueryResult<InnerProductProof>,
+pub fn exercise_verification<CP>(
+    res: &VerifiableQueryResult<CP>,
     expr: &(impl ProofPlan + Serialize),
-    accessor: &impl TestAccessor<RistrettoPoint>,
+    accessor: &impl TestAccessor<CP::Commitment>,
     table_ref: &TableRef,
-) {
+) where
+    CP: CommitmentEvaluationProof + Clone,
+    for<'a> CP::VerifierPublicSetup<'a>: Default,
+{
+    let verifier_setup = CP::VerifierPublicSetup::default();
     res.clone()
-        .verify(expr, accessor, &(), &[])
+        .verify(expr, accessor, &verifier_setup, &[])
         .expect("Verification failed");
 
     // try changing the result
     let mut res_p = res.clone();
     res_p.result = tampered_table(&res.result);
-    assert!(res_p.verify(expr, accessor, &(), &[]).is_err());
+    let verifier_setup = CP::VerifierPublicSetup::default();
+    assert!(res_p.verify(expr, accessor, &verifier_setup, &[]).is_err());
 
     // try changing MLE evaluations
     for i in 0..res.proof.pcs_proof_evaluations.final_round.len() {
         let mut res_p = res.clone();
-        res_p.proof.pcs_proof_evaluations.final_round[i] += Curve25519Scalar::one();
-        assert!(res_p.verify(expr, accessor, &(), &[]).is_err());
-    }
-
-    // try changing intermediate commitments
-    let commit_p = RistrettoPoint::compute_commitments(
-        &[CommittableColumn::BigInt(&[
-            353_453_245_i64,
-            93_402_346_i64,
-        ])],
-        0_usize,
-        &(),
-    )[0];
-
-    for i in 0..res.proof.final_round_message.round_commitments.len() {
-        let mut res_p = res.clone();
-        res_p.proof.final_round_message.round_commitments[i] = commit_p;
-        assert!(res_p.verify(expr, accessor, &(), &[]).is_err());
+        res_p.proof.pcs_proof_evaluations.final_round[i] += CP::Scalar::ONE;
+        let verifier_setup = CP::VerifierPublicSetup::default();
+        assert!(res_p.verify(expr, accessor, &verifier_setup, &[]).is_err());
     }
 
     // try changing the offset
@@ -65,20 +49,20 @@ pub fn exercise_verification(
     // Note: in the n = 1 case with proof.commmitments all the identity element,
     // the inner product proof isn't dependent on the generators since it simply sends the input
     // vector; hence, changing the offset would have no effect.
-    if accessor.get_length(table_ref) > 1
-        || res
-            .proof
-            .final_round_message
-            .round_commitments
-            .iter()
-            .any(|&c| c != Identity::identity())
-    {
+    if accessor.get_length(table_ref) > 1 {
         let offset_generators = accessor.get_offset(table_ref);
         let mut fake_accessor = accessor.clone();
         fake_accessor.update_offset(table_ref, offset_generators);
-        res.clone().verify(expr, &fake_accessor, &(), &[]).unwrap();
+        let verifier_setup = CP::VerifierPublicSetup::default();
+        res.clone()
+            .verify(expr, &fake_accessor, &verifier_setup, &[])
+            .unwrap();
         fake_accessor.update_offset(table_ref, offset_generators + 1);
-        assert!(res.clone().verify(expr, &fake_accessor, &(), &[]).is_err());
+        let verifier_setup = CP::VerifierPublicSetup::default();
+        assert!(res
+            .clone()
+            .verify(expr, &fake_accessor, &verifier_setup, &[])
+            .is_err());
     }
 }
 

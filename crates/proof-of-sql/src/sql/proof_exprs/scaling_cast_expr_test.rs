@@ -1,3 +1,4 @@
+use crate::base::commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof;
 use crate::{
     base::{
         database::{
@@ -18,7 +19,8 @@ use crate::{
         proof_plans::test_utility::{column_field, filter, table_exec},
     },
 };
-use blitzar::proof::InnerProductProof;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
@@ -91,7 +93,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -152,7 +154,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -194,7 +196,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])

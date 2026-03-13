@@ -1,14 +1,14 @@
 use super::{DynProofExpr, PlaceholderExpr, ProofExpr};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
         proof::{PlaceholderError, ProofError},
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{QueryError, VerifiableQueryResult},
         proof_exprs::test_utility::*,
@@ -21,6 +21,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_get_id_and_type_of_placeholder_expr() {
@@ -77,8 +79,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             const_bool(true),
         );
         let params = vec![random_bigint_literal, random_varchar_literal];
-        let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &params).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &params).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &params)
             .unwrap()
@@ -124,13 +125,9 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
-        &ast,
-        &accessor,
-        &(),
-        &[LiteralValue::Boolean(true)],
-    )
-    .unwrap();
+    let verifiable_res =
+        TestVerifiableQueryResult::new(&ast, &accessor, &(), &[LiteralValue::Boolean(true)])
+            .unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[LiteralValue::Boolean(true)])
         .unwrap()
@@ -150,13 +147,9 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
-        &ast,
-        &accessor,
-        &(),
-        &[LiteralValue::Boolean(true)],
-    )
-    .unwrap();
+    let verifiable_res =
+        TestVerifiableQueryResult::new(&ast, &accessor, &(), &[LiteralValue::Boolean(true)])
+            .unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[LiteralValue::Boolean(true)])
         .unwrap()
@@ -190,7 +183,7 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
         const_bool(true),
     );
     assert!(matches!(
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[],),
+        TestVerifiableQueryResult::new(&ast, &accessor, &(), &[],),
         Err(PlaceholderError::InvalidPlaceholderIndex { .. })
     ));
 }
@@ -206,13 +199,9 @@ fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
-        &ast,
-        &accessor,
-        &(),
-        &[LiteralValue::Boolean(true)],
-    )
-    .unwrap();
+    let verifiable_res =
+        TestVerifiableQueryResult::new(&ast, &accessor, &(), &[LiteralValue::Boolean(true)])
+            .unwrap();
     assert!(matches!(
         verifiable_res.verify(&ast, &accessor, &(), &[]),
         Err(QueryError::ProofError {
@@ -236,7 +225,7 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
+    let verifiable_res = TestVerifiableQueryResult::new(
         &ast,
         &accessor,
         &(),

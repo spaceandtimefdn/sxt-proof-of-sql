@@ -1,13 +1,13 @@
 use crate::{
+    base::scalar::test_scalar::TestScalar as Curve25519Scalar,
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTableTestAccessor, TableRef,
             TableTestAccessor,
         },
         math::decimal::Precision,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{multiply_expr::MultiplyExpr, test_utility::*, DynProofExpr, ProofExpr},
@@ -22,6 +22,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 // select a * 2 as a, c, b * 4.5 as b, d * 3  + 4.7 as d, e from sxt.t where d * 3.9 = 8.19
 #[test]
@@ -68,7 +70,7 @@ fn we_can_prove_a_typical_multiply_query() {
             const_decimal75(3, 2, 819),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -135,7 +137,7 @@ fn where_clause_can_wrap_around() {
         ),
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -220,7 +222,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 ),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])

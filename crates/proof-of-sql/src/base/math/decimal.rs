@@ -175,6 +175,24 @@ mod scale_adjust_test {
     use num_bigint::BigInt;
 
     #[test]
+    fn we_can_validate_precision_and_decimal_error_string_conversions() {
+        assert_eq!(
+            String::from(DecimalError::InvalidScale {
+                scale: "77".to_string(),
+            }),
+            "Decimal scale is not valid: 77"
+        );
+        assert!(matches!(
+            Precision::new(0),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
+        assert!(matches!(
+            Precision::try_from(u64::MAX),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
+    }
+
+    #[test]
     fn we_cannot_scale_past_max_precision() {
         let decimal = "12345678901234567890123456789012345678901234567890123456789012345678900.0"
             .parse()

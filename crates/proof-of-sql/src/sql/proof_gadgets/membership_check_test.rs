@@ -196,15 +196,17 @@ impl ProofPlan for MembershipCheckTestPlan {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
-        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+        base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
+            database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
+            scalar::test_scalar::TestScalar as Curve25519Scalar,
+        },
         sql::proof::VerifiableQueryResult,
     };
-    use blitzar::proof::InnerProductProof;
 
     #[test]
     fn we_can_do_minimal_membership_check() {

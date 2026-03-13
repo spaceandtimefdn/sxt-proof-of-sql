@@ -120,7 +120,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::ColumnOperationError, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::ColumnOperationError,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_apply_index_op() {
@@ -188,5 +193,66 @@ mod tests {
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_apply_index_op_for_remaining_variants() {
+        let bump = Bump::new();
+        let indexes = [2, 0];
+
+        let boolean_column: Column<TestScalar> = Column::Boolean(&[true, false, true]);
+        assert_eq!(
+            apply_column_to_indexes(&boolean_column, &bump, &indexes).unwrap(),
+            Column::Boolean(&[true, true])
+        );
+
+        let tinyint_column: Column<TestScalar> = Column::TinyInt(&[1, 2, 3]);
+        assert_eq!(
+            apply_column_to_indexes(&tinyint_column, &bump, &indexes).unwrap(),
+            Column::TinyInt(&[3, 1])
+        );
+
+        let uint8_column: Column<TestScalar> = Column::Uint8(&[1, 2, 3]);
+        assert_eq!(
+            apply_column_to_indexes(&uint8_column, &bump, &indexes).unwrap(),
+            Column::Uint8(&[3, 1])
+        );
+
+        let smallint_column: Column<TestScalar> = Column::SmallInt(&[1, 2, 3]);
+        assert_eq!(
+            apply_column_to_indexes(&smallint_column, &bump, &indexes).unwrap(),
+            Column::SmallInt(&[3, 1])
+        );
+
+        let bigint_column: Column<TestScalar> = Column::BigInt(&[1, 2, 3]);
+        assert_eq!(
+            apply_column_to_indexes(&bigint_column, &bump, &indexes).unwrap(),
+            Column::BigInt(&[3, 1])
+        );
+
+        let int128_column: Column<TestScalar> = Column::Int128(&[1, 2, 3]);
+        assert_eq!(
+            apply_column_to_indexes(&int128_column, &bump, &indexes).unwrap(),
+            Column::Int128(&[3, 1])
+        );
+
+        let decimal_values = [1, 2, 3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let decimal_column: Column<TestScalar> =
+            Column::Decimal75(Precision::new(5).unwrap(), 0, &decimal_values);
+        let expected_decimal = [3, 1].into_iter().map(TestScalar::from).collect::<Vec<_>>();
+        assert_eq!(
+            apply_column_to_indexes(&decimal_column, &bump, &indexes).unwrap(),
+            Column::Decimal75(Precision::new(5).unwrap(), 0, &expected_decimal)
+        );
+
+        let timestamp_column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[10, 20, 30]);
+        assert_eq!(
+            apply_column_to_indexes(&timestamp_column, &bump, &indexes).unwrap(),
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[30, 10])
+        );
     }
 }

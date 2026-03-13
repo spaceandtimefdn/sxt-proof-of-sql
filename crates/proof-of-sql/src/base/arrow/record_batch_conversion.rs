@@ -177,3 +177,83 @@ mod tests {
         assert_eq!(commitment, expected_commitment);
     }
 }
+
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
+    use crate::base::commitment::naive_commitment::NaiveCommitment;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use arrow::{
+        array::{ArrayRef, Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn we_can_convert_record_batches_to_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("b", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["x", "y", "z"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+
+        assert_eq!(columns[0].0.value, "a");
+        assert_eq!(columns[0].1, Column::BigInt(&[1, 2, 3]));
+        assert_eq!(columns[1].0.value, "b");
+    }
+
+    #[test]
+    fn appending_a_mismatched_record_batch_returns_a_mismatch_error() {
+        let schema_bigint = Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, false)]));
+        let schema_text = Arc::new(Schema::new(vec![Field::new("a", DataType::Utf8, false)]));
+        let base_batch = RecordBatch::try_new(
+            schema_bigint,
+            vec![Arc::new(Int64Array::from(vec![1, 2, 3])) as ArrayRef],
+        )
+        .unwrap();
+        let mismatch_batch = RecordBatch::try_new(
+            schema_text,
+            vec![Arc::new(StringArray::from(vec!["x", "y", "z"])) as ArrayRef],
+        )
+        .unwrap();
+
+        let mut commitment = TableCommitment::<NaiveCommitment>::try_from_record_batch(&base_batch, &())
+            .unwrap();
+        let result = commitment.try_append_record_batch(&mismatch_batch, &());
+
+        assert!(matches!(
+            result,
+            Err(AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch { .. })
+        ));
+    }
+
+    #[test]
+    #[should_panic(expected = "RecordBatches cannot have duplicate identifiers")]
+    fn duplicate_record_batch_identifiers_panic_when_creating_commitments() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("dup", DataType::Int64, false),
+            Field::new("dup", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["x", "y"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let _ = TableCommitment::<NaiveCommitment>::try_from_record_batch_with_offset(&batch, 7, &());
+    }
+}

@@ -245,7 +245,12 @@ pub fn table_union<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        map::IndexMap,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn we_can_union_no_columns() {
@@ -278,6 +283,99 @@ mod tests {
         assert_eq!(
             result,
             Column::VarChar((&doubled_strings, &doubled_scalars))
+        );
+    }
+
+    #[test]
+    fn we_can_union_remaining_column_variants() {
+        let alloc = Bump::new();
+        let timestamp_tz = PoSQLTimeZone::utc();
+
+        let scalar_left = [TestScalar::from(11_i64), TestScalar::from(-2_i64)];
+        let scalar_right = [TestScalar::from(7_i64)];
+        let scalar_col0: Column<TestScalar> = Column::Scalar(scalar_left.as_slice());
+        let scalar_col1: Column<TestScalar> = Column::Scalar(scalar_right.as_slice());
+        let scalar_columns = [&scalar_col0, &scalar_col1];
+        let decimal_left = [TestScalar::from(123_i64), TestScalar::from(-45_i64)];
+        let decimal_right = [TestScalar::from(6_i64)];
+        let decimal_col0: Column<TestScalar> =
+            Column::Decimal75(Precision::new(6).unwrap(), 2, decimal_left.as_slice());
+        let decimal_col1: Column<TestScalar> =
+            Column::Decimal75(Precision::new(6).unwrap(), 2, decimal_right.as_slice());
+        let decimal_columns = [&decimal_col0, &decimal_col1];
+        let timestamp_left = [10_i64, 20_i64];
+        let timestamp_right = [-5_i64];
+        let timestamp_col0: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            timestamp_tz,
+            timestamp_left.as_slice(),
+        );
+        let timestamp_col1: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            timestamp_tz,
+            timestamp_right.as_slice(),
+        );
+        let timestamp_columns = [&timestamp_col0, &timestamp_col1];
+
+        let uint8_col0: Column<TestScalar> = Column::Uint8(&[1_u8, 2_u8]);
+        let uint8_col1: Column<TestScalar> = Column::Uint8(&[3_u8]);
+        let uint8_columns = [&uint8_col0, &uint8_col1];
+        let tinyint_col0: Column<TestScalar> = Column::TinyInt(&[-1_i8, 2_i8]);
+        let tinyint_col1: Column<TestScalar> = Column::TinyInt(&[3_i8]);
+        let tinyint_columns = [&tinyint_col0, &tinyint_col1];
+        let int128_col0: Column<TestScalar> = Column::Int128(&[1_i128, -2_i128]);
+        let int128_col1: Column<TestScalar> = Column::Int128(&[3_i128]);
+        let int128_columns = [&int128_col0, &int128_col1];
+
+        assert_eq!(
+            column_union(&uint8_columns, &alloc, ColumnType::Uint8).unwrap(),
+            Column::Uint8(&[1_u8, 2_u8, 3_u8])
+        );
+        assert_eq!(
+            column_union(&tinyint_columns, &alloc, ColumnType::TinyInt).unwrap(),
+            Column::TinyInt(&[-1_i8, 2_i8, 3_i8])
+        );
+        assert_eq!(
+            column_union(&int128_columns, &alloc, ColumnType::Int128).unwrap(),
+            Column::Int128(&[1_i128, -2_i128, 3_i128])
+        );
+        assert_eq!(
+            column_union(&scalar_columns, &alloc, ColumnType::Scalar).unwrap(),
+            Column::Scalar(&[
+                TestScalar::from(11_i64),
+                TestScalar::from(-2_i64),
+                TestScalar::from(7_i64)
+            ])
+        );
+        assert_eq!(
+            column_union(
+                &decimal_columns,
+                &alloc,
+                ColumnType::Decimal75(Precision::new(6).unwrap(), 2),
+            )
+            .unwrap(),
+            Column::Decimal75(
+                Precision::new(6).unwrap(),
+                2,
+                &[
+                    TestScalar::from(123_i64),
+                    TestScalar::from(-45_i64),
+                    TestScalar::from(6_i64)
+                ],
+            )
+        );
+        assert_eq!(
+            column_union(
+                &timestamp_columns,
+                &alloc,
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, timestamp_tz),
+            )
+            .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                timestamp_tz,
+                &[10_i64, 20_i64, -5_i64]
+            )
         );
     }
 

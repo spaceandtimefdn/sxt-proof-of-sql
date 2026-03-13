@@ -96,4 +96,30 @@ mod tests {
             prop_assert_eq!(actual, column_type);
         }
     }
+
+    #[test]
+    #[should_panic(expected = "Cannot convert Scalar type to arrow type")]
+    fn we_cannot_convert_scalar_column_types_to_arrow_types() {
+        let _ = DataType::from(&ColumnType::Scalar);
+    }
+
+    #[test]
+    fn we_can_roundtrip_timestamp_units_and_reject_unsupported_arrow_types() {
+        for (posql_unit, arrow_unit) in [
+            (PoSQLTimeUnit::Second, ArrowTimeUnit::Second),
+            (PoSQLTimeUnit::Millisecond, ArrowTimeUnit::Millisecond),
+            (PoSQLTimeUnit::Microsecond, ArrowTimeUnit::Microsecond),
+            (PoSQLTimeUnit::Nanosecond, ArrowTimeUnit::Nanosecond),
+        ] {
+            let column_type = ColumnType::TimestampTZ(posql_unit, PoSQLTimeZone::utc());
+            let arrow_type = DataType::from(&column_type);
+            assert_eq!(
+                arrow_type,
+                DataType::Timestamp(arrow_unit, Some(Arc::from("+00:00")))
+            );
+            assert_eq!(ColumnType::try_from(arrow_type).unwrap(), column_type);
+        }
+
+        assert!(ColumnType::try_from(DataType::UInt16).is_err());
+    }
 }

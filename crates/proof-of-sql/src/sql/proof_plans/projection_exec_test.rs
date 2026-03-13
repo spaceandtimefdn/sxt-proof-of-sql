@@ -1,14 +1,15 @@
 use super::{test_utility::*, DynProofPlan, ProjectionExec};
 use crate::{
     base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
             OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         map::{indexmap, IndexMap, IndexSet},
         math::decimal::Precision,
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
             exercise_verification, FirstRoundBuilder, ProofPlan, ProvableQueryResult,
@@ -18,7 +19,6 @@ use crate::{
         proof_plans::TableExec,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 use sqlparser::ast::Ident;
 
@@ -131,7 +131,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_projection() {
             ],
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -166,7 +167,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_nontrivial_projection() {
             ],
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -228,7 +230,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_composed_projection() {
             equal(column(&t, "a", &accessor), const_int128(5)),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -483,7 +486,7 @@ fn we_can_prove_a_projection() {
             ],
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
