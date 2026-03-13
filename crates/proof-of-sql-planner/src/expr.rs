@@ -3,7 +3,7 @@ use super::{
     PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
-    expr::{Alias, Cast, Placeholder},
+    expr::{Alias, Cast, Placeholder, ScalarFunction},
     BinaryExpr, Expr, Operator,
 };
 use indexmap::IndexSet;
@@ -164,6 +164,12 @@ pub fn expr_to_proof_expr(
                     )
                 }
             }
+        }
+        Expr::ScalarFunction(ScalarFunction { func_def, args })
+            if func_def.name() == "abs" && args.len() == 1 =>
+        {
+            let expr = expr_to_proof_expr(&args[0], schema)?;
+            Ok(DynProofExpr::try_new_abs(expr)?)
         }
         _ => Err(PlannerError::UnsupportedLogicalExpression {
             expr: Box::new(expr.clone()),

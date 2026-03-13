@@ -1,6 +1,6 @@
 use super::{
-    AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr, MultiplyExpr,
-    NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr, SubtractExpr,
+    AbsExpr, AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr,
+    MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr, SubtractExpr,
 };
 use crate::{
     base::{
@@ -50,12 +50,18 @@ pub enum DynProofExpr {
     Cast(CastExpr),
     /// Provable expression for casting numeric expressions to decimal expressions
     ScalingCast(ScalingCastExpr),
+    /// Provable absolute value expression
+    Abs(AbsExpr),
 }
 impl DynProofExpr {
     /// Create column expression
     #[must_use]
     pub fn new_column(column_ref: ColumnRef) -> Self {
         Self::Column(ColumnExpr::new(column_ref))
+    }
+    /// Create logical ABS expression
+    pub fn try_new_abs(input_expr: DynProofExpr) -> AnalyzeResult<Self> {
+        AbsExpr::try_new(Box::new(input_expr)).map(DynProofExpr::Abs)
     }
     /// Create logical AND expression
     pub fn try_new_and(lhs: DynProofExpr, rhs: DynProofExpr) -> AnalyzeResult<Self> {
