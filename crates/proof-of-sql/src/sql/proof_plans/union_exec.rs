@@ -2,7 +2,7 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            union_util::table_union, Column, ColumnField, ColumnRef, LiteralValue, Table,
+            union_util::table_union, Column, ColumnField, ColumnId, ColumnRef, LiteralValue, Table,
             TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
@@ -22,7 +22,6 @@ use crate::{
 use alloc::{boxed::Box, vec, vec::Vec};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// `ProofPlan` for queries of the form
 /// ```ignore
@@ -58,7 +57,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -120,6 +119,13 @@ where
             .iter()
             .flat_map(ProofPlan::get_table_references)
             .collect()
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.inputs
+            .first()
+            .expect("Union inputs should not be empty")
+            .get_column_identifiers()
     }
 }
 

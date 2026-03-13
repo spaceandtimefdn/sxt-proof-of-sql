@@ -124,7 +124,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 let idents: IndexSet<Ident> = total_col_refs
                     .iter()
                     .filter(|col_ref| col_ref.table_ref() == table_ref)
-                    .map(ColumnRef::column_id)
+                    .map(ColumnRef::column_name)
                     .collect();
                 (table_ref.clone(), accessor.get_table(&table_ref, &idents))
             })
@@ -168,7 +168,9 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
                 .get_column_references()
                 .into_iter()
                 .map(|col| {
-                    CommittableColumn::from(accessor.get_column(&col.table_ref(), &col.column_id()))
+                    CommittableColumn::from(
+                        accessor.get_column(&col.table_ref(), &col.column_name()),
+                    )
                 })
                 .collect_vec(),
             min_row_num,
@@ -253,7 +255,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             .iter()
             .map(|col_ref| {
                 accessor
-                    .get_column(&col_ref.table_ref(), &col_ref.column_id())
+                    .get_column(&col_ref.table_ref(), &col_ref.column_name())
                     .inner_product(&evaluation_vec)
             })
             .collect();
@@ -283,7 +285,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         let column_ref_mles: Vec<_> = total_col_refs
             .into_iter()
             .map(|c| {
-                Box::new(accessor.get_column(&c.table_ref(), &c.column_id()))
+                Box::new(accessor.get_column(&c.table_ref(), &c.column_name()))
                     as Box<dyn MultilinearExtension<_>>
             })
             .collect();
@@ -374,7 +376,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         for commitment in expr
             .get_column_references()
             .into_iter()
-            .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id()))
+            .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_name()))
         {
             transcript.extend_serialize_as_le(&commitment);
         }
@@ -485,7 +487,7 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
             .chain(
                 column_references
                     .iter()
-                    .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_id())),
+                    .map(|col| accessor.get_commitment(&col.table_ref(), &col.column_name())),
             )
             .chain(self.final_round_message.round_commitments.iter().cloned())
             .collect();

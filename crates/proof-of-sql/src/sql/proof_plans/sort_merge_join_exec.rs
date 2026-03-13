@@ -7,7 +7,8 @@ use crate::{
                 ordered_set_union,
             },
             slice_operation::apply_slice_to_indexes,
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -145,7 +146,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -311,6 +312,10 @@ where
             .chain(self.right.get_table_references())
             .collect()
     }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.result_idents.iter().map(ColumnId::from).collect()
+    }
 }
 
 impl ProverEvaluate for SortMergeJoinExec {
@@ -427,7 +432,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         let tab = Table::try_from_iter_with_options(
             self.result_idents
                 .iter()
-                .cloned()
+                .map(ColumnId::from)
                 .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )
@@ -577,7 +582,7 @@ impl ProverEvaluate for SortMergeJoinExec {
         Ok(Table::try_from_iter_with_options(
             self.result_idents
                 .iter()
-                .cloned()
+                .map(ColumnId::from)
                 .zip_eq(join_left_right_columns.result_columns()),
             TableOptions::new(Some(num_rows_res)),
         )

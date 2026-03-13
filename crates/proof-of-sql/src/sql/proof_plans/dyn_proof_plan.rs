@@ -4,7 +4,9 @@ use super::{
 };
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,

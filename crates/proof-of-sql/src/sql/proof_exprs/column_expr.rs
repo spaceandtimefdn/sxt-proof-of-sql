@@ -1,7 +1,7 @@
 use super::ProofExpr;
 use crate::{
     base::{
-        database::{Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -41,12 +41,21 @@ impl ColumnExpr {
     /// Wrap the column output name and its type within the [`ColumnField`]
     #[must_use]
     pub fn get_column_field(&self) -> ColumnField {
-        ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        ColumnField::new(
+            self.column_ref.column_name(),
+            *self.column_ref.column_type(),
+        )
+    }
+
+    /// Get the column name
+    #[must_use]
+    pub fn column_name(&self) -> Ident {
+        self.column_ref.column_name()
     }
 
     /// Get the column identifier
     #[must_use]
-    pub fn column_id(&self) -> Ident {
+    pub fn column_id(&self) -> ColumnId {
         self.column_ref.column_id()
     }
 
@@ -98,7 +107,7 @@ impl ProofExpr for ColumnExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         _builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         _chi_eval: S,
         _params: &[LiteralValue],
     ) -> Result<S, ProofError> {

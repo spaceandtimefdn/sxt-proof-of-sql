@@ -459,7 +459,10 @@ pub fn apply_sort_merge_join_indexes<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::{Column, ColumnId},
+        scalar::test_scalar::TestScalar,
+    };
     use sqlparser::ast::Ident;
 
     #[test]
@@ -471,16 +474,16 @@ mod tests {
         let d: Ident = "d".into();
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[1_i16, 2, 3])),
-                (b.clone(), Column::Int(&[4_i32, 5, 6])),
+                (a.clone().into(), Column::SmallInt(&[1_i16, 2, 3])),
+                (b.clone().into(), Column::Int(&[4_i32, 5, 6])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[7_i64, 8, 9])),
-                (d.clone(), Column::Int128(&[10_i128, 11, 12])),
+                (c.clone().into(), Column::BigInt(&[7_i64, 8, 9])),
+                (d.clone().into(), Column::Int128(&[10_i128, 11, 12])),
             ],
             TableOptions::default(),
         )
@@ -489,23 +492,32 @@ mod tests {
         assert_eq!(result.num_rows(), 9);
         assert_eq!(result.num_columns(), 4);
         assert_eq!(
-            result.inner_table()[&a].as_smallint().unwrap(),
+            result.inner_table()[&ColumnId::from(a.clone())]
+                .as_smallint()
+                .unwrap(),
             &[1_i16, 2, 3, 1, 2, 3, 1, 2, 3]
         );
         assert_eq!(
-            result.inner_table()[&b].as_int().unwrap(),
+            result.inner_table()[&ColumnId::from(b.clone())]
+                .as_int()
+                .unwrap(),
             &[4_i32, 5, 6, 4, 5, 6, 4, 5, 6]
         );
         assert_eq!(
-            result.inner_table()[&c].as_bigint().unwrap(),
+            result.inner_table()[&ColumnId::from(c.clone())]
+                .as_bigint()
+                .unwrap(),
             &[7_i64, 7, 7, 8, 8, 8, 9, 9, 9]
         );
         assert_eq!(
-            result.inner_table()[&d].as_int128().unwrap(),
+            result.inner_table()[&ColumnId::from(d.clone())]
+                .as_int128()
+                .unwrap(),
             &[10_i128, 10, 10, 11, 11, 11, 12, 12, 12]
         );
     }
 
+    #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_do_cross_joins_if_one_table_has_no_rows() {
         let bump = Bump::new();
@@ -517,16 +529,16 @@ mod tests {
         // Right table has no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[1_i16, 2, 3])),
-                (b.clone(), Column::Int(&[4_i32, 5, 6])),
+                (a.clone().into(), Column::SmallInt(&[1_i16, 2, 3])),
+                (b.clone().into(), Column::Int(&[4_i32, 5, 6])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[0_i64; 0])),
-                (d.clone(), Column::Int128(&[0_i128; 0])),
+                (c.clone().into(), Column::BigInt(&[0_i64; 0])),
+                (d.clone().into(), Column::Int128(&[0_i128; 0])),
             ],
             TableOptions::default(),
         )
@@ -534,24 +546,44 @@ mod tests {
         let result = cross_join(&left, &right, &bump);
         assert_eq!(result.num_rows(), 0);
         assert_eq!(result.num_columns(), 4);
-        assert_eq!(result.inner_table()[&a].as_smallint().unwrap(), &[0_i16; 0]);
-        assert_eq!(result.inner_table()[&b].as_int().unwrap(), &[0_i32; 0]);
-        assert_eq!(result.inner_table()[&c].as_bigint().unwrap(), &[0_i64; 0]);
-        assert_eq!(result.inner_table()[&d].as_int128().unwrap(), &[0_i128; 0]);
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(a.clone())]
+                .as_smallint()
+                .unwrap(),
+            &[0_i16; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(b.clone())]
+                .as_int()
+                .unwrap(),
+            &[0_i32; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(c.clone())]
+                .as_bigint()
+                .unwrap(),
+            &[0_i64; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(d.clone())]
+                .as_int128()
+                .unwrap(),
+            &[0_i128; 0]
+        );
 
         // Left table has no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[0_i16; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (a.clone().into(), Column::SmallInt(&[0_i16; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[7_i64, 8, 9])),
-                (d.clone(), Column::Int128(&[10_i128, 11, 12])),
+                (c.clone().into(), Column::BigInt(&[7_i64, 8, 9])),
+                (d.clone().into(), Column::Int128(&[10_i128, 11, 12])),
             ],
             TableOptions::default(),
         )
@@ -559,24 +591,44 @@ mod tests {
         let result = cross_join(&left, &right, &bump);
         assert_eq!(result.num_rows(), 0);
         assert_eq!(result.num_columns(), 4);
-        assert_eq!(result.inner_table()[&a].as_smallint().unwrap(), &[0_i16; 0]);
-        assert_eq!(result.inner_table()[&b].as_int().unwrap(), &[0_i32; 0]);
-        assert_eq!(result.inner_table()[&c].as_bigint().unwrap(), &[0_i64; 0]);
-        assert_eq!(result.inner_table()[&d].as_int128().unwrap(), &[0_i128; 0]);
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(a.clone())]
+                .as_smallint()
+                .unwrap(),
+            &[0_i16; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(b.clone())]
+                .as_int()
+                .unwrap(),
+            &[0_i32; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(c.clone())]
+                .as_bigint()
+                .unwrap(),
+            &[0_i64; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(d.clone())]
+                .as_int128()
+                .unwrap(),
+            &[0_i128; 0]
+        );
 
         // Both tables have no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[0_i16; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (a.clone().into(), Column::SmallInt(&[0_i16; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[0_i64; 0])),
-                (d.clone(), Column::Int128(&[0_i128; 0])),
+                (c.clone().into(), Column::BigInt(&[0_i64; 0])),
+                (d.clone().into(), Column::Int128(&[0_i128; 0])),
             ],
             TableOptions::default(),
         )
@@ -584,10 +636,30 @@ mod tests {
         let result = cross_join(&left, &right, &bump);
         assert_eq!(result.num_rows(), 0);
         assert_eq!(result.num_columns(), 4);
-        assert_eq!(result.inner_table()[&a].as_smallint().unwrap(), &[0_i16; 0]);
-        assert_eq!(result.inner_table()[&b].as_int().unwrap(), &[0_i32; 0]);
-        assert_eq!(result.inner_table()[&c].as_bigint().unwrap(), &[0_i64; 0]);
-        assert_eq!(result.inner_table()[&d].as_int128().unwrap(), &[0_i128; 0]);
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(a.clone())]
+                .as_smallint()
+                .unwrap(),
+            &[0_i16; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(b.clone())]
+                .as_int()
+                .unwrap(),
+            &[0_i32; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(c.clone())]
+                .as_bigint()
+                .unwrap(),
+            &[0_i64; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(d.clone())]
+                .as_int128()
+                .unwrap(),
+            &[0_i128; 0]
+        );
     }
 
     #[test]
@@ -604,8 +676,8 @@ mod tests {
 
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[7_i64, 8])),
-                (d.clone(), Column::Int128(&[10_i128, 11])),
+                (c.clone().into(), Column::BigInt(&[7_i64, 8])),
+                (d.clone().into(), Column::Int128(&[10_i128, 11])),
             ],
             TableOptions::default(),
         )
@@ -615,19 +687,23 @@ mod tests {
         assert_eq!(result.num_rows(), 4);
         assert_eq!(result.num_columns(), 2);
         assert_eq!(
-            result.inner_table()[&c].as_bigint().unwrap(),
+            result.inner_table()[&ColumnId::from(c.clone())]
+                .as_bigint()
+                .unwrap(),
             &[7_i64, 7, 8, 8]
         );
         assert_eq!(
-            result.inner_table()[&d].as_int128().unwrap(),
+            result.inner_table()[&ColumnId::from(d.clone())]
+                .as_int128()
+                .unwrap(),
             &[10_i128, 10, 11, 11]
         );
 
         // Right table has no columns
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[1_i16, 2])),
-                (b.clone(), Column::Int(&[4_i32, 5])),
+                (a.clone().into(), Column::SmallInt(&[1_i16, 2])),
+                (b.clone().into(), Column::Int(&[4_i32, 5])),
             ],
             TableOptions::default(),
         )
@@ -638,8 +714,18 @@ mod tests {
         let result = cross_join(&left, &right, &bump);
         assert_eq!(result.num_rows(), 0);
         assert_eq!(result.num_columns(), 2);
-        assert_eq!(result.inner_table()[&a].as_smallint().unwrap(), &[0_i16; 0]);
-        assert_eq!(result.inner_table()[&b].as_int().unwrap(), &[0_i32; 0]);
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(a.clone())]
+                .as_smallint()
+                .unwrap(),
+            &[0_i16; 0]
+        );
+        assert_eq!(
+            result.inner_table()[&ColumnId::from(b.clone())]
+                .as_int()
+                .unwrap(),
+            &[0_i32; 0]
+        );
 
         // Both tables have no columns
         let left =
@@ -789,9 +875,12 @@ mod tests {
 
         let tab = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4])),
-                (b.clone(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (
+                    a.clone().into(),
+                    Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4]),
+                ),
+                (b.clone().into(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
             ],
             TableOptions::default(),
         )
@@ -813,9 +902,12 @@ mod tests {
 
         let tab = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4])),
-                (b.clone(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (
+                    a.clone().into(),
+                    Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4]),
+                ),
+                (b.clone().into(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
             ],
             TableOptions::default(),
         )
@@ -836,9 +928,9 @@ mod tests {
 
         let tab = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[0_i16; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
-                (c.clone(), Column::BigInt(&[0_i64; 0])),
+                (a.clone().into(), Column::SmallInt(&[0_i16; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
+                (c.clone().into(), Column::BigInt(&[0_i64; 0])),
             ],
             TableOptions::default(),
         )
@@ -875,9 +967,12 @@ mod tests {
 
         let tab = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4])),
-                (b.clone(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (
+                    a.clone().into(),
+                    Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7, 4]),
+                ),
+                (b.clone().into(), Column::Int(&[3_i32, 15, 9, 14, 15, 7, 4])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
             ],
             TableOptions::default(),
         )
@@ -937,16 +1032,16 @@ mod tests {
 
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
-                (b.clone(), Column::Int(&[3_i32, 5, 9, 4, 5, 7])),
+                (a.clone().into(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
+                (b.clone().into(), Column::Int(&[3_i32, 5, 9, 4, 5, 7])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
-                (b.clone(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (b.clone().into(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
             ],
             TableOptions::default(),
         )
@@ -989,16 +1084,16 @@ mod tests {
 
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
-                (b.clone(), Column::Int(&[3_i32, 15, 9, 14, 15, 7])),
+                (a.clone().into(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
+                (b.clone().into(), Column::Int(&[3_i32, 15, 9, 14, 15, 7])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
-                (b.clone(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (b.clone().into(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
             ],
             TableOptions::default(),
         )
@@ -1042,16 +1137,16 @@ mod tests {
         // Right table has no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
-                (b.clone(), Column::Int(&[3_i32, 15, 9, 14, 15, 7])),
+                (a.clone().into(), Column::SmallInt(&[8_i16, 2, 5, 1, 3, 7])),
+                (b.clone().into(), Column::Int(&[3_i32, 15, 9, 14, 15, 7])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[0_i64; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (c.clone().into(), Column::BigInt(&[0_i64; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )
@@ -1084,16 +1179,16 @@ mod tests {
         // Left table has no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[0_i16; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (a.clone().into(), Column::SmallInt(&[0_i16; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
-                (b.clone(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
+                (c.clone().into(), Column::BigInt(&[1_i64, 2, 7, 8, 9, 7, 2])),
+                (b.clone().into(), Column::Int(&[10_i32, 11, 6, 5, 5, 4, 8])),
             ],
             TableOptions::default(),
         )
@@ -1126,16 +1221,16 @@ mod tests {
         // Both tables have no rows
         let left = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (a.clone(), Column::SmallInt(&[0_i16; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (a.clone().into(), Column::SmallInt(&[0_i16; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )
         .expect("Table creation should not fail");
         let right = Table::<'_, TestScalar>::try_from_iter_with_options(
             vec![
-                (c.clone(), Column::BigInt(&[0_i64; 0])),
-                (b.clone(), Column::Int(&[0_i32; 0])),
+                (c.clone().into(), Column::BigInt(&[0_i64; 0])),
+                (b.clone().into(), Column::Int(&[0_i32; 0])),
             ],
             TableOptions::default(),
         )

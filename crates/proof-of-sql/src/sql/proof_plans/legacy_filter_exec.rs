@@ -2,8 +2,8 @@ use super::fold_vals;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            filter_util::filter_columns, Column, ColumnField, ColumnId, ColumnRef, LiteralValue,
+            Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -23,7 +23,6 @@ use alloc::vec::Vec;
 use bumpalo::Bump;
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -78,7 +77,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -138,7 +137,10 @@ where
         self.aliased_results
             .iter()
             .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             })
             .collect()
     }
@@ -157,6 +159,13 @@ where
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         IndexSet::from_iter([self.table.table_ref.clone()])
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.aliased_results
+            .iter()
+            .map(|aliased_expr| aliased_expr.alias.clone())
+            .collect()
     }
 }
 
