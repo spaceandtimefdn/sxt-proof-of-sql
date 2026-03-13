@@ -1,12 +1,9 @@
-use super::{slice_operation::apply_slice_to_indexes, Column, ColumnOperationResult, ColumnType};
+use super::{slice_operation::apply_slice_to_indexes, Column, ColumnOperationResult};
 use crate::base::scalar::Scalar;
 use bumpalo::Bump;
 
 /// Apply a `Column` to a vector of indexes, returning a new `Column` with the
 /// values at the given indexes. Repetitions are allowed.
-///
-/// # Panics
-/// Panics if any of the indexes are out of bounds.
 pub(crate) fn apply_column_to_indexes<'a, S>(
     column: &Column<'a, S>,
     alloc: &'a Bump,
@@ -15,76 +12,48 @@ pub(crate) fn apply_column_to_indexes<'a, S>(
 where
     S: Scalar,
 {
-    match column.column_type() {
-        ColumnType::Boolean => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_boolean().expect("Column types should match"),
-                indexes,
-            )?;
+    match column {
+        Column::Boolean(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Boolean(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::TinyInt => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_tinyint().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::TinyInt(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::TinyInt(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::Uint8 => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_uint8().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::Uint8(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Uint8(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::SmallInt => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_smallint().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::SmallInt(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::SmallInt(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::Int => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_int().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::Int(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Int(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::BigInt => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_bigint().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::BigInt(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::BigInt(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::Int128 => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_int128().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::Int128(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Int128(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::Scalar => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_scalar().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::Scalar(values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Scalar(alloc.alloc_slice_copy(&raw_values) as &[_]))
         }
-        ColumnType::Decimal75(precision, scale) => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_decimal75().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::Decimal75(precision, scale, values) => {
+            let raw_values = apply_slice_to_indexes(values, indexes)?;
             Ok(Column::Decimal75(
-                precision,
-                scale,
+                *precision,
+                *scale,
                 alloc.alloc_slice_copy(&raw_values) as &[_],
             ))
         }
-        ColumnType::VarChar => {
-            let (raw_values, raw_scalars) = column.as_varchar().expect("Column types should match");
+        Column::VarChar((raw_values, raw_scalars)) => {
             let raw_values = apply_slice_to_indexes(raw_values, indexes)?;
             let scalars = apply_slice_to_indexes(raw_scalars, indexes)?;
             Ok(Column::VarChar((
@@ -92,10 +61,7 @@ where
                 alloc.alloc_slice_copy(&scalars) as &[_],
             )))
         }
-
-        ColumnType::VarBinary => {
-            let (raw_values, raw_scalars) =
-                column.as_varbinary().expect("Column types should match");
+        Column::VarBinary((raw_values, raw_scalars)) => {
             let raw_values = apply_slice_to_indexes(raw_values, indexes)?;
             let scalars = apply_slice_to_indexes(raw_scalars, indexes)?;
             Ok(Column::VarBinary((
@@ -103,14 +69,11 @@ where
                 alloc.alloc_slice_copy(&scalars) as &[_],
             )))
         }
-        ColumnType::TimestampTZ(tu, tz) => {
-            let raw_values = apply_slice_to_indexes(
-                column.as_timestamptz().expect("Column types should match"),
-                indexes,
-            )?;
+        Column::TimestampTZ(tu, tz, raw_values) => {
+            let raw_values = apply_slice_to_indexes(raw_values, indexes)?;
             Ok(Column::TimestampTZ(
-                tu,
-                tz,
+                *tu,
+                *tz,
                 alloc.alloc_slice_copy(&raw_values) as &[_],
             ))
         }

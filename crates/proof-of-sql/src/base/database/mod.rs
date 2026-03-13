@@ -37,7 +37,7 @@ mod column_comparison_operation;
 pub(super) use column_comparison_operation::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
 
 mod column_index_operation;
-pub(super) use column_index_operation::apply_column_to_indexes;
+pub(crate) use column_index_operation::apply_column_to_indexes;
 
 mod column_repetition_operation;
 pub(super) use column_repetition_operation::{ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp};
