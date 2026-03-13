@@ -93,6 +93,7 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 mod tests {
     use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
     use crate::base::scalar::test_scalar::TestScalar;
+    use crate::sql::proof::CompositePolynomialBuilder;
     use alloc::boxed::Box;
 
     #[test]
@@ -118,5 +119,39 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_compose_for_identity_subpolynomials() {
+        let fr = [TestScalar::from(1), TestScalar::from(2)];
+        let mle = vec![TestScalar::from(3), TestScalar::from(5)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(7), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::Identity, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        subpoly.compose(&mut builder, TestScalar::from(11));
+
+        let composed = builder.make_composite_polynomial();
+        assert_eq!(subpoly.subpolynomial_type(), SumcheckSubpolynomialType::Identity);
+        assert_eq!(composed.products.len(), 1);
+        assert_eq!(composed.flattened_ml_extensions.len(), 2);
+    }
+
+    #[test]
+    fn test_compose_for_zero_sum_subpolynomials() {
+        let fr = [TestScalar::from(1), TestScalar::from(2)];
+        let mle = vec![TestScalar::from(13), TestScalar::from(17)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(19), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        subpoly.compose(&mut builder, TestScalar::from(23));
+
+        let composed = builder.make_composite_polynomial();
+        assert_eq!(subpoly.subpolynomial_type(), SumcheckSubpolynomialType::ZeroSum);
+        assert_eq!(composed.products.len(), 2);
+        assert_eq!(composed.flattened_ml_extensions.len(), 3);
     }
 }

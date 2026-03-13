@@ -118,19 +118,19 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
             database::{table_utility::*, ColumnType, TableTestAccessor},
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+            scalar::test_scalar::TestScalar as Curve25519Scalar,
         },
-        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
         sql::proof::{QueryError, VerifiableQueryResult},
     };
-    use blitzar::proof::InnerProductProof;
 
     fn check_monotonic<const STRICT: bool, const ASC: bool>(
         table_ref: TableRef,

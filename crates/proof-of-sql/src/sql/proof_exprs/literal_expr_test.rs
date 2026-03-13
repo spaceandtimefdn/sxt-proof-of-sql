@@ -1,13 +1,13 @@
 use super::{DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
             Table, TableRef,
         },
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::test_utility::*,
@@ -20,6 +20,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 fn test_random_tables_with_given_offset(offset: usize) {
     let dist = Uniform::new(-3, 4);
@@ -59,7 +61,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
             const_bool(lit),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
@@ -108,7 +110,7 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -128,7 +130,7 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])

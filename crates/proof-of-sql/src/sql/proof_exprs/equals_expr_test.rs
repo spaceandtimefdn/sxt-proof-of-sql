@@ -1,14 +1,13 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTable,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
         math::decimal::Precision,
-        scalar::Scalar,
+        scalar::{test_scalar::TestScalar as Curve25519Scalar, Scalar},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{test_utility::*, DynProofExpr, EqualsExpr, ProofExpr},
@@ -23,6 +22,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_prove_an_equality_query_with_no_rows() {
@@ -48,8 +49,7 @@ fn we_can_prove_an_equality_query_with_no_rows() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -82,8 +82,7 @@ fn we_can_prove_another_equality_query_with_no_rows() {
         ),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -121,8 +120,7 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
         ),
     );
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -159,7 +157,7 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -193,7 +191,7 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
         ),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -227,7 +225,7 @@ fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -275,7 +273,7 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -328,7 +326,7 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -377,7 +375,7 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(123_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -427,7 +425,7 @@ fn we_can_prove_an_equality_query_with_a_string_comparison() {
         ),
         equal(column(&t, "c", &accessor), const_varchar("ghi")),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -487,7 +485,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 const_varchar(filter_val.as_str()),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
@@ -586,8 +584,7 @@ fn we_can_query_with_varbinary_equality() {
     );
 
     // Execute and verify query
-    let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()

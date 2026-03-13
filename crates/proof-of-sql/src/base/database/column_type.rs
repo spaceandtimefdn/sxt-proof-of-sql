@@ -673,4 +673,95 @@ mod tests {
             assert_eq!(column_type.sqrt_negative_min(), None);
         }
     }
+
+    #[test]
+    fn integer_width_helpers_cover_all_integer_paths() {
+        assert_eq!(ColumnType::Uint8.to_integer_bits(), Some(8));
+        assert_eq!(ColumnType::SmallInt.to_integer_bits(), Some(16));
+        assert_eq!(ColumnType::Int.to_integer_bits(), Some(32));
+        assert_eq!(ColumnType::BigInt.to_integer_bits(), Some(64));
+        assert_eq!(ColumnType::Int128.to_integer_bits(), Some(128));
+        assert_eq!(ColumnType::Boolean.to_integer_bits(), None);
+
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(8),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(16),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(32),
+            Some(ColumnType::Int)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(64),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::from_signed_integer_bits(128),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(ColumnType::from_signed_integer_bits(12), None);
+
+        assert_eq!(
+            ColumnType::from_unsigned_integer_bits(8),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(ColumnType::from_unsigned_integer_bits(16), None);
+
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::Uint8),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::SmallInt.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Int.max_integer_type(&ColumnType::Int),
+            Some(ColumnType::Int)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::BigInt),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::Int128.max_integer_type(&ColumnType::Int128),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(ColumnType::Boolean.max_integer_type(&ColumnType::Int), None);
+
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_unsigned_integer_type(&ColumnType::Uint8),
+            None
+        );
+    }
+
+    #[test]
+    fn decimal_metadata_and_display_cover_scalar_and_timestamp_variants() {
+        assert_eq!(ColumnType::Scalar.precision_value(), Some(0));
+        assert_eq!(ColumnType::VarBinary.precision_value(), None);
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::utc()).scale(),
+            Some(6)
+        );
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::new(3600)).scale(),
+            Some(9)
+        );
+        assert_eq!(format!("{}", ColumnType::Int128), "DECIMAL");
+        assert_eq!(
+            format!(
+                "{}",
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(3600))
+            ),
+            "TIMESTAMP(TIMEUNIT: seconds (precision: 0), TIMEZONE: +01:00)"
+        );
+    }
 }

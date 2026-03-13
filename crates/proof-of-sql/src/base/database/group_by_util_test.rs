@@ -1,6 +1,10 @@
 use crate::{
     base::{
-        database::{group_by_util::*, Column},
+        database::{
+            group_by_util::{AggregateColumnsError, *},
+            Column,
+        },
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -688,4 +692,145 @@ fn we_can_aggregate_columns_with_varbinary_in_group_by() {
     assert_eq!(aggregate_result.count_column, expected_count);
     assert!(aggregate_result.max_columns.is_empty());
     assert!(aggregate_result.min_columns.is_empty());
+}
+
+#[test]
+fn aggregate_columns_returns_an_error_for_length_mismatches() {
+    let alloc = Bump::new();
+    let group_by = &[Column::<TestScalar>::BigInt(&[1, 2])];
+    let sum_columns = &[Column::<TestScalar>::Int(&[10, 20, 30])];
+    let selection = &[true, true];
+
+    let result = aggregate_columns(&alloc, group_by, sum_columns, &[], &[], selection);
+
+    assert!(matches!(
+        result,
+        Err(AggregateColumnsError::ColumnLengthMismatch)
+    ));
+}
+
+#[test]
+fn we_can_sum_aggregate_small_numeric_columns_by_counts() {
+    let alloc = Bump::new();
+    let indexes = &[0, 2, 3, 1];
+    let counts = &[2, 2];
+
+    let uint8 = Column::<TestScalar>::Uint8(&[1, 4, 2, 3]);
+    let tinyint = Column::<TestScalar>::TinyInt(&[-1, 4, 2, 3]);
+    let smallint = Column::<TestScalar>::SmallInt(&[-10, 40, 20, 30]);
+    let int = Column::<TestScalar>::Int(&[-100, 400, 200, 300]);
+
+    let expected_uint8 = [TestScalar::from(3), TestScalar::from(7)];
+    let expected_tinyint = [TestScalar::from(1), TestScalar::from(7)];
+    let expected_smallint = [TestScalar::from(10), TestScalar::from(70)];
+    let expected_int = [TestScalar::from(100), TestScalar::from(700)];
+
+    assert_eq!(
+        sum_aggregate_column_by_index_counts(&alloc, &uint8, counts, indexes),
+        expected_uint8
+    );
+    assert_eq!(
+        sum_aggregate_column_by_index_counts(&alloc, &tinyint, counts, indexes),
+        expected_tinyint
+    );
+    assert_eq!(
+        sum_aggregate_column_by_index_counts(&alloc, &smallint, counts, indexes),
+        expected_smallint
+    );
+    assert_eq!(
+        sum_aggregate_column_by_index_counts(&alloc, &int, counts, indexes),
+        expected_int
+    );
+}
+
+#[test]
+#[should_panic(expected = "SUM can not be applied to non-numeric types")]
+fn we_cannot_apply_sum_to_boolean_columns() {
+    let alloc = Bump::new();
+    let column = Column::<TestScalar>::Boolean(&[true, false]);
+    let _ = sum_aggregate_column_by_index_counts(&alloc, &column, &[2], &[0, 1]);
+}
+
+#[test]
+fn we_can_max_aggregate_boolean_uint8_and_timestamp_columns_by_counts() {
+    let alloc = Bump::new();
+    let indexes = &[0, 2, 3, 1];
+    let counts = &[2, 2];
+    let timezone = PoSQLTimeZone::utc();
+
+    let boolean = Column::<TestScalar>::Boolean(&[false, false, true, true]);
+    let uint8 = Column::<TestScalar>::Uint8(&[1, 4, 2, 3]);
+    let tinyint = Column::<TestScalar>::TinyInt(&[-1, 4, 2, 3]);
+    let smallint = Column::<TestScalar>::SmallInt(&[-10, 40, 20, 30]);
+    let timestamp =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Second, timezone, &[100, 400, 200, 300]);
+
+    let expected_boolean = [Some(TestScalar::from(true)), Some(TestScalar::from(true))];
+    let expected_uint8 = [Some(TestScalar::from(2)), Some(TestScalar::from(4))];
+    let expected_tinyint = [Some(TestScalar::from(2)), Some(TestScalar::from(4))];
+    let expected_smallint = [Some(TestScalar::from(20)), Some(TestScalar::from(40))];
+    let expected_timestamp = [Some(TestScalar::from(200)), Some(TestScalar::from(400))];
+
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &boolean, counts, indexes),
+        expected_boolean
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &uint8, counts, indexes),
+        expected_uint8
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &tinyint, counts, indexes),
+        expected_tinyint
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &smallint, counts, indexes),
+        expected_smallint
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &timestamp, counts, indexes),
+        expected_timestamp
+    );
+}
+
+#[test]
+fn we_can_min_aggregate_boolean_uint8_and_timestamp_columns_by_counts() {
+    let alloc = Bump::new();
+    let indexes = &[0, 2, 3, 1];
+    let counts = &[2, 2];
+    let timezone = PoSQLTimeZone::utc();
+
+    let boolean = Column::<TestScalar>::Boolean(&[false, false, true, true]);
+    let uint8 = Column::<TestScalar>::Uint8(&[1, 4, 2, 3]);
+    let tinyint = Column::<TestScalar>::TinyInt(&[-1, 4, 2, 3]);
+    let smallint = Column::<TestScalar>::SmallInt(&[-10, 40, 20, 30]);
+    let timestamp =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Second, timezone, &[100, 400, 200, 300]);
+
+    let expected_boolean = [Some(TestScalar::from(false)), Some(TestScalar::from(false))];
+    let expected_uint8 = [Some(TestScalar::from(1)), Some(TestScalar::from(3))];
+    let expected_tinyint = [Some(TestScalar::from(-1)), Some(TestScalar::from(3))];
+    let expected_smallint = [Some(TestScalar::from(-10)), Some(TestScalar::from(30))];
+    let expected_timestamp = [Some(TestScalar::from(100)), Some(TestScalar::from(300))];
+
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &boolean, counts, indexes),
+        expected_boolean
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &uint8, counts, indexes),
+        expected_uint8
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &tinyint, counts, indexes),
+        expected_tinyint
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &smallint, counts, indexes),
+        expected_smallint
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &timestamp, counts, indexes),
+        expected_timestamp
+    );
 }

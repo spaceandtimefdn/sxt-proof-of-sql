@@ -324,3 +324,95 @@ fn spinner(message: String) -> ProgressBar {
     spinner.set_message(message);
     spinner
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ark_std::rand::RngCore;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn test_args(seed: &str) -> Args {
+        Args {
+            nu: 4,
+            mode: Mode::Verifier,
+            seed: seed.to_owned(),
+            target: "./output".to_owned(),
+        }
+    }
+
+    #[test]
+    fn rng_from_seed_is_deterministic_and_zero_pads_short_inputs() {
+        let mut rng_a = rng_from_seed(&test_args("abc"));
+        let mut rng_b = rng_from_seed(&test_args("abc"));
+        let mut rng_c = rng_from_seed(&test_args("abc\0"));
+        let mut rng_d = rng_from_seed(&test_args(&"x".repeat(40)));
+
+        assert_eq!(rng_a.next_u64(), rng_b.next_u64());
+        assert_ne!(rng_a.next_u64(), rng_c.next_u64());
+        assert_eq!(
+            rng_d.next_u64(),
+            rng_from_seed(&test_args(&"x".repeat(32))).next_u64()
+        );
+    }
+
+    #[test]
+    fn we_can_compute_sha256_for_existing_files() {
+        let temp_dir = tempdir().expect("temp dir");
+        let file_path = temp_dir.path().join("artifact.bin");
+        fs::write(&file_path, b"abc").expect("write artifact");
+
+        assert_eq!(
+            compute_sha256(file_path.to_str().unwrap()).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(compute_sha256(temp_dir.path().join("missing.bin").to_str().unwrap()).is_none());
+    }
+
+    #[test]
+    fn save_digests_appends_multiple_lines_to_the_expected_file() {
+        let temp_dir = tempdir().expect("temp dir");
+        let target = temp_dir.path().to_str().unwrap();
+
+        save_digests(
+            &[
+                ("first.bin".to_owned(), "digest-1".to_owned()),
+                ("second.bin".to_owned(), "digest-2".to_owned()),
+            ],
+            target,
+            7,
+        );
+        save_digests(&[("third.bin".to_owned(), "digest-3".to_owned())], target, 7);
+
+        let digests_path = temp_dir.path().join("digests_nu_7.txt");
+        let contents = fs::read_to_string(digests_path).expect("read digests");
+        assert_eq!(
+            contents.lines().collect::<Vec<_>>(),
+            vec![
+                "digest-1  first.bin",
+                "digest-2  second.bin",
+                "digest-3  third.bin"
+            ]
+        );
+    }
+
+    #[test]
+    fn save_digests_tolerates_unwritable_targets() {
+        let temp_dir = tempdir().expect("temp dir");
+        let occupied = temp_dir.path().join("occupied");
+        fs::write(&occupied, b"not a directory").expect("write occupied file");
+
+        save_digests(
+            &[("first.bin".to_owned(), "digest-1".to_owned())],
+            occupied.to_str().unwrap(),
+            3,
+        );
+    }
+
+    #[test]
+    fn spinner_uses_the_supplied_message() {
+        let spinner = spinner("working".to_owned());
+        assert_eq!(spinner.message(), "working");
+        spinner.finish_and_clear();
+    }
+}

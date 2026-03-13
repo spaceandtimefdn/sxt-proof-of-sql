@@ -1,14 +1,14 @@
 use super::AddExpr;
 use crate::{
+    base::scalar::test_scalar::TestScalar as Curve25519Scalar,
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTableTestAccessor, TableRef,
             TableTestAccessor,
         },
         math::decimal::Precision,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{test_utility::*, DynProofExpr, ProofExpr},
@@ -23,6 +23,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 // select a, c, b + 4 as res, d from sxt.t where a - b = 3
 #[test]
@@ -57,7 +59,7 @@ fn we_can_prove_a_typical_add_subtract_query() {
             const_bigint(3),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -128,7 +130,7 @@ fn we_can_prove_a_typical_add_subtract_query_with_decimals() {
             const_decimal75(12, 2, 35),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -204,7 +206,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 ),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])

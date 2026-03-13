@@ -1,10 +1,10 @@
 use super::test_utility::*;
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{owned_table_utility::*, OwnedTableTestAccessor, TableRef, TestAccessor},
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::test_utility::*,
@@ -30,7 +30,7 @@ fn we_can_prove_aggregation_without_group_by() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -58,7 +58,7 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -93,7 +93,7 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -251,7 +251,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
             equal(column(&t, "varchar_filter", &accessor), const_varchar("f2")),
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([

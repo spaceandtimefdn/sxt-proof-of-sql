@@ -578,4 +578,117 @@ mod tests {
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
     }
+
+    #[test]
+    fn we_can_build_a_uint8_column_from_a_literal() {
+        let alloc = Bump::new();
+        let literal = LiteralValue::Uint8(7);
+        let column = Column::<TestScalar>::from_literal_with_length(&literal, 4, &alloc);
+
+        assert_eq!(column, Column::Uint8(&[7, 7, 7, 7]));
+    }
+
+    #[test]
+    fn we_can_convert_small_owned_columns_and_access_them() {
+        let alloc = Bump::new();
+        let timestamp_timezone = PoSQLTimeZone::utc();
+        let timestamp_values = vec![11_i64, 22, 33];
+        let scalar_values = vec![
+            TestScalar::from(5),
+            TestScalar::from(6),
+            TestScalar::from(7),
+        ];
+        let owned_uint8 = OwnedColumn::Uint8(vec![1, 2, 3]);
+        let owned_tinyint = OwnedColumn::TinyInt(vec![-1, 0, 1]);
+        let owned_smallint = OwnedColumn::SmallInt(vec![-11, 12, 13]);
+        let owned_int = OwnedColumn::Int(vec![21, 22, 23]);
+        let owned_bigint = OwnedColumn::BigInt(vec![31, 32, 33]);
+        let owned_int128 = OwnedColumn::Int128(vec![41, 42, 43]);
+        let owned_scalar = OwnedColumn::Scalar(scalar_values.clone());
+        let owned_timestamptz = OwnedColumn::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            timestamp_timezone,
+            timestamp_values.clone(),
+        );
+
+        let uint8 = Column::<TestScalar>::from_owned_column(&owned_uint8, &alloc);
+        let tinyint = Column::<TestScalar>::from_owned_column(&owned_tinyint, &alloc);
+        let smallint = Column::<TestScalar>::from_owned_column(&owned_smallint, &alloc);
+        let int = Column::<TestScalar>::from_owned_column(&owned_int, &alloc);
+        let bigint = Column::<TestScalar>::from_owned_column(&owned_bigint, &alloc);
+        let int128 = Column::<TestScalar>::from_owned_column(&owned_int128, &alloc);
+        let scalar = Column::<TestScalar>::from_owned_column(&owned_scalar, &alloc);
+        let timestamptz = Column::<TestScalar>::from_owned_column(&owned_timestamptz, &alloc);
+
+        assert_eq!(uint8, Column::Uint8(&[1, 2, 3]));
+        assert_eq!(tinyint, Column::TinyInt(&[-1, 0, 1]));
+        assert_eq!(smallint, Column::SmallInt(&[-11, 12, 13]));
+        assert_eq!(int, Column::Int(&[21, 22, 23]));
+        assert_eq!(bigint, Column::BigInt(&[31, 32, 33]));
+        assert_eq!(int128, Column::Int128(&[41, 42, 43]));
+        assert_eq!(scalar, Column::Scalar(scalar_values.as_slice()));
+        assert_eq!(
+            timestamptz,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                timestamp_timezone,
+                timestamp_values.as_slice()
+            )
+        );
+
+        assert_eq!(uint8.as_uint8(), Some(&[1, 2, 3][..]));
+        assert_eq!(tinyint.as_tinyint(), Some(&[-1, 0, 1][..]));
+        assert_eq!(smallint.as_smallint(), Some(&[-11, 12, 13][..]));
+        assert_eq!(int.as_int(), Some(&[21, 22, 23][..]));
+        assert_eq!(bigint.as_bigint(), Some(&[31, 32, 33][..]));
+        assert_eq!(int128.as_int128(), Some(&[41, 42, 43][..]));
+        assert_eq!(scalar.as_scalar(), Some(scalar_values.as_slice()));
+        assert_eq!(
+            timestamptz.as_timestamptz(),
+            Some(timestamp_values.as_slice())
+        );
+
+        assert_eq!(int.as_boolean(), None);
+        assert_eq!(int.as_uint8(), None);
+        assert_eq!(int.as_tinyint(), None);
+        assert_eq!(int.as_smallint(), None);
+        assert_eq!(int.as_bigint(), None);
+        assert_eq!(int.as_int128(), None);
+        assert_eq!(int.as_scalar(), None);
+        assert_eq!(int.as_decimal75(), None);
+        assert_eq!(int.as_varchar(), None);
+        assert_eq!(int.as_varbinary(), None);
+        assert_eq!(int.as_timestamptz(), None);
+    }
+
+    #[test]
+    fn we_can_convert_small_columns_to_scalars() {
+        let varbinary_bytes: &[&[u8]] = &[b"alpha", b"beta"];
+        let varbinary_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"alpha"),
+            TestScalar::from_byte_slice_via_hash(b"beta"),
+        ];
+        let scalar_values = [TestScalar::from(71), TestScalar::from(72)];
+
+        assert_eq!(
+            Column::<TestScalar>::Uint8(&[2, 4]).to_scalar(),
+            vec![TestScalar::from(2), TestScalar::from(4)]
+        );
+        assert_eq!(
+            Column::<TestScalar>::TinyInt(&[-3, 5]).to_scalar(),
+            vec![TestScalar::from(-3), TestScalar::from(5)]
+        );
+        assert_eq!(
+            Column::<TestScalar>::Int128(&[9, 10]).to_scalar(),
+            vec![TestScalar::from(9), TestScalar::from(10)]
+        );
+        assert_eq!(
+            Column::<TestScalar>::Scalar(&scalar_values).to_scalar(),
+            scalar_values.to_vec()
+        );
+        assert_eq!(
+            Column::<TestScalar>::VarBinary((varbinary_bytes, &varbinary_scalars)).to_scalar(),
+            varbinary_scalars.to_vec()
+        );
+    }
 }

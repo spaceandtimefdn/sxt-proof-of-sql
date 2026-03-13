@@ -1430,6 +1430,70 @@ mod tests {
     }
 
     #[test]
+    fn we_cannot_aggregate_when_alias_for_aggregate_expr_is_missing() {
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+
+        let result = aggregate_to_proof_plan(
+            &input_plan,
+            &[],
+            &[SUM_B()],
+            &SCHEMAS(),
+            &indexmap! {},
+        );
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_aggregate_when_aggr_expr_is_not_an_aggregate_function() {
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+
+        let result = aggregate_to_proof_plan(
+            &input_plan,
+            &[],
+            &[df_column("table", "b")],
+            &SCHEMAS(),
+            &indexmap! {},
+        );
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_aggregate_with_nonprovable_single_group_column() {
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![1, 2]), vec![], None).unwrap(),
+        );
+        let alias_map = indexmap! {
+            "table.c".to_string() => "c".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+        };
+
+        let result = aggregate_to_proof_plan(
+            &input_plan,
+            &[df_column("table", "c")],
+            &[SUM_B()],
+            &SCHEMAS(),
+            &alias_map,
+        );
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
     fn we_cannot_aggregate_with_fetch_limit() {
         // Setup group expression
         let group_expr = vec![df_column("table", "a")];
@@ -2230,6 +2294,37 @@ mod tests {
         assert!(
             matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
         );
+    }
+
+    #[test]
+    fn we_cannot_join_on_mismatched_column_names() {
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let join_plan = LogicalPlan::Join(Join {
+            left: Arc::new(left),
+            right: Arc::new(right),
+            on: vec![(df_column("table", "a"), df_column("table", "b"))],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+
+        let join = match &join_plan {
+            LogicalPlan::Join(join) => join,
+            _ => unreachable!(),
+        };
+        let result = join_to_proof_plan(join, &SCHEMAS(), &join_plan);
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
     }
 
     // Filter (LogicalPlan::Filter) tests - Happy paths

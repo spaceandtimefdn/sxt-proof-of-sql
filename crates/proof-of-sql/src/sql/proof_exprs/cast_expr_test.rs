@@ -2,6 +2,7 @@ use super::{
     test_utility::{aliased_plan, cast, column},
     LiteralExpr,
 };
+use crate::base::commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof;
 use crate::{
     base::{
         database::{
@@ -22,8 +23,9 @@ use crate::{
         AnalyzeError,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_prove_a_simple_cast_expr() {
@@ -83,7 +85,7 @@ fn we_can_prove_a_simple_cast_expr() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -168,7 +170,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])

@@ -5,8 +5,10 @@ use crate::base::{
     scalar::{test_scalar::TestScalar, Scalar},
 };
 use core::ops::Add;
+use serde::{Deserialize, Serialize};
 
 /// This should only be used for the purpose of unit testing.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct NaiveEvaluationProof {
     a: NaiveCommitment,
     b_point: Vec<TestScalar>,

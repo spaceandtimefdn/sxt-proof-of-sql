@@ -81,4 +81,26 @@ mod time_unit_tests {
             ));
         }
     }
+
+    #[test]
+    fn test_precision_values_and_display_strings() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+
+        assert_eq!(PoSQLTimeUnit::Second.to_string(), "seconds (precision: 0)");
+        assert_eq!(
+            PoSQLTimeUnit::Millisecond.to_string(),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Microsecond.to_string(),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Nanosecond.to_string(),
+            "nanoseconds (precision: 9)"
+        );
+    }
 }

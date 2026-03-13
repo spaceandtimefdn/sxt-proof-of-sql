@@ -1,12 +1,14 @@
 use super::test_utility::*;
 use crate::{
-    base::database::{
-        owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
-        TableTestAccessor,
+    base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
+        database::{
+            owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
+            TableTestAccessor,
+        },
     },
     sql::proof::{exercise_verification, VerifiableQueryResult},
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[test]
@@ -68,7 +70,8 @@ fn we_can_create_and_prove_a_table_exec() {
         0_usize,
         (),
     );
-    let verifiable_res = VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
     let res = verifiable_res
         .verify(&plan, &accessor, &(), &[])

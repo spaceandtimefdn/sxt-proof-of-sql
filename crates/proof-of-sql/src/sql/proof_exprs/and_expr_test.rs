@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
@@ -29,6 +29,8 @@ use rand::{
 use rand_core::SeedableRng;
 use sqlparser::ast::Ident;
 use std::collections::VecDeque;
+
+type TestVerifiableQueryResult = VerifiableQueryResult<InnerProductProof>;
 
 #[test]
 fn we_can_prove_a_simple_and_query() {
@@ -60,7 +62,7 @@ fn we_can_prove_a_simple_and_query() {
             ),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -100,7 +102,7 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
             ),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -160,7 +162,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 equal(column(&t, "c", &accessor), const_bigint(filter_val2)),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+        let verifiable_res = TestVerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         exercise_verification(&verifiable_res, &ast, &accessor, &t);
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])

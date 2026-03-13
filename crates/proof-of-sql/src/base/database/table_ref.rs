@@ -142,3 +142,58 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn table_ref_constructors_parsing_and_serde_cover_all_paths() {
+        let no_schema = TableRef::new("", "orders");
+        assert_eq!(no_schema.schema_id(), None);
+        assert_eq!(no_schema.table_id().value, "orders");
+        assert_eq!(no_schema.to_string(), "orders");
+
+        let with_schema = TableRef::new("analytics", "orders");
+        assert_eq!(with_schema.schema_id().unwrap().value, "analytics");
+        assert_eq!(with_schema.table_id().value, "orders");
+        assert_eq!(with_schema.to_string(), "analytics.orders");
+
+        let from_names = TableRef::from_names(Some("sales"), "invoices");
+        assert_eq!(from_names.to_string(), "sales.invoices");
+
+        let from_idents = TableRef::from_idents(Some(Ident::new("warehouse")), Ident::new("items"));
+        assert_eq!(from_idents.to_string(), "warehouse.items");
+        assert!((&from_idents).equivalent(&from_idents));
+
+        assert_eq!(
+            TableRef::from_strs(&["customers"]).unwrap(),
+            TableRef::from_names(None, "customers")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["public", "customers"]).unwrap(),
+            TableRef::from_names(Some("public"), "customers")
+        );
+        assert!(matches!(
+            TableRef::from_strs(&["too", "many", "parts"]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+
+        assert_eq!(
+            TableRef::try_from("finance.ledger").unwrap(),
+            TableRef::from_names(Some("finance"), "ledger")
+        );
+        assert!(matches!(
+            TableRef::try_from("a.b.c"),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+
+        let parsed: TableRef = "audit.logs".parse().unwrap();
+        assert_eq!(parsed, TableRef::from_names(Some("audit"), "logs"));
+
+        let serialized = serde_json::to_string(&with_schema).unwrap();
+        assert_eq!(serialized, r#""analytics.orders""#);
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, with_schema);
+    }
+}

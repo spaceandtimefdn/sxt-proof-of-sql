@@ -491,6 +491,47 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_max_bounds_metadata_for_ordered_column_types() {
+        let max_smallint =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::SmallInt);
+        let max_int = ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int);
+        let max_bigint =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::BigInt);
+        let max_timestamp = ColumnCommitmentMetadata::from_column_type_with_max_bounds(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        );
+        let max_int128 =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int128);
+
+        assert_eq!(max_smallint.column_type(), &ColumnType::SmallInt);
+        assert_eq!(max_int.column_type(), &ColumnType::Int);
+        assert_eq!(max_bigint.column_type(), &ColumnType::BigInt);
+        assert_eq!(
+            max_timestamp.column_type(),
+            &ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc())
+        );
+        assert_eq!(max_int128.column_type(), &ColumnType::Int128);
+
+        assert!(matches!(
+            max_smallint.bounds(),
+            ColumnBounds::SmallInt(Bounds::Bounded(_))
+        ));
+        assert!(matches!(max_int.bounds(), ColumnBounds::Int(Bounds::Bounded(_))));
+        assert!(matches!(
+            max_bigint.bounds(),
+            ColumnBounds::BigInt(Bounds::Bounded(_))
+        ));
+        assert!(matches!(
+            max_timestamp.bounds(),
+            ColumnBounds::TimestampTZ(Bounds::Bounded(_))
+        ));
+        assert!(matches!(
+            max_int128.bounds(),
+            ColumnBounds::Int128(Bounds::Bounded(_))
+        ));
+    }
+
+    #[test]
     fn we_can_union_matching_metadata() {
         // NoOrder cases
         let boolean_metadata = ColumnCommitmentMetadata {

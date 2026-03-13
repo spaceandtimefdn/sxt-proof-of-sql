@@ -348,6 +348,70 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_timestamp_millisecond_array_normal_range() {
+        let alloc = Bump::new();
+        let data = vec![1_625_072_400_000, 1_625_076_000_000, 1_625_083_200_000];
+        let array: ArrayRef = Arc::new(TimestampMillisecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("UTC"),
+        ));
+
+        let result = array.to_column::<TestScalar>(&alloc, &(1..3), None);
+        assert_eq!(
+            result.unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &data[1..3]
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_microsecond_array_normal_range() {
+        let alloc = Bump::new();
+        let data = vec![
+            1_625_072_400_000_000,
+            1_625_076_000_000_000,
+            1_625_083_200_000_000,
+        ];
+        let array: ArrayRef = Arc::new(TimestampMicrosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("+00:00"),
+        ));
+
+        let result = array.to_column::<TestScalar>(&alloc, &(1..3), None);
+        assert_eq!(
+            result.unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                PoSQLTimeZone::utc(),
+                &data[1..3]
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_nanosecond_array_normal_range() {
+        let alloc = Bump::new();
+        let data = vec![
+            1_625_072_400_000_000_000,
+            1_625_076_000_000_000_000,
+            1_625_083_200_000_000_000,
+        ];
+        let array: ArrayRef = Arc::new(TimestampNanosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("Z"),
+        ));
+
+        let result = array.to_column::<TestScalar>(&alloc, &(1..3), None);
+        assert_eq!(
+            result.unwrap(),
+            Column::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc(), &data[1..3])
+        );
+    }
+
+    #[test]
     fn we_can_build_an_empty_column_from_an_empty_range_timestamp() {
         let alloc = Bump::new();
         let data = vec![1_625_072_400, 1_625_076_000]; // Example Unix timestamps
@@ -1083,6 +1147,14 @@ mod tests {
     fn we_can_convert_valid_integer_array_refs_into_valid_columns_using_ranges_smaller_than_arrays()
     {
         let alloc = Bump::new();
+
+        let array: ArrayRef = Arc::new(arrow::array::UInt8Array::from(vec![0_u8, 1, 255]));
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::Uint8(&[1, 255])
+        );
 
         let array: ArrayRef = Arc::new(arrow::array::Int8Array::from(vec![0, 1, 127]));
         assert_eq!(

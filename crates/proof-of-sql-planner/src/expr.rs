@@ -579,6 +579,99 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_binary_exprs_by_operator_directly() {
+        let boolean_schema = vec![
+            ("column1".into(), ColumnType::Boolean),
+            ("column2".into(), ColumnType::Boolean),
+        ];
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::And,
+                &boolean_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_and(COLUMN1_BOOLEAN(), COLUMN2_BOOLEAN()).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Or,
+                &boolean_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_or(COLUMN1_BOOLEAN(), COLUMN2_BOOLEAN()).unwrap()
+        );
+
+        let numeric_schema = vec![
+            ("column1".into(), ColumnType::SmallInt),
+            ("column2".into(), ColumnType::BigInt),
+        ];
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Multiply,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_multiply(COLUMN1_SMALLINT(), COLUMN2_BIGINT()).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Eq,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_equals(COLUMN1_SMALLINT(), COLUMN2_BIGINT()).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Lt,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_inequality(COLUMN1_SMALLINT(), COLUMN2_BIGINT(), true).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Gt,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_inequality(COLUMN1_SMALLINT(), COLUMN2_BIGINT(), false).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Plus,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_add(COLUMN1_SMALLINT(), COLUMN2_BIGINT()).unwrap()
+        );
+        assert_eq!(
+            binary_expr_to_proof_expr(
+                &df_column("namespace.table_name", "column1"),
+                &df_column("namespace.table_name", "column2"),
+                Operator::Minus,
+                &numeric_schema,
+            )
+            .unwrap(),
+            DynProofExpr::try_new_subtract(COLUMN1_SMALLINT(), COLUMN2_BIGINT()).unwrap()
+        );
+    }
+
+    #[test]
     fn we_can_convert_logical_not_eq_to_proof_expr() {
         let schema = vec![
             ("column1".into(), ColumnType::BigInt),

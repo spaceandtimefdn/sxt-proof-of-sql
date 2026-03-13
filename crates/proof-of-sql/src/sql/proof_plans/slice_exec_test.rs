@@ -1,14 +1,15 @@
 use super::test_utility::*;
 use crate::{
     base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnType, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         map::{indexmap, IndexMap},
         math::decimal::Precision,
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
             exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
@@ -17,7 +18,6 @@ use crate::{
         proof_exprs::{test_utility::*, DynProofExpr},
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[test]
@@ -43,7 +43,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
         1,
         Some(2),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -79,7 +80,8 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
         1,
         Some(2),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -365,7 +367,7 @@ fn we_can_prove_a_slice_exec() {
         2,
         Some(1),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -424,7 +426,7 @@ fn we_can_prove_a_nested_slice_exec() {
         1,
         Some(1),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -483,7 +485,7 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
         3,
         None,
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -542,7 +544,7 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
         3,
         None,
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
@@ -595,7 +597,8 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_a_table_exec() {
         0_usize,
         (),
     );
-    let verifiable_res = VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
     let res = verifiable_res
         .verify(&plan, &accessor, &(), &[])
@@ -644,7 +647,7 @@ fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input
         None,
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &plan, &accessor, &t);
     let res = verifiable_res
         .verify(&plan, &accessor, &(), &[])

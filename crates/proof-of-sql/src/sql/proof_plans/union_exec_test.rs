@@ -1,13 +1,14 @@
 use super::test_utility::*;
 use crate::{
     base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         map::indexmap,
+        scalar::test_scalar::TestScalar as Curve25519Scalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
             exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
@@ -16,7 +17,6 @@ use crate::{
         proof_exprs::test_utility::*,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[test]
@@ -113,7 +113,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_exec() {
             ],
         ),
     ]);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t0);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -254,7 +255,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
             ],
         ),
     ]);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
     exercise_verification(&verifiable_res, &ast, &accessor, &t0);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])

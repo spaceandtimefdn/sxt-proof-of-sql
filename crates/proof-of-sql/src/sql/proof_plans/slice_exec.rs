@@ -247,3 +247,27 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sql::proof_plans::test_utility::empty_exec;
+
+    #[test]
+    fn we_can_compute_slice_selection_ranges() {
+        assert_eq!(get_slice_select(5, 1, Some(2)), vec![false, true, true, false, false]);
+        assert_eq!(get_slice_select(4, 0, Some(2)), vec![true, true, false, false]);
+        assert_eq!(get_slice_select(4, 2, None), vec![false, false, true, true]);
+        assert_eq!(get_slice_select(3, 10, Some(1)), vec![false, false, false]);
+    }
+
+    #[test]
+    fn we_can_read_slice_exec_configuration() {
+        let input = Box::new(empty_exec());
+        let exec = SliceExec::new(input, 3, Some(5));
+
+        assert_eq!(exec.input(), &empty_exec());
+        assert_eq!(exec.skip(), 3);
+        assert_eq!(exec.fetch(), Some(5));
+    }
+}
