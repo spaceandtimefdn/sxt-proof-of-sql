@@ -11,6 +11,7 @@ use crate::{
     },
     sql::{
         proof::{FinalRoundBuilder, VerificationBuilder},
+        proof_exprs::neg_expr::NegExpr,
         AnalyzeResult,
     },
 };
@@ -50,6 +51,8 @@ pub enum DynProofExpr {
     Cast(CastExpr),
     /// Provable expression for casting numeric expressions to decimal expressions
     ScalingCast(ScalingCastExpr),
+    /// Provable expression for casting numeric expressions to decimal expressions
+    Neg(NegExpr),
 }
 impl DynProofExpr {
     /// Create column expression
@@ -68,6 +71,10 @@ impl DynProofExpr {
     /// Create logical NOT expression
     pub fn try_new_not(expr: DynProofExpr) -> AnalyzeResult<Self> {
         NotExpr::try_new(Box::new(expr)).map(DynProofExpr::Not)
+    }
+    /// Create logical NEG expression
+    pub fn try_new_neg(expr: DynProofExpr) -> AnalyzeResult<Self> {
+        NegExpr::try_new(Box::new(expr)).map(DynProofExpr::Neg)
     }
     /// Create CONST expression
     #[must_use]

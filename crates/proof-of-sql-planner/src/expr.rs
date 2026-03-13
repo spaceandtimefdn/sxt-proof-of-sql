@@ -165,6 +165,10 @@ pub fn expr_to_proof_expr(
                 }
             }
         }
+        Expr::Negative(expr) => {
+            let proof_expr = expr_to_proof_expr(expr, schema)?;
+            Ok(DynProofExpr::try_new_neg(proof_expr)?)
+        }
         _ => Err(PlannerError::UnsupportedLogicalExpression {
             expr: Box::new(expr.clone()),
         }),

@@ -6,8 +6,8 @@ use crate::{
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
-        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr,
-        SubtractExpr,
+        LiteralExpr, MultiplyExpr, NegExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr,
+        ScalingCastExpr, SubtractExpr,
     },
 };
 use alloc::boxed::Box;
@@ -29,6 +29,7 @@ pub(crate) enum EVMDynProofExpr {
     Inequality(EVMInequalityExpr),
     Placeholder(EVMPlaceholderExpr),
     ScalingCast(EVMScalingCastExpr),
+    Neg(EVMNegExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -78,6 +79,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            DynProofExpr::Neg(neg_expr) => {
+                EVMNegExpr::try_from_proof_expr(neg_expr, column_refs).map(Self::Neg)
+            }
         }
     }
 
@@ -125,6 +129,9 @@ impl EVMDynProofExpr {
             EVMDynProofExpr::Placeholder(placeholder_expr) => {
                 Ok(DynProofExpr::Placeholder(placeholder_expr.to_proof_expr()))
             }
+            EVMDynProofExpr::Neg(neg_expr) => Ok(DynProofExpr::Neg(
+                neg_expr.try_into_proof_expr(column_refs)?,
+            )),
         }
     }
 }
@@ -535,6 +542,36 @@ impl EVMNotExpr {
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<NotExpr> {
         Ok(NotExpr::try_new(Box::new(
+            self.expr.try_into_proof_expr(column_refs)?,
+        ))?)
+    }
+}
+
+/// Represents a NEG expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMNegExpr {
+    expr: Box<EVMDynProofExpr>,
+}
+
+impl EVMNegExpr {
+    /// Try to create an `EVMNegExpr` from a `NegExpr`.
+    pub(crate) fn try_from_proof_expr(
+        expr: &NegExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(EVMNegExpr {
+            expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.input(),
+                column_refs,
+            )?),
+        })
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<NegExpr> {
+        Ok(NegExpr::try_new(Box::new(
             self.expr.try_into_proof_expr(column_refs)?,
         ))?)
     }
@@ -1211,6 +1248,28 @@ mod tests {
             evm_not_expr.try_into_proof_expr(&column_refs).unwrap_err(),
             EVMProofPlanError::ColumnNotFound
         );
+    }
+
+    #[test]
+    fn we_can_put_into_evm_a_dyn_proof_expr_neg_expr() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let c = ColumnRef::new(table_ref.clone(), "c".into(), ColumnType::Int);
+
+        let expr = DynProofExpr::try_new_neg(DynProofExpr::new_column(c.clone())).unwrap();
+        let evm_expr =
+            EVMDynProofExpr::try_from_proof_expr(&expr, &indexset! { c.clone() }).unwrap();
+        assert_eq!(
+            evm_expr,
+            EVMDynProofExpr::Neg(EVMNegExpr {
+                expr: Box::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }))
+            })
+        );
+
+        let roundtrip_expr = evm_expr
+            .try_into_proof_expr(&[c].into_iter().collect())
+            .unwrap();
+
+        assert_eq!(expr, roundtrip_expr);
     }
 
     // EVMCastExpr

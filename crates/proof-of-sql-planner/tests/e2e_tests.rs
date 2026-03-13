@@ -226,6 +226,41 @@ fn test_complex_filter_queries() {
     );
 }
 
+#[test]
+fn test_negation() {
+    let alloc = Bump::new();
+    let sql = "
+        SELECT -2*a as neg_double_a FROM numbers;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "numbers") => table(
+            vec![
+                borrowed_bigint("a", [1_i64, 0, -1], &alloc),
+            ]
+        )
+    };
+
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([decimal75(
+        "neg_double_a",
+        39,
+        0,
+        [-2_i64, 0, 2],
+    )])];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
 /// Test projection operation - selecting only specific columns
 #[test]
 fn test_projection() {

@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import "../../src/base/Constants.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {NegExpr} from "../../src/proof_exprs/NegExpr.presl";
+
+contract NegExprTest is Test {
+    function testSimpleNegExpr() public pure {
+        bytes memory expr = abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0), hex"abcdef");
+
+        VerificationBuilder.Builder memory builder;
+
+        builder.maxDegree = 0;
+        builder.aggregateEvaluation = 0;
+        builder.rowMultipliersEvaluation = 1;
+
+        uint256 negEval;
+        uint256[] memory accessor = new uint256[](1);
+        accessor[0] = 2;
+        bytes memory exprOut;
+        (exprOut, builder, negEval) = NegExpr.__negExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == MODULUS_MINUS_ONE - 1);
+        accessor[0] = 0;
+        (exprOut, builder, negEval) = NegExpr.__negExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == 0);
+        // -2
+        accessor[0] = MODULUS_MINUS_ONE - 1;
+        (exprOut, builder, negEval) = NegExpr.__negExprEvaluate(expr, builder, 1, accessor);
+        assert(negEval == 2);
+        assert(builder.aggregateEvaluation == 0);
+    }
+}

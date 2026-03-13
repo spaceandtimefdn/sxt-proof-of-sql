@@ -93,6 +93,13 @@ pub fn subtract(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
 
 /// # Panics
 /// Panics if:
+/// - `DynProofExpr::try_new_neg()` returns an error.
+pub fn neg(expr: DynProofExpr) -> DynProofExpr {
+    DynProofExpr::try_new_neg(expr).unwrap()
+}
+
+/// # Panics
+/// Panics if:
 /// - `DynProofExpr::try_new_multiply()` returns an error.
 pub fn multiply(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
     DynProofExpr::try_new_multiply(left, right).unwrap()
