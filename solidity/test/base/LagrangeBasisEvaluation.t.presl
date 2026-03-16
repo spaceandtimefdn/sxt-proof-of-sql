@@ -375,8 +375,57 @@ contract LagrangeBasisEvaluationTest is Test {
 
         LagrangeBasisEvaluation.__computeRhoEvaluations(point, evaluations);
 
-        for (uint256 i = 0; i < 2; ++i) {
+        for (uint256 i = 0; i < 9; ++i) {
             assert(evaluations[i] == expectedEvaluations[i]);
+        }
+    }
+
+    // solhint-disable-next-line code-complexity
+    function testFuzzComputeRhoEvaluations(uint256[] memory point) public pure {
+        uint256 numVars = point.length;
+        // If the point is too long, we will run out of memory
+        vm.assume(numVars < _MAX_FUZZ_POINT_LENGTH + 1);
+        uint256 maxEvaluationLength = 1 << numVars;
+        uint256 maxLength = maxEvaluationLength + _EXTRA_FUZZ_LENGTH;
+        FF[] memory expectedEvaluations = new FF[](maxEvaluationLength);
+        FF powerOfTwo = F.ONE;
+        FF expectedRhoOfPowerOfTwo = F.ZERO;
+        for (uint256 i = 0; i < numVars; ++i) {
+            expectedRhoOfPowerOfTwo = expectedRhoOfPowerOfTwo + powerOfTwo * F.from(point[i]);
+            powerOfTwo = powerOfTwo * F.from(uint256(2));
+        }
+        for (uint256 i = 0; i < maxEvaluationLength; ++i) {
+            FF product = F.ONE;
+            for (uint256 j = 0; j < numVars; ++j) {
+                FF term = F.from(point[j]);
+                if ((i >> j) & 1 == 0) {
+                    term = F.ONE - term;
+                }
+                product = product * term;
+            }
+            expectedEvaluations[i] = product * F.from(i);
+        }
+
+        FF[] memory expectedSums = new FF[](maxLength);
+        for (uint256 i = 0; i < maxEvaluationLength; ++i) {
+            for (uint256 j = 0; j < i; ++j) {
+                expectedSums[i] = expectedSums[i] + expectedEvaluations[j];
+            }
+        }
+
+        for (uint256 i = maxEvaluationLength; i < maxLength; ++i) {
+            expectedSums[i] = expectedRhoOfPowerOfTwo;
+        }
+
+        uint256[] memory evaluations = new uint256[](maxLength);
+        for (uint256 i = 0; i < maxLength; ++i) {
+            evaluations[i] = i;
+        }
+
+        LagrangeBasisEvaluation.__computeRhoEvaluations(point, evaluations);
+
+        for (uint256 i = 0; i < maxLength; ++i) {
+            assert(evaluations[i] == expectedSums[i].into());
         }
     }
 }
