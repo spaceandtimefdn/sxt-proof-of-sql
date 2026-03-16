@@ -161,7 +161,7 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::VarChar(strings) => CommittableColumn::VarChar(
                 strings
                     .iter()
-                    .map(Into::<S>::into)
+                    .map(|s| S::from_str_via_hash(s))
                     .map(|s| s.to_limbs())
                     .collect(),
             ),

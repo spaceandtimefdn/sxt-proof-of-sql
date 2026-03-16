@@ -1,7 +1,6 @@
 #![expect(clippy::module_inception)]
 
 use crate::base::{encode::VarInt, scalar::ScalarConversionError};
-use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
@@ -13,7 +12,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -49,9 +47,7 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -87,4 +83,9 @@ pub trait Scalar:
     fn from_limbs(val: [u64; 4]) -> Self;
     /// Convert scalar to limbs
     fn to_limbs(&self) -> [u64; 4];
+
+    /// Converts a string to a scalar by hashing its bytes.
+    fn from_str_via_hash(value: &str) -> Self {
+        <Self as super::ScalarExt>::from_byte_slice_via_hash(value.as_bytes())
+    }
 }
