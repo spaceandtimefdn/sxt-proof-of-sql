@@ -41,6 +41,8 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
+          cache-targets: true
+        with:
           key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld     
