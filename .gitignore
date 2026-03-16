@@ -69,6 +69,7 @@ cache
 output/
 
 *.post.sol
+solidity/.pre_forge_inputs.sha256
 
 **/dependencies/**
 
@@ -79,4 +80,3 @@ solidity/docs
 autogen_logs/
 _autocoder/
 prompts/
-
