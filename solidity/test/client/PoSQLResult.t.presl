@@ -48,6 +48,40 @@ contract PoSQLTableTest is Test {
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
+    function testSimpleTableDeserializationWithTableNameHashes() public {
+        bytes32[] memory a = new bytes32[](2);
+        a[0] = bytes32(uint256(3));
+        a[1] = bytes32(uint256(4));
+        uint256[] memory b = new uint256[](2);
+        b[0] = 1;
+        b[1] = 2;
+        bytes memory extraBytes = abi.encode(a, b);
+        bytes memory serializedTable =
+            abi.encodePacked(hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003", extraBytes.length, extraBytes);
+        ProofOfSqlResult.Result memory result;
+        result = ProofOfSqlResult.deserialize(serializedTable);
+        ProofOfSqlResult.Table memory table = result.table;
+        assert(table.columns.length == 1);
+        assert(table.columns[0].columnType == ProofOfSqlResult.ColumnType.BigInt);
+        bytes memory expectedName = bytes("b");
+        bytes memory actualName = bytes(table.columns[0].name);
+        uint256 actualLength = actualName.length;
+        assert(actualLength == expectedName.length);
+        assert(actualLength == 1);
+        for (uint8 i = 0; i < actualLength; ++i) {
+            assert(actualName[i] == expectedName[i]);
+        }
+        int64[] memory bigIntColumn = ProofOfSqlResult.readBigIntColumn(table, 0);
+        assert(bigIntColumn.length == 2);
+        assert(bigIntColumn[0] == 0);
+        assert(bigIntColumn[1] == 3);
+        assert(ProofOfSqlResult.getNextMetaRowNumber(result.inputLookup, a[0]) == b[0]);
+        assert(ProofOfSqlResult.getNextMetaRowNumber(result.inputLookup, a[1]) == b[1]);
+        vm.expectRevert(Errors.MissingTableNameHash.selector);
+        ProofOfSqlResult.getNextMetaRowNumber(result.inputLookup, bytes32(uint256(1)));
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
     function testWrongDataType() public {
         bytes memory serializedTable =
             hex"00000000000000010000000000000001620000000005000000000000000200000000000000000000000000000003";

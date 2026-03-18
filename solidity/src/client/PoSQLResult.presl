@@ -38,6 +38,45 @@ library ProofOfSqlResult {
         Column[] columns;
     }
 
+    struct MetaRowNumberLookup {
+        bytes32[] tableNameHashes;
+        uint256[] tableLengths;
+    }
+
+    struct Result {
+        Table table;
+        MetaRowNumberLookup inputLookup;
+    }
+
+    function getNextMetaRowNumber(MetaRowNumberLookup memory lookup, bytes32 tableNameHash) 
+        internal 
+        pure 
+        returns (uint256 tableLength)
+    {
+        bytes32[] memory tableNameHashes = lookup.tableNameHashes;
+        uint256 numTables = tableNameHashes.length;
+        for (uint i = 0; i < numTables; ++i) {
+            if (tableNameHashes[i] == tableNameHash) {
+                tableLength = lookup.tableLengths[i];
+                return tableLength;
+            }
+        }
+        revert Errors.MissingTableNameHash();
+    }
+
+    function deserialize(bytes memory serializedResult)
+        internal
+        pure
+        returns (Result memory result)
+    {
+        Table memory table;
+        (serializedResult, table) = ProofOfSqlResult.deserializeFromBytes(serializedResult);
+        (bytes32[] memory tableNameHashes, uint256[] memory tableLengths) = abi.decode(serializedResult, (bytes32[], uint256[]));
+        result.table = table;
+        result.inputLookup.tableNameHashes = tableNameHashes;
+        result.inputLookup.tableLengths = tableLengths;
+    }
+
     /// @notice Reads a result from a proof of sql query into the `Table` struct.
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
