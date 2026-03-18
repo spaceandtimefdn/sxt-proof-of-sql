@@ -4,9 +4,9 @@ pragma solidity ^0.8.26;
 import "../base/Constants.sol";
 import "../base/Errors.sol";
 
-/// @title ProofOfSqlTableUtilities
+/// @title ProofOfSqlResultUtilities
 /// @dev Library for handling reading from a proof of sql table
-library ProofOfSqlTable {
+library ProofOfSqlResult {
     enum ColumnType {
         Boolean,
         // Not currently supported
