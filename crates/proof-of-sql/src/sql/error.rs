@@ -71,3 +71,62 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{format, string::ToString};
+
+    #[test]
+    fn analyze_error_invalid_data_type_displays_correctly() {
+        let err = AnalyzeError::InvalidDataType {
+            expr_type: ColumnType::VarChar,
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("VARCHAR"));
+        assert!(msg.contains("not valid"));
+    }
+
+    #[test]
+    fn analyze_error_data_type_mismatch_displays_correctly() {
+        let err = AnalyzeError::DataTypeMismatch {
+            left_type: "INT".to_string(),
+            right_type: "VARCHAR".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("INT"));
+        assert!(msg.contains("VARCHAR"));
+    }
+
+    #[test]
+    fn analyze_error_different_column_length_displays_correctly() {
+        let err = AnalyzeError::DifferentColumnLength { len_a: 5, len_b: 10 };
+        let msg = format!("{err}");
+        assert!(msg.contains("5"));
+        assert!(msg.contains("10"));
+    }
+
+    #[test]
+    fn analyze_error_not_enough_input_plans_displays_correctly() {
+        let err = AnalyzeError::NotEnoughInputPlans;
+        assert_eq!(format!("{err}"), "Not enough input plans");
+    }
+
+    #[test]
+    fn analyze_error_converts_to_string() {
+        let err = AnalyzeError::NotEnoughInputPlans;
+        let s: String = err.into();
+        assert_eq!(s, "Not enough input plans");
+    }
+
+    #[test]
+    fn intermediate_decimal_error_converts_to_analyze_error() {
+        use crate::base::math::decimal::IntermediateDecimalError;
+        let decimal_err = IntermediateDecimalError::LossyCast;
+        let analyze_err: AnalyzeError = decimal_err.into();
+        assert!(matches!(
+            analyze_err,
+            AnalyzeError::DecimalConversionError { .. }
+        ));
+    }
+}

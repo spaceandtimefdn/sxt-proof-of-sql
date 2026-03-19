@@ -69,3 +69,67 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::format;
+
+    #[test]
+    fn we_can_convert_overflow_coercion_error_to_query_error() {
+        let coercion_error = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        };
+        let query_error: QueryError = coercion_error.into();
+        assert!(matches!(query_error, QueryError::Overflow));
+    }
+
+    #[test]
+    fn we_can_convert_invalid_type_coercion_error_to_query_error() {
+        let coercion_error = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        };
+        let query_error: QueryError = coercion_error.into();
+        assert!(matches!(query_error, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn we_can_convert_name_mismatch_to_query_error() {
+        let coercion_error = TableCoercionError::NameMismatch;
+        let query_error: QueryError = coercion_error.into();
+        assert!(matches!(query_error, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn we_can_convert_column_count_mismatch_to_query_error() {
+        let coercion_error = TableCoercionError::ColumnCountMismatch;
+        let query_error: QueryError = coercion_error.into();
+        assert!(matches!(query_error, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn query_error_displays_correctly() {
+        assert_eq!(format!("{}", QueryError::Overflow), "Overflow error");
+        assert_eq!(format!("{}", QueryError::InvalidString), "String decode error");
+        assert_eq!(
+            format!("{}", QueryError::MiscellaneousDecodingError),
+            "Miscellaneous decoding error"
+        );
+        assert_eq!(
+            format!("{}", QueryError::MiscellaneousEvaluationError),
+            "Miscellaneous evaluation error"
+        );
+        assert_eq!(
+            format!("{}", QueryError::InvalidColumnCount),
+            "Invalid number of columns"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_proof_error_to_query_error() {
+        let proof_error = ProofError::InvalidTypeCoercion;
+        let query_error: QueryError = proof_error.into();
+        let msg = format!("{query_error}");
+        assert!(msg.contains("type mismatch"));
+    }
+}

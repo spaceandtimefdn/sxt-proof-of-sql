@@ -94,11 +94,128 @@ impl LiteralValue {
 #[cfg(test)]
 mod tests {
     use crate::base::{
-        database::LiteralValue,
+        database::{ColumnType, LiteralValue},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         try_standard_binary_serialization,
     };
+
+    #[test]
+    fn we_can_convert_boolean_literal_to_scalar() {
+        use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+        let val = LiteralValue::Boolean(true);
+        let scalar: TestScalar = val.to_scalar();
+        assert_eq!(scalar, TestScalar::ONE);
+
+        let val = LiteralValue::Boolean(false);
+        let scalar: TestScalar = val.to_scalar();
+        assert_eq!(scalar, TestScalar::ZERO);
+    }
+
+    #[test]
+    fn we_can_convert_integer_literals_to_scalar() {
+        use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+
+        let val = LiteralValue::Uint8(42);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(42u8));
+
+        let val = LiteralValue::TinyInt(-7);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(-7i8));
+
+        let val = LiteralValue::SmallInt(300);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(300i16));
+
+        let val = LiteralValue::Int(-100_000);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(-100_000i32));
+
+        let val = LiteralValue::BigInt(9_000_000_000);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(9_000_000_000i64));
+
+        let val = LiteralValue::Int128(i128::MAX);
+        assert_eq!(val.to_scalar::<TestScalar>(), TestScalar::from(i128::MAX));
+    }
+
+    #[test]
+    fn we_can_convert_varchar_literal_to_scalar() {
+        use crate::base::scalar::test_scalar::TestScalar;
+        let val = LiteralValue::VarChar("hello".to_string());
+        let scalar: TestScalar = val.to_scalar();
+        let expected: TestScalar = "hello".into();
+        assert_eq!(scalar, expected);
+    }
+
+    #[test]
+    fn we_can_convert_varbinary_literal_to_scalar() {
+        use crate::base::scalar::{test_scalar::TestScalar, ScalarExt};
+        let data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        let val = LiteralValue::VarBinary(data.clone());
+        let scalar: TestScalar = val.to_scalar();
+        let expected = TestScalar::from_byte_slice_via_hash(&data);
+        assert_eq!(scalar, expected);
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_literal_to_scalar() {
+        use crate::base::scalar::test_scalar::TestScalar;
+        let val = LiteralValue::TimeStampTZ(
+            PoSQLTimeUnit::Nanosecond,
+            PoSQLTimeZone::utc(),
+            1_000_000_000,
+        );
+        let scalar: TestScalar = val.to_scalar();
+        assert_eq!(scalar, TestScalar::from(1_000_000_000i64));
+    }
+
+    #[test]
+    fn we_can_convert_scalar_literal_to_scalar() {
+        use crate::base::scalar::test_scalar::TestScalar;
+        let limbs = [1u64, 2, 3, 4];
+        let val = LiteralValue::Scalar(limbs);
+        let scalar: TestScalar = val.to_scalar();
+        assert_eq!(scalar, TestScalar::from(limbs));
+    }
+
+    #[test]
+    fn we_can_convert_decimal75_literal_to_scalar() {
+        use crate::base::{math::i256::I256, scalar::test_scalar::TestScalar};
+        let i256_val = I256::from(12345i32);
+        let val = LiteralValue::Decimal75(Precision::new(10).unwrap(), 2, i256_val);
+        let scalar: TestScalar = val.to_scalar();
+        assert_eq!(scalar, i256_val.into_scalar::<TestScalar>());
+    }
+
+    #[test]
+    fn we_can_get_column_type_of_all_literal_variants() {
+        use crate::base::math::i256::I256;
+        assert_eq!(LiteralValue::Boolean(true).column_type(), ColumnType::Boolean);
+        assert_eq!(LiteralValue::Uint8(0).column_type(), ColumnType::Uint8);
+        assert_eq!(LiteralValue::TinyInt(0).column_type(), ColumnType::TinyInt);
+        assert_eq!(LiteralValue::SmallInt(0).column_type(), ColumnType::SmallInt);
+        assert_eq!(LiteralValue::Int(0).column_type(), ColumnType::Int);
+        assert_eq!(LiteralValue::BigInt(0).column_type(), ColumnType::BigInt);
+        assert_eq!(LiteralValue::Int128(0).column_type(), ColumnType::Int128);
+        assert_eq!(
+            LiteralValue::VarChar("".to_string()).column_type(),
+            ColumnType::VarChar
+        );
+        assert_eq!(
+            LiteralValue::VarBinary(vec![]).column_type(),
+            ColumnType::VarBinary
+        );
+        assert_eq!(
+            LiteralValue::Scalar([0; 4]).column_type(),
+            ColumnType::Scalar
+        );
+        let precision = Precision::new(10).unwrap();
+        assert_eq!(
+            LiteralValue::Decimal75(precision, 5, I256::from(0i32)).column_type(),
+            ColumnType::Decimal75(precision, 5)
+        );
+        assert_eq!(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 0).column_type(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc())
+        );
+    }
 
     /// This allows us to reuse code within solidity more safely
     #[test]

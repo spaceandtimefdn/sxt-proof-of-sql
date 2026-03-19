@@ -142,3 +142,151 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{format, string::ToString};
+
+    #[test]
+    fn we_can_create_table_ref_with_schema() {
+        let table_ref = TableRef::new("my_schema", "my_table");
+        assert_eq!(table_ref.schema_id().unwrap().value, "my_schema");
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_without_schema() {
+        let table_ref = TableRef::new("", "my_table");
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_names_with_schema() {
+        let table_ref = TableRef::from_names(Some("ns"), "tbl");
+        assert_eq!(table_ref.schema_id().unwrap().value, "ns");
+        assert_eq!(table_ref.table_id().value, "tbl");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_names_without_schema() {
+        let table_ref = TableRef::from_names(None, "tbl");
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "tbl");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_idents() {
+        let schema_ident = Ident::new("schema_name".to_string());
+        let table_ident = Ident::new("table_name".to_string());
+        let table_ref = TableRef::from_idents(Some(schema_ident.clone()), table_ident.clone());
+        assert_eq!(table_ref.schema_id(), Some(&schema_ident));
+        assert_eq!(table_ref.table_id(), &table_ident);
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_idents_without_schema() {
+        let table_ident = Ident::new("table_name".to_string());
+        let table_ref = TableRef::from_idents(None, table_ident.clone());
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id(), &table_ident);
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_single_str_component() {
+        let table_ref = TableRef::from_strs(&["my_table"]).unwrap();
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_from_two_str_components() {
+        let table_ref = TableRef::from_strs(&["my_schema", "my_table"]).unwrap();
+        assert_eq!(table_ref.schema_id().unwrap().value, "my_schema");
+        assert_eq!(table_ref.table_id().value, "my_table");
+    }
+
+    #[test]
+    fn we_cannot_create_table_ref_from_zero_str_components() {
+        let result = TableRef::from_strs::<&str>(&[]);
+        assert!(matches!(result, Err(ParseError::InvalidTableReference { .. })));
+    }
+
+    #[test]
+    fn we_cannot_create_table_ref_from_three_str_components() {
+        let result = TableRef::from_strs(&["a", "b", "c"]);
+        assert!(matches!(result, Err(ParseError::InvalidTableReference { .. })));
+    }
+
+    #[test]
+    fn we_can_parse_table_ref_from_dot_separated_string() {
+        let table_ref: TableRef = "schema.table".try_into().unwrap();
+        assert_eq!(table_ref.schema_id().unwrap().value, "schema");
+        assert_eq!(table_ref.table_id().value, "table");
+    }
+
+    #[test]
+    fn we_can_parse_table_ref_from_single_name() {
+        let table_ref: TableRef = "just_table".try_into().unwrap();
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "just_table");
+    }
+
+    #[test]
+    fn we_cannot_parse_table_ref_from_triple_dotted_string() {
+        let result: Result<TableRef, _> = "a.b.c".try_into();
+        assert!(matches!(result, Err(ParseError::InvalidTableReference { .. })));
+    }
+
+    #[test]
+    fn we_can_parse_table_ref_using_from_str() {
+        let table_ref: TableRef = "ns.tbl".parse().unwrap();
+        assert_eq!(table_ref.schema_id().unwrap().value, "ns");
+        assert_eq!(table_ref.table_id().value, "tbl");
+    }
+
+    #[test]
+    fn we_can_display_table_ref_with_schema() {
+        let table_ref = TableRef::new("schema", "table");
+        assert_eq!(format!("{table_ref}"), "schema.table");
+    }
+
+    #[test]
+    fn we_can_display_table_ref_without_schema() {
+        let table_ref = TableRef::new("", "table");
+        assert_eq!(format!("{table_ref}"), "table");
+    }
+
+    #[test]
+    fn we_can_serialize_and_deserialize_table_ref_with_schema() {
+        let table_ref = TableRef::new("ns", "tbl");
+        let json = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(json, r#""ns.tbl""#);
+        let deserialized: TableRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, table_ref);
+    }
+
+    #[test]
+    fn we_can_serialize_and_deserialize_table_ref_without_schema() {
+        let table_ref = TableRef::new("", "tbl");
+        let json = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(json, r#""tbl""#);
+        let deserialized: TableRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, table_ref);
+    }
+
+    #[test]
+    fn table_ref_equivalent_trait_works() {
+        let a = TableRef::new("s", "t");
+        let b = TableRef::new("s", "t");
+        assert!(Equivalent::equivalent(&&a, &b));
+    }
+
+    #[test]
+    fn table_ref_equivalent_trait_detects_difference() {
+        let a = TableRef::new("s", "t1");
+        let b = TableRef::new("s", "t2");
+        assert!(!Equivalent::equivalent(&&a, &b));
+    }
+}

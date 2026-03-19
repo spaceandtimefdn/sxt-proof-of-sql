@@ -38,3 +38,71 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_display_invalid_timezone_error() {
+        let error = PoSQLTimestampError::InvalidTimezone {
+            timezone: "Mars/Olympus".to_string(),
+        };
+        let msg = error.to_string();
+        assert!(msg.contains("Mars/Olympus"));
+    }
+
+    #[test]
+    fn we_can_display_invalid_timezone_offset_error() {
+        let error = PoSQLTimestampError::InvalidTimezoneOffset;
+        let msg = error.to_string();
+        assert!(msg.contains("invalid timezone offset"));
+    }
+
+    #[test]
+    fn we_can_display_invalid_time_unit_error() {
+        let error = PoSQLTimestampError::InvalidTimeUnit {
+            error: "bad unit".to_string(),
+        };
+        let msg = error.to_string();
+        assert!(msg.contains("Invalid time unit"));
+    }
+
+    #[test]
+    fn we_can_display_unsupported_precision_error() {
+        let error = PoSQLTimestampError::UnsupportedPrecision {
+            error: "12".to_string(),
+        };
+        let msg = error.to_string();
+        assert!(msg.contains("12"));
+    }
+
+    #[test]
+    fn we_can_convert_posql_timestamp_error_to_string() {
+        let error = PoSQLTimestampError::InvalidTimezoneOffset;
+        let s: String = error.into();
+        assert!(s.contains("invalid timezone offset"));
+    }
+
+    #[test]
+    fn posql_timestamp_errors_with_same_data_are_equal() {
+        let a = PoSQLTimestampError::InvalidTimezone {
+            timezone: "foo".to_string(),
+        };
+        let b = PoSQLTimestampError::InvalidTimezone {
+            timezone: "foo".to_string(),
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn posql_timestamp_errors_with_different_data_are_not_equal() {
+        let a = PoSQLTimestampError::InvalidTimezone {
+            timezone: "foo".to_string(),
+        };
+        let b = PoSQLTimestampError::InvalidTimezone {
+            timezone: "bar".to_string(),
+        };
+        assert_ne!(a, b);
+    }
+}
