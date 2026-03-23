@@ -2,7 +2,9 @@
 //! accessor traits and the `OwnedTable` type along with some utility functions to convert
 //! between Arrow and `OwnedTable`.
 mod accessor;
-pub use accessor::{CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor};
+pub use accessor::{
+    CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
+};
 
 mod column;
 pub use column::Column;
