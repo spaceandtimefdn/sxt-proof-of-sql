@@ -138,6 +138,7 @@ pub trait SchemaAccessor {
 
 /// The simplest implementation of `SchemaAccessor`.
 /// This is effectively an in-memory mapping from table to the schema.
+#[derive(Clone)]
 pub struct SchemaAccessorImpl {
     table_schema_lookup: IndexMap<TableRef, Vec<(Ident, ColumnType)>>,
 }
