@@ -106,9 +106,6 @@ pub use table_evaluation::TableEvaluation;
 mod test_accessor;
 pub use test_accessor::TestAccessor;
 
-mod test_schema_accessor;
-pub use test_schema_accessor::TestSchemaAccessor;
-
 mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]

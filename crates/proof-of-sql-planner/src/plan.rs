@@ -503,12 +503,11 @@ mod tests {
     use indexmap::{indexmap, indexmap_with_default};
     use proof_of_sql::{
         base::{
-            database::{ColumnField, TestSchemaAccessor},
+            database::{ColumnField, SchemaAccessorImpl},
             math::decimal::Precision,
         },
         sql::proof_exprs::{ColumnExpr, TableExpr},
     };
-    use std::hash::BuildHasherDefault;
 
     const SUM: AggregateFunctionDefinition =
         AggregateFunctionDefinition::BuiltIn(physical_plan::aggregates::AggregateFunction::Sum);
@@ -524,19 +523,18 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn SCHEMAS() -> impl SchemaAccessor {
-        let schema: IndexMap<Ident, ColumnType, BuildHasherDefault<AHasher>> = indexmap_with_default! {
-            AHasher;
-            "a".into() => ColumnType::BigInt,
-            "b".into() => ColumnType::Int,
-            "c".into() => ColumnType::VarChar,
-            "d".into() => ColumnType::Boolean
-        };
+        let schema: Vec<(Ident, ColumnType)> = vec![
+            ("a".into(), ColumnType::BigInt),
+            ("b".into(), ColumnType::Int),
+            ("c".into(), ColumnType::VarChar),
+            ("d".into(), ColumnType::Boolean),
+        ];
         let table_ref = TableRef::new("", "table");
         let schema_accessor = indexmap_with_default! {
             AHasher;
             table_ref => schema
         };
-        TestSchemaAccessor::new(schema_accessor)
+        SchemaAccessorImpl::new(schema_accessor)
     }
 
     #[expect(non_snake_case)]
@@ -604,25 +602,19 @@ mod tests {
 
     #[expect(non_snake_case)]
     fn UNION_SCHEMAS() -> impl SchemaAccessor {
-        TestSchemaAccessor::new(indexmap_with_default! {AHasher;
-            TableRef::new("", "table1") => indexmap_with_default! {AHasher;
-                "a1".into() => ColumnType::BigInt,
-                "b1".into() => ColumnType::Int
-            },
-            TableRef::new("", "table2") => indexmap_with_default! {AHasher;
-                "a2".into() => ColumnType::BigInt,
-                "b2".into() => ColumnType::Int
-            },
-            TableRef::new("schema", "table3") => indexmap_with_default! {AHasher;
-                "a3".into() => ColumnType::BigInt,
-                "b3".into() => ColumnType::Int
-            },
+        SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "table1") => vec![("a1".into(), ColumnType::BigInt),
+                ("b1".into(), ColumnType::Int)],
+            TableRef::new("", "table2") => vec![("a2".into(), ColumnType::BigInt),
+                ("b2".into(), ColumnType::Int)],
+            TableRef::new("schema", "table3") => vec![("a3".into(), ColumnType::BigInt),
+                ("b3".into(), ColumnType::Int)],
         })
     }
 
     #[expect(non_snake_case)]
     fn EMPTY_SCHEMAS() -> impl SchemaAccessor {
-        TestSchemaAccessor::new(indexmap_with_default! {AHasher;})
+        SchemaAccessorImpl::new(indexmap_with_default! {AHasher;})
     }
 
     #[expect(non_snake_case)]
@@ -1495,7 +1487,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Projection index out of bounds")]
+    #[should_panic(expected = "Table does not exist in schema accessor.")]
     fn we_cannot_convert_table_scan_plan_to_proof_plan_without_filter_or_fetch_limit_if_bad_schemas(
     ) {
         let plan = LogicalPlan::TableScan(
@@ -1567,6 +1559,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Table does not exist in schema accessor.")]
     fn we_cannot_convert_table_scan_plan_to_proof_plan_with_filter_but_without_fetch_limit_if_bad_schemas(
     ) {
         let filter_exprs = vec![
@@ -1584,8 +1577,7 @@ mod tests {
             .unwrap(),
         );
         let schemas = EMPTY_SCHEMAS();
-        let result = logical_plan_to_proof_plan(&plan, &schemas);
-        assert!(matches!(result, Err(PlannerError::ColumnNotFound)));
+        logical_plan_to_proof_plan(&plan, &schemas).unwrap();
     }
 
     #[test]
