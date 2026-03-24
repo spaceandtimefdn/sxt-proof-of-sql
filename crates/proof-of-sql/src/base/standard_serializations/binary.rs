@@ -1,11 +1,11 @@
 use alloc::vec::Vec;
 use bincode::{
-    config::Config,
+    config::{BigEndian, Configuration, Fixint},
     error::{DecodeError, EncodeError},
 };
 use serde::{Deserialize, Serialize};
 
-fn standard_binary_config() -> impl Config {
+fn standard_binary_config() -> Configuration<BigEndian, Fixint> {
     bincode::config::legacy()
         .with_fixed_int_encoding()
         .with_big_endian()
@@ -16,6 +16,16 @@ pub fn try_standard_binary_serialization(
     value_to_be_serialized: impl Serialize,
 ) -> Result<Vec<u8>, EncodeError> {
     bincode::serde::encode_to_vec(value_to_be_serialized, standard_binary_config())
+}
+
+/// The standard serialization we use for our proof types, with an allocation limit
+pub fn try_standard_binary_serialization_with_limit<const ALLOCATION_LIMIT: usize>(
+    value_to_be_serialized: impl Serialize,
+) -> Result<Vec<u8>, EncodeError> {
+    bincode::serde::encode_to_vec(
+        value_to_be_serialized,
+        standard_binary_config().with_limit::<ALLOCATION_LIMIT>(),
+    )
 }
 
 /// The standard deserialization we use for our proof types
