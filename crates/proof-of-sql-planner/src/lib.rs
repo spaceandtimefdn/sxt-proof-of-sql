@@ -3,6 +3,8 @@
 extern crate alloc;
 mod aggregate;
 pub(crate) use aggregate::{aggregate_function_to_proof_expr, AggregateFunc};
+pub(crate) mod config;
+pub use config::datafusion_config_no_normalization;
 mod context;
 pub use context::PoSqlContextProvider;
 #[cfg(test)]
