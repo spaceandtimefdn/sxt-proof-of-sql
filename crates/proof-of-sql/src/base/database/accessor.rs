@@ -135,3 +135,121 @@ pub trait SchemaAccessor {
     /// Precondition 2: `table_name` must be lowercase.
     fn lookup_schema(&self, table_ref: &TableRef) -> Vec<(Ident, ColumnType)>;
 }
+
+/// The simplest implementation of `SchemaAccessor`.
+/// This is effectively an in-memory mapping from table to the schema.
+#[derive(Clone)]
+pub struct SchemaAccessorImpl {
+    table_schema_lookup: IndexMap<TableRef, Vec<(Ident, ColumnType)>>,
+}
+
+impl SchemaAccessorImpl {
+    /// Constructs a new `SchemaAccessorImpl` implementation
+    #[must_use]
+    pub fn new(table_schema_lookup: IndexMap<TableRef, Vec<(Ident, ColumnType)>>) -> Self {
+        Self {
+            table_schema_lookup,
+        }
+    }
+}
+
+impl SchemaAccessor for SchemaAccessorImpl {
+    /// # Panics
+    ///
+    /// Panics if the table does not exist
+    fn lookup_column(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
+        self.table_schema_lookup
+            .get(table_ref)
+            .expect("Table does not exist in schema accessor.")
+            .iter()
+            .find_map(|(id, column_type)| (id == column_id).then_some(*column_type))
+    }
+
+    /// # Panics
+    ///
+    /// Panics if the table does not exist
+    fn lookup_schema(&self, table_ref: &TableRef) -> Vec<(Ident, ColumnType)> {
+        self.table_schema_lookup
+            .get(table_ref)
+            .expect("Table does not exist in schema accessor.")
+            .clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::map::indexmap;
+
+    fn sample_schema_accessor() -> SchemaAccessorImpl {
+        let table1 = TableRef::new("schema", "table1");
+        let table2 = TableRef::new("schema", "table2");
+        SchemaAccessorImpl::new(indexmap! {
+            table1 => vec![("col1".into(), ColumnType::BigInt),
+                ("col2".into(), ColumnType::VarChar)],
+            table2 => vec![("col1".into(), ColumnType::BigInt)],
+        })
+    }
+
+    #[test]
+    fn test_lookup_column() {
+        let accessor = sample_schema_accessor();
+        let table1 = TableRef::new("schema", "table1");
+        let table2 = TableRef::new("schema", "table2");
+        assert_eq!(
+            accessor.lookup_column(&table1, &"col1".into()),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            accessor.lookup_column(&table1, &"col2".into()),
+            Some(ColumnType::VarChar)
+        );
+        assert_eq!(accessor.lookup_column(&table1, &"not_a_col".into()), None);
+        assert_eq!(
+            accessor.lookup_column(&table2, &"col1".into()),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(accessor.lookup_column(&table2, &"col2".into()), None);
+    }
+
+    #[test]
+    fn test_lookup_non_existent_column_on_existing_table() {
+        let accessor = sample_schema_accessor();
+        let table1 = TableRef::new("schema", "table1");
+        assert_eq!(accessor.lookup_column(&table1, &"col3".into()), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Table does not exist in schema accessor.")]
+    fn test_lookup_column_on_non_existent_table() {
+        let accessor = sample_schema_accessor();
+        let not_a_table = TableRef::new("schema", "not_a_table");
+        accessor.lookup_column(&not_a_table, &"col1".into());
+    }
+
+    #[test]
+    fn test_lookup_schema() {
+        let accessor = sample_schema_accessor();
+        let table1 = TableRef::new("schema", "table1");
+        let table2 = TableRef::new("schema", "table2");
+        assert_eq!(
+            accessor.lookup_schema(&table1),
+            vec![
+                ("col1".into(), ColumnType::BigInt),
+                ("col2".into(), ColumnType::VarChar),
+            ]
+        );
+        assert_eq!(
+            accessor.lookup_schema(&table2),
+            vec![("col1".into(), ColumnType::BigInt),]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Table does not exist in schema accessor.")]
+    fn test_lookup_non_existent_schema() {
+        let accessor = sample_schema_accessor();
+        let not_a_table = TableRef::new("schema", "not_a_table");
+        accessor.lookup_schema(&not_a_table);
+    }
+}

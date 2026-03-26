@@ -128,7 +128,7 @@ mod tests {
     use alloc::vec;
     use core::any::TypeId;
     use indexmap::indexmap_with_default;
-    use proof_of_sql::base::database::{ColumnType, TableRef, TestSchemaAccessor};
+    use proof_of_sql::base::database::{ColumnType, SchemaAccessorImpl, TableRef};
 
     // PoSqlTableSource
     #[test]
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn we_can_create_a_posql_context_provider() {
         // Empty
-        let accessor = TestSchemaAccessor::new(indexmap_with_default! {AHasher;});
+        let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;});
         let context_provider = PoSqlContextProvider::new(accessor);
         assert_eq!(
             context_provider.udfs_names(),
@@ -181,24 +181,13 @@ mod tests {
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
         assert_eq!(context_provider.get_window_meta(""), None);
-        assert_eq!(
-            context_provider
-                .get_table_source(TableReference::from("namespace.table"))
-                .unwrap()
-                .schema(),
-            PoSqlTableSource::new(Vec::new()).schema()
-        );
 
         // Non-empty
-        let accessor = TestSchemaAccessor::new(indexmap_with_default! {AHasher;
-            TableRef::new("namespace", "a") => indexmap_with_default! {AHasher;
-                "a".into() => ColumnType::SmallInt,
-                "b".into() => ColumnType::VarChar
-            },
-            TableRef::new("namespace", "b") => indexmap_with_default! {AHasher;
-                "c".into() => ColumnType::Int,
-                "d".into() => ColumnType::BigInt
-            },
+        let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("namespace", "a") => vec![("a".into(), ColumnType::SmallInt),
+                ("b".into(), ColumnType::VarChar)],
+            TableRef::new("namespace", "b") => vec![("c".into(), ColumnType::Int),
+                ("d".into(), ColumnType::BigInt)]
         });
         let context_provider = PoSqlContextProvider::new(accessor);
         assert_eq!(
@@ -231,7 +220,7 @@ mod tests {
 
     #[test]
     fn we_cannot_create_a_posql_context_provider_if_catalog_provided() {
-        let accessor = TestSchemaAccessor::new(indexmap_with_default! {AHasher;});
+        let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;});
         let context_provider = PoSqlContextProvider::new(accessor);
         assert!(matches!(
             context_provider.get_table_source(TableReference::from("catalog.namespace.table")),
