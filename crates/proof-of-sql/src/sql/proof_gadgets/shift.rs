@@ -207,8 +207,8 @@ mod tests {
     use crate::{
         base::{
             database::{
-                table_utility::*, ColumnField, ColumnRef, ColumnType, LiteralValue, Table,
-                TableEvaluation, TableOptions, TableRef, TableTestAccessor, TestAccessor,
+                table_utility::*, ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue,
+                Table, TableEvaluation, TableOptions, TableRef, TableTestAccessor, TestAccessor,
             },
             map::{indexset, IndexMap, IndexSet},
             proof::{PlaceholderResult, ProofError},
@@ -222,7 +222,6 @@ mod tests {
     use blitzar::proof::InnerProductProof;
     use bumpalo::Bump;
     use serde::Serialize;
-    use sqlparser::ast::Ident;
 
     #[derive(Debug, Serialize)]
     pub struct ShiftTestPlan {
@@ -331,7 +330,7 @@ mod tests {
         fn verifier_evaluate<S: Scalar>(
             &self,
             builder: &mut impl VerificationBuilder<S>,
-            _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+            _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
             _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
             _params: &[LiteralValue],
         ) -> Result<TableEvaluation<S>, ProofError> {
@@ -344,6 +343,10 @@ mod tests {
             // Evaluate the verifier
             verify_shift(builder, alpha, beta, column_eval, chi_n_eval)?;
             Ok(TableEvaluation::new(vec![], (S::zero(), 0)))
+        }
+
+        fn get_column_identifiers(&self) -> Vec<ColumnId> {
+            vec![]
         }
     }
 

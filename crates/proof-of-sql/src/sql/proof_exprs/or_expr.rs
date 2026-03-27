@@ -1,7 +1,9 @@
 use super::{DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{can_and_or_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            can_and_or_types, Column, ColumnId, ColumnRef, ColumnType, LiteralValue, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -15,7 +17,6 @@ use crate::{
 use alloc::{boxed::Box, string::ToString, vec};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable logical OR expression
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -101,7 +102,7 @@ impl ProofExpr for OrExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {

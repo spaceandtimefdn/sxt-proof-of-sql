@@ -2,8 +2,8 @@ use super::{fold_vals, DynProofPlan};
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            filter_util::filter_columns, Column, ColumnField, ColumnId, ColumnRef, LiteralValue,
+            Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -21,7 +21,6 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -70,7 +69,7 @@ impl ProofPlan for FilterExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -83,10 +82,9 @@ impl ProofPlan for FilterExec {
         let input_chi_eval = input_eval.chi();
 
         // Build new accessors
-        let input_schema = self.input.get_column_result_fields();
+        let input_schema = self.input.get_column_identifiers();
         let accessor = input_schema
-            .iter()
-            .map(ColumnField::name)
+            .into_iter()
             .zip(input_eval.column_evals().iter().copied())
             .collect::<IndexMap<_, _>>();
 
@@ -136,7 +134,10 @@ impl ProofPlan for FilterExec {
         self.aliased_results
             .iter()
             .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             })
             .collect()
     }
@@ -147,6 +148,13 @@ impl ProofPlan for FilterExec {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         self.input.get_table_references()
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.aliased_results
+            .iter()
+            .map(|expr| expr.alias.clone())
+            .collect()
     }
 }
 

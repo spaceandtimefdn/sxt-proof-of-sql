@@ -41,7 +41,7 @@ fn evm_verifier_with_extra_args(
     let commitments = plan
         .get_column_references()
         .into_iter()
-        .map(|c| accessor.get_commitment(&c.table_ref(), &c.column_id()))
+        .map(|c| accessor.get_commitment(&c.table_ref(), &c.column_name()))
         .flat_map(|c| {
             c.commitment
                 .into_affine()

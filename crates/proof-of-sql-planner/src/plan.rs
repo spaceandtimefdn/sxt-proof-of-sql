@@ -13,7 +13,9 @@ use datafusion::{
 };
 use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
-    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
+    base::database::{
+        ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef,
+    },
     sql::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
@@ -49,7 +51,10 @@ fn get_aliased_dyn_proof_exprs(
                     input_column_name.clone(),
                     *data_type,
                 ));
-                Ok(AliasedDynProofExpr { expr, alias })
+                Ok(AliasedDynProofExpr {
+                    expr,
+                    alias: alias.into(),
+                })
             },
         )
         .collect::<PlannerResult<Vec<_>>>()
@@ -187,11 +192,13 @@ fn aggregate_to_proof_plan(
             let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
             let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
             let name_string = e.clone().unalias().display_name()?;
-            let alias = alias_map.get(&name_string).ok_or_else(|| {
-                PlannerError::UnsupportedLogicalPlan {
+            let alias: ColumnId = alias_map
+                .get(&name_string)
+                .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
                     plan: Box::new(input.clone()),
-                }
-            })?;
+                })?
+                .as_str()
+                .into();
             let proof_expr = DynProofExpr::new_column(ColumnRef::new(
                 dummy_table_ref.clone(),
                 aggregate_alias.clone(),
@@ -200,11 +207,11 @@ fn aggregate_to_proof_plan(
             Ok((
                 AliasedDynProofExpr {
                     expr: aggregate_proof_expr,
-                    alias: aggregate_alias,
+                    alias: aggregate_alias.into(),
                 },
                 AliasedDynProofExpr {
                     expr: proof_expr,
-                    alias: alias.as_str().into(),
+                    alias,
                 },
             ))
         })
@@ -255,11 +262,11 @@ fn aggregate_to_proof_plan(
             (
                 AliasedDynProofExpr {
                     expr: expr.clone(),
-                    alias: inner_alias,
+                    alias: inner_alias.into(),
                 },
                 AliasedDynProofExpr {
                     expr: proof_expr,
-                    alias: alias.clone(),
+                    alias: alias.into(),
                 },
             )
         })
@@ -271,7 +278,7 @@ fn aggregate_to_proof_plan(
         .as_str()
         .into();
     let count_exprs = count_aliases.into_iter().map(|alias| AliasedDynProofExpr {
-        alias: alias.clone(),
+        alias: alias.into(),
         expr: DynProofExpr::new_column(ColumnRef::new(
             dummy_table_ref.clone(),
             inner_count_alias.clone(),
@@ -451,7 +458,7 @@ pub fn logical_plan_to_proof_plan(
                             alias.clone(),
                             field.data_type(),
                         )),
-                        alias,
+                        alias: alias.into(),
                     })
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;

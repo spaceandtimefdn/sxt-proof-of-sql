@@ -77,7 +77,7 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
-            alias: identifier_alias,
+            alias: identifier_alias.into(),
         }],
         Box::new(DynProofPlan::Table(table_exec)),
         DynProofExpr::Equals(
@@ -121,7 +121,7 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
     let expected_plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
-            alias: Ident::new("alias"),
+            alias: "alias".into(),
         }],
         Box::new(DynProofPlan::Table(table_exec)),
         DynProofExpr::Equals(

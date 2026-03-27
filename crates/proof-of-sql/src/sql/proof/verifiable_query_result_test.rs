@@ -7,8 +7,8 @@ use crate::{
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
-            TableEvaluation, TableRef,
+            ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor,
+            Table, TableEvaluation, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -18,7 +18,6 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize, Default)]
 pub(super) struct EmptyTestQueryExpr {
@@ -65,7 +64,7 @@ impl ProofPlan for EmptyTestQueryExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -91,6 +90,12 @@ impl ProofPlan for EmptyTestQueryExpr {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        (1..=self.columns)
+            .map(|i| (&format!("a{i}")).into())
+            .collect()
     }
 }
 

@@ -1,7 +1,7 @@
 use super::{DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        database::{can_not_type, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{can_not_type, Column, ColumnId, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -15,7 +15,6 @@ use crate::{
 use alloc::boxed::Box;
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable logical NOT expression
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -85,7 +84,7 @@ impl ProofExpr for NotExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {
