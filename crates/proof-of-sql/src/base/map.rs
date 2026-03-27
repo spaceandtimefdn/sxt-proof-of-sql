@@ -1,5 +1,5 @@
-pub(crate) type IndexMap<K, V> =
-    indexmap::IndexMap<K, V, core::hash::BuildHasherDefault<ahash::AHasher>>;
+/// Alias for the `IndexMap` with a hash builder of type `BuildHasherDefault<AHasher>`
+pub type IndexMap<K, V> = indexmap::IndexMap<K, V, core::hash::BuildHasherDefault<ahash::AHasher>>;
 pub(crate) type IndexSet<T> = indexmap::IndexSet<T, core::hash::BuildHasherDefault<ahash::AHasher>>;
 
 /// Create an [`IndexMap`][self::IndexMap] from a list of key-value pairs
