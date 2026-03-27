@@ -12,9 +12,9 @@ library Verifier {
         uint256[] memory __placeholderParameters,
         bytes calldata __proof,
         bytes[] calldata __tableCommitments
-    ) public view returns (uint256[] memory tableLengths) {
+    ) public view returns (bytes32[] memory tableNameHashes, uint256[] memory tableLengths) {
         uint256[] memory commitments;
-        (tableLengths, commitments) =
+        (tableNameHashes, tableLengths, commitments) =
             getCommitmentsAndLength(__plan, __tableCommitments);
         __internalVerify({
             __result: __result,
@@ -267,11 +267,12 @@ library Verifier {
     function getCommitmentsAndLength(bytes calldata queryPlan, bytes[] calldata tableCommitmentsAsBytes)
         internal
         pure
-        returns (uint256[] memory __tableLengths, uint256[] memory __commitments)
+        returns (bytes32[] memory __tableNameHashes, uint256[] memory __tableLengths, uint256[] memory __commitments)
     {
         TableCommitment[] memory tableCommitments = deserializeTableCommitments(tableCommitmentsAsBytes);
-        (, uint64[] memory columnTableIndexes, bytes32[] memory columnNameHashes) =
-            deserializeProofPlanPrefix(queryPlan);
+        uint64[] memory columnTableIndexes;
+        bytes32[] memory columnNameHashes;
+        (__tableNameHashes, columnTableIndexes, columnNameHashes) = deserializeProofPlanPrefix(queryPlan);
 
         // construct `uint256[] memory commitments` and validate that all commitments are found
         uint256[] memory commitments = getRelevantCommitments(columnTableIndexes, columnNameHashes, tableCommitments);
