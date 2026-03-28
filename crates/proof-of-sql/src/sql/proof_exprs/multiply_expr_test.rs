@@ -264,10 +264,10 @@ fn we_can_query_random_tables_using_a_non_zero_offset() {
 fn we_can_compute_the_correct_output_of_a_multiply_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
-        borrowed_int("b", [0_i32, 1, 5, 1], &alloc),
-        borrowed_varchar("d", ["ab", "t", "efg", "g"], &alloc),
-        borrowed_bigint("c", [0_i64, 2, 2, 0], &alloc),
+        borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_int("sxt.t.b", [0_i32, 1, 5, 1], &alloc),
+        borrowed_varchar("sxt.t.d", ["ab", "t", "efg", "g"], &alloc),
+        borrowed_bigint("sxt.t.c", [0_i64, 2, 2, 0], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
@@ -293,8 +293,8 @@ fn we_can_compute_the_correct_output_of_a_multiply_expr_using_first_round_evalua
 fn we_cannot_multiply_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
-        borrowed_varchar("b", ["a", "b", "s", "z"], &alloc),
+        borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_varchar("sxt.t.b", ["a", "b", "s", "z"], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =

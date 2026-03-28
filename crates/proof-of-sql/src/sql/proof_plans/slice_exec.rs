@@ -2,7 +2,7 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, ColumnField, ColumnRef, LiteralValue, Table,
+            filter_util::filter_columns, ColumnField, ColumnId, ColumnRef, LiteralValue, Table,
             TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
@@ -23,7 +23,6 @@ use bumpalo::Bump;
 use core::iter::repeat;
 use itertools::repeat_n;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// `ProofPlan` for queries of the form
 /// ```ignore
@@ -74,7 +73,7 @@ where
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -145,6 +144,10 @@ where
     fn get_table_references(&self) -> IndexSet<TableRef> {
         self.input.get_table_references()
     }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.input.get_column_identifiers()
+    }
 }
 
 impl ProverEvaluate for SliceExec {
@@ -181,9 +184,8 @@ impl ProverEvaluate for SliceExec {
             builder.produce_intermediate_mle(column);
         });
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
+            self.get_column_identifiers()
                 .into_iter()
-                .map(|expr| expr.name())
                 .zip(filtered_columns),
             TableOptions::new(Some(output_length)),
         )
@@ -234,9 +236,8 @@ impl ProverEvaluate for SliceExec {
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.get_column_result_fields()
+            self.get_column_identifiers()
                 .into_iter()
-                .map(|expr| expr.name())
                 .zip(filtered_columns),
             TableOptions::new(Some(output_length)),
         )

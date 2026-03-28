@@ -6,7 +6,8 @@ use super::monotonic::{
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
+            ColumnField, ColumnId, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
+            TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -18,7 +19,6 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub struct MonotonicTestPlan<const STRICT: bool, const ASC: bool> {
@@ -89,6 +89,10 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
         vec![]
     }
 
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec![]
+    }
+
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
         indexset! {self.column.clone()}
     }
@@ -102,7 +106,7 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

@@ -11,7 +11,6 @@ use crate::{
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
-use sqlparser::ast::Ident;
 
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_sort_merge_join() {
@@ -54,7 +53,6 @@ fn we_can_prove_and_get_the_correct_result_from_a_sort_merge_join() {
         ),
         vec![0],
         vec![0],
-        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -129,7 +127,6 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
             ),
             vec![0],
             vec![0],
-            vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
         ),
         2,
         Some(3),
@@ -235,12 +232,6 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
             ),
             vec![0],
             vec![0],
-            vec![
-                Ident::new("id"),
-                Ident::new("name"),
-                Ident::new("human"),
-                Ident::new("state"),
-            ],
         ),
         filter(
             cols_expr_plan(&table_cat_vet, &["id", "hospital"], &accessor),
@@ -258,13 +249,6 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
         ),
         vec![0],
         vec![0],
-        vec![
-            Ident::new("id"),
-            Ident::new("name"),
-            Ident::new("human"),
-            Ident::new("state"),
-            Ident::new("hospital"),
-        ],
     );
 
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
@@ -330,7 +314,6 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join() {
         ),
         vec![0],
         vec![0],
-        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -383,7 +366,6 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         ),
         vec![0],
         vec![0],
-        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -434,7 +416,6 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         ),
         vec![0],
         vec![0],
-        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
@@ -481,7 +462,6 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         ),
         vec![0],
         vec![0],
-        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();

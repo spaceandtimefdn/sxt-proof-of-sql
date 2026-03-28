@@ -4,6 +4,7 @@ use super::{
 };
 use crate::base::{
     commitment::{CommitmentEvaluationProof, VecCommitmentExt},
+    database::ColumnId,
     map::IndexMap,
 };
 use alloc::vec::Vec;
@@ -55,7 +56,7 @@ impl<'a, CP: CommitmentEvaluationProof> TestAccessor<CP::Commitment> for TableTe
             .unwrap()
             .0
             .column_names()
-            .map(|ident| ident.value.as_str())
+            .map(|ident| ident.name().value.as_str())
             .collect()
     }
 
@@ -76,13 +77,14 @@ impl<'a, CP: CommitmentEvaluationProof> TestAccessor<CP::Commitment> for TableTe
 /// indicating that an invalid column reference was provided.
 impl<'a, CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for TableTestAccessor<'a, CP> {
     fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'a, CP::Scalar> {
+        let column_id: ColumnId = ColumnId::new(column_id.clone(), Some(table_ref.clone()));
         *self
             .tables
             .get(table_ref)
             .unwrap()
             .0
             .inner_table()
-            .get(column_id)
+            .get(&column_id)
             .unwrap()
     }
 }
@@ -95,8 +97,9 @@ impl<CP: CommitmentEvaluationProof> CommitmentAccessor<CP::Commitment>
     for TableTestAccessor<'_, CP>
 {
     fn get_commitment(&self, table_ref: &TableRef, column_id: &Ident) -> CP::Commitment {
+        let column_id: ColumnId = ColumnId::new(column_id.clone(), Some(table_ref.clone()));
         let (table, offset) = self.tables.get(table_ref).unwrap();
-        let borrowed_column = table.inner_table().get(column_id).unwrap();
+        let borrowed_column = table.inner_table().get(&column_id).unwrap();
         Vec::<CP::Commitment>::from_columns_with_offset(
             [borrowed_column],
             *offset,
@@ -123,12 +126,13 @@ impl<CP: CommitmentEvaluationProof> MetadataAccessor for TableTestAccessor<'_, C
 }
 impl<CP: CommitmentEvaluationProof> SchemaAccessor for TableTestAccessor<'_, CP> {
     fn lookup_column(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
+        let column_id: ColumnId = ColumnId::new(column_id.clone(), Some(table_ref.clone()));
         Some(
             self.tables
                 .get(table_ref)?
                 .0
                 .inner_table()
-                .get(column_id)?
+                .get(&column_id)?
                 .column_type(),
         )
     }
@@ -143,7 +147,7 @@ impl<CP: CommitmentEvaluationProof> SchemaAccessor for TableTestAccessor<'_, CP>
             .0
             .inner_table()
             .iter()
-            .map(|(id, col)| (id.clone(), col.column_type()))
+            .map(|(id, col)| (id.clone().name().clone(), col.column_type()))
             .collect()
     }
 }

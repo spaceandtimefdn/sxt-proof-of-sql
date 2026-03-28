@@ -2,7 +2,8 @@ use super::{plans::EVMDynProofPlan, EVMProofPlanError, EVMProofPlanResult};
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
+            ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation,
+            TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -52,7 +53,7 @@ impl EVMProofPlan {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct CompactPlan {
     tables: Vec<String>,
     columns: Vec<(usize, String, ColumnType)>,
@@ -81,7 +82,7 @@ impl TryFrom<&EVMProofPlan> for CompactPlan {
                     .ok_or(EVMProofPlanError::TableNotFound)?;
                 Ok((
                     table_index,
-                    column_ref.column_id().to_string(),
+                    column_ref.column_name().to_string(),
                     *column_ref.column_type(),
                 ))
             })
@@ -152,7 +153,7 @@ impl ProofPlan for EVMProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -161,6 +162,9 @@ impl ProofPlan for EVMProofPlan {
     }
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.inner().get_column_result_fields()
+    }
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.inner().get_column_identifiers()
     }
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
         self.inner().get_column_references()

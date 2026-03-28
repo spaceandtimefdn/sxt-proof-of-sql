@@ -1,6 +1,6 @@
 use crate::base::{
     commitment::Commitment,
-    database::{Column, ColumnType, Table, TableOptions, TableRef},
+    database::{Column, ColumnId, ColumnType, Table, TableOptions, TableRef},
     map::{IndexMap, IndexSet},
     scalar::Scalar,
 };
@@ -103,7 +103,10 @@ pub trait DataAccessor<S: Scalar>: MetadataAccessor {
         } else {
             Table::<S>::try_from_iter(column_ids.into_iter().map(|column_id| {
                 let column = self.get_column(table_ref, column_id);
-                (column_id.clone(), column)
+                (
+                    ColumnId::new(column_id.clone(), Some(table_ref.clone())),
+                    column,
+                )
             }))
         }
         .expect("Failed to create table from table and column references")

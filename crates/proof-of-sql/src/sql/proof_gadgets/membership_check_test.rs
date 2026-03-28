@@ -7,7 +7,7 @@ use super::membership_check::{
 use crate::{
     base::{
         database::{
-            owned_table_utility::*, table_utility::table, Column, ColumnField, ColumnRef,
+            owned_table_utility::*, table_utility::table, Column, ColumnField, ColumnId, ColumnRef,
             ColumnType, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
@@ -70,7 +70,7 @@ impl ProverEvaluate for MembershipCheckTestPlan {
         );
         builder.request_post_result_challenges(2);
         Ok(table([(
-            Ident::new("multiplicities"),
+            "multiplicities".into(),
             Column::Int128(multiplicities),
         )]))
     }
@@ -134,7 +134,7 @@ impl ProverEvaluate for MembershipCheckTestPlan {
             &candidate_columns,
         );
         Ok(table([(
-            Ident::new("multiplicities"),
+            "multiplicities".into(),
             Column::Int128(multiplicities),
         )]))
     }
@@ -146,6 +146,10 @@ impl ProofPlan for MembershipCheckTestPlan {
             Ident::new("multiplicities"),
             ColumnType::Int128,
         )]
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["multiplicities".into()]
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
@@ -166,7 +170,7 @@ impl ProofPlan for MembershipCheckTestPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {

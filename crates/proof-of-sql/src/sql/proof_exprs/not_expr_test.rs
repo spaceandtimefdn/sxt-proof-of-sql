@@ -135,9 +135,9 @@ fn we_can_query_random_tables_with_a_non_zero_offset() {
 fn we_can_compute_the_correct_output_of_a_not_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
     let data = table([
-        borrowed_bigint("a", [123, 456], &alloc),
-        borrowed_bigint("b", [0, 1], &alloc),
-        borrowed_varchar("d", ["alfa", "gama"], &alloc),
+        borrowed_bigint("sxt.t.a", [123, 456], &alloc),
+        borrowed_bigint("sxt.t.b", [0, 1], &alloc),
+        borrowed_varchar("sxt.t.d", ["alfa", "gama"], &alloc),
     ]);
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
@@ -151,7 +151,7 @@ fn we_can_compute_the_correct_output_of_a_not_expr_using_first_round_evaluate() 
 #[test]
 fn we_cannot_not_nonbool_type() {
     let alloc = Bump::new();
-    let data = table([borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc)]);
+    let data = table([borrowed_smallint("sxt.t.a", [1_i16, 2, 3, 4], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor =
         TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());

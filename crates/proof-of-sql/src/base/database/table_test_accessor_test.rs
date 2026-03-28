@@ -229,7 +229,10 @@ fn we_can_access_schema_and_column_names() {
             ("b".into(), ColumnType::VarChar)
         ]
     );
-    assert_eq!(accessor.get_column_names(&table_ref_1), vec!["a", "b"]);
+    assert_eq!(
+        accessor.get_column_names(&table_ref_1),
+        vec!["a".to_string(), "b".to_string()]
+    );
 }
 
 #[test]

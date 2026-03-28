@@ -2,7 +2,8 @@ use super::{add_subtract_columns, DecimalProofExpr, DynProofExpr, ProofExpr};
 use crate::{
     base::{
         database::{
-            try_add_subtract_column_types, Column, ColumnRef, ColumnType, LiteralValue, Table,
+            try_add_subtract_column_types, Column, ColumnId, ColumnRef, ColumnType, LiteralValue,
+            Table,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -17,7 +18,6 @@ use crate::{
 use alloc::{boxed::Box, string::ToString};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
-use sqlparser::ast::Ident;
 
 /// Provable numerical `+` expression
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -97,7 +97,7 @@ impl ProofExpr for AddExpr {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<Ident, S>,
+        accessor: &IndexMap<ColumnId, S>,
         chi_eval: S,
         params: &[LiteralValue],
     ) -> Result<S, ProofError> {

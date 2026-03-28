@@ -7,7 +7,6 @@ use crate::{
     sql::proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, TableExpr},
 };
 use alloc::boxed::Box;
-use sqlparser::ast::Ident;
 
 pub fn column_field(name: &str, column_type: ColumnType) -> ColumnField {
     ColumnField::new(name.into(), column_type)
@@ -96,13 +95,11 @@ pub fn sort_merge_join(
     right: DynProofPlan,
     left_join_column_indexes: Vec<usize>,
     right_join_column_indexes: Vec<usize>,
-    result_idents: Vec<Ident>,
 ) -> DynProofPlan {
     DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
         Box::new(left),
         Box::new(right),
         left_join_column_indexes,
         right_join_column_indexes,
-        result_idents,
     ))
 }

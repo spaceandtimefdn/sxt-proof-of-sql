@@ -3,8 +3,8 @@ use crate::{
     base::{
         database::{
             group_by_util::{aggregate_columns, AggregatedColumns},
-            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation,
-            TableRef,
+            Column, ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, Table,
+            TableEvaluation, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -118,7 +118,7 @@ impl ProofPlan for GroupByExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -213,7 +213,10 @@ impl ProofPlan for GroupByExec {
             .iter()
             .map(|col| col.get_column_field())
             .chain(self.sum_expr.iter().map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                ColumnField::new(
+                    aliased_expr.alias.name().clone(),
+                    aliased_expr.expr.data_type(),
+                )
             }))
             .chain(iter::once(ColumnField::new(
                 self.count_alias.clone(),
@@ -226,7 +229,7 @@ impl ProofPlan for GroupByExec {
         let mut columns = IndexSet::default();
 
         for col in &self.group_by_exprs {
-            columns.insert(col.get_column_reference());
+            col.get_column_references(&mut columns);
         }
         for aliased_expr in &self.sum_expr {
             aliased_expr.expr.get_column_references(&mut columns);
@@ -239,6 +242,19 @@ impl ProofPlan for GroupByExec {
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
         IndexSet::from_iter([self.table.table_ref.clone()])
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        self.group_by_exprs
+            .iter()
+            .map(ColumnExpr::column_id)
+            .chain(
+                self.sum_expr
+                    .iter()
+                    .map(|aliased_expr| aliased_expr.alias.clone()),
+            )
+            .chain(iter::once((&self.count_alias).into()))
+            .collect()
     }
 }
 
@@ -305,15 +321,12 @@ impl ProverEvaluate for GroupByExec {
             .map(|col| Column::Scalar(col))
             .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
-            self.get_column_result_fields()
-                .into_iter()
-                .map(|field| field.name())
-                .zip(
-                    group_by_result_columns
-                        .iter()
-                        .copied()
-                        .chain(sum_result_columns_iter.clone()),
-                ),
+            self.get_column_identifiers().into_iter().zip(
+                group_by_result_columns
+                    .iter()
+                    .copied()
+                    .chain(sum_result_columns_iter.clone()),
+            ),
         )
         .expect("Failed to create table from column references");
         // Prove result uniqueness if possible
@@ -444,9 +457,8 @@ impl ProverEvaluate for GroupByExec {
             .chain(sum_result_columns_iter.clone())
             .chain(iter::once(Column::BigInt(count_column)));
         let res = Table::<'a, S>::try_from_iter(
-            self.get_column_result_fields()
+            self.get_column_identifiers()
                 .into_iter()
-                .map(|field| field.name())
                 .zip(columns.clone()),
         )
         .expect("Failed to create table from column references");

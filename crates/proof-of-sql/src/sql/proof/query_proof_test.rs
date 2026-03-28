@@ -6,8 +6,8 @@ use crate::{
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
-            TableEvaluation, TableRef,
+            ColumnField, ColumnId, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor,
+            Table, TableEvaluation, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -18,7 +18,6 @@ use crate::{
 };
 use bumpalo::Bump;
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 /// Type to allow us to prove and verify an artificial polynomial where we prove
 /// that every entry in the result is zero
@@ -88,7 +87,7 @@ impl ProofPlan for TrivialTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -116,6 +115,10 @@ impl ProofPlan for TrivialTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["a1".into()]
     }
 }
 
@@ -282,11 +285,13 @@ impl ProverEvaluate for SquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
-            .get(&Ident::new("x"))
+            .get(&column_id)
             .unwrap();
         let res: &[_] = alloc.alloc_slice_copy(&self.res);
         builder.produce_intermediate_mle(res);
@@ -304,16 +309,14 @@ impl ProofPlan for SquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x_eval = S::from(self.anchored_commit_multiplier)
-            * *accessor
-                .get(&TableRef::new("sxt", "test"))
-                .unwrap()
-                .get(&Ident::new("x"))
-                .unwrap();
+            * *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
@@ -337,6 +340,10 @@ impl ProofPlan for SquareTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["a1".into()]
     }
 }
 
@@ -461,11 +468,13 @@ impl ProverEvaluate for DoubleSquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
-            .get(&Ident::new("x"))
+            .get(&column_id)
             .unwrap();
         let res: &[_] = alloc.alloc_slice_copy(&self.res);
         let z: &[_] = alloc.alloc_slice_copy(&self.z);
@@ -496,15 +505,13 @@ impl ProofPlan for DoubleSquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let x_eval = *accessor
-            .get(&TableRef::new("sxt", "test"))
-            .unwrap()
-            .get(&Ident::new("x"))
-            .unwrap();
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
+        let x_eval = *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let z_eval = builder.try_consume_final_round_mle_evaluation()?;
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
 
@@ -538,6 +545,10 @@ impl ProofPlan for DoubleSquareTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["a1".into()]
     }
 }
 
@@ -674,11 +685,13 @@ impl ProverEvaluate for ChallengeTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
-            .get(&Ident::new("x"))
+            .get(&column_id)
             .unwrap();
         let res: &[_] = alloc.alloc_slice_copy(&[9, 25]);
         let alpha = builder.consume_post_result_challenge();
@@ -698,17 +711,15 @@ impl ProofPlan for ChallengeTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let alpha = builder.try_consume_post_result_challenge()?;
         let _beta = builder.try_consume_post_result_challenge()?;
-        let x_eval = *accessor
-            .get(&TableRef::new("sxt", "test"))
-            .unwrap()
-            .get(&Ident::new("x"))
-            .unwrap();
+        let x_eval = *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let res_eval = builder.try_consume_final_round_mle_evaluation()?;
         builder.try_produce_sumcheck_subpolynomial_evaluation(
             SumcheckSubpolynomialType::Identity,
@@ -732,6 +743,9 @@ impl ProofPlan for ChallengeTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["a1".into()]
     }
 }
 
@@ -816,11 +830,13 @@ impl ProverEvaluate for FirstRoundSquareTestProofPlan {
         table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x = *table_map
-            .get(&TableRef::new("sxt", "test"))
+            .get(&table_ref)
             .unwrap()
             .inner_table()
-            .get(&Ident::new("x"))
+            .get(&column_id)
             .unwrap();
         let res: &[_] = alloc.alloc_slice_copy(&self.res);
         builder.produce_intermediate_mle(res);
@@ -838,16 +854,14 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
+        let table_ref = TableRef::new("sxt", "test");
+        let column_id: ColumnId = ColumnId::new("x".into(), Some(table_ref.clone()));
         let x_eval = S::from(self.anchored_commit_multiplier)
-            * *accessor
-                .get(&TableRef::new("sxt", "test"))
-                .unwrap()
-                .get(&Ident::new("x"))
-                .unwrap();
+            * *accessor.get(&table_ref).unwrap().get(&column_id).unwrap();
         let first_round_res_eval = builder.try_consume_first_round_mle_evaluation()?;
         let final_round_res_eval = builder.try_consume_final_round_mle_evaluation()?;
         assert_eq!(first_round_res_eval, final_round_res_eval);
@@ -873,6 +887,9 @@ impl ProofPlan for FirstRoundSquareTestProofPlan {
     }
     fn get_table_references(&self) -> IndexSet<TableRef> {
         indexset![TableRef::new("sxt", "test")]
+    }
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        vec!["a1".into()]
     }
 }
 

@@ -3,8 +3,8 @@ use crate::{
     base::{
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
-            LiteralValue, OwnedTable, OwnedTableTestAccessor, TableRef, TableTestAccessor,
-            TestAccessor,
+            LiteralValue, NewColumnRef, OwnedTable, OwnedTableTestAccessor, TableRef,
+            TableTestAccessor, TestAccessor,
         },
         map::{indexmap, IndexMap, IndexSet},
         math::decimal::Precision,
@@ -32,16 +32,16 @@ fn we_can_correctly_fetch_the_query_result_schema() {
     let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
+                DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
                     a,
                     ColumnType::BigInt,
                 ))),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
+                DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
                     b,
                     ColumnType::BigInt,
                 ))),
@@ -52,8 +52,8 @@ fn we_can_correctly_fetch_the_query_result_schema() {
             table_ref: table_ref.clone(),
         },
         DynProofExpr::try_new_equals(
-            DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                table_ref.clone(),
+            DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                Some(table_ref.clone()),
                 Ident::new("c"),
                 ColumnType::BigInt,
             ))),
@@ -83,16 +83,16 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
     let provable_ast = LegacyFilterExec::new(
         vec![
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
+                DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
                     a,
                     ColumnType::BigInt,
                 ))),
                 "a",
             ),
             aliased_plan(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
+                DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
                     f,
                     ColumnType::BigInt,
                 ))),
@@ -105,8 +105,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
         not(and(
             or(
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
+                    DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                        Some(table_ref.clone()),
                         Ident::new("f"),
                         ColumnType::BigInt,
                     ))),
@@ -114,8 +114,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 )
                 .unwrap(),
                 DynProofExpr::try_new_equals(
-                    DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                        table_ref.clone(),
+                    DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                        Some(table_ref.clone()),
                         Ident::new("c"),
                         ColumnType::BigInt,
                     ))),
@@ -124,8 +124,8 @@ fn we_can_correctly_fetch_all_the_referenced_columns() {
                 .unwrap(),
             ),
             DynProofExpr::try_new_equals(
-                DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
-                    table_ref.clone(),
+                DynProofExpr::Column(ColumnExpr::new(NewColumnRef::new(
+                    Some(table_ref.clone()),
                     Ident::new("b"),
                     ColumnType::BigInt,
                 ))),

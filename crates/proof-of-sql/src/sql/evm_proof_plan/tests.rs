@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnType, LiteralValue, NewColumnRef, TableRef},
         try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     sql::{
@@ -64,8 +64,16 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let identifier_b: Ident = "b".into();
     let identifier_alias: Ident = "alias".into();
 
-    let column_ref_a = ColumnRef::new(table_ref.clone(), identifier_a.clone(), ColumnType::BigInt);
-    let column_ref_b = ColumnRef::new(table_ref.clone(), identifier_b.clone(), ColumnType::BigInt);
+    let column_ref_a = NewColumnRef::new(
+        Some(table_ref.clone()),
+        identifier_a.clone(),
+        ColumnType::BigInt,
+    );
+    let column_ref_b = NewColumnRef::new(
+        Some(table_ref.clone()),
+        identifier_b.clone(),
+        ColumnType::BigInt,
+    );
 
     // Create a table exec to use as input
     let column_fields = vec![
@@ -77,7 +85,7 @@ fn we_can_generate_serialized_proof_plan_for_simple_filter() {
     let plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
-            alias: identifier_alias,
+            alias: identifier_alias.into(),
         }],
         Box::new(DynProofPlan::Table(table_exec)),
         DynProofExpr::Equals(
@@ -103,13 +111,8 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
 
     // For deserialized plans, column expressions reference the input plan's result columns,
     // which use empty table refs (since they're intermediate results, not actual table columns)
-    let empty_table_ref = TableRef::from_names(None, "");
-    let column_ref_a = ColumnRef::new(
-        empty_table_ref.clone(),
-        identifier_a.clone(),
-        ColumnType::BigInt,
-    );
-    let column_ref_b = ColumnRef::new(empty_table_ref, identifier_b.clone(), ColumnType::BigInt);
+    let column_ref_a = NewColumnRef::new(None, identifier_a.clone(), ColumnType::BigInt);
+    let column_ref_b = NewColumnRef::new(None, identifier_b.clone(), ColumnType::BigInt);
 
     // Create the expected plan with TableExec as input
     let column_fields = vec![
@@ -121,7 +124,7 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
     let expected_plan = DynProofPlan::Filter(FilterExec::new(
         vec![AliasedDynProofExpr {
             expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b)),
-            alias: Ident::new("alias"),
+            alias: "alias".into(),
         }],
         Box::new(DynProofPlan::Table(table_exec)),
         DynProofExpr::Equals(

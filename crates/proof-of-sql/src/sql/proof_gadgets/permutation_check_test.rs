@@ -4,8 +4,8 @@ use super::permutation_check::{final_round_evaluate_permutation_check, verify_pe
 use crate::{
     base::{
         database::{
-            table_utility::table_with_row_count, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            table_utility::table_with_row_count, ColumnField, ColumnId, ColumnRef, LiteralValue,
+            Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -20,7 +20,6 @@ use bumpalo::{
     Bump,
 };
 use serde::Serialize;
-use sqlparser::ast::Ident;
 
 #[derive(Debug, Serialize)]
 pub struct PermutationCheckTestPlan {
@@ -131,7 +130,7 @@ impl ProofPlan for PermutationCheckTestPlan {
     fn verifier_evaluate<S: Scalar>(
         &self,
         builder: &mut impl VerificationBuilder<S>,
-        _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+        _accessor: &IndexMap<TableRef, IndexMap<ColumnId, S>>,
         _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         _params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
@@ -156,6 +155,10 @@ impl ProofPlan for PermutationCheckTestPlan {
             &candidate_permutation_evals,
         )?;
         Ok(TableEvaluation::new(vec![], (S::ZERO, 0)))
+    }
+
+    fn get_column_identifiers(&self) -> Vec<ColumnId> {
+        Vec::new()
     }
 }
 
