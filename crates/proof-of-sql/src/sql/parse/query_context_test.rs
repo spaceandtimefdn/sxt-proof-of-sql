@@ -1,41 +1,41 @@
-#[cfg(test)]
-mod tests {
-    use crate::sql::parse::QueryContext;
+use super::QueryContext;
+use crate::base::database::ColumnType;
 
-    // -----------------------------------------------------------------------
-    // QueryContext construction and basic accessors
-    // -----------------------------------------------------------------------
+#[test]
+fn test_query_context_new_is_empty() {
+    let ctx = QueryContext::new();
+    assert!(ctx.get_column_references().is_empty());
+    assert!(ctx.get_table_references().is_empty());
+}
 
-    #[test]
-    fn test_default_query_context_has_no_columns() {
-        let ctx = QueryContext::default();
-        assert!(ctx.get_any_result_column_fields().is_empty());
-    }
+#[test]
+fn test_query_context_push_column() {
+    let mut ctx = QueryContext::new();
+    ctx.push_column_ref("col_a".into(), ColumnType::BigInt);
+    assert_eq!(ctx.get_column_references().len(), 1);
+}
 
-    #[test]
-    fn test_query_context_toggle_result_scope() {
-        let mut ctx = QueryContext::default();
-        // The result-column scope must start inactive.
-        assert!(!ctx.is_in_result_scope());
-        ctx.toggle_result_scope();
-        assert!(ctx.is_in_result_scope());
-        ctx.toggle_result_scope();
-        assert!(!ctx.is_in_result_scope());
-    }
+#[test]
+fn test_query_context_push_duplicate_column_deduplicates() {
+    let mut ctx = QueryContext::new();
+    ctx.push_column_ref("col_a".into(), ColumnType::BigInt);
+    ctx.push_column_ref("col_a".into(), ColumnType::BigInt);
+    // Should not contain duplicates
+    assert_eq!(ctx.get_column_references().len(), 1);
+}
 
-    #[test]
-    fn test_query_context_set_and_get_table_ref() {
-        use proof_of_sql_parser::Identifier;
-        use sqlparser::ast::ObjectName;
+#[test]
+fn test_query_context_push_table_ref() {
+    let mut ctx = QueryContext::new();
+    ctx.push_table_ref("schema.table".parse().unwrap());
+    assert_eq!(ctx.get_table_references().len(), 1);
+}
 
-        let mut ctx = QueryContext::default();
-        let name: ObjectName = "namespace.tbl".parse().unwrap();
-        ctx.set_table_ref(name);
-        let table_ref = ctx.get_table_ref();
-        // The resource ID should reflect the parsed table name.
-        assert!(
-            table_ref.resource_id().object_name().to_string().contains("tbl"),
-            "unexpected table ref: {:?}", table_ref
-        );
-    }
+#[test]
+fn test_query_context_multiple_columns() {
+    let mut ctx = QueryContext::new();
+    ctx.push_column_ref("a".into(), ColumnType::BigInt);
+    ctx.push_column_ref("b".into(), ColumnType::Int128);
+    ctx.push_column_ref("c".into(), ColumnType::VarChar);
+    assert_eq!(ctx.get_column_references().len(), 3);
 }
