@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -117,4 +118,85 @@ fn we_can_filter_columns_with_varbinary() {
             Column::BigInt(&[10, 30, 40]),
         ]
     );
+}
+
+#[test]
+fn we_can_filter_boolean_columns() {
+    let selection = vec![true, false, true, false, true];
+    let columns = vec![Column::<TestScalar>::Boolean(&[true, false, true, true, false])];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(result, vec![Column::Boolean(&[true, true, false])]);
+}
+
+#[test]
+fn we_can_filter_uint8_columns() {
+    let selection = vec![true, false, true, false, true];
+    let columns = vec![Column::<TestScalar>::Uint8(&[10u8, 20, 30, 40, 50])];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(result, vec![Column::Uint8(&[10u8, 30, 50])]);
+}
+
+#[test]
+fn we_can_filter_tinyint_columns() {
+    let selection = vec![true, false, true, false, true];
+    let columns = vec![Column::<TestScalar>::TinyInt(&[-1i8, 2, -3, 4, -5])];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(result, vec![Column::TinyInt(&[-1i8, -3, -5])]);
+}
+
+#[test]
+fn we_can_filter_smallint_columns() {
+    let selection = vec![true, false, true, false, true];
+    let columns = vec![Column::<TestScalar>::SmallInt(&[100i16, 200, 300, 400, 500])];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(result, vec![Column::SmallInt(&[100i16, 300, 500])]);
+}
+
+#[test]
+fn we_can_filter_int_columns() {
+    let selection = vec![true, false, true, false, true];
+    let columns = vec![Column::<TestScalar>::Int(&[1000i32, 2000, 3000, 4000, 5000])];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(result, vec![Column::Int(&[1000i32, 3000, 5000])]);
+}
+
+#[test]
+fn we_can_filter_timestamp_columns() {
+    let selection = vec![true, false, true, false, true];
+    let timestamps = [1_000i64, 2_000, 3_000, 4_000, 5_000];
+    let columns = vec![Column::<TestScalar>::TimestampTZ(
+        PoSQLTimeUnit::Second,
+        PoSQLTimeZone::utc(),
+        &timestamps,
+    )];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 3);
+    assert_eq!(
+        result,
+        vec![Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[1_000i64, 3_000, 5_000]
+        )]
+    );
+}
+
+#[test]
+#[should_panic]
+fn we_cannot_filter_columns_with_mismatched_selection_length() {
+    let columns = vec![Column::<TestScalar>::BigInt(&[1, 2, 3])];
+    let selection = vec![true, false]; // length 2, column length 3
+    let alloc = Bump::new();
+    let _ = filter_columns(&alloc, &columns, &selection);
 }
