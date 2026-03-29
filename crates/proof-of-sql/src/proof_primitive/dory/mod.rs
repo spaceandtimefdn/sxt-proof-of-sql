@@ -1,6 +1,4 @@
-// This file re-exports the public API of the dory module and also exposes
-// test-only helpers when the `test` cfg flag is active.
-
+mod blitzar_metadata_table;
 mod dory_commitment;
 mod dory_commitment_evaluation_proof;
 mod dory_field_deserialization;
