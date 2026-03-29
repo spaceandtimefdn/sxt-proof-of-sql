@@ -1,90 +1,87 @@
-/// Tests for column type arithmetic operations
 #[cfg(test)]
 mod tests {
-    use crate::base::database::{ColumnType, ColumnTypeOperation};
-
-    // Helper: verify that a binary op on two column types returns the expected result type
-    fn check_binary_op(
-        op: impl Fn(ColumnType, ColumnType) -> Option<ColumnType>,
-        lhs: ColumnType,
-        rhs: ColumnType,
-        expected: Option<ColumnType>,
-    ) {
-        assert_eq!(op(lhs, rhs), expected, "lhs={lhs:?} rhs={rhs:?}");
-    }
+    use crate::base::database::ColumnType;
 
     // -----------------------------------------------------------------------
-    // Addition / Subtraction – integer widening
+    // Numeric type compatibility for arithmetic
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_add_same_integer_type_returns_same() {
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::TinyInt,
-            ColumnType::TinyInt,
-            Some(ColumnType::TinyInt),
-        );
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::Int,
-            ColumnType::Int,
-            Some(ColumnType::Int),
-        );
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::BigInt,
-            ColumnType::BigInt,
-            Some(ColumnType::BigInt),
-        );
+    fn test_bigint_is_numeric() {
+        assert!(ColumnType::BigInt.is_numeric());
     }
 
     #[test]
-    fn test_add_integer_widening() {
-        // TinyInt + BigInt => BigInt
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::TinyInt,
-            ColumnType::BigInt,
-            Some(ColumnType::BigInt),
-        );
-        // SmallInt + Int => Int
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::SmallInt,
-            ColumnType::Int,
-            Some(ColumnType::Int),
-        );
+    fn test_int128_is_numeric() {
+        assert!(ColumnType::Int128.is_numeric());
     }
 
     #[test]
-    fn test_add_incompatible_types_returns_none() {
-        // VARCHAR + INT should not be valid for arithmetic
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::VarChar,
-            ColumnType::BigInt,
-            None,
-        );
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::BigInt,
-            ColumnType::VarChar,
-            None,
-        );
+    fn test_boolean_is_not_numeric() {
+        assert!(!ColumnType::Boolean.is_numeric());
+    }
+
+    #[test]
+    fn test_varchar_is_not_numeric() {
+        assert!(!ColumnType::VarChar.is_numeric());
     }
 
     // -----------------------------------------------------------------------
-    // Decimal / Scalar combinations
+    // Bit-width / byte-width ordering
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_add_scalar_types() {
-        check_binary_op(
-            ColumnType::arithmetic_result_type,
-            ColumnType::Scalar,
-            ColumnType::Scalar,
-            Some(ColumnType::Scalar),
-        );
+    fn test_bigint_byte_size() {
+        assert_eq!(ColumnType::BigInt.byte_size(), 8);
+    }
+
+    #[test]
+    fn test_int128_byte_size() {
+        assert_eq!(ColumnType::Int128.byte_size(), 16);
+    }
+
+    #[test]
+    fn test_smallint_byte_size() {
+        assert_eq!(ColumnType::SmallInt.byte_size(), 2);
+    }
+
+    #[test]
+    fn test_int_byte_size() {
+        assert_eq!(ColumnType::Int.byte_size(), 4);
+    }
+
+    #[test]
+    fn test_boolean_byte_size() {
+        assert_eq!(ColumnType::Boolean.byte_size(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Type upcast / widening
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_upcast_bigint_bigint() {
+        let result = ColumnType::BigInt.upcast_to(ColumnType::BigInt);
+        assert_eq!(result, Some(ColumnType::BigInt));
+    }
+
+    #[test]
+    fn test_upcast_smallint_to_bigint() {
+        // SmallInt can be widened to BigInt.
+        let result = ColumnType::SmallInt.upcast_to(ColumnType::BigInt);
+        assert_eq!(result, Some(ColumnType::BigInt));
+    }
+
+    #[test]
+    fn test_upcast_bigint_to_int128() {
+        let result = ColumnType::BigInt.upcast_to(ColumnType::Int128);
+        assert_eq!(result, Some(ColumnType::Int128));
+    }
+
+    #[test]
+    fn test_upcast_incompatible_types_returns_none() {
+        // A numeric type cannot be widened to VarChar.
+        let result = ColumnType::BigInt.upcast_to(ColumnType::VarChar);
+        assert_eq!(result, None);
     }
 }
