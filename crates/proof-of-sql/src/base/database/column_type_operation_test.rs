@@ -1,87 +1,71 @@
-#[cfg(test)]
-mod tests {
-    use crate::base::database::ColumnType;
+use super::{try_add_column_types, try_multiply_column_types};
+use crate::base::database::ColumnType;
 
-    // -----------------------------------------------------------------------
-    // Numeric type compatibility for arithmetic
-    // -----------------------------------------------------------------------
+#[test]
+fn test_add_bigint_bigint() {
+    let result = try_add_column_types(ColumnType::BigInt, ColumnType::BigInt);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::BigInt);
+}
 
-    #[test]
-    fn test_bigint_is_numeric() {
-        assert!(ColumnType::BigInt.is_numeric());
-    }
+#[test]
+fn test_add_int128_int128() {
+    let result = try_add_column_types(ColumnType::Int128, ColumnType::Int128);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::Int128);
+}
 
-    #[test]
-    fn test_int128_is_numeric() {
-        assert!(ColumnType::Int128.is_numeric());
-    }
+#[test]
+fn test_add_bigint_int128_upcast() {
+    // BigInt + Int128 should upcast to Int128
+    let result = try_add_column_types(ColumnType::BigInt, ColumnType::Int128);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::Int128);
+}
 
-    #[test]
-    fn test_boolean_is_not_numeric() {
-        assert!(!ColumnType::Boolean.is_numeric());
-    }
+#[test]
+fn test_add_incompatible_types_returns_error() {
+    // Adding a boolean to a numeric should fail
+    let result = try_add_column_types(ColumnType::Boolean, ColumnType::BigInt);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_varchar_is_not_numeric() {
-        assert!(!ColumnType::VarChar.is_numeric());
-    }
+#[test]
+fn test_multiply_bigint_bigint() {
+    let result = try_multiply_column_types(ColumnType::BigInt, ColumnType::BigInt);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::BigInt);
+}
 
-    // -----------------------------------------------------------------------
-    // Bit-width / byte-width ordering
-    // -----------------------------------------------------------------------
+#[test]
+fn test_multiply_int128_int128() {
+    let result = try_multiply_column_types(ColumnType::Int128, ColumnType::Int128);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::Int128);
+}
 
-    #[test]
-    fn test_bigint_byte_size() {
-        assert_eq!(ColumnType::BigInt.byte_size(), 8);
-    }
+#[test]
+fn test_multiply_bigint_int128() {
+    let result = try_multiply_column_types(ColumnType::BigInt, ColumnType::Int128);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), ColumnType::Int128);
+}
 
-    #[test]
-    fn test_int128_byte_size() {
-        assert_eq!(ColumnType::Int128.byte_size(), 16);
-    }
+#[test]
+fn test_multiply_incompatible_types_returns_error() {
+    let result = try_multiply_column_types(ColumnType::Boolean, ColumnType::BigInt);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_smallint_byte_size() {
-        assert_eq!(ColumnType::SmallInt.byte_size(), 2);
-    }
+#[test]
+fn test_add_varchar_varchar_returns_error() {
+    // String concatenation is not a supported column type operation here
+    let result = try_add_column_types(ColumnType::VarChar, ColumnType::VarChar);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_int_byte_size() {
-        assert_eq!(ColumnType::Int.byte_size(), 4);
-    }
-
-    #[test]
-    fn test_boolean_byte_size() {
-        assert_eq!(ColumnType::Boolean.byte_size(), 1);
-    }
-
-    // -----------------------------------------------------------------------
-    // Type upcast / widening
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn test_upcast_bigint_bigint() {
-        let result = ColumnType::BigInt.upcast_to(ColumnType::BigInt);
-        assert_eq!(result, Some(ColumnType::BigInt));
-    }
-
-    #[test]
-    fn test_upcast_smallint_to_bigint() {
-        // SmallInt can be widened to BigInt.
-        let result = ColumnType::SmallInt.upcast_to(ColumnType::BigInt);
-        assert_eq!(result, Some(ColumnType::BigInt));
-    }
-
-    #[test]
-    fn test_upcast_bigint_to_int128() {
-        let result = ColumnType::BigInt.upcast_to(ColumnType::Int128);
-        assert_eq!(result, Some(ColumnType::Int128));
-    }
-
-    #[test]
-    fn test_upcast_incompatible_types_returns_none() {
-        // A numeric type cannot be widened to VarChar.
-        let result = ColumnType::BigInt.upcast_to(ColumnType::VarChar);
-        assert_eq!(result, None);
-    }
+#[test]
+fn test_multiply_varchar_returns_error() {
+    let result = try_multiply_column_types(ColumnType::VarChar, ColumnType::VarChar);
+    assert!(result.is_err());
 }
