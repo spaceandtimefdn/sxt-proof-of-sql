@@ -1,0 +1,21 @@
+# cargo-nextest configuration for the sxt-proof-of-sql workspace.
+#
+# See https://nexte.st/book/configuration for full reference.
+
+[profile.default]
+# Run tests with full parallelism by default.
+# Individual slow tests (e.g. Dory setup) benefit from the thread pool being
+# free while they compute; nextest's process-per-test model means setup costs
+# are paid in parallel rather than serially.
+test-threads = "num-cpus"
+
+# Give individual tests a generous timeout so that the very slow Dory
+# integration tests don't get killed on underpowered CI runners.
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+[profile.ci]
+# Inherit defaults and add a stricter wall-clock limit for CI.
+test-threads = "num-cpus"
+slow-timeout = { period = "120s", terminate-after = 3 }
+# Retry flaky tests once in CI before marking them as failed.
+retries = 1
