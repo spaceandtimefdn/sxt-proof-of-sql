@@ -1,41 +1,84 @@
-/// Tests for VecCommitmentExt helper methods
 #[cfg(test)]
 mod tests {
     use crate::base::commitment::{
-        naive_evaluation_proof::NaiveEvaluationProof, vec_commitment_ext::VecCommitmentExt,
-        CommitmentEvaluationProof,
+        naive_commitment::NaiveCommitment,
+        VecCommitmentExt,
     };
-    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+    use crate::base::scalar::Curve25519Scalar;
 
-    // Use the test commitment type that ships with the crate.
-    type TestCommit = crate::base::commitment::naive_evaluation_proof::NaiveCommitment;
+    // -----------------------------------------------------------------------
+    // from_columns_with_offset
+    // -----------------------------------------------------------------------
 
-    /// Extending an empty commitment vec by zero extra slots is a no-op.
     #[test]
-    fn test_extend_with_zeros_from_empty() {
-        let mut commits: Vec<TestCommit> = vec![];
-        commits.extend_with_zero(0);
-        assert!(commits.is_empty());
+    fn test_from_columns_with_offset_empty_produces_empty() {
+        let no_columns: &[&[i64]] = &[];
+        let commitments =
+            Vec::<NaiveCommitment>::from_columns_with_offset(no_columns.iter().copied(), 0, &());
+        assert!(commitments.is_empty());
     }
 
-    /// Appending zero commitments increases the length correctly.
     #[test]
-    fn test_extend_with_zeros_adds_correct_count() {
-        let mut commits: Vec<TestCommit> = vec![];
-        commits.extend_with_zero(3);
-        assert_eq!(commits.len(), 3);
+    fn test_from_columns_with_offset_single_column() {
+        let data: &[Curve25519Scalar] = &[
+            Curve25519Scalar::from(1_i64),
+            Curve25519Scalar::from(2_i64),
+            Curve25519Scalar::from(3_i64),
+        ];
+        let commitments =
+            Vec::<NaiveCommitment>::from_columns_with_offset([data].iter().copied(), 0, &());
+        assert_eq!(commitments.len(), 1);
     }
 
-    /// Two separate zero extensions equal a single combined extension.
     #[test]
-    fn test_extend_with_zeros_twice_equals_once() {
-        let mut a: Vec<TestCommit> = vec![];
-        a.extend_with_zero(2);
-        a.extend_with_zero(3);
+    fn test_from_columns_with_offset_multiple_columns() {
+        let col_a: &[Curve25519Scalar] = &[
+            Curve25519Scalar::from(10_i64),
+            Curve25519Scalar::from(20_i64),
+        ];
+        let col_b: &[Curve25519Scalar] = &[
+            Curve25519Scalar::from(30_i64),
+            Curve25519Scalar::from(40_i64),
+        ];
+        let commitments = Vec::<NaiveCommitment>::from_columns_with_offset(
+            [col_a, col_b].iter().copied(),
+            0,
+            &(),
+        );
+        assert_eq!(commitments.len(), 2);
+    }
 
-        let mut b: Vec<TestCommit> = vec![];
-        b.extend_with_zero(5);
+    // -----------------------------------------------------------------------
+    // extend_commitments
+    // -----------------------------------------------------------------------
 
-        assert_eq!(a, b);
+    #[test]
+    fn test_extend_commitments_appends_correctly() {
+        let col_a: &[Curve25519Scalar] = &[Curve25519Scalar::from(1_i64)];
+        let col_b: &[Curve25519Scalar] = &[Curve25519Scalar::from(2_i64)];
+
+        let mut commitments =
+            Vec::<NaiveCommitment>::from_columns_with_offset([col_a].iter().copied(), 0, &());
+        assert_eq!(commitments.len(), 1);
+
+        commitments.extend_commitments([col_b].iter().copied(), 0, &());
+        assert_eq!(commitments.len(), 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Determinism: same data => same commitment
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_commitment_is_deterministic() {
+        let data: &[Curve25519Scalar] = &[
+            Curve25519Scalar::from(5_i64),
+            Curve25519Scalar::from(6_i64),
+        ];
+        let c1 =
+            Vec::<NaiveCommitment>::from_columns_with_offset([data].iter().copied(), 0, &());
+        let c2 =
+            Vec::<NaiveCommitment>::from_columns_with_offset([data].iter().copied(), 0, &());
+        assert_eq!(c1, c2);
     }
 }
