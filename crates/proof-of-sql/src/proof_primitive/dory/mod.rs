@@ -1,4 +1,3 @@
-/// This module contains the Dory proof system.
 mod blitzar_metadata_table;
 mod dory_commitment;
 mod dory_commitment_helper;
