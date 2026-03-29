@@ -11,6 +11,8 @@ pub use column::Column;
 
 mod column_type;
 pub use column_type::ColumnType;
+#[cfg(test)]
+mod column_type_extra_test;
 
 mod column_ref;
 pub use column_ref::ColumnRef;
@@ -55,11 +57,15 @@ pub use columnar_value::ColumnarValue;
 
 mod literal_value;
 pub use literal_value::LiteralValue;
+#[cfg(test)]
+mod literal_value_test;
 
 mod error;
 pub use error::ParseError;
 
 mod table_ref;
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub use crate::base::arrow::{
     arrow_array_to_column_conversion::{ArrayRefExt, ArrowArrayToColumnConversionError},
@@ -102,6 +108,8 @@ pub mod table_utility;
 
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
+#[cfg(test)]
+mod table_evaluation_test;
 
 mod test_accessor;
 pub use test_accessor::TestAccessor;
@@ -136,3 +144,5 @@ mod order_by_util_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod join_util;
+#[cfg(test)]
+mod join_util_test;
