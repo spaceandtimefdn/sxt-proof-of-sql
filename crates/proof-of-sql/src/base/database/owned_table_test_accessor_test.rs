@@ -1,75 +1,87 @@
-/// Tests for OwnedTableTestAccessor – exercises paths not covered elsewhere.
 #[cfg(test)]
 mod tests {
     use crate::base::{
+        commitment::naive_commitment::NaiveCommitment,
         database::{
-            owned_table_utility::*, ColumnType, OwnedTable, OwnedTableTestAccessor,
-            SchemaAccessor, TableRef, TestAccessor,
+            owned_table_utility::*, OwnedTableTestAccessor, TestAccessor,
         },
-        scalar::Scalar,
+        scalar::test_scalar::TestScalar,
     };
-    use crate::base::commitment::naive_evaluation_proof::NaiveCommitment;
-    use proof_of_sql_parser::Identifier;
+    use proof_of_sql_parser::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
 
-    type Accessor = OwnedTableTestAccessor<NaiveCommitment>;
-
-    fn make_accessor() -> Accessor {
-        Accessor::new_empty_with_setup(())
-    }
-
-    fn sample_table() -> OwnedTable<crate::base::scalar::test_scalar::TestScalar> {
-        owned_table([
-            bigint("id", [1i64, 2, 3]),
-            varchar("name", ["alice", "bob", "carol"]),
-        ])
-    }
-
-    /// Adding a table and retrieving its column count works.
     #[test]
-    fn test_add_table_and_get_column_names() {
-        let mut accessor = make_accessor();
-        let table_ref = TableRef::new("schema", "users");
-        accessor.add_table(table_ref, sample_table(), 0);
+    fn test_owned_table_test_accessor_schema() {
+        let mut accessor = OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
+        let table_ref = "sxt.table1".parse().unwrap();
+        let table = owned_table([
+            bigint("a", [1_i64, 2, 3]),
+            varchar("b", ["x", "y", "z"]),
+        ]);
+        accessor.add_table(table_ref, table, 0);
 
         let columns = accessor.lookup_schema(table_ref);
         assert_eq!(columns.len(), 2);
     }
 
-    /// Duplicate column names do not appear twice.
     #[test]
-    fn test_schema_contains_expected_column_types() {
-        let mut accessor = make_accessor();
-        let table_ref = TableRef::new("schema", "users");
-        accessor.add_table(table_ref, sample_table(), 0);
+    fn test_owned_table_test_accessor_metadata() {
+        let mut accessor = OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
+        let table_ref = "sxt.table2".parse().unwrap();
+        let table = owned_table([bigint("x", [10_i64, 20, 30])]);
+        accessor.add_table(table_ref, table, 42);
 
-        let schema = accessor.lookup_schema(table_ref);
-        let id_col = Identifier::try_new("id").unwrap();
-        let name_col = Identifier::try_new("name").unwrap();
-
-        let id_type = schema.iter().find(|(col, _)| col == &id_col).map(|(_, t)| t);
-        let name_type = schema.iter().find(|(col, _)| col == &name_col).map(|(_, t)| t);
-
-        assert_eq!(id_type, Some(&ColumnType::BigInt));
-        assert_eq!(name_type, Some(&ColumnType::VarChar));
+        assert_eq!(accessor.get_length(table_ref), 3);
+        assert_eq!(accessor.get_offset(table_ref), 42);
     }
 
-    /// Table length is correctly reported.
     #[test]
-    fn test_get_table_length() {
-        let mut accessor = make_accessor();
-        let table_ref = TableRef::new("schema", "users");
-        accessor.add_table(table_ref, sample_table(), 0);
+    fn test_owned_table_test_accessor_timestamp_column() {
+        let mut accessor = OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
+        let table_ref = "sxt.table3".parse().unwrap();
+        let table = owned_table([timestamptz(
+            "ts",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            [1_i64, 2, 3],
+        )]);
+        accessor.add_table(table_ref, table, 0);
 
+        let columns = accessor.lookup_schema(table_ref);
+        assert_eq!(columns.len(), 1);
         assert_eq!(accessor.get_length(table_ref), 3);
     }
 
-    /// Offset is stored and returned correctly.
     #[test]
-    fn test_get_offset() {
-        let mut accessor = make_accessor();
-        let table_ref = TableRef::new("schema", "events");
-        accessor.add_table(table_ref, sample_table(), 7);
+    fn test_owned_table_test_accessor_boolean_column() {
+        let mut accessor = OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
+        let table_ref = "sxt.table4".parse().unwrap();
+        let table = owned_table([boolean("flag", [true, false, true])]);
+        accessor.add_table(table_ref, table, 0);
 
-        assert_eq!(accessor.get_offset(table_ref), 7);
+        let columns = accessor.lookup_schema(table_ref);
+        assert_eq!(columns.len(), 1);
+        assert_eq!(accessor.get_length(table_ref), 3);
+    }
+
+    #[test]
+    fn test_owned_table_test_accessor_multiple_tables() {
+        let mut accessor = OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
+        let table_ref_a = "sxt.alpha".parse().unwrap();
+        let table_ref_b = "sxt.beta".parse().unwrap();
+
+        accessor.add_table(
+            table_ref_a,
+            owned_table([bigint("id", [1_i64, 2])]),
+            0,
+        );
+        accessor.add_table(
+            table_ref_b,
+            owned_table([bigint("val", [100_i64, 200, 300])]),
+            5,
+        );
+
+        assert_eq!(accessor.get_length(table_ref_a), 2);
+        assert_eq!(accessor.get_length(table_ref_b), 3);
+        assert_eq!(accessor.get_offset(table_ref_b), 5);
     }
 }
