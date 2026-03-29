@@ -1,101 +1,137 @@
 /// Cached Dory test setups.
 ///
 /// `PublicParameters::test_rand`, `ProverSetup::from`, and
-/// `VerifierSetup::from` are all computationally expensive.  When tests call
-/// them independently the cost is paid once *per test*, which can account for
-/// the majority of the total test-suite wall-clock time.
+/// `VerifierSetup::from` are all computationally expensive.  Running them
+/// once per test causes the cost to be paid N times (one per test that calls
+/// them), which accounts for the majority of the total test-suite wall-clock
+/// time even when tests run in parallel.
 ///
-/// This module uses [`std::sync::OnceLock`] to build each object exactly once
-/// per test-binary run and then hand out shared references for the rest of the
-/// suite.
+/// This module uses [`std::sync::OnceLock`] to build each object **exactly
+/// once** per test-binary run and then hands out shared `'static` references
+/// for the rest of the suite.
 ///
-/// # Usage
+/// # How to use
+///
+/// Replace ad-hoc calls like
+///
+/// ```rust,ignore
+/// let pp = PublicParameters::test_rand(4, &mut test_rng());
+/// let ps = ProverSetup::from(&pp);
+/// let vs = VerifierSetup::from(&pp);
+/// ```
+///
+/// with
 ///
 /// ```rust,ignore
 /// use crate::proof_primitive::dory::test_setup::{
 ///     test_public_parameters, test_prover_setup, test_verifier_setup,
 /// };
-///
-/// let pp  = test_public_parameters();
-/// let ps  = test_prover_setup();
-/// let vs  = test_verifier_setup();
+/// let pp = test_public_parameters();
+/// let ps = test_prover_setup();
+/// let vs = test_verifier_setup();
 /// ```
+///
+/// Tests that need a *different* sigma value can still call
+/// `PublicParameters::test_rand` directly, but most tests use sigma ≤ 4 and
+/// can simply use the cached versions.
 use super::{ProverSetup, PublicParameters, VerifierSetup};
 use std::sync::OnceLock;
 
-/// `sigma` value used for all cached test setups.
-///
-/// `sigma = 4` means the setup supports vectors up to length 2^4 = 16, which
-/// is enough for every existing test.  If a test needs a larger sigma it
-/// should construct its own `PublicParameters` directly.
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// The `sigma` (log₂ of the maximum supported commitment length) used for all
+/// shared test setups.  `sigma = 4` supports vectors up to length 2^4 = 16,
+/// which covers every existing test case.
 pub(crate) const TEST_SIGMA: usize = 4;
 
-// ---- deterministic RNG --------------------------------------------------
+// ---------------------------------------------------------------------------
+// Deterministic RNG
+// ---------------------------------------------------------------------------
 
-/// Return a fresh deterministic RNG suitable for generating test parameters.
+/// Return a fresh, deterministic, cryptographically-secure RNG seeded with 0.
 ///
-/// We use a fixed seed so that generated parameters are reproducible across
-/// runs while still exercising non-trivial cryptographic material.
+/// Returning a *fresh* instance (rather than a shared one) avoids the need for
+/// a mutex and keeps test determinism simple: every test that needs randomness
+/// can call `test_rng()` independently.
 pub(crate) fn test_rng() -> impl rand::RngCore + rand::CryptoRng {
     use rand::SeedableRng;
     rand_chacha::ChaCha20Rng::seed_from_u64(0)
 }
 
-// ---- cached public parameters -------------------------------------------
+// ---------------------------------------------------------------------------
+// Cached public parameters
+// ---------------------------------------------------------------------------
 
 static CACHED_PUBLIC_PARAMS: OnceLock<PublicParameters> = OnceLock::new();
 
-/// Return a reference to the shared [`PublicParameters`] singleton.
+/// Return a `'static` reference to the shared [`PublicParameters`] singleton.
 ///
-/// The first call is slow (it runs the same computation that
-/// `PublicParameters::test_rand` would run in every test), but every
-/// subsequent call is essentially free.
+/// The first call initializes the singleton (slow); every subsequent call
+/// returns the cached value instantly.
 pub(crate) fn test_public_parameters() -> &'static PublicParameters {
     CACHED_PUBLIC_PARAMS.get_or_init(|| PublicParameters::test_rand(TEST_SIGMA, &mut test_rng()))
 }
 
-// ---- cached prover setup ------------------------------------------------
+// ---------------------------------------------------------------------------
+// Cached prover setup
+// ---------------------------------------------------------------------------
 
 static CACHED_PROVER_SETUP: OnceLock<ProverSetup<'static>> = OnceLock::new();
 
-/// Return a reference to the shared [`ProverSetup`] singleton.
+/// Return a `'static` reference to the shared [`ProverSetup`] singleton.
 ///
 /// Built from [`test_public_parameters()`] on first call.
 pub(crate) fn test_prover_setup() -> &'static ProverSetup<'static> {
     CACHED_PROVER_SETUP.get_or_init(|| ProverSetup::from(test_public_parameters()))
 }
 
-// ---- cached verifier setup ----------------------------------------------
+// ---------------------------------------------------------------------------
+// Cached verifier setup
+// ---------------------------------------------------------------------------
 
 static CACHED_VERIFIER_SETUP: OnceLock<VerifierSetup> = OnceLock::new();
 
-/// Return a reference to the shared [`VerifierSetup`] singleton.
+/// Return a `'static` reference to the shared [`VerifierSetup`] singleton.
 ///
 /// Built from [`test_public_parameters()`] on first call.
 pub(crate) fn test_verifier_setup() -> &'static VerifierSetup {
     CACHED_VERIFIER_SETUP.get_or_init(|| VerifierSetup::from(test_public_parameters()))
 }
 
-// ---- tests for this module ----------------------------------------------
+// ---------------------------------------------------------------------------
+// Unit tests for this module
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
-mod tests {
+mod inner_tests {
     use super::*;
 
+    /// Verify that every helper returns the *same* object on repeated calls
+    /// (pointer equality ⟹ the OnceLock is actually caching).
     #[test]
-    fn cached_setups_are_consistent() {
-        // Calling twice must return the same pointer (not just equal values).
+    fn singletons_return_same_pointer() {
         assert!(
             std::ptr::eq(test_public_parameters(), test_public_parameters()),
-            "PublicParameters singleton should be the same pointer on every call"
+            "test_public_parameters() must return the same pointer on every call"
         );
         assert!(
             std::ptr::eq(test_prover_setup(), test_prover_setup()),
-            "ProverSetup singleton should be the same pointer on every call"
+            "test_prover_setup() must return the same pointer on every call"
         );
         assert!(
             std::ptr::eq(test_verifier_setup(), test_verifier_setup()),
-            "VerifierSetup singleton should be the same pointer on every call"
+            "test_verifier_setup() must return the same pointer on every call"
         );
+    }
+
+    /// Smoke-test: the cached setups are self-consistent (prover and verifier
+    /// were derived from the same public parameters).
+    #[test]
+    fn cached_setups_are_self_consistent() {
+        // Simply constructing both without panicking is sufficient.
+        let _ps = test_prover_setup();
+        let _vs = test_verifier_setup();
     }
 }
