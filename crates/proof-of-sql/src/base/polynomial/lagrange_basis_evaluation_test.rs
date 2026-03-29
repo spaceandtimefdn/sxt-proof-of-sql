@@ -1,86 +1,120 @@
-/// Tests for Lagrange basis evaluation helpers
 #[cfg(test)]
 mod tests {
     use crate::base::{
-        polynomial::lagrange_basis_evaluation::{
-            compute_evaluation_vector, compute_evaluation_vector_with_length,
+        polynomial::{
+            compute_truncated_lagrange_basis_inner_product,
+            compute_truncated_lagrange_basis_sum,
         },
-        scalar::{test_scalar::TestScalar, Scalar},
+        scalar::Curve25519Scalar,
     };
 
-    /// The evaluation vector for an empty point list over length 1 should be [1].
-    #[test]
-    fn test_evaluation_vector_empty_point_length_one() {
-        let point: Vec<TestScalar> = vec![];
-        let mut result = vec![TestScalar::ZERO; 1];
-        compute_evaluation_vector(&mut result, &point);
-        assert_eq!(result, vec![TestScalar::ONE]);
+    /// Helper: build a point vector of length `n` from a slice of i64 values.
+    fn pt<const N: usize>(vals: [i64; N]) -> Vec<Curve25519Scalar> {
+        vals.iter().map(|&v| Curve25519Scalar::from(v)).collect()
     }
 
-    /// Single point r: result should be [1-r, r].
-    #[test]
-    fn test_evaluation_vector_single_point() {
-        let r = TestScalar::from(3u64);
-        let point = vec![r];
-        let mut result = vec![TestScalar::ZERO; 2];
-        compute_evaluation_vector(&mut result, &point);
-        assert_eq!(result[0], TestScalar::ONE - r);
-        assert_eq!(result[1], r);
-    }
+    // -----------------------------------------------------------------------
+    // compute_truncated_lagrange_basis_sum
+    // -----------------------------------------------------------------------
 
-    /// Two points [r0, r1]:
-    /// result[0] = (1-r0)(1-r1)
-    /// result[1] = r0*(1-r1)
-    /// result[2] = (1-r0)*r1
-    /// result[3] = r0*r1
     #[test]
-    fn test_evaluation_vector_two_points() {
-        let r0 = TestScalar::from(2u64);
-        let r1 = TestScalar::from(5u64);
-        let point = vec![r0, r1];
-        let mut result = vec![TestScalar::ZERO; 4];
-        compute_evaluation_vector(&mut result, &point);
-
-        let one = TestScalar::ONE;
-        assert_eq!(result[0], (one - r0) * (one - r1));
-        assert_eq!(result[1], r0 * (one - r1));
-        assert_eq!(result[2], (one - r0) * r1);
-        assert_eq!(result[3], r0 * r1);
-    }
-
-    /// Evaluation vector entries must sum to 1.
-    #[test]
-    fn test_evaluation_vector_sums_to_one() {
-        let point = vec![
-            TestScalar::from(7u64),
-            TestScalar::from(11u64),
-            TestScalar::from(13u64),
-        ];
-        let n = 1 << point.len();
-        let mut result = vec![TestScalar::ZERO; n];
-        compute_evaluation_vector(&mut result, &point);
-        let sum: TestScalar = result.iter().copied().sum();
-        assert_eq!(sum, TestScalar::ONE);
-    }
-
-    /// compute_evaluation_vector_with_length pads / truncates correctly.
-    #[test]
-    fn test_evaluation_vector_with_length_truncated() {
-        let r = TestScalar::from(3u64);
-        let point = vec![r];
-        // Request only 1 element (truncated from 2).
-        let result = compute_evaluation_vector_with_length(&point, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0], TestScalar::ONE - r);
+    fn test_truncated_lagrange_basis_sum_length_zero() {
+        // With table_length == 0 the sum over an empty range is zero.
+        let point = pt([3, 5]);
+        let result = compute_truncated_lagrange_basis_sum(0, &point);
+        assert_eq!(result, Curve25519Scalar::from(0_i64));
     }
 
     #[test]
-    fn test_evaluation_vector_with_length_full() {
-        let r = TestScalar::from(3u64);
-        let point = vec![r];
-        let result = compute_evaluation_vector_with_length(&point, 2);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], TestScalar::ONE - r);
-        assert_eq!(result[1], r);
+    fn test_truncated_lagrange_basis_sum_length_one() {
+        // With table_length == 1 only the L_0 term contributes.
+        // L_0(x) = prod_i (1 - x_i), so for point = [0, 0] -> L_0 = 1.
+        let point = pt([0, 0]);
+        let result = compute_truncated_lagrange_basis_sum(1, &point);
+        assert_eq!(result, Curve25519Scalar::from(1_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_sum_length_one_nonzero_point() {
+        // For point = [1, 0]: L_0 = (1-1)*(1-0) = 0.
+        let point = pt([1, 0]);
+        let result = compute_truncated_lagrange_basis_sum(1, &point);
+        assert_eq!(result, Curve25519Scalar::from(0_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_sum_full_hypercube() {
+        // When table_length == 2^n (all leaves included) the sum of all
+        // Lagrange basis polynomials at any point in the hypercube equals 1
+        // because the basis forms a partition of unity.
+        // We use a 1-dimensional point so 2^1 = 2 entries.
+        let point = pt([0]);
+        let result = compute_truncated_lagrange_basis_sum(2, &point);
+        // L_0(0) + L_1(0) = (1-0) + 0 = 1
+        assert_eq!(result, Curve25519Scalar::from(1_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_sum_partial_table() {
+        // 1-D point: x = [2] (outside {0,1}).
+        // L_0(2) = 1-2 = -1,  L_1(2) = 2.
+        // Sum over first 1 entry: L_0(2) = -1.
+        let point: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(2_i64)];
+        let result = compute_truncated_lagrange_basis_sum(1, &point);
+        assert_eq!(result, Curve25519Scalar::from(-1_i64));
+    }
+
+    // -----------------------------------------------------------------------
+    // compute_truncated_lagrange_basis_inner_product
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_truncated_lagrange_basis_inner_product_length_zero() {
+        let a = pt([3, 1]);
+        let b = pt([2, 4]);
+        let result = compute_truncated_lagrange_basis_inner_product(0, &a, &b);
+        assert_eq!(result, Curve25519Scalar::from(0_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_inner_product_length_one() {
+        // <L_0(a), L_0(b)> where a=[0,0], b=[0,0].
+        // L_0(a)=1, L_0(b)=1  =>  inner product = 1.
+        let a = pt([0, 0]);
+        let b = pt([0, 0]);
+        let result = compute_truncated_lagrange_basis_inner_product(1, &a, &b);
+        assert_eq!(result, Curve25519Scalar::from(1_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_inner_product_orthogonal() {
+        // 1-D: a=[1], b=[0].
+        // L_0(a)=0, L_1(a)=1; L_0(b)=1, L_1(b)=0.
+        // inner product over 2 entries = 0*1 + 1*0 = 0.
+        let a: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(1_i64)];
+        let b: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(0_i64)];
+        let result = compute_truncated_lagrange_basis_inner_product(2, &a, &b);
+        assert_eq!(result, Curve25519Scalar::from(0_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_inner_product_same_point() {
+        // 1-D: a=b=[1].
+        // L_0(1)=0, L_1(1)=1.
+        // inner product over 2 entries = 0*0 + 1*1 = 1.
+        let p: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(1_i64)];
+        let result = compute_truncated_lagrange_basis_inner_product(2, &p, &p);
+        assert_eq!(result, Curve25519Scalar::from(1_i64));
+    }
+
+    #[test]
+    fn test_truncated_lagrange_basis_inner_product_partial_table() {
+        // 1-D: a=[2], b=[3], table_length=1 (only L_0 term).
+        // L_0(2) = -1,  L_0(3) = -2.
+        // inner product = (-1)*(-2) = 2.
+        let a: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(2_i64)];
+        let b: Vec<Curve25519Scalar> = vec![Curve25519Scalar::from(3_i64)];
+        let result = compute_truncated_lagrange_basis_inner_product(1, &a, &b);
+        assert_eq!(result, Curve25519Scalar::from(2_i64));
     }
 }
