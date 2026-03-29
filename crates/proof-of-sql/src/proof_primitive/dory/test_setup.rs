@@ -1,49 +1,52 @@
-/// Cached Dory test setup helpers using [`OnceLock`] singletons.
+/// Cached Dory test setup helpers using `OnceLock` singletons.
 ///
-/// These functions lazily initialize and cache expensive Dory objects
-/// ([`PublicParameters`], [`ProverSetup`], [`VerifierSetup`]) so they are
-/// computed at most once per test process, reducing overall test runtime.
+/// These helpers avoid re-generating expensive cryptographic parameters on
+/// every test by computing them once and reusing the result for the lifetime
+/// of the test process.
 ///
-/// # Terminology: `max_nu` vs `sigma`
+/// # Parameters
 ///
-/// - **`max_nu`** (used by [`PublicParameters::test_rand`]): controls the
-///   maximum depth of the Dory inner-product reduction tree.  The maximum
-///   supported **committed vector length** is `2^(2 * max_nu)`.  With
-///   `max_nu = 4` that is up to **256** elements.
+/// The helpers use `max_nu = 4`.  `max_nu` controls the maximum number of
+/// doublings that the Dory protocol can handle; concretely it bounds the
+/// supported vector length as `2^(2 * max_nu)` = 2^8 = 256 scalar elements.
+/// This is sufficient for the unit-test workloads in this crate.
 ///
-/// - **`sigma`** (used by [`DoryProverPublicSetup`] /
-///   [`DoryVerifierPublicSetup`]): an independent parameter that must satisfy
-///   `sigma <= max_nu`.  It is a separate bound on the commitment scheme; it
-///   is *not* the same as `max_nu`.
+/// Note: `max_nu` is a property of the [`PublicParameters`] / Dory setup and
+/// is distinct from the `sigma` parameter used in
+/// [`DoryProverPublicSetup`] / [`DoryVerifierPublicSetup`], which is a
+/// separate commitment parameter.
+use crate::proof_primitive::dory::{ProverSetup, PublicParameters, VerifierSetup};
 use std::sync::OnceLock;
 
-use super::{ProverSetup, PublicParameters, VerifierSetup};
-
-/// `max_nu` value shared by all cached test setups.
+/// A small `max_nu` value that is sufficient for unit tests.
 ///
-/// Supports vector lengths up to `2^(2 * TEST_MAX_NU)` = 256.
+/// With `max_nu = 4` the Dory setup supports vectors of up to
+/// 2^(2 * 4) = 256 scalar elements.
 const TEST_MAX_NU: usize = 4;
 
-static PUBLIC_PARAMETERS: OnceLock<PublicParameters> = OnceLock::new();
-
-/// Returns a reference to the cached [`PublicParameters`] for tests.
+/// Returns a reference to a process-wide cached [`PublicParameters`] instance
+/// suitable for unit tests.
 ///
-/// On the first call this calls [`PublicParameters::test_rand`] with
-/// `max_nu = 4` (supports vectors up to length 256). Subsequent calls return
-/// the same instance without recomputing.
-pub(super) fn test_public_parameters() -> &'static PublicParameters {
-    PUBLIC_PARAMETERS.get_or_init(|| {
+/// The parameters are generated once using a deterministic RNG seeded with
+/// `[0u8; 32]` and then reused for every subsequent call.
+pub fn test_public_parameters() -> &'static PublicParameters {
+    static INSTANCE: OnceLock<PublicParameters> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
         use ark_std::test_rng;
         PublicParameters::test_rand(TEST_MAX_NU, &mut test_rng())
     })
 }
 
-/// Returns a [`ProverSetup`] built from the cached [`PublicParameters`].
-pub(super) fn test_prover_setup() -> ProverSetup<'static> {
-    ProverSetup::from(test_public_parameters())
+/// Returns a reference to a process-wide cached [`ProverSetup`] instance
+/// suitable for unit tests.
+pub fn test_prover_setup() -> &'static ProverSetup<'static> {
+    static INSTANCE: OnceLock<ProverSetup<'static>> = OnceLock::new();
+    INSTANCE.get_or_init(|| ProverSetup::from(test_public_parameters()))
 }
 
-/// Returns a [`VerifierSetup`] built from the cached [`PublicParameters`].
-pub(super) fn test_verifier_setup() -> VerifierSetup {
-    VerifierSetup::from(test_public_parameters())
+/// Returns a reference to a process-wide cached [`VerifierSetup`] instance
+/// suitable for unit tests.
+pub fn test_verifier_setup() -> &'static VerifierSetup {
+    static INSTANCE: OnceLock<VerifierSetup> = OnceLock::new();
+    INSTANCE.get_or_init(|| VerifierSetup::from(test_public_parameters()))
 }
