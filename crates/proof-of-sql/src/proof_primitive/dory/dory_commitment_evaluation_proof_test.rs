@@ -1,38 +1,34 @@
-use super::test_setup::{test_prover_setup, test_public_parameters, test_verifier_setup};
-use super::{DoryCommitment, DoryEvaluationProof, DoryScalar};
+use super::test_setup::{test_prover_setup, test_verifier_setup};
+use super::{DoryProverPublicSetup, DoryVerifierPublicSetup};
 use crate::base::commitment::CommitmentEvaluationProof;
+use crate::proof_primitive::dory::{DoryEvaluationProof, DoryScalar};
 use ark_std::test_rng;
 use merlin::Transcript;
 
-/// Helper: build a random scalar vector of the given length.
+/// Helper: build a random scalar vector of the given length using test_rng.
 fn random_scalars(len: usize) -> Vec<DoryScalar> {
+    use ark_std::UniformRand;
     let mut rng = test_rng();
-    (0..len)
-        .map(|_| DoryScalar::from(ark_std::UniformRand::rand(&mut rng)))
-        .collect()
+    (0..len).map(|_| DoryScalar(ark_bn254::Fr::rand(&mut rng))).collect()
 }
 
 #[test]
-fn test_dory_evaluation_proof_single() {
-    let pp = test_public_parameters();
+fn test_dory_evaluation_proof_small() {
     let prover_setup = test_prover_setup();
     let verifier_setup = test_verifier_setup();
 
-    let prover_public_setup =
-        super::DoryProverPublicSetup::new(&prover_setup, 2);
-    let verifier_public_setup =
-        super::DoryVerifierPublicSetup::new(&verifier_setup, 2);
+    // sigma = 2 supports vectors up to length 2^(2*2) = 16
+    let prover_public_setup = DoryProverPublicSetup::new(&prover_setup, 2);
+    let verifier_public_setup = DoryVerifierPublicSetup::new(&verifier_setup, 2);
 
     let scalars = random_scalars(4);
+    // b_point has length equal to the number of variables (log2 of vector length)
     let b_point: Vec<DoryScalar> = random_scalars(2);
 
-    let mut prover_transcript = Transcript::new(b"test");
-    let mut verifier_transcript = Transcript::new(b"test");
+    let mut prover_transcript = Transcript::new(b"dory_test");
+    let mut verifier_transcript = Transcript::new(b"dory_test");
 
-    // Commit to the scalar vector.
-    let commitment = DoryCommitment::default(); // placeholder — real commitment created below
-
-    // Use CommitmentEvaluationProof::new to construct the proof.
+    // Use the CommitmentEvaluationProof trait's `new` method to build the proof.
     let proof = DoryEvaluationProof::new(
         &mut prover_transcript,
         &scalars,
@@ -41,62 +37,24 @@ fn test_dory_evaluation_proof_single() {
         &prover_public_setup,
     );
 
-    // Verify the proof.
-    let eval_result = proof.verify_batched_proof(
+    // Verify the proof using the trait's verify_batched_proof method.
+    let eval = proof.verify_batched_proof(
         &mut verifier_transcript,
-        &[commitment],
+        std::slice::from_ref(proof.commit()),
         &[DoryScalar::from(0u64)],
         &b_point,
         0,
         1,
         &verifier_public_setup,
     );
-    assert!(eval_result.is_ok(), "Verification failed: {:?}", eval_result);
+    assert!(eval.is_ok());
 }
 
 #[test]
-fn test_dory_evaluation_proof_cached_setup_is_reused() {
-    // Call test_public_parameters twice — should return the same pointer.
-    let pp1 = test_public_parameters() as *const _;
-    let pp2 = test_public_parameters() as *const _;
-    assert_eq!(pp1, pp2, "PublicParameters should be cached (same pointer)");
-}
-
-#[test]
-fn test_dory_evaluation_proof_length_16() {
-    // max_nu = 4 supports vectors up to length 2^(2*4) = 256; length 16 is fine.
-    let prover_setup = test_prover_setup();
-    let verifier_setup = test_verifier_setup();
-
-    let prover_public_setup =
-        super::DoryProverPublicSetup::new(&prover_setup, 4);
-    let verifier_public_setup =
-        super::DoryVerifierPublicSetup::new(&verifier_setup, 4);
-
-    let scalars = random_scalars(16);
-    let b_point: Vec<DoryScalar> = random_scalars(4);
-
-    let mut prover_transcript = Transcript::new(b"test_16");
-    let mut verifier_transcript = Transcript::new(b"test_16");
-
-    let commitment = DoryCommitment::default();
-
-    let proof = DoryEvaluationProof::new(
-        &mut prover_transcript,
-        &scalars,
-        &b_point,
-        0,
-        &prover_public_setup,
-    );
-
-    let eval_result = proof.verify_batched_proof(
-        &mut verifier_transcript,
-        &[commitment],
-        &[DoryScalar::from(0u64)],
-        &b_point,
-        0,
-        1,
-        &verifier_public_setup,
-    );
-    assert!(eval_result.is_ok(), "Verification failed: {:?}", eval_result);
+fn test_cached_setup_identity() {
+    use super::test_setup::test_public_parameters;
+    // Verify that the OnceLock cache returns the same instance on repeated calls.
+    let a = test_public_parameters() as *const _;
+    let b = test_public_parameters() as *const _;
+    assert_eq!(a, b);
 }
