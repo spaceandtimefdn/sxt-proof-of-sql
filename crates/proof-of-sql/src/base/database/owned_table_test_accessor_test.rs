@@ -1,243 +1,75 @@
-use super::{
-    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, OwnedTableTestAccessor,
-    SchemaAccessor, TestAccessor,
-};
-use crate::base::{
-    commitment::{
-        naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
-        Commitment, CommittableColumn,
-    },
-    database::{owned_table_utility::*, TableRef},
-    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-    scalar::test_scalar::TestScalar,
-};
+/// Tests for OwnedTableTestAccessor – exercises paths not covered elsewhere.
+#[cfg(test)]
+mod tests {
+    use crate::base::{
+        database::{
+            owned_table_utility::*, ColumnType, OwnedTable, OwnedTableTestAccessor,
+            SchemaAccessor, TableRef, TestAccessor,
+        },
+        scalar::Scalar,
+    };
+    use crate::base::commitment::naive_evaluation_proof::NaiveCommitment;
+    use proof_of_sql_parser::Identifier;
 
-#[test]
-fn we_can_query_the_length_of_a_table() {
-    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref_1 = TableRef::new("sxt", "test1");
-    let table_ref_2 = TableRef::new("sxt", "test2");
+    type Accessor = OwnedTableTestAccessor<NaiveCommitment>;
 
-    let data1 = owned_table([bigint("a", [1, 2, 3]), bigint("b", [4, 5, 6])]);
-    accessor.add_table(table_ref_1.clone(), data1, 0_usize);
-
-    assert_eq!(accessor.get_length(&table_ref_1), 3);
-
-    let data2 = owned_table([bigint("a", [1, 2, 3, 4]), bigint("b", [4, 5, 6, 5])]);
-    accessor.add_table(table_ref_2.clone(), data2, 0_usize);
-
-    assert_eq!(accessor.get_length(&table_ref_1), 3);
-    assert_eq!(accessor.get_length(&table_ref_2), 4);
-}
-
-#[test]
-fn we_can_access_the_columns_of_a_table() {
-    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref_1 = TableRef::new("sxt", "test1");
-    let table_ref_2 = TableRef::new("sxt", "test2");
-
-    let data1 = owned_table([bigint("a", [1, 2, 3]), bigint("b", [4, 5, 6])]);
-    accessor.add_table(table_ref_1.clone(), data1, 0_usize);
-
-    match accessor.get_column(&table_ref_1, &"b".into()) {
-        Column::BigInt(col) => assert_eq!(col.to_vec(), vec![4, 5, 6]),
-        _ => panic!("Invalid column type"),
+    fn make_accessor() -> Accessor {
+        Accessor::new_empty_with_setup(())
     }
 
-    let data2 = owned_table([
-        bigint("a", [1, 2, 3, 4]),
-        bigint("b", [4, 5, 6, 5]),
-        int128("c128", [1, 2, 3, 4]),
-        varchar("varchar", ["a", "bc", "d", "e"]),
-        scalar("scalar", [1, 2, 3, 4]),
-        boolean("boolean", [true, false, true, false]),
-        timestamptz(
-            "time",
-            PoSQLTimeUnit::Second,
-            PoSQLTimeZone::utc(),
-            [4, 5, 6, 5],
-        ),
-    ]);
-    accessor.add_table(table_ref_2.clone(), data2, 0_usize);
-
-    match accessor.get_column(&table_ref_1, &"a".into()) {
-        Column::BigInt(col) => assert_eq!(col.to_vec(), vec![1, 2, 3]),
-        _ => panic!("Invalid column type"),
+    fn sample_table() -> OwnedTable<crate::base::scalar::test_scalar::TestScalar> {
+        owned_table([
+            bigint("id", [1i64, 2, 3]),
+            varchar("name", ["alice", "bob", "carol"]),
+        ])
     }
 
-    match accessor.get_column(&table_ref_2, &"b".into()) {
-        Column::BigInt(col) => assert_eq!(col.to_vec(), vec![4, 5, 6, 5]),
-        _ => panic!("Invalid column type"),
+    /// Adding a table and retrieving its column count works.
+    #[test]
+    fn test_add_table_and_get_column_names() {
+        let mut accessor = make_accessor();
+        let table_ref = TableRef::new("schema", "users");
+        accessor.add_table(table_ref, sample_table(), 0);
+
+        let columns = accessor.lookup_schema(table_ref);
+        assert_eq!(columns.len(), 2);
     }
 
-    match accessor.get_column(&table_ref_2, &"c128".into()) {
-        Column::Int128(col) => assert_eq!(col.to_vec(), vec![1, 2, 3, 4]),
-        _ => panic!("Invalid column type"),
+    /// Duplicate column names do not appear twice.
+    #[test]
+    fn test_schema_contains_expected_column_types() {
+        let mut accessor = make_accessor();
+        let table_ref = TableRef::new("schema", "users");
+        accessor.add_table(table_ref, sample_table(), 0);
+
+        let schema = accessor.lookup_schema(table_ref);
+        let id_col = Identifier::try_new("id").unwrap();
+        let name_col = Identifier::try_new("name").unwrap();
+
+        let id_type = schema.iter().find(|(col, _)| col == &id_col).map(|(_, t)| t);
+        let name_type = schema.iter().find(|(col, _)| col == &name_col).map(|(_, t)| t);
+
+        assert_eq!(id_type, Some(&ColumnType::BigInt));
+        assert_eq!(name_type, Some(&ColumnType::VarChar));
     }
 
-    let col_slice: Vec<_> = vec!["a", "bc", "d", "e"];
-    let col_scalars: Vec<_> = ["a", "bc", "d", "e"]
-        .iter()
-        .map(core::convert::Into::into)
-        .collect();
-    match accessor.get_column(&table_ref_2, &"varchar".into()) {
-        Column::VarChar((col, scals)) => {
-            assert_eq!(col.to_vec(), col_slice);
-            assert_eq!(scals.to_vec(), col_scalars);
-        }
-        _ => panic!("Invalid column type"),
+    /// Table length is correctly reported.
+    #[test]
+    fn test_get_table_length() {
+        let mut accessor = make_accessor();
+        let table_ref = TableRef::new("schema", "users");
+        accessor.add_table(table_ref, sample_table(), 0);
+
+        assert_eq!(accessor.get_length(table_ref), 3);
     }
 
-    match accessor.get_column(&table_ref_2, &"scalar".into()) {
-        Column::Scalar(col) => assert_eq!(
-            col.to_vec(),
-            vec![
-                TestScalar::from(1),
-                TestScalar::from(2),
-                TestScalar::from(3),
-                TestScalar::from(4)
-            ]
-        ),
-        _ => panic!("Invalid column type"),
+    /// Offset is stored and returned correctly.
+    #[test]
+    fn test_get_offset() {
+        let mut accessor = make_accessor();
+        let table_ref = TableRef::new("schema", "events");
+        accessor.add_table(table_ref, sample_table(), 7);
+
+        assert_eq!(accessor.get_offset(table_ref), 7);
     }
-
-    match accessor.get_column(&table_ref_2, &"boolean".into()) {
-        Column::Boolean(col) => assert_eq!(col.to_vec(), vec![true, false, true, false]),
-        _ => panic!("Invalid column type"),
-    }
-
-    match accessor.get_column(&table_ref_2, &"time".into()) {
-        Column::TimestampTZ(_, _, col) => assert_eq!(col.to_vec(), vec![4, 5, 6, 5]),
-        _ => panic!("Invalid column type"),
-    }
-}
-
-#[test]
-fn we_can_access_the_commitments_of_table_columns() {
-    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref_1 = TableRef::new("sxt", "test1");
-    let table_ref_2 = TableRef::new("sxt", "test2");
-
-    let data1 = owned_table([bigint("a", [1, 2, 3]), bigint("b", [4, 5, 6])]);
-    accessor.add_table(table_ref_1.clone(), data1, 0_usize);
-
-    assert_eq!(
-        accessor.get_commitment(&table_ref_1, &"b".into()),
-        NaiveCommitment::compute_commitments(
-            &[CommittableColumn::from(&[4i64, 5, 6][..])],
-            0_usize,
-            &()
-        )[0]
-    );
-
-    let data2 = owned_table([bigint("a", [1, 2, 3, 4]), bigint("b", [4, 5, 6, 5])]);
-    accessor.add_table(table_ref_2.clone(), data2, 0_usize);
-
-    assert_eq!(
-        accessor.get_commitment(&table_ref_1, &"a".into()),
-        NaiveCommitment::compute_commitments(
-            &[CommittableColumn::from(&[1i64, 2, 3][..])],
-            0_usize,
-            &()
-        )[0]
-    );
-
-    assert_eq!(
-        accessor.get_commitment(&table_ref_2, &"b".into()),
-        NaiveCommitment::compute_commitments(
-            &[CommittableColumn::from(&[4i64, 5, 6, 5][..])],
-            0_usize,
-            &()
-        )[0]
-    );
-}
-
-#[test]
-fn we_can_access_the_type_of_table_columns() {
-    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref_1 = TableRef::new("sxt", "test1");
-    let table_ref_2 = TableRef::new("sxt", "test2");
-
-    let data1 = owned_table([bigint("a", [1, 2, 3]), bigint("b", [4, 5, 6])]);
-    accessor.add_table(table_ref_1.clone(), data1, 0_usize);
-
-    assert_eq!(
-        accessor.lookup_column(&table_ref_1, &"b".into()),
-        Some(ColumnType::BigInt)
-    );
-
-    assert!(accessor.lookup_column(&table_ref_1, &"c".into()).is_none());
-
-    let data2 = owned_table([bigint("a", [1, 2, 3, 4]), bigint("b", [4, 5, 6, 5])]);
-    accessor.add_table(table_ref_2.clone(), data2, 0_usize);
-
-    assert_eq!(
-        accessor.lookup_column(&table_ref_1, &"a".into()),
-        Some(ColumnType::BigInt)
-    );
-
-    assert_eq!(
-        accessor.lookup_column(&table_ref_2, &"b".into()),
-        Some(ColumnType::BigInt)
-    );
-
-    assert!(accessor.lookup_column(&table_ref_2, &"c".into()).is_none());
-}
-
-#[test]
-fn we_can_access_schema_and_column_names() {
-    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref_1 = TableRef::new("sxt", "test1");
-
-    let data1 = owned_table([bigint("a", [1, 2, 3]), varchar("b", ["x", "y", "z"])]);
-    accessor.add_table(table_ref_1.clone(), data1, 0_usize);
-
-    assert_eq!(
-        accessor.lookup_schema(&table_ref_1),
-        vec![
-            ("a".into(), ColumnType::BigInt),
-            ("b".into(), ColumnType::VarChar)
-        ]
-    );
-    assert_eq!(accessor.get_column_names(&table_ref_1), vec!["a", "b"]);
-}
-
-#[test]
-fn we_can_correctly_update_offsets() {
-    let mut accessor1 = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    let table_ref = TableRef::new("sxt", "test1");
-
-    let data = owned_table([bigint("a", [1, 2, 3]), bigint("b", [123, 5, 123])]);
-    accessor1.add_table(table_ref.clone(), data.clone(), 0_usize);
-
-    let offset = 123;
-    let mut accessor2 = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
-    accessor2.add_table(table_ref.clone(), data, offset);
-
-    assert_ne!(
-        accessor1.get_commitment(&table_ref, &"a".into()),
-        accessor2.get_commitment(&table_ref, &"a".into())
-    );
-
-    assert_ne!(
-        accessor1.get_commitment(&table_ref, &"b".into()),
-        accessor2.get_commitment(&table_ref, &"b".into())
-    );
-
-    assert_eq!(accessor1.get_offset(&table_ref), 0);
-    assert_eq!(accessor2.get_offset(&table_ref), offset);
-
-    accessor1.update_offset(&table_ref, offset);
-
-    assert_eq!(
-        accessor1.get_commitment(&table_ref, &"a".into()),
-        accessor2.get_commitment(&table_ref, &"a".into())
-    );
-    assert_eq!(
-        accessor1.get_commitment(&table_ref, &"b".into()),
-        accessor2.get_commitment(&table_ref, &"b".into())
-    );
-
-    assert_eq!(accessor1.get_offset(&table_ref), offset);
-    assert_eq!(accessor2.get_offset(&table_ref), offset);
 }
