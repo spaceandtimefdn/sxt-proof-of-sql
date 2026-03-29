@@ -1,68 +1,73 @@
 /// Cached Dory test setup objects.
 ///
-/// These are computed lazily once per test-binary run using [`std::sync::OnceLock`].
-/// Because `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`
-/// are expensive (each can take 10-15 s), re-using a single instance across all tests
-/// that share the same binary cuts total test time substantially.
+/// These are computed lazily **once per test-binary invocation** via
+/// [`std::sync::OnceLock`].  `PublicParameters::test_rand`,
+/// `ProverSetup::from`, and `VerifierSetup::from` each take on the order of
+/// 10-15 s; by sharing a single instance across all tests in the same binary
+/// the total wall-time for the test suite drops substantially.
 ///
 /// # Usage
 ///
-/// Replace per-test setup boilerplate such as:
+/// Before (expensive – setup re-run for every test):
 /// ```ignore
 /// let pp = PublicParameters::test_rand(4, &mut test_rng());
-/// let ps = ProverSetup::from(&pp);
-/// let vs = VerifierSetup::from(&pp);
-/// ```
-/// with:
-/// ```ignore
-/// let pp = public_parameters_for_testing();
-/// let ps = prover_setup_for_testing();
-/// let vs = verifier_setup_for_testing();
+/// let prover_setup = ProverSetup::from(&pp);
+/// let verifier_setup = VerifierSetup::from(&pp);
 /// ```
 ///
-/// The `nu` value (log₂ of the maximum commitment size) used for the cached
-/// objects is [`TEST_SETUP_MAX_NU`].  If a specific test requires a *larger* setup it
-/// must still create its own; if it only needs a *smaller* one the cached version works
-/// because Dory setups are hierarchical.
+/// After (cheap – setup computed at most once):
+/// ```ignore
+/// use crate::proof_primitive::dory::test_utility::{
+///     prover_setup_for_testing, public_parameters_for_testing,
+///     verifier_setup_for_testing,
+/// };
+/// let pp = public_parameters_for_testing();
+/// let prover_setup = prover_setup_for_testing();
+/// let verifier_setup = verifier_setup_for_testing();
+/// ```
 use std::sync::OnceLock;
 
 use crate::proof_primitive::dory::{ProverSetup, PublicParameters, VerifierSetup};
 use ark_std::test_rng;
 
-/// The `nu` value used for the shared test setups.
+/// The `nu` (max_nu) value used for the shared test setups.
 ///
-/// `nu = 4` supports commitment lengths up to 2^(2*4) = 256 rows, which is
-/// sufficient for every existing test that does not explicitly construct a
-/// larger setup.  Increase this constant (and re-run) if new tests require
-/// larger commitments *and* you do not want to create a per-test setup.
+/// `nu = 4` means the setup covers up to 2^(2·4) = 256 rows, which is
+/// sufficient for every standard test.  Tests that need a *larger* setup must
+/// create their own; tests that need a *smaller* one can use the cached version
+/// because Dory setups are hierarchical.
 pub const TEST_SETUP_MAX_NU: usize = 4;
 
 // ---------------------------------------------------------------------------
-// Static holders
+// Static storage
 // ---------------------------------------------------------------------------
 
 static PUBLIC_PARAMETERS: OnceLock<PublicParameters> = OnceLock::new();
 static VERIFIER_SETUP: OnceLock<VerifierSetup> = OnceLock::new();
 
-// ProverSetup borrows from PublicParameters, so we store it as a raw-pointer
-// wrapper that is safe because the public parameters live for `'static`.
-struct StaticProverSetup(ProverSetup<'static>);
-// SAFETY: tests run in a single process; setup is written once and only read
-// afterwards.  The inner `ProverSetup` contains no interior mutability beyond
-// what the GPU/CPU MSM back-end itself protects.
-unsafe impl Send for StaticProverSetup {}
-unsafe impl Sync for StaticProverSetup {}
+/// Newtype wrapper that lets us store `ProverSetup<'static>` in a `OnceLock`.
+///
+/// `ProverSetup<'_>` borrows from `PublicParameters`.  Since `PUBLIC_PARAMETERS`
+/// lives for `'static` (it is in a `OnceLock`), the borrow is valid for the
+/// lifetime of the process.  We annotate the wrapper with `Send + Sync` because:
+/// * `PublicParameters` is `Send + Sync`,
+/// * `ProverSetup` is read-only after construction,
+/// * tests only ever share the reference immutably.
+struct SendSyncProverSetup(ProverSetup<'static>);
+// SAFETY: see doc comment above.
+unsafe impl Send for SendSyncProverSetup {}
+unsafe impl Sync for SendSyncProverSetup {}
 
-static PROVER_SETUP: OnceLock<StaticProverSetup> = OnceLock::new();
+static PROVER_SETUP: OnceLock<SendSyncProverSetup> = OnceLock::new();
 
 // ---------------------------------------------------------------------------
 // Public accessors
 // ---------------------------------------------------------------------------
 
-/// Return a reference to the shared [`PublicParameters`] test instance.
+/// Return the shared [`PublicParameters`] test instance (computed once).
 ///
-/// Computed once with a deterministic RNG so results are reproducible across
-/// runs.
+/// The RNG seed comes from [`ark_std::test_rng`], which is deterministic, so
+/// results are reproducible across runs on the same platform.
 pub fn public_parameters_for_testing() -> &'static PublicParameters {
     PUBLIC_PARAMETERS.get_or_init(|| {
         let mut rng = test_rng();
@@ -70,18 +75,20 @@ pub fn public_parameters_for_testing() -> &'static PublicParameters {
     })
 }
 
-/// Return a reference to the shared [`ProverSetup`] test instance derived from
-/// [`public_parameters_for_testing`].
+/// Return the shared [`ProverSetup`] test instance (computed once).
+///
+/// Derived from [`public_parameters_for_testing`].
 pub fn prover_setup_for_testing() -> &'static ProverSetup<'static> {
-    // Ensure the public parameters are initialised first.
+    // Initialise public parameters first so the borrow is valid.
     let pp: &'static PublicParameters = public_parameters_for_testing();
     &PROVER_SETUP
-        .get_or_init(|| StaticProverSetup(ProverSetup::from(pp)))
+        .get_or_init(|| SendSyncProverSetup(ProverSetup::from(pp)))
         .0
 }
 
-/// Return a reference to the shared [`VerifierSetup`] test instance derived from
-/// [`public_parameters_for_testing`].
+/// Return the shared [`VerifierSetup`] test instance (computed once).
+///
+/// Derived from [`public_parameters_for_testing`].
 pub fn verifier_setup_for_testing() -> &'static VerifierSetup {
     let pp: &'static PublicParameters = public_parameters_for_testing();
     VERIFIER_SETUP.get_or_init(|| VerifierSetup::from(pp))
