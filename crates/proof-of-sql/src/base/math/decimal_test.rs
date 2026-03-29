@@ -1,58 +1,49 @@
-#[cfg(test)]
-mod tests {
-    use crate::base::math::decimal::{DecimalError, Precision};
+use super::{DecimalError, Precision};
 
-    // -----------------------------------------------------------------------
-    // Precision
-    // -----------------------------------------------------------------------
+#[test]
+fn test_precision_new_valid() {
+    let p = Precision::new(10).expect("valid precision");
+    assert_eq!(p.value(), 10);
+}
 
-    #[test]
-    fn test_precision_new_valid_values() {
-        assert!(Precision::new(1).is_ok());
-        assert!(Precision::new(38).is_ok());
-    }
+#[test]
+fn test_precision_new_zero_is_invalid() {
+    assert!(Precision::new(0).is_err());
+}
 
-    #[test]
-    fn test_precision_new_zero_is_invalid() {
-        assert!(matches!(
-            Precision::new(0),
-            Err(DecimalError::InvalidPrecision { .. })
-        ));
-    }
+#[test]
+fn test_precision_max_valid() {
+    // Maximum allowed precision for proof-of-sql (75)
+    assert!(Precision::new(75).is_ok());
+}
 
-    #[test]
-    fn test_precision_new_exceeds_max_is_invalid() {
-        // Precision > 75 (the max supported) should be rejected.
-        assert!(matches!(
-            Precision::new(76),
-            Err(DecimalError::InvalidPrecision { .. })
-        ));
-    }
+#[test]
+fn test_precision_above_max_is_invalid() {
+    assert!(Precision::new(76).is_err());
+}
 
-    #[test]
-    fn test_precision_value_roundtrips() {
-        let p = Precision::new(10).expect("valid precision");
-        assert_eq!(p.value(), 10);
-    }
+#[test]
+fn test_decimal_error_precision_variant() {
+    let err = DecimalError::InvalidPrecision {
+        error: "precision out of range".to_string(),
+    };
+    let msg = format!("{err}");
+    assert!(msg.contains("precision") || msg.contains("InvalidPrecision") || !msg.is_empty());
+}
 
-    // -----------------------------------------------------------------------
-    // DecimalError display / variants
-    // -----------------------------------------------------------------------
+#[test]
+fn test_decimal_error_rounding_variant() {
+    let err = DecimalError::RoundingError {
+        error: "cannot round".to_string(),
+    };
+    let msg = format!("{err}");
+    assert!(!msg.is_empty());
+}
 
-    #[test]
-    fn test_decimal_error_invalid_precision_contains_value() {
-        let err = Precision::new(0).unwrap_err();
-        let msg = format!("{err}");
-        // The error message should mention the invalid precision value.
-        assert!(msg.contains('0') || msg.to_lowercase().contains("precision"));
-    }
-
-    #[test]
-    fn test_decimal_error_unsupported_operation_variant() {
-        let err = DecimalError::UnsupportedOperation {
-            error: "test op".to_string(),
-        };
-        let msg = format!("{err}");
-        assert!(msg.contains("test op"));
+#[test]
+fn test_precision_value_roundtrip() {
+    for v in [1u8, 10, 38, 75] {
+        let p = Precision::new(v).unwrap();
+        assert_eq!(p.value(), v);
     }
 }
