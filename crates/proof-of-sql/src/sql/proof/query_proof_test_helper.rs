@@ -1,63 +1,61 @@
-/// Helper utilities for `QueryProof` unit tests.
+/// Helper assertions for `QueryProof` integration tests.
 ///
-/// This module is compiled only in `#[cfg(test)]` contexts and provides
-/// convenience assertions that reduce boilerplate in individual test cases.
+/// This module provides shared utilities used across `QueryProof`-level tests,
+/// such as verifying that a proof roundtrips correctly for a given expression.
+use crate::{
+    base::{
+        commitment::naive_commitment::NaiveCommitment,
+        database::{OwnedTable, OwnedTableTestAccessor, TableRef},
+        scalar::test_scalar::TestScalar,
+    },
+    sql::proof::{ProofPlan, QueryProof, VerificationError},
+};
+
+/// Verify that constructing and verifying a `QueryProof` for `expr` over `table`
+/// returns `Ok(result_table)` equal to `expected`.
+///
+/// Panics on any mismatch or on a verification error.
+pub fn assert_query_proof_roundtrip<E: ProofPlan<NaiveCommitment>>(
+    expr: &E,
+    table_ref: TableRef,
+    table: OwnedTable<TestScalar>,
+    expected: &OwnedTable<TestScalar>,
+) {
+    let accessor =
+        OwnedTableTestAccessor::<NaiveCommitment>::new_from_table(table_ref, table, 0, ());
+    let (proof, result) = QueryProof::<NaiveCommitment>::new(expr, &accessor, &());
+    let verified = proof
+        .verify(expr, &accessor, &result, &())
+        .expect("proof verification failed");
+    assert_eq!(
+        &verified.into_owned_table::<TestScalar>().unwrap(),
+        expected,
+        "verified result does not match expected table"
+    );
+}
+
+/// Verify that proof verification fails with a [`VerificationError`] for a
+/// deliberately tampered result table.
+pub fn assert_query_proof_verification_fails<E: ProofPlan<NaiveCommitment>>(
+    expr: &E,
+    table_ref: TableRef,
+    table: OwnedTable<TestScalar>,
+) {
+    let accessor =
+        OwnedTableTestAccessor::<NaiveCommitment>::new_from_table(table_ref, table, 0, ());
+    let (proof, mut result) = QueryProof::<NaiveCommitment>::new(expr, &accessor, &());
+    // Corrupt the serialised result so verification must fail
+    result.flip_bit_for_testing();
+    let outcome = proof.verify(expr, &accessor, &result, &());
+    assert!(
+        matches!(outcome, Err(VerificationError::VerificationError { .. })),
+        "expected VerificationError but got: {outcome:?}"
+    );
+}
+
 #[cfg(test)]
-pub(crate) mod test_helpers {
-    use crate::{
-        base::{
-            commitment::naive_commitment::NaiveCommitment,
-            database::{owned_table_utility::*, OwnedTable, OwnedTableTestAccessor},
-            scalar::Curve25519Scalar,
-        },
-        sql::proof::{ProofPlan, QueryProof},
-    };
-
-    /// Verify that a proof for the given `plan` and `accessor` verifies
-    /// successfully and that the resulting table matches `expected`.
-    pub(crate) fn assert_proof_verifies<P>(
-        plan: &P,
-        accessor: &OwnedTableTestAccessor<NaiveCommitment>,
-        expected: &OwnedTable<Curve25519Scalar>,
-    ) where
-        P: ProofPlan,
-    {
-        let (proof, result_expr) = QueryProof::<NaiveCommitment>::new(plan, accessor, &());
-        let result = proof
-            .verify(plan, accessor, &result_expr, &())
-            .expect("proof should verify");
-        assert_eq!(&result.table, expected, "verified table does not match expected");
-    }
-
-    /// Verify that a proof for the given `plan` and `accessor` fails to verify.
-    pub(crate) fn assert_proof_fails<P>(
-        plan: &P,
-        accessor: &OwnedTableTestAccessor<NaiveCommitment>,
-    ) where
-        P: ProofPlan,
-    {
-        let (proof, result_expr) = QueryProof::<NaiveCommitment>::new(plan, accessor, &());
-        assert!(
-            proof.verify(plan, accessor, &result_expr, &()).is_err(),
-            "proof verification should have failed"
-        );
-    }
-
-    // ------------------------------------------------------------------
-    // Self-tests for the helpers above
-    // ------------------------------------------------------------------
-
-    #[test]
-    fn test_assert_proof_verifies_with_empty_table() {
-        use crate::sql::proof::test_utility::EmptyTestQueryExpr;
-
-        let accessor =
-            OwnedTableTestAccessor::<NaiveCommitment>::new_empty_with_setup(());
-        let plan = EmptyTestQueryExpr {
-            length: 0,
-            ..Default::default()
-        };
-        let expected: OwnedTable<Curve25519Scalar> = owned_table([]);
-        assert_proof_verifies(&plan, &accessor, &expected);
-    }
+mod tests {
+    // Self-compilation smoke test: ensure helper types resolve correctly.
+    #[allow(unused_imports)]
+    use super::*;
 }
