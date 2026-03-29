@@ -1,7 +1,7 @@
 use super::ProofExpr;
 use crate::{
     base::{
-        database::{Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableRef},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -16,38 +16,30 @@ use sqlparser::ast::Ident;
 /// Note: this is currently limited to named column expressions.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct ColumnExpr {
-    column_ref: ColumnRef,
+    id: Ident,
+    column_type: ColumnType,
 }
 
 impl ColumnExpr {
     /// Create a new column expression
     #[must_use]
     pub fn new(column_ref: ColumnRef) -> Self {
-        Self { column_ref }
-    }
-
-    /// Return the column referenced by this [`ColumnExpr`]
-    #[must_use]
-    pub fn get_column_reference(&self) -> ColumnRef {
-        self.column_ref.clone()
-    }
-
-    /// Get the column reference
-    #[must_use]
-    pub fn column_ref(&self) -> &ColumnRef {
-        &self.column_ref
+        Self {
+            id: column_ref.column_id(),
+            column_type: *column_ref.column_type(),
+        }
     }
 
     /// Wrap the column output name and its type within the [`ColumnField`]
     #[must_use]
     pub fn get_column_field(&self) -> ColumnField {
-        ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        ColumnField::new(self.id.clone(), self.column_type)
     }
 
     /// Get the column identifier
     #[must_use]
     pub fn column_id(&self) -> Ident {
-        self.column_ref.column_id()
+        self.id.clone()
     }
 
     /// Get the column
@@ -59,7 +51,7 @@ impl ColumnExpr {
     pub fn fetch_column<'a, S: Scalar>(&self, table: &Table<'a, S>) -> Column<'a, S> {
         *table
             .inner_table()
-            .get(&self.column_ref.column_id())
+            .get(&self.id)
             .expect("Column not found")
     }
 }
@@ -67,7 +59,7 @@ impl ColumnExpr {
 impl ProofExpr for ColumnExpr {
     /// Get the data type of the expression
     fn data_type(&self) -> ColumnType {
-        *self.get_column_reference().column_type()
+        self.column_type
     }
 
     /// Evaluate the column expression and
@@ -103,7 +95,7 @@ impl ProofExpr for ColumnExpr {
         _params: &[LiteralValue],
     ) -> Result<S, ProofError> {
         Ok(*accessor
-            .get(&self.column_ref.column_id())
+            .get(&self.id)
             .ok_or(ProofError::VerificationError {
                 error: "Column Not Found",
             })?)
@@ -113,6 +105,6 @@ impl ProofExpr for ColumnExpr {
     /// references in the `BoolExpr` or forwards the call to some
     /// subsequent `bool_expr`
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
-        columns.insert(self.column_ref.clone());
+        columns.insert(ColumnRef::new(self.table_ref.clone(), self.id.clone(), self.column_type));
     }
 }
