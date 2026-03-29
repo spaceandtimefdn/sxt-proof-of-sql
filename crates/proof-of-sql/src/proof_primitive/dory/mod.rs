@@ -1,51 +1,32 @@
-mod blitzar_metadata_table;
-mod dory_commitment;
+/// Contains the Dory proof system implementation.
 mod dory_commitment_evaluation_proof;
-mod dory_field_deserialization;
-mod dory_inner_product_proofs;
+mod dory_commitment_helper;
+mod dory_compute_commitments_impl;
+mod dory_field_serialization;
+mod dory_inner_product_proof;
 mod dory_messages;
 mod dory_public_setup;
-mod dory_reduction;
-mod dory_reduction_helper;
+mod dory_reduce_helper;
 mod dory_scalar;
 mod dory_structure;
-mod dory_vmv_helper;
-mod dynamic_dory_commitment;
-mod dynamic_dory_commitment_evaluation_proof;
-mod dynamic_dory_helper;
-mod dynamic_dory_structure;
-mod extended_state;
-mod f_hat_commitment;
-mod f_hat_scalar;
-mod g1_conversions;
-mod g2_conversions;
-mod gt_element;
-mod pairings;
-mod prover_state;
-mod scalar_product_proof;
+mod extended_dory_inner_product_proof;
+mod extended_dory_reduce_helper;
+mod gs_scalar;
+mod pack_scalars;
+mod public_parameters;
+mod scalar_conversions;
 mod setup;
 mod state;
-mod verifier_state;
-mod vmv_state;
+mod transpose;
 
-#[cfg(test)]
-pub(crate) mod test_setup;
-
-#[cfg(test)]
-mod dory_commitment_evaluation_proof_test;
-#[cfg(test)]
-mod dory_commitment_test;
-#[cfg(test)]
-mod dynamic_dory_commitment_evaluation_proof_test;
-#[cfg(test)]
-mod dynamic_dory_commitment_test;
-#[cfg(test)]
-mod setup_test;
-
-pub use dory_commitment::DoryCommitment;
 pub use dory_commitment_evaluation_proof::DoryEvaluationProof;
-pub use dory_scalar::DoryScalar;
-pub use dynamic_dory_commitment::DynamicDoryCommitment;
-pub use dynamic_dory_commitment_evaluation_proof::DynamicDoryEvaluationProof;
-pub use gt_element::GtElement;
-pub use setup::{ProverSetup, PublicParameters, VerifierSetup};
+pub use dory_public_setup::{DoryProverPublicSetup, DoryVerifierPublicSetup};
+pub use dory_scalar::{DoryScalar, GT};
+pub use public_parameters::PublicParameters;
+pub use setup::{ProverSetup, VerifierSetup};
+
+#[cfg(test)]
+mod test_setup;
+
+#[cfg(test)]
+pub(super) use test_setup::{test_prover_setup, test_verifier_setup};
