@@ -1,10 +1,13 @@
-/// Utility helpers for Dory tests.
+/// Utility helpers shared across Dory unit-tests.
 ///
-/// The main export of this module is a set of *cached* setup objects that are
-/// computed once per test-binary invocation.  This avoids the repeated
-/// (10-15 s each) `PublicParameters::test_rand` / `ProverSetup::from` /
-/// `VerifierSetup::from` calls that previously dominated the overall test
-/// suite runtime.
+/// The primary purpose of this module is to provide **cached** setup objects so
+/// that `PublicParameters::test_rand`, `ProverSetup::from`, and
+/// `VerifierSetup::from` are each executed **at most once per test-binary run**
+/// rather than once per test function.  Before this change those three calls
+/// accounted for the majority of the total test-suite wall time (~10-15 s each
+/// time they ran).
+///
+/// See [`cached_setup`] for details and usage examples.
 mod cached_setup;
 
 pub use cached_setup::{
