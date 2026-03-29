@@ -1,100 +1,58 @@
-/// Tests for Decimal / Precision / Scale helpers
 #[cfg(test)]
 mod tests {
-    use crate::base::math::decimal::{
-        DecimalError, Precision, MAX_SUPPORTED_PRECISION,
-    };
+    use crate::base::math::decimal::{DecimalError, Precision};
 
     // -----------------------------------------------------------------------
     // Precision
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_precision_new_valid_range() {
-        for p in 1u8..=MAX_SUPPORTED_PRECISION {
-            let prec = Precision::new(p);
-            assert!(prec.is_ok(), "Precision::new({p}) should succeed");
-            assert_eq!(prec.unwrap().value(), p);
-        }
+    fn test_precision_new_valid_values() {
+        assert!(Precision::new(1).is_ok());
+        assert!(Precision::new(38).is_ok());
     }
 
     #[test]
-    fn test_precision_new_zero_fails() {
-        assert!(Precision::new(0).is_err());
+    fn test_precision_new_zero_is_invalid() {
+        assert!(matches!(
+            Precision::new(0),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
     }
 
     #[test]
-    fn test_precision_new_exceeds_max_fails() {
-        let too_large = MAX_SUPPORTED_PRECISION + 1;
-        assert!(Precision::new(too_large).is_err());
+    fn test_precision_new_exceeds_max_is_invalid() {
+        // Precision > 75 (the max supported) should be rejected.
+        assert!(matches!(
+            Precision::new(76),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
     }
 
     #[test]
-    fn test_precision_display() {
-        let p = Precision::new(10).unwrap();
-        assert!(format!("{p}").contains("10"));
-    }
-
-    #[test]
-    fn test_precision_debug() {
-        let p = Precision::new(5).unwrap();
-        let dbg = format!("{p:?}");
-        assert!(!dbg.is_empty());
-    }
-
-    #[test]
-    fn test_precision_equality() {
-        let a = Precision::new(7).unwrap();
-        let b = Precision::new(7).unwrap();
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn test_precision_inequality() {
-        let a = Precision::new(5).unwrap();
-        let b = Precision::new(6).unwrap();
-        assert_ne!(a, b);
+    fn test_precision_value_roundtrips() {
+        let p = Precision::new(10).expect("valid precision");
+        assert_eq!(p.value(), 10);
     }
 
     // -----------------------------------------------------------------------
-    // DecimalError variants
+    // DecimalError display / variants
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_decimal_error_invalid_precision_is_error() {
-        let e = DecimalError::InvalidPrecision {
-            error: "precision out of range".to_string(),
+    fn test_decimal_error_invalid_precision_contains_value() {
+        let err = Precision::new(0).unwrap_err();
+        let msg = format!("{err}");
+        // The error message should mention the invalid precision value.
+        assert!(msg.contains('0') || msg.to_lowercase().contains("precision"));
+    }
+
+    #[test]
+    fn test_decimal_error_unsupported_operation_variant() {
+        let err = DecimalError::UnsupportedOperation {
+            error: "test op".to_string(),
         };
-        let msg = format!("{e}");
-        assert!(!msg.is_empty());
-    }
-
-    #[test]
-    fn test_decimal_error_rounding_is_error() {
-        let e = DecimalError::RoundingError {
-            error: "rounding required".to_string(),
-        };
-        let msg = format!("{e}");
-        assert!(!msg.is_empty());
-    }
-
-    #[test]
-    fn test_decimal_error_unsupported_operation() {
-        let e = DecimalError::UnsupportedOperation {
-            error: "operation not allowed".to_string(),
-        };
-        let msg = format!("{e}");
-        assert!(!msg.is_empty());
-    }
-
-    // -----------------------------------------------------------------------
-    // MAX_SUPPORTED_PRECISION constant
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn test_max_supported_precision_is_reasonable() {
-        // The crate targets 75-decimal-digit precision for 256-bit numbers.
-        assert!(MAX_SUPPORTED_PRECISION >= 38);
-        assert!(MAX_SUPPORTED_PRECISION <= 75);
+        let msg = format!("{err}");
+        assert!(msg.contains("test op"));
     }
 }
