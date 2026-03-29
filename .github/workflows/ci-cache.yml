@@ -1,0 +1,67 @@
+name: CI – Rust cache warm-up
+
+# This workflow pre-builds and caches the compiled test binary and Dory setup
+# data so that the main CI pipeline spends less time recompiling and
+# recomputing expensive cryptographic setups.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Build & test with nextest, caching everything we can
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: cargo nextest (all features)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cache the Cargo registry, index, and compiled artifacts separately so
+      # that only genuinely changed crates are recompiled.
+      - name: Cache Cargo registry & index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+
+      - name: Cache compiled artifacts (target dir)
+        uses: actions/cache@v4
+        with:
+          path: target
+          # Key on Cargo.lock + all Cargo.toml manifests so the cache is
+          # invalidated when dependencies or feature flags change.
+          key: cargo-build-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            cargo-build-${{ runner.os }}-
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      # Build *first* (cached) so the subsequent test run has minimal compile
+      # overhead and we get a clear separation of build vs. test time in logs.
+      - name: Build (all features)
+        run: cargo build --all-features --tests
+
+      - name: Run tests (all features, nextest)
+        run: |
+          cargo nextest run \
+            --all-features \
+            --profile ci \
+            --test-threads num-cpus
