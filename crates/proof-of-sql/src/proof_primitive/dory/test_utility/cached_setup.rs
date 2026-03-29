@@ -20,23 +20,21 @@
 /// let vs = verifier_setup_for_testing();
 /// ```
 ///
-/// The `sigma` value (log₂ of the maximum commitment length) used for the cached
+/// The `nu` value (log₂ of the maximum commitment size) used for the cached
 /// objects is [`TEST_SETUP_MAX_NU`].  If a specific test requires a *larger* setup it
 /// must still create its own; if it only needs a *smaller* one the cached version works
 /// because Dory setups are hierarchical.
 use std::sync::OnceLock;
 
-use crate::proof_primitive::dory::{
-    blitzar_handle::BlitzarHandle, ProverSetup, PublicParameters, VerifierSetup,
-};
+use crate::proof_primitive::dory::{ProverSetup, PublicParameters, VerifierSetup};
 use ark_std::test_rng;
 
-/// The `nu` (i.e. `max_nu`) value used for the shared test setups.
+/// The `nu` value used for the shared test setups.
 ///
-/// `nu = 4` supports commitment lengths up to 2^(2·4) = 256 rows, which is
-/// sufficient for every test that does not explicitly construct a larger setup.
-/// Increase this value if new tests require larger commitments *and* you do not
-/// want to create a per-test setup.
+/// `nu = 4` supports commitment lengths up to 2^(2*4) = 256 rows, which is
+/// sufficient for every existing test that does not explicitly construct a
+/// larger setup.  Increase this constant (and re-run) if new tests require
+/// larger commitments *and* you do not want to create a per-test setup.
 pub const TEST_SETUP_MAX_NU: usize = 4;
 
 // ---------------------------------------------------------------------------
@@ -44,17 +42,27 @@ pub const TEST_SETUP_MAX_NU: usize = 4;
 // ---------------------------------------------------------------------------
 
 static PUBLIC_PARAMETERS: OnceLock<PublicParameters> = OnceLock::new();
-static PROVER_SETUP_STORAGE: OnceLock<ProverSetup<'static>> = OnceLock::new();
-static VERIFIER_SETUP_STORAGE: OnceLock<VerifierSetup> = OnceLock::new();
-static BLITZAR_HANDLE: OnceLock<BlitzarHandle> = OnceLock::new();
+static VERIFIER_SETUP: OnceLock<VerifierSetup> = OnceLock::new();
+
+// ProverSetup borrows from PublicParameters, so we store it as a raw-pointer
+// wrapper that is safe because the public parameters live for `'static`.
+struct StaticProverSetup(ProverSetup<'static>);
+// SAFETY: tests run in a single process; setup is written once and only read
+// afterwards.  The inner `ProverSetup` contains no interior mutability beyond
+// what the GPU/CPU MSM back-end itself protects.
+unsafe impl Send for StaticProverSetup {}
+unsafe impl Sync for StaticProverSetup {}
+
+static PROVER_SETUP: OnceLock<StaticProverSetup> = OnceLock::new();
 
 // ---------------------------------------------------------------------------
-// Accessors
+// Public accessors
 // ---------------------------------------------------------------------------
 
 /// Return a reference to the shared [`PublicParameters`] test instance.
 ///
-/// Computed once with a deterministic RNG so results are reproducible.
+/// Computed once with a deterministic RNG so results are reproducible across
+/// runs.
 pub fn public_parameters_for_testing() -> &'static PublicParameters {
     PUBLIC_PARAMETERS.get_or_init(|| {
         let mut rng = test_rng();
@@ -67,20 +75,14 @@ pub fn public_parameters_for_testing() -> &'static PublicParameters {
 pub fn prover_setup_for_testing() -> &'static ProverSetup<'static> {
     // Ensure the public parameters are initialised first.
     let pp: &'static PublicParameters = public_parameters_for_testing();
-    PROVER_SETUP_STORAGE.get_or_init(|| {
-        // SAFETY: `pp` is `'static` because it is stored in a `OnceLock`.
-        ProverSetup::from(pp)
-    })
+    &PROVER_SETUP
+        .get_or_init(|| StaticProverSetup(ProverSetup::from(pp)))
+        .0
 }
 
 /// Return a reference to the shared [`VerifierSetup`] test instance derived from
 /// [`public_parameters_for_testing`].
 pub fn verifier_setup_for_testing() -> &'static VerifierSetup {
     let pp: &'static PublicParameters = public_parameters_for_testing();
-    VERIFIER_SETUP_STORAGE.get_or_init(|| VerifierSetup::from(pp))
-}
-
-/// Return a reference to a shared [`BlitzarHandle`] suitable for tests.
-pub fn blitzar_handle_for_testing() -> &'static BlitzarHandle {
-    BLITZAR_HANDLE.get_or_init(|| BlitzarHandle::new(TEST_SETUP_MAX_NU))
+    VERIFIER_SETUP.get_or_init(|| VerifierSetup::from(pp))
 }
