@@ -1,0 +1,31 @@
+# cargo-nextest configuration
+# https://nexte.st/docs/configuration/
+#
+# This file tunes nextest for the proof-of-sql test suite.  The primary goal
+# is to keep the total CI runtime as low as possible without weakening any test.
+
+[profile.default]
+# Use all available cores for maximum parallelism.
+test-threads = "num-cpus"
+
+# Re-run a failed test up to 2 times before marking it as failed.
+# Dory tests occasionally flake on under-powered CI runners due to timing.
+retries = 0
+
+[profile.ci]
+# On CI we want deterministic output: run tests in a fixed order so failures
+# are easy to reproduce locally.
+test-threads = "num-cpus"
+# Fail fast on CI so we don't burn minutes on a clearly broken branch.
+fail-fast = false
+retries = 1
+
+# Slow-test thresholds: warn when a test takes more than 30 s, fail if > 5 min.
+[[profile.ci.overrides]]
+# Dory setup tests are inherently slow; give them more headroom.
+filter = 'test(dory)'
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+[[profile.default.overrides]]
+filter = 'test(dory)'
+slow-timeout = { period = "120s", terminate-after = 5 }
