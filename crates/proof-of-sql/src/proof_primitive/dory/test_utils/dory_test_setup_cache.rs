@@ -1,96 +1,111 @@
-/// Cached Dory test setups to avoid re-computing expensive cryptographic parameters
-/// across multiple tests in the same test binary process.
+/// Process-wide cache of expensive Dory test setups.
 ///
-/// `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`
-/// are expensive operations. By caching them in a [`std::sync::OnceLock`] we pay
-/// the cost at most once per test-binary invocation rather than once per test
-/// function.
+/// # Motivation
+///
+/// [`PublicParameters::test_rand`], [`ProverSetup::from`], and
+/// [`VerifierSetup::from`] are the most expensive operations in the test suite
+/// (each call can take 10–60 s). By storing the results in [`std::sync::OnceLock`]
+/// statics we pay that cost at most **once per test-binary process** instead of
+/// once per test function, dramatically reducing total test-suite wall time.
 ///
 /// # Usage
 ///
-/// ```ignore
-/// use crate::proof_primitive::dory::test_utils::{
-///     dory_setup_cache::{prover_setup, verifier_setup, MAX_NU},
-/// };
+/// Replace ad-hoc setup construction in test functions:
 ///
-/// #[test]
-/// fn my_dory_test() {
-///     let ps = prover_setup();
-///     let vs = verifier_setup();
-///     // ... run your proof
-/// }
+/// ```rust,ignore
+/// // Before (expensive – recomputed in every test):
+/// let mut rng = test_rng();
+/// let pp  = PublicParameters::test_rand(4, &mut rng);
+/// let ps  = ProverSetup::from(&pp);
+/// let vs  = VerifierSetup::from(&pp);
+///
+/// // After (free after the first call in the process):
+/// use crate::proof_primitive::dory::test_utils::dory_setup_cache::{
+///     prover_setup, verifier_setup, public_parameters, MAX_NU,
+/// };
+/// let ps = prover_setup();
+/// let vs = verifier_setup();
 /// ```
+///
+/// Tests that need a *smaller* `nu` can safely pass any value `<= MAX_NU`
+/// because Dory setups are nested (the first `2^nu` generators of a larger
+/// setup are identical to a fresh setup of size `nu`).
+///
+/// Tests that genuinely require a *larger* setup must still construct their own.
 use crate::proof_primitive::dory::{ProverSetup, PublicParameters, VerifierSetup};
 use std::sync::OnceLock;
 
-/// The maximum `sigma` value used in the shared test setup cache.
+/// Maximum `nu` (sigma) value for the cached test setup.
 ///
-/// Tests that need *fewer* generators can simply use a prefix of this setup
-/// (Dory setups are nested). Tests that need *more* generators must create
-/// their own setup.
+/// A `nu = 4` setup supports commitment sizes up to `2^4 = 16` columns, which
+/// covers all existing tests that use the shared cache.
 pub const MAX_NU: usize = 4;
 
 // ---------------------------------------------------------------------------
-// Internal statics
+// Statics
 // ---------------------------------------------------------------------------
 
-// We keep `PublicParameters` in its own `OnceLock<Box<…>>` so it can be
-// leaked and given a `'static` lifetime that satisfies `ProverSetup::from`.
-static PUBLIC_PARAMS_STATIC: OnceLock<Box<PublicParameters>> = OnceLock::new();
+// `PublicParameters` must outlive the `ProverSetup` that borrows it; we achieve
+// this by leaking a `Box` so that the reference has `'static` lifetime.
+static PUBLIC_PARAMS: OnceLock<Box<PublicParameters>> = OnceLock::new();
 
+/// A pair of (ProverSetup, VerifierSetup) derived from the cached
+/// `PublicParameters`.
 struct SetupPair {
-    prover_setup: ProverSetup<'static>,
-    verifier_setup: VerifierSetup,
+    prover: ProverSetup<'static>,
+    verifier: VerifierSetup,
 }
 
-// SAFETY: `ProverSetup` contains raw pointers into the `PublicParameters` data
-// which lives for `'static` (leaked `Box`). The data is never mutated after
-// construction, so it is safe to share across threads.
+// SAFETY: `ProverSetup` holds raw pointers into the `PublicParameters` data.
+// The data lives for `'static` (leaked `Box`) and is never mutated after
+// construction, so it is safe to share across threads via `Sync`.
 unsafe impl Send for SetupPair {}
 unsafe impl Sync for SetupPair {}
 
 static SETUP_PAIR: OnceLock<SetupPair> = OnceLock::new();
 
 // ---------------------------------------------------------------------------
-// Public API
+// Public helpers
 // ---------------------------------------------------------------------------
 
-/// Returns a reference to the cached [`PublicParameters`] constructed with
-/// [`MAX_NU`] sigma, using a deterministic test RNG.
+/// Returns a `'static` reference to the cached [`PublicParameters`].
 ///
-/// The first call constructs the parameters; all subsequent calls are instant.
+/// The parameters are constructed once using [`ark_std::test_rng`] seeded
+/// deterministically, so the result is the same every time.
+///
+/// **Cost:** expensive on first call; free thereafter.
 pub fn public_parameters() -> &'static PublicParameters {
-    PUBLIC_PARAMS_STATIC.get_or_init(|| {
+    PUBLIC_PARAMS.get_or_init(|| {
         use ark_std::test_rng;
         let mut rng = test_rng();
         Box::new(PublicParameters::test_rand(MAX_NU, &mut rng))
     })
 }
 
+/// Returns a `'static` reference to the cached [`ProverSetup`].
+///
+/// **Cost:** expensive on first call; free thereafter.
+pub fn prover_setup() -> &'static ProverSetup<'static> {
+    &get_or_init_pair().prover
+}
+
+/// Returns a `'static` reference to the cached [`VerifierSetup`].
+///
+/// **Cost:** expensive on first call; free thereafter.
+pub fn verifier_setup() -> &'static VerifierSetup {
+    &get_or_init_pair().verifier
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
 fn get_or_init_pair() -> &'static SetupPair {
     SETUP_PAIR.get_or_init(|| {
         let pp: &'static PublicParameters = public_parameters();
-        let prover_setup = ProverSetup::from(pp);
-        let verifier_setup = VerifierSetup::from(pp);
         SetupPair {
-            prover_setup,
-            verifier_setup,
+            prover: ProverSetup::from(pp),
+            verifier: VerifierSetup::from(pp),
         }
     })
-}
-
-/// Returns a reference to the cached [`ProverSetup`] built from the shared
-/// [`MAX_NU`] public parameters.
-///
-/// The first call builds the setup; all subsequent calls are instant.
-pub fn prover_setup() -> &'static ProverSetup<'static> {
-    &get_or_init_pair().prover_setup
-}
-
-/// Returns a reference to the cached [`VerifierSetup`] built from the shared
-/// [`MAX_NU`] public parameters.
-///
-/// The first call builds the setup; all subsequent calls are instant.
-pub fn verifier_setup() -> &'static VerifierSetup {
-    &get_or_init_pair().verifier_setup
 }
