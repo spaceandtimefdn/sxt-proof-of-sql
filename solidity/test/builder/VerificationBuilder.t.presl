@@ -466,10 +466,14 @@ contract VerificationBuilderTest is Test {
     /// forge-config: default.allow_internal_expect_revert = true
     function testConsumeRhoEvaluations() public {
         VerificationBuilder.Builder memory builder;
-        builder.rhoEvaluations = new uint256[](3);
-        builder.rhoEvaluations[0] = 0x12345678;
-        builder.rhoEvaluations[1] = 0x23456789;
-        builder.rhoEvaluations[2] = 0x3456789A;
+        uint256[] memory rhoEvaluationsPtr = new uint256[](6);
+        rhoEvaluationsPtr[1] = 0x12345678;
+        rhoEvaluationsPtr[3] = 0x23456789;
+        rhoEvaluationsPtr[5] = 0x3456789A;
+        assembly{
+            mstore(rhoEvaluationsPtr, 3)
+        }
+        builder.rhoEvaluations = rhoEvaluationsPtr;
         assert(VerificationBuilder.__consumeRhoEvaluation(builder) == 0x12345678);
         assert(VerificationBuilder.__consumeRhoEvaluation(builder) == 0x23456789);
         assert(VerificationBuilder.__consumeRhoEvaluation(builder) == 0x3456789A);
@@ -481,10 +485,14 @@ contract VerificationBuilderTest is Test {
     function testFuzzConsumeRhoEvaluations(uint256[] memory values) public {
         VerificationBuilder.Builder memory builder;
         uint256 valuesLength = values.length;
-        builder.rhoEvaluations = new uint256[](valuesLength);
+        uint256[] memory rhoEvaluationsPtr = new uint256[](2 * valuesLength);
         for (uint256 i = 0; i < valuesLength; ++i) {
-            builder.rhoEvaluations[i] = values[i];
+            rhoEvaluationsPtr[i * 2 + 1] = values[i];
         }
+        assembly{
+            mstore(rhoEvaluationsPtr, valuesLength)
+        }
+        builder.rhoEvaluations = rhoEvaluationsPtr;
         for (uint256 i = 0; i < valuesLength; ++i) {
             assert(VerificationBuilder.__consumeRhoEvaluation(builder) == values[i]);
         }

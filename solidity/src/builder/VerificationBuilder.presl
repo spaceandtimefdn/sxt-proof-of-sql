@@ -361,9 +361,10 @@ library VerificationBuilder {
     /// @return __value The consumed rho column evaluation value
     function __consumeRhoEvaluation(Builder memory __builder) internal pure returns (uint256 __value) {
         assembly {
-            // import dequeue from ../base/Queue.presl
+            // import dequeue_uint512 from ../base/Queue.presl
             function builder_consume_rho_evaluation(builder_ptr) -> value {
-                value := dequeue(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
+                let length
+                length, value := dequeue_uint512(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
             }
             __value := builder_consume_rho_evaluation(__builder)
         }

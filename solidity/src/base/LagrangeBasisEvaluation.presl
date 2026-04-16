@@ -159,12 +159,12 @@ library LagrangeBasisEvaluation {
     }
 
     /// @notice Computes rho evaluations for a given evaluation point and array.
-    /// @notice This is a wrapper around the `compute_rho_evaluations` Yul function. Note that the function
+    /// @notice This is a wrapper around the `compute_rho_evaluations_with_length` Yul function. Note that the function
     /// does not return the evaluations, but rather modifies the input array in place.
     /// @param __evaluationPoint The evaluation point at which to compute the evaluations.
     /// @param __array The array of lengths to evaluate.
     /// @dev This could likely be batched more efficiently. For now, we just naively compute the evaluations for each length.
-    function __computeRhoEvaluations(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
+    function __computeRhoEvaluationsWithLength(uint256[] memory __evaluationPoint, uint256[] memory __array) internal pure {
         assembly {
             // import err from Errors.sol
             // import addmod_bn254, mulmod_bn254, submod_bn254 from MathUtil.presl
@@ -189,14 +189,16 @@ library LagrangeBasisEvaluation {
                 }
                 if length {product := rho_of_power_of_two}
             }
-            function compute_rho_evaluations(evaluation_point_ptr, array_ptr) {
+            function compute_rho_evaluations_with_length(evaluation_point_ptr, array_ptr) {
                 let array_len := mload(array_ptr)
                 for {} array_len { array_len := sub(array_len, 1) } {
                     array_ptr := add(array_ptr, WORD_SIZE)
-                    mstore(array_ptr, compute_rho_evaluation(mload(array_ptr), evaluation_point_ptr))
+                    let rho_evaluation := compute_rho_evaluation(mload(array_ptr), evaluation_point_ptr)
+                    array_ptr := add(array_ptr, WORD_SIZE)
+                    mstore(array_ptr, rho_evaluation)
                 }
             }
-            compute_rho_evaluations(__evaluationPoint, __array)
+            compute_rho_evaluations_with_length(__evaluationPoint, __array)
         }
     }
 
