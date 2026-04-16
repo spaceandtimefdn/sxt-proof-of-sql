@@ -323,3 +323,140 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn arithmetic_rejects_unsupported_signed_uint8_mixed_pairs() {
+        let uint8s = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let tinyints = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+
+        let left_err = AddOp::owned_column_element_wise_arithmetic(&uint8s, &tinyints).unwrap_err();
+        assert_eq!(
+            left_err,
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt,
+            }
+        );
+
+        let right_err =
+            AddOp::owned_column_element_wise_arithmetic(&tinyints, &uint8s).unwrap_err();
+        assert_eq!(
+            right_err,
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+        );
+    }
+
+    #[test]
+    fn arithmetic_scalar_wrappers_surface_overflow_and_divide_by_zero() {
+        let add_err = AddOp::op(&u8::MAX, &1_u8).unwrap_err();
+        assert_eq!(
+            add_err,
+            ColumnOperationError::IntegerOverflow {
+                error: "Overflow in integer addition 255 + 1".to_string(),
+            }
+        );
+
+        let sub_err = SubOp::op(&i8::MIN, &1_i8).unwrap_err();
+        assert_eq!(
+            sub_err,
+            ColumnOperationError::IntegerOverflow {
+                error: "Overflow in integer subtraction -128 - 1".to_string(),
+            }
+        );
+
+        let mul_err = MulOp::op(&i16::MAX, &2_i16).unwrap_err();
+        assert_eq!(
+            mul_err,
+            ColumnOperationError::IntegerOverflow {
+                error: "Overflow in integer multiplication 32767 * 2".to_string(),
+            }
+        );
+
+        let div_err = DivOp::op(&3_i16, &0_i16).unwrap_err();
+        assert_eq!(div_err, ColumnOperationError::DivisionByZero);
+    }
+
+    #[test]
+    fn decimal_helpers_delegate_to_expected_arithmetic_routines() {
+        let integers = [1_i8, -2, 3];
+        let decimals = [4_i8, 5, -2]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let integer_type = ColumnType::TinyInt;
+        let decimal_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+
+        let added = AddOp::decimal_op(&integers, &decimals, integer_type, decimal_type).unwrap();
+        assert_eq!(
+            added,
+            (
+                Precision::new(11).unwrap(),
+                2,
+                vec![
+                    TestScalar::from(104_i64),
+                    TestScalar::from(-195_i64),
+                    TestScalar::from(298_i64),
+                ],
+            )
+        );
+
+        let subtracted =
+            SubOp::decimal_op(&integers, &decimals, integer_type, decimal_type).unwrap();
+        assert_eq!(
+            subtracted,
+            (
+                Precision::new(11).unwrap(),
+                2,
+                vec![
+                    TestScalar::from(96_i64),
+                    TestScalar::from(-205_i64),
+                    TestScalar::from(302_i64),
+                ],
+            )
+        );
+
+        let multiplied =
+            MulOp::decimal_op(&integers, &decimals, integer_type, decimal_type).unwrap();
+        assert_eq!(
+            multiplied,
+            (
+                Precision::new(14).unwrap(),
+                2,
+                vec![
+                    TestScalar::from(4_i64),
+                    TestScalar::from(-10_i64),
+                    TestScalar::from(-6_i64),
+                ],
+            )
+        );
+
+        let dividend = [0_i8, 2, 3];
+        let divisors = [4_i8, 5, 2]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let division_type = ColumnType::Decimal75(Precision::new(3).unwrap(), 2);
+        let divided = DivOp::decimal_op(&dividend, &divisors, integer_type, division_type).unwrap();
+        assert_eq!(
+            divided,
+            (
+                Precision::new(11).unwrap(),
+                6,
+                vec![
+                    TestScalar::from(0_i64),
+                    TestScalar::from(40_000_000_i64),
+                    TestScalar::from(150_000_000_i64),
+                ],
+            )
+        );
+    }
+}
