@@ -414,3 +414,139 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn equal_string_op_compares_each_varchar_pair() {
+        let lhs = ["Space", "and", "Time"].map(ToString::to_string);
+        let rhs = ["Space", "or", "Time"].map(ToString::to_string);
+
+        let actual = <EqualOp as ComparisonOp>::string_op(&lhs, &rhs).unwrap();
+
+        assert_eq!(actual, vec![true, false, true]);
+    }
+
+    #[test]
+    fn ordering_string_ops_reject_varchar_inputs() {
+        let lhs = ["a", "b"].map(ToString::to_string);
+        let rhs = ["a", "c"].map(ToString::to_string);
+
+        let gt_err = <GreaterThanOp as ComparisonOp>::string_op(&lhs, &rhs).unwrap_err();
+        assert_eq!(
+            gt_err,
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: ">".to_string(),
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }
+        );
+
+        let lt_err = <LessThanOp as ComparisonOp>::string_op(&lhs, &rhs).unwrap_err();
+        assert_eq!(
+            lt_err,
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: "<".to_string(),
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }
+        );
+    }
+
+    #[test]
+    fn comparison_rejects_unsupported_signed_uint8_mixed_comparisons() {
+        let uint8s = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let tinyints = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+
+        let left_err =
+            <EqualOp as ComparisonOp>::owned_column_element_wise_comparison(&uint8s, &tinyints)
+                .unwrap_err();
+        assert_eq!(
+            left_err,
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt,
+            }
+        );
+
+        let right_err =
+            <EqualOp as ComparisonOp>::owned_column_element_wise_comparison(&tinyints, &uint8s)
+                .unwrap_err();
+        assert_eq!(
+            right_err,
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+        );
+    }
+
+    #[test]
+    fn decimal_equality_helpers_are_symmetric_for_integer_upcasts() {
+        let integers = [1_i16, 2, 4];
+        let decimals = [10_i64, 20, 30].map(TestScalar::from);
+        let integer_type = ColumnType::SmallInt;
+        let decimal_type = ColumnType::Decimal75(Precision::new(3).unwrap(), 1);
+
+        let left_upcast = <EqualOp as ComparisonOp>::decimal_op_left_upcast::<TestScalar, i16>(
+            &integers,
+            &decimals,
+            integer_type,
+            decimal_type,
+        );
+        assert_eq!(left_upcast, vec![true, true, false]);
+
+        let right_upcast = <EqualOp as ComparisonOp>::decimal_op_right_upcast::<TestScalar, i16>(
+            &decimals,
+            &integers,
+            decimal_type,
+            integer_type,
+        );
+        assert_eq!(right_upcast, vec![true, true, false]);
+    }
+
+    #[test]
+    fn decimal_ordering_helpers_flip_inclusive_checks_consistently() {
+        let integers = [0_i16, 2, 4];
+        let decimals = [10_i64, 20, 30].map(TestScalar::from);
+        let integer_type = ColumnType::SmallInt;
+        let decimal_type = ColumnType::Decimal75(Precision::new(3).unwrap(), 1);
+
+        let gt_left = <GreaterThanOp as ComparisonOp>::decimal_op_left_upcast::<TestScalar, i16>(
+            &integers,
+            &decimals,
+            integer_type,
+            decimal_type,
+        );
+        assert_eq!(gt_left, vec![false, false, true]);
+
+        let gt_right =
+            <GreaterThanOp as ComparisonOp>::decimal_op_right_upcast::<TestScalar, i16>(
+                &decimals,
+                &integers,
+                decimal_type,
+                integer_type,
+            );
+        assert_eq!(gt_right, vec![true, false, false]);
+
+        let lt_left = <LessThanOp as ComparisonOp>::decimal_op_left_upcast::<TestScalar, i16>(
+            &integers,
+            &decimals,
+            integer_type,
+            decimal_type,
+        );
+        assert_eq!(lt_left, vec![true, false, false]);
+
+        let lt_right = <LessThanOp as ComparisonOp>::decimal_op_right_upcast::<TestScalar, i16>(
+            &decimals,
+            &integers,
+            decimal_type,
+            integer_type,
+        );
+        assert_eq!(lt_right, vec![false, false, true]);
+    }
+}
