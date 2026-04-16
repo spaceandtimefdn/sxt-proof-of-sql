@@ -83,18 +83,21 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
         Ok(res)
     }
 
-    fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+    fn try_consume_rho_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
         let length = self
             .rho_evaluation_length_queue
             .get(self.consumed_rho_evaluations)
             .copied()
             .ok_or(ProofSizeMismatch::TooFewRhoLengths)?;
         self.consumed_rho_evaluations += 1;
-        Ok(if self.evaluation_row_index < length {
-            S::from(self.evaluation_row_index as u64)
-        } else {
-            S::ZERO
-        })
+        Ok((
+            if self.evaluation_row_index < length {
+                S::from(self.evaluation_row_index as u64)
+            } else {
+                S::ZERO
+            },
+            length,
+        ))
     }
 
     fn try_consume_first_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
@@ -318,16 +321,16 @@ mod tests {
                 Vec::new(),
                 vec![3],
             );
-        let zero = verification_builder.try_consume_rho_evaluation().unwrap();
+        let zero = verification_builder.try_consume_rho_evaluation().unwrap().0;
         assert_eq!(zero, TestScalar::ZERO);
         verification_builder.increment_row_index();
-        let one = verification_builder.try_consume_rho_evaluation().unwrap();
+        let one = verification_builder.try_consume_rho_evaluation().unwrap().0;
         assert_eq!(one, TestScalar::ONE);
         verification_builder.increment_row_index();
-        let two = verification_builder.try_consume_rho_evaluation().unwrap();
+        let two = verification_builder.try_consume_rho_evaluation().unwrap().0;
         assert_eq!(two, TestScalar::TWO);
         verification_builder.increment_row_index();
-        let zero = verification_builder.try_consume_rho_evaluation().unwrap();
+        let zero = verification_builder.try_consume_rho_evaluation().unwrap().0;
         assert_eq!(zero, TestScalar::ZERO);
     }
 
@@ -343,7 +346,7 @@ mod tests {
                 Vec::new(),
                 vec![3],
             );
-        let zero = verification_builder.try_consume_rho_evaluation().unwrap();
+        let zero = verification_builder.try_consume_rho_evaluation().unwrap().0;
         assert_eq!(zero, TestScalar::ZERO);
         let err = verification_builder
             .try_consume_rho_evaluation()

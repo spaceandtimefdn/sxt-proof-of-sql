@@ -42,17 +42,22 @@ pub(crate) fn first_round_evaluate_permutation_check<'a, S: Scalar>(
     );
     let rho = Column::<S>::rho(table_length, alloc);
     let columns_with_rho = columns.iter().copied().chain(core::iter::once(rho));
-    let permuted_columns_with_rho = columns_with_rho.clone().map(|column| {
-        apply_column_to_indexes(&column, alloc, permutation)
-            .expect("Permutation confirmed to be valid at this point")
-    });
+    let mut permuted_columns_with_rho = columns_with_rho
+        .clone()
+        .map(|column| {
+            apply_column_to_indexes(&column, alloc, permutation)
+                .expect("Permutation confirmed to be valid at this point")
+        })
+        .collect::<Vec<_>>();
     for column in permuted_columns_with_rho.clone() {
         builder.produce_intermediate_mle(column);
     }
 
-    builder.request_post_result_challenges(2);
+    permuted_columns_with_rho
+        .pop()
+        .expect("permuted_column_evals should have at least one element");
 
-    permuted_columns_with_rho.collect()
+    permuted_columns_with_rho
 }
 
 /// Perform final round evaluation of the permutation check.
@@ -130,11 +135,18 @@ pub(crate) fn verify_permutation_check<S: Scalar>(
     beta: S,
     chi_eval: S,
     column_evals: &[S],
+    num_rows: usize,
 ) -> Result<Vec<S>, ProofError> {
+    let (rho_eval, rho_length) = builder.try_consume_rho_evaluation()?;
+    if num_rows != rho_length {
+        return Err(ProofError::VerificationError {
+            error: "Rho evaluation length does not match the number of rows",
+        });
+    }
     let column_evals: Vec<_> = column_evals
         .iter()
         .copied()
-        .chain(core::iter::once(builder.try_consume_rho_evaluation()?))
+        .chain(core::iter::once(rho_eval))
         .collect();
     let mut permuted_column_evals =
         builder.try_consume_first_round_mle_evaluations(column_evals.len())?;
@@ -218,6 +230,7 @@ mod tests {
                     TestScalar::TEN,
                     chi_eval,
                     &[column.inner_product(evaluation_point)],
+                    3,
                 )
                 .unwrap();
             },

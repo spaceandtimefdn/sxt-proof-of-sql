@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title PermutationCheck
+/// @dev Library for handling permutation checks
+library PermutationCheck {
+    /// @notice verifies that the output is a permutation of the input
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// permutation_check_evaluate(builder_ptr, alpha, beta, chi_eval, column_evals, length) -> permuted_column_evals
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `alpha` - a challenge
+    /// * `beta` - a challenge
+    /// * `chi_eval` - the evaluation of a column of 1s with length same as every other column
+    /// * `column_evals` - the evaluations of the columns
+    /// * `length` - the number of rows in the table
+    /// ##### Return Values
+    /// * `permuted_column_evals` - the evaluations of the permuted columns
+    /// @notice verifies that the output is a permutation of the input
+    /// @param __builder The verification builder
+    /// @param __alpha a challenge
+    /// @param __beta a challenge
+    /// @param __chiEval The evaluation of a column of 1s with length same as every other column
+    /// @param __columnEvals The evaluations of the columns
+    /// @param __length The number of rows in the table
+    /// @return __builderOut The verification builder result
+    /// @return __permutedColumnEvals The permuted columns
+    function __permutationCheckEvaluate( // solhint-disable-line gas-calldata-parameters
+        VerificationBuilder.Builder memory __builder,
+        uint256 __alpha,
+        uint256 __beta,
+        uint256 __chiEval,
+        uint256[] memory __columnEvals,
+        uint256 __length
+    ) internal pure returns (VerificationBuilder.Builder memory __builderOut, uint256[] memory __permutedColumnEvals) {
+        assembly {
+            // import err from ../base/Errors.sol
+            // import mulmod_bn254, submod_bn254 from ../base/MathUtil.presl
+            // import builder_consume_rho_evaluation_with_length, builder_produce_zerosum_constraint from ../builder/VerificationBuilder.presl
+            // import fold_log_star_evaluate, fold_log_star_evaluate_from_mles from ../proof_gadgets/FoldLogExpr.presl
+
+            function permutation_check_evaluate(
+                builder_ptr, alpha, beta, chi_eval, column_evals, length
+            ) -> permuted_column_evals {
+                let rho_length, rho_eval := builder_consume_rho_evaluation_with_length(builder_ptr)
+                if sub(rho_length, length) { err(ERR_RHO_LENGTH_INCORRECT) }
+
+                let num_columns := mload(column_evals)
+                column_evals := add(column_evals, WORD_SIZE)
+                let columns_with_rho := mload(FREE_PTR)
+                mstore(FREE_PTR, add(columns_with_rho, mul(add(num_columns, 2), WORD_SIZE)))
+                mstore(columns_with_rho, add(num_columns, 1))
+                mcopy(add(columns_with_rho, WORD_SIZE), column_evals, mul(num_columns, WORD_SIZE))
+                mstore(add(columns_with_rho, mul(add(num_columns, 1), WORD_SIZE)), rho_eval)
+                let c_star_eval := fold_log_star_evaluate(builder_ptr, alpha, beta, columns_with_rho, chi_eval)
+                let d_star_eval
+                d_star_eval, permuted_column_evals := fold_log_star_evaluate_from_mles(builder_ptr, alpha, beta, add(num_columns, 1), chi_eval)
+                // sum c_star - d_star = 0
+                builder_produce_zerosum_constraint(
+                    builder_ptr, submod_bn254(c_star_eval, d_star_eval), 1
+                )
+                mstore(permuted_column_evals, num_columns)
+            }
+
+            __permutedColumnEvals :=
+                permutation_check_evaluate(
+                    __builder, __alpha, __beta, __chiEval, __columnEvals, __length
+                )
+        }
+        __builderOut = __builder;
+    }
+}

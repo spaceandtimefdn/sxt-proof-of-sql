@@ -6,8 +6,11 @@ pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter
 pub(crate) mod fold_log_expr;
 mod membership_check;
 mod monotonic;
-#[cfg_attr(not(test), expect(dead_code))]
 mod permutation_check;
+pub(crate) use permutation_check::{
+    final_round_evaluate_permutation_check, first_round_evaluate_permutation_check,
+    verify_permutation_check,
+};
 mod shift;
 pub(crate) use membership_check::{
     final_round_evaluate_membership_check, first_round_evaluate_membership_check,
@@ -15,8 +18,6 @@ pub(crate) use membership_check::{
 };
 #[cfg(test)]
 mod membership_check_test;
-#[expect(unused_imports)]
-use permutation_check::{final_round_evaluate_permutation_check, verify_permutation_check};
 #[cfg(test)]
 mod permutation_check_test;
 use shift::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};

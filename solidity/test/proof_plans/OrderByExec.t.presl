@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import "../../src/base/Constants.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {OrderByExec} from "../../src/proof_plans/OrderByExec.presl";
+import {F} from "../base/FieldUtil.sol";
+
+contract OrderByExecTest is Test {
+    function testSimpleOrderByExec() public pure {
+        bytes memory plan = abi.encodePacked(
+            TABLE_EXEC_VARIANT,
+            uint64(0), // table_number
+            uint64(1), // column_count
+            uint64(0), // column0_index
+            uint64(1), // sort_expr count
+            COLUMN_EXPR_VARIANT, // sort_expr
+            uint64(0),
+            false, // descending
+            hex"abcdef"
+        );
+
+        VerificationBuilder.Builder memory builder;
+        builder.maxDegree = 3;
+        builder.rowMultipliersEvaluation = 1;
+        uint256 alpha = 1;
+        uint256 beta = 2;
+        builder.challenges = new uint256[](6);
+        builder.challenges[0] = alpha; // alpha
+        builder.challenges[1] = beta; // beta
+        builder.challenges[2] = alpha; // alpha
+        builder.challenges[3] = beta; // beta
+        builder.challenges[4] = alpha; // alpha
+        builder.challenges[5] = beta; // beta
+        uint256[3] memory column = [uint256(5),12,0];
+        uint256[3] memory chi = [uint256(1), 1, 0];
+        builder.constraintMultipliers = new uint256[](100);
+        for (uint8 i = 0; i < 100; ++i) {
+            builder.constraintMultipliers[i] = 1;
+        }
+        builder.rhoEvaluations = new uint256[](18);
+        builder.rhoEvaluations[0] = 2;
+        builder.rhoEvaluations[1] = 0;
+        builder.rhoEvaluations[2] = 2;
+        builder.rhoEvaluations[3] = 0;
+        builder.rhoEvaluations[4] = 3;
+        builder.rhoEvaluations[5] = 0;
+        builder.rhoEvaluations[6] = 2;
+        builder.rhoEvaluations[7] = 1;
+        builder.rhoEvaluations[8] = 2;
+        builder.rhoEvaluations[9] = 1;
+        builder.rhoEvaluations[10] = 3;
+        builder.rhoEvaluations[11] = 1;
+        builder.rhoEvaluations[12] = 2;
+        builder.rhoEvaluations[13] = 0;
+        builder.rhoEvaluations[14] = 2;
+        builder.rhoEvaluations[15] = 0;
+        builder.rhoEvaluations[16] = 3;
+        builder.rhoEvaluations[17] = 2;
+        builder.chiEvaluations = new uint256[](6);
+        builder.chiEvaluations[0] = 3;
+        builder.chiEvaluations[1] = 1;
+        builder.chiEvaluations[2] = 3;
+        builder.chiEvaluations[3] = 1;
+        builder.chiEvaluations[4] = 3;
+        builder.chiEvaluations[5] = 1;
+        builder.firstRoundMLEs = new uint256[](12);
+        builder.firstRoundMLEs[0] = 12;
+        builder.firstRoundMLEs[1] = 12;
+        builder.firstRoundMLEs[2] = 1;
+        builder.firstRoundMLEs[3] = 0;
+        builder.firstRoundMLEs[4] = 5;
+        builder.firstRoundMLEs[5] = 5;
+        builder.firstRoundMLEs[6] = 0;
+        builder.firstRoundMLEs[7] = 12;
+        builder.firstRoundMLEs[8] = 0;
+        builder.firstRoundMLEs[9] = 0;
+        builder.firstRoundMLEs[10] = 0;
+        builder.firstRoundMLEs[11] = 5;
+        builder.finalRoundMLEs = new uint256[](24);
+        builder.finalRoundMLEs[0] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
+        builder.finalRoundMLEs[1] = 295787065835665881381708185746719933629031951356973437077002759278051466157;
+        builder.finalRoundMLEs[2] = 2918432382911903362966187432700970011806448586722137912493093891543441132749;
+        builder.finalRoundMLEs[3] = 1;
+        builder.finalRoundMLEs[4] = 0;
+        builder.finalRoundMLEs[5] = 1;
+        builder.finalRoundMLEs[6] = 0;
+        builder.finalRoundMLEs[7] = 0;
+        builder.finalRoundMLEs[8] = 295787065835665881381708185746719933629031951356973437077002759278051466157;
+        builder.finalRoundMLEs[9] = 2824289402817970996418891063904164527554627664569810883057832798267846257499;
+        builder.finalRoundMLEs[10] = 15321770010287492655572484021680092561983855080291224040588742930603065946932;
+        builder.finalRoundMLEs[11] = 2918432382911903362966187432700970011806448586722137912493093891543441132749;
+        builder.finalRoundMLEs[12] = 1;
+        builder.finalRoundMLEs[13] = 1;
+        builder.finalRoundMLEs[14] = 0;
+        builder.finalRoundMLEs[15] = 1;
+        builder.finalRoundMLEs[16] = 0;
+        builder.finalRoundMLEs[17] = 0;
+        builder.finalRoundMLEs[18] = 1;
+        builder.finalRoundMLEs[19] = 15321770010287492655572484021680092561983855080291224040588742930603065946932;
+        builder.finalRoundMLEs[20] = 0;
+        builder.finalRoundMLEs[21] = 1;
+        builder.finalRoundMLEs[22] = 0;
+        builder.finalRoundMLEs[23] = 1;
+        uint256[] memory bitDistribution = new uint256[](6);
+        bitDistribution[0] = 0x800000000000000000000000000000000000000000000000000000000000000e;
+        bitDistribution[1] = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        bitDistribution[2] = 0x800000000000000000000000000000000000000000000000000000000000000e;
+        bitDistribution[3] = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        bitDistribution[4] = 0x800000000000000000000000000000000000000000000000000000000000000e;
+        bitDistribution[5] = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        VerificationBuilder.__setBitDistributions(builder, bitDistribution);
+
+        builder.tableChiEvaluations = new uint256[](2);
+        builder.tableChiEvaluations[0] = 2;
+        builder.columnEvaluations = new uint256[](1);
+
+        for (uint8 i = 0; i < 3; ++i) {
+            bytes memory planOutput;
+            uint256[] memory evals;
+            uint256 outputChiEval;
+            uint256 length;
+            if (i == 0) {
+                builder.singletonChiEvaluation = 1; // singleton_chi_eval for first test
+            } else {
+                builder.singletonChiEvaluation = 0;
+            }
+            builder.columnEvaluations[0] = column[i];
+            builder.tableChiEvaluations[1] = chi[i];
+            (planOutput, builder, evals, length, outputChiEval) = OrderByExec.__orderByExecEvaluate({
+                __builder: builder,
+                __plan: plan
+            });
+        }
+        assert(builder.aggregateEvaluation == 0);
+    }
+}

@@ -8,7 +8,7 @@ pub trait VerificationBuilder<S: Scalar> {
     fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch>;
 
     /// Consume the evaluation of a rho evaluation
-    fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch>;
+    fn try_consume_rho_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch>;
 
     /// Consume the evaluation of a first round MLE used in sumcheck and provide the commitment of the MLE
     fn try_consume_first_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch>;
@@ -147,7 +147,7 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
         ))
     }
 
-    fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+    fn try_consume_rho_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
         let index = self.consumed_rho_evaluations;
         let length = self
             .rho_evaluation_length_queue
@@ -155,11 +155,14 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
             .copied()
             .ok_or(ProofSizeMismatch::TooFewRhoLengths)?;
         self.consumed_rho_evaluations += 1;
-        Ok(*self
-            .mle_evaluations
-            .rho_evaluations
-            .get(&length)
-            .ok_or(ProofSizeMismatch::RhoLengthNotFound)?)
+        Ok((
+            *self
+                .mle_evaluations
+                .rho_evaluations
+                .get(&length)
+                .ok_or(ProofSizeMismatch::RhoLengthNotFound)?,
+            length,
+        ))
     }
 
     fn try_consume_first_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {

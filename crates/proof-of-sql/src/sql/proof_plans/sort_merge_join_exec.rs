@@ -161,7 +161,7 @@ where
         let alpha = builder.try_consume_post_result_challenge()?;
         let beta = builder.try_consume_post_result_challenge()?;
         // 3. Chi evals and rho evals
-        let left_rho_eval = builder.try_consume_rho_evaluation()?;
+        let left_rho_eval = builder.try_consume_rho_evaluation()?.0;
         let left_chi_eval = left_eval.chi_eval();
         let right_chi_eval = right_eval.chi_eval();
         // 4. column evals
@@ -191,7 +191,7 @@ where
                 .chain(core::iter::once(rho_bar_left_eval))
                 .collect::<Vec<_>>(),
         )?;
-        let right_rho_eval = builder.try_consume_rho_evaluation()?;
+        let right_rho_eval = builder.try_consume_rho_evaluation()?.0;
         let (hat_right_column_evals, right_join_column_evals, num_columns_right) =
             compute_hat_column_evals(&right_eval, right_rho_eval, &self.right_join_column_indexes);
         let res_right_column_evals =

@@ -17,7 +17,7 @@ use proof_of_sql::{
     sql::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
-        proof_plans::{DynProofPlan, SortMergeJoinExec},
+        proof_plans::{DynProofPlan, OrderByExec, SortMergeJoinExec},
     },
 };
 
@@ -477,6 +477,37 @@ pub fn logical_plan_to_proof_plan(
         LogicalPlan::Join(join) => join_to_proof_plan(join, schema_accessor, plan),
         LogicalPlan::SubqueryAlias(SubqueryAlias { input, .. }) => {
             logical_plan_to_proof_plan(input, schema_accessor)
+        }
+        LogicalPlan::Sort(sort) => {
+            let order_by_plan = logical_plan_to_proof_plan(&sort.input, schema_accessor)?;
+            let input_schema = order_by_plan
+                .get_column_result_fields()
+                .iter()
+                .map(|field| (field.name(), field.data_type()))
+                .collect::<Vec<_>>();
+            let sort_exprs = sort
+                .expr
+                .iter()
+                .map(|e| -> PlannerResult<_> {
+                    if let Expr::Sort(sort_expr) = e {
+                        let expr = expr_to_proof_expr(&sort_expr.expr, &input_schema)?;
+                        Ok((expr, sort_expr.asc))
+                    } else {
+                        Err(PlannerError::UnsupportedLogicalPlan {
+                            plan: Box::new(plan.clone()),
+                        })
+                    }
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
+            let order_by = OrderByExec::try_new(Box::new(order_by_plan), sort_exprs)
+                .map(DynProofPlan::OrderBy)
+                .ok_or(PlannerError::UnsupportedLogicalPlan {
+                    plan: Box::new(plan.clone()),
+                })?;
+            Ok(match sort.fetch {
+                Some(fetch) => DynProofPlan::new_slice(order_by, 0, Some(fetch)),
+                None => order_by,
+            })
         }
         _ => Err(PlannerError::UnsupportedLogicalPlan {
             plan: Box::new(plan.clone()),

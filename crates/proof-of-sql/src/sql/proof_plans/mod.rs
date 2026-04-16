@@ -2,6 +2,9 @@
 mod empty_exec;
 pub use empty_exec::EmptyExec;
 
+mod order_by_exec_plan;
+pub use order_by_exec_plan::OrderByExec;
+
 mod table_exec;
 pub use table_exec::TableExec;
 #[cfg(all(test, feature = "blitzar"))]
