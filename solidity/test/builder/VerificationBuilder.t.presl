@@ -481,6 +481,29 @@ contract VerificationBuilderTest is Test {
         VerificationBuilder.__consumeRhoEvaluation(builder);
     }
 
+    function testConsumeRhoEvaluationsWithLength() public {
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory rhoEvaluationsPtr = new uint256[](6);
+        rhoEvaluationsPtr[0] = 2;
+        rhoEvaluationsPtr[1] = 0x12345678;
+        rhoEvaluationsPtr[2] = 3;
+        rhoEvaluationsPtr[3] = 0x23456789;
+        rhoEvaluationsPtr[4] = 4;
+        rhoEvaluationsPtr[5] = 0x3456789A;
+        assembly{
+            mstore(rhoEvaluationsPtr, 3)
+        }
+        builder.rhoEvaluations = rhoEvaluationsPtr;
+        uint256 length;
+        uint256 rhoEval;
+        (length, rhoEval) = VerificationBuilder.__consumeRhoEvaluationWithLength(builder);
+        assert(length == 2);
+        (length, rhoEval) = VerificationBuilder.__consumeRhoEvaluationWithLength(builder);
+        assert(length == 3);
+        (length, rhoEval) = VerificationBuilder.__consumeRhoEvaluationWithLength(builder);
+        assert(length == 4);
+    }
+
     /// forge-config: default.allow_internal_expect_revert = true
     function testFuzzConsumeRhoEvaluations(uint256[] memory values) public {
         VerificationBuilder.Builder memory builder;

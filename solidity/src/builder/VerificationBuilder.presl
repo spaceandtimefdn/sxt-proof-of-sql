@@ -370,6 +370,36 @@ library VerificationBuilder {
         }
     }
 
+    /// @notice Consumes a rho column length and evaluation from the verification builder
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// function builder_consume_rho_evaluation_with_length(builder_ptr) -> length, rho_eval
+    /// ```
+    /// ##### Parameters
+    /// * `builder_ptr` - memory pointer to the builder struct region
+    /// ##### Return Values
+    /// * `length` - the length of the column of ones
+    /// * `rho_eval` - the consumed rho evaluation value
+    /// @dev Dequeues and returns a rho column length and evaluation value. Reverts with Errors.EmptyQueue if no values remain
+    /// @param __builder The builder struct
+    /// @return __length The length of the column of ones
+    /// @return __rhoEval The consumed rho column evaluation value
+    function __consumeRhoEvaluationWithLength(Builder memory __builder)
+        internal
+        pure
+        returns (uint256 __length, uint256 __rhoEval)
+    {
+        assembly {
+            // import dequeue_uint512 from ../base/Queue.presl
+            function builder_consume_rho_evaluation_with_length(builder_ptr) -> length, rho_eval {
+                length, rho_eval := dequeue_uint512(add(builder_ptr, BUILDER_RHO_EVALUATIONS_OFFSET))
+            }
+            __length, __rhoEval := builder_consume_rho_evaluation_with_length(__builder)
+        }
+    }
+
     /// @notice Sets the constraint multipliers in the verification builder
     /// @custom:as-yul-wrapper
     /// #### Wrapped Yul Function
