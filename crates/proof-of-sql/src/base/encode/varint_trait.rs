@@ -10,16 +10,12 @@
 // There were significant code changes to simplify the code
 // ---------------------------------------------------------------------------------------------------------------
 use super::{
-    scalar_varint::{
-        read_scalar_varint, read_u256_varint, scalar_varint_size, u256_varint_size,
-        write_scalar_varint, write_u256_varint,
-    },
+    scalar_varint::{read_u256_varint, u256_varint_size, write_u256_varint},
     U256,
 };
-use crate::base::scalar::MontScalar;
+use crate::base::scalar::Scalar;
 #[cfg(test)]
 use alloc::{vec, vec::Vec};
-use ark_ff::MontConfig;
 
 /// Most-significant byte, == 0x80
 pub const MSB: u8 = 0b1000_0000;
@@ -282,14 +278,77 @@ impl VarInt for i128 {
     }
 }
 
-impl<T: MontConfig<4>> VarInt for MontScalar<T> {
+/// Converts a scalar to a zigzag-encoded [`U256`] using only `to_limbs`.
+///
+/// Small positive scalars encode as `2 * x`; small negative scalars encode as `2 * y + 1`
+/// where `y = -x`, so that the smallest of `x` and `-x` is chosen.
+fn scalar_to_u256_zigzag<S: Scalar>(val: S) -> U256 {
+    let to_u256 = |limbs: [u64; 4]| -> U256 {
+        U256::from_words(
+            u128::from(limbs[0]) | (u128::from(limbs[1]) << 64),
+            u128::from(limbs[2]) | (u128::from(limbs[3]) << 64),
+        )
+    };
+    let mut x = to_u256(val.to_limbs());
+    let mut y = to_u256((-val).to_limbs()); // x + y = 0  =>  y = -x
+
+    if x.high > y.high || (x.high == y.high && x.low > y.low) {
+        // y is smaller — encode as 2*y + 1
+        y.high = (y.high << 1) | (y.low >> 127);
+        y.low <<= 1;
+        let (low_val, carry) = y.low.overflowing_sub(1_u128);
+        y.low = low_val;
+        y.high -= u128::from(carry);
+        y
+    } else {
+        // x is smaller — encode as 2*x
+        x.high = (x.high << 1) | (x.low >> 127);
+        x.low <<= 1;
+        x
+    }
+}
+
+/// Converts a zigzag-encoded [`U256`] back to a scalar using only `from_limbs`.
+fn u256_zigzag_to_scalar<S: Scalar>(zig: U256) -> S {
+    let extract_limbs = |v: U256| -> [u64; 4] {
+        [
+            v.low as u64,
+            (v.low >> 64) as u64,
+            v.high as u64,
+            (v.high >> 64) as u64,
+        ]
+    };
+    // divide zig by 2 to strip the zigzag tag bit
+    let half = U256 {
+        low: (zig.low >> 1) | ((zig.high & 1) << 127),
+        high: zig.high >> 1,
+    };
+
+    if zig.low & 1 == 1 {
+        // odd => encoded as 2*y+1 meaning the value is -(y+1) = -((zig>>1)+1)
+        let (low_val, carry) = half.low.overflowing_add(1_u128);
+        let adjusted = U256 {
+            low: low_val,
+            high: half.high + u128::from(carry),
+        };
+        -S::from_limbs(extract_limbs(adjusted))
+    } else {
+        // even => encoded as 2*x meaning the value is x = zig>>1
+        S::from_limbs(extract_limbs(half))
+    }
+}
+
+impl<S: Scalar> VarInt for S {
     fn required_space(self) -> usize {
-        scalar_varint_size(&self)
+        u256_varint_size(scalar_to_u256_zigzag(self))
     }
+
     fn decode_var(src: &[u8]) -> Option<(Self, usize)> {
-        read_scalar_varint(src)
+        let (zig, size) = read_u256_varint(src)?;
+        Some((u256_zigzag_to_scalar(zig), size))
     }
+
     fn encode_var(self, dst: &mut [u8]) -> usize {
-        write_scalar_varint(dst, &self)
+        write_u256_varint(dst, scalar_to_u256_zigzag(self))
     }
 }

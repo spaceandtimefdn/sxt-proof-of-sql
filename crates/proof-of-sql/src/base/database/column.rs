@@ -139,7 +139,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             LiteralValue::VarChar(string) => Column::VarChar((
                 alloc.alloc_slice_fill_with(length, |_| alloc.alloc_str(string) as &str),
-                alloc.alloc_slice_fill_copy(length, S::from(string)),
+                alloc.alloc_slice_fill_copy(length, S::from_str_via_hash(string.as_str())),
             )),
             LiteralValue::VarBinary(bytes) => {
                 // Convert the bytes to a slice of bytes references
