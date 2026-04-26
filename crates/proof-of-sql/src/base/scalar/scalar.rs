@@ -1,7 +1,6 @@
 #![expect(clippy::module_inception)]
 
 use crate::base::{encode::VarInt, scalar::ScalarConversionError};
-use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
@@ -13,7 +12,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -49,9 +47,7 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -94,4 +90,30 @@ pub trait Scalar:
     /// The limbs are in the same format used by the underlying field representation
     /// (little-endian order of 64-bit words in Montgomery form).
     fn to_limbs(&self) -> [u64; 4];
+
+    /// Convert a string to a scalar by hashing its bytes with Keccak-256.
+    ///
+    /// The hash output is masked with [`CHALLENGE_MASK`](Self::CHALLENGE_MASK) to ensure it fits
+    /// within the field, then converted to a scalar via [`from_limbs`](Self::from_limbs).
+    /// Returns [`ZERO`](Self::ZERO) for the empty string.
+    ///
+    /// This is the canonical way to embed arbitrary strings into the scalar field.
+    /// Because the conversion is via a hash it cannot be inverted: use it when the string
+    /// identity must be preserved without exposing its value (e.g. `VarChar` column entries).
+    #[must_use]
+    fn from_str_via_hash(val: &str) -> Self {
+        use tiny_keccak::Hasher;
+        if val.is_empty() {
+            return Self::ZERO;
+        }
+        let mut hasher = tiny_keccak::Keccak::v256();
+        hasher.update(val.as_bytes());
+        let mut hashed_bytes = [0u8; 32];
+        hasher.finalize(&mut hashed_bytes);
+        let hashed_val =
+            U256::from_le_slice(&hashed_bytes).expect("32 bytes always parse as U256");
+        let masked_val = hashed_val & Self::CHALLENGE_MASK;
+        let limbs: [u64; 4] = masked_val.into();
+        Self::from_limbs(limbs)
+    }
 }
