@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, scalar::ScalarConversionError};
+use crate::base::scalar::ScalarConversionError;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
@@ -47,7 +47,6 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + VarInt
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
