@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, scalar::ScalarConversionError};
+use crate::base::scalar::ScalarConversionError;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
@@ -47,7 +47,6 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + VarInt
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -83,6 +82,15 @@ pub trait Scalar:
     fn from_limbs(val: [u64; 4]) -> Self;
     /// Convert scalar to limbs
     fn to_limbs(&self) -> [u64; 4];
+
+    /// Build a scalar from a little-endian byte slice, reducing modulo the
+    /// field's prime modulus.
+    ///
+    /// Unlike `from_limbs`, the input is allowed to exceed the field
+    /// modulus: it is reduced modulo `p`. Used by varint decoding and other
+    /// paths that consume raw 256-bit values which may not be canonical
+    /// before reduction.
+    fn from_le_bytes_mod_order(bytes: &[u8]) -> Self;
 
     /// Converts a string to a scalar by hashing its bytes.
     #[must_use]

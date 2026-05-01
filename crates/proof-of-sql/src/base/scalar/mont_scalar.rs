@@ -411,6 +411,10 @@ where
     fn to_limbs(&self) -> [u64; 4] {
         self.0.into_bigint().0
     }
+
+    fn from_le_bytes_mod_order(bytes: &[u8]) -> Self {
+        Self(Fp::from_le_bytes_mod_order(bytes))
+    }
 }
 
 impl<T> TryFrom<MontScalar<T>> for bool
