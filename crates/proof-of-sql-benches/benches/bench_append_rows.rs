@@ -108,14 +108,14 @@ pub fn generate_random_owned_table<S: Scalar>(
                 let data: Vec<_> = (0..num_rows)
                     .map(|_| S::from_limbs(generate_random_u64_array()))
                     .collect();
-                columns.push(scalar::<S>(&*identifier, data))
+                columns.push(scalar::<S>(&*identifier, data));
             }
             "varchar" => columns.push(varchar::<S>(&*identifier, gen_rnd_str(num_rows))),
             "decimal75" => {
                 let data: Vec<_> = (0..num_rows)
                     .map(|_| S::from_limbs(generate_random_u64_array()))
                     .collect();
-                columns.push(decimal75::<S>(&*identifier, 12, 2, data))
+                columns.push(decimal75::<S>(&*identifier, 12, 2, data));
             }
             "tinyint" => columns.push(tinyint::<S>(&*identifier, vec![rng.gen::<i8>(); num_rows])),
             "smallint" => columns.push(smallint::<S>(

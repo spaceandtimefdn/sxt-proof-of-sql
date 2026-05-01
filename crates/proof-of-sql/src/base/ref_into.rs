@@ -11,7 +11,7 @@
 ///     ...
 /// }
 /// ```
-#[allow(dead_code)]
+#[expect(dead_code, reason = "kept as a public reusable conversion trait")]
 pub trait RefInto<T> {
     /// Converts a reference to this type into the (usually inferred) input type.
     fn ref_into(&self) -> T;
