@@ -85,6 +85,7 @@ pub trait Scalar:
     fn to_limbs(&self) -> [u64; 4];
 
     /// Converts a string to a scalar by hashing its bytes.
+    #[must_use]
     fn from_str_via_hash(value: &str) -> Self {
         <Self as super::ScalarExt>::from_byte_slice_via_hash(value.as_bytes())
     }
