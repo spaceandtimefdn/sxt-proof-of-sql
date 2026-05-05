@@ -1,5 +1,5 @@
 use crate::base::{
-    encode::{ZigZag, U256},
+    encode::{u256::u256_to_scalar, ZigZag, U256},
     scalar::test_scalar::TestScalar,
 };
 
@@ -52,11 +52,10 @@ fn big_scalars_with_small_additive_inverses_are_encoded_as_negative_zigzag_value
 fn big_scalars_that_are_smaller_than_their_additive_inverses_are_encoded_as_positive_zigzag_values()
 {
     // x = (p - 1) / 2 (p is the ristretto group order)
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f6,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
     // since x < y, where x + y = 0, the ZigZag value is encoded as 2 * x
     assert!(
         val.zigzag()
@@ -71,11 +70,10 @@ fn big_scalars_that_are_smaller_than_their_additive_inverses_are_encoded_as_posi
 fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_negative_zigzag_values(
 ) {
     // x = (p + 1) / 2 (p is the ristretto group order)
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f7,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
 
     // the additive inverse of x is y = -x = (p - 1) / 2
     // since we have y < x, the ZigZag encoding is 2 * y - 1 = p - 2
@@ -89,11 +87,10 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
 
     // x = - U256 { low: 0, high: 0x1_u128 }
     // since x > y, where x + y = 0, the ZigZag value is encoded as 2 * y - 1
-    let val: TestScalar = (&U256 {
+    let val: TestScalar = u256_to_scalar(&U256 {
         low: 0x0_u128,
         high: 0x1_u128,
-    })
-        .into();
+    });
     assert!(
         (-val).zigzag()
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
