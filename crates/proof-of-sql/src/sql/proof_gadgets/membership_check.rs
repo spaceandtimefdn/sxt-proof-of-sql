@@ -132,3 +132,57 @@ pub(crate) fn verify_membership_check<S: Scalar>(
 
     Ok(multiplicity_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::collections::VecDeque;
+
+    #[test]
+    fn we_compute_membership_multiplicities_in_the_first_round() {
+        let alloc = Bump::new();
+        let source_values = [1_i64, 2];
+        let candidate_values = [1_i64, 1, 2];
+        let columns = [Column::<TestScalar>::BigInt(&source_values)];
+        let candidate_subset = [Column::<TestScalar>::BigInt(&candidate_values)];
+        let mut builder = FirstRoundBuilder::new(0);
+
+        let multiplicities = first_round_evaluate_membership_check(
+            &mut builder,
+            &alloc,
+            &columns,
+            &candidate_subset,
+        );
+
+        assert_eq!(multiplicities, &[2, 1]);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+    }
+
+    #[test]
+    fn we_build_membership_final_round_constraints() {
+        let alloc = Bump::new();
+        let source_values = [1_i64, 2];
+        let candidate_values = [1_i64, 1, 2];
+        let columns = [Column::<TestScalar>::BigInt(&source_values)];
+        let candidate_subset = [Column::<TestScalar>::BigInt(&candidate_values)];
+        let chi_n = [true, true];
+        let chi_m = [true, true, true];
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let multiplicities = final_round_evaluate_membership_check(
+            &mut builder,
+            &alloc,
+            TestScalar::from(3u64),
+            TestScalar::from(10u64),
+            &chi_n,
+            &chi_m,
+            &columns,
+            &candidate_subset,
+        );
+
+        assert_eq!(multiplicities, &[2, 1]);
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 3);
+    }
+}
