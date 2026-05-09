@@ -150,3 +150,66 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use alloc::collections::VecDeque;
+    use num_traits::{One, Zero};
+
+    #[test]
+    fn we_build_filter_final_round_intermediate_mles_and_constraints() {
+        let alloc = Bump::new();
+        let input_column = Column::BigInt(&[1_i64, 2]);
+        let output_column = Column::BigInt(&[1_i64]);
+        let selection = [true, false];
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        final_round_evaluate_filter(
+            &mut builder,
+            &alloc,
+            TestScalar::from(3u64),
+            TestScalar::from(10u64),
+            &[input_column],
+            &selection,
+            &[output_column],
+            2,
+            1,
+        );
+
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+
+        let evaluations = builder.evaluate_pcs_proof_mles(&[TestScalar::one(), TestScalar::zero()]);
+        assert_eq!(evaluations.len(), 2);
+        assert_eq!(evaluations[0] * TestScalar::from(4u64), TestScalar::one());
+        assert_eq!(evaluations[1] * TestScalar::from(4u64), TestScalar::one());
+    }
+
+    #[test]
+    fn we_can_record_filter_constraints_without_intermediate_mles() {
+        let c_star = [TestScalar::one()];
+        let d_star = [TestScalar::one()];
+        let selection = [true];
+        let c_fold = [TestScalar::zero()];
+        let d_fold = [TestScalar::zero()];
+        let input_chi = [true];
+        let output_chi = [true];
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(1, VecDeque::new());
+
+        final_round_filter_constraints(
+            &mut builder,
+            &c_star,
+            &d_star,
+            &selection,
+            &c_fold,
+            &d_fold,
+            &input_chi,
+            &output_chi,
+        );
+
+        assert_eq!(builder.pcs_proof_mles().len(), 0);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+    }
+}
