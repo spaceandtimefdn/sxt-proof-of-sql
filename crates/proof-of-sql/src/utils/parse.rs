@@ -92,4 +92,77 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn test_find_bigdecimals_ignores_non_big_decimal_columns() {
+        let sql = "CREATE TABLE PUBLIC.ACCOUNTS(
+            ID BIGINT NOT NULL,
+            EXACT_LIMIT DECIMAL(38, 10),
+            LARGE_BALANCE DECIMAL(39, 2),
+            UNBOUNDED DECIMAL,
+            HUGE_REWARD DECIMAL(78, 0),
+            DISPLAY_NAME VARCHAR
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("PUBLIC.ACCOUNTS").unwrap(),
+            &[
+                ("LARGE_BALANCE".to_string(), 39, 2),
+                ("HUGE_REWARD".to_string(), 78, 0)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_find_bigdecimals_ignores_non_create_table_statements() {
+        let sql = "SELECT 1;
+
+        CREATE TABLE PUBLIC.TRADES(
+            TRADE_ID BIGINT NOT NULL,
+            NOTIONAL DECIMAL(78, 4)
+        );
+
+        SELECT 2;";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("PUBLIC.TRADES").unwrap(),
+            &[("NOTIONAL".to_string(), 78, 4)]
+        );
+    }
+
+    #[test]
+    fn test_find_bigdecimals_preserves_table_and_column_order() {
+        let sql = "CREATE TABLE FIRST_TABLE(
+            FIRST_AMOUNT DECIMAL(39, 1),
+            SECOND_AMOUNT DECIMAL(40, 2)
+        );
+
+        CREATE TABLE SECOND_TABLE(
+            THIRD_AMOUNT DECIMAL(41, 3)
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+        let table_names: Vec<String> = bigdecimals.keys().cloned().collect();
+
+        assert_eq!(
+            table_names,
+            vec!["FIRST_TABLE".to_string(), "SECOND_TABLE".to_string()]
+        );
+        assert_eq!(
+            bigdecimals.get("FIRST_TABLE").unwrap(),
+            &[
+                ("FIRST_AMOUNT".to_string(), 39, 1),
+                ("SECOND_AMOUNT".to_string(), 40, 2)
+            ]
+        );
+        assert_eq!(
+            bigdecimals.get("SECOND_TABLE").unwrap(),
+            &[("THIRD_AMOUNT".to_string(), 41, 3)]
+        );
+    }
 }
