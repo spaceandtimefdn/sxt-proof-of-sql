@@ -1,7 +1,7 @@
 use super::bit_mask_utils::make_bit_mask;
 use crate::base::{
     bit::bit_mask_utils::is_bit_mask_negative_representation,
-    scalar::{test_scalar::TestScalar, Scalar},
+    scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
 };
 use bnum::types::U256;
 use core::ops::Shl;
@@ -28,6 +28,25 @@ fn we_can_make_negative_bit_mask() {
 
     // ASSERT
     assert_eq!(bit_mask, (U256::ONE.shl(255)) - U256::TWO);
+}
+
+#[test]
+fn we_can_make_zero_bit_mask() {
+    let bit_mask = make_bit_mask(TestScalar::ZERO);
+
+    assert_eq!(bit_mask, U256::ONE.shl(255));
+    assert!(!is_bit_mask_negative_representation(bit_mask));
+}
+
+#[test]
+fn we_can_make_max_signed_bit_mask() {
+    let bit_mask = make_bit_mask(TestScalar::MAX_SIGNED);
+
+    assert_eq!(
+        bit_mask,
+        (U256::ONE.shl(255)) + TestScalar::MAX_SIGNED.into_u256_wrapping()
+    );
+    assert!(!is_bit_mask_negative_representation(bit_mask));
 }
 
 #[test]
