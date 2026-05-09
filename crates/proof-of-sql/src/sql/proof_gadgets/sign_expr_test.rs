@@ -37,6 +37,25 @@ fn prover_evaluation_generates_the_bit_distribution_of_a_negative_constant_colum
 }
 
 #[test]
+fn prover_evaluation_generates_binary_constraints_for_varying_sign_columns() {
+    let raw_data = [123_i64, -452, 0, 789, -910];
+    let dist = BitDistribution::new::<TestScalar, _>(&raw_data);
+    let alloc = Bump::new();
+    let data: Vec<TestScalar> = raw_data.into_iter().map(TestScalar::from).collect();
+    let mut builder = FinalRoundBuilder::new(3, VecDeque::new());
+
+    let sign = final_round_evaluate_sign(&mut builder, &alloc, &data);
+
+    assert_eq!(sign, [false, true, false, false, true]);
+    assert_eq!(builder.bit_distributions(), [dist.clone()]);
+    assert_eq!(builder.pcs_proof_mles().len(), dist.num_varying_bits());
+    assert_eq!(
+        builder.num_sumcheck_subpolynomials(),
+        dist.num_varying_bits()
+    );
+}
+
+#[test]
 fn we_can_verify_a_constant_decomposition() {
     let data = [123_i64, 123, 123];
 
