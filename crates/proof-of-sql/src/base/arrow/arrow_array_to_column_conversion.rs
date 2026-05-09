@@ -685,6 +685,14 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_uint8_array_normal_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, 255]));
+        let result = array.to_column::<DoryScalar>(&alloc, &(1..3), None);
+        assert_eq!(result.unwrap(), Column::Uint8(&[3, 255]));
+    }
+
+    #[test]
     fn we_can_convert_int16_array_normal_range() {
         let alloc = Bump::new();
         let array: ArrayRef = Arc::new(Int16Array::from(vec![1, -3, 42]));
@@ -701,6 +709,14 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_uint8_array_empty_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, 255]));
+        let result = array.to_column::<TestScalar>(&alloc, &(1..1), None);
+        assert_eq!(result.unwrap(), Column::Uint8(&[]));
+    }
+
+    #[test]
     fn we_can_convert_int16_array_empty_range() {
         let alloc = Bump::new();
         let array: ArrayRef = Arc::new(Int16Array::from(vec![1, -3, 42]));
@@ -712,6 +728,19 @@ mod tests {
     fn we_cannot_convert_int8_array_oob_range() {
         let alloc = Bump::new();
         let array: ArrayRef = Arc::new(Int8Array::from(vec![1, -3, 42]));
+
+        let result = array.to_column::<DoryScalar>(&alloc, &(2..4), None);
+
+        assert_eq!(
+            result,
+            Err(ArrowArrayToColumnConversionError::IndexOutOfBounds { len: 3, index: 4 })
+        );
+    }
+
+    #[test]
+    fn we_cannot_convert_uint8_array_oob_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, 255]));
 
         let result = array.to_column::<DoryScalar>(&alloc, &(2..4), None);
 
@@ -738,6 +767,17 @@ mod tests {
     fn we_can_convert_int8_array_with_nulls() {
         let alloc = Bump::new();
         let array: ArrayRef = Arc::new(Int8Array::from(vec![Some(1), None, Some(42)]));
+        let result = array.to_column::<TestScalar>(&alloc, &(0..3), None);
+        assert!(matches!(
+            result,
+            Err(ArrowArrayToColumnConversionError::ArrayContainsNulls)
+        ));
+    }
+
+    #[test]
+    fn we_can_convert_uint8_array_with_nulls() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![Some(1), None, Some(255)]));
         let result = array.to_column::<TestScalar>(&alloc, &(0..3), None);
         assert!(matches!(
             result,
@@ -800,6 +840,13 @@ mod tests {
     fn we_cannot_index_on_oob_range() {
         let alloc = Bump::new();
 
+        let array_uint8: ArrayRef = Arc::new(arrow::array::UInt8Array::from(vec![1, 3]));
+        let result_uint8 = array_uint8.to_column::<DoryScalar>(&alloc, &(2..3), None);
+        assert_eq!(
+            result_uint8,
+            Err(ArrowArrayToColumnConversionError::IndexOutOfBounds { len: 2, index: 3 })
+        );
+
         let array0: ArrayRef = Arc::new(arrow::array::Int8Array::from(vec![1, -3]));
         let result0 = array0.to_column::<DoryScalar>(&alloc, &(2..3), None);
         assert_eq!(
@@ -832,6 +879,13 @@ mod tests {
     #[test]
     fn we_cannot_index_on_empty_oob_range() {
         let alloc = Bump::new();
+
+        let array_uint8: ArrayRef = Arc::new(arrow::array::UInt8Array::from(vec![1, 3]));
+        let result_uint8 = array_uint8.to_column::<TestScalar>(&alloc, &(5..5), None);
+        assert_eq!(
+            result_uint8,
+            Err(ArrowArrayToColumnConversionError::IndexOutOfBounds { len: 2, index: 5 })
+        );
 
         let array0: ArrayRef = Arc::new(arrow::array::Int8Array::from(vec![1, -3]));
         let result0 = array0.to_column::<DoryScalar>(&alloc, &(5..5), None);
@@ -970,6 +1024,14 @@ mod tests {
     #[test]
     fn we_can_convert_valid_integer_array_refs_into_valid_columns() {
         let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(arrow::array::UInt8Array::from(vec![1, 3]));
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::Uint8(&[1, 3])
+        );
+
         let array: ArrayRef = Arc::new(arrow::array::Int8Array::from(vec![1, -3]));
         assert_eq!(
             array
@@ -1083,6 +1145,14 @@ mod tests {
     fn we_can_convert_valid_integer_array_refs_into_valid_columns_using_ranges_smaller_than_arrays()
     {
         let alloc = Bump::new();
+
+        let array: ArrayRef = Arc::new(arrow::array::UInt8Array::from(vec![0, 1, 255]));
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::Uint8(&[1, 255])
+        );
 
         let array: ArrayRef = Arc::new(arrow::array::Int8Array::from(vec![0, 1, 127]));
         assert_eq!(
