@@ -18,20 +18,30 @@ impl U256 {
     }
 }
 
-/// This trait converts a dalek scalar into a U256 integer
-impl<T: MontConfig<4>> From<&MontScalar<T>> for U256 {
-    fn from(val: &MontScalar<T>) -> Self {
-        let buf: [u64; 4] = val.into();
-        let low: u128 = u128::from(buf[0]) | (u128::from(buf[1]) << 64);
-        let high: u128 = u128::from(buf[2]) | (u128::from(buf[3]) << 64);
+impl From<[u64; 4]> for U256 {
+    fn from(buf: [u64; 4]) -> Self {
+        let low = u128::from(buf[0]) | (u128::from(buf[1]) << 64);
+        let high = u128::from(buf[2]) | (u128::from(buf[3]) << 64);
         U256::from_words(low, high)
     }
 }
 
-/// This trait converts a U256 integer into a dalek scalar
-impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
-    fn from(val: &U256) -> Self {
-        let bytes = [val.low.to_le_bytes(), val.high.to_le_bytes()].concat();
+impl From<U256> for [u64; 4] {
+    fn from(val: U256) -> Self {
+        [
+            val.low as u64,
+            (val.low >> 64) as u64,
+            val.high as u64,
+            (val.high >> 64) as u64,
+        ]
+    }
+}
+
+impl<T: MontConfig<4>> From<U256> for MontScalar<T> {
+    fn from(val: U256) -> Self {
+        let mut bytes = [0_u8; 32];
+        bytes[..16].copy_from_slice(&val.low.to_le_bytes());
+        bytes[16..].copy_from_slice(&val.high.to_le_bytes());
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
