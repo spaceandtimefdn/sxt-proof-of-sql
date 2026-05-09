@@ -103,10 +103,56 @@ impl CommitmentEvaluationProof for NaiveEvaluationProof {
 
 mod tests {
     use super::NaiveEvaluationProof;
-    use crate::base::commitment::commitment_evaluation_proof_test::{
-        test_commitment_evaluation_proof_with_length_1, test_random_commitment_evaluation_proof,
-        test_simple_commitment_evaluation_proof,
+    use crate::base::{
+        commitment::{
+            commitment_evaluation_proof_test::{
+                test_commitment_evaluation_proof_with_length_1,
+                test_random_commitment_evaluation_proof, test_simple_commitment_evaluation_proof,
+            },
+            naive_commitment::NaiveCommitment,
+            CommitmentEvaluationProof,
+        },
+        scalar::{test_scalar::TestScalar, Scalar},
     };
+    use merlin::Transcript;
+
+    #[test]
+    fn verify_proof_rejects_wrong_point_and_commitment() {
+        let a = [TestScalar::ONE, TestScalar::from(2)];
+        let b_point = [TestScalar::ZERO];
+        let product = TestScalar::ONE;
+        let commit = NaiveCommitment(a.to_vec());
+
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        let proof = NaiveEvaluationProof::new(&mut transcript, &a, &b_point, 0, &());
+
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        assert!(proof
+            .verify_proof(
+                &mut transcript,
+                &commit,
+                &product,
+                &[TestScalar::ONE],
+                0,
+                a.len(),
+                &(),
+            )
+            .is_err());
+
+        let wrong_commit = NaiveCommitment(vec![TestScalar::from(5), TestScalar::from(6)]);
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        assert!(proof
+            .verify_proof(
+                &mut transcript,
+                &wrong_commit,
+                &product,
+                &b_point,
+                0,
+                a.len(),
+                &(),
+            )
+            .is_err());
+    }
 
     #[test]
     fn test_simple_ipa() {
