@@ -48,7 +48,7 @@ pub fn write_u256_varint(buf: &mut [u8], mut zig_x: U256) -> usize {
 /// besides MSB 1-bit to represent in which byte the encoding ends.
 ///
 /// return `Some((value, read_bytes))`:
-/// - `value` = the dalek scalar generated out of the consumed bytes
+/// - `value` = the scalar generated out of the consumed bytes
 /// - `read_bytes` = the total number of bytes N consumed
 ///
 /// return None:
@@ -124,8 +124,8 @@ pub fn write_scalar_varints<S: Scalar>(buf: &mut [u8], scals: &[S]) -> usize {
     total_bytes_written
 }
 
-/// This function read all the specified scalars from `input_buf` to `scals_buf`.
-/// For that, it converts the input buffer from a Varint and [`ZigZag`] encoding to a Dalek Scalar
+/// This function reads all the specified scalars from `input_buf` to `scals_buf`.
+/// For that, it converts the input buffer from a Varint and [`ZigZag`] encoding to `S`.
 ///
 /// See `<https://developers.google.com/protocol-buffers/docs/encoding#varints>` as reference.
 ///

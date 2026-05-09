@@ -9,7 +9,10 @@ pub trait ZigZag<T> {
     fn zigzag(&self) -> T;
 }
 
-/// Zigzag conversion from a dalek Scalar to a [`ZigZag`] u256 integer
+/// Zigzag conversion from a [`Scalar`] to a [`ZigZag`] u256 integer.
+///
+/// This encoding assumes the scalar limb representation never sets bit 255,
+/// which holds for the supported scalar fields where `S::MAX_BITS <= 254`.
 ///
 /// For this conversion, we compute:
 ///
@@ -25,8 +28,13 @@ pub trait ZigZag<T> {
 /// which represents a negative [`ZigZag`] encoding (-y).
 impl<S: Scalar> ZigZag<U256> for S {
     fn zigzag(&self) -> U256 {
-        // since self is a dalek scalar, we never have the last bit 255 set
-        // therefore, we should never expect overflow when multiplying by 2
+        assert!(
+            S::MAX_BITS <= 254,
+            "zigzag encoding requires scalar limbs to leave bit 255 clear"
+        );
+
+        // Since bit 255 is not set for supported scalars, multiplying by 2
+        // cannot overflow the U256 representation.
         let mut x = U256::from(Into::<[u64; 4]>::into(*self));
         let mut y = U256::from(Into::<[u64; 4]>::into(-*self)); // x + y = 0 ==> y = -x
 
@@ -60,7 +68,7 @@ impl<S: Scalar> ZigZag<U256> for S {
     }
 }
 
-/// Zigzag conversion from an u256 integer to a dalek Scalar.
+/// Zigzag conversion from a u256 integer to a [`Scalar`].
 ///
 /// For this conversion, we first verify if `self` is an odd or even number.
 /// In case `self` is odd, the encoded number represents a negative
@@ -71,8 +79,8 @@ impl<S: Scalar> ZigZag<U256> for S {
 /// In both cases, we divide the `self` value by 2 in order
 /// to remove the [`ZigZag`] encoding (`y = self / 2` or `x = self / 2`).
 ///
-/// Finally, we return either `-1 * dalek::Scalar(y)` or `dalek::Scalar(x)`,
-/// which in both cases represents the `x` scalar.
+/// Finally, we return either `-S::from(y)` or `S::from(x)`,
+/// which in both cases represents the original scalar.
 impl<S: Scalar> ZigZag<S> for U256 {
     fn zigzag(&self) -> S {
         // we need to divide self by 2 to remove the ZigZag encoding
