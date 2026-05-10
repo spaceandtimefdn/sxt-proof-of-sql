@@ -241,6 +241,30 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_from_columns_with_non_zero_offset() {
+        let columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(vec![12i64, 34, 56]),
+            OwnedColumn::VarChar(vec!["Lorem", "ipsum", "dolor"].map(String::from)),
+        ];
+
+        let commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&columns, 5, &());
+
+        let committable_columns = [
+            CommittableColumn::BigInt(&[12i64, 34, 56]),
+            CommittableColumn::VarChar(
+                ["Lorem", "ipsum", "dolor"]
+                    .into_iter()
+                    .map(TestScalar::from)
+                    .map(<[u64; 4]>::from)
+                    .collect(),
+            ),
+        ];
+        let expected_commitments =
+            NaiveCommitment::compute_commitments(&committable_columns, 5, &());
+        assert_eq!(commitments, expected_commitments);
+    }
+
+    #[test]
     fn we_can_append_rows() {
         let column_a = [12i64, 34, 56, 78, 90];
         let column_b = ["Lorem", "ipsum", "dolor", "sit", "amet"].map(String::from);
@@ -309,6 +333,16 @@ mod tests {
             commitments.try_append_rows_with_offset(&new_columns, 3, &()),
             Err(NumColumnsMismatch)
         ));
+    }
+
+    #[test]
+    fn we_can_append_zero_columns_to_empty_commitments() {
+        let empty: Vec<Column<TestScalar>> = Vec::new();
+        let mut commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&empty, 0, &());
+        commitments
+            .try_append_rows_with_offset(&empty, 10, &())
+            .unwrap();
+        assert!(commitments.is_empty());
     }
 
     #[test]
