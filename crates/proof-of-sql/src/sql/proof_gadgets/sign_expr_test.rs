@@ -113,6 +113,15 @@ fn we_can_compute_the_correct_sign_of_scalars_using_first_round_evaluate_sign_fo
 }
 
 #[test]
+#[should_panic]
+fn we_reject_first_round_sign_length_mismatch() {
+    let data: &[TestScalar] = &[(-123).into(), 123.into()];
+    let alloc = Bump::new();
+
+    first_round_evaluate_sign(3, &alloc, data);
+}
+
+#[test]
 fn we_can_compute_the_correct_sign_of_scalars_using_first_round_evaluate_sign_with_varying_bits_and_fixed_sign(
 ) {
     let data: &[TestScalar] = &[123.into(), 452.into(), 0.into(), 789.into(), 910.into()];
