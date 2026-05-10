@@ -553,3 +553,49 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::get_index_range;
+    use crate::base::database::{MetadataAccessor, TableRef};
+    use alloc::vec::Vec;
+
+    struct TestMetadataAccessor {
+        spans: Vec<(TableRef, usize, usize)>,
+    }
+
+    impl MetadataAccessor for TestMetadataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            self.spans
+                .iter()
+                .find(|(stored_ref, _, _)| stored_ref == table_ref)
+                .map(|(_, length, _)| *length)
+                .unwrap()
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            self.spans
+                .iter()
+                .find(|(stored_ref, _, _)| stored_ref == table_ref)
+                .map(|(_, _, offset)| *offset)
+                .unwrap()
+        }
+    }
+
+    #[test]
+    fn index_range_defaults_for_queries_without_tables() {
+        let accessor = TestMetadataAccessor { spans: Vec::new() };
+        assert_eq!(get_index_range(&accessor, Vec::<&TableRef>::new()), (0, 1));
+    }
+
+    #[test]
+    fn index_range_spans_all_referenced_tables() {
+        let table_a = TableRef::new("", "a");
+        let table_b = TableRef::new("schema", "b");
+        let accessor = TestMetadataAccessor {
+            spans: vec![(table_a.clone(), 4, 5), (table_b.clone(), 7, 1)],
+        };
+
+        assert_eq!(get_index_range(&accessor, [&table_a, &table_b]), (1, 9));
+    }
+}

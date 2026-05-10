@@ -69,3 +69,37 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProvableResultColumn;
+    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use alloc::vec;
+
+    #[test]
+    fn arrays_delegate_result_column_serialization_to_slices() {
+        let values = [7_i16, -11_i16];
+        let slice = &values[..];
+        assert_eq!(values.num_bytes(2), slice.num_bytes(2));
+
+        let mut array_output = vec![0; values.num_bytes(2)];
+        let mut slice_output = vec![0; slice.num_bytes(2)];
+        assert_eq!(values.write(&mut array_output, 2), array_output.len());
+        assert_eq!(slice.write(&mut slice_output, 2), slice_output.len());
+        assert_eq!(array_output, slice_output);
+    }
+
+    #[test]
+    fn columns_delegate_result_column_serialization_to_backing_values() {
+        let values = [7_i64, -11_i64];
+        let column = Column::<TestScalar>::BigInt(&values);
+        let slice = &values[..];
+        assert_eq!(column.num_bytes(2), slice.num_bytes(2));
+
+        let mut column_output = vec![0; column.num_bytes(2)];
+        let mut slice_output = vec![0; slice.num_bytes(2)];
+        assert_eq!(column.write(&mut column_output, 2), column_output.len());
+        assert_eq!(slice.write(&mut slice_output, 2), slice_output.len());
+        assert_eq!(column_output, slice_output);
+    }
+}
