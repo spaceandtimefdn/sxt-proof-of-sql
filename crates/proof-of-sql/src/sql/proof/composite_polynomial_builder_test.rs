@@ -117,3 +117,12 @@ fn we_can_handle_empty_terms_with_other_terms() {
     let expected = eval_fr * (eval1 * eval2 + Curve25519Scalar::from(17)) - eval3 * eval4;
     assert_eq!(p.evaluate(&pt), expected);
 }
+
+#[test]
+#[should_panic]
+fn we_reject_empty_zero_sum_multiplicands() {
+    let fr = [Curve25519Scalar::from(1u64), Curve25519Scalar::from(2u64)];
+    let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+    builder.produce_zerosum_multiplicand(&Curve25519Scalar::one(), &[]);
+}
