@@ -69,3 +69,61 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_display_direct_query_errors() {
+        assert_eq!(QueryError::Overflow.to_string(), "Overflow error");
+        assert_eq!(QueryError::InvalidString.to_string(), "String decode error");
+        assert_eq!(
+            QueryError::MiscellaneousDecodingError.to_string(),
+            "Miscellaneous decoding error"
+        );
+        assert_eq!(
+            QueryError::MiscellaneousEvaluationError.to_string(),
+            "Miscellaneous evaluation error"
+        );
+        assert_eq!(
+            QueryError::InvalidColumnCount.to_string(),
+            "Invalid number of columns"
+        );
+    }
+
+    #[test]
+    fn we_convert_table_coercion_overflow_to_query_overflow() {
+        let error = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        };
+
+        let query_error = QueryError::from(error);
+
+        assert!(matches!(query_error, QueryError::Overflow));
+    }
+
+    #[test]
+    fn we_convert_table_coercion_mismatches_to_proof_errors() {
+        let query_error = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        });
+        assert_eq!(
+            query_error.to_string(),
+            "Result does not match query: type mismatch"
+        );
+
+        let query_error = QueryError::from(TableCoercionError::NameMismatch);
+        assert_eq!(
+            query_error.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+
+        let query_error = QueryError::from(TableCoercionError::ColumnCountMismatch);
+        assert_eq!(
+            query_error.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+}

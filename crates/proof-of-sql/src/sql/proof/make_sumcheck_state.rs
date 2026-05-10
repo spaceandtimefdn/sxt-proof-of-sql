@@ -289,4 +289,28 @@ mod tests {
         assert_eq!(prover_state.num_vars, 3);
         assert_eq!(prover_state.max_multiplicands, 4);
     }
+
+    #[test]
+    fn we_do_not_add_entrywise_multipliers_for_zerosum_only_terms() {
+        let mle = &[2, 4];
+        let subpolynomials = vec![SumcheckSubpolynomial::new(
+            SumcheckSubpolynomialType::ZeroSum,
+            vec![(TestScalar::from(3), vec![Box::new(mle)])],
+        )];
+        let scalars = vec![TestScalar::from(5), TestScalar::from(99)];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 2, 1);
+
+        let prover_state = make_sumcheck_prover_state(&subpolynomials, 1, &random_scalars);
+
+        assert_eq!(
+            prover_state.list_of_products,
+            vec![(TestScalar::from(15), vec![0])]
+        );
+        assert_eq!(
+            prover_state.flattened_ml_extensions,
+            vec![vec![TestScalar::from(2), TestScalar::from(4)]]
+        );
+        assert_eq!(prover_state.num_vars, 1);
+        assert_eq!(prover_state.max_multiplicands, 1);
+    }
 }

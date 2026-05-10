@@ -180,3 +180,41 @@ impl<S: Scalar> MultilinearExtension<S> for Column<'_, S> {
         (&self).id()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MultilinearExtension;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_use_multilinear_extension_methods_for_arrays() {
+        let values = [2_i64, 3, 4];
+        let extension = &values;
+        let evaluation_vec = vec![TestScalar::from(10_u32), 20.into(), 30.into()];
+
+        assert_eq!(
+            extension.inner_product(&evaluation_vec),
+            TestScalar::from(200_u32)
+        );
+
+        let mut result = vec![TestScalar::from(1_u32); 3];
+        extension.mul_add(&mut result, &TestScalar::from(2_u32));
+        assert_eq!(
+            result,
+            vec![
+                TestScalar::from(5_u32),
+                TestScalar::from(7_u32),
+                TestScalar::from(9_u32)
+            ]
+        );
+        assert_eq!(
+            <&[i64; 3] as MultilinearExtension<TestScalar>>::to_sumcheck_term(&extension, 2),
+            vec![
+                TestScalar::from(2_u32),
+                TestScalar::from(3_u32),
+                TestScalar::from(4_u32),
+                TestScalar::from(0_u32)
+            ]
+        );
+    }
+}

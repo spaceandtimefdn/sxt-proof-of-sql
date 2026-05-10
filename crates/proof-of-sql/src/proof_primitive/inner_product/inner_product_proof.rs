@@ -52,6 +52,11 @@ impl CommitmentEvaluationProof for InnerProductProof {
         _setup: &Self::VerifierPublicSetup<'_>,
     ) -> Result<(), Self::Error> {
         assert!(table_length > 0);
+        if commit_batch.len() != batching_factors.len()
+            || evaluations.len() != batching_factors.len()
+        {
+            return Err(ProofError::VerificationError);
+        }
         let b = &mut vec![MontScalar::default(); table_length];
         if b_point.is_empty() {
             assert_eq!(b.len(), 1);
@@ -88,9 +93,15 @@ impl CommitmentEvaluationProof for InnerProductProof {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::commitment::commitment_evaluation_proof_test::{
-        test_commitment_evaluation_proof_with_length_1, test_random_commitment_evaluation_proof,
-        test_simple_commitment_evaluation_proof,
+    use crate::base::{
+        commitment::{
+            commitment_evaluation_proof_test::{
+                test_commitment_evaluation_proof_with_length_1,
+                test_random_commitment_evaluation_proof, test_simple_commitment_evaluation_proof,
+            },
+            VecCommitmentExt,
+        },
+        database::Column,
     };
 
     #[test]
@@ -101,6 +112,30 @@ mod tests {
     #[test]
     fn test_random_ipa_with_length_1() {
         test_commitment_evaluation_proof_with_length_1::<InnerProductProof>(&(), &());
+    }
+
+    #[test]
+    fn we_reject_mismatched_batched_proof_lengths() {
+        let a = [MontScalar::from(7_u64)];
+        let mut transcript = merlin::Transcript::new(b"evaluation_proof");
+        let proof = InnerProductProof::new(&mut transcript, &a, &[], 0, &());
+
+        let commits = Vec::from_columns_with_offset([Column::Scalar(&a)], 0, &());
+        let batching_factors = [MontScalar::ONE, MontScalar::ZERO];
+        let evaluations = [a[0], MontScalar::from(123_u64)];
+
+        let mut transcript = merlin::Transcript::new(b"evaluation_proof");
+        let result = proof.verify_batched_proof(
+            &mut transcript,
+            &commits,
+            &batching_factors,
+            &evaluations,
+            &[],
+            0,
+            1,
+            &(),
+        );
+        assert!(result.is_err());
     }
 
     #[test]

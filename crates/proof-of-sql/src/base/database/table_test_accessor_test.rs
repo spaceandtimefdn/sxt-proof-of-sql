@@ -233,6 +233,50 @@ fn we_can_access_schema_and_column_names() {
 }
 
 #[test]
+fn we_can_create_table_test_accessor_from_table() {
+    let alloc = Bump::new();
+    let table_ref = TableRef::new("sxt", "from_table");
+    let data = table([
+        borrowed_int("a", [1, 2, 3], &alloc),
+        borrowed_boolean("b", [true, false, true], &alloc),
+    ]);
+
+    let accessor =
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(table_ref.clone(), data, 7, ());
+
+    assert_eq!(accessor.get_length(&table_ref), 3);
+    assert_eq!(accessor.get_offset(&table_ref), 7);
+    assert_eq!(accessor.get_column_names(&table_ref), vec!["a", "b"]);
+    assert_eq!(
+        accessor.lookup_schema(&table_ref),
+        vec![
+            ("a".into(), ColumnType::Int),
+            ("b".into(), ColumnType::Boolean)
+        ]
+    );
+}
+
+#[test]
+fn cloning_table_test_accessor_preserves_independent_offsets() {
+    let alloc = Bump::new();
+    let table_ref = TableRef::new("sxt", "clone_test");
+    let data = table([borrowed_bigint("a", [1, 2, 3], &alloc)]);
+
+    let mut accessor =
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(table_ref.clone(), data, 3, ());
+    let cloned_accessor = accessor.clone();
+
+    accessor.update_offset(&table_ref, 9);
+
+    assert_eq!(accessor.get_offset(&table_ref), 9);
+    assert_eq!(cloned_accessor.get_offset(&table_ref), 3);
+    assert_eq!(
+        cloned_accessor.lookup_column(&table_ref, &"a".into()),
+        Some(ColumnType::BigInt)
+    );
+}
+
+#[test]
 fn we_can_correctly_update_offsets() {
     let alloc = Bump::new();
     let mut accessor1 = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());

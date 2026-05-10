@@ -1401,4 +1401,16 @@ mod test {
             matches!(try_neg_type(ColumnType::VarChar).unwrap_err(), ColumnOperationError::UnaryOperationInvalidColumnType { operator, operand_type } if operator == "negation" && operand_type == ColumnType::VarChar)
         );
     }
+
+    #[test]
+    fn we_can_check_boolean_logical_operator_types() {
+        assert!(can_and_or_types(ColumnType::Boolean, ColumnType::Boolean));
+        assert!(!can_and_or_types(ColumnType::Boolean, ColumnType::Int));
+        assert!(!can_and_or_types(ColumnType::Int, ColumnType::Boolean));
+        assert!(!can_and_or_types(ColumnType::Int, ColumnType::Int));
+
+        assert!(can_not_type(ColumnType::Boolean));
+        assert!(!can_not_type(ColumnType::Int));
+        assert!(!can_not_type(ColumnType::VarChar));
+    }
 }

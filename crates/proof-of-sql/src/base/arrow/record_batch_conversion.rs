@@ -106,11 +106,52 @@ mod tests {
         commitment::naive_commitment::NaiveCommitment, scalar::test_scalar::TestScalar,
     };
     use arrow::{
-        array::{Int64Array, StringArray},
+        array::{Int16Array, Int32Array, Int64Array, Int8Array, StringArray, UInt8Array},
         datatypes::{DataType, Field, Schema},
         record_batch::RecordBatch,
     };
     use std::sync::Arc;
+
+    #[test]
+    fn we_can_convert_record_batch_to_integer_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("uint8_column", DataType::UInt8, false),
+            Field::new("tinyint_column", DataType::Int8, false),
+            Field::new("smallint_column", DataType::Int16, false),
+            Field::new("int_column", DataType::Int32, false),
+            Field::new("bigint_column", DataType::Int64, false),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(UInt8Array::from(vec![1, 2, 255])),
+                Arc::new(Int8Array::from(vec![-128, 0, 127])),
+                Arc::new(Int16Array::from(vec![-32_768, 0, 32_767])),
+                Arc::new(Int32Array::from(vec![-2_147_483_648, 0, 2_147_483_647])),
+                Arc::new(Int64Array::from(vec![i64::MIN, 0, i64::MAX])),
+            ],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+
+        assert_eq!(columns.len(), 5);
+        assert_eq!(columns[0].0.value.as_str(), "uint8_column");
+        assert_eq!(columns[0].1, Column::Uint8(&[1, 2, 255]));
+        assert_eq!(columns[1].0.value.as_str(), "tinyint_column");
+        assert_eq!(columns[1].1, Column::TinyInt(&[-128, 0, 127]));
+        assert_eq!(columns[2].0.value.as_str(), "smallint_column");
+        assert_eq!(columns[2].1, Column::SmallInt(&[-32_768, 0, 32_767]));
+        assert_eq!(columns[3].0.value.as_str(), "int_column");
+        assert_eq!(
+            columns[3].1,
+            Column::Int(&[-2_147_483_648, 0, 2_147_483_647])
+        );
+        assert_eq!(columns[4].0.value.as_str(), "bigint_column");
+        assert_eq!(columns[4].1, Column::BigInt(&[i64::MIN, 0, i64::MAX]));
+    }
 
     #[test]
     fn we_can_create_and_append_table_commitments_with_record_batches() {

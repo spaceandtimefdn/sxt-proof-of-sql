@@ -48,6 +48,24 @@ fn we_can_use_multilinear_extension_methods_for_i64_slice() {
 }
 
 #[test]
+fn we_can_use_multilinear_extension_methods_for_i64_array() {
+    let array = [2_i64, 3, 5, 7];
+    let point = [TestScalar::from(2), TestScalar::from(3)];
+    let evaluation = (&array).evaluate_at_point(&point);
+
+    let expected =
+        TestScalar::from(2) * (TestScalar::from(1) - point[0]) * (TestScalar::from(1) - point[1])
+            + TestScalar::from(3) * point[0] * (TestScalar::from(1) - point[1])
+            + TestScalar::from(5) * (TestScalar::from(1) - point[0]) * point[1]
+            + TestScalar::from(7) * point[0] * point[1];
+    assert_eq!(evaluation, expected);
+    assert_eq!(
+        *MultilinearExtension::<TestScalar>::to_sumcheck_term(&&array, 2),
+        vec![2.into(), 3.into(), 5.into(), 7.into()]
+    );
+}
+
+#[test]
 fn we_can_use_multilinear_extension_methods_for_column() {
     let slice = Column::BigInt(&[2, 3, 4, 5, 6]);
     let evaluation_vec: Vec<TestScalar> =

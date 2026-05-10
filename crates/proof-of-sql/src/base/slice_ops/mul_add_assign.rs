@@ -24,3 +24,20 @@ where
         *res_i += multiplier * data_i.into();
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::mul_add_assign;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_leave_result_unchanged_when_mul_add_input_is_empty() {
+        let mut result = [1_u32, 2, 3].map(TestScalar::from);
+        let original = result;
+        let to_mul_add: [u32; 0] = [];
+
+        mul_add_assign(&mut result, TestScalar::from(10_u32), &to_mul_add);
+
+        assert_eq!(result, original);
+    }
+}

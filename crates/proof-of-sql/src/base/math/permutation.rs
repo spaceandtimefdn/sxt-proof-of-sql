@@ -90,6 +90,7 @@ impl Permutation {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::string::ToString;
     use alloc::vec;
 
     #[test]
@@ -123,6 +124,39 @@ mod test {
                 permutation_size: 3,
                 slice_length: 2
             })
+        );
+    }
+
+    #[test]
+    fn test_invalid_permutation_messages() {
+        assert_eq!(
+            Permutation::try_new(vec![1, 0, 0]).unwrap_err().to_string(),
+            "Permutation is invalid Permutation can not have duplicate elements: [1, 0, 0]"
+        );
+        assert_eq!(
+            Permutation::try_new(vec![1, 0, 3]).unwrap_err().to_string(),
+            "Permutation is invalid Permutation can not have elements out of bounds: [1, 0, 3]"
+        );
+    }
+
+    #[test]
+    fn test_unchecked_new_from_cmp_orders_indexes() {
+        let permutation = Permutation::unchecked_new_from_cmp(4, |left, right| right.cmp(left));
+
+        assert_eq!(
+            permutation.try_apply(&["a", "b", "c", "d"]).unwrap(),
+            vec!["d", "c", "b", "a"]
+        );
+    }
+
+    #[test]
+    fn test_empty_permutation_can_be_applied_to_empty_slice() {
+        let permutation = Permutation::try_new(vec![]).unwrap();
+
+        assert_eq!(permutation.size(), 0);
+        assert_eq!(
+            permutation.try_apply::<usize>(&[]).unwrap(),
+            Vec::<usize>::new()
         );
     }
 }

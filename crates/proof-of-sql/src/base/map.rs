@@ -18,3 +18,34 @@ macro_rules! indexset {
 #[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    #[test]
+    fn indexmap_macro_preserves_insertion_order() {
+        let map = indexmap! {
+            "alpha" => 1,
+            "beta" => 2,
+            "gamma" => 3,
+        };
+
+        assert_eq!(
+            map.iter()
+                .map(|(key, value)| (*key, *value))
+                .collect::<alloc::vec::Vec<_>>(),
+            vec![("alpha", 1), ("beta", 2), ("gamma", 3)]
+        );
+    }
+
+    #[test]
+    fn indexset_macro_preserves_insertion_order_and_removes_duplicates() {
+        let set = indexset!["alpha", "beta", "alpha", "gamma"];
+
+        assert_eq!(
+            set.iter().copied().collect::<alloc::vec::Vec<_>>(),
+            vec!["alpha", "beta", "gamma"]
+        );
+    }
+}

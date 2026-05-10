@@ -51,4 +51,34 @@ mod tests {
         let reserialized = try_standard_binary_serialization(deserialized).unwrap();
         assert_eq!(serialized, reserialized);
     }
+
+    #[test]
+    fn serializes_in_fixed_width_big_endian_order() {
+        let serialized = try_standard_binary_serialization((0x1234u16, -2i16)).unwrap();
+
+        assert_eq!(serialized, [0x12, 0x34, 0xff, 0xfe]);
+    }
+
+    #[test]
+    fn deserialization_reports_consumed_byte_count_with_trailing_bytes() {
+        let mut serialized = try_standard_binary_serialization(0x1234_5678u32).unwrap();
+        let original_len = serialized.len();
+        serialized.extend_from_slice(&[0xaa, 0xbb]);
+
+        let (deserialized, bytes_read): (u32, _) =
+            try_standard_binary_deserialization(&serialized).unwrap();
+
+        assert_eq!(deserialized, 0x1234_5678);
+        assert_eq!(bytes_read, original_len);
+    }
+
+    #[test]
+    fn deserialization_rejects_invalid_boolean_encoding() {
+        let err = try_standard_binary_deserialization::<bool>(&[2]).unwrap_err();
+
+        assert!(matches!(
+            err,
+            bincode::error::DecodeError::InvalidBooleanValue(2)
+        ));
+    }
 }

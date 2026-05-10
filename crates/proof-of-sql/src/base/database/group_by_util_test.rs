@@ -48,6 +48,26 @@ fn we_cannot_apply_min_to_varchar() {
 }
 
 #[test]
+#[should_panic(expected = "SUM can not be applied to non-numeric types")]
+fn we_cannot_apply_sum_to_varchar() {
+    let col: Column<'_, TestScalar> = Column::VarChar((&[], &[]));
+    let indexes = &[];
+    let counts = &[];
+    let alloc = bumpalo::Bump::new();
+    let _ = sum_aggregate_column_by_index_counts(&alloc, &col, counts, indexes);
+}
+
+#[test]
+#[should_panic(expected = "SUM can not be applied to non-numeric types")]
+fn we_cannot_apply_sum_to_varbinary() {
+    let col: Column<'_, TestScalar> = Column::VarBinary((&[], &[]));
+    let indexes = &[];
+    let counts = &[];
+    let alloc = bumpalo::Bump::new();
+    let _ = sum_aggregate_column_by_index_counts(&alloc, &col, counts, indexes);
+}
+
+#[test]
 fn we_can_aggregate_empty_columns() {
     let column_a = Column::BigInt::<TestScalar>(&[]);
     let column_b = Column::VarChar((&[], &[]));
@@ -65,6 +85,55 @@ fn we_can_aggregate_empty_columns() {
     );
     assert_eq!(aggregate_result.sum_columns, vec![&[], &[]]);
     assert_eq!(aggregate_result.count_column, &[0i64; 0]);
+}
+
+#[test]
+fn we_reject_aggregate_columns_with_mismatched_lengths() {
+    let alloc = Bump::new();
+    let selection = &[true, false, true];
+    let group_by = &[Column::BigInt::<TestScalar>(&[1, 2, 3])];
+    let sums = &[Column::Int128::<TestScalar>(&[10, 20, 30])];
+    let maxes = &[Column::Scalar(&[
+        TestScalar::from(100),
+        TestScalar::from(200),
+        TestScalar::from(300),
+    ])];
+    let mins = &[Column::Uint8::<TestScalar>(&[4, 5, 6])];
+
+    let short_group_by = &[Column::BigInt::<TestScalar>(&[1, 2])];
+    assert_eq!(
+        aggregate_columns(&alloc, short_group_by, sums, maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_sums = &[Column::Int128::<TestScalar>(&[10, 20])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, short_sums, maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_maxes = &[Column::Scalar(&[
+        TestScalar::from(100),
+        TestScalar::from(200),
+    ])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, sums, short_maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_mins = &[Column::Uint8::<TestScalar>(&[4, 5])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, sums, maxes, short_mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+}
+
+#[test]
+fn column_length_mismatch_displays_expected_message() {
+    assert_eq!(
+        AggregateColumnsError::ColumnLengthMismatch.to_string(),
+        "Column length mismatch"
+    );
 }
 
 #[test]

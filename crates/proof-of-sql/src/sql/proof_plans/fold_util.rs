@@ -32,3 +32,25 @@ pub fn fold_vals<S: Scalar>(beta: S, vals: &[S]) -> S {
 fn powers<S: Scalar>(init: S, base: S) -> impl Iterator<Item = S> {
     core::iter::successors(Some(init), move |&m| Some(m * base))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::fold_columns;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_leave_fold_result_unchanged_when_there_are_no_columns() {
+        let mut result = [1_u32, 2, 3].map(TestScalar::from);
+        let original = result;
+        let columns: [&[TestScalar]; 0] = [];
+
+        fold_columns(
+            &mut result,
+            TestScalar::from(5_u32),
+            TestScalar::from(7_u32),
+            &columns,
+        );
+
+        assert_eq!(result, original);
+    }
+}

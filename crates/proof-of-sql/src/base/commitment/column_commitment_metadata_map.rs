@@ -208,6 +208,34 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_metadata_map_with_max_byte_integer_bounds() {
+        let uint8_ident: Ident = "uint8_column".into();
+        let tinyint_ident: Ident = "tinyint_column".into();
+        let column_fields = [
+            ColumnField::new(uint8_ident.clone(), ColumnType::Uint8),
+            ColumnField::new(tinyint_ident.clone(), ColumnType::TinyInt),
+        ];
+
+        let metadata_map =
+            ColumnCommitmentMetadataMap::from_column_fields_with_max_bounds(&column_fields);
+        let uint8_metadata = metadata_map.get(&uint8_ident).unwrap();
+
+        assert_eq!(uint8_metadata.column_type(), &ColumnType::Uint8);
+        assert_eq!(
+            uint8_metadata.bounds(),
+            &ColumnBounds::Uint8(Bounds::bounded(u8::MIN, u8::MAX).unwrap())
+        );
+
+        let tinyint_metadata = metadata_map.get(&tinyint_ident).unwrap();
+
+        assert_eq!(tinyint_metadata.column_type(), &ColumnType::TinyInt);
+        assert_eq!(
+            tinyint_metadata.bounds(),
+            &ColumnBounds::TinyInt(Bounds::bounded(i8::MIN, i8::MAX).unwrap())
+        );
+    }
+
+    #[test]
     fn we_can_union_matching_metadata_maps() {
         let table_a = owned_table([
             bigint("bigint_column", [1, 5]),

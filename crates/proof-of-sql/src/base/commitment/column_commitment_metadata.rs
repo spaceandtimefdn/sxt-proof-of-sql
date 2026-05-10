@@ -74,6 +74,14 @@ impl ColumnCommitmentMetadata {
     #[must_use]
     pub fn from_column_type_with_max_bounds(column_type: ColumnType) -> Self {
         let bounds = match column_type {
+            ColumnType::Uint8 => ColumnBounds::Uint8(super::Bounds::Bounded(
+                BoundsInner::try_new(u8::MIN, u8::MAX)
+                    .expect("u8::MIN and u8::MAX are valid bounds for Uint8"),
+            )),
+            ColumnType::TinyInt => ColumnBounds::TinyInt(super::Bounds::Bounded(
+                BoundsInner::try_new(i8::MIN, i8::MAX)
+                    .expect("i8::MIN and i8::MAX are valid bounds for TinyInt"),
+            )),
             ColumnType::SmallInt => ColumnBounds::SmallInt(super::Bounds::Bounded(
                 BoundsInner::try_new(i16::MIN, i16::MAX)
                     .expect("i16::MIN and i16::MAX are valid bounds for SmallInt"),
@@ -196,6 +204,18 @@ mod tests {
     fn we_can_construct_metadata() {
         assert_eq!(
             ColumnCommitmentMetadata::try_new(
+                ColumnType::Uint8,
+                ColumnBounds::Uint8(Bounds::Empty)
+            )
+            .unwrap(),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Uint8,
+                bounds: ColumnBounds::Uint8(Bounds::Empty)
+            }
+        );
+
+        assert_eq!(
+            ColumnCommitmentMetadata::try_new(
                 ColumnType::TinyInt,
                 ColumnBounds::TinyInt(Bounds::Empty)
             )
@@ -293,7 +313,33 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_byte_integer_metadata_with_max_bounds() {
+        let uint8_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Uint8);
+
+        assert_eq!(uint8_metadata.column_type(), &ColumnType::Uint8);
+        assert_eq!(
+            uint8_metadata.bounds(),
+            &ColumnBounds::Uint8(Bounds::bounded(u8::MIN, u8::MAX).unwrap())
+        );
+
+        let tinyint_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::TinyInt);
+
+        assert_eq!(tinyint_metadata.column_type(), &ColumnType::TinyInt);
+        assert_eq!(
+            tinyint_metadata.bounds(),
+            &ColumnBounds::TinyInt(Bounds::bounded(i8::MIN, i8::MAX).unwrap())
+        );
+    }
+
+    #[test]
     fn we_cannot_construct_metadata_with_type_bounds_mismatch() {
+        assert!(matches!(
+            ColumnCommitmentMetadata::try_new(ColumnType::Uint8, ColumnBounds::NoOrder),
+            Err(InvalidColumnCommitmentMetadata::TypeBoundsMismatch { .. })
+        ));
+
         assert!(matches!(
             ColumnCommitmentMetadata::try_new(
                 ColumnType::Boolean,

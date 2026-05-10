@@ -84,3 +84,59 @@ pub fn filter_column_by_index<'a, S: Scalar>(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn we_can_filter_remaining_column_variants_by_index() {
+        let alloc = Bump::new();
+        let indexes = [3, 0, 2];
+
+        let column = Column::<TestScalar>::Boolean(&[true, false, true, false]);
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::Boolean(&[false, true, true])
+        );
+
+        let column = Column::<TestScalar>::Uint8(&[10_u8, 20, 30, 40]);
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::Uint8(&[40_u8, 10, 30])
+        );
+
+        let column = Column::<TestScalar>::TinyInt(&[-1_i8, 2, -3, 4]);
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::TinyInt(&[4_i8, -1, -3])
+        );
+
+        let column = Column::<TestScalar>::SmallInt(&[-10_i16, 20, -30, 40]);
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::SmallInt(&[40_i16, -10, -30])
+        );
+
+        let column = Column::<TestScalar>::Int(&[-100_i32, 200, -300, 400]);
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::Int(&[400_i32, -100, -300])
+        );
+
+        let timezone = PoSQLTimeZone::utc();
+        let column = Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            timezone,
+            &[1_000, 2_000, 3_000, 4_000],
+        );
+        assert_eq!(
+            filter_column_by_index(&alloc, &column, &indexes),
+            Column::TimestampTZ(PoSQLTimeUnit::Second, timezone, &[4_000, 1_000, 3_000])
+        );
+    }
+}

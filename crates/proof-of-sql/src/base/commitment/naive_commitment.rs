@@ -223,6 +223,52 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
     assert_eq!(commitments[0].0, expected);
 }
 
+#[test]
+fn we_can_compute_commitments_from_remaining_committable_column_variants() {
+    let decimal_values = vec![[3_u64, 0, 0, 0], [4, 0, 0, 0]];
+    let scalar_values = vec![[5_u64, 0, 0, 0], [6, 0, 0, 0]];
+    let columns = [
+        CommittableColumn::Boolean(&[true, false]),
+        CommittableColumn::Uint8(&[7, 8]),
+        CommittableColumn::TinyInt(&[-2, 3]),
+        CommittableColumn::SmallInt(&[-4, 5]),
+        CommittableColumn::Int(&[-6, 7]),
+        CommittableColumn::Int128(&[-8, 9]),
+        CommittableColumn::Decimal75(
+            crate::base::math::decimal::Precision::new(75).unwrap(),
+            0,
+            decimal_values,
+        ),
+        CommittableColumn::Scalar(scalar_values),
+        CommittableColumn::TimestampTZ(
+            crate::base::posql_time::PoSQLTimeUnit::Second,
+            crate::base::posql_time::PoSQLTimeZone::utc(),
+            &[10, 11],
+        ),
+    ];
+
+    let commitments = NaiveCommitment::compute_commitments(&columns, 0, &());
+
+    assert_eq!(
+        commitments[0].0,
+        vec![TestScalar::from(1), TestScalar::ZERO]
+    );
+    assert_eq!(commitments[1].0, vec![7.into(), 8.into()]);
+    assert_eq!(commitments[2].0, vec![(-2).into(), 3.into()]);
+    assert_eq!(commitments[3].0, vec![(-4).into(), 5.into()]);
+    assert_eq!(commitments[4].0, vec![(-6).into(), 7.into()]);
+    assert_eq!(commitments[5].0, vec![(-8).into(), 9.into()]);
+    assert_eq!(
+        commitments[6].0,
+        vec![[3, 0, 0, 0].into(), [4, 0, 0, 0].into()]
+    );
+    assert_eq!(
+        commitments[7].0,
+        vec![[5, 0, 0, 0].into(), [6, 0, 0, 0].into()]
+    );
+    assert_eq!(commitments[8].0, vec![10.into(), 11.into()]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -38,7 +38,20 @@ impl TranscriptCore for Keccak256Transcript {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::transcript_core::test_util::*, Keccak256Transcript};
+    use super::{
+        super::transcript_core::{test_util::*, TranscriptCore},
+        Keccak256Transcript,
+    };
+    use tiny_keccak::{Hasher, Keccak};
+
+    fn keccak256(message: &[u8]) -> [u8; 32] {
+        let mut result = [0_u8; 32];
+        let mut hasher = Keccak::v256();
+        hasher.update(message);
+        hasher.finalize(&mut result);
+        result
+    }
+
     #[test]
     fn we_get_equivalent_challenges_with_equivalent_keccak256_transcripts() {
         we_get_equivalent_challenges_with_equivalent_transcripts::<Keccak256Transcript>();
@@ -50,5 +63,16 @@ mod tests {
     #[test]
     fn we_get_different_nontrivial_consecutive_challenges_from_keccak256_transcript() {
         we_get_different_nontrivial_consecutive_challenges_from_transcript::<Keccak256Transcript>();
+    }
+    #[test]
+    fn we_chain_keccak_challenges_through_transcript_state() {
+        let mut transcript: Keccak256Transcript = TranscriptCore::new();
+        transcript.raw_append(b"message");
+
+        let first_challenge = transcript.raw_challenge();
+        assert_eq!(first_challenge, keccak256(b"message"));
+
+        let second_challenge = transcript.raw_challenge();
+        assert_eq!(second_challenge, keccak256(&first_challenge));
     }
 }

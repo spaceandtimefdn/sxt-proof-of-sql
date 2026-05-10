@@ -821,6 +821,15 @@ mod test {
     }
 
     #[test]
+    fn we_reject_integer_column_division_by_zero() {
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![10, 20, 30]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![2, 0, 5]);
+        let result = lhs.element_wise_div(&rhs);
+
+        assert!(matches!(result, Err(ColumnOperationError::DivisionByZero)));
+    }
+
+    #[test]
     fn we_can_try_divide_decimal_columns() {
         // lhs and rhs are both decimals
         let lhs_scalars = [4, 5, 3].iter().map(TestScalar::from).collect();
