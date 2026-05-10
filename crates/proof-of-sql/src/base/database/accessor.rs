@@ -179,7 +179,10 @@ impl SchemaAccessor for SchemaAccessorImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::map::indexmap;
+    use crate::base::{
+        map::{indexmap, IndexSet},
+        scalar::test_scalar::TestScalar,
+    };
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -251,5 +254,79 @@ mod tests {
         let accessor = sample_schema_accessor();
         let not_a_table = TableRef::new("schema", "not_a_table");
         accessor.lookup_schema(&not_a_table);
+    }
+
+    struct FixedDataAccessor {
+        ids: [i64; 3],
+        flags: [bool; 3],
+        length: usize,
+        offset: usize,
+    }
+
+    impl MetadataAccessor for FixedDataAccessor {
+        fn get_length(&self, _table_ref: &TableRef) -> usize {
+            self.length
+        }
+
+        fn get_offset(&self, _table_ref: &TableRef) -> usize {
+            self.offset
+        }
+    }
+
+    impl DataAccessor<TestScalar> for FixedDataAccessor {
+        fn get_column(&self, _table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            match column_id.value.as_str() {
+                "id" => Column::BigInt(&self.ids[..self.length]),
+                "flag" => Column::Boolean(&self.flags[..self.length]),
+                other => panic!("unexpected column requested: {other}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_table_preserves_requested_column_order() {
+        let accessor = FixedDataAccessor {
+            ids: [10, 20, 30],
+            flags: [true, false, true],
+            length: 3,
+            offset: 7,
+        };
+        let table_ref = TableRef::new("schema", "table1");
+        let column_ids = IndexSet::from_iter([Ident::new("flag"), Ident::new("id")]);
+
+        let table = accessor.get_table(&table_ref, &column_ids);
+
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(
+            table
+                .column_names()
+                .map(|ident| ident.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["flag", "id"]
+        );
+        assert_eq!(
+            table.column(0),
+            Some(&Column::Boolean(&[true, false, true]))
+        );
+        assert_eq!(table.column(1), Some(&Column::BigInt(&[10, 20, 30])));
+        assert_eq!(accessor.get_offset(&table_ref), 7);
+    }
+
+    #[test]
+    fn test_get_table_with_no_columns_uses_accessor_length() {
+        let accessor = FixedDataAccessor {
+            ids: [10, 20, 30],
+            flags: [true, false, true],
+            length: 2,
+            offset: 0,
+        };
+        let table_ref = TableRef::new("schema", "table1");
+        let column_ids = IndexSet::default();
+
+        let table = accessor.get_table(&table_ref, &column_ids);
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), 2);
     }
 }
