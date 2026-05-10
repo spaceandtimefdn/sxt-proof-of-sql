@@ -31,3 +31,27 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_field_accessors_return_constructor_values() {
+        let field = ColumnField::new("amount".into(), ColumnType::BigInt);
+
+        assert_eq!(field.name().value, "amount");
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn column_field_serializes_and_deserializes() {
+        let field = ColumnField::new("amount".into(), ColumnType::BigInt);
+
+        let serialized = serde_json::to_string(&field).unwrap();
+        assert_eq!(
+            serde_json::from_str::<ColumnField>(&serialized).unwrap(),
+            field
+        );
+    }
+}

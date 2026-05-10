@@ -53,3 +53,18 @@ where
 {
     slice_cast_mut_with(value, result, Into::into);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::slice_cast_mut_with;
+
+    #[test]
+    fn we_only_fill_available_mut_cast_slots() {
+        let input = [1_u32, 2, 3];
+        let mut result = [0_u64; 2];
+
+        slice_cast_mut_with(&input, &mut result, |&value| u64::from(value) * 10);
+
+        assert_eq!(result, [10, 20]);
+    }
+}

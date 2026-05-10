@@ -141,6 +141,36 @@ mod tests {
     }
 
     #[test]
+    fn we_can_extend_transcript_with_little_endian_messages() {
+        let mut transcript1: Keccak256Transcript = Transcript::new();
+        let mut transcript2: Keccak256Transcript = Transcript::new();
+
+        let messages: Vec<u32> = vec![1, 2, 3, 4];
+        transcript1.extend_as_le(messages.clone());
+        transcript2.extend_as_le_from_refs(&messages);
+
+        assert_eq!(transcript1.challenge_as_le(), transcript2.challenge_as_le());
+
+        transcript2.extend_as_le([5_u32]);
+
+        assert_ne!(transcript1.challenge_as_le(), transcript2.challenge_as_le());
+    }
+
+    #[test]
+    fn big_endian_messages_match_their_little_endian_byte_reversal() {
+        let mut little_endian_transcript: Keccak256Transcript = Transcript::new();
+        let mut big_endian_transcript: Keccak256Transcript = Transcript::new();
+
+        little_endian_transcript.extend_as_le([0x0102_0304_u32]);
+        big_endian_transcript.extend_as_be([0x0403_0201_u32]);
+
+        assert_eq!(
+            little_endian_transcript.challenge_as_le(),
+            big_endian_transcript.challenge_as_le()
+        );
+    }
+
+    #[test]
     fn we_can_extend_transcript_with_extend_as_be_from_refs() {
         let mut transcript1: Keccak256Transcript = Transcript::new();
         let mut transcript2: Keccak256Transcript = Transcript::new();

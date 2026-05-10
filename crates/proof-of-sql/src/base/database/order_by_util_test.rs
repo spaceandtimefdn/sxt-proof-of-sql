@@ -117,6 +117,96 @@ fn we_can_compare_single_row_of_tables() {
 }
 
 #[test]
+fn we_can_compare_single_row_of_tables_with_no_columns() {
+    let left: &[Column<TestScalar>] = &[];
+    let right: &[Column<TestScalar>] = &[];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Equal
+    );
+}
+
+#[test]
+fn we_can_compare_single_row_of_tables_for_varchar_and_scalar_columns() {
+    let left_varchar = ["apple", "banana", "banana"];
+    let right_varchar = ["banana", "banana", "banana"];
+    let left_varchar_scalars: Vec<TestScalar> =
+        left_varchar.iter().map(core::convert::Into::into).collect();
+    let right_varchar_scalars: Vec<TestScalar> = right_varchar
+        .iter()
+        .map(core::convert::Into::into)
+        .collect();
+    let left_scalar = [1, 2, 4].map(TestScalar::from);
+    let right_scalar = [1, 3, 4].map(TestScalar::from);
+
+    let left = &[
+        Column::VarChar((&left_varchar, &left_varchar_scalars)),
+        Column::Scalar(&left_scalar),
+    ];
+    let right = &[
+        Column::VarChar((&right_varchar, &right_varchar_scalars)),
+        Column::Scalar(&right_scalar),
+    ];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 2, 2).unwrap(),
+        Ordering::Equal
+    );
+}
+
+#[test]
+fn we_can_compare_single_row_of_tables_for_varbinary_columns() {
+    let left_raw = [b"foo".as_ref(), b"bar".as_ref(), b"baz".as_ref()];
+    let right_raw = [b"bar".as_ref(), b"foo".as_ref(), b"baz".as_ref()];
+    let left_scalars: Vec<TestScalar> = left_raw
+        .iter()
+        .map(|bytes| TestScalar::from_le_bytes_mod_order(bytes))
+        .collect();
+    let right_scalars: Vec<TestScalar> = right_raw
+        .iter()
+        .map(|bytes| TestScalar::from_le_bytes_mod_order(bytes))
+        .collect();
+    let left_column = Column::VarBinary((left_raw.as_slice(), left_scalars.as_slice()));
+    let right_column = Column::VarBinary((right_raw.as_slice(), right_scalars.as_slice()));
+    let left = &[left_column];
+    let right = &[right_column];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 2, 2).unwrap(),
+        Ordering::Equal
+    );
+}
+
+#[test]
+#[should_panic]
+fn compare_single_row_of_tables_panics_on_column_count_mismatch() {
+    let left = &[Column::BigInt::<TestScalar>(&[1, 2, 3])];
+    let right = &[
+        Column::BigInt::<TestScalar>(&[1, 2, 3]),
+        Column::BigInt::<TestScalar>(&[4, 5, 6]),
+    ];
+
+    let _ = compare_single_row_of_tables(left, right, 0, 0);
+}
+
+#[test]
 fn we_cannot_compare_single_row_of_tables_if_type_mismatch() {
     let left_slice = &[55, 44, 66, 66, 66, 77, 66, 66, 66, 66];
     let right_slice = &[

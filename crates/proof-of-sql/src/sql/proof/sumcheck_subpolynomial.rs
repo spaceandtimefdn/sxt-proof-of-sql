@@ -91,9 +91,10 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::CompositePolynomialBuilder;
     use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
     use crate::base::scalar::test_scalar::TestScalar;
-    use alloc::boxed::Box;
+    use alloc::{boxed::Box, vec::Vec};
 
     #[test]
     fn test_iter_mul_by() {
@@ -118,5 +119,53 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_iter_mul_by_for_zerosum_terms() {
+        let mle = vec![TestScalar::from(7), TestScalar::from(11)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(2), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, terms);
+
+        let mut iter = subpoly.iter_mul_by(TestScalar::from(5));
+        let (subpoly_type, coeff, extensions) = iter.next().unwrap();
+
+        assert_eq!(
+            subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::ZeroSum
+        );
+        assert_eq!(subpoly_type, SumcheckSubpolynomialType::ZeroSum);
+        assert_eq!(coeff, TestScalar::from(10));
+        assert_eq!(extensions.len(), 1);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_compose_adds_identity_and_zerosum_terms() {
+        let fr = [TestScalar::from(7), TestScalar::from(11)];
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        let identity_terms: Vec<SumcheckSubpolynomialTerm<'_, TestScalar>> =
+            vec![(TestScalar::from(3), vec![])];
+        let identity_subpoly =
+            SumcheckSubpolynomial::new(SumcheckSubpolynomialType::Identity, identity_terms);
+        identity_subpoly.compose(&mut builder, TestScalar::from(5));
+
+        let mle = vec![TestScalar::from(2), TestScalar::from(4)];
+        let zerosum_terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(6), vec![Box::new(&mle)])];
+        let zerosum_subpoly =
+            SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, zerosum_terms);
+        zerosum_subpoly.compose(&mut builder, TestScalar::from(2));
+
+        let composite = builder.make_composite_polynomial();
+        let expected_identity = TestScalar::from(15) * (fr[0] + fr[1]);
+        let expected_zerosum = TestScalar::from(12) * (mle[0] + mle[1]);
+
+        assert_eq!(
+            composite.hypercube_sum(2),
+            expected_identity + expected_zerosum
+        );
     }
 }

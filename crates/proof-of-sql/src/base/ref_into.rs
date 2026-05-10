@@ -23,3 +23,30 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+    use alloc::string::{String, ToString};
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct LabelLength(usize);
+
+    struct Label(String);
+
+    impl From<&Label> for LabelLength {
+        fn from(value: &Label) -> Self {
+            Self(value.0.len())
+        }
+    }
+
+    #[test]
+    fn ref_into_converts_from_reference_without_consuming_value() {
+        let label = Label("challenge".to_string());
+
+        let length: LabelLength = label.ref_into();
+
+        assert_eq!(length, LabelLength(9));
+        assert_eq!(label.0, "challenge");
+    }
+}

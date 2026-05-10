@@ -116,3 +116,35 @@ fn we_can_pseudo_invert_arrays_with_nonzero_count_smaller_than_min_chunking_size
         }
     }
 }
+
+#[test]
+fn we_can_batch_invert_and_multiply_by_a_coefficient() {
+    let input = [
+        TestScalar::from(2_u32),
+        TestScalar::from(3_u32),
+        TestScalar::zero(),
+        TestScalar::from(5_u32),
+    ];
+    let coeff = TestScalar::from(7_u32);
+    let mut res = input.to_vec();
+
+    slice_ops::batch_inversion_and_mul(&mut res, coeff);
+
+    for (input_val, res_val) in input.iter().zip(res) {
+        if *input_val == TestScalar::zero() {
+            assert_eq!(res_val, TestScalar::zero());
+        } else {
+            assert_eq!(res_val * *input_val, coeff);
+        }
+    }
+}
+
+#[test]
+fn we_leave_all_zero_values_unchanged_when_scaling_batch_inverse() {
+    let coeff = TestScalar::from(11_u32);
+    let mut res = vec![TestScalar::zero(); 4];
+
+    slice_ops::batch_inversion_and_mul(&mut res, coeff);
+
+    assert_eq!(res, vec![TestScalar::zero(); 4]);
+}

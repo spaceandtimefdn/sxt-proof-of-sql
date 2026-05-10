@@ -67,3 +67,18 @@ where
 
     log::log_memory_usage("End");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_evaluation_vector;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use num_traits::Zero;
+
+    #[test]
+    #[should_panic]
+    fn we_reject_evaluation_vectors_larger_than_the_point_domain() {
+        let mut evaluation_vector = [TestScalar::zero(); 3];
+
+        compute_evaluation_vector(&mut evaluation_vector, &[TestScalar::from(2_u32)]);
+    }
+}

@@ -66,6 +66,21 @@ fn we_compute_the_evaluation_vector_for_an_empty_point() {
 }
 
 #[test]
+fn we_compute_an_empty_evaluation_vector_for_a_nonempty_point() {
+    let mut v: [TestScalar; 0] = [];
+    compute_evaluation_vector(&mut v, &[TestScalar::from(3u64)]);
+
+    assert!(v.is_empty());
+}
+
+#[test]
+#[should_panic(expected = "assertion failed: v.len() <= (1 << point.len())")]
+fn we_reject_evaluation_vector_longer_than_the_point_domain() {
+    let mut v = [TestScalar::zero(); 3];
+    compute_evaluation_vector(&mut v, &[TestScalar::from(3u64)]);
+}
+
+#[test]
 fn we_get_the_same_result_using_evaluation_vector_as_direct_evaluation() {
     let xs = [
         TestScalar::from(3u64),

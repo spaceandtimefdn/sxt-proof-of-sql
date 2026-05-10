@@ -141,3 +141,67 @@ impl<'a, S: Scalar + 'a> IntoIterator for &'a OptimizedSumcheckTerms<'a, S> {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SumcheckTermOptimizer;
+    use crate::{
+        base::{polynomial::MultilinearExtension, scalar::test_scalar::TestScalar},
+        sql::proof::SumcheckSubpolynomialType,
+    };
+    use alloc::{boxed::Box, vec};
+
+    #[test]
+    fn we_can_merge_constant_and_linear_terms() {
+        let linear_a = vec![
+            TestScalar::from(1_u32),
+            TestScalar::from(2_u32),
+            TestScalar::from(3_u32),
+        ];
+        let linear_b = vec![
+            TestScalar::from(10_u32),
+            TestScalar::from(20_u32),
+            TestScalar::from(30_u32),
+        ];
+        let constant_term: Vec<Box<dyn MultilinearExtension<TestScalar>>> = vec![];
+        let linear_a_term: Vec<Box<dyn MultilinearExtension<TestScalar>>> =
+            vec![Box::new(&linear_a)];
+        let linear_b_term: Vec<Box<dyn MultilinearExtension<TestScalar>>> =
+            vec![Box::new(&linear_b)];
+
+        let terms = vec![
+            (
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::from(5_u32),
+                &constant_term,
+            ),
+            (
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::from(2_u32),
+                &linear_a_term,
+            ),
+            (
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::from(3_u32),
+                &linear_b_term,
+            ),
+        ];
+        let optimizer = SumcheckTermOptimizer::new(terms.into_iter(), 3);
+        let optimized_terms = optimizer.terms();
+        let collected_terms: Vec<_> = (&optimized_terms).into_iter().collect();
+
+        assert_eq!(collected_terms.len(), 1);
+        assert_eq!(collected_terms[0].0, SumcheckSubpolynomialType::Identity);
+        assert_eq!(collected_terms[0].1, TestScalar::from(1_u32));
+        assert_eq!(collected_terms[0].2.len(), 1);
+        assert_eq!(
+            collected_terms[0].2[0].to_sumcheck_term(2),
+            vec![
+                TestScalar::from(37_u32),
+                TestScalar::from(69_u32),
+                TestScalar::from(101_u32),
+                TestScalar::from(0_u32)
+            ]
+        );
+    }
+}

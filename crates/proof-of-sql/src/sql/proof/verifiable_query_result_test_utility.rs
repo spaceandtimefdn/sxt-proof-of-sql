@@ -153,3 +153,20 @@ pub fn tamper_first_row_of_column<S: Scalar>(column: &OwnedColumn<S>) -> OwnedCo
     }
     column
 }
+
+#[cfg(test)]
+mod tests {
+    use super::tamper_first_row_of_column;
+    use crate::base::{database::OwnedColumn, scalar::test_scalar::TestScalar};
+    use alloc::vec;
+
+    #[test]
+    fn we_can_tamper_varbinary_columns_without_mutating_the_original() {
+        let column = OwnedColumn::<TestScalar>::VarBinary(vec![vec![1_u8, 2]]);
+
+        let tampered = tamper_first_row_of_column(&column);
+
+        assert_eq!(column, OwnedColumn::VarBinary(vec![vec![1_u8, 2]]));
+        assert_eq!(tampered, OwnedColumn::VarBinary(vec![vec![1_u8, 2, 1]]));
+    }
+}

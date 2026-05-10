@@ -39,6 +39,28 @@ fn test_composite_polynomial_evaluation() {
     assert_eq!(prod11, calc11);
 }
 
+#[test]
+fn add_product_reuses_existing_multilinear_extensions() {
+    let values = Rc::new(vec![TestScalar::from(2), TestScalar::from(3)]);
+    let mut prod = CompositePolynomial::new(1);
+
+    prod.add_product([values.clone(), values.clone()], TestScalar::from(5));
+    prod.add_product([values], TestScalar::from(7));
+
+    assert_eq!(prod.max_multiplicands, 2);
+    assert_eq!(prod.flattened_ml_extensions.len(), 1);
+    assert_eq!(prod.products[0].1, vec![0, 0]);
+    assert_eq!(prod.products[1].1, vec![0]);
+}
+
+#[test]
+#[should_panic(expected = "assertion failed: !product.is_empty()")]
+fn add_product_rejects_empty_products() {
+    let mut prod = CompositePolynomial::<TestScalar>::new(1);
+
+    prod.add_product([], TestScalar::from(5));
+}
+
 #[expect(clippy::identity_op)]
 #[test]
 fn test_composite_polynomial_hypercube_sum() {

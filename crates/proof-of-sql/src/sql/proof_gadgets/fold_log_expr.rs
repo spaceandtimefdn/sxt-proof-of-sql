@@ -83,3 +83,47 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::collections::VecDeque;
+    use num_traits::{One, Zero};
+
+    #[test]
+    fn we_compute_fold_log_star_and_fold_columns() {
+        let alloc = Bump::new();
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+        let gadget = FoldLogExpr::new(TestScalar::from(3u64), TestScalar::from(10u64));
+        let column = Column::BigInt(&[1_i64, 2]);
+
+        let (star, fold) = gadget.final_round_evaluate(&mut builder, &alloc, &[column], 2);
+
+        assert_eq!(fold, &[TestScalar::from(3u64), TestScalar::from(6u64)]);
+        assert!(star
+            .iter()
+            .zip(fold)
+            .all(
+                |(&star_eval, &fold_eval)| star_eval * (fold_eval + TestScalar::one())
+                    == TestScalar::one()
+            ));
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    }
+
+    #[test]
+    fn we_can_build_fold_log_constraints_with_a_supplied_chi_column() {
+        let alloc = Bump::new();
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+        let gadget = FoldLogExpr::new(TestScalar::from(3u64), TestScalar::from(10u64));
+        let chi = alloc.alloc_slice_copy(&[true, false]);
+
+        let (star, fold) = gadget.final_round_evaluate_with_chi(&mut builder, &alloc, &[], 2, chi);
+
+        assert_eq!(fold, &[TestScalar::zero(), TestScalar::zero()]);
+        assert_eq!(star, &[TestScalar::one(), TestScalar::one()]);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    }
+}

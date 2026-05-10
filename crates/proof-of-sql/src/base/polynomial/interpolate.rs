@@ -127,3 +127,23 @@ where
         })
         .unwrap_or(vec![])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::interpolate_uni_poly;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_interpolate_uni_poly_at_negative_query_points() {
+        let evaluations = [
+            TestScalar::from(3_i32),
+            TestScalar::from(6_i32),
+            TestScalar::from(11_i32),
+        ];
+
+        assert_eq!(
+            interpolate_uni_poly(&evaluations, TestScalar::from(-2_i32)),
+            TestScalar::from(3_i32)
+        );
+    }
+}
