@@ -153,7 +153,11 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -241,6 +245,66 @@ mod tests {
     }
 
     #[test]
+    fn test_column_repetition_op_remaining_variants() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-2, 4]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 3);
+        assert_eq!(result.as_tinyint().unwrap(), &[-2, 4, -2, 4, -2, 4]);
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-300, 25]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-300, 25, -300, 25]);
+
+        let column: Column<TestScalar> = Column::BigInt(&[-9, 0, 12]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_bigint().unwrap(), &[-9, 0, 12, -9, 0, 12]);
+
+        let column: Column<TestScalar> = Column::Int128(&[-1000, 2000]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_int128().unwrap(), &[-1000, 2000, -1000, 2000]);
+
+        let scalars = vec![TestScalar::from(7), TestScalar::from(11)];
+        let column = Column::Scalar(scalars.as_slice());
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_scalars = vec![
+            TestScalar::from(7),
+            TestScalar::from(11),
+            TestScalar::from(7),
+            TestScalar::from(11),
+        ];
+        assert_eq!(result.as_scalar().unwrap(), expected_scalars.as_slice());
+
+        let precision = Precision::new(10).unwrap();
+        let decimal_values = vec![TestScalar::from(101), TestScalar::from(-202)];
+        let column = Column::Decimal75(precision, -2, decimal_values.as_slice());
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_decimals = vec![
+            TestScalar::from(101),
+            TestScalar::from(-202),
+            TestScalar::from(101),
+            TestScalar::from(-202),
+        ];
+        assert_eq!(result.as_decimal75().unwrap(), expected_decimals.as_slice());
+        assert_eq!(result.column_type(), ColumnType::Decimal75(precision, -2));
+
+        let column: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[1_700_000_000, 1_700_000_500],
+        );
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result.as_timestamptz().unwrap(),
+            &[1_700_000_000, 1_700_000_500, 1_700_000_000, 1_700_000_500]
+        );
+        assert_eq!(
+            result.column_type(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc())
+        );
+    }
+
+    #[test]
     fn test_elementwise_repetition_op_varbinary() {
         let bump = Bump::new();
 
@@ -267,5 +331,65 @@ mod tests {
             .collect();
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_elementwise_repetition_op_remaining_variants() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-2, 4]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 3);
+        assert_eq!(result.as_tinyint().unwrap(), &[-2, -2, -2, 4, 4, 4]);
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-300, 25]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-300, -300, 25, 25]);
+
+        let column: Column<TestScalar> = Column::BigInt(&[-9, 0, 12]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_bigint().unwrap(), &[-9, -9, 0, 0, 12, 12]);
+
+        let column: Column<TestScalar> = Column::Int128(&[-1000, 2000]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_int128().unwrap(), &[-1000, -1000, 2000, 2000]);
+
+        let scalars = vec![TestScalar::from(7), TestScalar::from(11)];
+        let column = Column::Scalar(scalars.as_slice());
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_scalars = vec![
+            TestScalar::from(7),
+            TestScalar::from(7),
+            TestScalar::from(11),
+            TestScalar::from(11),
+        ];
+        assert_eq!(result.as_scalar().unwrap(), expected_scalars.as_slice());
+
+        let precision = Precision::new(10).unwrap();
+        let decimal_values = vec![TestScalar::from(101), TestScalar::from(-202)];
+        let column = Column::Decimal75(precision, -2, decimal_values.as_slice());
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_decimals = vec![
+            TestScalar::from(101),
+            TestScalar::from(101),
+            TestScalar::from(-202),
+            TestScalar::from(-202),
+        ];
+        assert_eq!(result.as_decimal75().unwrap(), expected_decimals.as_slice());
+        assert_eq!(result.column_type(), ColumnType::Decimal75(precision, -2));
+
+        let column: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[1_700_000_000, 1_700_000_500],
+        );
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result.as_timestamptz().unwrap(),
+            &[1_700_000_000, 1_700_000_000, 1_700_000_500, 1_700_000_500]
+        );
+        assert_eq!(
+            result.column_type(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc())
+        );
     }
 }
