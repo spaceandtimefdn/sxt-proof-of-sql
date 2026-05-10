@@ -23,6 +23,10 @@ jobs:
     - name: Install Dependencies
       run: sudo apt-get update && sudo apt-get install -y clang lld
     - uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: coverage
     - name: Clean Previous Coverage Artifacts
       run: cargo llvm-cov clean --workspace
     - name: Run Tests to Generate Coverage Data (All Features)
