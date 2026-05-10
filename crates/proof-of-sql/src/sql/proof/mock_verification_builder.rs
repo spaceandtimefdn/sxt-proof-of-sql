@@ -664,4 +664,70 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, ProofSizeMismatch::TooFewBitDistributions));
     }
+
+    #[test]
+    fn we_can_collect_identity_and_zero_sum_results() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                2,
+            )
+            .unwrap();
+
+        verification_builder.increment_row_index();
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                -TestScalar::ONE,
+                2,
+            )
+            .unwrap();
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![vec![true, false], vec![true, true]]
+        );
+        assert_eq!(verification_builder.get_zero_sum_results(), vec![true]);
+    }
 }
