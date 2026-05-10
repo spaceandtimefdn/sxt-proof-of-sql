@@ -434,6 +434,90 @@ mod test {
     }
 
     #[test]
+    fn we_can_do_uint8_mixed_numeric_column_operations() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![1, 0, 3]);
+        assert_eq!(
+            lhs.element_wise_eq(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![2, 2, 1]);
+        assert_eq!(
+            lhs.element_wise_lt(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, false]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![0, 5, 2]);
+        assert_eq!(
+            lhs.element_wise_gt(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![10, 20, 30]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Int128(vec![11, 22, 33]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![3, 1, 4]);
+        assert_eq!(
+            lhs.element_wise_sub(&rhs),
+            Ok(OwnedColumn::<TestScalar>::SmallInt(vec![-2, 1, -1]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![2, 3, 4]);
+        assert_eq!(
+            lhs.element_wise_mul(&rhs),
+            Ok(OwnedColumn::<TestScalar>::BigInt(vec![2, 6, 12]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![1, 2, 2]);
+        assert_eq!(
+            lhs.element_wise_div(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Int(vec![1, 1, 1]))
+        );
+    }
+
+    #[test]
+    fn we_reject_uint8_tinyint_signed_casts_for_column_operations() {
+        let uint8 = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let tinyint = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+
+        let comparison_results = [
+            uint8.element_wise_eq(&tinyint),
+            uint8.element_wise_lt(&tinyint),
+            uint8.element_wise_gt(&tinyint),
+            tinyint.element_wise_eq(&uint8),
+            tinyint.element_wise_lt(&uint8),
+            tinyint.element_wise_gt(&uint8),
+        ];
+        for result in comparison_results {
+            assert!(matches!(
+                result,
+                Err(ColumnOperationError::SignedCastingError { .. })
+            ));
+        }
+
+        let arithmetic_results = [
+            uint8.element_wise_add(&tinyint),
+            uint8.element_wise_sub(&tinyint),
+            uint8.element_wise_mul(&tinyint),
+            uint8.element_wise_div(&tinyint),
+            tinyint.element_wise_add(&uint8),
+            tinyint.element_wise_sub(&uint8),
+            tinyint.element_wise_mul(&uint8),
+            tinyint.element_wise_div(&uint8),
+        ];
+        for result in arithmetic_results {
+            assert!(matches!(
+                result,
+                Err(ColumnOperationError::SignedCastingError { .. })
+            ));
+        }
+    }
+
+    #[test]
     fn we_cannot_do_comparison_on_columns_with_incompatible_types() {
         // Strings can't be compared with other types
         let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
