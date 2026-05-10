@@ -149,3 +149,30 @@ impl<S: Scalar> CompositePolynomial<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CompositePolynomial;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::{rc::Rc, vec};
+
+    #[test]
+    fn we_reuse_existing_mle_indices_for_shared_products() {
+        let shared = Rc::new(vec![TestScalar::from(1_u32), TestScalar::from(2_u32)]);
+        let other = Rc::new(vec![TestScalar::from(3_u32), TestScalar::from(4_u32)]);
+        let mut polynomial = CompositePolynomial::new(1);
+
+        polynomial.add_product([shared.clone()], TestScalar::from(5_u32));
+        polynomial.add_product(
+            [shared.clone(), other.clone(), shared.clone()],
+            TestScalar::from(6_u32),
+        );
+
+        assert_eq!(polynomial.max_multiplicands, 3);
+        assert_eq!(polynomial.flattened_ml_extensions.len(), 2);
+        assert!(Rc::ptr_eq(&polynomial.flattened_ml_extensions[0], &shared));
+        assert!(Rc::ptr_eq(&polynomial.flattened_ml_extensions[1], &other));
+        assert_eq!(polynomial.products[0].1, vec![0]);
+        assert_eq!(polynomial.products[1].1, vec![0, 1, 0]);
+    }
+}
