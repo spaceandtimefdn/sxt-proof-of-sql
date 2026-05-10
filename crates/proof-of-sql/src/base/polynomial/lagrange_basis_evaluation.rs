@@ -174,3 +174,19 @@ where
         rho
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_truncated_lagrange_basis_sum;
+    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+
+    #[test]
+    fn we_get_full_lagrange_sum_when_length_exceeds_the_point_domain() {
+        let point = [TestScalar::from(2_u32), TestScalar::from(5_u32)];
+
+        assert_eq!(
+            compute_truncated_lagrange_basis_sum(5, &point),
+            TestScalar::ONE
+        );
+    }
+}
