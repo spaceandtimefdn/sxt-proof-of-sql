@@ -2,6 +2,19 @@ use super::CompositePolynomialBuilder;
 use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
 use num_traits::One;
 
+fn eval_three_value_mle_at_two_var_point(
+    values: [u64; 3],
+    pt: &[Curve25519Scalar; 2],
+) -> Curve25519Scalar {
+    let m00 = (Curve25519Scalar::one() - pt[0]) * (Curve25519Scalar::one() - pt[1]);
+    let m10 = pt[0] * (Curve25519Scalar::one() - pt[1]);
+    let m01 = (Curve25519Scalar::one() - pt[0]) * pt[1];
+
+    Curve25519Scalar::from(values[0]) * m00
+        + Curve25519Scalar::from(values[1]) * m10
+        + Curve25519Scalar::from(values[2]) * m01
+}
+
 #[test]
 fn we_combine_single_degree_fr_multiplicands() {
     let fr = [Curve25519Scalar::from(1u64), Curve25519Scalar::from(2u64)];
@@ -115,5 +128,31 @@ fn we_can_handle_empty_terms_with_other_terms() {
     let eval4 = Curve25519Scalar::from(mle4[0]) * m0 + Curve25519Scalar::from(mle4[1]) * m1;
     let eval_fr = fr[0] * m0 + fr[1] * m1;
     let expected = eval_fr * (eval1 * eval2 + Curve25519Scalar::from(17)) - eval3 * eval4;
+    assert_eq!(p.evaluate(&pt), expected);
+}
+
+#[test]
+fn we_can_build_with_padded_terms_and_single_zero_sum_multiplicand() {
+    let fr = [
+        Curve25519Scalar::from(1u64),
+        Curve25519Scalar::from(2u64),
+        Curve25519Scalar::from(3u64),
+    ];
+    let mle = [4, 5, 6];
+    let zero_sum_mle = [7, 8, 9];
+    let mut builder = CompositePolynomialBuilder::new(2, &fr);
+    builder.produce_fr_multiplicand(&Curve25519Scalar::from(3), &[Box::new(&mle)]);
+    builder.produce_zerosum_multiplicand(&-Curve25519Scalar::from(2), &[Box::new(&zero_sum_mle)]);
+
+    let p = builder.make_composite_polynomial();
+
+    assert_eq!(p.products.len(), 2);
+    assert_eq!(p.flattened_ml_extensions.len(), 3);
+    let pt = [Curve25519Scalar::from(2u64), Curve25519Scalar::from(3u64)];
+    let eval_fr = eval_three_value_mle_at_two_var_point([1, 2, 3], &pt);
+    let eval_mle = eval_three_value_mle_at_two_var_point([4, 5, 6], &pt);
+    let eval_zero_sum_mle = eval_three_value_mle_at_two_var_point([7, 8, 9], &pt);
+    let expected = eval_fr * Curve25519Scalar::from(3) * eval_mle
+        - Curve25519Scalar::from(2) * eval_zero_sum_mle;
     assert_eq!(p.evaluate(&pt), expected);
 }
