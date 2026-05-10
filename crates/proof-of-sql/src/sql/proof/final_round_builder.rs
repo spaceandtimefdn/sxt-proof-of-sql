@@ -156,3 +156,44 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         self.post_result_challenges.pop_front().unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FinalRoundBuilder;
+    use crate::{
+        base::{bit::BitDistribution, scalar::test_scalar::TestScalar},
+        sql::proof::SumcheckSubpolynomialType,
+    };
+    use alloc::{boxed::Box, collections::VecDeque};
+
+    #[test]
+    fn we_can_track_final_round_components() {
+        let bit_distribution = BitDistribution {
+            leading_bit_mask: [1, 0, 0, 0],
+            vary_mask: [0, 1, 0, 0],
+        };
+        let mle = [TestScalar::from(3), TestScalar::from(5)];
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(1, VecDeque::new());
+
+        assert_eq!(builder.num_sumcheck_variables(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+        assert!(builder.bit_distributions().is_empty());
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert!(builder.sumcheck_subpolynomials().is_empty());
+
+        builder.produce_bit_distribution(bit_distribution.clone());
+        builder.produce_anchored_mle(&mle);
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![(TestScalar::from(7), vec![Box::new(&mle as &[_])])],
+        );
+
+        assert_eq!(builder.bit_distributions(), [bit_distribution]);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        assert_eq!(
+            builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+            SumcheckSubpolynomialType::Identity
+        );
+    }
+}

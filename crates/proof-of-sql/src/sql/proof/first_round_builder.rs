@@ -139,3 +139,31 @@ impl<'a, S: Scalar> FirstRoundBuilder<'a, S> {
         self.num_post_result_challenges += cnt;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FirstRoundBuilder;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_track_first_round_lengths_and_mles() {
+        let mle = [7, 11];
+        let mut builder = FirstRoundBuilder::<TestScalar>::new(2);
+        assert_eq!(builder.range_length(), 2);
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert!(builder.chi_evaluation_lengths().is_empty());
+        assert!(builder.rho_evaluation_lengths().is_empty());
+
+        builder.update_range_length(1);
+        assert_eq!(builder.range_length(), 2);
+
+        builder.produce_chi_evaluation_length(5);
+        builder.produce_rho_evaluation_length(3);
+        assert_eq!(builder.range_length(), 5);
+        assert_eq!(builder.chi_evaluation_lengths(), [5]);
+        assert_eq!(builder.rho_evaluation_lengths(), [3]);
+
+        builder.produce_intermediate_mle(&mle[..]);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+    }
+}
