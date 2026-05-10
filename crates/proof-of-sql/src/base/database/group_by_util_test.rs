@@ -48,6 +48,26 @@ fn we_cannot_apply_min_to_varchar() {
 }
 
 #[test]
+#[should_panic(expected = "SUM can not be applied to non-numeric types")]
+fn we_cannot_apply_sum_to_varchar() {
+    let col: Column<'_, TestScalar> = Column::VarChar((&[], &[]));
+    let indexes = &[];
+    let counts = &[];
+    let alloc = bumpalo::Bump::new();
+    let _ = sum_aggregate_column_by_index_counts(&alloc, &col, counts, indexes);
+}
+
+#[test]
+#[should_panic(expected = "SUM can not be applied to non-numeric types")]
+fn we_cannot_apply_sum_to_varbinary() {
+    let col: Column<'_, TestScalar> = Column::VarBinary((&[], &[]));
+    let indexes = &[];
+    let counts = &[];
+    let alloc = bumpalo::Bump::new();
+    let _ = sum_aggregate_column_by_index_counts(&alloc, &col, counts, indexes);
+}
+
+#[test]
 fn we_can_aggregate_empty_columns() {
     let column_a = Column::BigInt::<TestScalar>(&[]);
     let column_b = Column::VarChar((&[], &[]));
