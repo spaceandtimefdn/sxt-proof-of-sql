@@ -68,6 +68,55 @@ fn we_can_aggregate_empty_columns() {
 }
 
 #[test]
+fn we_reject_aggregate_columns_with_mismatched_lengths() {
+    let alloc = Bump::new();
+    let selection = &[true, false, true];
+    let group_by = &[Column::BigInt::<TestScalar>(&[1, 2, 3])];
+    let sums = &[Column::Int128::<TestScalar>(&[10, 20, 30])];
+    let maxes = &[Column::Scalar(&[
+        TestScalar::from(100),
+        TestScalar::from(200),
+        TestScalar::from(300),
+    ])];
+    let mins = &[Column::Uint8::<TestScalar>(&[4, 5, 6])];
+
+    let short_group_by = &[Column::BigInt::<TestScalar>(&[1, 2])];
+    assert_eq!(
+        aggregate_columns(&alloc, short_group_by, sums, maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_sums = &[Column::Int128::<TestScalar>(&[10, 20])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, short_sums, maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_maxes = &[Column::Scalar(&[
+        TestScalar::from(100),
+        TestScalar::from(200),
+    ])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, sums, short_maxes, mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+
+    let short_mins = &[Column::Uint8::<TestScalar>(&[4, 5])];
+    assert_eq!(
+        aggregate_columns(&alloc, group_by, sums, maxes, short_mins, selection).unwrap_err(),
+        AggregateColumnsError::ColumnLengthMismatch
+    );
+}
+
+#[test]
+fn column_length_mismatch_displays_expected_message() {
+    assert_eq!(
+        AggregateColumnsError::ColumnLengthMismatch.to_string(),
+        "Column length mismatch"
+    );
+}
+
+#[test]
 fn we_can_aggregate_columns_with_empty_group_by_and_no_rows_selected() {
     let slice_c = &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111];
     let slice_d = &[200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211];
