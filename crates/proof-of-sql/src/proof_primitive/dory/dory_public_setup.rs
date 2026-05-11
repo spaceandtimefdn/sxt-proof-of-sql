@@ -57,3 +57,53 @@ impl<'a> DoryVerifierPublicSetup<'a> {
         self.verifier_setup
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DoryProverPublicSetup, DoryVerifierPublicSetup};
+    use crate::proof_primitive::dory::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+
+    #[test]
+    fn prover_public_setup_exposes_sigma_and_underlying_setup() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(2, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 3);
+
+        assert_eq!(setup.sigma(), 3);
+        assert!(core::ptr::eq(setup.prover_setup(), &prover_setup));
+
+        let copied_setup = setup;
+        assert_eq!(copied_setup.sigma(), 3);
+        assert!(core::ptr::eq(copied_setup.prover_setup(), &prover_setup));
+
+        let cloned_setup = setup.clone();
+        assert_eq!(cloned_setup.sigma(), 3);
+        assert!(core::ptr::eq(cloned_setup.prover_setup(), &prover_setup));
+    }
+
+    #[test]
+    fn verifier_public_setup_exposes_sigma_and_underlying_setup() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(2, &mut rng);
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let setup = DoryVerifierPublicSetup::new(&verifier_setup, 4);
+
+        assert_eq!(setup.sigma(), 4);
+        assert!(core::ptr::eq(setup.verifier_setup(), &verifier_setup));
+
+        let copied_setup = setup;
+        assert_eq!(copied_setup.sigma(), 4);
+        assert!(core::ptr::eq(
+            copied_setup.verifier_setup(),
+            &verifier_setup
+        ));
+
+        let cloned_setup = setup.clone();
+        assert_eq!(cloned_setup.sigma(), 4);
+        assert!(core::ptr::eq(
+            cloned_setup.verifier_setup(),
+            &verifier_setup
+        ));
+    }
+}
