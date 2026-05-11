@@ -90,3 +90,113 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proof_error_formats_top_level_variants() {
+        assert_eq!(
+            ProofError::VerificationError {
+                error: "bad evaluation"
+            }
+            .to_string(),
+            "Verification error: bad evaluation"
+        );
+        assert_eq!(
+            ProofError::UnsupportedQueryPlan {
+                error: "unsupported node"
+            }
+            .to_string(),
+            "Unsupported query plan: unsupported node"
+        );
+        assert_eq!(
+            ProofError::InvalidTypeCoercion.to_string(),
+            "Result does not match query: type mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldNamesMismatch.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldCountMismatch.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+
+    #[test]
+    fn proof_size_mismatch_formats_all_variants() {
+        let cases = [
+            (
+                ProofSizeMismatch::SumcheckProofTooSmall,
+                "Sumcheck proof is too small",
+            ),
+            (
+                ProofSizeMismatch::TooFewMLEEvaluations,
+                "Proof has too few MLE evaluations",
+            ),
+            (
+                ProofSizeMismatch::PostResultCountMismatch,
+                "Post result challenge count mismatch",
+            ),
+            (
+                ProofSizeMismatch::ConstraintCountMismatch,
+                "Constraint count mismatch",
+            ),
+            (
+                ProofSizeMismatch::TooFewBitDistributions,
+                "Proof has too few bit distributions",
+            ),
+            (
+                ProofSizeMismatch::TooFewChiLengths,
+                "Proof has too few one lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewRhoLengths,
+                "Proof has too few rho lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewSumcheckVariables,
+                "Proof has too few sumcheck variables",
+            ),
+            (
+                ProofSizeMismatch::ChiLengthNotFound,
+                "Proof doesn't have requested one length",
+            ),
+            (
+                ProofSizeMismatch::RhoLengthNotFound,
+                "Proof doesn't have requested rho length",
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn placeholder_error_formats_context() {
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderIndex {
+                index: 4,
+                num_params: 2
+            }
+            .to_string(),
+            "Invalid placeholder index: 4, number of params: 2"
+        );
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderType {
+                index: 1,
+                expected: ColumnType::Int,
+                actual: ColumnType::Boolean,
+            }
+            .to_string(),
+            "Invalid placeholder type: 1, expected: INT, actual: BOOLEAN"
+        );
+        assert_eq!(
+            PlaceholderError::ZeroPlaceholderId.to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+}
