@@ -6,8 +6,8 @@ use crate::{
     },
     sql::proof_exprs::{
         AddExpr, AndExpr, CastExpr, ColumnExpr, DynProofExpr, EqualsExpr, InequalityExpr,
-        LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr,
-        SubtractExpr,
+        IsNullExpr, LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr,
+        ScalingCastExpr, SubtractExpr,
     },
 };
 use alloc::boxed::Box;
@@ -29,6 +29,7 @@ pub(crate) enum EVMDynProofExpr {
     Inequality(EVMInequalityExpr),
     Placeholder(EVMPlaceholderExpr),
     ScalingCast(EVMScalingCastExpr),
+    IsNull(EVMIsNullExpr),
 }
 impl EVMDynProofExpr {
     /// Try to create an `EVMDynProofExpr` from a `DynProofExpr`.
@@ -67,6 +68,9 @@ impl EVMDynProofExpr {
             }
             DynProofExpr::Not(not_expr) => {
                 EVMNotExpr::try_from_proof_expr(not_expr, column_refs).map(Self::Not)
+            }
+            DynProofExpr::IsNull(is_null_expr) => {
+                EVMIsNullExpr::try_from_proof_expr(is_null_expr, column_refs).map(Self::IsNull)
             }
             DynProofExpr::Cast(cast_expr) => {
                 EVMCastExpr::try_from_proof_expr(cast_expr, column_refs).map(Self::Cast)
@@ -115,6 +119,9 @@ impl EVMDynProofExpr {
             }
             EVMDynProofExpr::Not(not_expr) => Ok(DynProofExpr::Not(
                 not_expr.try_into_proof_expr(column_refs)?,
+            )),
+            EVMDynProofExpr::IsNull(is_null_expr) => Ok(DynProofExpr::IsNull(
+                is_null_expr.try_into_proof_expr(column_refs)?,
             )),
             EVMDynProofExpr::Cast(cast_expr) => Ok(DynProofExpr::Cast(
                 cast_expr.try_into_proof_expr(column_refs)?,
@@ -537,6 +544,47 @@ impl EVMNotExpr {
         Ok(NotExpr::try_new(Box::new(
             self.expr.try_into_proof_expr(column_refs)?,
         ))?)
+    }
+}
+
+/// Represents an IS NULL or IS NOT NULL expression.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EVMIsNullExpr {
+    validity_expr: Box<EVMDynProofExpr>,
+    is_not_null: bool,
+}
+
+impl EVMIsNullExpr {
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) fn new(validity_expr: EVMDynProofExpr, is_not_null: bool) -> Self {
+        Self {
+            validity_expr: Box::new(validity_expr),
+            is_not_null,
+        }
+    }
+
+    /// Try to create an `EVMIsNullExpr` from an `IsNullExpr`.
+    pub(crate) fn try_from_proof_expr(
+        expr: &IsNullExpr,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<Self> {
+        Ok(EVMIsNullExpr {
+            validity_expr: Box::new(EVMDynProofExpr::try_from_proof_expr(
+                expr.validity_expr(),
+                column_refs,
+            )?),
+            is_not_null: expr.is_not_null(),
+        })
+    }
+
+    pub(crate) fn try_into_proof_expr(
+        &self,
+        column_refs: &IndexSet<ColumnRef>,
+    ) -> EVMProofPlanResult<IsNullExpr> {
+        Ok(IsNullExpr::try_new(
+            Box::new(self.validity_expr.try_into_proof_expr(column_refs)?),
+            self.is_not_null,
+        )?)
     }
 }
 

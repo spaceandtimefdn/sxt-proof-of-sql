@@ -1,6 +1,6 @@
 use super::{
-    AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr, MultiplyExpr,
-    NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr, SubtractExpr,
+    AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, IsNullExpr, LiteralExpr,
+    MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr, SubtractExpr,
 };
 use crate::{
     base::{
@@ -32,6 +32,8 @@ pub enum DynProofExpr {
     Or(OrExpr),
     /// Provable logical NOT expression
     Not(NotExpr),
+    /// Provable `IS NULL` or `IS NOT NULL` expression
+    IsNull(IsNullExpr),
     /// Provable CONST expression
     Literal(LiteralExpr),
     /// Provable placeholder expression
@@ -68,6 +70,14 @@ impl DynProofExpr {
     /// Create logical NOT expression
     pub fn try_new_not(expr: DynProofExpr) -> AnalyzeResult<Self> {
         NotExpr::try_new(Box::new(expr)).map(DynProofExpr::Not)
+    }
+    /// Create an `IS NULL` expression over a nullable-column validity mask
+    pub fn try_new_is_null(validity_expr: DynProofExpr) -> AnalyzeResult<Self> {
+        IsNullExpr::try_new(Box::new(validity_expr), false).map(DynProofExpr::IsNull)
+    }
+    /// Create an `IS NOT NULL` expression over a nullable-column validity mask
+    pub fn try_new_is_not_null(validity_expr: DynProofExpr) -> AnalyzeResult<Self> {
+        IsNullExpr::try_new(Box::new(validity_expr), true).map(DynProofExpr::IsNull)
     }
     /// Create CONST expression
     #[must_use]

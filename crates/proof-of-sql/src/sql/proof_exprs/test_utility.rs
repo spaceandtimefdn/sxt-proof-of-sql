@@ -65,6 +65,20 @@ pub fn not(expr: DynProofExpr) -> DynProofExpr {
 
 /// # Panics
 /// Panics if:
+/// - `DynProofExpr::try_new_is_null()` returns an error.
+pub fn is_null(expr: DynProofExpr) -> DynProofExpr {
+    DynProofExpr::try_new_is_null(expr).unwrap()
+}
+
+/// # Panics
+/// Panics if:
+/// - `DynProofExpr::try_new_is_not_null()` returns an error.
+pub fn is_not_null(expr: DynProofExpr) -> DynProofExpr {
+    DynProofExpr::try_new_is_not_null(expr).unwrap()
+}
+
+/// # Panics
+/// Panics if:
 /// - `DynProofExpr::try_new_and()` returns an error.
 pub fn and(left: DynProofExpr, right: DynProofExpr) -> DynProofExpr {
     DynProofExpr::try_new_and(left, right).unwrap()
