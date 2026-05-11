@@ -147,3 +147,80 @@ impl ProofExpr for AndExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{Column, TableOptions},
+            map::IndexMap,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::collections::VecDeque;
+
+    fn empty_table(row_count: usize) -> Table<'static, TestScalar> {
+        Table::try_new_with_options(IndexMap::default(), TableOptions::new(Some(row_count)))
+            .unwrap()
+    }
+
+    fn bool_expr(value: bool) -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(value)))
+    }
+
+    #[test]
+    fn try_new_accepts_boolean_inputs_and_exposes_children() {
+        let lhs = bool_expr(true);
+        let rhs = bool_expr(false);
+        let expr = AndExpr::try_new(lhs.clone(), rhs.clone()).unwrap();
+
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+        assert_eq!(expr.lhs(), lhs.as_ref());
+        assert_eq!(expr.rhs(), rhs.as_ref());
+    }
+
+    #[test]
+    fn first_and_final_round_evaluate_boolean_literals() {
+        let alloc = Bump::new();
+        let table = empty_table(3);
+        let expr = AndExpr::try_new(bool_expr(true), bool_expr(false)).unwrap();
+
+        let first_round = expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(first_round, Column::Boolean(&[false, false, false]));
+
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round, Column::Boolean(&[false, false, false]));
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    }
+
+    #[test]
+    fn verifier_evaluate_consumes_and_witness_and_checks_identity() {
+        let chi_eval = TestScalar::from(5u64);
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![vec![TestScalar::ZERO]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let expr = AndExpr::try_new(bool_expr(true), bool_expr(false)).unwrap();
+
+        let result = expr
+            .verifier_evaluate(&mut builder, &IndexMap::default(), chi_eval, &[])
+            .unwrap();
+
+        assert_eq!(result, TestScalar::ZERO);
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![TestScalar::ZERO]]
+        );
+    }
+}
