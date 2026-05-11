@@ -92,4 +92,47 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn find_bigdecimals_ignores_decimal_columns_with_supported_precision() {
+        let sql = "CREATE TABLE PUBLIC.PRICES(
+            ID BIGINT NOT NULL,
+            NORMAL_AMOUNT DECIMAL(38, 2),
+            BIG_AMOUNT DECIMAL(39, 2),
+            UNSCALED_AMOUNT DECIMAL(78),
+            NAME VARCHAR
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+        assert_eq!(
+            bigdecimals.get("PUBLIC.PRICES").unwrap(),
+            &[("BIG_AMOUNT".to_string(), 39, 2)]
+        );
+    }
+
+    #[test]
+    fn find_bigdecimals_preserves_create_tables_without_bigdecimal_columns() {
+        let sql = "CREATE VIEW PUBLIC.PRICE_VIEW AS SELECT 1 AS ID;
+
+        CREATE TABLE PUBLIC.SMALL_DECIMALS(
+            ID BIGINT NOT NULL,
+            AMOUNT DECIMAL(10, 2)
+        );
+
+        CREATE TABLE PUBLIC.BIG_DECIMALS(
+            ID BIGINT NOT NULL,
+            AMOUNT DECIMAL(78, 2)
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+        assert!(!bigdecimals.contains_key("PUBLIC.PRICE_VIEW"));
+        assert_eq!(
+            bigdecimals.get("PUBLIC.SMALL_DECIMALS").unwrap(),
+            &Vec::<(String, u8, i8)>::new()
+        );
+        assert_eq!(
+            bigdecimals.get("PUBLIC.BIG_DECIMALS").unwrap(),
+            &[("AMOUNT".to_string(), 78, 2)]
+        );
+    }
 }
