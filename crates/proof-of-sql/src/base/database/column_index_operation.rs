@@ -120,7 +120,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::ColumnOperationError, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::ColumnOperationError,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_apply_index_op() {
@@ -154,6 +159,62 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_index_op_primitive_variants() {
+        let bump = Bump::new();
+        let indexes = [2, 0, 2];
+
+        let column: Column<TestScalar> = Column::Boolean(&[true, false, true]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::Boolean(&[true, true, true]));
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-5, 0, 7]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::TinyInt(&[7, -5, 7]));
+
+        let column: Column<TestScalar> = Column::Uint8(&[4, 5, 6]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::Uint8(&[6, 4, 6]));
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-20, 0, 30]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::SmallInt(&[30, -20, 30]));
+
+        let column: Column<TestScalar> = Column::BigInt(&[-200, 0, 300]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::BigInt(&[300, -200, 300]));
+
+        let column: Column<TestScalar> = Column::Int128(&[-2000, 0, 3000]);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(result, Column::Int128(&[3000, -2000, 3000]));
+
+        let decimal_scalars = [10, 20, 30].map(TestScalar::from);
+        let expected_decimal_scalars = [30, 10, 30].map(TestScalar::from);
+        let precision = Precision::new(12).unwrap();
+        let column = Column::Decimal75(precision, 2, &decimal_scalars);
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(
+            result,
+            Column::Decimal75(precision, 2, &expected_decimal_scalars)
+        );
+
+        let timezone = PoSQLTimeZone::new(-3 * 60 * 60);
+        let column: Column<TestScalar> = Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            timezone,
+            &[1_700_000_000_000, 1_700_000_001_000, 1_700_000_002_000],
+        );
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                timezone,
+                &[1_700_000_002_000, 1_700_000_000_000, 1_700_000_002_000],
+            )
+        );
+    }
+
+    #[test]
     fn test_apply_index_op_out_of_bound() {
         let bump = Bump::new();
         let column: Column<TestScalar> = Column::Int(&[1, 2, 3, 4, 5]);
@@ -162,6 +223,40 @@ mod tests {
         assert!(matches!(
             result,
             Err(ColumnOperationError::IndexOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_apply_index_op_out_of_bound_primitive_variants() {
+        let bump = Bump::new();
+        let indexes = [0, 3];
+
+        macro_rules! assert_index_out_of_bounds {
+            ($column:expr) => {
+                assert!(matches!(
+                    apply_column_to_indexes(&$column, &bump, &indexes),
+                    Err(ColumnOperationError::IndexOutOfBounds { index: 3, len: 3 })
+                ));
+            };
+        }
+
+        assert_index_out_of_bounds!(Column::<TestScalar>::Boolean(&[true, false, true]));
+        assert_index_out_of_bounds!(Column::<TestScalar>::TinyInt(&[-5, 0, 7]));
+        assert_index_out_of_bounds!(Column::<TestScalar>::Uint8(&[4, 5, 6]));
+        assert_index_out_of_bounds!(Column::<TestScalar>::SmallInt(&[-20, 0, 30]));
+        assert_index_out_of_bounds!(Column::<TestScalar>::BigInt(&[-200, 0, 300]));
+        assert_index_out_of_bounds!(Column::<TestScalar>::Int128(&[-2000, 0, 3000]));
+
+        let scalar_values = [10, 20, 30].map(TestScalar::from);
+        assert_index_out_of_bounds!(Column::Scalar(&scalar_values));
+
+        let precision = Precision::new(12).unwrap();
+        assert_index_out_of_bounds!(Column::Decimal75(precision, 2, &scalar_values));
+
+        assert_index_out_of_bounds!(Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[1_700_000_000_000, 1_700_000_001_000, 1_700_000_002_000],
         ));
     }
 
