@@ -300,6 +300,72 @@ mod tests {
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ff::MontFp;
+    use core::ops::Mul;
+
+    fn g1_multiple(multiplier: u64) -> G1Affine {
+        G1Affine::generator().mul(F::from(multiplier)).into_affine()
+    }
+
+    fn signed_commit(first: G1Affine, second: G1Affine, column_type: ColumnType) -> G1Affine {
+        (first + second.mul(min_as_f(column_type))).into_affine()
+    }
+
+    #[test]
+    fn we_can_get_minimum_field_offsets_by_column_type() {
+        assert_eq!(min_as_f(ColumnType::TinyInt), MontFp!("-128"));
+        assert_eq!(min_as_f(ColumnType::SmallInt), MontFp!("-32768"));
+        assert_eq!(min_as_f(ColumnType::Int), MontFp!("-2147483648"));
+        assert_eq!(
+            min_as_f(ColumnType::BigInt),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Int128),
+            MontFp!("-170141183460469231731687303715884105728")
+        );
+
+        for column_type in [
+            ColumnType::Decimal75(Precision::new(75).unwrap(), 0),
+            ColumnType::Uint8,
+            ColumnType::Scalar,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+            ColumnType::Boolean,
+        ] {
+            assert_eq!(min_as_f(column_type), F::from(0_u64));
+        }
+    }
+
+    #[test]
+    fn we_can_offset_signed_commits_by_column_type_minimums() {
+        let all_sub_commits = (1..=8).map(g1_multiple).collect::<Vec<_>>();
+        let committable_columns = [
+            CommittableColumn::TinyInt(&[1, 2]),
+            CommittableColumn::Uint8(&[3, 4]),
+        ];
+
+        let signed = signed_commits(&all_sub_commits, &committable_columns);
+
+        assert_eq!(
+            signed,
+            vec![
+                signed_commit(all_sub_commits[0], all_sub_commits[2], ColumnType::TinyInt),
+                signed_commit(all_sub_commits[1], all_sub_commits[3], ColumnType::Uint8),
+                signed_commit(all_sub_commits[4], all_sub_commits[6], ColumnType::TinyInt),
+                signed_commit(all_sub_commits[5], all_sub_commits[7], ColumnType::Uint8),
+            ]
+        );
+        assert!(signed_commits(&all_sub_commits, &[]).is_empty());
+    }
 
     fn assert_blitzar_metadata(
         committable_columns: &[CommittableColumn],
