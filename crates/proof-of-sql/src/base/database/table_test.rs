@@ -195,6 +195,36 @@ fn we_can_create_a_table_with_data() {
 }
 
 #[test]
+fn we_can_inspect_table_columns() {
+    let alloc = Bump::new();
+    let borrowed_table = table::<TestScalar>([
+        borrowed_bigint("a", [10_i64, 20], &alloc),
+        borrowed_boolean("b", [true, false], &alloc),
+    ]);
+
+    assert!(!borrowed_table.is_empty());
+    assert_eq!(
+        borrowed_table
+            .column_names()
+            .map(|name| name.value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["a", "b"]
+    );
+    assert_eq!(
+        borrowed_table
+            .columns()
+            .map(Column::len)
+            .collect::<Vec<_>>(),
+        vec![2, 2]
+    );
+
+    match &borrowed_table["a"] {
+        Column::BigInt(values) => assert_eq!(*values, &[10_i64, 20]),
+        _ => panic!("expected bigint column"),
+    }
+}
+
+#[test]
 fn we_get_inequality_between_tables_with_differing_column_order() {
     let alloc = Bump::new();
 

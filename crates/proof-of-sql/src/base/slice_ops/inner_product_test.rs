@@ -123,6 +123,21 @@ fn test_inner_product_different_lengths() {
     assert_eq!(TestScalar::from(40), inner_product(&a, &b));
 }
 
+#[test]
+fn test_inner_product_ref_cast() {
+    let a = vec![1_i64, -2, 3];
+    let b = vec![
+        TestScalar::from(4_i64),
+        TestScalar::from(5_i64),
+        TestScalar::from(6_i64),
+    ];
+
+    assert_eq!(
+        TestScalar::from(12_i64),
+        inner_product_ref_cast::<i64, TestScalar>(&a, &b)
+    );
+}
+
 /// test inner producr with scalar
 #[test]
 fn test_inner_product_scalar() {

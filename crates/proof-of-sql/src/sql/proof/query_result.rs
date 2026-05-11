@@ -69,3 +69,46 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::QueryError;
+    use crate::base::{
+        database::{ColumnCoercionError, TableCoercionError},
+        proof::ProofError,
+    };
+
+    #[test]
+    fn we_can_convert_table_coercion_errors_to_query_errors() {
+        let overflow_error = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        });
+        assert!(matches!(overflow_error, QueryError::Overflow));
+
+        let type_error = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        });
+        assert!(matches!(
+            type_error,
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion
+            }
+        ));
+
+        let name_error = QueryError::from(TableCoercionError::NameMismatch);
+        assert!(matches!(
+            name_error,
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch
+            }
+        ));
+
+        let count_error = QueryError::from(TableCoercionError::ColumnCountMismatch);
+        assert!(matches!(
+            count_error,
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch
+            }
+        ));
+    }
+}
