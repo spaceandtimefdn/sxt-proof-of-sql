@@ -127,6 +127,7 @@ mod tests {
     use ahash::AHasher;
     use alloc::vec;
     use core::any::TypeId;
+    use datafusion::common::ScalarValue;
     use indexmap::indexmap_with_default;
     use proof_of_sql::base::database::{ColumnType, SchemaAccessorImpl, TableRef};
 
@@ -158,6 +159,11 @@ mod tests {
             table_source.as_any().type_id(),
             TypeId::of::<PoSqlTableSource>()
         );
+        let filter = Expr::Literal(ScalarValue::Boolean(Some(true)));
+        assert_eq!(
+            table_source.supports_filters_pushdown(&[&filter]).unwrap(),
+            vec![TableProviderFilterPushDown::Exact]
+        );
     }
 
     // PoSqlContextProvider
@@ -181,6 +187,15 @@ mod tests {
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
         assert_eq!(context_provider.get_window_meta(""), None);
+        assert_eq!(
+            context_provider
+                .options()
+                .sql_parser
+                .enable_ident_normalization,
+            ConfigOptions::default()
+                .sql_parser
+                .enable_ident_normalization
+        );
 
         // Non-empty
         let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;

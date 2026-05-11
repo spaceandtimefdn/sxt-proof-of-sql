@@ -112,14 +112,19 @@ pub fn get_table_refs_from_statement(
 
 #[cfg(test)]
 mod tests {
-    use super::get_table_refs_from_statement;
+    use super::{get_table_refs_from_statement, sql_to_proof_plans};
     use crate::{conversion::sql_to_posql_plans, PlannerResult};
+    use ahash::AHasher;
     use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
-    use indexmap::IndexSet;
+    use indexmap::{indexmap_with_default, IndexSet};
     use proof_of_sql::{
-        base::database::{TableRef, TableTestAccessor},
+        base::database::{
+            ColumnField, ColumnType, SchemaAccessorImpl, TableRef, TableTestAccessor,
+        },
         proof_primitive::dory::DynamicDoryEvaluationProof,
+        sql::proof_plans::DynProofPlan,
     };
+    use sqlparser::ast::Ident;
     use sqlparser::{dialect::GenericDialect, parser::Parser};
 
     #[test]
@@ -174,5 +179,21 @@ AND s.salary > (
             |a, _| -> PlannerResult<LogicalPlan> { Ok(a.clone()) },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn we_can_convert_sql_to_proof_plans() {
+        let statements =
+            Parser::parse_sql(&GenericDialect {}, "SELECT a FROM proof_table;").unwrap();
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "proof_table") => vec![("a".into(), ColumnType::BigInt)]
+        });
+        let result = sql_to_proof_plans(&statements, &schemas, &ConfigOptions::default()).unwrap();
+        let expected = vec![DynProofPlan::new_table(
+            TableRef::from_names(None, "proof_table"),
+            vec![ColumnField::new(Ident::new("a"), ColumnType::BigInt)],
+        )];
+
+        assert_eq!(result, expected);
     }
 }
