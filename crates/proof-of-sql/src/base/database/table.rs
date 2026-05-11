@@ -168,3 +168,63 @@ impl<'a, S: Scalar> core::ops::Index<&str> for Table<'a, S> {
         self.table.get(&Ident::new(index)).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{database::ColumnType, map::indexmap, scalar::test_scalar::TestScalar};
+
+    fn sample_table() -> Table<'static, TestScalar> {
+        Table::try_new(indexmap! {
+            "nums".into() => Column::BigInt(&[1, 2]),
+            "flags".into() => Column::Boolean(&[true, false]),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn schema_and_column_names_preserve_table_order() {
+        let table = sample_table();
+
+        assert_eq!(
+            table.schema(),
+            vec![
+                ColumnField::new(Ident::new("nums"), ColumnType::BigInt),
+                ColumnField::new(Ident::new("flags"), ColumnType::Boolean),
+            ]
+        );
+        assert_eq!(
+            table.column_names().cloned().collect::<Vec<_>>(),
+            vec![Ident::new("nums"), Ident::new("flags")]
+        );
+    }
+
+    #[test]
+    fn columns_and_column_accessors_return_expected_columns() {
+        let table = sample_table();
+
+        assert_eq!(
+            table.columns().copied().collect::<Vec<_>>(),
+            vec![Column::BigInt(&[1, 2]), Column::Boolean(&[true, false])]
+        );
+        assert_eq!(table.column(0), Some(&Column::BigInt(&[1, 2])));
+        assert_eq!(table.column(1), Some(&Column::Boolean(&[true, false])));
+        assert_eq!(table.column(2), None);
+    }
+
+    #[test]
+    fn inner_table_exposes_underlying_columns_by_name() {
+        let table = sample_table();
+        let inner_table = table.inner_table();
+
+        assert_eq!(inner_table.len(), 2);
+        assert_eq!(
+            inner_table.get(&Ident::new("nums")),
+            Some(&Column::BigInt(&[1, 2]))
+        );
+        assert_eq!(
+            inner_table.get(&Ident::new("flags")),
+            Some(&Column::Boolean(&[true, false]))
+        );
+    }
+}
