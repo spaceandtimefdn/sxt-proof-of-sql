@@ -1,4 +1,6 @@
 use super::{test_rng, DoryMessages, G1Affine, G2Affine, F, GT};
+use alloc::vec::Vec;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
 use ark_std::UniformRand;
 use merlin::Transcript;
 
@@ -288,4 +290,25 @@ fn verifier_messages_fail_when_prover_messages_are_out_of_order() {
         messages.prover_receive_F_message(&mut transcript),
         Pmessage9
     );
+}
+
+#[test]
+fn dory_messages_round_trip_through_canonical_serialization() {
+    let mut rng = test_rng();
+    let mut messages = DoryMessages::default();
+    let mut transcript = Transcript::new(b"serialization");
+
+    messages.prover_send_F_message(&mut transcript, F::rand(&mut rng));
+    messages.prover_send_G1_message(&mut transcript, G1Affine::rand(&mut rng));
+    messages.prover_send_G2_message(&mut transcript, G2Affine::rand(&mut rng));
+    messages.prover_send_GT_message(&mut transcript, GT::rand(&mut rng));
+
+    let mut bytes = Vec::new();
+    messages
+        .serialize_with_mode(&mut bytes, Compress::No)
+        .expect("serialize DoryMessages");
+    let decoded = DoryMessages::deserialize_with_mode(&mut &bytes[..], Compress::No, Validate::Yes)
+        .expect("deserialize DoryMessages");
+
+    assert_eq!(decoded, messages);
 }
