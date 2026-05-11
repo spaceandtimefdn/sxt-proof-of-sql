@@ -99,8 +99,109 @@ impl<C: Commitment> TableCommitment<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::base::{
+        commitment::naive_commitment::NaiveCommitment, database::ColumnType,
+        scalar::test_scalar::TestScalar,
+    };
+    use arrow::{
+        array::{Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use std::sync::Arc;
+
+    fn make_batch(a: Vec<i64>, b: Vec<&str>) -> RecordBatch {
+        RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("a", DataType::Int64, false),
+                Field::new("b", DataType::Utf8, false),
+            ])),
+            vec![
+                Arc::new(Int64Array::from(a)),
+                Arc::new(StringArray::from(b)),
+            ],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn batch_to_columns_converts_record_batch_fields() {
+        let batch = make_batch(vec![1, 2, 3], vec!["one", "two", "three"]);
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+
+        assert_eq!(columns.len(), 2);
+        assert_eq!(columns[0].0, "a".into());
+        assert!(matches!(columns[0].1, Column::BigInt([1, 2, 3])));
+
+        assert_eq!(columns[1].0, "b".into());
+        let Column::VarChar((values, scalars)) = columns[1].1 else {
+            panic!("expected varchar column");
+        };
+        assert_eq!(values, ["one", "two", "three"]);
+        assert_eq!(scalars.len(), values.len());
+    }
+
+    #[test]
+    fn batch_to_columns_returns_conversion_errors() {
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new("a", DataType::Int64, true)])),
+            vec![Arc::new(Int64Array::from(vec![Some(1), None]))],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        assert!(batch_to_columns::<TestScalar>(&batch, &alloc).is_err());
+    }
+
+    #[test]
+    fn record_batches_create_and_append_table_commitments() {
+        let first_batch = make_batch(vec![1, 2, 3], vec!["1", "2", "3"]);
+        let second_batch = make_batch(vec![4, 5], vec!["4", "5"]);
+
+        let mut commitment = TableCommitment::<NaiveCommitment>::try_from_record_batch_with_offset(
+            &first_batch,
+            2,
+            &(),
+        )
+        .unwrap();
+        assert_eq!(commitment.range(), &(2..5));
+        assert_eq!(commitment.num_rows(), 3);
+
+        commitment
+            .try_append_record_batch(&second_batch, &())
+            .unwrap();
+        assert_eq!(commitment.range(), &(2..7));
+        assert_eq!(commitment.num_rows(), 5);
+        let a_id: Ident = "a".into();
+        let b_id: Ident = "b".into();
+        assert_eq!(
+            commitment
+                .column_commitments()
+                .column_metadata()
+                .get(&a_id)
+                .unwrap()
+                .column_type(),
+            &ColumnType::BigInt
+        );
+        assert_eq!(
+            commitment
+                .column_commitments()
+                .column_metadata()
+                .get(&b_id)
+                .unwrap()
+                .column_type(),
+            &ColumnType::VarChar
+        );
+    }
+}
+
+#[cfg(all(test, feature = "blitzar"))]
+mod dory_tests {
     use super::*;
     use crate::base::{
         commitment::naive_commitment::NaiveCommitment, scalar::test_scalar::TestScalar,
