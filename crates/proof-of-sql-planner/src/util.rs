@@ -236,6 +236,18 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn we_cannot_convert_placeholder_with_unsupported_type() {
+        let placeholder = Placeholder {
+            id: "$1".to_string(),
+            data_type: Some(DataType::Float32),
+        };
+        assert!(matches!(
+            placeholder_to_placeholder_expr(&placeholder),
+            Err(PlannerError::UnsupportedDataType { .. })
+        ));
+    }
+
     // TableReference to TableRef
     #[test]
     fn we_can_convert_table_reference_to_table_ref() {
