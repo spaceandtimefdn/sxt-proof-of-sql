@@ -151,6 +151,15 @@ impl ProofExpr for PlaceholderExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        base::database::table_utility::{borrowed_bigint, table},
+        base::map::{IndexMap, IndexSet},
+        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::collections::VecDeque;
+    use sqlparser::ast::Ident;
+
     // new
     #[test]
     fn we_cannot_create_a_placeholder_with_zero_id() {
@@ -204,5 +213,56 @@ mod tests {
         let params = vec![LiteralValue::Boolean(true)];
         let res = placeholder_expr.interpolate(&params);
         assert_eq!(res.unwrap(), &LiteralValue::Boolean(true));
+    }
+
+    #[test]
+    fn we_can_evaluate_placeholder_expr_directly() {
+        let alloc = Bump::new();
+        let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [1_i64, 2, 3, 4], &alloc)]);
+        let expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(11)];
+
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+
+        let first_round = expr.first_round_evaluate(&alloc, &data, &params).unwrap();
+        assert_eq!(first_round, Column::BigInt(&[11, 11, 11, 11]));
+
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &data, &params)
+            .unwrap();
+        assert_eq!(final_round, Column::BigInt(&[11, 11, 11, 11]));
+    }
+
+    #[test]
+    fn we_can_verify_placeholder_expr_directly() {
+        let expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let accessor = IndexMap::<Ident, Curve25519Scalar>::default();
+        let params = [LiteralValue::BigInt(7)];
+
+        let res = expr
+            .verifier_evaluate(&mut builder, &accessor, Curve25519Scalar::from(3), &params)
+            .unwrap();
+
+        assert_eq!(res, Curve25519Scalar::from(21));
+    }
+
+    #[test]
+    fn placeholder_expr_has_no_column_references() {
+        let expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
+        let mut columns = IndexSet::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert!(columns.is_empty());
     }
 }

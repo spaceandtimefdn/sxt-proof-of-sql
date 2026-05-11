@@ -116,3 +116,82 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::*, Column, ColumnField, TableRef},
+            map::{IndexMap, IndexSet},
+        },
+        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::collections::VecDeque;
+
+    #[test]
+    fn we_can_evaluate_column_expr_directly() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "a".into(), ColumnType::BigInt);
+        let expr = ColumnExpr::new(column_ref.clone());
+        let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [5_i64, 8, 13], &alloc)]);
+
+        assert_eq!(expr.get_column_reference(), column_ref);
+        assert_eq!(expr.column_ref(), &column_ref);
+        assert_eq!(
+            expr.get_column_field(),
+            ColumnField::new("a".into(), ColumnType::BigInt)
+        );
+        assert_eq!(expr.column_id(), Ident::new("a"));
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+        assert_eq!(expr.fetch_column(&data), Column::BigInt(&[5, 8, 13]));
+
+        let first_round = expr.first_round_evaluate(&alloc, &data, &[]).unwrap();
+        assert_eq!(first_round, Column::BigInt(&[5, 8, 13]));
+
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &data, &[])
+            .unwrap();
+        assert_eq!(final_round, Column::BigInt(&[5, 8, 13]));
+    }
+
+    #[test]
+    fn we_can_verify_column_expr_directly() {
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "a".into(), ColumnType::BigInt);
+        let expr = ColumnExpr::new(column_ref.clone());
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let mut accessor = IndexMap::default();
+        accessor.insert("a".into(), Curve25519Scalar::from(987));
+
+        let res = expr
+            .verifier_evaluate(&mut builder, &accessor, Curve25519Scalar::from(123), &[])
+            .unwrap();
+
+        assert_eq!(res, Curve25519Scalar::from(987));
+    }
+
+    #[test]
+    fn column_expr_records_its_column_reference() {
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "a".into(), ColumnType::BigInt);
+        let expr = ColumnExpr::new(column_ref.clone());
+        let mut columns = IndexSet::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert_eq!(columns.len(), 1);
+        assert!(columns.contains(&column_ref));
+    }
+}
