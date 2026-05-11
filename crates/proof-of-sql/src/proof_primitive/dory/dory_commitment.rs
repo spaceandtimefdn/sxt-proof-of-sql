@@ -509,7 +509,10 @@ mod tests {
         let expected = DoryCommitment(commitment.0 * scalar.0);
 
         assert_eq!(scalar * commitment, expected);
-        assert_eq!(scalar * &commitment, expected);
+        assert_eq!(
+            <DoryScalar as core::ops::Mul<&DoryCommitment>>::mul(scalar, &commitment),
+            expected
+        );
     }
 
     #[test]

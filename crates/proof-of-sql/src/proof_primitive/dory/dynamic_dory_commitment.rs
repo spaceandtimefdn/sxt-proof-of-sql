@@ -131,7 +131,10 @@ mod tests {
         let expected = DynamicDoryCommitment(commitment.0 * scalar.0);
 
         assert_eq!(scalar * commitment, expected);
-        assert_eq!(scalar * &commitment, expected);
+        assert_eq!(
+            <DoryScalar as core::ops::Mul<&DynamicDoryCommitment>>::mul(scalar, &commitment),
+            expected
+        );
     }
 
     #[test]

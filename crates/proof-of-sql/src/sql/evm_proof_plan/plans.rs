@@ -986,6 +986,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn we_can_put_dyn_proof_plan_variants_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();
