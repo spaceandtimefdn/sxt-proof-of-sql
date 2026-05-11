@@ -225,6 +225,48 @@ impl Valid for PublicParameters {
 }
 
 #[cfg(test)]
+mod non_std_tests {
+    use super::*;
+
+    #[test]
+    fn test_rand_sets_expected_vector_lengths_and_validates() {
+        let mut rng = ark_std::test_rng();
+        let max_nu = 3;
+        let params = PublicParameters::test_rand(max_nu, &mut rng);
+
+        assert_eq!(params.Gamma_1.len(), 1 << max_nu);
+        assert_eq!(params.Gamma_2.len(), 1 << max_nu);
+        assert_eq!(params.max_nu, max_nu);
+        params
+            .check()
+            .expect("generated parameters should validate");
+    }
+
+    #[test]
+    fn canonical_serialized_size_matches_written_bytes() {
+        let mut rng = ark_std::test_rng();
+        let params = PublicParameters::test_rand(2, &mut rng);
+
+        let mut bytes = Vec::new();
+        params
+            .serialize_with_mode(&mut bytes, Compress::No)
+            .expect("serialize PublicParameters");
+
+        assert_eq!(params.serialized_size(Compress::No), bytes.len());
+
+        let decoded =
+            PublicParameters::deserialize_with_mode(&mut &bytes[..], Compress::No, Validate::Yes)
+                .expect("deserialize PublicParameters");
+        assert_eq!(decoded.Gamma_1, params.Gamma_1);
+        assert_eq!(decoded.Gamma_2, params.Gamma_2);
+        assert_eq!(decoded.H_1, params.H_1);
+        assert_eq!(decoded.H_2, params.H_2);
+        assert_eq!(decoded.Gamma_2_fin, params.Gamma_2_fin);
+        assert_eq!(decoded.max_nu, params.max_nu);
+    }
+}
+
+#[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
     use super::*;
