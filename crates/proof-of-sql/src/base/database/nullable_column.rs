@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use sqlparser::ast::Ident;
 
-/// Errors returned by nullable column proof-of-concept helpers.
+/// Errors returned by nullable column helpers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NullableColumnError {
     /// Two aligned nullable-column buffers must have the same length.
@@ -29,7 +29,7 @@ pub enum NullableColumnError {
         /// Right operand value.
         right: i64,
     },
-    /// The Arrow array type is not supported by this proof-of-concept wrapper.
+    /// The Arrow array type is not supported.
     UnsupportedArrowType {
         /// The unsupported Arrow datatype name.
         datatype: String,
@@ -57,14 +57,13 @@ impl fmt::Display for NullableColumnError {
     }
 }
 
-/// Result type for nullable column proof-of-concept helpers.
+/// Result type for nullable column helpers.
 pub type NullableColumnResult<T> = Result<T, NullableColumnError>;
 
-/// Proof-of-concept nullable `BIGINT` column backed by a value vector and a validity mask.
+/// Nullable `BIGINT` column backed by a value vector and a validity mask.
 ///
-/// This does not add a public SQL-facing nullable type yet. It provides the narrow
-/// data model needed for a sound POC: null rows are canonicalized to zero, and the
-/// validity mask can be committed and referenced by proof expressions separately.
+/// Null rows are stored as zero so that every logical column has one physical
+/// representation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NullableBigIntColumn {
     values: Vec<i64>,

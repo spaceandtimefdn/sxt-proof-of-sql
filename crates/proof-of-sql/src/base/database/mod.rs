@@ -78,7 +78,7 @@ mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
 
-/// Proof-of-concept nullable column helpers.
+/// Nullable column helpers.
 pub mod nullable_column;
 pub use nullable_column::{NullableBigIntColumn, NullableColumnError, NullableColumnResult};
 #[cfg(test)]

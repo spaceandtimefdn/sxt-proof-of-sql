@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 #[expect(clippy::too_many_lines)]
-fn we_can_prove_nullable_bigint_poc_with_committed_validity_mask() {
+fn we_can_prove_nullable_bigint_addition() {
     let nullable_score = NullableBigIntColumn::from_options([Some(5_i64), None, Some(9), Some(5)]);
     let bonus = [7_i64, 12, 1, 7];
     let nullable_sum = nullable_score.try_add_bigint(bonus).unwrap();
