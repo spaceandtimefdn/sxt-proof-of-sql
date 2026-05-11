@@ -184,3 +184,40 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::{
+        base::database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        sql::proof_exprs::{AliasedDynProofExpr, DynProofExpr, TableExpr},
+    };
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn new_legacy_filter_builds_legacy_filter_variant() {
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref.clone(), Ident::from("c"), ColumnType::BigInt);
+        let aliased_result = AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(column_ref),
+            alias: Ident::from("result"),
+        };
+        let input = TableExpr { table_ref };
+        let filter_expr = DynProofExpr::new_literal(LiteralValue::Boolean(true));
+
+        let plan = DynProofPlan::new_legacy_filter(
+            vec![aliased_result.clone()],
+            input.clone(),
+            filter_expr.clone(),
+        );
+
+        match plan {
+            DynProofPlan::LegacyFilter(filter) => {
+                assert_eq!(filter.aliased_results(), &[aliased_result]);
+                assert_eq!(filter.table(), &input);
+                assert_eq!(filter.where_clause(), &filter_expr);
+            }
+            other => panic!("expected legacy filter plan, got {other:?}"),
+        }
+    }
+}
