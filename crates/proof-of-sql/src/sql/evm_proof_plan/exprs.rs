@@ -1669,6 +1669,80 @@ mod tests {
     }
 
     #[test]
+    fn we_can_put_is_null_exprs_in_evm() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let valid_ref = ColumnRef::new(table_ref, "valid".into(), ColumnType::Boolean);
+        let column_refs = indexset! { valid_ref.clone() };
+
+        let is_null_expr =
+            IsNullExpr::try_new(Box::new(DynProofExpr::new_column(valid_ref.clone())), false)
+                .unwrap();
+        let evm_is_null = EVMIsNullExpr::try_from_proof_expr(&is_null_expr, &column_refs).unwrap();
+        assert_eq!(
+            evm_is_null,
+            EVMIsNullExpr::new(
+                EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+                false
+            )
+        );
+        assert_eq!(
+            evm_is_null.try_into_proof_expr(&column_refs).unwrap(),
+            is_null_expr
+        );
+
+        let is_not_null_expr =
+            IsNullExpr::try_new(Box::new(DynProofExpr::new_column(valid_ref)), true).unwrap();
+        let evm_is_not_null =
+            EVMIsNullExpr::try_from_proof_expr(&is_not_null_expr, &column_refs).unwrap();
+        assert_eq!(
+            evm_is_not_null,
+            EVMIsNullExpr::new(
+                EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+                true
+            )
+        );
+        assert_eq!(
+            evm_is_not_null.try_into_proof_expr(&column_refs).unwrap(),
+            is_not_null_expr
+        );
+    }
+
+    #[test]
+    fn we_can_put_is_null_with_nested_boolean_validity_expr_in_evm() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let left_ref = ColumnRef::new(table_ref.clone(), "left_valid".into(), ColumnType::Boolean);
+        let right_ref = ColumnRef::new(table_ref, "right_valid".into(), ColumnType::Boolean);
+        let column_refs = indexset! { left_ref.clone(), right_ref.clone() };
+        let validity_expr = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(left_ref),
+            DynProofExpr::new_column(right_ref),
+        )
+        .unwrap();
+        let is_null_expr = IsNullExpr::try_new(Box::new(validity_expr), false).unwrap();
+
+        let evm = EVMDynProofExpr::try_from_proof_expr(
+            &DynProofExpr::IsNull(is_null_expr.clone()),
+            &column_refs,
+        )
+        .unwrap();
+
+        assert_eq!(
+            evm,
+            EVMDynProofExpr::IsNull(EVMIsNullExpr::new(
+                EVMDynProofExpr::And(EVMAndExpr::new(
+                    EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+                    EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+                )),
+                false,
+            ))
+        );
+        assert_eq!(
+            evm.try_into_proof_expr(&column_refs).unwrap(),
+            DynProofExpr::IsNull(is_null_expr)
+        );
+    }
+
+    #[test]
     fn we_can_catch_evm_dyn_proof_expr_variant_order_change() {
         fn assert_variant_tag(expr: EVMDynProofExpr, expected_tag: u32) {
             let bytes = try_standard_binary_serialization(expr).unwrap();
