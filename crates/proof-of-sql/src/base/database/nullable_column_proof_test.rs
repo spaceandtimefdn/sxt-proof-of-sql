@@ -67,6 +67,44 @@ fn we_can_prove_nullable_bigint_addition() {
         where_clause,
     );
 
+    let mismatched_validity_clause = not(equal(
+        column(&t, "score_valid", &accessor),
+        column(&t, "sum_valid", &accessor),
+    ));
+    let mismatched_validity_expr = filter(
+        vec![
+            col_expr_plan(&t, "score_valid", &accessor),
+            col_expr_plan(&t, "sum_valid", &accessor),
+        ],
+        table_exec(
+            t.clone(),
+            vec![
+                column_field("score_value", ColumnType::BigInt),
+                column_field("score_valid", ColumnType::Boolean),
+                column_field("sum_value", ColumnType::BigInt),
+                column_field("sum_valid", ColumnType::Boolean),
+                column_field("bonus", ColumnType::BigInt),
+            ],
+        ),
+        mismatched_validity_clause,
+    );
+    let mismatched_validity_res = VerifiableQueryResult::<NaiveEvaluationProof>::new(
+        &mismatched_validity_expr,
+        &accessor,
+        &(),
+        &[],
+    )
+    .unwrap();
+    let mismatched_validity_table = mismatched_validity_res
+        .verify(&mismatched_validity_expr, &accessor, &(), &[])
+        .unwrap()
+        .table;
+    let expected_mismatched_validity = owned_table([
+        boolean("score_valid", core::iter::empty::<bool>()),
+        boolean("sum_valid", core::iter::empty::<bool>()),
+    ]);
+    assert_eq!(mismatched_validity_table, expected_mismatched_validity);
+
     let tampered_nullable_score = NullableBigIntColumn::try_new(
         nullable_score.values().to_vec(),
         vec![true, true, true, true],
