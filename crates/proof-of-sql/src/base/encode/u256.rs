@@ -35,3 +35,49 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn from_words_keeps_low_and_high_halves() {
+        let value = U256::from_words(123, 456);
+
+        assert_eq!(value.low, 123);
+        assert_eq!(value.high, 456);
+    }
+
+    #[test]
+    fn mont_scalar_to_u256_uses_little_endian_word_layout() {
+        let scalar = TestScalar::from([1, 2, 3, 4]);
+
+        let value = U256::from(&scalar);
+
+        assert_eq!(value.low, u128::from(1_u64) | (u128::from(2_u64) << 64));
+        assert_eq!(value.high, u128::from(3_u64) | (u128::from(4_u64) << 64));
+    }
+
+    #[test]
+    fn u256_to_mont_scalar_uses_little_endian_word_layout() {
+        let value = U256::from_words(
+            u128::from(11_u64) | (u128::from(22_u64) << 64),
+            u128::from(33_u64) | (u128::from(44_u64) << 64),
+        );
+
+        let scalar: TestScalar = (&value).into();
+
+        assert_eq!(scalar, TestScalar::from([11, 22, 33, 44]));
+    }
+
+    #[test]
+    fn u256_roundtrips_back_into_the_same_scalar() {
+        let original = TestScalar::from([9, 8, 7, 6]);
+
+        let value = U256::from(&original);
+        let recovered: TestScalar = (&value).into();
+
+        assert_eq!(recovered, original);
+    }
+}
