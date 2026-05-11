@@ -109,6 +109,7 @@ mod tests {
         proof_primitive::dory::{test_rng, DoryScalar, ProverSetup, PublicParameters},
     };
     use ark_ff::UniformRand;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
@@ -131,6 +132,18 @@ mod tests {
 
         assert_eq!(scalar * commitment, expected);
         assert_eq!(scalar * &commitment, expected);
+    }
+
+    #[test]
+    fn dynamic_dory_commitments_round_trip_through_canonical_serialization() {
+        let mut rng = StdRng::seed_from_u64(44);
+        let commitment = DynamicDoryCommitment(GT::rand(&mut rng));
+        let mut bytes = Vec::new();
+
+        commitment.serialize_compressed(&mut bytes).unwrap();
+        let decoded = DynamicDoryCommitment::deserialize_compressed(bytes.as_slice()).unwrap();
+
+        assert_eq!(decoded, commitment);
     }
 
     /// Under no circumstances should this test be modified. Unless you know what you're doing.

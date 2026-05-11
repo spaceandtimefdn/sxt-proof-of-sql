@@ -101,6 +101,13 @@ fn verify_rejects_proofs_with_invalid_coefficient_count() {
     ));
 }
 
+#[should_panic(expected = "Attempt to prove a constant.")]
+#[test]
+fn prover_state_rejects_constant_polynomials() {
+    let polynomial = CompositePolynomial::<Curve25519Scalar>::new(0);
+    ProverState::create(&polynomial);
+}
+
 fn random_product(
     nv: usize,
     num_multiplicands: usize,

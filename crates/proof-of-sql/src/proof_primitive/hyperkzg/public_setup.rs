@@ -163,4 +163,23 @@ mod std_tests {
             4,
         );
     }
+
+    #[test]
+    fn reader_errors_are_returned_as_deserialization_errors() {
+        struct FailingReader;
+
+        impl std::io::Read for FailingReader {
+            fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("read failed"))
+            }
+        }
+
+        assert!(
+            deserialize_flat_compressed_hyperkzg_public_setup_from_reader(
+                FailingReader,
+                Validate::Yes
+            )
+            .is_err()
+        );
+    }
 }

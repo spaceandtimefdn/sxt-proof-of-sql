@@ -124,3 +124,23 @@ impl DoryMessages {
         (message, message_inv)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DoryMessages;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
+    #[test]
+    fn empty_dory_messages_round_trip_through_derived_traits() {
+        let messages = DoryMessages::default();
+        let cloned = messages.clone();
+        let mut bytes = Vec::new();
+
+        messages.serialize_compressed(&mut bytes).unwrap();
+        let decoded = DoryMessages::deserialize_compressed(bytes.as_slice()).unwrap();
+
+        assert_eq!(decoded, messages);
+        assert_eq!(cloned, messages);
+        assert!(format!("{messages:?}").contains("DoryMessages"));
+    }
+}
