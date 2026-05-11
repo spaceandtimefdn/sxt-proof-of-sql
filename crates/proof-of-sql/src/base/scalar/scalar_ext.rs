@@ -24,12 +24,12 @@ pub trait ScalarExt: Scalar {
     /// Converts a U256 to Scalar, wrapping as needed
     fn from_wrapping(value: U256) -> Self {
         let value_as_limbs: [u64; 4] = value.into();
-        Self::from(value_as_limbs)
+        Self::from_limbs(value_as_limbs)
     }
 
     /// Converts a Scalar to U256. Note that any values above `MAX_SIGNED` shall remain positive, even if they are representative of negative values.
     fn into_u256_wrapping(self) -> U256 {
-        U256::from(Into::<[u64; 4]>::into(self))
+        U256::from(self.limbs())
     }
 
     /// Converts a byte slice to a Scalar using a hash function, preventing collisions.
@@ -102,7 +102,7 @@ mod tests {
             u64::from_le_bytes(limbs_native[2].to_le_bytes()),
             u64::from_le_bytes(limbs_native[3].to_le_bytes()),
         ];
-        let scalar_from_ref = TestScalar::from(limbs_le);
+        let scalar_from_ref = TestScalar::from_limbs(limbs_le);
 
         assert_eq!(
             scalar_from_bytes, scalar_from_ref,
