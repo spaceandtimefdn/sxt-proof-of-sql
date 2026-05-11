@@ -371,3 +371,156 @@ where
             .min_by(super::super::scalar::ScalarExt::signed_cmp)
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn aggregate_columns_rejects_columns_with_mismatched_lengths() {
+        let alloc = Bump::new();
+        let group_by = [Column::<TestScalar>::BigInt(&[1, 2])];
+        let sum_columns = [Column::<TestScalar>::Int(&[10])];
+        let selection = [true, true];
+
+        assert!(matches!(
+            aggregate_columns(&alloc, &group_by, &sum_columns, &[], &[], &selection),
+            Err(AggregateColumnsError::ColumnLengthMismatch)
+        ));
+    }
+
+    #[test]
+    fn sum_aggregate_column_supports_integer_variants() {
+        let alloc = Bump::new();
+        let counts = [2, 1];
+        let indexes = [2, 0, 1];
+
+        let uint8_column = Column::<TestScalar>::Uint8(&[1, 2, 3]);
+        assert_eq!(
+            sum_aggregate_column_by_index_counts(&alloc, &uint8_column, &counts, &indexes),
+            &[TestScalar::from(4), TestScalar::from(2)]
+        );
+
+        let tinyint_column = Column::<TestScalar>::TinyInt(&[-1, 2, -3]);
+        assert_eq!(
+            sum_aggregate_column_by_index_counts(&alloc, &tinyint_column, &counts, &indexes),
+            &[TestScalar::from(-4), TestScalar::from(2)]
+        );
+
+        let smallint_column = Column::<TestScalar>::SmallInt(&[10, 20, 30]);
+        assert_eq!(
+            sum_aggregate_column_by_index_counts(&alloc, &smallint_column, &counts, &indexes),
+            &[TestScalar::from(40), TestScalar::from(20)]
+        );
+
+        let int_column = Column::<TestScalar>::Int(&[100, 200, 300]);
+        assert_eq!(
+            sum_aggregate_column_by_index_counts(&alloc, &int_column, &counts, &indexes),
+            &[TestScalar::from(400), TestScalar::from(200)]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "SUM can not be applied to non-numeric types")]
+    fn sum_aggregate_column_rejects_non_numeric_columns() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::Boolean(&[true, false]);
+
+        let _ = sum_aggregate_column_by_index_counts(&alloc, &column, &[1], &[0]);
+    }
+
+    #[test]
+    fn max_and_min_aggregate_columns_support_remaining_ordered_variants() {
+        let alloc = Bump::new();
+        let counts = [2, 2];
+        let indexes = [3, 0, 1, 2];
+
+        let boolean_column = Column::<TestScalar>::Boolean(&[false, true, false, true]);
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &boolean_column, &counts, &indexes),
+            &[Some(TestScalar::from(&true)), Some(TestScalar::from(&true))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &boolean_column, &counts, &indexes),
+            &[
+                Some(TestScalar::from(&false)),
+                Some(TestScalar::from(&false))
+            ]
+        );
+
+        let uint8_column = Column::<TestScalar>::Uint8(&[10, 2, 9, 4]);
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &uint8_column, &counts, &indexes),
+            &[Some(TestScalar::from(10)), Some(TestScalar::from(9))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &uint8_column, &counts, &indexes),
+            &[Some(TestScalar::from(4)), Some(TestScalar::from(2))]
+        );
+
+        let tinyint_column = Column::<TestScalar>::TinyInt(&[-10, 2, -9, 4]);
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &tinyint_column, &counts, &indexes),
+            &[Some(TestScalar::from(4)), Some(TestScalar::from(2))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &tinyint_column, &counts, &indexes),
+            &[Some(TestScalar::from(-10)), Some(TestScalar::from(-9))]
+        );
+
+        let smallint_column = Column::<TestScalar>::SmallInt(&[10, -2, 9, -4]);
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &smallint_column, &counts, &indexes),
+            &[Some(TestScalar::from(10)), Some(TestScalar::from(9))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &smallint_column, &counts, &indexes),
+            &[Some(TestScalar::from(-4)), Some(TestScalar::from(-2))]
+        );
+
+        let int_column = Column::<TestScalar>::Int(&[100, -20, 90, -40]);
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &int_column, &counts, &indexes),
+            &[Some(TestScalar::from(100)), Some(TestScalar::from(90))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &int_column, &counts, &indexes),
+            &[Some(TestScalar::from(-40)), Some(TestScalar::from(-20))]
+        );
+
+        let decimals = [
+            TestScalar::from(100),
+            TestScalar::from(-20),
+            TestScalar::from(90),
+            TestScalar::from(-40),
+        ];
+        let decimal_column = Column::Decimal75(Precision::new(10).unwrap(), 2, decimals.as_slice());
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &decimal_column, &counts, &indexes),
+            &[Some(TestScalar::from(100)), Some(TestScalar::from(90))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &decimal_column, &counts, &indexes),
+            &[Some(TestScalar::from(-40)), Some(TestScalar::from(-20))]
+        );
+
+        let timestamp_column = Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[100, -20, 90, -40],
+        );
+        assert_eq!(
+            max_aggregate_column_by_index_counts(&alloc, &timestamp_column, &counts, &indexes),
+            &[Some(TestScalar::from(100)), Some(TestScalar::from(90))]
+        );
+        assert_eq!(
+            min_aggregate_column_by_index_counts(&alloc, &timestamp_column, &counts, &indexes),
+            &[Some(TestScalar::from(-40)), Some(TestScalar::from(-20))]
+        );
+    }
+}
