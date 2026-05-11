@@ -122,8 +122,147 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+        },
+        database::{
+            owned_table_utility::*, ColumnType, OwnedTable, OwnedTableTestAccessor, TableRef,
+            TestAccessor,
+        },
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn query_commitments_expose_metadata_schema_and_commitments() {
+        let column_a_id: Ident = "column_a".into();
+        let column_b_id: Ident = "column_b".into();
+
+        let table_a: OwnedTable<TestScalar> = owned_table([
+            bigint(column_a_id.value.as_str(), [1, 2, 3, 4]),
+            varchar(
+                column_b_id.value.as_str(),
+                ["Lorem", "ipsum", "dolor", "sit"],
+            ),
+        ]);
+        let table_b: OwnedTable<TestScalar> =
+            owned_table([scalar(column_a_id.value.as_str(), [1, 2])]);
+
+        let table_a_commitment =
+            TableCommitment::<NaiveCommitment>::from_owned_table_with_offset(&table_a, 2, &());
+        let table_a_id = TableRef::new("table", "a");
+        let table_b_commitment =
+            TableCommitment::<NaiveCommitment>::from_owned_table_with_offset(&table_b, 0, &());
+        let table_b_id = TableRef::new("table", "b");
+
+        let query_commitments = QueryCommitments::from_iter([
+            (table_a_id.clone(), table_a_commitment.clone()),
+            (table_b_id.clone(), table_b_commitment.clone()),
+        ]);
+
+        assert_eq!(query_commitments.get_offset(&table_a_id), 2);
+        assert_eq!(query_commitments.get_length(&table_a_id), 4);
+        assert_eq!(query_commitments.get_offset(&table_b_id), 0);
+        assert_eq!(query_commitments.get_length(&table_b_id), 2);
+
+        assert_eq!(
+            query_commitments.lookup_column(&table_a_id, &column_a_id),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_a_id, &column_b_id),
+            Some(ColumnType::VarChar)
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_b_id, &column_a_id),
+            Some(ColumnType::Scalar)
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_b_id, &column_b_id),
+            None
+        );
+        assert_eq!(
+            query_commitments.lookup_schema(&table_a_id),
+            vec![
+                (column_a_id.clone(), ColumnType::BigInt),
+                (column_b_id.clone(), ColumnType::VarChar),
+            ]
+        );
+
+        assert_eq!(
+            query_commitments.get_commitment(&table_a_id, &column_a_id),
+            table_a_commitment.column_commitments().commitments()[0]
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_a_id, &column_b_id),
+            table_a_commitment.column_commitments().commitments()[1]
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_b_id, &column_a_id),
+            table_b_commitment.column_commitments().commitments()[0]
+        );
+    }
+
+    #[test]
+    fn query_commitments_from_accessor_groups_columns_by_table() {
+        let column_a_id: Ident = "column_a".into();
+        let column_b_id: Ident = "column_b".into();
+
+        let table_a: OwnedTable<TestScalar> = owned_table([
+            bigint(column_a_id.value.as_str(), [1, 2, 3]),
+            varchar(column_b_id.value.as_str(), ["a", "b", "c"]),
+        ]);
+        let table_b: OwnedTable<TestScalar> = owned_table([
+            scalar(column_a_id.value.as_str(), [10, 20]),
+            int128(column_b_id.value.as_str(), [100, 200]),
+        ]);
+
+        let table_a_id = TableRef::new("table", "a");
+        let table_b_id = TableRef::new("table", "b");
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(table_a_id.clone(), table_a, 1);
+        accessor.add_table(table_b_id.clone(), table_b, 4);
+
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_b_id.clone(), column_b_id.clone(), ColumnType::Int128),
+                ColumnRef::new(table_a_id.clone(), column_b_id.clone(), ColumnType::VarChar),
+                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
+            ],
+            &accessor,
+        );
+
+        assert_eq!(query_commitments.get_offset(&table_a_id), 1);
+        assert_eq!(query_commitments.get_length(&table_a_id), 3);
+        assert_eq!(query_commitments.get_offset(&table_b_id), 4);
+        assert_eq!(query_commitments.get_length(&table_b_id), 2);
+        assert_eq!(
+            query_commitments.lookup_schema(&table_a_id),
+            vec![
+                (column_a_id.clone(), ColumnType::BigInt),
+                (column_b_id.clone(), ColumnType::VarChar),
+            ]
+        );
+        assert_eq!(
+            query_commitments.lookup_schema(&table_b_id),
+            vec![(column_b_id.clone(), ColumnType::Int128)]
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_a_id, &column_a_id),
+            accessor.get_commitment(&table_a_id, &column_a_id)
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_b_id, &column_b_id),
+            accessor.get_commitment(&table_b_id, &column_b_id)
+        );
+    }
+}
+
+#[cfg(all(test, feature = "blitzar"))]
+mod dory_tests {
     use super::*;
     use crate::{
         base::{

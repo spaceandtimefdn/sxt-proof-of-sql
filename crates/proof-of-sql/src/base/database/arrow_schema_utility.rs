@@ -35,3 +35,39 @@ pub fn get_posql_compatible_schema(schema: &SchemaRef) -> SchemaRef {
 
     Arc::new(Schema::new(new_fields))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn posql_compatible_schema_converts_float_fields_and_preserves_others() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("float16", DataType::Float16, false),
+            Field::new("float32", DataType::Float32, true),
+            Field::new("float64", DataType::Float64, false),
+            Field::new("int64", DataType::Int64, true),
+            Field::new("text", DataType::Utf8, false),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(
+            converted
+                .fields()
+                .iter()
+                .map(|field| field.data_type())
+                .collect::<Vec<_>>(),
+            vec![
+                &DataType::Decimal256(20, 10),
+                &DataType::Decimal256(20, 10),
+                &DataType::Decimal256(20, 10),
+                &DataType::Int64,
+                &DataType::Utf8,
+            ]
+        );
+        assert_eq!(converted.field(1).name(), "float32");
+        assert!(converted.field(1).is_nullable());
+        assert!(!converted.field(4).is_nullable());
+    }
+}

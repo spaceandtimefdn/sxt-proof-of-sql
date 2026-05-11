@@ -69,3 +69,60 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::{ColumnCoercionError, TableCoercionError},
+        proof::ProofError,
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn table_coercion_errors_map_to_query_errors() {
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCoercionError {
+                source: ColumnCoercionError::Overflow,
+            }),
+            QueryError::Overflow
+        ));
+
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCoercionError {
+                source: ColumnCoercionError::InvalidTypeCoercion,
+            }),
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion,
+            }
+        ));
+
+        assert!(matches!(
+            QueryError::from(TableCoercionError::NameMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch,
+            }
+        ));
+
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCountMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch,
+            }
+        ));
+    }
+
+    #[test]
+    fn query_data_can_hold_verified_table_metadata() {
+        let table = OwnedTable::<TestScalar>::try_from_iter([]).unwrap();
+        let query_data = QueryData {
+            table: table.clone(),
+            verification_hash: [7; 32],
+        };
+        let query_result: QueryResult<TestScalar> = Ok(query_data);
+
+        let query_data = query_result.unwrap();
+        assert_eq!(query_data.table, table);
+        assert_eq!(query_data.verification_hash, [7; 32]);
+    }
+}

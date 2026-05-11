@@ -69,3 +69,94 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProvableResultColumn;
+    use crate::base::{
+        database::Column,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+    use alloc::vec::Vec;
+
+    fn assert_column_encodes_like_slice<'a, T>(column: Column<'a, TestScalar>, expected: &'a [T])
+    where
+        T: crate::sql::proof::ProvableResultElement<'a>,
+    {
+        let length = expected.len() as u64;
+        let expected_len = expected.num_bytes(length);
+        assert_eq!(column.num_bytes(length), expected_len);
+
+        let mut column_bytes = vec![0; expected_len];
+        let mut expected_bytes = vec![0; expected_len];
+
+        assert_eq!(column.write(&mut column_bytes, length), expected_len);
+        assert_eq!(expected.write(&mut expected_bytes, length), expected_len);
+        assert_eq!(column_bytes, expected_bytes);
+    }
+
+    #[test]
+    fn columns_delegate_result_serialization_to_their_values() {
+        let booleans = [true, false];
+        assert_column_encodes_like_slice(Column::Boolean(&booleans), &booleans);
+
+        let uints = [1_u8, 2];
+        assert_column_encodes_like_slice(Column::Uint8(&uints), &uints);
+
+        let tinyints = [-1_i8, 2];
+        assert_column_encodes_like_slice(Column::TinyInt(&tinyints), &tinyints);
+
+        let smallints = [-10_i16, 20];
+        assert_column_encodes_like_slice(Column::SmallInt(&smallints), &smallints);
+
+        let ints = [-100_i32, 200];
+        assert_column_encodes_like_slice(Column::Int(&ints), &ints);
+
+        let bigints = [-1_000_i64, 2_000];
+        assert_column_encodes_like_slice(Column::BigInt(&bigints), &bigints);
+        assert_column_encodes_like_slice(
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &bigints),
+            &bigints,
+        );
+
+        let int128s = [-10_000_i128, 20_000];
+        assert_column_encodes_like_slice(Column::Int128(&int128s), &int128s);
+
+        let scalars = [TestScalar::from(11), TestScalar::from(22)];
+        assert_column_encodes_like_slice(Column::Scalar(&scalars), &scalars);
+        assert_column_encodes_like_slice(
+            Column::Decimal75(Precision::new(75).unwrap(), 0, &scalars),
+            &scalars,
+        );
+
+        let strings = ["alpha", "beta"];
+        let string_scalars = strings
+            .iter()
+            .map(|value| TestScalar::from(*value))
+            .collect::<Vec<_>>();
+        assert_column_encodes_like_slice(Column::VarChar((&strings, &string_scalars)), &strings);
+
+        let bytes = [b"alpha".as_slice(), b"beta".as_slice()];
+        let byte_scalars = bytes
+            .iter()
+            .map(|value| TestScalar::from_le_bytes_mod_order(value))
+            .collect::<Vec<_>>();
+        assert_column_encodes_like_slice(Column::VarBinary((&bytes, &byte_scalars)), &bytes);
+    }
+
+    #[test]
+    fn arrays_delegate_result_serialization_to_their_slices() {
+        let values = [1_i32, 2, 3];
+        let length = values.len() as u64;
+        let expected_len = (&values[..]).num_bytes(length);
+        let mut array_bytes = vec![0; expected_len];
+        let mut slice_bytes = vec![0; expected_len];
+
+        assert_eq!(values.num_bytes(length), expected_len);
+        assert_eq!(values.write(&mut array_bytes, length), expected_len);
+        assert_eq!((&values[..]).write(&mut slice_bytes, length), expected_len);
+        assert_eq!(array_bytes, slice_bytes);
+    }
+}
