@@ -2,10 +2,11 @@ use super::{ProvableQueryResult, QueryError};
 use crate::base::scalar::test_scalar::TestScalar;
 use crate::{
     base::{
-        database::{Column, ColumnField, ColumnType},
+        database::{Column, ColumnField, ColumnType, OwnedColumn},
         math::decimal::Precision,
         polynomial::compute_evaluation_vector,
-        scalar::Scalar,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{Scalar, ScalarExt},
     },
     // proof_primitive::inner_product::TestScalar,
 };
@@ -149,6 +150,77 @@ fn we_can_evaluate_multiple_result_columns_as_mles_with_mixed_data_types() {
         TestScalar::from(5u64) * evaluation_vec[0] + TestScalar::from(9u64) * evaluation_vec[1],
     ];
     assert_eq!(evals, expected_evals);
+}
+
+#[expect(clippy::too_many_lines)]
+#[test]
+fn we_can_evaluate_additional_result_column_types_as_mles() {
+    let booleans = [true, false];
+    let uints = [1_u8, 2];
+    let tinyints = [-1_i8, 2];
+    let smallints = [-10_i16, 20];
+    let ints = [-100_i32, 200];
+    let timestamps = [1_000_i64, 2_000];
+    let scalars = [TestScalar::from(11), TestScalar::from(22)];
+    let strings = ["alpha", "beta"];
+    let string_scalars = strings
+        .iter()
+        .map(|value| TestScalar::from(*value))
+        .collect::<Vec<_>>();
+    let bytes = [b"foo".as_slice(), b"bar".as_slice()];
+    let byte_scalars = bytes
+        .iter()
+        .map(|value| TestScalar::from_le_bytes_mod_order(value))
+        .collect::<Vec<_>>();
+    let timezone = PoSQLTimeZone::new(3_600);
+
+    let cols = [
+        Column::Boolean(&booleans),
+        Column::Uint8(&uints),
+        Column::TinyInt(&tinyints),
+        Column::SmallInt(&smallints),
+        Column::Int(&ints),
+        Column::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, &timestamps),
+        Column::Decimal75(Precision::new(75).unwrap(), 0, &scalars),
+        Column::VarChar((&strings, &string_scalars)),
+        Column::VarBinary((&bytes, &byte_scalars)),
+    ];
+    let column_fields = [
+        ColumnField::new("bool_col".into(), ColumnType::Boolean),
+        ColumnField::new("uint_col".into(), ColumnType::Uint8),
+        ColumnField::new("tiny_col".into(), ColumnType::TinyInt),
+        ColumnField::new("small_col".into(), ColumnType::SmallInt),
+        ColumnField::new("int_col".into(), ColumnType::Int),
+        ColumnField::new(
+            "timestamp_col".into(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone),
+        ),
+        ColumnField::new(
+            "decimal_col".into(),
+            ColumnType::Decimal75(Precision::new(75).unwrap(), 0),
+        ),
+        ColumnField::new("varchar_col".into(), ColumnType::VarChar),
+        ColumnField::new("varbinary_col".into(), ColumnType::VarBinary),
+    ];
+
+    let res = ProvableQueryResult::new(2, &cols);
+    let evaluation_point = [TestScalar::ONE];
+    let evals = res.evaluate(&evaluation_point, 2, &column_fields).unwrap();
+
+    assert_eq!(
+        evals,
+        [
+            TestScalar::ZERO,
+            TestScalar::from(2_u64),
+            TestScalar::from(2_u64),
+            TestScalar::from(20_u64),
+            TestScalar::from(200_u64),
+            TestScalar::from(2_000_u64),
+            TestScalar::from(22_u64),
+            TestScalar::from("beta"),
+            TestScalar::from_byte_slice_via_hash(b"bar"),
+        ]
+    );
 }
 
 #[test]
@@ -334,6 +406,75 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_mixed_data_types() {
     )
     .unwrap();
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_convert_additional_result_column_types_to_owned_table() {
+    let booleans = [true, false];
+    let uints = [1_u8, 2];
+    let tinyints = [-1_i8, 2];
+    let smallints = [-10_i16, 20];
+    let ints = [-100_i32, 200];
+    let timestamps = [1_000_i64, 2_000];
+    let scalars = [TestScalar::from(11), TestScalar::from(22)];
+    let timezone = PoSQLTimeZone::new(3_600);
+    let cols = [
+        Column::Boolean(&booleans),
+        Column::Uint8(&uints),
+        Column::TinyInt(&tinyints),
+        Column::SmallInt(&smallints),
+        Column::Int(&ints),
+        Column::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, &timestamps),
+        Column::Scalar(&scalars),
+    ];
+    let column_fields = [
+        ColumnField::new("bool_col".into(), ColumnType::Boolean),
+        ColumnField::new("uint_col".into(), ColumnType::Uint8),
+        ColumnField::new("tiny_col".into(), ColumnType::TinyInt),
+        ColumnField::new("small_col".into(), ColumnType::SmallInt),
+        ColumnField::new("int_col".into(), ColumnType::Int),
+        ColumnField::new(
+            "timestamp_col".into(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone),
+        ),
+        ColumnField::new("scalar_col".into(), ColumnType::Scalar),
+    ];
+
+    let res = ProvableQueryResult::new(2, &cols);
+    let owned_table = res.to_owned_table::<TestScalar>(&column_fields).unwrap();
+
+    assert_eq!(
+        owned_table["bool_col"],
+        OwnedColumn::<TestScalar>::Boolean(vec![true, false])
+    );
+    assert_eq!(
+        owned_table["uint_col"],
+        OwnedColumn::<TestScalar>::Uint8(vec![1, 2])
+    );
+    assert_eq!(
+        owned_table["tiny_col"],
+        OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2])
+    );
+    assert_eq!(
+        owned_table["small_col"],
+        OwnedColumn::<TestScalar>::SmallInt(vec![-10, 20])
+    );
+    assert_eq!(
+        owned_table["int_col"],
+        OwnedColumn::<TestScalar>::Int(vec![-100, 200])
+    );
+    assert_eq!(
+        owned_table["timestamp_col"],
+        OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            timezone,
+            vec![1_000, 2_000],
+        )
+    );
+    assert_eq!(
+        owned_table["scalar_col"],
+        OwnedColumn::Scalar(vec![TestScalar::from(11), TestScalar::from(22)])
+    );
 }
 
 #[test]
