@@ -150,3 +150,98 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_filter, verify_evaluate_filter};
+    use crate::{
+        base::{
+            database::Column,
+            proof::{ProofError, ProofSizeMismatch},
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use bumpalo::Bump;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn we_can_verify_filter_base_constraints() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![vec![TestScalar::ONE, TestScalar::from(3u64)]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        verify_evaluate_filter(
+            &mut builder,
+            TestScalar::from(2u64),
+            TestScalar::ZERO,
+            TestScalar::from(3u64),
+            TestScalar::from(3u64),
+            TestScalar::from(3u64),
+        )
+        .unwrap();
+
+        assert_eq!(builder.get_identity_results(), vec![vec![true, true, true]]);
+        assert_eq!(builder.get_zero_sum_results(), vec![true]);
+    }
+
+    #[test]
+    fn verifier_errors_when_filter_base_has_too_few_final_round_mles() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![vec![TestScalar::ONE]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let error = verify_evaluate_filter(
+            &mut builder,
+            TestScalar::from(2u64),
+            TestScalar::ZERO,
+            TestScalar::from(3u64),
+            TestScalar::from(3u64),
+            TestScalar::from(3u64),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
+    }
+
+    #[test]
+    fn final_round_evaluate_filter_produces_mles_and_constraints() {
+        let alloc = Bump::new();
+        let columns = [Column::Int128::<TestScalar>(&[1, 2, 3])];
+        let filtered_columns = [Column::Int128::<TestScalar>(&[1, 3])];
+        let selection = &[true, false, true];
+        let mut builder = FinalRoundBuilder::new(columns.len(), VecDeque::new());
+
+        final_round_evaluate_filter(
+            &mut builder,
+            &alloc,
+            TestScalar::from(2u64),
+            TestScalar::from(3u64),
+            &columns,
+            selection,
+            &filtered_columns,
+            3,
+            2,
+        );
+
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+    }
+}
