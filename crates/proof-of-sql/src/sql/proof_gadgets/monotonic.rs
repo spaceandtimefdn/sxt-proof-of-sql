@@ -134,3 +134,89 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_monotonic, first_round_evaluate_monotonic, verify_monotonic};
+    use crate::{
+        base::{
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder,
+        },
+    };
+    use bumpalo::Bump;
+    use core::convert::identity;
+    use std::collections::VecDeque;
+
+    fn verify_monotonic_column<const STRICT: bool, const ASC: bool>(column_data: &[TestScalar]) {
+        let alloc = Bump::new();
+        let alpha = TestScalar::from(13);
+        let beta = TestScalar::from(29);
+
+        let mut first_round_builder = FirstRoundBuilder::new(column_data.len());
+        first_round_evaluate_monotonic(&mut first_round_builder, &alloc, column_data);
+
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+        final_round_evaluate_monotonic::<TestScalar, STRICT, ASC>(
+            &mut final_round_builder,
+            &alloc,
+            alpha,
+            beta,
+            column_data,
+        );
+
+        let mock_verification_builder = run_verify_for_each_row(
+            column_data.len(),
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                verify_monotonic::<TestScalar, STRICT, ASC>(
+                    verification_builder,
+                    alpha,
+                    beta,
+                    column_data.inner_product(evaluation_point),
+                    chi_eval,
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(mock_verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|v| v.iter().copied().all(identity)));
+        assert!(mock_verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .copied()
+            .all(identity));
+    }
+
+    #[test]
+    fn we_can_verify_strictly_ascending_monotonic_column() {
+        let column_data = [
+            TestScalar::ONE,
+            TestScalar::TWO,
+            TestScalar::from(3),
+            TestScalar::from(5),
+        ];
+        verify_monotonic_column::<true, true>(&column_data);
+    }
+
+    #[test]
+    fn we_can_verify_non_strictly_descending_monotonic_column() {
+        let column_data = [
+            TestScalar::from(5),
+            TestScalar::from(3),
+            TestScalar::from(3),
+            TestScalar::ONE,
+        ];
+        verify_monotonic_column::<false, false>(&column_data);
+    }
+}

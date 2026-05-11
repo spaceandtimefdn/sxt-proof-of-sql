@@ -124,7 +124,11 @@ impl<S: Scalar> VerificationBuilder<S> for MockVerificationBuilder<S> {
     }
 
     fn singleton_chi_evaluation(&self) -> S {
-        unimplemented!("No tests currently use this function")
+        if self.evaluation_row_index == 0 {
+            S::ONE
+        } else {
+            S::ZERO
+        }
     }
 
     fn rho_256_evaluation(&self) -> Option<S> {
@@ -407,10 +411,9 @@ mod tests {
         assert!(matches!(err, ProofSizeMismatch::TooFewMLEEvaluations));
     }
 
-    #[should_panic(expected = "No tests currently use this function")]
     #[test]
-    fn we_can_get_unimplemented_error_for_singleton_chi_evaluation() {
-        let verification_builder: MockVerificationBuilder<TestScalar> =
+    fn we_can_get_singleton_chi_evaluation() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
                 Vec::new(),
                 2,
@@ -420,7 +423,15 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             );
-        verification_builder.singleton_chi_evaluation();
+        assert_eq!(
+            verification_builder.singleton_chi_evaluation(),
+            TestScalar::ONE
+        );
+        verification_builder.increment_row_index();
+        assert_eq!(
+            verification_builder.singleton_chi_evaluation(),
+            TestScalar::ZERO
+        );
     }
 
     #[test]
