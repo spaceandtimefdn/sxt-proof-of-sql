@@ -26,7 +26,9 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents.extend(get_column_idents_from_expr(right));
             left_idents
         }
-        Expr::Not(inner) => get_column_idents_from_expr(inner),
+        Expr::Not(inner) | Expr::IsNull(inner) | Expr::IsNotNull(inner) => {
+            get_column_idents_from_expr(inner)
+        }
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
         }
@@ -140,6 +142,14 @@ pub fn expr_to_proof_expr(
         Expr::Not(expr) => {
             let proof_expr = expr_to_proof_expr(expr, schema)?;
             Ok(DynProofExpr::try_new_not(proof_expr)?)
+        }
+        Expr::IsNull(expr) => {
+            let proof_expr = expr_to_proof_expr(expr, schema)?;
+            Ok(DynProofExpr::try_new_is_null(proof_expr)?)
+        }
+        Expr::IsNotNull(expr) => {
+            let proof_expr = expr_to_proof_expr(expr, schema)?;
+            Ok(DynProofExpr::try_new_is_not_null(proof_expr)?)
         }
         Expr::Cast(cast) => {
             match &*cast.expr {
@@ -652,6 +662,46 @@ mod tests {
         );
     }
 
+    #[test]
+    fn we_can_convert_is_null_expr_to_proof_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("table_name", "column_valid")));
+        let schema = vec![("column_valid".into(), ColumnType::Boolean)];
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_null(DynProofExpr::new_column(ColumnRef::new(
+                TableRef::from_names(None, "table_name"),
+                "column_valid".into(),
+                ColumnType::Boolean
+            )))
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_is_not_null_expr_to_proof_expr() {
+        let expr = Expr::IsNotNull(Box::new(df_column("table_name", "column_valid")));
+        let schema = vec![("column_valid".into(), ColumnType::Boolean)];
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_not_null(DynProofExpr::new_column(ColumnRef::new(
+                TableRef::from_names(None, "table_name"),
+                "column_valid".into(),
+                ColumnType::Boolean
+            )))
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_cannot_convert_is_null_expr_for_non_boolean_validity_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("table_name", "column")));
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert!(matches!(
+            expr_to_proof_expr(&expr, &schema),
+            Err(PlannerError::AnalyzeError { .. })
+        ));
+    }
+
     // Cast
     #[test]
     fn we_can_convert_cast_expr_to_proof_expr() {
@@ -797,6 +847,14 @@ mod tests {
         let expr = Expr::Not(Box::new(df_column("table", "bool_col")));
         let result = get_column_idents_from_expr(&expr);
         let expected: IndexSet<Ident> = ["bool_col".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_is_null_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("table", "valid_col")));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["valid_col".into()].into_iter().collect();
         assert_eq!(result, expected);
     }
 
