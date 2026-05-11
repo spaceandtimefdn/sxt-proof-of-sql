@@ -99,3 +99,74 @@ impl ProofExpr for NotExpr {
         self.expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{Column, TableOptions},
+            map::IndexMap,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::collections::VecDeque;
+
+    fn empty_table(row_count: usize) -> Table<'static, TestScalar> {
+        Table::try_new_with_options(IndexMap::default(), TableOptions::new(Some(row_count)))
+            .unwrap()
+    }
+
+    fn bool_expr(value: bool) -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(value)))
+    }
+
+    #[test]
+    fn try_new_accepts_boolean_input_and_exposes_child() {
+        let input = bool_expr(true);
+        let expr = NotExpr::try_new(input.clone()).unwrap();
+
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+        assert_eq!(expr.input(), input.as_ref());
+    }
+
+    #[test]
+    fn first_and_final_round_evaluate_boolean_literal() {
+        let alloc = Bump::new();
+        let table = empty_table(3);
+        let expr = NotExpr::try_new(bool_expr(true)).unwrap();
+
+        let first_round = expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(first_round, Column::Boolean(&[false, false, false]));
+
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round, Column::Boolean(&[false, false, false]));
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+    }
+
+    #[test]
+    fn verifier_evaluate_subtracts_input_from_chi() {
+        let chi_eval = TestScalar::from(9u64);
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let expr = NotExpr::try_new(bool_expr(false)).unwrap();
+
+        let result = expr
+            .verifier_evaluate(&mut builder, &IndexMap::default(), chi_eval, &[])
+            .unwrap();
+
+        assert_eq!(result, chi_eval);
+    }
+}
