@@ -131,3 +131,34 @@ impl CommitmentEvaluationProof for DynamicDoryEvaluationProof {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{test_rng, PublicParameters};
+    use merlin::Transcript;
+
+    #[test]
+    fn dynamic_dory_evaluation_proof_returns_default_for_unsupported_prover_inputs() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let mut transcript = Transcript::new(b"dynamic-dory-prover-guards");
+
+        assert_eq!(
+            DynamicDoryEvaluationProof::new(&mut transcript, &[], &[], 1, &&prover_setup),
+            DynamicDoryEvaluationProof::default()
+        );
+
+        let oversized_point = vec![DoryScalar::from(1); 3];
+        assert_eq!(
+            DynamicDoryEvaluationProof::new(
+                &mut transcript,
+                &[],
+                &oversized_point,
+                0,
+                &&prover_setup,
+            ),
+            DynamicDoryEvaluationProof::default()
+        );
+    }
+}

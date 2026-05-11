@@ -107,6 +107,7 @@ mod tests {
     };
     use ark_ec::pairing::Pairing;
     use ark_ff::UniformRand;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
@@ -498,5 +499,31 @@ mod tests {
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
         );
+    }
+
+    #[test]
+    fn dory_scalars_multiply_owned_and_borrowed_commitments() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let commitment = DoryCommitment(GT::rand(&mut rng));
+        let scalar = DoryScalar::from(7);
+        let expected = DoryCommitment(commitment.0 * scalar.0);
+
+        assert_eq!(scalar * commitment, expected);
+        assert_eq!(
+            <DoryScalar as core::ops::Mul<&DoryCommitment>>::mul(scalar, &commitment),
+            expected
+        );
+    }
+
+    #[test]
+    fn dory_commitments_round_trip_through_canonical_serialization() {
+        let mut rng = StdRng::seed_from_u64(44);
+        let commitment = DoryCommitment(GT::rand(&mut rng));
+        let mut bytes = Vec::new();
+
+        commitment.serialize_compressed(&mut bytes).unwrap();
+        let decoded = DoryCommitment::deserialize_compressed(bytes.as_slice()).unwrap();
+
+        assert_eq!(decoded, commitment);
     }
 }

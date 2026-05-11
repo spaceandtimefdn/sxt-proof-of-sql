@@ -662,8 +662,9 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::{
-        cast_bool_column_to_signed_int_column, cast_column, cast_int_slice_to_int_column,
-        divide_columns, divide_integer_columns,
+        add_subtract_columns, cast_bool_column_to_signed_int_column, cast_column,
+        cast_int_column_to_int_column, cast_int_slice_to_int_column,
+        cast_scalar_slice_to_int_column, divide_columns, divide_integer_columns, multiply_columns,
     };
     use crate::{
         base::{
@@ -1030,6 +1031,24 @@ mod tests {
         assert_eq!(big_int_column, expected_big_int_column);
     }
 
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    #[test]
+    fn we_cannot_add_subtract_columns_with_different_lengths() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::TinyInt(&[1, 2]);
+        let rhs = Column::<TestScalar>::TinyInt(&[1]);
+        add_subtract_columns(lhs, rhs, &alloc, false);
+    }
+
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    #[test]
+    fn we_cannot_multiply_columns_with_different_lengths() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::TinyInt(&[1, 2]);
+        let rhs = Column::<TestScalar>::TinyInt(&[1]);
+        multiply_columns(&lhs, &rhs, &alloc);
+    }
+
     #[should_panic(expected = "Unable to cast between types BOOLEAN and BINARY")]
     #[test]
     fn we_cannot_cast_column_of_uncastable_type() {
@@ -1055,12 +1074,82 @@ mod tests {
         );
     }
 
+    #[should_panic(expected = "Unsupported cast from VARCHAR to BIGINT")]
+    #[test]
+    fn we_cannot_cast_non_int_columns_through_int_column_casting() {
+        let alloc = Bump::new();
+        let scalar_values = &[TestScalar::ONE];
+        let varchar_column = Column::<TestScalar>::VarChar((&["a"], scalar_values));
+        cast_int_column_to_int_column(&alloc, varchar_column, ColumnType::BigInt);
+    }
+
     #[should_panic(expected = "Unsupported cast from int type to BINARY")]
     #[test]
     fn we_cannot_cast_int_slice_to_uncastable_type() {
         let alloc = Bump::new();
         let int_column = &[1];
         cast_int_slice_to_int_column::<TestScalar, _>(&alloc, int_column, ColumnType::VarBinary);
+    }
+
+    #[should_panic(expected = "Unsupported cast from int type to BINARY")]
+    #[test]
+    fn we_cannot_cast_scalar_slice_to_uncastable_int_type() {
+        let alloc = Bump::new();
+        cast_scalar_slice_to_int_column(&alloc, &[TestScalar::ONE], ColumnType::VarBinary);
+    }
+
+    #[should_panic(expected = "Casting not supported between DECIMAL75")]
+    #[test]
+    fn we_cannot_cast_decimal_column_when_declared_scale_differs_from_data_scale() {
+        let alloc = Bump::new();
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(2).unwrap(), 1, &[TestScalar::ONE]);
+        cast_column(
+            &alloc,
+            decimal_column,
+            ColumnType::Decimal75(Precision::new(2).unwrap(), 2),
+            ColumnType::Decimal75(Precision::new(3).unwrap(), 2),
+        );
+    }
+
+    #[should_panic(expected = "Casting not supported between TIMESTAMP(")]
+    #[test]
+    fn we_cannot_cast_scalar_column_to_integer_when_declared_scale_is_nonzero() {
+        let alloc = Bump::new();
+        let scalar_column = Column::<TestScalar>::Scalar(&[TestScalar::ONE]);
+        cast_column(
+            &alloc,
+            scalar_column,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0)),
+            ColumnType::BigInt,
+        );
+    }
+
+    #[should_panic(expected = "Casting not supported between TIMESTAMP(")]
+    #[test]
+    fn we_cannot_cast_mismatched_column_shapes_even_when_declared_types_are_castable() {
+        let alloc = Bump::new();
+        let raw_bytes: &[&[u8]] = &[b"a"];
+        let scalar_values = &[TestScalar::ONE];
+        let binary_column = Column::<TestScalar>::VarBinary((raw_bytes, scalar_values));
+        cast_column(
+            &alloc,
+            binary_column,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0)),
+            ColumnType::BigInt,
+        );
+    }
+
+    #[should_panic(expected = "Unable to get scaling factor between types BOOLEAN and DECIMAL75")]
+    #[test]
+    fn we_cannot_cast_column_with_scaling_when_scale_cast_is_unsupported() {
+        let alloc = Bump::new();
+        let bool_column = Column::<TestScalar>::Boolean(&[true]);
+        cast_column_with_scaling(
+            &alloc,
+            bool_column,
+            ColumnType::Decimal75(Precision::new(2).unwrap(), 1),
+        );
     }
 
     #[test]

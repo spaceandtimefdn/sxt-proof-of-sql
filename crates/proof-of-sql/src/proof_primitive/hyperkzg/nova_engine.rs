@@ -57,3 +57,15 @@ pub fn nova_commitment_key_to_hyperkzg_public_setup(
 ) -> HyperKZGPublicSetupOwned {
     slice_ops::slice_cast_with(setup.ck(), convert_g1_affine_from_halo2_to_ark)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keccak_transcript_engine_can_be_constructed_with_a_domain_separator() {
+        let mut transcript =
+            <Keccak256Transcript as TranscriptEngineTrait<HyperKZGEngine>>::new(b"hyperkzg");
+        transcript.dom_sep(b"domain");
+    }
+}

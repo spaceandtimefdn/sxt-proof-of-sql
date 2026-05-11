@@ -131,3 +131,61 @@ impl CommitmentEvaluationProof for DoryEvaluationProof {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+    use merlin::Transcript;
+
+    #[test]
+    fn dory_evaluation_proof_returns_default_for_unsupported_prover_inputs() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 1);
+        let mut transcript = Transcript::new(b"dory-prover-guards");
+
+        assert_eq!(
+            DoryEvaluationProof::new(&mut transcript, &[], &[], 1, &setup),
+            DoryMessages::default()
+        );
+
+        let oversized_point = vec![DoryScalar::from(1); 6];
+        assert_eq!(
+            DoryEvaluationProof::new(&mut transcript, &[], &oversized_point, 0, &setup),
+            DoryMessages::default()
+        );
+    }
+
+    #[test]
+    fn dory_evaluation_proof_reports_verifier_guard_errors() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let setup = DoryVerifierPublicSetup::new(&verifier_setup, 1);
+        let proof = DoryEvaluationProof::default();
+        let mut transcript = Transcript::new(b"dory-verifier-guards");
+
+        assert!(matches!(
+            proof.verify_batched_proof(&mut transcript, &[], &[], &[], &[], 3, 0, &setup),
+            Err(DoryError::InvalidGeneratorsOffset { offset: 3 })
+        ));
+
+        let oversized_point = vec![DoryScalar::from(1); 6];
+        assert!(matches!(
+            proof.verify_batched_proof(
+                &mut transcript,
+                &[],
+                &[],
+                &[],
+                &oversized_point,
+                0,
+                0,
+                &setup,
+            ),
+            Err(DoryError::SmallSetup {
+                actual: 1,
+                required: 5
+            })
+        ));
+    }
+}

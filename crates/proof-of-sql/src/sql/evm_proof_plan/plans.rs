@@ -986,6 +986,183 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
+    fn we_can_put_dyn_proof_plan_variants_in_evm() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let table_refs = indexset![table_ref.clone()];
+        let column_refs = indexset![column_ref_a.clone(), column_ref_b.clone()];
+        let column_fields = vec![
+            ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+            ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+        ];
+
+        let evm_empty = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Empty(EmptyExec::new()),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_empty, EVMDynProofPlan::Empty(_)));
+        assert!(matches!(
+            evm_empty
+                .try_into_proof_plan(&table_refs, &column_refs, None)
+                .unwrap(),
+            DynProofPlan::Empty(_)
+        ));
+
+        let legacy_filter = LegacyFilterExec::new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                alias: ident_b.clone(),
+            }],
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            DynProofExpr::Equals(
+                EqualsExpr::try_new(
+                    Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref_a.clone()))),
+                    Box::new(DynProofExpr::Literal(LiteralExpr::new(
+                        LiteralValue::BigInt(5),
+                    ))),
+                )
+                .unwrap(),
+            ),
+        );
+        let evm_legacy_filter = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::LegacyFilter(legacy_filter),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(
+            evm_legacy_filter,
+            EVMDynProofPlan::LegacyFilter(_)
+        ));
+        assert!(matches!(
+            evm_legacy_filter
+                .try_into_proof_plan(
+                    &table_refs,
+                    &column_refs,
+                    Some(&indexset![ident_b.value.clone()])
+                )
+                .unwrap(),
+            DynProofPlan::LegacyFilter(_)
+        ));
+
+        let group_by = GroupByExec::try_new(
+            vec![ColumnExpr::new(column_ref_a.clone())],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                alias: Ident::new("sum_b"),
+            }],
+            Ident::new("count"),
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+        let evm_group_by = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::GroupBy(group_by),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_group_by, EVMDynProofPlan::GroupBy(_)));
+        assert!(matches!(
+            evm_group_by
+                .try_into_proof_plan(
+                    &table_refs,
+                    &column_refs,
+                    Some(&indexset![
+                        ident_a.value.clone(),
+                        "sum_b".to_string(),
+                        "count".to_string()
+                    ]),
+                )
+                .unwrap(),
+            DynProofPlan::GroupBy(_)
+        ));
+
+        let union = UnionExec::try_new(vec![
+            DynProofPlan::Table(TableExec::new(table_ref.clone(), column_fields.clone())),
+            DynProofPlan::Table(TableExec::new(table_ref.clone(), column_fields.clone())),
+        ])
+        .unwrap();
+        let output_column_names = union
+            .get_column_result_fields()
+            .iter()
+            .map(|field| field.name().to_string())
+            .collect::<crate::base::map::IndexSet<_>>();
+        let evm_union = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Union(union),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_union, EVMDynProofPlan::Union(_)));
+        assert!(matches!(
+            evm_union
+                .try_into_proof_plan(&table_refs, &column_refs, Some(&output_column_names))
+                .unwrap(),
+            DynProofPlan::Union(_)
+        ));
+
+        let table_output_ref_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let table_output_ref_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+        let aggregate = AggregateExec::try_new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(table_output_ref_a)),
+                alias: ident_a.clone(),
+            }],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(table_output_ref_b)),
+                alias: Ident::new("sum_b"),
+            }],
+            Ident::new("count"),
+            Box::new(DynProofPlan::Table(TableExec::new(
+                table_ref,
+                column_fields,
+            ))),
+            DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
+        )
+        .unwrap();
+        let evm_aggregate = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Aggregate(aggregate),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_aggregate, EVMDynProofPlan::Aggregate(_)));
+        assert!(matches!(
+            evm_aggregate
+                .try_into_proof_plan(
+                    &table_refs,
+                    &column_refs,
+                    Some(&indexset![
+                        ident_a.value,
+                        "sum_b".to_string(),
+                        "count".to_string()
+                    ]),
+                )
+                .unwrap(),
+            DynProofPlan::Aggregate(_)
+        ));
+    }
+
+    #[test]
     fn we_can_put_table_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();

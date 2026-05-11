@@ -158,7 +158,7 @@ mod tests {
     use crate::{
         base::{
             bit::BitDistribution,
-            proof::ProofError,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
         },
         sql::{
@@ -214,6 +214,33 @@ mod tests {
         let sign_eval = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, None).unwrap();
         assert_eq!(sign_eval, TestScalar::ZERO);
         assert!(builder.get_identity_results().iter().flatten().all(|b| *b));
+    }
+
+    #[test]
+    fn verifier_evaluate_sign_propagates_sumcheck_size_errors() {
+        let dist = BitDistribution {
+            vary_mask: [1, 0, 0, 0],
+            leading_bit_mask: [0, 0, 0, 0],
+        };
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            2,
+            Vec::new(),
+            vec![vec![TestScalar::ZERO]],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let err = verifier_evaluate_sign(&mut builder, TestScalar::ZERO, TestScalar::ONE, None)
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::SumcheckProofTooSmall
+            }
+        ));
     }
 
     #[test]
