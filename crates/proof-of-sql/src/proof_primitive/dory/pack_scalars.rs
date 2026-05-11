@@ -468,11 +468,91 @@ pub fn bit_table_and_scalars_for_packed_msm(
 
 #[cfg(test)]
 mod tests {
+    use super::super::F;
     use super::*;
     use crate::base::{
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+    use core::ops::Mul;
+
+    fn g1_multiple(multiplier: u64) -> G1Affine {
+        G1Affine::generator().mul(F::from(multiplier)).into_affine()
+    }
+
+    fn offset_commit(first: G1Affine, offset: G1Affine, column: &CommittableColumn) -> G1Affine {
+        (first + offset.mul(min_as_f(column.column_type()))).into_affine()
+    }
+
+    #[test]
+    fn we_can_modify_commits_for_signed_unsigned_and_empty_columns() {
+        let committable_columns = [
+            CommittableColumn::TinyInt(&[1, 2, 3]),
+            CommittableColumn::SmallInt(&[4, 5]),
+            CommittableColumn::BigInt(&[6]),
+            CommittableColumn::Uint8(&[7, 8]),
+            CommittableColumn::Int(&[]),
+        ];
+        let offset = 0;
+        let num_matrix_commitment_columns = 1;
+        let (bit_table, _) = bit_table_and_scalars_for_packed_msm(
+            &committable_columns,
+            offset,
+            num_matrix_commitment_columns,
+        );
+        let sub_commits = (1..=bit_table.len())
+            .map(|n| g1_multiple(n as u64))
+            .collect::<Vec<_>>();
+
+        let modified_commits = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_matrix_commitment_columns,
+        );
+
+        let signed_sub_commits = &sub_commits[..8];
+        let offset_sub_commits = &sub_commits[8..];
+        assert_eq!(
+            modified_commits,
+            vec![
+                offset_commit(
+                    signed_sub_commits[0],
+                    offset_sub_commits[0],
+                    &committable_columns[0]
+                ),
+                offset_commit(
+                    signed_sub_commits[1],
+                    offset_sub_commits[1],
+                    &committable_columns[0]
+                ),
+                offset_commit(
+                    signed_sub_commits[2],
+                    offset_sub_commits[2],
+                    &committable_columns[0]
+                ),
+                offset_commit(
+                    signed_sub_commits[3],
+                    offset_sub_commits[0],
+                    &committable_columns[1]
+                ),
+                offset_commit(
+                    signed_sub_commits[4],
+                    offset_sub_commits[3],
+                    &committable_columns[1]
+                ),
+                offset_commit(
+                    signed_sub_commits[5],
+                    offset_sub_commits[4],
+                    &committable_columns[2]
+                ),
+                signed_sub_commits[6],
+                signed_sub_commits[7],
+            ]
+        );
+    }
 
     #[test]
     fn we_can_get_a_bit_table() {
