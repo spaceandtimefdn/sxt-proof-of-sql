@@ -666,6 +666,34 @@ mod tests {
     }
 
     #[test]
+    fn append_owned_table_returns_column_mismatch_for_mismatched_columns() {
+        let base_table: OwnedTable<TestScalar> = owned_table([
+            bigint("column_a", [1, 2, 3, 4]),
+            varchar("column_b", ["Lorem", "ipsum", "dolor", "sit"]),
+        ]);
+        let mut table_commitment =
+            TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+                base_table.inner_table(),
+                0,
+                &(),
+            )
+            .unwrap();
+
+        let table_diff_type: OwnedTable<TestScalar> = owned_table([
+            varchar("column_a", ["5", "6", "7", "8"]),
+            varchar("column_b", ["Lorem", "ipsum", "dolor", "sit"]),
+        ]);
+        let append_err = table_commitment
+            .append_owned_table(&table_diff_type, &())
+            .unwrap_err();
+
+        assert!(matches!(
+            append_err,
+            ColumnCommitmentsMismatch::ColumnCommitmentMetadata { .. }
+        ));
+    }
+
+    #[test]
     fn we_cannot_append_columns_with_duplicate_identifiers_to_table_commitment() {
         let column_id_a = "column_a".into();
         let column_id_b = "column_b".into();
