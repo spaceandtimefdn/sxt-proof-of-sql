@@ -1669,6 +1669,73 @@ mod tests {
     }
 
     #[test]
+    fn we_can_catch_evm_dyn_proof_expr_variant_order_change() {
+        fn assert_variant_tag(expr: EVMDynProofExpr, expected_tag: u32) {
+            let bytes = try_standard_binary_serialization(expr).unwrap();
+            assert_eq!(&bytes[..4], &expected_tag.to_be_bytes());
+        }
+
+        let column = || EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 });
+        let literal = || EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(1)));
+        let binary_args = || (column(), literal());
+
+        assert_variant_tag(column(), 0);
+        assert_variant_tag(literal(), 1);
+
+        let (lhs, rhs) = binary_args();
+        assert_variant_tag(EVMDynProofExpr::Equals(EVMEqualsExpr::new(lhs, rhs)), 2);
+
+        let (lhs, rhs) = binary_args();
+        assert_variant_tag(EVMDynProofExpr::Add(EVMAddExpr::new(lhs, rhs)), 3);
+
+        let (lhs, rhs) = binary_args();
+        assert_variant_tag(EVMDynProofExpr::Subtract(EVMSubtractExpr::new(lhs, rhs)), 4);
+
+        let (lhs, rhs) = binary_args();
+        assert_variant_tag(EVMDynProofExpr::Multiply(EVMMultiplyExpr::new(lhs, rhs)), 5);
+
+        let bool_column = || EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 });
+        assert_variant_tag(
+            EVMDynProofExpr::And(EVMAndExpr::new(bool_column(), bool_column())),
+            6,
+        );
+        assert_variant_tag(
+            EVMDynProofExpr::Or(EVMOrExpr::new(bool_column(), bool_column())),
+            7,
+        );
+        assert_variant_tag(EVMDynProofExpr::Not(EVMNotExpr::new(bool_column())), 8);
+        assert_variant_tag(
+            EVMDynProofExpr::Cast(EVMCastExpr::new(column(), ColumnType::BigInt)),
+            9,
+        );
+
+        let (lhs, rhs) = binary_args();
+        assert_variant_tag(
+            EVMDynProofExpr::Inequality(EVMInequalityExpr::new(lhs, rhs, true)),
+            10,
+        );
+        assert_variant_tag(
+            EVMDynProofExpr::Placeholder(EVMPlaceholderExpr {
+                index: 0,
+                column_type: ColumnType::Boolean,
+            }),
+            11,
+        );
+        assert_variant_tag(
+            EVMDynProofExpr::ScalingCast(EVMScalingCastExpr::new(
+                column(),
+                ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+                [0, 0, 0, 100],
+            )),
+            12,
+        );
+        assert_variant_tag(
+            EVMDynProofExpr::IsNull(EVMIsNullExpr::new(column(), false)),
+            13,
+        );
+    }
+
+    #[test]
     fn we_can_catch_evm_literal_expr_serialization_change() {
         let literal_values = vec![
             LiteralValue::Boolean(true),
