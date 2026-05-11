@@ -71,3 +71,79 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::ColumnType,
+        math::decimal::{DecimalError, IntermediateDecimalError},
+        proof::PlaceholderError,
+    };
+
+    #[test]
+    fn analyze_error_display_covers_direct_variants() {
+        assert_eq!(
+            AnalyzeError::InvalidDataType {
+                expr_type: ColumnType::Boolean,
+            }
+            .to_string(),
+            "Expression has datatype BOOLEAN, which was not valid"
+        );
+        assert_eq!(
+            AnalyzeError::DataTypeMismatch {
+                left_type: "BIGINT".into(),
+                right_type: "VARCHAR".into(),
+            }
+            .to_string(),
+            "Left side has 'BIGINT' type but right side has 'VARCHAR' type"
+        );
+        assert_eq!(
+            AnalyzeError::DifferentColumnLength { len_a: 2, len_b: 5 }.to_string(),
+            "Columns have different lengths: 2 != 5"
+        );
+        assert_eq!(
+            AnalyzeError::NotEnoughInputPlans.to_string(),
+            "Not enough input plans"
+        );
+    }
+
+    #[test]
+    fn analyze_error_transparent_variants_preserve_source_messages() {
+        let decimal_error: AnalyzeError = IntermediateDecimalError::LossyCast.into();
+        let placeholder_error = AnalyzeError::PlaceholderError {
+            source: PlaceholderError::ZeroPlaceholderId,
+        };
+
+        assert_eq!(
+            decimal_error,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::LossyCast,
+                },
+            }
+        );
+        assert_eq!(
+            decimal_error.to_string(),
+            "Fractional part of decimal is non-zero"
+        );
+        assert_eq!(
+            placeholder_error.to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+
+    #[test]
+    fn analyze_error_converts_into_string_via_display() {
+        let message: String = AnalyzeError::DataTypeMismatch {
+            left_type: "SCALAR".into(),
+            right_type: "BOOLEAN".into(),
+        }
+        .into();
+
+        assert_eq!(
+            message,
+            "Left side has 'SCALAR' type but right side has 'BOOLEAN' type"
+        );
+    }
+}
