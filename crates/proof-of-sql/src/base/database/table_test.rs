@@ -1,6 +1,9 @@
 use crate::base::{
-    database::{table_utility::*, Column, Table, TableError, TableOptions},
+    database::{
+        table_utility::*, Column, ColumnField, ColumnType, Table, TableError, TableOptions,
+    },
     map::{indexmap, IndexMap},
+    math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
@@ -192,6 +195,62 @@ fn we_can_create_a_table_with_data() {
     expected_table.insert(Ident::new("boolean"), Column::Boolean(boolean_data));
 
     assert_eq!(borrowed_table.into_inner(), expected_table);
+}
+
+#[test]
+fn we_can_create_and_inspect_a_table_with_numeric_helper_columns() {
+    let alloc = Bump::new();
+    let table = table::<TestScalar>([
+        borrowed_uint8("uint8", [0_u8, u8::MAX], &alloc),
+        borrowed_tinyint("tinyint", [i8::MIN, i8::MAX], &alloc),
+        borrowed_smallint("smallint", [i16::MIN, i16::MAX], &alloc),
+        borrowed_int("int", [i32::MIN, i32::MAX], &alloc),
+        borrowed_decimal75("decimal", 12, -2, [100_i64, -50], &alloc),
+    ]);
+
+    assert!(!table.is_empty());
+    assert_eq!(table.num_columns(), 5);
+    assert_eq!(table.num_rows(), 2);
+    assert_eq!(
+        table
+            .column_names()
+            .map(|ident| ident.value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["uint8", "tinyint", "smallint", "int", "decimal"]
+    );
+    assert_eq!(
+        table.schema(),
+        vec![
+            ColumnField::new("uint8".into(), ColumnType::Uint8),
+            ColumnField::new("tinyint".into(), ColumnType::TinyInt),
+            ColumnField::new("smallint".into(), ColumnType::SmallInt),
+            ColumnField::new("int".into(), ColumnType::Int),
+            ColumnField::new(
+                "decimal".into(),
+                ColumnType::Decimal75(Precision::new(12).unwrap(), -2)
+            ),
+        ]
+    );
+    assert_eq!(table.column(0), Some(&Column::Uint8(&[0, u8::MAX])));
+    assert_eq!(table["tinyint"], Column::TinyInt(&[i8::MIN, i8::MAX]));
+    assert_eq!(
+        table.inner_table().get(&Ident::new("smallint")),
+        Some(&Column::SmallInt(&[i16::MIN, i16::MAX]))
+    );
+    assert_eq!(
+        table.columns().copied().collect::<Vec<_>>(),
+        vec![
+            Column::Uint8(&[0, u8::MAX]),
+            Column::TinyInt(&[i8::MIN, i8::MAX]),
+            Column::SmallInt(&[i16::MIN, i16::MAX]),
+            Column::Int(&[i32::MIN, i32::MAX]),
+            Column::Decimal75(
+                Precision::new(12).unwrap(),
+                -2,
+                &[TestScalar::from(100_i64), TestScalar::from(-50_i64)]
+            ),
+        ]
+    );
 }
 
 #[test]
