@@ -124,3 +124,42 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    fn prover_state(num_vars: usize) -> ProverState<TestScalar> {
+        ProverState::new(
+            vec![(1.into(), vec![0])],
+            vec![vec![1.into(); 1 << num_vars]],
+            num_vars,
+            1,
+        )
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first.")]
+    fn prove_round_panics_when_first_round_has_verifier_challenge() {
+        prove_round(&mut prover_state(1), &Some(2.into()));
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn prove_round_panics_when_later_round_has_no_verifier_challenge() {
+        let mut state = prover_state(2);
+        state.round = 1;
+
+        prove_round(&mut state, &None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Prover is not active")]
+    fn prove_round_panics_after_all_variables_are_fixed() {
+        let mut state = ProverState::<TestScalar>::new(vec![], vec![], 0, 0);
+
+        prove_round(&mut state, &None);
+    }
+}
