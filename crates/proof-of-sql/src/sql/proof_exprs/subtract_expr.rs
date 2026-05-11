@@ -118,3 +118,109 @@ impl ProofExpr for SubtractExpr {
 }
 
 impl DecimalProofExpr for SubtractExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_decimal75, table},
+                Column, ColumnRef, ColumnType, TableRef,
+            },
+            map::{indexmap, IndexSet},
+            math::decimal::Precision,
+            polynomial::MultilinearExtension,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::{
+                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+                FirstRoundBuilder,
+            },
+            proof_exprs::{ColumnExpr, DecimalProofExpr},
+        },
+    };
+    use alloc::vec::Vec;
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn we_can_verify_subtract_expr_helper_paths() {
+        let alloc = Bump::new();
+        let lhs = [
+            TestScalar::from(23),
+            TestScalar::from(29),
+            TestScalar::from(31),
+            TestScalar::from(37),
+        ];
+        let rhs = [
+            TestScalar::from(3),
+            TestScalar::from(5),
+            TestScalar::from(7),
+            TestScalar::from(11),
+        ];
+        let expected: Vec<_> = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(lhs, rhs)| *lhs - *rhs)
+            .collect();
+        let data = table([
+            borrowed_decimal75("a", 12, 0, lhs, &alloc),
+            borrowed_decimal75("b", 12, 0, rhs, &alloc),
+        ]);
+        let t: TableRef = "sxt.t".parse().unwrap();
+        let decimal_type = ColumnType::Decimal75(Precision::new(12).unwrap(), 0);
+        let a = ColumnRef::new(t.clone(), Ident::from("a"), decimal_type);
+        let b = ColumnRef::new(t, Ident::from("b"), decimal_type);
+        let subtract_expr = SubtractExpr::try_new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+        )
+        .unwrap();
+
+        assert_eq!(subtract_expr.lhs().data_type(), decimal_type);
+        assert_eq!(subtract_expr.rhs().data_type(), decimal_type);
+
+        let mut referenced_columns: IndexSet<ColumnRef> = IndexSet::default();
+        subtract_expr.get_column_references(&mut referenced_columns);
+        assert_eq!(
+            referenced_columns.into_iter().collect::<Vec<_>>(),
+            vec![a.clone(), b.clone()]
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(4, VecDeque::new());
+        let result = subtract_expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &data, &[])
+            .unwrap();
+        assert_eq!(
+            result,
+            Column::Decimal75(
+                subtract_expr.precision(),
+                subtract_expr.scale(),
+                alloc.alloc_slice_copy(&expected)
+            )
+        );
+
+        let first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(4);
+        let verification_builder = run_verify_for_each_row(
+            4,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            1,
+            |verification_builder, chi_eval, evaluation_point| {
+                let accessor = indexmap! {
+                    a.clone().column_id() => lhs.as_slice().inner_product(evaluation_point),
+                    b.clone().column_id() => rhs.as_slice().inner_product(evaluation_point)
+                };
+                let eval = subtract_expr
+                    .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
+                    .unwrap();
+                assert_eq!(eval, expected.as_slice().inner_product(evaluation_point));
+            },
+        );
+        assert!(verification_builder.get_identity_results().is_empty());
+    }
+}
