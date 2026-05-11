@@ -38,7 +38,7 @@ cargo_commands=$(
     | grep -v 'test' \
     | grep -v 'rustup' \
     | grep -v 'udeps' \
-    | sed -E 's/^\s*run:\s*//'
+    | sed -E 's/^[[:space:]]*run:[[:space:]]*//'
 )
 
 if [ -z "$cargo_commands" ]; then
