@@ -115,6 +115,29 @@ fn we_can_prove_nullable_bigint_poc_with_committed_validity_mask() {
         .verify(&expr, &tampered_sum_accessor, &(), &[])
         .is_err());
 
+    let tampered_nullable_sum_validity =
+        NullableBigIntColumn::try_new(vec![12, 0, 10, 0], vec![true, false, true, false]).unwrap();
+    let tampered_sum_validity_data = owned_table([
+        nullable_score.value_owned_column("score_value"),
+        nullable_score.validity_owned_column("score_valid"),
+        tampered_nullable_sum_validity.value_owned_column("sum_value"),
+        tampered_nullable_sum_validity.validity_owned_column("sum_valid"),
+        bigint("bonus", bonus),
+    ]);
+    let tampered_sum_validity_accessor =
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            t.clone(),
+            tampered_sum_validity_data,
+            0,
+            (),
+        );
+
+    let tamper_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    assert!(tamper_res
+        .verify(&expr, &tampered_sum_validity_accessor, &(), &[])
+        .is_err());
+
     let res =
         VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let verified_table = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
