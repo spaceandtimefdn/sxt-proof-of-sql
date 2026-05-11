@@ -142,3 +142,78 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableRef;
+    use crate::base::database::ParseError;
+    use indexmap::Equivalent;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn table_ref_constructors_and_display_cover_schema_variants() {
+        let table_ref = TableRef::new("sxt", "blocks");
+        assert_eq!(table_ref.schema_id().unwrap().value, "sxt");
+        assert_eq!(table_ref.table_id().value, "blocks");
+        assert_eq!(table_ref.to_string(), "sxt.blocks");
+
+        let table_ref = TableRef::new("", "transactions");
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "transactions");
+        assert_eq!(table_ref.to_string(), "transactions");
+
+        let from_names = TableRef::from_names(Some("public"), "balances");
+        let from_idents = TableRef::from_idents(Some(Ident::new("public")), Ident::new("balances"));
+        assert_eq!(from_names, from_idents);
+        assert!((&from_names).equivalent(&from_idents));
+    }
+
+    #[test]
+    fn table_ref_parsing_accepts_one_or_two_components() {
+        assert_eq!(
+            TableRef::from_strs(&["orders"]).unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["sales", "orders"]).unwrap(),
+            TableRef::from_names(Some("sales"), "orders")
+        );
+        assert_eq!(
+            TableRef::try_from("sales.orders").unwrap(),
+            TableRef::from_names(Some("sales"), "orders")
+        );
+        assert_eq!(
+            "orders".parse::<TableRef>().unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+    }
+
+    #[test]
+    fn table_ref_parsing_rejects_more_than_two_components() {
+        assert!(matches!(
+            TableRef::from_strs(&["too", "many", "parts"]),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "too,many,parts"
+        ));
+
+        assert!(matches!(
+            TableRef::try_from("too.many.parts"),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "too.many.parts"
+        ));
+    }
+
+    #[test]
+    fn table_ref_serializes_as_its_display_form() {
+        let table_ref = TableRef::from_names(Some("sxt"), "blocks");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, r#""sxt.blocks""#);
+
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, table_ref);
+
+        let error = serde_json::from_str::<TableRef>(r#""too.many.parts""#).unwrap_err();
+        assert!(error.to_string().contains("Invalid table reference"));
+    }
+}
