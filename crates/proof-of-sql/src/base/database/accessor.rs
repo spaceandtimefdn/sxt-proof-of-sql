@@ -136,6 +136,71 @@ pub trait SchemaAccessor {
     fn lookup_schema(&self, table_ref: &TableRef) -> Vec<(Ident, ColumnType)>;
 }
 
+#[cfg(test)]
+mod data_accessor_tests {
+    use super::{DataAccessor, MetadataAccessor};
+    use crate::base::{
+        database::{Column, TableRef},
+        map::IndexSet,
+        scalar::test_scalar::TestScalar,
+    };
+    use sqlparser::ast::Ident;
+
+    struct TestDataAccessor {
+        values: [i64; 2],
+        length: usize,
+    }
+
+    impl MetadataAccessor for TestDataAccessor {
+        fn get_length(&self, _table_ref: &TableRef) -> usize {
+            self.length
+        }
+
+        fn get_offset(&self, _table_ref: &TableRef) -> usize {
+            0
+        }
+    }
+
+    impl DataAccessor<TestScalar> for TestDataAccessor {
+        fn get_column(&self, _table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(column_id.value, "a");
+            Column::BigInt(&self.values)
+        }
+    }
+
+    #[test]
+    fn we_can_get_an_empty_table_from_an_accessor() {
+        let accessor = TestDataAccessor {
+            values: [7, 11],
+            length: 2,
+        };
+        let table_ref = TableRef::new("", "sxt");
+        let table = accessor.get_table(&table_ref, &IndexSet::default());
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_rows(), 2);
+    }
+
+    #[test]
+    fn we_can_get_a_table_from_an_accessor() {
+        let accessor = TestDataAccessor {
+            values: [7, 11],
+            length: 2,
+        };
+        let table_ref = TableRef::new("", "sxt");
+        let mut column_ids = IndexSet::default();
+        column_ids.insert(Ident::new("a"));
+        let table = accessor.get_table(&table_ref, &column_ids);
+
+        assert_eq!(table.num_columns(), 1);
+        assert_eq!(table.num_rows(), 2);
+        match table.column(0).unwrap() {
+            Column::BigInt(values) => assert_eq!(*values, &[7, 11]),
+            _ => panic!("expected bigint column"),
+        }
+    }
+}
+
 /// The simplest implementation of `SchemaAccessor`.
 /// This is effectively an in-memory mapping from table to the schema.
 #[derive(Clone)]
