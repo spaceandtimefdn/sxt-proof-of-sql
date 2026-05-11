@@ -1,4 +1,4 @@
-use super::AddExpr;
+use super::{AddExpr, SubtractExpr};
 use crate::{
     base::{
         commitment::InnerProductProof,
@@ -287,7 +287,7 @@ fn we_cannot_add_subtract_mismatching_types() {
             right_type: _
         }
     ));
-    let sub_err = AddExpr::try_new(lhs, rhs).unwrap_err();
+    let sub_err = SubtractExpr::try_new(lhs, rhs).unwrap_err();
     assert!(matches!(
         sub_err,
         AnalyzeError::DataTypeMismatch {
