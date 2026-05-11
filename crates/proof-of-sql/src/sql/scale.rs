@@ -73,7 +73,10 @@ pub fn scale_cast_binary_op(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::database::{ColumnRef, TableRef};
+    use crate::base::{
+        database::{ColumnRef, TableRef},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
 
     #[expect(non_snake_case)]
     fn COLUMN1_BOOLEAN() -> DynProofExpr {
@@ -138,6 +141,15 @@ mod tests {
                 Precision::new(25).expect("Precision is definitely valid"),
                 5,
             ),
+        ))
+    }
+
+    #[expect(non_snake_case)]
+    fn TIMESTAMP_COLUMN(time_unit: PoSQLTimeUnit) -> DynProofExpr {
+        DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "timestamp_column".into(),
+            ColumnType::TimestampTZ(time_unit, PoSQLTimeZone::utc()),
         ))
     }
 
@@ -234,5 +246,39 @@ mod tests {
         let right = COLUMN2_DECIMAL_25_5();
         let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
         assert_eq!(proof_exprs, (left, right));
+    }
+
+    #[test]
+    fn we_can_convert_scale_cast_binary_op_upcasting_left_timestamp() {
+        let left = TIMESTAMP_COLUMN(PoSQLTimeUnit::Second);
+        let right = TIMESTAMP_COLUMN(PoSQLTimeUnit::Millisecond);
+        let right_type = right.data_type();
+
+        let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
+
+        assert_eq!(
+            proof_exprs,
+            (
+                DynProofExpr::try_new_scaling_cast(left, right_type).unwrap(),
+                right
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_scale_cast_binary_op_upcasting_right_timestamp() {
+        let left = TIMESTAMP_COLUMN(PoSQLTimeUnit::Nanosecond);
+        let right = TIMESTAMP_COLUMN(PoSQLTimeUnit::Microsecond);
+        let left_type = left.data_type();
+
+        let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
+
+        assert_eq!(
+            proof_exprs,
+            (
+                left,
+                DynProofExpr::try_new_scaling_cast(right, left_type).unwrap()
+            )
+        );
     }
 }

@@ -29,6 +29,13 @@ fn test_dalek_interop_1() {
 }
 
 #[test]
+fn test_dalek_interop_borrowed_scalar() {
+    let x = curve25519_dalek::scalar::Scalar::from(7u64);
+    let xp = Curve25519Scalar::from(7u64);
+    assert_eq!(curve25519_dalek::scalar::Scalar::from(&xp), x);
+}
+
+#[test]
 fn test_dalek_interop_m1() {
     let x = curve25519_dalek::scalar::Scalar::from(123u64);
     let mx = -x;
@@ -36,6 +43,20 @@ fn test_dalek_interop_m1() {
     let mxp = -xp;
     assert_eq!(mxp, Curve25519Scalar::from(-123i64));
     assert_eq!(curve25519_dalek::scalar::Scalar::from(mxp), mx);
+}
+
+#[test]
+fn test_curve25519_scalar_point_multiplication_forms_match() {
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+
+    let scalar = Curve25519Scalar::from(9u64);
+    let point = RISTRETTO_BASEPOINT_POINT;
+    let expected = curve25519_dalek::scalar::Scalar::from(9u64) * point;
+
+    assert_eq!(scalar * point, expected);
+    assert_eq!(scalar * &point, expected);
+    assert_eq!(point * scalar, expected);
+    assert_eq!((&point) * scalar, expected);
 }
 
 #[test]
