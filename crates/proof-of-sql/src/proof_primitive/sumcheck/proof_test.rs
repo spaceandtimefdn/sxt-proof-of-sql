@@ -7,7 +7,7 @@ use super::test_cases::sumcheck_test_cases;
 use crate::{
     base::{
         polynomial::CompositePolynomial,
-        proof::Transcript as _,
+        proof::{ProofError, Transcript as _},
         scalar::{test_scalar::TestScalar, MontScalar, Scalar},
     },
     proof_primitive::{
@@ -19,6 +19,46 @@ use alloc::rc::Rc;
 use ark_std::UniformRand;
 use merlin::Transcript;
 use num_traits::{One, Zero};
+
+#[test]
+fn verify_rejects_empty_num_variables_as_invalid_proof_size() {
+    let proof = SumcheckProof::<TestScalar> {
+        coefficients: Vec::new(),
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+
+    let err = proof
+        .verify_without_evaluation(&mut transcript, 0, &TestScalar::ZERO)
+        .err()
+        .expect("verification should fail for zero variables");
+
+    assert!(matches!(
+        err,
+        ProofError::VerificationError {
+            error: "invalid proof size"
+        }
+    ));
+}
+
+#[test]
+fn verify_rejects_coefficient_counts_that_do_not_match_num_variables() {
+    let proof = SumcheckProof::<TestScalar> {
+        coefficients: vec![TestScalar::ONE],
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+
+    let err = proof
+        .verify_without_evaluation(&mut transcript, 2, &TestScalar::ZERO)
+        .err()
+        .expect("verification should fail for mismatched coefficient count");
+
+    assert!(matches!(
+        err,
+        ProofError::VerificationError {
+            error: "invalid proof size"
+        }
+    ));
+}
 
 #[test]
 fn test_create_verify_proof() {
