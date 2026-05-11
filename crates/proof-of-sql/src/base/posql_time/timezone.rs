@@ -104,6 +104,25 @@ mod timezone_parsing_tests {
     }
 
     #[test]
+    fn we_can_parse_positive_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("+09:45".into());
+        let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+        let expected_time_zone = PoSQLTimeZone::new(35_100);
+        assert_eq!(timezone, expected_time_zone);
+    }
+
+    #[test]
+    fn utc_aliases_parse_to_utc() {
+        for timezone in ["z", "UTC", "00:00", "+00:00", "0:00", "+0:00"] {
+            let timezone_as_str: Option<Arc<str>> = Some(timezone.into());
+            assert_eq!(
+                PoSQLTimeZone::try_from(&timezone_as_str).unwrap(),
+                PoSQLTimeZone::utc()
+            );
+        }
+    }
+
+    #[test]
     fn we_can_parse_none_time_zone() {
         let timezone = PoSQLTimeZone::try_from(&None).unwrap();
         let expected_time_zone = PoSQLTimeZone::utc();
@@ -117,6 +136,27 @@ mod timezone_parsing_tests {
         assert!(matches!(
             timezone_err,
             PoSQLTimestampError::InvalidTimezone { timezone: _ }
+        ));
+    }
+
+    #[test]
+    fn invalid_offset_components_return_offset_error() {
+        for timezone in ["+AB:30", "+12:CD"] {
+            let timezone_as_str: Option<Arc<str>> = Some(timezone.into());
+            assert!(matches!(
+                PoSQLTimeZone::try_from(&timezone_as_str),
+                Err(PoSQLTimestampError::InvalidTimezoneOffset)
+            ));
+        }
+    }
+
+    #[test]
+    fn invalid_timezone_error_preserves_normalized_timezone() {
+        let timezone_as_str: Option<Arc<str>> = Some("America/New_York".into());
+        let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+        assert!(matches!(
+            timezone_err,
+            PoSQLTimestampError::InvalidTimezone { timezone } if timezone == "AMERICA/NEW_YORK"
         ));
     }
 }
