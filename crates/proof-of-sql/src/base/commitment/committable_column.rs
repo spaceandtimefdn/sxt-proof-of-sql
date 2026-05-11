@@ -4,7 +4,7 @@ use crate::base::{
     math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     ref_into::RefInto,
-    scalar::{Scalar, ScalarExt},
+    scalar::Scalar,
 };
 use alloc::vec::Vec;
 #[cfg(feature = "blitzar")]
@@ -162,7 +162,7 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::VarChar(strings) => CommittableColumn::VarChar(
                 strings
                     .iter()
-                    .map(Into::<S>::into)
+                    .map(|s| S::from_str_via_hash(s))
                     .map(Into::<[u64; 4]>::into)
                     .collect(),
             ),

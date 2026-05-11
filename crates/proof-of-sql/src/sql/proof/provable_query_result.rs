@@ -2,7 +2,7 @@ use super::{decode_and_convert, decode_multiple_elements, ProvableResultColumn, 
 use crate::base::{
     database::{Column, ColumnField, ColumnType, OwnedColumn, OwnedTable, Table},
     polynomial::compute_evaluation_vector,
-    scalar::{Scalar, ScalarExt},
+    scalar::Scalar,
 };
 use alloc::{vec, vec::Vec};
 use num_traits::Zero;
@@ -117,7 +117,11 @@ impl ProvableQueryResult {
                         decode_and_convert::<S, S>(&self.data[offset..])
                     }
 
-                    ColumnType::VarChar => decode_and_convert::<&str, S>(&self.data[offset..]),
+                    ColumnType::VarChar => {
+                        let (raw_str, used) =
+                            decode_and_convert::<&str, &str>(&self.data[offset..])?;
+                        Ok((S::from_str_via_hash(raw_str), used))
+                    }
                     ColumnType::VarBinary => {
                         let (raw_bytes, used) =
                             decode_and_convert::<&[u8], &[u8]>(&self.data[offset..])?;

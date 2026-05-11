@@ -1,4 +1,4 @@
-use crate::base::scalar::{Scalar, ScalarConversionError, ScalarExt};
+use crate::base::scalar::{Scalar, ScalarConversionError};
 use alloc::{
     format,
     string::{String, ToString},
@@ -134,7 +134,7 @@ macro_rules! impl_from_for_mont_scalar_for_type_supported_by_from {
 /// Implement `From<&[u8]>` for `MontScalar`
 impl<T: MontConfig<4>> From<&[u8]> for MontScalar<T> {
     fn from(x: &[u8]) -> Self {
-        ScalarExt::from_byte_slice_via_hash(x)
+        Self::from_byte_slice_via_hash(x)
     }
 }
 

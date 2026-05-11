@@ -1,7 +1,6 @@
 use super::Scalar;
 use bnum::types::U256;
 use core::cmp::Ordering;
-use tiny_keccak::Hasher;
 
 /// Extension trait for blanket implementations for `Scalar` types.
 /// This trait is primarily to avoid cluttering the core `Scalar` implementation with default implementations
@@ -20,36 +19,9 @@ pub trait ScalarExt: Scalar {
         }
     }
 
-    #[must_use]
-    /// Converts a U256 to Scalar, wrapping as needed
-    fn from_wrapping(value: U256) -> Self {
-        let value_as_limbs: [u64; 4] = value.into();
-        Self::from(value_as_limbs)
-    }
-
     /// Converts a Scalar to U256. Note that any values above `MAX_SIGNED` shall remain positive, even if they are representative of negative values.
     fn into_u256_wrapping(self) -> U256 {
         U256::from(Into::<[u64; 4]>::into(self))
-    }
-
-    /// Converts a byte slice to a Scalar using a hash function, preventing collisions.
-    /// WARNING: Only up to 31 bytes (2^248 bits) are supported by `PoSQL` cryptographic
-    /// objects. This function masks off the last byte of the hash to ensure the result
-    /// fits in this range.
-    #[must_use]
-    fn from_byte_slice_via_hash(bytes: &[u8]) -> Self {
-        if bytes.is_empty() {
-            return Self::zero();
-        }
-
-        let mut hasher = tiny_keccak::Keccak::v256();
-        hasher.update(bytes);
-        let mut hashed_bytes = [0u8; 32];
-        hasher.finalize(&mut hashed_bytes);
-        let hashed_val =
-            U256::from_le_slice(&hashed_bytes).expect("32 bytes => guaranteed to parse as U256");
-        let masked_val = hashed_val & Self::CHALLENGE_MASK;
-        Self::from_wrapping(masked_val)
     }
 }
 

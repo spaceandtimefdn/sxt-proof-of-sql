@@ -1,10 +1,10 @@
 #![expect(clippy::module_inception)]
 
 use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
-use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
+use tiny_keccak::Hasher;
 
 /// A trait for the scalar field used in Proof of SQL.
 pub trait Scalar:
@@ -13,7 +13,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -52,9 +51,7 @@ pub trait Scalar:
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
     + RefInto<[u64; 4]>
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -85,4 +82,35 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+    /// Converts a string to a scalar by hashing it into the scalar field.
+    #[must_use]
+    fn from_str_via_hash(val: &str) -> Self {
+        Self::from_byte_slice_via_hash(val.as_bytes())
+    }
+
+    /// Converts an arbitrary-length byte slice to a scalar using a hash function.
+    /// Hashing makes collisions computationally unlikely, but does not eliminate them.
+    /// `PoSQL` cryptographic objects support 248-bit scalar embeddings, so this masks
+    /// the hash to the largest power-of-two range below the field modulus.
+    #[must_use]
+    fn from_byte_slice_via_hash(bytes: &[u8]) -> Self {
+        if bytes.is_empty() {
+            return Self::zero();
+        }
+
+        let mut hasher = tiny_keccak::Keccak::v256();
+        hasher.update(bytes);
+        let mut hashed_bytes = [0u8; 32];
+        hasher.finalize(&mut hashed_bytes);
+        let hashed_val =
+            U256::from_le_slice(&hashed_bytes).expect("32 bytes => guaranteed to parse as U256");
+        let masked_val = hashed_val & Self::CHALLENGE_MASK;
+        Self::from_wrapping(masked_val)
+    }
+
+    /// Converts a U256 to Scalar, wrapping as needed.
+    #[must_use]
+    fn from_wrapping(value: U256) -> Self {
+        Self::from(<[u64; 4]>::from(value))
+    }
 }

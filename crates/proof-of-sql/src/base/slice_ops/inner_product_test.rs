@@ -1,5 +1,5 @@
 use super::*;
-use crate::base::scalar::{test_scalar::TestScalar, ScalarExt};
+use crate::base::scalar::{test_scalar::TestScalar, Scalar};
 
 #[test]
 fn test_inner_product_with_bytes_basic() {
@@ -105,6 +105,42 @@ fn test_inner_product_with_bytes_some_edge_cases() {
         .zip(rhs.iter())
         .map(|(bts, &sc)| TestScalar::from_byte_slice_via_hash(bts) * sc)
         .sum::<TestScalar>();
+    assert_eq!(product, expected);
+}
+
+#[test]
+fn test_inner_product_with_str_basic() {
+    let lhs = vec!["abc".to_string(), "xyz".to_string(), "foo".to_string()];
+    let rhs = vec![
+        TestScalar::from(10),
+        TestScalar::from(20),
+        TestScalar::from(30),
+    ];
+    let product = inner_product_with_str(&lhs, &rhs);
+    let expected = lhs
+        .iter()
+        .zip(rhs.iter())
+        .map(|(value, &scalar)| TestScalar::from_str_via_hash(value) * scalar)
+        .sum::<TestScalar>();
+
+    assert_eq!(product, expected);
+}
+
+#[test]
+fn test_inner_product_with_str_uneven() {
+    let lhs = vec!["foo".to_string(), "bar".to_string()];
+    let rhs = vec![
+        TestScalar::from(5),
+        TestScalar::from(6),
+        TestScalar::from(7),
+    ];
+    let product = inner_product_with_str(&lhs, &rhs);
+    let expected = lhs
+        .iter()
+        .zip(rhs.iter())
+        .map(|(value, &scalar)| TestScalar::from_str_via_hash(value) * scalar)
+        .sum::<TestScalar>();
+
     assert_eq!(product, expected);
 }
 
