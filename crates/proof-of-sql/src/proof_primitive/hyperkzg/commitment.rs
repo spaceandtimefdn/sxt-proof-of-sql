@@ -224,6 +224,7 @@ mod tests {
     #[cfg(feature = "hyperkzg_proof")]
     use crate::proof_primitive::hyperkzg::HyperKZGEngine;
     use ark_ec::AffineRepr;
+    use ark_serialize::CanonicalSerialize;
     #[cfg(feature = "hyperkzg_proof")]
     use nova_snark::provider::hyperkzg::{CommitmentEngine, CommitmentKey};
     #[cfg(feature = "hyperkzg_proof")]
@@ -242,6 +243,55 @@ mod tests {
         let commitment: HyperKZGCommitment = (&G1Affine::generator()).into();
         let expected: HyperKZGCommitment = HyperKZGCommitment::from(&G1Affine::generator());
         assert_eq!(commitment.commitment, expected.commitment);
+    }
+
+    #[test]
+    fn we_can_apply_hyperkzg_commitment_arithmetic() {
+        let generator: HyperKZGCommitment = (&G1Affine::generator()).into();
+        let doubled = BNScalar::from(2_u64) * generator;
+        let tripled = BNScalar::from(3_u64) * &generator;
+
+        assert_eq!(
+            doubled.commitment,
+            generator.commitment + generator.commitment
+        );
+        assert_eq!(
+            tripled.commitment,
+            generator.commitment + generator.commitment + generator.commitment
+        );
+
+        let mut sum = generator;
+        sum += doubled;
+        assert_eq!(sum.commitment, tripled.commitment);
+
+        let negated = -generator;
+        assert_eq!(negated.commitment, -generator.commitment);
+
+        let mut difference = sum;
+        difference -= generator;
+        assert_eq!(difference.commitment, doubled.commitment);
+        assert_eq!((sum - doubled).commitment, generator.commitment);
+    }
+
+    #[test]
+    fn we_can_serialize_hyperkzg_commitment_to_transcript_bytes() {
+        let commitment: HyperKZGCommitment = (&G1Affine::generator()).into();
+
+        let mut expected = Vec::with_capacity(commitment.commitment.compressed_size());
+        commitment
+            .commitment
+            .serialize_compressed(&mut expected)
+            .unwrap();
+
+        assert_eq!(commitment.to_transcript_bytes(), expected);
+    }
+
+    #[test]
+    fn we_can_compute_empty_hyperkzg_commitments() {
+        let setup: [G1Affine; 0] = [];
+        let commitments = HyperKZGCommitment::compute_commitments(&[], 0, &&setup[..]);
+
+        assert!(commitments.is_empty());
     }
 
     #[cfg(feature = "hyperkzg_proof")]
