@@ -39,6 +39,50 @@ mod setup;
 pub use setup::{ProverSetup, VerifierSetup};
 #[cfg(test)]
 mod setup_test;
+#[cfg(test)]
+mod test_setup {
+    use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+    use std::sync::LazyLock;
+
+    pub(crate) struct CachedDorySetup {
+        public_parameters: PublicParameters,
+        verifier_setup: VerifierSetup,
+    }
+
+    impl CachedDorySetup {
+        pub(crate) fn prover_setup(&'static self) -> ProverSetup<'static> {
+            ProverSetup::from(&self.public_parameters)
+        }
+
+        pub(crate) fn verifier_setup(&'static self) -> &'static VerifierSetup {
+            &self.verifier_setup
+        }
+    }
+
+    static SETUP_MAX_NU_2: LazyLock<CachedDorySetup> = LazyLock::new(|| new_cached_dory_setup(2));
+    static SETUP_MAX_NU_4: LazyLock<CachedDorySetup> = LazyLock::new(|| new_cached_dory_setup(4));
+    static SETUP_MAX_NU_6: LazyLock<CachedDorySetup> = LazyLock::new(|| new_cached_dory_setup(6));
+
+    fn new_cached_dory_setup(max_nu: usize) -> CachedDorySetup {
+        let public_parameters = PublicParameters::test_rand(max_nu, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        CachedDorySetup {
+            public_parameters,
+            verifier_setup,
+        }
+    }
+
+    pub(crate) fn cached_dory_setup(max_nu: usize) -> &'static CachedDorySetup {
+        match max_nu {
+            2 => &SETUP_MAX_NU_2,
+            4 => &SETUP_MAX_NU_4,
+            6 => &SETUP_MAX_NU_6,
+            _ => panic!("cached dory setup max_nu {max_nu} is not configured"),
+        }
+    }
+}
+#[cfg(test)]
+pub(crate) use test_setup::cached_dory_setup;
 
 mod state;
 pub(crate) use state::{ProverState, VerifierState};
