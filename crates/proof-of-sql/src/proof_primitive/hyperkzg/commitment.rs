@@ -218,6 +218,8 @@ mod tests {
     use super::*;
     #[cfg(feature = "hyperkzg_proof")]
     use crate::base::database::OwnedColumn;
+    use crate::base::math::decimal::Precision;
+    use crate::base::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
     use crate::base::{try_standard_binary_deserialization, try_standard_binary_serialization};
     #[cfg(feature = "hyperkzg_proof")]
     use crate::proof_primitive::hyperkzg::nova_commitment_key_to_hyperkzg_public_setup;
@@ -242,6 +244,108 @@ mod tests {
         let commitment: HyperKZGCommitment = (&G1Affine::generator()).into();
         let expected: HyperKZGCommitment = HyperKZGCommitment::from(&G1Affine::generator());
         assert_eq!(commitment.commitment, expected.commitment);
+    }
+
+    #[test]
+    fn we_can_compute_a_hyperkzg_commitment_with_an_offset() {
+        let generator = G1Affine::generator();
+        let setup = vec![
+            generator,
+            (generator * BNScalar::from(2_u64).0).into(),
+            (generator * BNScalar::from(3_u64).0).into(),
+            (generator * BNScalar::from(5_u64).0).into(),
+        ];
+        let scalars = [7_u8, 11_u8];
+
+        let commitment = compute_commitment_generic_impl(&setup, 1, &scalars);
+
+        let expected = setup[1] * BNScalar::from(7_u8).0 + setup[2] * BNScalar::from(11_u8).0;
+        assert_eq!(commitment.commitment, expected);
+    }
+
+    #[test]
+    fn we_can_dispatch_all_committable_column_types_to_hyperkzg_commitments() {
+        let generator = G1Affine::generator();
+        let setup = vec![generator, (generator * BNScalar::from(2_u64).0).into()];
+        let bools = [true, false];
+        let uint8s = [1_u8, 2_u8];
+        let tinyints = [-1_i8, 2_i8];
+        let smallints = [-3_i16, 4_i16];
+        let ints = [-5_i32, 6_i32];
+        let bigints = [-7_i64, 8_i64];
+        let int128s = [-9_i128, 10_i128];
+        let limbs = vec![[11, 0, 0, 0], [12, 0, 0, 0]];
+        let timestamps = [13_i64, 14_i64];
+        let columns = [
+            CommittableColumn::Boolean(&bools),
+            CommittableColumn::Uint8(&uint8s),
+            CommittableColumn::TinyInt(&tinyints),
+            CommittableColumn::SmallInt(&smallints),
+            CommittableColumn::Int(&ints),
+            CommittableColumn::BigInt(&bigints),
+            CommittableColumn::Int128(&int128s),
+            CommittableColumn::Decimal75(Precision::new(75).unwrap(), 0, limbs.clone()),
+            CommittableColumn::Scalar(limbs.clone()),
+            CommittableColumn::VarChar(limbs.clone()),
+            CommittableColumn::VarBinary(limbs.clone()),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &timestamps,
+            ),
+        ];
+
+        let commitments = compute_commitments_impl(&columns, 0, &&setup[..]);
+
+        assert_eq!(commitments.len(), columns.len());
+        assert_eq!(
+            commitments[0],
+            compute_commitment_generic_impl(&setup, 0, &bools)
+        );
+        assert_eq!(
+            commitments[1],
+            compute_commitment_generic_impl(&setup, 0, &uint8s)
+        );
+        assert_eq!(
+            commitments[2],
+            compute_commitment_generic_impl(&setup, 0, &tinyints)
+        );
+        assert_eq!(
+            commitments[3],
+            compute_commitment_generic_impl(&setup, 0, &smallints)
+        );
+        assert_eq!(
+            commitments[4],
+            compute_commitment_generic_impl(&setup, 0, &ints)
+        );
+        assert_eq!(
+            commitments[5],
+            compute_commitment_generic_impl(&setup, 0, &bigints)
+        );
+        assert_eq!(
+            commitments[6],
+            compute_commitment_generic_impl(&setup, 0, &int128s)
+        );
+        assert_eq!(
+            commitments[7],
+            compute_commitment_generic_impl(&setup, 0, &limbs)
+        );
+        assert_eq!(
+            commitments[8],
+            compute_commitment_generic_impl(&setup, 0, &limbs)
+        );
+        assert_eq!(
+            commitments[9],
+            compute_commitment_generic_impl(&setup, 0, &limbs)
+        );
+        assert_eq!(
+            commitments[10],
+            compute_commitment_generic_impl(&setup, 0, &limbs)
+        );
+        assert_eq!(
+            commitments[11],
+            compute_commitment_generic_impl(&setup, 0, &timestamps)
+        );
     }
 
     #[cfg(feature = "hyperkzg_proof")]
