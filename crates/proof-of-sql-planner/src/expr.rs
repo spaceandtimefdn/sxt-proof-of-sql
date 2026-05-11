@@ -579,6 +579,73 @@ mod tests {
     }
 
     #[test]
+    fn we_cannot_convert_binary_expr_with_invalid_operand_types() {
+        let varchar_schema = vec![
+            ("column1".into(), ColumnType::VarChar),
+            ("column2".into(), ColumnType::VarChar),
+        ];
+        for op in [Operator::Lt, Operator::Gt, Operator::LtEq, Operator::GtEq] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(df_column("namespace.table_name", "column1")),
+                right: Box::new(df_column("namespace.table_name", "column2")),
+                op,
+            });
+            assert!(
+                expr_to_proof_expr(&expr, &varchar_schema).is_err(),
+                "{op:?} should reject varchar operands"
+            );
+        }
+
+        let mismatched_schema = vec![
+            ("column1".into(), ColumnType::VarChar),
+            ("column2".into(), ColumnType::Boolean),
+        ];
+        for op in [Operator::Eq, Operator::NotEq] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(df_column("namespace.table_name", "column1")),
+                right: Box::new(df_column("namespace.table_name", "column2")),
+                op,
+            });
+            assert!(
+                expr_to_proof_expr(&expr, &mismatched_schema).is_err(),
+                "{op:?} should reject mismatched operand types"
+            );
+        }
+
+        let boolean_schema = vec![
+            ("column1".into(), ColumnType::Boolean),
+            ("column2".into(), ColumnType::Boolean),
+        ];
+        for op in [Operator::Plus, Operator::Minus, Operator::Multiply] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(df_column("namespace.table_name", "column1")),
+                right: Box::new(df_column("namespace.table_name", "column2")),
+                op,
+            });
+            assert!(
+                expr_to_proof_expr(&expr, &boolean_schema).is_err(),
+                "{op:?} should reject boolean operands"
+            );
+        }
+
+        let integer_schema = vec![
+            ("column1".into(), ColumnType::Int),
+            ("column2".into(), ColumnType::Int),
+        ];
+        for op in [Operator::And, Operator::Or] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(df_column("namespace.table_name", "column1")),
+                right: Box::new(df_column("namespace.table_name", "column2")),
+                op,
+            });
+            assert!(
+                expr_to_proof_expr(&expr, &integer_schema).is_err(),
+                "{op:?} should reject integer operands"
+            );
+        }
+    }
+
+    #[test]
     fn we_can_convert_logical_not_eq_to_proof_expr() {
         let schema = vec![
             ("column1".into(), ColumnType::BigInt),
