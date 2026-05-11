@@ -177,7 +177,7 @@ mod tests {
     use crate::base::{
         commitment::naive_commitment::NaiveCommitment,
         database::{Column, OwnedColumn},
-        scalar::test_scalar::TestScalar,
+        scalar::{test_scalar::TestScalar, Scalar},
     };
     #[test]
     fn we_can_convert_from_columns() {
@@ -313,28 +313,28 @@ mod tests {
                 column_a
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
             CommittableColumn::VarChar(
                 column_b
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
             CommittableColumn::VarChar(
                 column_c
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
             CommittableColumn::VarChar(
                 column_d
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
         ];
@@ -371,7 +371,7 @@ mod tests {
                 column_b
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
         ];
@@ -450,7 +450,7 @@ mod tests {
                 column_b[3..]
                     .iter()
                     .map(Into::<TestScalar>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar: TestScalar| scalar.to_limbs())
                     .collect(),
             ),
         ];
