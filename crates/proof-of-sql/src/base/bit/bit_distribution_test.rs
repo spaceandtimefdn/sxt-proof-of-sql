@@ -55,6 +55,12 @@ fn we_can_get_u256_version_of_vary_mask_for_large_number() {
 
 // vary_mask function end
 
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn converting_no_lead_bit_error_panics() {
+    let _ = crate::base::proof::ProofError::from(BitDistributionError::NoLeadBit);
+}
+
 // leading_bit_mask function start
 
 #[test]
