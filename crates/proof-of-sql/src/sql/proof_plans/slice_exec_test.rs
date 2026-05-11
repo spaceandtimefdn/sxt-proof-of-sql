@@ -7,11 +7,14 @@ use crate::{
         },
         map::{indexmap, IndexMap},
         math::decimal::Precision,
+        proof::ProofError,
+        scalar::{test_scalar::TestScalar, Scalar},
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
-            exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
+            exercise_verification, mock_verification_builder::MockVerificationBuilder,
+            FirstRoundBuilder, ProofPlan, ProvableQueryResult, ProverEvaluate,
             VerifiableQueryResult,
         },
         proof_exprs::{test_utility::*, DynProofExpr},
@@ -19,6 +22,86 @@ use crate::{
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+use sqlparser::ast::Ident;
+
+#[test]
+fn we_can_verify_slice_exec_verifier_lengths() {
+    let t = TableRef::new("sxt", "t");
+    let plan = slice_exec(
+        table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
+        1,
+        Some(2),
+    );
+    let accessor = indexmap! {
+        t.clone() => indexmap! { Ident::from("a") => TestScalar::ONE }
+    };
+    let chi_eval_map = indexmap! { t => (TestScalar::ONE, 5) };
+    let mut verification_builder = MockVerificationBuilder::new(
+        Vec::new(),
+        3,
+        vec![vec![TestScalar::ONE]],
+        vec![vec![TestScalar::ZERO, TestScalar::ZERO]],
+        vec![TestScalar::ZERO, TestScalar::ZERO],
+        vec![2, 1, 3],
+        Vec::new(),
+    );
+
+    let result = plan
+        .verifier_evaluate(&mut verification_builder, &accessor, &chi_eval_map, &[])
+        .unwrap();
+
+    assert_eq!(result.column_evals(), &[TestScalar::ONE]);
+    assert_eq!(result.chi(), (TestScalar::ONE, 2));
+}
+
+#[test]
+fn we_reject_slice_exec_verifier_lengths() {
+    let verify_with_chi_lengths = |chi_evaluation_length_queue| {
+        let t = TableRef::new("sxt", "t");
+        let plan = slice_exec(
+            table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
+            1,
+            Some(2),
+        );
+        let accessor = indexmap! {
+            t.clone() => indexmap! { Ident::from("a") => TestScalar::ONE }
+        };
+        let chi_eval_map = indexmap! { t => (TestScalar::ONE, 5) };
+        let mut verification_builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            2,
+            vec![vec![TestScalar::ONE]],
+            vec![vec![TestScalar::ZERO, TestScalar::ZERO]],
+            vec![TestScalar::ZERO, TestScalar::ZERO],
+            chi_evaluation_length_queue,
+            Vec::new(),
+        );
+
+        plan.verifier_evaluate(&mut verification_builder, &accessor, &chi_eval_map, &[])
+    };
+
+    let invalid_lengths = [
+        (
+            vec![1, 1, 3],
+            "output length does not match selection length",
+        ),
+        (vec![3, 0, 3], "offset length does not match plan value"),
+        (vec![3, 1, 4], "max length does not match expected value"),
+    ];
+
+    for (chi_lengths, expected_error) in invalid_lengths {
+        if let Err(ProofError::VerificationError { error }) = verify_with_chi_lengths(chi_lengths) {
+            assert_eq!(error, expected_error);
+        } else {
+            panic!("expected slice verifier length error");
+        }
+    }
+
+    assert!(matches!(
+        verify_with_chi_lengths(vec![2, 1, 3]),
+        Err(ProofError::ProofSizeMismatch { .. })
+    ));
+}
 
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
