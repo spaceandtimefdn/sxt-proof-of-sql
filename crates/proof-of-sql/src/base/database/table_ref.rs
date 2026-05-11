@@ -142,3 +142,118 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::Equivalent;
+
+    #[test]
+    fn new_omits_empty_schema_and_preserves_non_empty_schema() {
+        let table_only = TableRef::new("", "orders");
+        assert_eq!(table_only.schema_id(), None);
+        assert_eq!(table_only.table_id(), &Ident::new("orders"));
+        assert_eq!(table_only.to_string(), "orders");
+
+        let qualified = TableRef::new("analytics", "orders");
+        assert_eq!(qualified.schema_id(), Some(&Ident::new("analytics")));
+        assert_eq!(qualified.table_id(), &Ident::new("orders"));
+        assert_eq!(qualified.to_string(), "analytics.orders");
+    }
+
+    #[test]
+    fn from_names_and_from_idents_preserve_components() {
+        let from_names = TableRef::from_names(Some("sxt"), "blocks");
+        let from_idents = TableRef::from_idents(Some(Ident::new("sxt")), Ident::new("blocks"));
+        assert_eq!(from_names, from_idents);
+
+        let without_schema = TableRef::from_names(None, "blocks");
+        assert_eq!(without_schema.schema_id(), None);
+        assert_eq!(without_schema.table_id(), &Ident::new("blocks"));
+    }
+
+    #[test]
+    fn from_strs_accepts_one_or_two_components() {
+        assert_eq!(
+            TableRef::from_strs(&["blocks"]).unwrap(),
+            TableRef::from_names(None, "blocks")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["sxt", "blocks"]).unwrap(),
+            TableRef::from_names(Some("sxt"), "blocks")
+        );
+    }
+
+    #[test]
+    fn from_strs_rejects_invalid_component_counts() {
+        assert!(matches!(
+            TableRef::from_strs::<&str>(&[]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+        assert!(matches!(
+            TableRef::from_strs(&["too", "many", "parts"]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn string_parsers_accept_table_only_and_schema_qualified_refs() {
+        assert_eq!(
+            TableRef::try_from("blocks").unwrap(),
+            TableRef::from_names(None, "blocks")
+        );
+        assert_eq!(
+            TableRef::from_str("sxt.blocks").unwrap(),
+            TableRef::from_names(Some("sxt"), "blocks")
+        );
+    }
+
+    #[test]
+    fn string_parsers_reject_too_many_dot_components() {
+        assert!(matches!(
+            TableRef::try_from("too.many.parts"),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+        assert!(matches!(
+            TableRef::from_str("too.many.parts"),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn equivalent_matches_schema_and_table() {
+        let left = TableRef::new("sxt", "blocks");
+        let matching = TableRef::new("sxt", "blocks");
+        let different_schema = TableRef::new("analytics", "blocks");
+        let different_table = TableRef::new("sxt", "transactions");
+
+        assert!((&left).equivalent(&matching));
+        assert!(!(&left).equivalent(&different_schema));
+        assert!(!(&left).equivalent(&different_table));
+    }
+
+    #[test]
+    fn serde_round_trips_table_refs_as_strings() {
+        let qualified = TableRef::new("sxt", "blocks");
+        let serialized = serde_json::to_string(&qualified).unwrap();
+        assert_eq!(serialized, r#""sxt.blocks""#);
+        assert_eq!(
+            serde_json::from_str::<TableRef>(&serialized).unwrap(),
+            qualified
+        );
+
+        let table_only = TableRef::new("", "blocks");
+        let serialized = serde_json::to_string(&table_only).unwrap();
+        assert_eq!(serialized, r#""blocks""#);
+        assert_eq!(
+            serde_json::from_str::<TableRef>(&serialized).unwrap(),
+            table_only
+        );
+    }
+
+    #[test]
+    fn serde_rejects_invalid_table_ref_strings() {
+        let result = serde_json::from_str::<TableRef>(r#""too.many.parts""#);
+        assert!(result.is_err());
+    }
+}
