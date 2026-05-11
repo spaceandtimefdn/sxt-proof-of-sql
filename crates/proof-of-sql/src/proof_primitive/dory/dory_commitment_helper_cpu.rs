@@ -1,5 +1,8 @@
 use super::{pairings, DoryCommitment, DoryProverPublicSetup, DoryScalar, G1Projective};
-use crate::{base::commitment::CommittableColumn, utils::log};
+use crate::{
+    base::{commitment::CommittableColumn, scalar::Scalar},
+    utils::log,
+};
 use alloc::vec::Vec;
 use ark_ec::VariableBaseMSM;
 use core::iter::once;
@@ -12,13 +15,13 @@ use core::iter::once;
 /// - `Gamma_1.last()` returns `None` when computing remaining row commitments.
 /// - `Gamma_2.last()` returns `None` when computing the commitment for the entire matrix.
 /// - The slices accessed in `Gamma_1.last().unwrap()` or `Gamma_2.last().unwrap()` are out of bounds.
-fn compute_dory_commitment_impl<'a, T>(
-    column: &'a [T],
+fn compute_dory_commitment_impl<T>(
+    column: &[T],
     offset: usize,
     setup: &DoryProverPublicSetup,
+    scalar_from_value: impl Fn(&T) -> DoryScalar + Copy + Sync,
 ) -> DoryCommitment
 where
-    &'a T: Into<DoryScalar>,
     T: Sync,
 {
     log::log_memory_usage("Start");
@@ -38,12 +41,12 @@ where
     // Compute commitments for the rows.
     let first_row_commit = G1Projective::msm_unchecked(
         &setup.prover_setup().Gamma_1.last().unwrap()[first_row_offset..num_columns],
-        &Vec::from_iter(first_row.iter().map(|s| s.into().0)),
+        &Vec::from_iter(first_row.iter().map(|s| scalar_from_value(s).0)),
     );
     let remaining_row_commits = remaining_rows.map(|row| {
         G1Projective::msm_unchecked(
             &setup.prover_setup().Gamma_1.last().unwrap()[..num_columns],
-            &Vec::from_iter(row.iter().map(|s| s.into().0)),
+            &Vec::from_iter(row.iter().map(|s| scalar_from_value(s).0)),
         )
     });
 
@@ -65,21 +68,41 @@ fn compute_dory_commitment(
     setup: &DoryProverPublicSetup,
 ) -> DoryCommitment {
     match committable_column {
-        CommittableColumn::Scalar(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Uint8(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Int(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::BigInt(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Decimal75(_, _, column) => {
-            compute_dory_commitment_impl(column, offset, setup)
+        CommittableColumn::Scalar(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| DoryScalar::from_limbs(*s))
         }
-        CommittableColumn::VarChar(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::VarBinary(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::Uint8(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::TinyInt(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::SmallInt(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::Int(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::BigInt(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::Int128(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
+        CommittableColumn::Decimal75(_, _, column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| DoryScalar::from_limbs(*s))
+        }
+        CommittableColumn::VarChar(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| DoryScalar::from_limbs(*s))
+        }
+        CommittableColumn::VarBinary(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| DoryScalar::from_limbs(*s))
+        }
+        CommittableColumn::Boolean(column) => {
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
+        }
         CommittableColumn::TimestampTZ(_, _, column) => {
-            compute_dory_commitment_impl(column, offset, setup)
+            compute_dory_commitment_impl(column, offset, setup, |s| s.into())
         }
     }
 }

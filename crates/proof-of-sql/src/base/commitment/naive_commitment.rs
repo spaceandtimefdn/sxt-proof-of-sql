@@ -141,16 +141,19 @@ impl Commitment for NaiveCommitment {
                     CommittableColumn::Int128(int_128_vec) => {
                         int_128_vec.iter().map(core::convert::Into::into).collect()
                     }
-                    CommittableColumn::Decimal75(_, _, u64_vec) => {
-                        u64_vec.iter().map(core::convert::Into::into).collect()
-                    }
-                    CommittableColumn::Scalar(scalar_vec) => {
-                        scalar_vec.iter().map(core::convert::Into::into).collect()
-                    }
+                    CommittableColumn::Decimal75(_, _, u64_vec) => u64_vec
+                        .iter()
+                        .map(|limbs| TestScalar::from_limbs(*limbs))
+                        .collect(),
+                    CommittableColumn::Scalar(scalar_vec) => scalar_vec
+                        .iter()
+                        .map(|limbs| TestScalar::from_limbs(*limbs))
+                        .collect(),
                     CommittableColumn::VarChar(varchar_vec)
-                    | CommittableColumn::VarBinary(varchar_vec) => {
-                        varchar_vec.iter().map(core::convert::Into::into).collect()
-                    }
+                    | CommittableColumn::VarBinary(varchar_vec) => varchar_vec
+                        .iter()
+                        .map(|limbs| TestScalar::from_limbs(*limbs))
+                        .collect(),
                     CommittableColumn::TimestampTZ(_, _, i64_vec) => {
                         i64_vec.iter().map(core::convert::Into::into).collect()
                     }
@@ -181,8 +184,10 @@ fn we_can_compute_commitments_from_committable_columns() {
     ];
     let column_a_scalars: Vec<TestScalar> =
         column_a.iter().map(core::convert::Into::into).collect();
-    let column_b_scalars: Vec<TestScalar> =
-        column_b.iter().map(core::convert::Into::into).collect();
+    let column_b_scalars: Vec<TestScalar> = column_b
+        .iter()
+        .map(|limbs| TestScalar::from_limbs(*limbs))
+        .collect();
     let committable_column_a = CommittableColumn::BigInt(&column_a);
     let committable_column_b = CommittableColumn::VarChar(column_b);
     let committable_columns: &[CommittableColumn] = &[committable_column_a, committable_column_b];
@@ -205,7 +210,10 @@ fn we_can_compute_commitments_from_committable_columns_with_offset() {
 #[test]
 fn we_can_compute_commitments_from_committable_varbinary_column() {
     let varbinary_data = vec![[1u64, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
-    let varbinary_scalars: Vec<TestScalar> = varbinary_data.iter().map(Into::into).collect();
+    let varbinary_scalars: Vec<TestScalar> = varbinary_data
+        .iter()
+        .map(|limbs| TestScalar::from_limbs(*limbs))
+        .collect();
     let committable_column_varbinary = CommittableColumn::VarBinary(varbinary_data);
     let commitments = NaiveCommitment::compute_commitments(&[committable_column_varbinary], 0, &());
     assert_eq!(commitments[0].0, varbinary_scalars);
@@ -218,7 +226,11 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
     let committable_column = CommittableColumn::VarBinary(trimmed_data.to_vec());
     let commitments = NaiveCommitment::compute_commitments(&[committable_column], 1, &());
     let expected: Vec<TestScalar> = core::iter::once(TestScalar::ZERO)
-        .chain(trimmed_data.iter().map(Into::into))
+        .chain(
+            trimmed_data
+                .iter()
+                .map(|limbs| TestScalar::from_limbs(*limbs)),
+        )
         .collect();
     assert_eq!(commitments[0].0, expected);
 }

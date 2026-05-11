@@ -35,15 +35,16 @@ mod tests {
         )
     }
 
-    fn compute_commitment_with_hyperkzg_repo<T: Into<BNScalar> + Clone>(
+    fn compute_commitment_with_hyperkzg_repo<T>(
         setup: &CommitmentKey<HyperKZGEngine>,
         offset: usize,
         scalars: &[T],
+        scalar_from_value: impl Fn(&T) -> BNScalar,
     ) -> NovaCommitment {
         CommitmentEngine::commit(
             setup,
             &itertools::repeat_n(BNScalar::ZERO, offset)
-                .chain(scalars.iter().map(Into::into))
+                .chain(scalars.iter().map(scalar_from_value))
                 .map(Into::into)
                 .collect_vec(),
             &NovaScalar::ZERO,
@@ -54,7 +55,7 @@ mod tests {
     fn we_can_compute_commitment_with_hyperkzg_repo_for_testing() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 6);
 
-        let result = compute_commitment_with_hyperkzg_repo(&ck, 0, &[0]);
+        let result = compute_commitment_with_hyperkzg_repo(&ck, 0, &[0], |s| s.into());
 
         assert_eq!(
             result,
@@ -71,31 +72,71 @@ mod tests {
         for column in committable_columns {
             match column {
                 CommittableColumn::Boolean(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::Uint8(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::TinyInt(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::SmallInt(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::Int(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::BigInt(vals) | CommittableColumn::TimestampTZ(_, _, vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::Int128(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| s.into(),
+                    ));
                 }
                 CommittableColumn::Decimal75(_, _, vals)
                 | CommittableColumn::Scalar(vals)
                 | CommittableColumn::VarChar(vals)
                 | CommittableColumn::VarBinary(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_commitment_with_hyperkzg_repo(
+                        ck,
+                        offset,
+                        vals,
+                        |s| BNScalar::from_limbs(*s),
+                    ));
                 }
             }
         }

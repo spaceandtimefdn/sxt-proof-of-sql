@@ -320,7 +320,7 @@ mod tests {
         database::OwnedColumn,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-        scalar::test_scalar::TestScalar,
+        scalar::{test_scalar::TestScalar, Scalar},
     };
     use alloc::{string::String, vec};
     use itertools::Itertools;
@@ -563,9 +563,9 @@ mod tests {
             Precision::new(1).unwrap(),
             0,
             vec![
-                -TestScalar::from([1, 0, 0, 0]),
-                TestScalar::from([2, 0, 0, 0]),
-                TestScalar::from([3, 0, 0, 0]),
+                -TestScalar::from_limbs([1, 0, 0, 0]),
+                TestScalar::from_limbs([2, 0, 0, 0]),
+                TestScalar::from_limbs([3, 0, 0, 0]),
             ],
         );
         let committable_decimal75_column = CommittableColumn::from(&decimal75_column);

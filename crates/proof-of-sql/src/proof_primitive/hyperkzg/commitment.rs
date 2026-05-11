@@ -4,7 +4,6 @@ use crate::base::if_rayon;
 use crate::base::{
     commitment::{Commitment, CommittableColumn},
     scalar::Scalar,
-    slice_ops,
 };
 use alloc::vec::Vec;
 use ark_bn254::{G1Affine, G1Projective};
@@ -114,15 +113,16 @@ impl Sub for HyperKZGCommitment {
     level = "debug",
     skip_all
 )]
-fn compute_commitment_generic_impl<T: Into<BNScalar> + Clone + Sync>(
+fn compute_commitment_generic_impl<T: Sync>(
     setup: HyperKZGPublicSetup<'_>,
     offset: usize,
     scalars: &[T],
+    scalar_from_value: impl Fn(&T) -> BNScalar + Sync,
 ) -> HyperKZGCommitment {
     assert!(offset + scalars.len() <= setup.len());
     let product: G1Projective = if_rayon!(scalars.par_iter(), scalars.iter())
         .zip(&setup[offset..offset + scalars.len()])
-        .map(|(t, s)| *s * Into::<BNScalar>::into(t).0)
+        .map(|(t, s)| *s * scalar_from_value(t).0)
         .sum();
     HyperKZGCommitment {
         commitment: G1Projective::from(product),
@@ -139,25 +139,31 @@ fn compute_commitments_impl(
     if_rayon!(committable_columns.par_iter(), committable_columns.iter())
         .map(|column| match column {
             CommittableColumn::Boolean(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
             }
-            CommittableColumn::Uint8(vals) => compute_commitment_generic_impl(setup, offset, vals),
+            CommittableColumn::Uint8(vals) => {
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
+            }
             CommittableColumn::TinyInt(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
             }
             CommittableColumn::SmallInt(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
             }
-            CommittableColumn::Int(vals) => compute_commitment_generic_impl(setup, offset, vals),
+            CommittableColumn::Int(vals) => {
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
+            }
             CommittableColumn::BigInt(vals) | CommittableColumn::TimestampTZ(_, _, vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
             }
-            CommittableColumn::Int128(vals) => compute_commitment_generic_impl(setup, offset, vals),
+            CommittableColumn::Int128(vals) => {
+                compute_commitment_generic_impl(setup, offset, vals, |s| s.into())
+            }
             CommittableColumn::Decimal75(_, _, vals)
             | CommittableColumn::Scalar(vals)
             | CommittableColumn::VarChar(vals)
             | CommittableColumn::VarBinary(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_commitment_generic_impl(setup, offset, vals, |s| BNScalar::from_limbs(*s))
             }
         })
         .collect()
