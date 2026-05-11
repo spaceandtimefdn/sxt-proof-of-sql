@@ -2224,6 +2224,133 @@ mod tests {
         );
     }
 
+    #[test]
+    fn we_can_convert_inner_join_to_sort_merge_join() {
+        let left_scan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "left_table",
+                Arc::new(PoSqlTableSource::new(vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new("left_value".into(), ColumnType::Int),
+                ])),
+                Some(vec![0, 1]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let right_scan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "right_table",
+                Arc::new(PoSqlTableSource::new(vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new("right_value".into(), ColumnType::VarChar),
+                ])),
+                Some(vec![0, 1]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left_scan),
+            right: Arc::new(right_scan),
+            on: vec![(
+                Expr::Column(Column::new(Some("left_table"), "id")),
+                Expr::Column(Column::new(Some("right_table"), "id")),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("left_value".into(), ColumnType::Int),
+            ],
+            TableRef::new("", "right_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("right_value".into(), ColumnType::VarChar),
+            ],
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
+        let expected = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(DynProofPlan::new_table(
+                TableRef::from_names(None, "left_table"),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new("left_value".into(), ColumnType::Int),
+                ],
+            )),
+            Box::new(DynProofPlan::new_table(
+                TableRef::from_names(None, "right_table"),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new("right_value".into(), ColumnType::VarChar),
+                ],
+            )),
+            vec![0],
+            vec![0],
+            vec!["id".into(), "left_value".into(), "right_value".into()],
+        ));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_cannot_convert_join_with_different_column_names() {
+        let left_scan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "left_table",
+                Arc::new(PoSqlTableSource::new(vec![ColumnField::new(
+                    "id".into(),
+                    ColumnType::BigInt,
+                )])),
+                Some(vec![0]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let right_scan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "right_table",
+                Arc::new(PoSqlTableSource::new(vec![ColumnField::new(
+                    "other_id".into(),
+                    ColumnType::BigInt,
+                )])),
+                Some(vec![0]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left_scan),
+            right: Arc::new(right_scan),
+            on: vec![(
+                Expr::Column(Column::new(Some("left_table"), "id")),
+                Expr::Column(Column::new(Some("right_table"), "other_id")),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![("id".into(), ColumnType::BigInt)],
+            TableRef::new("", "right_table") => vec![("other_id".into(), ColumnType::BigInt)],
+        });
+
+        assert!(matches!(
+            logical_plan_to_proof_plan(&plan, &schemas),
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
     // Filter (LogicalPlan::Filter) tests - Happy paths
     #[test]
     fn we_can_convert_simple_nested_filters() {
