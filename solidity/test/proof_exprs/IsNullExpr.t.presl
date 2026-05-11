@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import {Test} from "forge-std/Test.sol";
+import "../../src/base/Constants.sol";
+import {VerificationBuilder} from "../../src/builder/VerificationBuilder.presl";
+import {IsNullExpr} from "../../src/proof_exprs/IsNullExpr.presl";
+import {F} from "../base/FieldUtil.sol";
+
+contract IsNullExprTest is Test {
+    function testSimpleIsNullExpr() public pure {
+        bytes memory expr = abi.encodePacked(abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)), false, hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory values = new uint256[](1);
+        values[0] = 4;
+
+        uint256 eval;
+        (expr, builder, eval) = IsNullExpr.__isNullExprEvaluate(expr, builder, 10, values);
+
+        assert(eval == 6);
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testSimpleIsNotNullExpr() public pure {
+        bytes memory expr = abi.encodePacked(abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)), true, hex"abcdef");
+        bytes memory expectedExprOut = hex"abcdef";
+        VerificationBuilder.Builder memory builder;
+        uint256[] memory values = new uint256[](1);
+        values[0] = 4;
+
+        uint256 eval;
+        (expr, builder, eval) = IsNullExpr.__isNullExprEvaluate(expr, builder, 10, values);
+
+        assert(eval == 4);
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testFuzzIsNullExpr(
+        VerificationBuilder.Builder memory builder,
+        uint256 chiEvaluation,
+        uint256 validityEvaluation,
+        bool isNotNull,
+        bytes memory trailingExpr
+    ) public pure {
+        uint256[] memory values = new uint256[](1);
+        values[0] = validityEvaluation;
+        bytes memory expr = abi.encodePacked(abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)), isNotNull, trailingExpr);
+
+        uint256 eval;
+        (expr, builder, eval) = IsNullExpr.__isNullExprEvaluate(expr, builder, chiEvaluation, values);
+
+        uint256 expected =
+            isNotNull ? validityEvaluation : (F.from(chiEvaluation) - F.from(validityEvaluation)).into();
+        assert(eval == expected);
+        assert(expr.length == trailingExpr.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == trailingExpr[i]);
+        }
+    }
+}

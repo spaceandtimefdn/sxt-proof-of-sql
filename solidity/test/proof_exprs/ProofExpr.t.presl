@@ -266,6 +266,52 @@ contract ProofExprTest is Test {
         }
     }
 
+    function testIsNullExprVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory expr = abi.encodePacked(
+            IS_NULL_EXPR_VARIANT,
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            false,
+            hex"abcdef"
+        );
+        bytes memory expectedExprOut = hex"abcdef";
+        uint256[] memory values = new uint256[](1);
+        values[0] = 4;
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 10, values);
+
+        assert(eval == 6);
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
+    function testIsNotNullExprVariant() public pure {
+        VerificationBuilder.Builder memory builder;
+        bytes memory expr = abi.encodePacked(
+            IS_NULL_EXPR_VARIANT,
+            abi.encodePacked(COLUMN_EXPR_VARIANT, uint64(0)),
+            true,
+            hex"abcdef"
+        );
+        bytes memory expectedExprOut = hex"abcdef";
+        uint256[] memory values = new uint256[](1);
+        values[0] = 4;
+
+        uint256 eval;
+        (expr, builder, eval) = ProofExpr.__proofExprEvaluate(expr, builder, 10, values);
+
+        assert(eval == 4);
+        assert(expr.length == expectedExprOut.length);
+        uint256 exprOutLength = expr.length;
+        for (uint256 i = 0; i < exprOutLength; ++i) {
+            assert(expr[i] == expectedExprOut[i]);
+        }
+    }
+
     function testInequalityExprVariant() public pure {
         bytes memory expr = abi.encodePacked(
             INEQUALITY_EXPR_VARIANT,
@@ -381,5 +427,6 @@ contract ProofExprTest is Test {
         assert(uint32(ProofExpr.ExprVariant.Inequality) == INEQUALITY_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.Placeholder) == PLACEHOLDER_EXPR_VARIANT);
         assert(uint32(ProofExpr.ExprVariant.ScalingCast) == SCALING_CAST_EXPR_VARIANT);
+        assert(uint32(ProofExpr.ExprVariant.IsNull) == IS_NULL_EXPR_VARIANT);
     }
 }

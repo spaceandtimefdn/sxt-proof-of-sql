@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: UNLICENSED
+// This is licensed under the Cryptographic Open Software License 1.0
+pragma solidity ^0.8.26;
+
+import "../base/Constants.sol";
+import "../base/Errors.sol";
+import {VerificationBuilder} from "../builder/VerificationBuilder.presl";
+
+/// @title IsNullExpr
+/// @dev Library for handling IS NULL and IS NOT NULL proof expressions
+library IsNullExpr {
+    /// @notice Evaluates an IS NULL expression from a boolean validity sub-expression
+    /// @custom:as-yul-wrapper
+    /// #### Wrapped Yul Function
+    /// ##### Signature
+    /// ```yul
+    /// is_null_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, eval
+    /// ```
+    /// ##### Parameters
+    /// * `expr_ptr` - calldata pointer to the expression data
+    /// * `builder_ptr` - memory pointer to the verification builder
+    /// * `chi_eval` - the chi value for evaluation
+    /// * `accessor` - memory pointer to the collection of evals
+    /// ##### Return Values
+    /// * `expr_ptr_out` - pointer to the remaining expression after consuming the expression
+    /// * `eval` - the evaluation result
+    /// ##### Proof Plan Encoding
+    /// The is null expression is encoded as follows:
+    /// 1. The validity sub-expression, where true means the row is not null
+    /// 2. Whether the expression is IS NOT NULL, as a bool
+    /// @param __expr The is null expression data
+    /// @param __builder The verification builder
+    /// @param __chiEval The chi value for evaluation
+    /// @param __accessor The collection of evals
+    /// @return __exprOut The remaining expression after processing
+    /// @return __builderOut The verification builder result
+    /// @return __eval The evaluated result
+    function __isNullExprEvaluate( // solhint-disable-line gas-calldata-parameters
+    bytes calldata __expr, VerificationBuilder.Builder memory __builder, uint256 __chiEval, uint256[] memory __accessor)
+        external
+        pure
+        returns (bytes calldata __exprOut, VerificationBuilder.Builder memory __builderOut, uint256 __eval)
+    {
+        assembly {
+            // import submod_bn254 from ../base/MathUtil.presl
+            // import proof_expr_evaluate from ProofExpr.presl
+
+            function is_null_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor) -> expr_ptr_out, result_eval {
+                let validity_eval
+                expr_ptr, validity_eval := proof_expr_evaluate(expr_ptr, builder_ptr, chi_eval, accessor)
+
+                let is_not_null := shr(BOOLEAN_PADDING_BITS, calldataload(expr_ptr))
+                expr_ptr := add(expr_ptr, BOOLEAN_SIZE)
+
+                result_eval := validity_eval
+                if iszero(is_not_null) { result_eval := submod_bn254(chi_eval, validity_eval) }
+
+                expr_ptr_out := expr_ptr
+            }
+
+            let __exprOutOffset
+            __exprOutOffset, __eval := is_null_expr_evaluate(__expr.offset, __builder, __chiEval, __accessor)
+            __exprOut.offset := __exprOutOffset
+            // slither-disable-next-line write-after-write
+            __exprOut.length := sub(__expr.length, sub(__exprOutOffset, __expr.offset))
+        }
+        __builderOut = __builder;
+    }
+}
