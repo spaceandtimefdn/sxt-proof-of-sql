@@ -122,6 +122,17 @@ mod tests {
         );
     }
 
+    #[test]
+    fn dory_scalars_multiply_owned_and_borrowed_dynamic_commitments() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let commitment = DynamicDoryCommitment(GT::rand(&mut rng));
+        let scalar = DoryScalar::from(7);
+        let expected = DynamicDoryCommitment(commitment.0 * scalar.0);
+
+        assert_eq!(scalar * commitment, expected);
+        assert_eq!(scalar * &commitment, expected);
+    }
+
     /// Under no circumstances should this test be modified. Unless you know what you're doing.
     /// This tests is solely meant to confirm that the serialization of a table commitment has not changed.
     #[test]

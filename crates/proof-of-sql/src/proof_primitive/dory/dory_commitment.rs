@@ -499,4 +499,15 @@ mod tests {
             commitment2.to_transcript_bytes()
         );
     }
+
+    #[test]
+    fn dory_scalars_multiply_owned_and_borrowed_commitments() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let commitment = DoryCommitment(GT::rand(&mut rng));
+        let scalar = DoryScalar::from(7);
+        let expected = DoryCommitment(commitment.0 * scalar.0);
+
+        assert_eq!(scalar * commitment, expected);
+        assert_eq!(scalar * &commitment, expected);
+    }
 }
