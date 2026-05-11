@@ -146,12 +146,13 @@ mod tests {
             database::{Column, ColumnRef, ColumnType, Table, TableRef},
             map::indexmap,
             polynomial::MultilinearExtension,
-            scalar::test_scalar::TestScalar,
+            proof::{ProofError, ProofSizeMismatch},
+            scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::{
             proof::{
-                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-                FirstRoundBuilder,
+                mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+                FinalRoundBuilder, FirstRoundBuilder, VerificationBuilder,
             },
             proof_exprs::{ColumnExpr, DynProofExpr},
         },
@@ -202,5 +203,84 @@ mod tests {
         );
         let matrix = mock_verification_builder.get_identity_results();
         assert!(matrix.into_iter().all(|v| v.into_iter().all(|b| b)));
+    }
+
+    #[test]
+    fn we_get_error_if_verifier_has_too_few_final_round_mles() {
+        let table_ref: TableRef = "sxt.t".parse().unwrap();
+        let lhs_ident = Ident::from("lhs");
+        let rhs_ident = Ident::from("rhs");
+        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
+        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
+        let divide_and_modulo_expr = DivideAndModuloExpr::new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+        );
+        let accessor = indexmap! {
+            lhs_ident => TestScalar::from(7u64),
+            rhs_ident => TestScalar::from(3u64),
+        };
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            4,
+            Vec::new(),
+            vec![vec![TestScalar::ONE]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let error = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
+    }
+
+    #[test]
+    fn missing_rhs_accessor_errors_before_final_round_mles_are_consumed() {
+        let table_ref: TableRef = "sxt.t".parse().unwrap();
+        let lhs_ident = Ident::from("lhs");
+        let rhs_ident = Ident::from("rhs");
+        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
+        let rhs_ref = ColumnRef::new(table_ref, rhs_ident, ColumnType::Int128);
+        let divide_and_modulo_expr = DivideAndModuloExpr::new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref))),
+        );
+        let accessor = indexmap! {
+            lhs_ident => TestScalar::from(7u64),
+        };
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            4,
+            Vec::new(),
+            vec![vec![TestScalar::from(2u64), TestScalar::ONE]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let error = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::VerificationError {
+                error: "Column Not Found"
+            }
+        ));
+        assert_eq!(
+            verification_builder
+                .try_consume_final_round_mle_evaluation()
+                .unwrap(),
+            TestScalar::from(2u64)
+        );
     }
 }
