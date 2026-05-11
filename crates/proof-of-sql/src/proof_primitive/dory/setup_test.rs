@@ -1,6 +1,6 @@
 use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
 use ark_ec::pairing::Pairing;
-use std::{fs, path::Path};
+use std::{env, fs, io::ErrorKind, path::Path, process};
 
 #[test]
 fn we_can_create_and_manually_check_a_small_prover_setup() {
@@ -111,6 +111,35 @@ fn we_can_create_prover_setups_with_various_sizes() {
     }
 }
 
+#[cfg(feature = "blitzar")]
+#[test]
+fn we_can_create_prover_setup_from_existing_blitzar_handle() {
+    let mut rng = test_rng();
+    let pp = PublicParameters::test_rand(3, &mut rng);
+    let blitzar_elements = pp
+        .Gamma_1
+        .iter()
+        .copied()
+        .map(Into::into)
+        .collect::<Vec<_>>();
+    let blitzar_handle = blitzar::compute::MsmHandle::new(&blitzar_elements);
+
+    let setup = ProverSetup::from_public_parameters_and_blitzar_handle(&pp, blitzar_handle);
+
+    assert_eq!(setup.max_nu, pp.max_nu);
+    assert_eq!(setup.Gamma_1.len(), pp.max_nu + 1);
+    assert_eq!(setup.Gamma_2.len(), pp.max_nu + 1);
+    for k in 0..=pp.max_nu {
+        assert_eq!(setup.Gamma_1[k], &pp.Gamma_1[..1 << k]);
+        assert_eq!(setup.Gamma_2[k], &pp.Gamma_2[..1 << k]);
+    }
+    assert_eq!(setup.H_1, pp.H_1);
+    assert_eq!(setup.H_2, pp.H_2);
+    assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
+
+    let _blitzar_handle = setup.blitzar_handle();
+}
+
 #[test]
 fn we_can_create_verifier_setups_with_various_sizes() {
     let mut rng = test_rng();
@@ -158,4 +187,27 @@ fn we_can_serialize_and_deserialize_verifier_setups() {
         let deserialized: VerifierSetup = postcard::from_bytes(&serialized).unwrap();
         assert_eq!(setup, deserialized);
     }
+}
+
+#[test]
+fn verifier_setup_file_io_errors_are_reported() {
+    let test_dir = env::temp_dir().join(format!("sxt-verifier-setup-errors-{}", process::id()));
+    let _ = fs::remove_dir_all(&test_dir);
+    fs::create_dir_all(&test_dir).unwrap();
+
+    let missing_path = test_dir.join("missing.bin");
+    let missing_error = VerifierSetup::load_from_file(&missing_path).unwrap_err();
+    assert_eq!(missing_error.kind(), ErrorKind::NotFound);
+
+    let malformed_path = test_dir.join("malformed.bin");
+    fs::write(&malformed_path, []).unwrap();
+    let malformed_error = VerifierSetup::load_from_file(&malformed_path).unwrap_err();
+    assert_eq!(malformed_error.kind(), ErrorKind::Other);
+
+    let mut rng = test_rng();
+    let pp = PublicParameters::test_rand(1, &mut rng);
+    let setup = VerifierSetup::from(&pp);
+    assert!(setup.save_to_file(&test_dir).is_err());
+
+    fs::remove_dir_all(test_dir).unwrap();
 }
