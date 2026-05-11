@@ -122,6 +122,101 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
+#[cfg(test)]
+mod non_blitzar_tests {
+    use super::*;
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+        },
+        database::{owned_table_utility::*, OwnedTable, OwnedTableTestAccessor, TestAccessor},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn from_accessor_uses_schema_order_and_collapses_duplicate_column_requests() {
+        let table_ref = TableRef::new("schema", "ordered");
+        let alpha_id: Ident = "alpha".into();
+        let beta_id: Ident = "beta".into();
+        let table: OwnedTable<TestScalar> = owned_table([
+            bigint(alpha_id.value.as_str(), [10, 20, 30]),
+            scalar(beta_id.value.as_str(), [1, 2, 3]),
+        ]);
+
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(table_ref.clone(), table, 5);
+
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_ref.clone(), beta_id.clone(), ColumnType::Scalar),
+                ColumnRef::new(table_ref.clone(), alpha_id.clone(), ColumnType::BigInt),
+                ColumnRef::new(table_ref.clone(), beta_id.clone(), ColumnType::Scalar),
+            ],
+            &accessor,
+        );
+
+        let table_commitment = query_commitments.get(&table_ref).unwrap();
+        assert_eq!(table_commitment.range(), &(5..8));
+        assert_eq!(table_commitment.num_columns(), 2);
+        assert_eq!(query_commitments.get_offset(&table_ref), 5);
+        assert_eq!(query_commitments.get_length(&table_ref), 3);
+        assert_eq!(
+            query_commitments.lookup_column(&table_ref, &alpha_id),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_ref, &beta_id),
+            Some(ColumnType::Scalar)
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_ref, &"missing".into()),
+            None
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&TableRef::new("missing", "table"), &alpha_id),
+            None
+        );
+        assert_eq!(
+            query_commitments.lookup_schema(&table_ref),
+            vec![
+                (alpha_id.clone(), ColumnType::BigInt),
+                (beta_id.clone(), ColumnType::Scalar)
+            ]
+        );
+        assert_eq!(
+            table_commitment
+                .column_commitments()
+                .column_metadata()
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![alpha_id.clone(), beta_id.clone()]
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_ref, &alpha_id),
+            accessor.get_commitment(&table_ref, &alpha_id)
+        );
+        assert_eq!(
+            table_commitment
+                .column_commitments()
+                .get_commitment(&alpha_id)
+                .unwrap(),
+            accessor.get_commitment(&table_ref, &alpha_id)
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_ref, &beta_id),
+            accessor.get_commitment(&table_ref, &beta_id)
+        );
+        assert_eq!(
+            table_commitment
+                .column_commitments()
+                .get_commitment(&beta_id)
+                .unwrap(),
+            accessor.get_commitment(&table_ref, &beta_id)
+        );
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
