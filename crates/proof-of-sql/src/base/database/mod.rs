@@ -78,6 +78,12 @@ mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
 
+/// Proof-of-concept nullable column helpers.
+pub mod nullable_column;
+pub use nullable_column::{NullableBigIntColumn, NullableColumnError, NullableColumnResult};
+#[cfg(test)]
+mod nullable_column_proof_test;
+
 /// Module providing element-wise operations on [`OwnedColumn`] types.
 ///
 /// This module implements arithmetic, comparison, and logical operations
