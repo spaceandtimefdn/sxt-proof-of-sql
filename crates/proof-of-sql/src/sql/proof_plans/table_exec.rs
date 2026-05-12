@@ -130,3 +130,52 @@ impl ProverEvaluate for TableExec {
         Ok(final_round_table)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::{ColumnRef, ColumnType};
+
+    #[test]
+    fn constructor_preserves_table_ref_and_schema() {
+        let table_ref = TableRef::new("namespace", "users");
+        let schema = vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("name".into(), ColumnType::VarChar),
+        ];
+
+        let plan = TableExec::new(table_ref.clone(), schema.clone());
+
+        assert_eq!(plan.table_ref(), &table_ref);
+        assert_eq!(plan.schema(), schema.as_slice());
+    }
+
+    #[test]
+    fn reports_column_and_table_references_from_schema() {
+        let table_ref = TableRef::new("namespace", "users");
+        let schema = vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("name".into(), ColumnType::VarChar),
+        ];
+        let plan = TableExec::new(table_ref.clone(), schema.clone());
+
+        assert_eq!(plan.get_column_result_fields(), schema);
+
+        let column_references = plan.get_column_references();
+        assert_eq!(column_references.len(), 2);
+        assert!(column_references.contains(&ColumnRef::new(
+            table_ref.clone(),
+            "id".into(),
+            ColumnType::BigInt,
+        )));
+        assert!(column_references.contains(&ColumnRef::new(
+            table_ref.clone(),
+            "name".into(),
+            ColumnType::VarChar,
+        )));
+
+        let table_references = plan.get_table_references();
+        assert_eq!(table_references.len(), 1);
+        assert!(table_references.contains(&table_ref));
+    }
+}
