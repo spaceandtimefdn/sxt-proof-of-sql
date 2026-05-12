@@ -60,6 +60,8 @@ pub(crate) use numerical_util::{divide_columns, modulo_columns};
 
 mod equals_expr;
 pub(crate) use equals_expr::EqualsExpr;
+#[cfg(test)]
+mod comparison_expr_no_blitzar_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod equals_expr_test;
 
