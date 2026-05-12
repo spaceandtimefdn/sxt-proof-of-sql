@@ -88,6 +88,9 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
             (Column::VarChar((left_col, _)), Column::VarChar((right_col, _))) => {
                 left_col[left_row_index].cmp(right_col[right_row_index])
             }
+            (Column::VarBinary((left_col, _)), Column::VarBinary((right_col, _))) => {
+                left_col[left_row_index].cmp(right_col[right_row_index])
+            }
             // Should never happen since we checked the column types
             _ => unreachable!(),
         };
