@@ -98,7 +98,9 @@ impl<S: Scalar> OwnedColumn<S> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::ColumnType, math::decimal::Precision, scalar::test_scalar::TestScalar,
+    };
     use alloc::vec;
 
     #[test]
@@ -584,6 +586,130 @@ mod test {
             result,
             OwnedColumn::<TestScalar>::Int128(vec![2_i128, 4, 6])
         );
+    }
+
+    #[test]
+    fn we_can_add_columns_across_numeric_upcast_paths() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::BigInt(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Int128(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Int(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::BigInt(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Int128(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Int128(vec![4, 6])
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![3, 4]);
+        assert_eq!(
+            lhs.element_wise_add(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Int128(vec![4, 6])
+        );
+    }
+
+    #[test]
+    fn we_cannot_add_between_unsigned_and_signed_tinyint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![3, 4]);
+        assert!(matches!(
+            lhs.element_wise_add(&rhs),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt
+            })
+        ));
+
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![3, 4]);
+        assert!(matches!(
+            lhs.element_wise_add(&rhs),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8
+            })
+        ));
+    }
+
+    #[test]
+    fn we_can_add_decimal_columns_to_integer_columns_in_both_orders() {
+        let decimal_values = [10, 20].iter().map(TestScalar::from).collect();
+        let lhs =
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(5).unwrap(), 1, decimal_values);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let result = lhs.element_wise_add(&rhs).unwrap();
+        match result {
+            OwnedColumn::Decimal75(_, scale, values) => {
+                assert_eq!(scale, 1);
+                assert_eq!(
+                    values,
+                    [20, 40].iter().map(TestScalar::from).collect::<Vec<_>>()
+                );
+            }
+            _ => panic!("expected decimal result"),
+        }
+
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![1, 2]);
+        let decimal_values = [10, 20].iter().map(TestScalar::from).collect();
+        let rhs =
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(5).unwrap(), 1, decimal_values);
+        let result = lhs.element_wise_add(&rhs).unwrap();
+        match result {
+            OwnedColumn::Decimal75(_, scale, values) => {
+                assert_eq!(scale, 1);
+                assert_eq!(
+                    values,
+                    [20, 40].iter().map(TestScalar::from).collect::<Vec<_>>()
+                );
+            }
+            _ => panic!("expected decimal result"),
+        }
     }
 
     #[test]
