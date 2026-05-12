@@ -11,3 +11,18 @@ pub enum ScalarConversionError {
         error: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn scalar_conversion_error_displays_overflow_reason() {
+        let error = ScalarConversionError::Overflow {
+            error: "value too large".into(),
+        };
+
+        assert_eq!(error.to_string(), "Overflow error: value too large");
+    }
+}
