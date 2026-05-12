@@ -7,6 +7,30 @@ use ark_ec::{pairing::Pairing, VariableBaseMSM};
 use ark_ff::Fp;
 
 #[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn extended_prover_state_rejects_s1_tensor_with_wrong_length() {
+    let mut rng = test_rng();
+    let nu = 2;
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let (mut s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    s1_tensor.pop();
+
+    ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+}
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn extended_prover_state_rejects_s2_tensor_with_wrong_length() {
+    let mut rng = test_rng();
+    let nu = 2;
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let (s1_tensor, mut s2_tensor) = rand_F_tensors(nu, &mut rng);
+    s2_tensor.pop();
+
+    ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+}
+
+#[test]
 pub fn we_can_create_an_extended_verifier_state_from_an_extended_prover_state() {
     let mut rng = test_rng();
     let max_nu = 5;
