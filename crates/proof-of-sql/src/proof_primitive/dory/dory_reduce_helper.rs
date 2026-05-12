@@ -145,3 +145,163 @@ pub fn dory_reduce_verify_update_Ds(
         + DeferredGT::from(setup.Delta_2L[state.nu]) * beta_inv * alpha_inv
         + DeferredGT::from(setup.Delta_2R[state.nu]) * beta_inv;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{G1Affine, G2Affine};
+    use super::*;
+    use crate::proof_primitive::dory::PublicParameters;
+    use ark_ec::pairing::Pairing;
+
+    fn test_state_and_setups(nu: usize) -> (ProverState, ProverSetup<'static>, VerifierSetup) {
+        let public_parameters = Box::leak(Box::new(PublicParameters::test_rand(
+            nu,
+            &mut ark_std::test_rng(),
+        )));
+        let prover_setup = ProverSetup::from(&*public_parameters);
+        let verifier_setup = VerifierSetup::from(&*public_parameters);
+        let state = ProverState::new(
+            prover_setup.Gamma_1[nu].to_vec(),
+            prover_setup.Gamma_2[nu].to_vec(),
+            nu,
+        );
+        (state, prover_setup, verifier_setup)
+    }
+
+    #[test]
+    fn we_can_compute_dory_reduce_d_messages() {
+        let (state, prover_setup, _) = test_state_and_setups(2);
+
+        let (D_1L, D_1R, D_2L, D_2R) = dory_reduce_prove_compute_Ds(&state, &prover_setup, 2);
+
+        assert_eq!(
+            D_1L,
+            Pairing::multi_pairing(&state.v1[..2], prover_setup.Gamma_2[1])
+        );
+        assert_eq!(
+            D_1R,
+            Pairing::multi_pairing(&state.v1[2..], prover_setup.Gamma_2[1])
+        );
+        assert_eq!(
+            D_2L,
+            Pairing::multi_pairing(prover_setup.Gamma_1[1], &state.v2[..2])
+        );
+        assert_eq!(
+            D_2R,
+            Pairing::multi_pairing(prover_setup.Gamma_1[1], &state.v2[2..])
+        );
+    }
+
+    #[test]
+    fn we_can_compute_dory_reduce_c_messages() {
+        let (state, _, _) = test_state_and_setups(2);
+
+        let (C_plus, C_minus) = dory_reduce_prove_compute_Cs(&state, 2);
+
+        assert_eq!(
+            C_plus,
+            Pairing::multi_pairing(&state.v1[..2], &state.v2[2..])
+        );
+        assert_eq!(
+            C_minus,
+            Pairing::multi_pairing(&state.v1[2..], &state.v2[..2])
+        );
+    }
+
+    #[test]
+    fn we_can_mutate_and_fold_dory_reduce_witness_vectors() {
+        let (mut state, prover_setup, _) = test_state_and_setups(2);
+        let original_v1 = state.v1.clone();
+        let original_v2 = state.v2.clone();
+        let beta = F::from(11);
+        let beta_inv = F::from(13);
+
+        dory_reduce_prove_mutate_v_vecs(&mut state, &prover_setup, (beta, beta_inv));
+
+        let expected_v1: Vec<G1Affine> = original_v1
+            .iter()
+            .zip(prover_setup.Gamma_1[2])
+            .map(|(v, g)| (*v + *g * beta).into())
+            .collect();
+        let expected_v2: Vec<G2Affine> = original_v2
+            .iter()
+            .zip(prover_setup.Gamma_2[2])
+            .map(|(v, g)| (*v + *g * beta_inv).into())
+            .collect();
+        assert_eq!(state.v1, expected_v1);
+        assert_eq!(state.v2, expected_v2);
+
+        let mutated_v1 = state.v1.clone();
+        let mutated_v2 = state.v2.clone();
+        let alpha = F::from(17);
+        let alpha_inv = F::from(19);
+
+        dory_reduce_prove_fold_v_vecs(&mut state, (alpha, alpha_inv), 2);
+
+        let expected_folded_v1: Vec<G1Affine> = vec![
+            (mutated_v1[0] * alpha + mutated_v1[2]).into(),
+            (mutated_v1[1] * alpha + mutated_v1[3]).into(),
+        ];
+        let expected_folded_v2: Vec<G2Affine> = vec![
+            (mutated_v2[0] * alpha_inv + mutated_v2[2]).into(),
+            (mutated_v2[1] * alpha_inv + mutated_v2[3]).into(),
+        ];
+        assert_eq!(state.v1, expected_folded_v1);
+        assert_eq!(state.v2, expected_folded_v2);
+    }
+
+    #[test]
+    fn we_can_update_dory_reduce_verifier_state() {
+        let (prover_state, prover_setup, verifier_setup) = test_state_and_setups(2);
+        let mut state = prover_state.calculate_verifier_state(&prover_setup);
+        let original_C = state.C.clone();
+        let original_D_1 = state.D_1.clone();
+        let original_D_2 = state.D_2.clone();
+        let (D_1L, D_1R, D_2L, D_2R) =
+            dory_reduce_prove_compute_Ds(&prover_state, &prover_setup, 2);
+        let (C_plus, C_minus) = dory_reduce_prove_compute_Cs(&prover_state, 2);
+        let alpha = F::from(23);
+        let alpha_inv = F::from(29);
+        let beta = F::from(31);
+        let beta_inv = F::from(37);
+
+        dory_reduce_verify_update_C(
+            &mut state,
+            &verifier_setup,
+            (C_plus, C_minus),
+            (alpha, alpha_inv),
+            (beta, beta_inv),
+        );
+        assert_eq!(
+            state.C,
+            original_C
+                + original_D_2.clone() * beta
+                + original_D_1.clone() * beta_inv
+                + DeferredGT::from(C_plus) * alpha
+                + DeferredGT::from(C_minus) * alpha_inv
+                + verifier_setup.chi[2]
+        );
+
+        dory_reduce_verify_update_Ds(
+            &mut state,
+            &verifier_setup,
+            (D_1L, D_1R, D_2L, D_2R),
+            (alpha, alpha_inv),
+            (beta, beta_inv),
+        );
+        assert_eq!(
+            state.D_1,
+            DeferredGT::from(D_1L) * alpha
+                + D_1R
+                + DeferredGT::from(verifier_setup.Delta_1L[2]) * beta * alpha
+                + DeferredGT::from(verifier_setup.Delta_1R[2]) * beta
+        );
+        assert_eq!(
+            state.D_2,
+            DeferredGT::from(D_2L) * alpha_inv
+                + D_2R
+                + DeferredGT::from(verifier_setup.Delta_2L[2]) * beta_inv * alpha_inv
+                + DeferredGT::from(verifier_setup.Delta_2R[2]) * beta_inv
+        );
+    }
+}
