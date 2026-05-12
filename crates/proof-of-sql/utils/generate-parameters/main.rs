@@ -324,3 +324,133 @@ fn spinner(message: String) -> ProgressBar {
     spinner.set_message(message);
     spinner
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_core::RngCore;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn args_with(seed: &str, mode: Mode, target: String) -> Args {
+        Args {
+            nu: 0,
+            mode,
+            seed: seed.to_owned(),
+            target,
+        }
+    }
+
+    #[test]
+    fn rng_from_seed_is_deterministic_and_seed_sensitive() {
+        let args = args_with("deterministic-seed", Mode::Verifier, ".".to_owned());
+        let same_args = args_with("deterministic-seed", Mode::Verifier, ".".to_owned());
+        let different_args = args_with("different-seed", Mode::Verifier, ".".to_owned());
+
+        let mut rng = rng_from_seed(&args);
+        let mut same_rng = rng_from_seed(&same_args);
+        let mut different_rng = rng_from_seed(&different_args);
+        let sample = [rng.next_u64(), rng.next_u64()];
+        let same_sample = [same_rng.next_u64(), same_rng.next_u64()];
+        let different_sample = [different_rng.next_u64(), different_rng.next_u64()];
+
+        assert_eq!(sample, same_sample);
+        assert_ne!(sample, different_sample);
+    }
+
+    #[test]
+    fn compute_sha256_hashes_existing_files_and_ignores_missing_files() {
+        let temp_dir = tempdir().expect("tempdir should be created");
+        let payload_path = temp_dir.path().join("payload.txt");
+        fs::write(&payload_path, b"abc").expect("payload should be written");
+
+        assert_eq!(
+            compute_sha256(payload_path.to_str().unwrap()).as_deref(),
+            Some("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        );
+        assert_eq!(
+            compute_sha256(temp_dir.path().join("missing.txt").to_str().unwrap()),
+            None
+        );
+    }
+
+    #[test]
+    fn save_digests_appends_entries_to_digest_file() {
+        let temp_dir = tempdir().expect("tempdir should be created");
+        let target = temp_dir.path().to_str().unwrap();
+        let digests = vec![
+            ("first.bin".to_owned(), "abc123".to_owned()),
+            ("second.bin".to_owned(), "def456".to_owned()),
+        ];
+
+        save_digests(&digests, target, 7);
+
+        let digest_file = temp_dir.path().join("digests_nu_7.txt");
+        let contents = fs::read_to_string(digest_file).expect("digest file should exist");
+        assert!(contents.contains("abc123  first.bin"));
+        assert!(contents.contains("def456  second.bin"));
+    }
+
+    #[test]
+    fn save_digests_falls_back_when_target_is_not_a_directory() {
+        let temp_dir = tempdir().expect("tempdir should be created");
+        let file_target = temp_dir.path().join("not-a-directory");
+        fs::write(&file_target, b"keep").expect("blocking file should be written");
+
+        save_digests(
+            &[("ignored.bin".to_owned(), "abc123".to_owned())],
+            file_target.to_str().unwrap(),
+            3,
+        );
+
+        assert_eq!(
+            fs::read_to_string(file_target).expect("blocking file should remain"),
+            "keep"
+        );
+    }
+
+    #[test]
+    fn write_verifier_setup_persists_a_loadable_setup() {
+        let mut rng = rng_from_seed(&args_with("verifier-setup", Mode::Verifier, ".".to_owned()));
+        let public_parameters = PublicParameters::rand(0, &mut rng);
+        let setup = VerifierSetup::from(&public_parameters);
+        let temp_dir = tempdir().expect("tempdir should be created");
+        let setup_path = temp_dir.path().join("verifier_setup.bin");
+
+        write_verifier_setup(&setup, setup_path.to_str().unwrap())
+            .expect("verifier setup should be written");
+
+        let loaded =
+            VerifierSetup::load_from_file(&setup_path).expect("verifier setup should be loadable");
+        assert_eq!(loaded, setup);
+    }
+
+    #[test]
+    fn generate_parameters_writes_verifier_artifacts() {
+        let temp_dir = tempdir().expect("tempdir should be created");
+        let args = args_with(
+            "verifier-generation",
+            Mode::Verifier,
+            temp_dir.path().to_str().unwrap().to_owned(),
+        );
+
+        generate_parameters(&args);
+
+        let verifier_setup_path = temp_dir.path().join("verifier_setup_nu_0.bin");
+        let digests_path = temp_dir.path().join("digests_nu_0.txt");
+        assert!(verifier_setup_path.exists());
+        assert!(digests_path.exists());
+
+        VerifierSetup::load_from_file(&verifier_setup_path)
+            .expect("generated verifier setup should be loadable");
+
+        let digests = fs::read_to_string(digests_path).expect("digests should be readable");
+        assert!(digests.contains(verifier_setup_path.to_str().unwrap()));
+    }
+
+    #[test]
+    fn spinner_can_be_created_with_a_message() {
+        let spinner = spinner("testing".to_owned());
+        spinner.finish_and_clear();
+    }
+}
