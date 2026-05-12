@@ -302,7 +302,7 @@ impl<'a, S: Scalar> Column<'a, S> {
     ///
     /// Note that if index is out of bounds, this function will return None
     pub(crate) fn scalar_at(&self, index: usize) -> Option<S> {
-        (index < self.len()).then_some(match self {
+        (index < self.len()).then(|| match self {
             Self::Boolean(col) => S::from(col[index]),
             Self::Uint8(col) => S::from(col[index]),
             Self::TinyInt(col) => S::from(col[index]),
@@ -577,5 +577,80 @@ mod tests {
 
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
+    }
+
+    #[test]
+    fn we_can_read_column_entries_as_scalars() {
+        let decimal_values = [TestScalar::from(19), TestScalar::from(23)];
+        let varchar_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
+        let varbinary_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"abc"),
+            TestScalar::from_byte_slice_via_hash(b"xyz"),
+        ];
+
+        let cases = [
+            (
+                Column::<TestScalar>::Boolean(&[true, false]),
+                vec![TestScalar::from(true), TestScalar::from(false)],
+            ),
+            (
+                Column::<TestScalar>::Uint8(&[3, 5]),
+                vec![TestScalar::from(3_u8), TestScalar::from(5_u8)],
+            ),
+            (
+                Column::<TestScalar>::TinyInt(&[-2, 7]),
+                vec![TestScalar::from(-2_i8), TestScalar::from(7_i8)],
+            ),
+            (
+                Column::<TestScalar>::SmallInt(&[-11, 13]),
+                vec![TestScalar::from(-11_i16), TestScalar::from(13_i16)],
+            ),
+            (
+                Column::<TestScalar>::Int(&[-17, 29]),
+                vec![TestScalar::from(-17_i32), TestScalar::from(29_i32)],
+            ),
+            (
+                Column::<TestScalar>::BigInt(&[-31, 37]),
+                vec![TestScalar::from(-31_i64), TestScalar::from(37_i64)],
+            ),
+            (
+                Column::<TestScalar>::Int128(&[-41, 43]),
+                vec![TestScalar::from(-41_i128), TestScalar::from(43_i128)],
+            ),
+            (
+                Column::<TestScalar>::Scalar(&decimal_values),
+                decimal_values.to_vec(),
+            ),
+            (
+                Column::<TestScalar>::Decimal75(Precision::new(75).unwrap(), 2, &decimal_values),
+                decimal_values.to_vec(),
+            ),
+            (
+                Column::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    PoSQLTimeZone::utc(),
+                    &[47, 53],
+                ),
+                vec![TestScalar::from(47_i64), TestScalar::from(53_i64)],
+            ),
+            (
+                Column::<TestScalar>::VarChar((&["alpha", "beta"], &varchar_scalars)),
+                varchar_scalars.to_vec(),
+            ),
+            (
+                Column::<TestScalar>::VarBinary((
+                    &[b"abc".as_slice(), b"xyz".as_slice()],
+                    &varbinary_scalars,
+                )),
+                varbinary_scalars.to_vec(),
+            ),
+        ];
+
+        for (column, expected) in cases {
+            assert_eq!(column.scalar_at(0), Some(expected[0]));
+            assert_eq!(column.scalar_at(1), Some(expected[1]));
+            assert_eq!(column.scalar_at(2), None);
+            assert_eq!(column.to_scalar(), expected);
+        }
     }
 }
