@@ -39,6 +39,72 @@ fn test_composite_polynomial_evaluation() {
     assert_eq!(prod11, calc11);
 }
 
+#[test]
+fn we_reuse_existing_multiplicands_when_adding_products() {
+    let shared = Rc::new(vec![
+        TestScalar::from(2u32),
+        TestScalar::from(3u32),
+        TestScalar::from(5u32),
+        TestScalar::from(7u32),
+    ]);
+    let other = Rc::new(vec![
+        TestScalar::from(11u32),
+        TestScalar::from(13u32),
+        TestScalar::from(17u32),
+        TestScalar::from(19u32),
+    ]);
+
+    let mut prod = CompositePolynomial::new(2);
+    prod.add_product(
+        [Rc::clone(&shared), Rc::clone(&shared)],
+        TestScalar::from(4u32),
+    );
+    prod.add_product([Rc::clone(&shared), other], TestScalar::from(6u32));
+
+    assert_eq!(prod.max_multiplicands, 2);
+    assert_eq!(prod.flattened_ml_extensions.len(), 2);
+    assert_eq!(prod.products[0].1, vec![0, 0]);
+    assert_eq!(prod.products[1].1, vec![0, 1]);
+    assert_eq!(
+        prod.hypercube_sum(4),
+        TestScalar::from(4u32) * TestScalar::from(87u32)
+            + TestScalar::from(6u32) * TestScalar::from(279u32)
+    );
+}
+
+#[test]
+fn we_can_build_random_composite_polynomials_for_tests() {
+    let mut rng = ark_std::test_rng();
+    let prod =
+        CompositePolynomial::<TestScalar>::rand(3, 2, [4, 2, 1], [vec![0, 1], vec![2]], &mut rng);
+
+    assert_eq!(prod.num_variables, 3);
+    assert_eq!(prod.max_multiplicands, 2);
+    assert_eq!(prod.products.len(), 2);
+    assert_eq!(prod.products[0].1, vec![0, 1]);
+    assert_eq!(prod.products[1].1, vec![2]);
+    assert_eq!(
+        prod.flattened_ml_extensions
+            .iter()
+            .map(|extension| extension.len())
+            .collect::<Vec<_>>(),
+        vec![4, 2, 1]
+    );
+}
+
+#[test]
+fn we_can_annotate_composite_polynomial_traces() {
+    let extension = Rc::new(vec![TestScalar::from(1u32), TestScalar::from(2u32)]);
+    let mut prod = CompositePolynomial::new(1);
+    prod.add_product([extension], TestScalar::from(3u32));
+
+    prod.annotate_trace();
+
+    assert_eq!(prod.products.len(), 1);
+    assert_eq!(prod.products[0].0, TestScalar::from(3u32));
+    assert_eq!(prod.products[0].1, vec![0]);
+}
+
 #[expect(clippy::identity_op)]
 #[test]
 fn test_composite_polynomial_hypercube_sum() {
