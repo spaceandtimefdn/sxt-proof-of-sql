@@ -213,3 +213,85 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::LiteralValue,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::{collections::VecDeque, vec};
+
+    #[test]
+    fn we_can_create_equals_expr_and_read_its_children() {
+        let lhs = DynProofExpr::new_literal(LiteralValue::Int(7));
+        let rhs = DynProofExpr::new_literal(LiteralValue::Int(7));
+
+        let equals_expr = EqualsExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone()))
+            .expect("matching literal types should build an equals expression");
+
+        assert_eq!(equals_expr.lhs(), &lhs);
+        assert_eq!(equals_expr.rhs(), &rhs);
+        assert_eq!(equals_expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn we_can_evaluate_equals_zero_in_first_round() {
+        let alloc = Bump::new();
+        let lhs = [
+            TestScalar::ZERO,
+            TestScalar::ONE,
+            -TestScalar::ONE,
+            TestScalar::ZERO,
+        ];
+
+        let selection = first_round_evaluate_equals_zero(lhs.len(), &alloc, &lhs);
+
+        assert_eq!(selection, &[true, false, false, true]);
+    }
+
+    #[test]
+    fn we_can_evaluate_equals_zero_in_final_round() {
+        let alloc = Bump::new();
+        let lhs = alloc.alloc_slice_copy(&[
+            TestScalar::ZERO,
+            TestScalar::ONE,
+            -TestScalar::ONE,
+            TestScalar::ZERO,
+        ]);
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let selection = final_round_evaluate_equals_zero(lhs.len(), &mut builder, &alloc, lhs);
+
+        assert_eq!(selection, &[true, false, false, true]);
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 2);
+    }
+
+    #[test]
+    fn we_can_verify_equals_zero_evaluation() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![vec![TestScalar::ZERO, TestScalar::ONE]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let selection_eval =
+            verifier_evaluate_equals_zero(&mut builder, TestScalar::ZERO, TestScalar::ONE)
+                .expect("zero lhs should verify as selected");
+
+        assert_eq!(selection_eval, TestScalar::ONE);
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![TestScalar::ZERO, TestScalar::ZERO]]
+        );
+    }
+}
