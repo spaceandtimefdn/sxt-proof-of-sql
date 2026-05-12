@@ -51,4 +51,21 @@ mod tests {
         let reserialized = try_standard_binary_serialization(deserialized).unwrap();
         assert_eq!(serialized, reserialized);
     }
+
+    #[test]
+    fn we_can_serialize_fixed_width_integers_as_big_endian() {
+        let serialized = try_standard_binary_serialization((0x1234_u16, 0x0102_0304_u32)).unwrap();
+
+        assert_eq!(serialized, [0x12, 0x34, 0x01, 0x02, 0x03, 0x04]);
+    }
+
+    #[test]
+    fn we_can_deserialize_with_consumed_byte_count() {
+        let bytes = [0x12, 0x34, 0x01, 0x02, 0x03, 0x04, 0xff];
+        let (deserialized, bytes_read): ((u16, u32), usize) =
+            try_standard_binary_deserialization(&bytes).unwrap();
+
+        assert_eq!(deserialized, (0x1234, 0x0102_0304));
+        assert_eq!(bytes_read, 6);
+    }
 }
