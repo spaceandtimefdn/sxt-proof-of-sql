@@ -180,6 +180,37 @@ impl SchemaAccessor for SchemaAccessorImpl {
 mod tests {
     use super::*;
     use crate::base::map::indexmap;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    struct MockDataAccessor {
+        table_ref: TableRef,
+        bigints: Vec<i64>,
+        booleans: Vec<bool>,
+        offset: usize,
+    }
+
+    impl MetadataAccessor for MockDataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.bigints.len()
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.offset
+        }
+    }
+
+    impl DataAccessor<TestScalar> for MockDataAccessor {
+        fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(table_ref, &self.table_ref);
+            match column_id.value.as_str() {
+                "bigints" => Column::BigInt(&self.bigints),
+                "booleans" => Column::Boolean(&self.booleans),
+                _ => panic!("unexpected column id: {column_id}"),
+            }
+        }
+    }
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -189,6 +220,41 @@ mod tests {
                 ("col2".into(), ColumnType::VarChar)],
             table2 => vec![("col1".into(), ColumnType::BigInt)],
         })
+    }
+
+    fn sample_data_accessor() -> MockDataAccessor {
+        MockDataAccessor {
+            table_ref: TableRef::new("schema", "table1"),
+            bigints: vec![10, 20, 30],
+            booleans: vec![true, false, true],
+            offset: 2,
+        }
+    }
+
+    #[test]
+    fn we_can_get_table_from_data_accessor_columns() {
+        let accessor = sample_data_accessor();
+        let column_ids: IndexSet<Ident> =
+            IndexSet::from_iter(["bigints".into(), "booleans".into()]);
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table.num_columns(), 2);
+        assert_eq!(table["bigints"], Column::BigInt(&[10, 20, 30]));
+        assert_eq!(table["booleans"], Column::Boolean(&[true, false, true]));
+    }
+
+    #[test]
+    fn we_can_get_empty_table_from_data_accessor_length() {
+        let accessor = sample_data_accessor();
+        let column_ids = IndexSet::default();
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table.num_columns(), 0);
     }
 
     #[test]
