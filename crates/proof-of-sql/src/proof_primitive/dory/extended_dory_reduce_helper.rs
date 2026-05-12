@@ -135,3 +135,179 @@ pub fn extended_dory_reduce_verify_fold_s_vecs(state: &ExtendedVerifierState) ->
             .product(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{
+        deferred_msm::DeferredMSM, G1Affine, G1Projective, G2Affine, G2Projective, ProverSetup,
+        PublicParameters, GT,
+    };
+    use ark_ec::{CurveGroup, PrimeGroup, VariableBaseMSM};
+
+    fn test_extended_prover_state(nu: usize, setup: &ProverSetup<'_>) -> ExtendedProverState {
+        ExtendedProverState::new_from_tensors(
+            vec![F::from(2), F::from(3), F::from(5)][..nu].to_vec(),
+            vec![F::from(7), F::from(11), F::from(13)][..nu].to_vec(),
+            setup.Gamma_1[nu][..1 << nu].to_vec(),
+            setup.Gamma_2[nu][..1 << nu].to_vec(),
+            nu,
+        )
+    }
+
+    #[test]
+    fn we_can_compute_extended_dory_e_beta_messages() {
+        let nu = 2;
+        let public_parameters = PublicParameters::test_rand(nu, &mut ark_std::test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+        let state = test_extended_prover_state(nu, &setup);
+
+        let (E_1beta, E_2beta) = extended_dory_reduce_prove_compute_E_betas(&state, &setup);
+        let expected_E_1beta: G1Affine =
+            G1Projective::msm_unchecked(setup.Gamma_1[nu], &state.s2).into();
+        let expected_E_2beta: G2Affine =
+            G2Projective::msm_unchecked(setup.Gamma_2[nu], &state.s1).into();
+
+        assert_eq!(E_1beta, expected_E_1beta);
+        assert_eq!(E_2beta, expected_E_2beta);
+    }
+
+    #[test]
+    fn we_can_compute_extended_dory_signed_e_messages() {
+        let public_parameters = PublicParameters::test_rand(2, &mut ark_std::test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+        let state = test_extended_prover_state(2, &setup);
+
+        let (E_1plus, E_1minus, E_2plus, E_2minus) =
+            extended_dory_reduce_prove_compute_signed_Es(&state, 2);
+        let expected_E_1plus: G1Affine =
+            G1Projective::msm_unchecked(&state.base_state.v1[..2], &state.s2[2..]).into();
+        let expected_E_1minus: G1Affine =
+            G1Projective::msm_unchecked(&state.base_state.v1[2..], &state.s2[..2]).into();
+        let expected_E_2plus: G2Affine =
+            G2Projective::msm_unchecked(&state.base_state.v2[2..], &state.s1[..2]).into();
+        let expected_E_2minus: G2Affine =
+            G2Projective::msm_unchecked(&state.base_state.v2[..2], &state.s1[2..]).into();
+
+        assert_eq!(E_1plus, expected_E_1plus);
+        assert_eq!(E_1minus, expected_E_1minus);
+        assert_eq!(E_2plus, expected_E_2plus);
+        assert_eq!(E_2minus, expected_E_2minus);
+    }
+
+    #[test]
+    fn we_can_fold_extended_prover_s_vectors() {
+        let nu = 2;
+        let mut state = ExtendedProverState::new_from_tensors(
+            vec![F::from(2), F::from(3)],
+            vec![F::from(5), F::from(7)],
+            vec![G1Affine::default(); 1 << nu],
+            vec![G2Affine::default(); 1 << nu],
+            nu,
+        );
+        let original_s1 = state.s1.clone();
+        let original_s2 = state.s2.clone();
+        let alpha = F::from(11);
+        let alpha_inv = F::from(13);
+
+        extended_dory_reduce_prove_fold_s_vecs(&mut state, (alpha, alpha_inv), 2);
+
+        assert_eq!(
+            state.s1,
+            vec![
+                original_s1[0] * alpha + original_s1[2],
+                original_s1[1] * alpha + original_s1[3]
+            ]
+        );
+        assert_eq!(
+            state.s2,
+            vec![
+                original_s2[0] * alpha_inv + original_s2[2],
+                original_s2[1] * alpha_inv + original_s2[3],
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_fold_extended_verifier_s_tensors() {
+        let s1_tensor = vec![F::from(2), F::from(3), F::from(5)];
+        let s2_tensor = vec![F::from(7), F::from(11), F::from(13)];
+        let alphas = vec![F::from(17), F::from(19), F::from(23)];
+        let alpha_invs = vec![F::from(29), F::from(31), F::from(37)];
+        let state = ExtendedVerifierState {
+            base_state: super::super::VerifierState::new(
+                DeferredMSM::<GT, F>::new([], []),
+                DeferredMSM::<GT, F>::new([], []),
+                DeferredMSM::<GT, F>::new([], []),
+                3,
+            ),
+            E_1: DeferredMSM::<G1Affine, F>::new([], []),
+            E_2: DeferredMSM::<G2Affine, F>::new([], []),
+            s1_tensor: s1_tensor.clone(),
+            s2_tensor,
+            alphas: alphas.clone(),
+            alpha_invs: alpha_invs.clone(),
+        };
+
+        let (s1_fold, s2_fold) = extended_dory_reduce_verify_fold_s_vecs(&state);
+
+        let expected_s1 = s1_tensor
+            .iter()
+            .zip(alphas.iter())
+            .map(|(s, a)| (F::ONE - s) * a + s)
+            .product();
+        let expected_s2 = state
+            .s2_tensor
+            .iter()
+            .zip(alpha_invs.iter())
+            .map(|(s, a)| (F::ONE - s) * a + s)
+            .product();
+        assert_eq!(s1_fold, expected_s1);
+        assert_eq!(s2_fold, expected_s2);
+    }
+
+    #[test]
+    fn we_can_update_extended_verifier_e_commitments() {
+        let E_1beta = G1Projective::generator().into_affine();
+        let E_1plus = (E_1beta * F::from(2)).into();
+        let E_1minus = (E_1beta * F::from(3)).into();
+        let E_2beta = G2Projective::generator().into_affine();
+        let E_2plus = (E_2beta * F::from(5)).into();
+        let E_2minus = (E_2beta * F::from(7)).into();
+        let alpha = F::from(11);
+        let alpha_inv = F::from(13);
+        let beta = F::from(17);
+        let beta_inv = F::from(19);
+        let mut state = ExtendedVerifierState {
+            base_state: super::super::VerifierState::new(
+                DeferredMSM::<GT, F>::new([], []),
+                DeferredMSM::<GT, F>::new([], []),
+                DeferredMSM::<GT, F>::new([], []),
+                2,
+            ),
+            E_1: DeferredMSM::<G1Affine, F>::new([], []),
+            E_2: DeferredMSM::<G2Affine, F>::new([], []),
+            s1_tensor: Vec::new(),
+            s2_tensor: Vec::new(),
+            alphas: vec![F::from(0); 2],
+            alpha_invs: vec![F::from(0); 2],
+        };
+
+        extended_dory_reduce_verify_update_Es(
+            &mut state,
+            (E_1beta, E_2beta),
+            (E_1plus, E_1minus, E_2plus, E_2minus),
+            (alpha, alpha_inv),
+            (beta, beta_inv),
+        );
+
+        assert_eq!(
+            state.E_1,
+            E_1beta * beta + E_1plus * alpha + E_1minus * alpha_inv
+        );
+        assert_eq!(
+            state.E_2,
+            E_2beta * beta_inv + E_2plus * alpha + E_2minus * alpha_inv
+        );
+    }
+}
