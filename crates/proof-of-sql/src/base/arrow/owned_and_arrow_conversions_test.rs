@@ -101,6 +101,22 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
     ));
 }
 
+#[test]
+fn we_return_null_not_supported_when_converting_nullable_arrow_arrays() {
+    let arrays: Vec<ArrayRef> = vec![
+        Arc::new(Int64Array::from(vec![Some(1), None, Some(3)])),
+        Arc::new(StringArray::from(vec![Some("ok"), None])),
+        Arc::new(BooleanArray::from(vec![Some(true), None])),
+    ];
+
+    for array_ref in arrays {
+        assert!(matches!(
+            OwnedColumn::<TestScalar>::try_from(array_ref),
+            Err(OwnedArrowConversionError::NullNotSupportedYet)
+        ));
+    }
+}
+
 fn we_can_convert_between_owned_table_and_record_batch_impl(
     owned_table: &OwnedTable<TestScalar>,
     record_batch: &RecordBatch,
