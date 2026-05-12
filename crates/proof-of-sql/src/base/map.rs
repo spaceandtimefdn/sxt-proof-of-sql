@@ -18,3 +18,31 @@ macro_rules! indexset {
 #[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
+
+#[cfg(test)]
+mod tests {
+    use super::{IndexMap, IndexSet};
+
+    #[test]
+    fn indexmap_macro_preserves_insert_order() {
+        let map: IndexMap<&str, i32> = indexmap! {
+            "first" => 1,
+            "second" => 2,
+        };
+
+        assert_eq!(map.keys().copied().collect::<Vec<_>>(), ["first", "second"]);
+        assert_eq!(map.get("first"), Some(&1));
+        assert_eq!(map.get("second"), Some(&2));
+    }
+
+    #[test]
+    fn indexset_macro_preserves_insert_order() {
+        let set: IndexSet<&str> = indexset!["alpha", "beta", "gamma"];
+
+        assert_eq!(
+            set.iter().copied().collect::<Vec<_>>(),
+            ["alpha", "beta", "gamma"]
+        );
+        assert!(set.contains("beta"));
+    }
+}
