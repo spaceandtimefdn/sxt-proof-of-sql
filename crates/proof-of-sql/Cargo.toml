@@ -97,4 +97,4 @@ required-features = [ "std", "blitzar", "utils" ]
 [[bin]]
 name = "commitment-utility"
 path = "utils/commitment-utility/main.rs"
-required-features = [ "std", "blitzar", "utils" ]
+required-features = [ "std", "utils" ]

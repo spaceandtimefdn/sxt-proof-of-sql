@@ -35,7 +35,7 @@ struct Cli {
     output: Option<PathBuf>,
 
     /// Commitment scheme (e.g. `ipa`, `dynamic_dory`, `dory`)
-    #[arg(long, value_enum, default_value = "CommitmentScheme::DynamicDory")]
+    #[arg(long, value_enum, default_value = "dynamic-dory")]
     scheme: CommitmentScheme,
 }
 
