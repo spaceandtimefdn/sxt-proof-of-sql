@@ -53,3 +53,36 @@ impl ColumnField {
         self.nullable
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_columns_are_not_nullable_by_default() {
+        let column_field = ColumnField::new("amount".into(), ColumnType::BigInt);
+
+        assert_eq!(column_field.name(), "amount".into());
+        assert_eq!(column_field.data_type(), ColumnType::BigInt);
+        assert!(!column_field.is_nullable());
+    }
+
+    #[test]
+    fn nullable_columns_are_marked_nullable() {
+        let column_field = ColumnField::new_nullable("amount".into(), ColumnType::BigInt);
+
+        assert_eq!(column_field.name(), "amount".into());
+        assert_eq!(column_field.data_type(), ColumnType::BigInt);
+        assert!(column_field.is_nullable());
+    }
+
+    #[test]
+    fn serde_defaults_missing_nullable_to_false() {
+        let json = r#"{"name":{"value":"amount","quote_style":null},"data_type":"BIGINT"}"#;
+        let column_field: ColumnField = serde_json::from_str(json).unwrap();
+
+        assert_eq!(column_field.name(), "amount".into());
+        assert_eq!(column_field.data_type(), ColumnType::BigInt);
+        assert!(!column_field.is_nullable());
+    }
+}
