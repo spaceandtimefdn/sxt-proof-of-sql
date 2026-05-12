@@ -71,3 +71,73 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyzeError;
+    use crate::base::{
+        database::ColumnType, math::decimal::IntermediateDecimalError, proof::PlaceholderError,
+    };
+    use alloc::{
+        string::{String, ToString},
+        vec,
+    };
+
+    #[test]
+    fn we_can_render_analyze_error_messages() {
+        let errors = vec![
+            (
+                AnalyzeError::InvalidDataType {
+                    expr_type: ColumnType::Boolean,
+                },
+                "Expression has datatype BOOLEAN, which was not valid",
+            ),
+            (
+                AnalyzeError::DataTypeMismatch {
+                    left_type: "INT".to_string(),
+                    right_type: "BIGINT".to_string(),
+                },
+                "Left side has 'INT' type but right side has 'BIGINT' type",
+            ),
+            (
+                AnalyzeError::DifferentColumnLength { len_a: 2, len_b: 3 },
+                "Columns have different lengths: 2 != 3",
+            ),
+            (AnalyzeError::NotEnoughInputPlans, "Not enough input plans"),
+        ];
+
+        for (error, expected_message) in errors {
+            assert_eq!(error.to_string(), expected_message);
+        }
+    }
+
+    #[test]
+    fn we_can_convert_analyze_errors_into_strings() {
+        let message: String = AnalyzeError::NotEnoughInputPlans.into();
+
+        assert_eq!(message, "Not enough input plans");
+    }
+
+    #[test]
+    fn we_can_convert_intermediate_decimal_errors_into_analyze_errors() {
+        let error = AnalyzeError::from(IntermediateDecimalError::OutOfRange);
+
+        assert!(matches!(error, AnalyzeError::DecimalConversionError { .. }));
+        assert_eq!(error.to_string(), "Value out of range for target type");
+    }
+
+    #[test]
+    fn we_can_render_transparent_placeholder_errors() {
+        let error = AnalyzeError::PlaceholderError {
+            source: PlaceholderError::InvalidPlaceholderIndex {
+                index: 2,
+                num_params: 1,
+            },
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid placeholder index: 2, number of params: 1"
+        );
+    }
+}
