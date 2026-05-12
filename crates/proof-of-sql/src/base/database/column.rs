@@ -364,6 +364,10 @@ mod tests {
         assert_eq!(column.len(), 3);
         assert!(!column.is_empty());
 
+        let column = Column::<TestScalar>::Uint8(&[1, 2, 3]);
+        assert_eq!(column.len(), 3);
+        assert!(!column.is_empty());
+
         let column = Column::<TestScalar>::SmallInt(&[1, 2, 3]);
         assert_eq!(column.len(), 3);
         assert!(!column.is_empty());
@@ -405,6 +409,10 @@ mod tests {
         assert!(column.is_empty());
 
         let column = Column::<DoryScalar>::TinyInt(&[]);
+        assert_eq!(column.len(), 0);
+        assert!(column.is_empty());
+
+        let column = Column::<TestScalar>::Uint8(&[]);
         assert_eq!(column.len(), 0);
         assert!(column.is_empty());
 
@@ -497,6 +505,10 @@ mod tests {
         assert_eq!(column.column_type().byte_size(), 1);
         assert_eq!(column.column_type().bit_size(), 8);
 
+        let column = Column::<TestScalar>::Uint8(&[1, 2, 3, 4]);
+        assert_eq!(column.column_type().byte_size(), 1);
+        assert_eq!(column.column_type().bit_size(), 8);
+
         let column = Column::<TestScalar>::SmallInt(&[1, 2, 3, 4]);
         assert_eq!(column.column_type().byte_size(), 2);
         assert_eq!(column.column_type().bit_size(), 16);
@@ -544,6 +556,12 @@ mod tests {
             Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[1, 2, 3]);
         assert_eq!(column.column_type().byte_size(), 8);
         assert_eq!(column.column_type().bit_size(), 64);
+
+        let varbinary_scalars = [TestScalar::from_byte_slice_via_hash(b"abc")];
+        let column: Column<'_, TestScalar> =
+            Column::VarBinary((&[b"abc".as_slice()], &varbinary_scalars));
+        assert_eq!(column.column_type().byte_size(), 32);
+        assert_eq!(column.column_type().bit_size(), 256);
     }
 
     #[test]
