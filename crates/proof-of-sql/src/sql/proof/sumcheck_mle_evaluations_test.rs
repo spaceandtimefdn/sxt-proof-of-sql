@@ -1,5 +1,6 @@
 use super::SumcheckMleEvaluations;
 use crate::{
+    base::{polynomial::compute_rho_eval, scalar::Scalar},
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::proof::SumcheckRandomScalars,
 };
@@ -46,5 +47,62 @@ fn we_can_track_the_evaluation_of_mles_used_within_sumcheck() {
     assert_eq!(
         *evals.chi_evaluations.values().next().unwrap(),
         expected_eval
+    );
+}
+
+#[test]
+fn we_can_track_rho_and_rho_256_evaluations() {
+    let evaluation_point = [
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ONE,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+        Curve25519Scalar::ZERO,
+    ];
+    let random_scalars = [
+        Curve25519Scalar::from(11u64),
+        Curve25519Scalar::from(13u64),
+        Curve25519Scalar::from(17u64),
+        Curve25519Scalar::from(19u64),
+        Curve25519Scalar::from(23u64),
+        Curve25519Scalar::from(29u64),
+        Curve25519Scalar::from(31u64),
+        Curve25519Scalar::from(37u64),
+        Curve25519Scalar::from(41u64),
+    ];
+    let sumcheck_random_scalars = SumcheckRandomScalars::new(&random_scalars, 2, 9);
+    let first_round_pcs_proof_evaluations = [Curve25519Scalar::from(17u64)];
+    let final_round_pcs_proof_evaluations = [Curve25519Scalar::from(19u64)];
+
+    let evals = SumcheckMleEvaluations::new(
+        2,
+        [],
+        [2, 3],
+        &evaluation_point,
+        &sumcheck_random_scalars,
+        &first_round_pcs_proof_evaluations,
+        &final_round_pcs_proof_evaluations,
+    );
+
+    assert_eq!(
+        evals.rho_evaluations.get(&2).copied(),
+        Some(compute_rho_eval(2, &evaluation_point))
+    );
+    assert_eq!(
+        evals.rho_evaluations.get(&3).copied(),
+        Some(compute_rho_eval(3, &evaluation_point))
+    );
+    assert_eq!(evals.rho_256_evaluation, Some(Curve25519Scalar::TWO));
+    assert_eq!(
+        evals.first_round_pcs_proof_evaluations,
+        first_round_pcs_proof_evaluations
+    );
+    assert_eq!(
+        evals.final_round_pcs_proof_evaluations,
+        final_round_pcs_proof_evaluations
     );
 }
