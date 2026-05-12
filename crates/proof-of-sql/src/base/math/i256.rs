@@ -365,4 +365,20 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn i256_json_serialization_uses_standard_limb_order() {
+        let value = I256::new([1, 2, 3, 4]);
+
+        let json = serde_json::to_string(&value).unwrap();
+
+        assert_eq!(json, "[4,3,2,1]");
+    }
+
+    #[test]
+    fn i256_json_deserialization_restores_native_limb_order() {
+        let value: I256 = serde_json::from_str("[4,3,2,1]").unwrap();
+
+        assert_eq!(value.limbs(), [1, 2, 3, 4]);
+    }
 }
