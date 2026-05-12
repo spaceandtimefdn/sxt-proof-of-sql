@@ -2,15 +2,18 @@ use super::owned_and_arrow_conversions::OwnedArrowConversionError;
 use crate::base::{
     database::{owned_table_utility::*, OwnedColumn, OwnedTable},
     map::IndexMap,
+    math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Float32Array, Int64Array,
+        LargeBinaryArray, StringArray, TimestampMicrosecondArray, TimestampMillisecondArray,
+        TimestampNanosecondArray, TimestampSecondArray,
     },
-    datatypes::{DataType, Field, Schema},
+    datatypes::{i256, DataType, Field, Schema, TimeUnit as ArrowTimeUnit},
     record_batch::RecordBatch,
 };
 use proptest::prelude::*;
@@ -92,12 +95,143 @@ fn we_can_convert_between_owned_column_and_array_ref() {
 }
 
 #[test]
+fn we_can_convert_between_decimal75_owned_column_and_array_ref() {
+    let owned_column = OwnedColumn::<TestScalar>::Decimal75(
+        Precision::new(12).unwrap(),
+        2,
+        vec![
+            TestScalar::from(-123_i64),
+            TestScalar::from(0_i64),
+            TestScalar::from(456_i64),
+        ],
+    );
+
+    let arrow_col = ArrayRef::from(owned_column.clone());
+    assert_eq!(arrow_col.data_type(), &DataType::Decimal256(12, 2));
+    let decimal_values = arrow_col
+        .as_any()
+        .downcast_ref::<Decimal256Array>()
+        .unwrap()
+        .values();
+    assert_eq!(
+        decimal_values,
+        &[i256::from(-123), i256::from(0), i256::from(456)]
+    );
+    assert_eq!(OwnedColumn::try_from(arrow_col).unwrap(), owned_column);
+}
+
+fn we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+    time_unit: PoSQLTimeUnit,
+    arrow_time_unit: ArrowTimeUnit,
+) {
+    let timestamps = vec![1_625_072_400, -10, 42];
+    let owned_column =
+        OwnedColumn::<TestScalar>::TimestampTZ(time_unit, PoSQLTimeZone::utc(), timestamps.clone());
+
+    let arrow_col = ArrayRef::from(owned_column.clone());
+    assert_eq!(
+        arrow_col.data_type(),
+        &DataType::Timestamp(arrow_time_unit, None)
+    );
+    match time_unit {
+        PoSQLTimeUnit::Second => assert_eq!(
+            arrow_col
+                .as_any()
+                .downcast_ref::<TimestampSecondArray>()
+                .unwrap()
+                .values()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            timestamps
+        ),
+        PoSQLTimeUnit::Millisecond => assert_eq!(
+            arrow_col
+                .as_any()
+                .downcast_ref::<TimestampMillisecondArray>()
+                .unwrap()
+                .values()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            timestamps
+        ),
+        PoSQLTimeUnit::Microsecond => assert_eq!(
+            arrow_col
+                .as_any()
+                .downcast_ref::<TimestampMicrosecondArray>()
+                .unwrap()
+                .values()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            timestamps
+        ),
+        PoSQLTimeUnit::Nanosecond => assert_eq!(
+            arrow_col
+                .as_any()
+                .downcast_ref::<TimestampNanosecondArray>()
+                .unwrap()
+                .values()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            timestamps
+        ),
+    }
+
+    assert_eq!(OwnedColumn::try_from(arrow_col).unwrap(), owned_column);
+}
+
+#[test]
+fn we_can_convert_between_timestamp_owned_columns_and_array_refs() {
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Second,
+        ArrowTimeUnit::Second,
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Millisecond,
+        ArrowTimeUnit::Millisecond,
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Microsecond,
+        ArrowTimeUnit::Microsecond,
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Nanosecond,
+        ArrowTimeUnit::Nanosecond,
+    );
+}
+
+#[test]
+fn we_parse_timestamp_array_timezone_offsets() {
+    let timestamps = vec![1_625_072_400, 1_625_076_000];
+    let arrow_col: ArrayRef =
+        Arc::new(TimestampSecondArray::from(timestamps.clone()).with_timezone("+01:30"));
+
+    assert_eq!(
+        OwnedColumn::<TestScalar>::try_from(arrow_col).unwrap(),
+        OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(5_400), timestamps)
+    );
+}
+
+#[test]
 fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_ref_to_an_owned_column(
 ) {
     let array_ref: ArrayRef = Arc::new(Float32Array::from(vec![0.0]));
     assert!(matches!(
         OwnedColumn::<TestScalar>::try_from(array_ref),
         Err(OwnedArrowConversionError::UnsupportedType { .. })
+    ));
+}
+
+#[test]
+fn we_reject_null_boolean_arrays() {
+    let array_ref: ArrayRef = Arc::new(BooleanArray::from(vec![Some(true), None, Some(false)]));
+
+    assert!(matches!(
+        OwnedColumn::<TestScalar>::try_from(array_ref),
+        Err(OwnedArrowConversionError::NullNotSupportedYet)
     ));
 }
 
@@ -191,6 +325,27 @@ fn we_can_convert_between_owned_table_and_record_batch() {
         ]),
         &batch2,
     );
+}
+
+#[test]
+fn we_get_duplicate_ident_error_when_record_batch_columns_normalize_to_the_same_ident() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("value", DataType::Int64, false),
+        Field::new("value", DataType::Int64, false),
+    ]));
+    let record_batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![1_i64])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![2_i64])),
+        ],
+    )
+    .unwrap();
+
+    assert!(matches!(
+        OwnedTable::<TestScalar>::try_from(record_batch),
+        Err(OwnedArrowConversionError::DuplicateIdents)
+    ));
 }
 
 #[test]
