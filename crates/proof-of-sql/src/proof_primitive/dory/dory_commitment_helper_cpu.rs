@@ -94,3 +94,42 @@ pub(super) fn compute_dory_commitments(
         .map(|column| compute_dory_commitment(column, offset, setup))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_dory_commitments;
+    use crate::{
+        base::commitment::CommittableColumn,
+        proof_primitive::dory::{DoryProverPublicSetup, ProverSetup, PublicParameters, F, GT},
+    };
+    use ark_ec::pairing::Pairing;
+    use ark_std::test_rng;
+
+    #[test]
+    fn we_can_compute_dory_commitments_with_byte_sized_integers() {
+        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+
+        let res = compute_dory_commitments(
+            &[
+                CommittableColumn::Uint8(&[1, 2, 3]),
+                CommittableColumn::TinyInt(&[-1, 0, 2]),
+            ],
+            0,
+            &setup,
+        );
+
+        let Gamma_1 = public_parameters.Gamma_1;
+        let Gamma_2 = public_parameters.Gamma_2;
+        let expected_uint8: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(1_u64)
+            + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(2_u64)
+            + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(3_u64);
+        let expected_tinyint: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(-1)
+            + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(0)
+            + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2);
+
+        assert_eq!(res[0].0, expected_uint8);
+        assert_eq!(res[1].0, expected_tinyint);
+    }
+}
