@@ -63,6 +63,57 @@ impl ProofPlan for EmptyExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::collections::VecDeque;
+
+    #[test]
+    fn default_matches_new_empty_exec_plan() {
+        assert_eq!(EmptyExec::default(), EmptyExec::new());
+    }
+
+    #[test]
+    fn reports_no_columns_or_table_references() {
+        let plan = EmptyExec::new();
+
+        assert!(plan.get_column_result_fields().is_empty());
+        assert!(plan.get_column_references().is_empty());
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn first_round_evaluate_returns_one_row_empty_table() {
+        let plan = EmptyExec::new();
+        let alloc = Bump::new();
+        let table_map = IndexMap::default();
+        let mut builder = FirstRoundBuilder::new(0);
+
+        let table = plan
+            .first_round_evaluate::<TestScalar>(&mut builder, &alloc, &table_map, &[])
+            .expect("empty exec first round should succeed");
+
+        assert_eq!(table.num_rows(), 1);
+        assert_eq!(table.columns().count(), 0);
+    }
+
+    #[test]
+    fn final_round_evaluate_returns_one_row_empty_table() {
+        let plan = EmptyExec::new();
+        let alloc = Bump::new();
+        let table_map = IndexMap::default();
+        let mut builder = FinalRoundBuilder::new(0, VecDeque::new());
+
+        let table = plan
+            .final_round_evaluate::<TestScalar>(&mut builder, &alloc, &table_map, &[])
+            .expect("empty exec final round should succeed");
+
+        assert_eq!(table.num_rows(), 1);
+        assert_eq!(table.columns().count(), 0);
+    }
+}
+
 impl ProverEvaluate for EmptyExec {
     #[tracing::instrument(name = "EmptyExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
