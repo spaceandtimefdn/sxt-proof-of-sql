@@ -30,15 +30,28 @@ def _create_workspace(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         workspace / "preprocessor" / "yul_preprocessor.py",
     )
     _write(
-        workspace / "src" / "Example.presl",
+        workspace / "src" / "Helper.sol",
         """
-        contract Example {
-            function value() external pure returns (uint256 out) {
+        contract Helper {
+            function ignored() external pure returns (uint256 out) {
                 assembly {
                     function add1(x) -> result {
                         result := add(x, 1)
                     }
 
+                    out := add1(0)
+                }
+            }
+        }
+        """,
+    )
+    _write(
+        workspace / "src" / "Example.presl",
+        """
+        contract Example {
+            function value() external pure returns (uint256 out) {
+                assembly {
+                    // import add1 from Helper.sol
                     out := add1(41)
                 }
             }
@@ -114,6 +127,40 @@ def test_pre_forge_invalidates_cache_when_presl_inputs_change(tmp_path: Path) ->
 
     assert "cache hit" not in rerun.stdout.lower()
     assert "add1(42)" in generated.read_text(encoding="utf-8")
+    assert _forge_log_lines(env) == ["test", "test"]
+
+
+def test_pre_forge_invalidates_cache_when_imported_sol_changes(tmp_path: Path) -> None:
+    workspace, env = _create_workspace(tmp_path)
+    _run_preforge(workspace, env, "test")
+
+    helper_file = workspace / "src" / "Helper.sol"
+    helper_file.write_text(
+        helper_file.read_text(encoding="utf-8").replace("add(x, 1)", "add(x, 2)"),
+        encoding="utf-8",
+    )
+    time.sleep(0.02)
+
+    rerun = _run_preforge(workspace, env, "test")
+    generated = workspace / GENERATED_FILE
+
+    assert "cache hit" not in rerun.stdout.lower()
+    assert "result := add(x, 2)" in generated.read_text(encoding="utf-8")
+    assert _forge_log_lines(env) == ["test", "test"]
+
+
+def test_pre_forge_rebuilds_when_generated_output_is_missing(tmp_path: Path) -> None:
+    workspace, env = _create_workspace(tmp_path)
+    _run_preforge(workspace, env, "test")
+
+    generated = workspace / GENERATED_FILE
+    generated.unlink()
+    time.sleep(0.02)
+
+    rerun = _run_preforge(workspace, env, "test")
+
+    assert "cache hit" not in rerun.stdout.lower()
+    assert generated.exists()
     assert _forge_log_lines(env) == ["test", "test"]
 
 

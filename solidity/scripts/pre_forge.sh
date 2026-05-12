@@ -9,8 +9,16 @@ CACHE_FILE="$CACHE_DIR/input_fingerprint.sha256"
 compute_input_fingerprint() {
   {
     printf '%s\0' ./preprocessor/yul_preprocessor.py ./scripts/pre_forge.sh
-    find . -type f -name '*.presl' -print0
+    find . -type f \( -name '*.presl' -o \( -name '*.sol' ! -name '*.post.sol' \) \) -print0
   } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+}
+
+generated_outputs_present() {
+  while IFS= read -r -d '' source_file; do
+    if [[ ! -f "${source_file%.presl}.post.sol" ]]; then
+      return 1
+    fi
+  done < <(find . -type f -name '*.presl' -print0)
 }
 
 if [[ "${1:-}" == "clean" ]]; then
@@ -21,7 +29,7 @@ if [[ "${1:-}" == "clean" ]]; then
 fi
 
 input_fingerprint=$(compute_input_fingerprint)
-if [[ -f "$CACHE_FILE" ]] && [[ "$(<"$CACHE_FILE")" == "$input_fingerprint" ]]; then
+if [[ -f "$CACHE_FILE" ]] && [[ "$(<"$CACHE_FILE")" == "$input_fingerprint" ]] && generated_outputs_present; then
   echo "pre_forge cache hit: skipping preprocessing"
 else
   echo "pre_forge cache miss: regenerating .post.sol files"
