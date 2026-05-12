@@ -39,6 +39,22 @@ impl TranscriptCore for Keccak256Transcript {
 #[cfg(test)]
 mod tests {
     use super::{super::transcript_core::test_util::*, Keccak256Transcript};
+    use crate::base::proof::Transcript;
+
+    #[test]
+    fn empty_keccak256_transcript_challenge_matches_known_vector() {
+        let mut transcript: Keccak256Transcript = Transcript::new();
+
+        assert_eq!(
+            transcript.challenge_as_le(),
+            [
+                0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7,
+                0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04,
+                0x5d, 0x85, 0xa4, 0x70,
+            ]
+        );
+    }
+
     #[test]
     fn we_get_equivalent_challenges_with_equivalent_keccak256_transcripts() {
         we_get_equivalent_challenges_with_equivalent_transcripts::<Keccak256Transcript>();
