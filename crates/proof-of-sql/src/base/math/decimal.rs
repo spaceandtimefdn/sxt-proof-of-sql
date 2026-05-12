@@ -171,7 +171,7 @@ pub fn try_convert_intermediate_decimal_to_scalar<S: Scalar>(
 mod scale_adjust_test {
 
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
     use num_bigint::BigInt;
 
     #[test]
@@ -212,7 +212,7 @@ mod scale_adjust_test {
             target_scale,
         )
         .unwrap();
-        assert_eq!(result, TestScalar::from(expected));
+        assert_eq!(result, TestScalar::from_limbs(expected));
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod scale_adjust_test {
         )
         .unwrap();
 
-        assert_eq!(limbs, TestScalar::from(expected_limbs));
+        assert_eq!(limbs, TestScalar::from_limbs(expected_limbs));
     }
 
     #[test]
@@ -242,7 +242,7 @@ mod scale_adjust_test {
             target_scale,
         )
         .unwrap();
-        assert_eq!(limbs, -TestScalar::from(expected_limbs));
+        assert_eq!(limbs, -TestScalar::from_limbs(expected_limbs));
     }
 
     #[expect(clippy::cast_possible_wrap)]
