@@ -1004,4 +1004,49 @@ mod coverage_tests {
             &ColumnType::BigInt
         );
     }
+
+    #[test]
+    fn we_can_append_rows_to_column_commitments_without_blitzar() {
+        let first_id: Ident = "first_column".into();
+        let second_id: Ident = "second_column".into();
+        let first_initial_values = [1_i64, 2];
+        let second_initial_values = [7_i64, 8];
+        let first_appended_values = [3_i64, 4];
+        let second_appended_values = [9_i64, 10];
+
+        let mut actual = ColumnCommitments::<NaiveCommitment>::try_from_columns_with_offset(
+            [
+                (&first_id, first_initial_values.as_slice()),
+                (&second_id, second_initial_values.as_slice()),
+            ],
+            0,
+            &(),
+        )
+        .unwrap();
+
+        actual
+            .try_append_rows_with_offset(
+                [
+                    (&first_id, first_appended_values.as_slice()),
+                    (&second_id, second_appended_values.as_slice()),
+                ],
+                first_initial_values.len(),
+                &(),
+            )
+            .unwrap();
+
+        let first_values = [1_i64, 2, 3, 4];
+        let second_values = [7_i64, 8, 9, 10];
+        let expected = ColumnCommitments::<NaiveCommitment>::try_from_columns_with_offset(
+            [
+                (&first_id, first_values.as_slice()),
+                (&second_id, second_values.as_slice()),
+            ],
+            0,
+            &(),
+        )
+        .unwrap();
+
+        assert_eq!(actual, expected);
+    }
 }
