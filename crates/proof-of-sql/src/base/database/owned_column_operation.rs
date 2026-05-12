@@ -98,8 +98,125 @@ impl<S: Scalar> OwnedColumn<S> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
-    use alloc::vec;
+    use crate::base::{
+        database::ColumnType, math::decimal::Precision, scalar::test_scalar::TestScalar,
+    };
+    use alloc::{vec, vec::Vec};
+
+    fn decimal_column(values: &[i64]) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(
+            Precision::new(5).unwrap(),
+            0,
+            values.iter().copied().map(TestScalar::from).collect(),
+        )
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum NumericColumn {
+        Uint8,
+        TinyInt,
+        SmallInt,
+        Int,
+        BigInt,
+        Int128,
+        Decimal,
+    }
+
+    impl NumericColumn {
+        fn column(self, values: &[i64]) -> OwnedColumn<TestScalar> {
+            match self {
+                Self::Uint8 => OwnedColumn::Uint8(
+                    values
+                        .iter()
+                        .copied()
+                        .map(|value| u8::try_from(value).unwrap())
+                        .collect(),
+                ),
+                Self::TinyInt => OwnedColumn::TinyInt(
+                    values
+                        .iter()
+                        .copied()
+                        .map(|value| i8::try_from(value).unwrap())
+                        .collect(),
+                ),
+                Self::SmallInt => OwnedColumn::SmallInt(
+                    values
+                        .iter()
+                        .copied()
+                        .map(|value| i16::try_from(value).unwrap())
+                        .collect(),
+                ),
+                Self::Int => OwnedColumn::Int(
+                    values
+                        .iter()
+                        .copied()
+                        .map(|value| i32::try_from(value).unwrap())
+                        .collect(),
+                ),
+                Self::BigInt => OwnedColumn::BigInt(values.to_vec()),
+                Self::Int128 => {
+                    OwnedColumn::Int128(values.iter().copied().map(i128::from).collect())
+                }
+                Self::Decimal => decimal_column(values),
+            }
+        }
+    }
+
+    fn assert_eq_case(lhs: NumericColumn, rhs: NumericColumn) {
+        assert_eq!(
+            lhs.column(&[1, 2, 3])
+                .element_wise_eq(&rhs.column(&[1, 0, 3])),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true])),
+            "failed equality case {lhs:?} == {rhs:?}",
+        );
+    }
+
+    fn assert_add_case(lhs: NumericColumn, rhs: NumericColumn, expected: NumericColumn) {
+        assert_eq!(
+            lhs.column(&[1, 2, 3])
+                .element_wise_add(&rhs.column(&[4, 5, 6])),
+            Ok(expected.column(&[5, 7, 9])),
+            "failed add case {lhs:?} + {rhs:?}",
+        );
+    }
+
+    fn assert_decimal_add_case(lhs: NumericColumn, rhs: NumericColumn) {
+        let expected_values = [5, 7, 9]
+            .iter()
+            .copied()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+
+        match lhs
+            .column(&[1, 2, 3])
+            .element_wise_add(&rhs.column(&[4, 5, 6]))
+        {
+            Ok(OwnedColumn::Decimal75(_, 0, values)) => {
+                assert_eq!(
+                    values, expected_values,
+                    "failed decimal add case {lhs:?} + {rhs:?}",
+                );
+            }
+            result => panic!("expected decimal result for {lhs:?} + {rhs:?}, got {result:?}"),
+        }
+    }
+
+    fn assert_signed_casting_error(
+        result: ColumnOperationResult<OwnedColumn<TestScalar>>,
+        left_type: ColumnType,
+        right_type: ColumnType,
+    ) {
+        match result {
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: actual_left,
+                right_type: actual_right,
+            }) => {
+                assert_eq!(actual_left, left_type);
+                assert_eq!(actual_right, right_type);
+            }
+            result => panic!("expected signed casting error, got {result:?}"),
+        }
+    }
 
     #[test]
     fn we_cannot_do_binary_operation_on_columns_with_different_lengths() {
@@ -312,6 +429,80 @@ mod test {
         assert_eq!(
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
+        );
+    }
+
+    #[test]
+    fn we_can_do_eq_operation_on_remaining_integer_and_decimal_pairs() {
+        use self::NumericColumn::{BigInt, Decimal, Int, Int128, SmallInt, TinyInt, Uint8};
+
+        let integer_cases = [
+            (Uint8, Uint8),
+            (Uint8, SmallInt),
+            (Uint8, Int),
+            (Uint8, BigInt),
+            (Uint8, Int128),
+            (TinyInt, TinyInt),
+            (TinyInt, SmallInt),
+            (TinyInt, Int),
+            (TinyInt, BigInt),
+            (TinyInt, Int128),
+            (SmallInt, SmallInt),
+            (SmallInt, Int),
+            (SmallInt, BigInt),
+            (SmallInt, Int128),
+            (Int, TinyInt),
+            (Int, Int),
+            (Int, BigInt),
+            (Int, Int128),
+            (BigInt, TinyInt),
+            (BigInt, SmallInt),
+            (BigInt, Int),
+            (BigInt, BigInt),
+            (BigInt, Int128),
+            (Int128, TinyInt),
+            (Int128, SmallInt),
+            (Int128, Int),
+            (Int128, BigInt),
+            (Int128, Int128),
+        ];
+
+        let decimal_cases = [
+            (Uint8, Decimal),
+            (TinyInt, Decimal),
+            (SmallInt, Decimal),
+            (Int, Decimal),
+            (BigInt, Decimal),
+            (Int128, Decimal),
+            (Decimal, TinyInt),
+            (Decimal, SmallInt),
+            (Decimal, Int),
+            (Decimal, BigInt),
+            (Decimal, Int128),
+            (Decimal, Decimal),
+        ];
+
+        for (lhs, rhs) in integer_cases.into_iter().chain(decimal_cases) {
+            assert_eq_case(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn we_cannot_compare_uint8_and_tinyint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+        assert_signed_casting_error(
+            lhs.element_wise_eq(&rhs),
+            ColumnType::Uint8,
+            ColumnType::TinyInt,
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        assert_signed_casting_error(
+            lhs.element_wise_eq(&rhs),
+            ColumnType::TinyInt,
+            ColumnType::Uint8,
         );
     }
 
@@ -583,6 +774,79 @@ mod test {
         assert_eq!(
             result,
             OwnedColumn::<TestScalar>::Int128(vec![2_i128, 4, 6])
+        );
+    }
+
+    #[test]
+    fn we_can_add_remaining_integer_column_pairs() {
+        use self::NumericColumn::{BigInt, Int, Int128, SmallInt, TinyInt, Uint8};
+
+        let cases = [
+            (Uint8, Uint8, Uint8),
+            (Uint8, SmallInt, SmallInt),
+            (Uint8, Int, Int),
+            (Uint8, BigInt, BigInt),
+            (Uint8, Int128, Int128),
+            (TinyInt, SmallInt, SmallInt),
+            (SmallInt, TinyInt, SmallInt),
+            (SmallInt, Int, Int),
+            (SmallInt, BigInt, BigInt),
+            (SmallInt, Int128, Int128),
+            (Int, TinyInt, Int),
+            (Int, SmallInt, Int),
+            (BigInt, TinyInt, BigInt),
+            (BigInt, SmallInt, BigInt),
+            (BigInt, Int, BigInt),
+            (BigInt, Int128, Int128),
+            (Int128, TinyInt, Int128),
+            (Int128, SmallInt, Int128),
+            (Int128, BigInt, Int128),
+            (Int128, Int128, Int128),
+        ];
+
+        for (lhs, rhs, expected) in cases {
+            assert_add_case(lhs, rhs, expected);
+        }
+    }
+
+    #[test]
+    fn we_can_add_remaining_integer_and_decimal_column_pairs() {
+        use self::NumericColumn::{BigInt, Decimal, Int, Int128, SmallInt, TinyInt, Uint8};
+
+        let cases = [
+            (Uint8, Decimal),
+            (TinyInt, Decimal),
+            (BigInt, Decimal),
+            (Int128, Decimal),
+            (Decimal, TinyInt),
+            (Decimal, SmallInt),
+            (Decimal, Int),
+            (Decimal, BigInt),
+            (Decimal, Int128),
+            (Decimal, Decimal),
+        ];
+
+        for (lhs, rhs) in cases {
+            assert_decimal_add_case(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn we_cannot_add_uint8_and_tinyint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+        assert_signed_casting_error(
+            lhs.element_wise_add(&rhs),
+            ColumnType::Uint8,
+            ColumnType::TinyInt,
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        assert_signed_casting_error(
+            lhs.element_wise_add(&rhs),
+            ColumnType::TinyInt,
+            ColumnType::Uint8,
         );
     }
 
