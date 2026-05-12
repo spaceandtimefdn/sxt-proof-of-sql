@@ -52,7 +52,7 @@ fn test_mod() {
     let pm1: ark_ff::BigInt<4> = ark_ff::BigInt!(
         "7237005577332262213973186563042994240857116359379907606001950938285454250988"
     );
-    let x = Curve25519Scalar::from(pm1.0);
+    let x = Curve25519Scalar::from_limbs(pm1.0);
     let one = Curve25519Scalar::from(1u64);
     let zero = Curve25519Scalar::from(0u64);
     let xp1 = x + one;
