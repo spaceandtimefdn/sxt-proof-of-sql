@@ -147,6 +147,21 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_read_slice_exec_plan_accessors() {
+        let input = DynProofPlan::new_empty();
+        let slice = SliceExec::new(Box::new(input.clone()), 3, Some(2));
+
+        assert_eq!(slice.input(), &input);
+        assert_eq!(slice.skip(), 3);
+        assert_eq!(slice.fetch(), Some(2));
+    }
+}
+
 impl ProverEvaluate for SliceExec {
     #[tracing::instrument(name = "SliceExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
