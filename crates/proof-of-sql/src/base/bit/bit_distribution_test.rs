@@ -208,6 +208,12 @@ fn we_can_get_leading_bit_eval_while_constant_and_non_zero() {
     assert_eq!(bit_eval, TestScalar::TWO);
 }
 
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn no_lead_bit_error_panics_when_converted_to_proof_error() {
+    let _: crate::base::proof::ProofError = BitDistributionError::NoLeadBit.into();
+}
+
 // leading_bit_eval functions start
 
 // leading_bit_eval functions end
