@@ -140,7 +140,8 @@ mod tests {
     use super::*;
     use crate::base::{
         commitment::{column_bounds::Bounds, ColumnBounds},
-        database::{owned_table_utility::*, ColumnType, OwnedTable},
+        database::{owned_table_utility::*, ColumnField, ColumnType, OwnedTable},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     };
     use alloc::vec::Vec;
@@ -205,6 +206,75 @@ mod tests {
         assert_eq!(index_3.value.as_str(), "scalar_column");
         assert_eq!(metadata_3.column_type(), &ColumnType::Scalar);
         assert_eq!(metadata_3.bounds(), &ColumnBounds::NoOrder);
+    }
+
+    #[test]
+    fn we_can_construct_metadata_map_from_column_fields_with_max_bounds() {
+        let time_unit = PoSQLTimeUnit::Second;
+        let timezone = PoSQLTimeZone::utc();
+        let fields = [
+            ColumnField::new("smallint_column".into(), ColumnType::SmallInt),
+            ColumnField::new("int_column".into(), ColumnType::Int),
+            ColumnField::new("bigint_column".into(), ColumnType::BigInt),
+            ColumnField::new(
+                "timestamp_column".into(),
+                ColumnType::TimestampTZ(time_unit, timezone),
+            ),
+            ColumnField::new("int128_column".into(), ColumnType::Int128),
+            ColumnField::new("boolean_column".into(), ColumnType::Boolean),
+        ];
+
+        let metadata_map = ColumnCommitmentMetadataMap::from_column_fields_with_max_bounds(&fields);
+
+        assert_eq!(metadata_map.len(), fields.len());
+
+        let (index_0, metadata_0) = metadata_map.get_index(0).unwrap();
+        assert_eq!(index_0.value.as_str(), "smallint_column");
+        assert_eq!(metadata_0.column_type(), &ColumnType::SmallInt);
+        assert_eq!(
+            metadata_0.bounds(),
+            &ColumnBounds::SmallInt(Bounds::bounded(i16::MIN, i16::MAX).unwrap())
+        );
+
+        let (index_1, metadata_1) = metadata_map.get_index(1).unwrap();
+        assert_eq!(index_1.value.as_str(), "int_column");
+        assert_eq!(metadata_1.column_type(), &ColumnType::Int);
+        assert_eq!(
+            metadata_1.bounds(),
+            &ColumnBounds::Int(Bounds::bounded(i32::MIN, i32::MAX).unwrap())
+        );
+
+        let (index_2, metadata_2) = metadata_map.get_index(2).unwrap();
+        assert_eq!(index_2.value.as_str(), "bigint_column");
+        assert_eq!(metadata_2.column_type(), &ColumnType::BigInt);
+        assert_eq!(
+            metadata_2.bounds(),
+            &ColumnBounds::BigInt(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+        );
+
+        let (index_3, metadata_3) = metadata_map.get_index(3).unwrap();
+        assert_eq!(index_3.value.as_str(), "timestamp_column");
+        assert_eq!(
+            metadata_3.column_type(),
+            &ColumnType::TimestampTZ(time_unit, timezone)
+        );
+        assert_eq!(
+            metadata_3.bounds(),
+            &ColumnBounds::TimestampTZ(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+        );
+
+        let (index_4, metadata_4) = metadata_map.get_index(4).unwrap();
+        assert_eq!(index_4.value.as_str(), "int128_column");
+        assert_eq!(metadata_4.column_type(), &ColumnType::Int128);
+        assert_eq!(
+            metadata_4.bounds(),
+            &ColumnBounds::Int128(Bounds::bounded(i128::MIN, i128::MAX).unwrap())
+        );
+
+        let (index_5, metadata_5) = metadata_map.get_index(5).unwrap();
+        assert_eq!(index_5.value.as_str(), "boolean_column");
+        assert_eq!(metadata_5.column_type(), &ColumnType::Boolean);
+        assert_eq!(metadata_5.bounds(), &ColumnBounds::NoOrder);
     }
 
     #[test]
