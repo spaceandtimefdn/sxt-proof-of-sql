@@ -39,6 +39,36 @@ mod tests {
     use bumpalo::Bump;
 
     #[test]
+    fn we_can_compute_varying_byte_matrix_for_empty_column() {
+        let alloc = Bump::new();
+        let scalars = Vec::<TestScalar>::new();
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert!(varying_columns.is_empty());
+        assert_eq!(
+            byte_distribution,
+            ByteDistribution::new::<TestScalar, TestScalar>(&scalars)
+        );
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
+
+    #[test]
+    fn we_can_compute_varying_byte_matrix_for_constant_column() {
+        let alloc = Bump::new();
+        let scalars = vec![TestScalar::from(257); 4];
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert!(varying_columns.is_empty());
+        assert_eq!(
+            byte_distribution,
+            ByteDistribution::new::<TestScalar, TestScalar>(&scalars)
+        );
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
+
+    #[test]
     fn we_can_compute_varying_byte_matrix_for_small_scalars() {
         let alloc = Bump::new();
         let scalars: Vec<TestScalar> = [1, 2, 3, 255, 256, 257]
