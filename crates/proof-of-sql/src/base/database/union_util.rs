@@ -245,7 +245,12 @@ pub fn table_union<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        map::IndexMap,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn we_can_union_no_columns() {
@@ -278,6 +283,86 @@ mod tests {
         assert_eq!(
             result,
             Column::VarChar((&doubled_strings, &doubled_scalars))
+        );
+    }
+
+    #[test]
+    fn we_can_union_remaining_column_types() {
+        macro_rules! assert_column_union {
+            ($alloc:expr, $column_type:expr, $left:expr, $right:expr, $expected:expr) => {{
+                let left: Column<TestScalar> = $left;
+                let right: Column<TestScalar> = $right;
+                let result = column_union(&[&left, &right], $alloc, $column_type).unwrap();
+                assert_eq!(result, $expected);
+            }};
+        }
+
+        let alloc = Bump::new();
+        assert_column_union!(
+            &alloc,
+            ColumnType::Uint8,
+            Column::Uint8(&[1, 2]),
+            Column::Uint8(&[3]),
+            Column::Uint8(&[1, 2, 3])
+        );
+        assert_column_union!(
+            &alloc,
+            ColumnType::TinyInt,
+            Column::TinyInt(&[-1, 2]),
+            Column::TinyInt(&[3]),
+            Column::TinyInt(&[-1, 2, 3])
+        );
+        assert_column_union!(
+            &alloc,
+            ColumnType::SmallInt,
+            Column::SmallInt(&[-10, 20]),
+            Column::SmallInt(&[30]),
+            Column::SmallInt(&[-10, 20, 30])
+        );
+        assert_column_union!(
+            &alloc,
+            ColumnType::Int128,
+            Column::Int128(&[-100, 200]),
+            Column::Int128(&[300]),
+            Column::Int128(&[-100, 200, 300])
+        );
+
+        let scalar_left = [TestScalar::from(1u64), TestScalar::from(2u64)];
+        let scalar_right = [TestScalar::from(3u64)];
+        let scalar_expected = [
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+            TestScalar::from(3u64),
+        ];
+        assert_column_union!(
+            &alloc,
+            ColumnType::Scalar,
+            Column::Scalar(&scalar_left),
+            Column::Scalar(&scalar_right),
+            Column::Scalar(&scalar_expected)
+        );
+
+        let precision = Precision::new(9).unwrap();
+        assert_column_union!(
+            &alloc,
+            ColumnType::Decimal75(precision, 2),
+            Column::Decimal75(precision, 2, &scalar_left),
+            Column::Decimal75(precision, 2, &scalar_right),
+            Column::Decimal75(precision, 2, &scalar_expected)
+        );
+
+        let time_unit = PoSQLTimeUnit::Microsecond;
+        let timezone = PoSQLTimeZone::new(19_800);
+        assert_column_union!(
+            &alloc,
+            ColumnType::TimestampTZ(time_unit, timezone),
+            Column::TimestampTZ(time_unit, timezone, &[1_700_000_000, 1_700_000_001]),
+            Column::TimestampTZ(time_unit, timezone, &[1_700_000_002]),
+            Column::TimestampTZ(
+                time_unit,
+                timezone,
+                &[1_700_000_000, 1_700_000_001, 1_700_000_002]
+            )
         );
     }
 
