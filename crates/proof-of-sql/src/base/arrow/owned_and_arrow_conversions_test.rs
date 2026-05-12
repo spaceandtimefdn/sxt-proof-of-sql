@@ -8,7 +8,7 @@ use alloc::sync::Arc;
 use arrow::{
     array::{
         ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        StringArray, TimestampSecondArray,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -99,6 +99,33 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
         OwnedColumn::<TestScalar>::try_from(array_ref),
         Err(OwnedArrowConversionError::UnsupportedType { .. })
     ));
+}
+
+#[test]
+fn we_reject_arrow_arrays_with_nulls_when_converting_to_owned_columns() {
+    let arrays: Vec<ArrayRef> = vec![
+        Arc::new(BooleanArray::from(vec![Some(true), None, Some(false)])),
+        Arc::new(Int64Array::from(vec![Some(1), None, Some(3)])),
+        Arc::new(
+            Decimal128Array::from(vec![Some(1), None, Some(3)])
+                .with_precision_and_scale(38, 0)
+                .unwrap(),
+        ),
+        Arc::new(StringArray::from(vec![Some("a"), None, Some("c")])),
+        Arc::new(LargeBinaryArray::from(vec![
+            Some(&b"a"[..]),
+            None,
+            Some(&b"c"[..]),
+        ])),
+        Arc::new(TimestampSecondArray::from(vec![Some(1), None, Some(3)])),
+    ];
+
+    for array in arrays {
+        assert!(matches!(
+            OwnedColumn::<TestScalar>::try_from(array),
+            Err(OwnedArrowConversionError::NullNotSupportedYet)
+        ));
+    }
 }
 
 fn we_can_convert_between_owned_table_and_record_batch_impl(
