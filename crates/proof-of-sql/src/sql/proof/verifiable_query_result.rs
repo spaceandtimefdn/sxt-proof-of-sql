@@ -119,3 +119,135 @@ impl<CP: CommitmentEvaluationProof> VerifiableQueryResult<CP> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::VerifiableQueryResult;
+    use crate::{
+        base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
+            database::{
+                owned_table_utility::{bigint, owned_table},
+                table_utility::{borrowed_bigint, table_with_row_count},
+                ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, Table,
+                TableEvaluation, TableRef,
+            },
+            map::{indexset, IndexMap, IndexSet},
+            proof::{PlaceholderResult, ProofError},
+            scalar::Scalar,
+        },
+        sql::proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, QueryData,
+            VerificationBuilder,
+        },
+    };
+    use bumpalo::Bump;
+    use serde::Serialize;
+    use sqlparser::ast::Ident;
+
+    #[derive(Debug, Serialize)]
+    struct NaiveTestQueryExpr {
+        length: usize,
+    }
+
+    impl ProverEvaluate for NaiveTestQueryExpr {
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FirstRoundBuilder<'a, S>,
+            alloc: &'a Bump,
+            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            let zeros = vec![0_i64; self.length];
+            builder.produce_chi_evaluation_length(self.length);
+            Ok(table_with_row_count(
+                [borrowed_bigint("a1", zeros, alloc)],
+                self.length,
+            ))
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FinalRoundBuilder<'a, S>,
+            alloc: &'a Bump,
+            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            let zeros = vec![0_i64; self.length];
+            let res: &[_] = alloc.alloc_slice_copy(&zeros);
+            builder.produce_intermediate_mle(res);
+            Ok(table_with_row_count(
+                [borrowed_bigint("a1", zeros, alloc)],
+                self.length,
+            ))
+        }
+    }
+
+    impl ProofPlan for NaiveTestQueryExpr {
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+            _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
+            _params: &[LiteralValue],
+        ) -> Result<TableEvaluation<S>, ProofError> {
+            assert_eq!(
+                builder.try_consume_final_round_mle_evaluations(1)?,
+                vec![S::ZERO]
+            );
+            Ok(TableEvaluation::new(
+                vec![S::ZERO],
+                builder.try_consume_chi_evaluation()?,
+            ))
+        }
+
+        fn get_column_result_fields(&self) -> Vec<ColumnField> {
+            vec![ColumnField::new("a1".into(), ColumnType::BigInt)]
+        }
+
+        fn get_column_references(&self) -> IndexSet<ColumnRef> {
+            indexset! {}
+        }
+
+        fn get_table_references(&self) -> IndexSet<TableRef> {
+            indexset![TableRef::new("sxt", "test")]
+        }
+    }
+
+    #[test]
+    fn we_can_create_and_verify_with_naive_proof() {
+        let expr = NaiveTestQueryExpr { length: 2 };
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            TableRef::new("sxt", "test"),
+            owned_table([bigint("a1", [0_i64, 0])]),
+            0,
+            (),
+        );
+
+        let res =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+        let QueryData {
+            verification_hash: _,
+            table,
+        } = res.verify(&expr, &accessor, &(), &[]).unwrap();
+
+        assert_eq!(table, owned_table([bigint("a1", [0_i64, 0])]));
+    }
+
+    #[test]
+    fn verify_rejects_tampered_naive_result() {
+        let expr = NaiveTestQueryExpr { length: 2 };
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            TableRef::new("sxt", "test"),
+            owned_table([bigint("a1", [0_i64, 0])]),
+            0,
+            (),
+        );
+
+        let mut res =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+        res.result = owned_table([bigint("a1", [1_i64, 0])]);
+
+        assert!(res.verify(&expr, &accessor, &(), &[]).is_err());
+    }
+}
