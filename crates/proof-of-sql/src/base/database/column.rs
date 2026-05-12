@@ -338,7 +338,10 @@ impl<'a, S: Scalar> Column<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{base::scalar::test_scalar::TestScalar, proof_primitive::dory::DoryScalar};
+    use crate::{
+        base::{math::i256::I256, scalar::test_scalar::TestScalar},
+        proof_primitive::dory::DoryScalar,
+    };
     use alloc::{string::String, vec};
 
     #[test]
@@ -577,6 +580,95 @@ mod tests {
 
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
+    }
+
+    #[test]
+    fn we_can_create_constant_columns_from_literals() {
+        let alloc = Bump::new();
+        let precision = Precision::new(12).unwrap();
+        let scalar_limbs = TestScalar::from(37).into();
+        let cases = [
+            (
+                LiteralValue::Boolean(true),
+                Column::<TestScalar>::Boolean(&[true, true, true]),
+            ),
+            (
+                LiteralValue::Uint8(3),
+                Column::<TestScalar>::Uint8(&[3, 3, 3]),
+            ),
+            (
+                LiteralValue::TinyInt(-5),
+                Column::<TestScalar>::TinyInt(&[-5, -5, -5]),
+            ),
+            (
+                LiteralValue::SmallInt(-8),
+                Column::<TestScalar>::SmallInt(&[-8, -8, -8]),
+            ),
+            (
+                LiteralValue::Int(-13),
+                Column::<TestScalar>::Int(&[-13, -13, -13]),
+            ),
+            (
+                LiteralValue::BigInt(-21),
+                Column::<TestScalar>::BigInt(&[-21, -21, -21]),
+            ),
+            (
+                LiteralValue::Int128(-34),
+                Column::<TestScalar>::Int128(&[-34, -34, -34]),
+            ),
+            (
+                LiteralValue::Scalar(scalar_limbs),
+                Column::<TestScalar>::Scalar(&[TestScalar::from(37); 3]),
+            ),
+            (
+                LiteralValue::Decimal75(precision, 2, I256::from(55)),
+                Column::<TestScalar>::Decimal75(precision, 2, &[TestScalar::from(55); 3]),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 89),
+                Column::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Second,
+                    PoSQLTimeZone::utc(),
+                    &[89, 89, 89],
+                ),
+            ),
+            (
+                LiteralValue::VarChar(String::from("space")),
+                Column::<TestScalar>::VarChar((
+                    &["space", "space", "space"],
+                    &[TestScalar::from("space"); 3],
+                )),
+            ),
+            (
+                LiteralValue::VarBinary(vec![0x73, 0x78, 0x74]),
+                Column::<TestScalar>::VarBinary((
+                    &[b"sxt".as_slice(), b"sxt".as_slice(), b"sxt".as_slice()],
+                    &[TestScalar::from_byte_slice_via_hash(b"sxt"); 3],
+                )),
+            ),
+        ];
+
+        for (literal, expected) in cases {
+            assert_eq!(
+                Column::<TestScalar>::from_literal_with_length(&literal, 3, &alloc),
+                expected
+            );
+        }
+
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::Int(7), 0, &alloc),
+            Column::Int(&[])
+        );
+    }
+
+    #[test]
+    fn we_can_create_rho_columns() {
+        let alloc = Bump::new();
+        assert_eq!(Column::<TestScalar>::rho(0, &alloc), Column::Int128(&[]));
+        assert_eq!(
+            Column::<TestScalar>::rho(5, &alloc),
+            Column::Int128(&[0, 1, 2, 3, 4])
+        );
     }
 
     #[test]
