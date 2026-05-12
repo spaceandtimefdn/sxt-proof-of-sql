@@ -83,3 +83,89 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FoldLogExpr;
+    use crate::{
+        base::{
+            database::table_utility::borrowed_bigint,
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder,
+        },
+    };
+    use bumpalo::Bump;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn we_can_evaluate_and_verify_fold_log_expr_with_custom_chi() {
+        let alloc = Bump::new();
+        let column = borrowed_bigint::<TestScalar>("a", [2, 4, 6, 8], &alloc).1;
+        let chi = alloc.alloc_slice_copy(&[true, true, false, false]);
+        let expr = FoldLogExpr::new(TestScalar::TWO, TestScalar::TEN);
+        let first_round_builder = FirstRoundBuilder::new(4);
+        let mut final_round_builder = FinalRoundBuilder::new(4, VecDeque::new());
+
+        let (_, fold) = expr.final_round_evaluate_with_chi(
+            &mut final_round_builder,
+            &alloc,
+            &[column.clone()],
+            4,
+            chi,
+        );
+        assert_eq!(
+            fold,
+            &[
+                TestScalar::from(4),
+                TestScalar::from(8),
+                TestScalar::from(12),
+                TestScalar::from(16),
+            ]
+        );
+
+        let verification_builder = run_verify_for_each_row(
+            4,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                let column_eval = column.inner_product(evaluation_point);
+                let (star_eval, fold_eval) = expr
+                    .verify_evaluate(verification_builder, &[column_eval], chi_eval)
+                    .unwrap();
+
+                assert_eq!(fold_eval, TestScalar::TWO * column_eval);
+                if chi_eval != TestScalar::ZERO {
+                    assert_eq!(star_eval + fold_eval * star_eval, TestScalar::ONE);
+                }
+            },
+        );
+
+        assert!(verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|row| row.iter().all(|is_zero| *is_zero)));
+    }
+
+    #[test]
+    fn we_can_evaluate_fold_log_expr_with_default_chi() {
+        let alloc = Bump::new();
+        let column = borrowed_bigint::<TestScalar>("a", [3, 5], &alloc).1;
+        let expr = FoldLogExpr::new(TestScalar::TWO, TestScalar::TEN);
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let (star, fold) =
+            expr.final_round_evaluate(&mut final_round_builder, &alloc, &[column], 2);
+
+        assert_eq!(fold, &[TestScalar::from(6), TestScalar::from(10)]);
+        assert_eq!(star[0] + fold[0] * star[0], TestScalar::ONE);
+        assert_eq!(star[1] + fold[1] * star[1], TestScalar::ONE);
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 1);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 1);
+    }
+}

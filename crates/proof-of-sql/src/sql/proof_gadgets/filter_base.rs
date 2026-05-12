@@ -150,3 +150,83 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_filter, verify_evaluate_filter};
+    use crate::{
+        base::{
+            database::table_utility::borrowed_bigint,
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{
+            proof::{
+                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+                FirstRoundBuilder,
+            },
+            proof_plans::fold_vals,
+        },
+    };
+    use bumpalo::Bump;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn we_can_evaluate_and_verify_filter_constraints() {
+        let alloc = Bump::new();
+        let column = borrowed_bigint::<TestScalar>("a", [1, 2, 3, 4], &alloc).1;
+        let filtered_column = borrowed_bigint::<TestScalar>("a", [1, 3], &alloc).1;
+        let selection = alloc.alloc_slice_copy(&[true, false, true, false]);
+        let output_chi = alloc.alloc_slice_fill_copy(2, true);
+        let first_round_builder = FirstRoundBuilder::new(4);
+        let mut final_round_builder = FinalRoundBuilder::new(4, VecDeque::new());
+
+        final_round_evaluate_filter(
+            &mut final_round_builder,
+            &alloc,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            &[column.clone()],
+            selection,
+            &[filtered_column.clone()],
+            4,
+            2,
+        );
+
+        let verification_builder = run_verify_for_each_row(
+            4,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, input_chi_eval, evaluation_point| {
+                let column_eval = column.inner_product(evaluation_point);
+                let filtered_column_eval = filtered_column.inner_product(evaluation_point);
+                let c_fold_eval = TestScalar::TWO * fold_vals(TestScalar::TEN, &[column_eval]);
+                let d_fold_eval =
+                    TestScalar::TWO * fold_vals(TestScalar::TEN, &[filtered_column_eval]);
+                let output_chi_eval = (output_chi as &[_]).inner_product(evaluation_point);
+                let selection_eval = (selection as &[_]).inner_product(evaluation_point);
+
+                verify_evaluate_filter(
+                    verification_builder,
+                    c_fold_eval,
+                    d_fold_eval,
+                    input_chi_eval,
+                    output_chi_eval,
+                    selection_eval,
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|row| row.iter().all(|is_zero| *is_zero)));
+        assert!(verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .all(|is_zero| *is_zero));
+    }
+}
