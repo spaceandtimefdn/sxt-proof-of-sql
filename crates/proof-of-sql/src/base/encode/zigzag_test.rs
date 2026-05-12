@@ -31,6 +31,27 @@ fn small_scalars_are_encoded_as_positive_zigzag_values() {
 }
 
 #[test]
+fn even_zigzag_values_are_decoded_as_positive_scalars() {
+    assert!(U256::from_words(0, 0).zigzag() == TestScalar::from(0_u8));
+    assert!(U256::from_words(2, 0).zigzag() == TestScalar::from(1_u8));
+    assert!(U256::from_words(4, 0).zigzag() == TestScalar::from(2_u8));
+
+    for x in 0..1000_u128 {
+        assert!(U256::from_words(2 * x, 0).zigzag() == TestScalar::from(x));
+    }
+}
+
+#[test]
+fn odd_zigzag_values_are_decoded_as_negative_scalars() {
+    assert!(U256::from_words(1, 0).zigzag() == -TestScalar::from(1_u8));
+    assert!(U256::from_words(3, 0).zigzag() == -TestScalar::from(2_u8));
+
+    for y in 1..1000_u128 {
+        assert!(U256::from_words(2 * y - 1, 0).zigzag() == -TestScalar::from(y));
+    }
+}
+
+#[test]
 fn big_scalars_with_small_additive_inverses_are_encoded_as_negative_zigzag_values() {
     // x = p - 1 (p = 2^252 + 27742317777372353535851937790883648493 is the ristretto group order)
     // the additive inverse of x is y = 1. Since y < x, the ZigZag encodes -y, which is
