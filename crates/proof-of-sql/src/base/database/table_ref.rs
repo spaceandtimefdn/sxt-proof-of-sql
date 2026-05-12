@@ -142,3 +142,52 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+    use serde_json;
+
+    #[test]
+    fn from_strs_handles_schema_variants() {
+        let unqualified = TableRef::from_strs(&["orders"]).unwrap();
+        assert_eq!(unqualified.schema_id(), None);
+        assert_eq!(unqualified.table_id().value, "orders");
+        assert_eq!(unqualified.to_string(), "orders");
+
+        let qualified = TableRef::from_strs(&["analytics", "orders"]).unwrap();
+        assert_eq!(qualified.schema_id().unwrap().value, "analytics");
+        assert_eq!(qualified.table_id().value, "orders");
+        assert_eq!(qualified.to_string(), "analytics.orders");
+    }
+
+    #[test]
+    fn from_strs_rejects_invalid_component_counts() {
+        let empty = TableRef::from_strs::<&str>(&[]).unwrap_err();
+        assert_eq!(
+            empty,
+            ParseError::InvalidTableReference {
+                table_reference: "".to_string()
+            }
+        );
+
+        let too_many = TableRef::from_strs(&["a", "b", "c"]).unwrap_err();
+        assert_eq!(
+            too_many,
+            ParseError::InvalidTableReference {
+                table_reference: "a,b,c".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn serde_round_trips_table_refs_as_strings() {
+        let table_ref = TableRef::new("analytics", "orders");
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, "\"analytics.orders\"");
+
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, table_ref);
+    }
+}
