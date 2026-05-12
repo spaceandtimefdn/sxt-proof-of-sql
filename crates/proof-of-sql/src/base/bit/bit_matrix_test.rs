@@ -22,6 +22,19 @@ fn we_can_compute_the_bit_matrix_for_a_single_element() {
 }
 
 #[test]
+fn we_can_compute_the_bit_matrix_for_constant_data() {
+    let data: Vec<TestScalar> = vec![
+        TestScalar::from(7),
+        TestScalar::from(7),
+        TestScalar::from(7),
+    ];
+    let dist = BitDistribution::new::<TestScalar, _>(&data);
+    let alloc = Bump::new();
+    let matrix = compute_varying_bit_matrix(&alloc, &data, &dist);
+    assert!(matrix.is_empty());
+}
+
+#[test]
 fn we_can_compute_the_bit_matrix_for_data_with_a_single_varying_bit() {
     let data: Vec<TestScalar> = vec![TestScalar::one(), TestScalar::zero()];
     let dist = BitDistribution::new::<TestScalar, _>(&data);
