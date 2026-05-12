@@ -104,7 +104,7 @@ mod tests {
     }
 
     #[test]
-    fn scalar_product_verifies_matching_messages() {
+    fn we_can_verify_scalar_product_with_matching_messages() {
         let (mut messages, verifier_state, verifier_setup) = scalar_product_fixture();
 
         let mut transcript = Transcript::new(b"scalar_product_test");
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn scalar_product_rejects_missing_messages() {
+    fn we_fail_to_verify_scalar_product_with_missing_messages() {
         let (_, verifier_state, verifier_setup) = scalar_product_fixture();
         let mut messages = DoryMessages::default();
         let mut transcript = Transcript::new(b"scalar_product_test");
@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn scalar_product_rejects_unexpected_gt_messages() {
+    fn we_fail_to_verify_scalar_product_with_unexpected_gt_messages() {
         let (mut messages, verifier_state, verifier_setup) = scalar_product_fixture();
         messages
             .GT_messages
