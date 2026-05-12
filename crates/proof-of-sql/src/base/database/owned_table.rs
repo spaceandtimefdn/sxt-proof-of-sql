@@ -193,7 +193,7 @@ impl<'a, S: Scalar> From<Table<'a, S>> for OwnedTable<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::OwnedTable;
+    use super::{OwnedTable, OwnedTableError};
     use crate::base::{
         database::{
             owned_table_utility::*, table_utility::*, ColumnCoercionError, Table,
@@ -316,6 +316,48 @@ mod tests {
         ]);
 
         assert_eq!(coerced_table, expected_table);
+    }
+
+    #[test]
+    fn test_try_new_rejects_column_length_mismatch() {
+        let result = OwnedTable::<TestScalar>::try_from_iter([
+            bigint("bigint", [0_i64, 1]),
+            scalar("scalar", [0]),
+        ]);
+
+        assert_eq!(result, Err(OwnedTableError::ColumnLengthMismatch));
+    }
+
+    #[test]
+    fn test_shape_accessors_and_ordered_equality() {
+        let table =
+            owned_table::<TestScalar>([bigint("bigint", [0_i64, 1]), scalar("scalar", [2, 3])]);
+
+        assert_eq!(table.num_columns(), 2);
+        assert_eq!(table.num_rows(), 2);
+        assert!(!table.is_empty());
+
+        let column_names = table
+            .column_names()
+            .map(|ident| ident.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(column_names, ["bigint", "scalar"]);
+
+        assert_eq!(table.column_by_index(0), Some(&table["bigint"]));
+        assert_eq!(table.column_by_index(1), Some(&table["scalar"]));
+        assert_eq!(table.column_by_index(2), None);
+
+        let reversed_table =
+            owned_table::<TestScalar>([scalar("scalar", [2, 3]), bigint("bigint", [0_i64, 1])]);
+        assert_ne!(table, reversed_table);
+
+        let inner = table.into_inner();
+        assert_eq!(inner.len(), 2);
+        let inner_names = inner
+            .keys()
+            .map(|ident| ident.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(inner_names, ["bigint", "scalar"]);
     }
 
     #[test]
