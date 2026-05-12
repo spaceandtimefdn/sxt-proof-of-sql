@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, scalar::ScalarConversionError};
+use crate::base::scalar::ScalarConversionError;
 use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
@@ -50,7 +50,6 @@ pub trait Scalar:
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
     + for<'a> core::convert::From<&'a String>
-    + VarInt
     + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
