@@ -153,7 +153,11 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -212,6 +216,62 @@ mod tests {
         let column: Column<TestScalar> = Column::Uint8(&[3u8, 5u8, 2u8]);
         let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
         assert_eq!(result.as_uint8().unwrap(), &[3u8, 3u8, 5u8, 5u8, 2u8, 2u8]);
+    }
+
+    #[test]
+    fn test_column_repetition_op_remaining_column_types() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-1, 2, -3]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_tinyint().unwrap(), &[-1, 2, -3, -1, 2, -3]);
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-11, 22]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-11, 22, -11, 22]);
+
+        let column: Column<TestScalar> = Column::BigInt(&[-101, 202]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_bigint().unwrap(), &[-101, 202, -101, 202]);
+
+        let column: Column<TestScalar> = Column::Int128(&[-1_001, 2_002]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_int128().unwrap(), &[-1_001, 2_002, -1_001, 2_002]);
+
+        let scalar_values = vec![TestScalar::from(5), TestScalar::from(7)];
+        let column: Column<TestScalar> = Column::Scalar(&scalar_values);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_scalars = vec![
+            TestScalar::from(5),
+            TestScalar::from(7),
+            TestScalar::from(5),
+            TestScalar::from(7),
+        ];
+        assert_eq!(result, Column::Scalar(&expected_scalars));
+
+        let precision = Precision::new(75).unwrap();
+        let decimal_values = vec![TestScalar::from(11), TestScalar::from(13)];
+        let column: Column<TestScalar> = Column::Decimal75(precision, 2, &decimal_values);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        let expected_decimals = vec![
+            TestScalar::from(11),
+            TestScalar::from(13),
+            TestScalar::from(11),
+            TestScalar::from(13),
+        ];
+        assert_eq!(result, Column::Decimal75(precision, 2, &expected_decimals));
+
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[101, 202]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[101, 202, 101, 202],
+            )
+        );
     }
 
     #[test]
