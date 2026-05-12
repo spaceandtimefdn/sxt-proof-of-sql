@@ -51,6 +51,30 @@ impl UnionExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_build_union_exec_and_read_input_plans() {
+        let left = DynProofPlan::new_empty();
+        let right = DynProofPlan::new_empty();
+        let inputs = vec![left.clone(), right.clone()];
+
+        let union = UnionExec::try_new(inputs.clone()).expect("union should accept two inputs");
+
+        assert_eq!(union.input_plans(), inputs.as_slice());
+    }
+
+    #[test]
+    fn we_reject_union_exec_with_too_few_input_plans() {
+        assert!(matches!(
+            UnionExec::try_new(vec![DynProofPlan::new_empty()]),
+            Err(AnalyzeError::NotEnoughInputPlans)
+        ));
+    }
+}
+
 impl ProofPlan for UnionExec
 where
     UnionExec: ProverEvaluate,
