@@ -14,7 +14,21 @@ impl super::transcript_core::TranscriptCore for merlin::Transcript {
 
 #[cfg(test)]
 mod tests {
-    use super::super::transcript_core::test_util::*;
+    use super::super::transcript_core::{test_util::*, TranscriptCore};
+
+    #[test]
+    fn empty_merlin_transcript_challenge_matches_known_vector() {
+        let mut transcript: merlin::Transcript = TranscriptCore::new();
+
+        assert_eq!(
+            transcript.raw_challenge(),
+            [
+                182, 100, 146, 218, 115, 27, 109, 84, 191, 48, 124, 69, 40, 114, 27, 71, 51, 120,
+                226, 249, 56, 158, 200, 97, 45, 23, 24, 232, 141, 120, 179, 20,
+            ]
+        );
+    }
+
     #[test]
     fn we_get_equivalent_challenges_with_equivalent_merlin_transcripts() {
         we_get_equivalent_challenges_with_equivalent_transcripts::<merlin::Transcript>();
