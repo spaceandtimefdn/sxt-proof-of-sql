@@ -242,6 +242,132 @@ impl ProofPlan for GroupByExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnRef, ColumnType},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        },
+    };
+
+    fn column(table_ref: &TableRef, name: &str, column_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(table_ref.clone(), name.into(), column_type)
+    }
+
+    fn simple_group_by_exec() -> GroupByExec {
+        let table_ref = TableRef::new("sxt", "sales");
+        let region = column(&table_ref, "region_id", ColumnType::BigInt);
+        let amount = column(&table_ref, "amount", ColumnType::Int);
+        let active = column(&table_ref, "active", ColumnType::Boolean);
+
+        GroupByExec::try_new(
+            vec![ColumnExpr::new(region)],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount),
+                alias: "total_amount".into(),
+            }],
+            "row_count".into(),
+            TableExpr { table_ref },
+            DynProofExpr::new_column(active),
+        )
+        .expect("single numeric group by column should be provable")
+    }
+
+    #[test]
+    fn we_can_read_group_by_exec_accessors() {
+        let group_by = simple_group_by_exec();
+
+        assert_eq!(group_by.table(), &group_by.table);
+        assert_eq!(group_by.where_clause(), &group_by.where_clause);
+        assert_eq!(
+            group_by.group_by_exprs(),
+            group_by.group_by_exprs.as_slice()
+        );
+        assert_eq!(group_by.sum_expr(), group_by.sum_expr.as_slice());
+        assert_eq!(group_by.count_alias(), &group_by.count_alias);
+    }
+
+    #[test]
+    fn group_by_result_fields_include_group_sum_and_count_columns() {
+        let group_by = simple_group_by_exec();
+
+        assert_eq!(
+            group_by.get_column_result_fields(),
+            vec![
+                ColumnField::new("region_id".into(), ColumnType::BigInt),
+                ColumnField::new("total_amount".into(), ColumnType::Int),
+                ColumnField::new("row_count".into(), ColumnType::BigInt),
+            ]
+        );
+    }
+
+    #[test]
+    fn group_by_references_include_group_sum_filter_columns_and_table() {
+        let group_by = simple_group_by_exec();
+        let table_ref = group_by.table.table_ref.clone();
+
+        assert_eq!(
+            group_by.get_column_references(),
+            IndexSet::from_iter([
+                column(&table_ref, "region_id", ColumnType::BigInt),
+                column(&table_ref, "amount", ColumnType::Int),
+                column(&table_ref, "active", ColumnType::Boolean),
+            ])
+        );
+        assert_eq!(
+            group_by.get_table_references(),
+            IndexSet::from_iter([table_ref])
+        );
+    }
+
+    #[test]
+    fn uniqueness_provability_matches_group_by_shape_and_type() {
+        let table_ref = TableRef::new("sxt", "sales");
+
+        let no_group_by = GroupByExec::try_new(
+            vec![],
+            vec![],
+            "row_count".into(),
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .expect("empty group by should be allowed");
+        assert_eq!(no_group_by.try_get_is_uniqueness_provable(), Some(false));
+
+        let text_group_by = GroupByExec {
+            group_by_exprs: vec![ColumnExpr::new(column(
+                &table_ref,
+                "region_name",
+                ColumnType::VarChar,
+            ))],
+            sum_expr: vec![],
+            count_alias: "row_count".into(),
+            table: TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            where_clause: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        };
+        assert_eq!(text_group_by.try_get_is_uniqueness_provable(), None);
+
+        let two_group_by_columns = GroupByExec {
+            group_by_exprs: vec![
+                ColumnExpr::new(column(&table_ref, "region_id", ColumnType::BigInt)),
+                ColumnExpr::new(column(&table_ref, "product_id", ColumnType::BigInt)),
+            ],
+            sum_expr: vec![],
+            count_alias: "row_count".into(),
+            table: TableExpr { table_ref },
+            where_clause: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        };
+        assert_eq!(two_group_by_columns.try_get_is_uniqueness_provable(), None);
+    }
+}
+
 impl ProverEvaluate for GroupByExec {
     #[tracing::instrument(name = "GroupByExec::first_round_evaluate", level = "debug", skip_all)]
     fn first_round_evaluate<'a, S: Scalar>(
