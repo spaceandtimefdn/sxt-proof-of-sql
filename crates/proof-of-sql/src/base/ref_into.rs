@@ -23,3 +23,26 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    struct WrappedValue(u32);
+
+    impl From<&WrappedValue> for u32 {
+        fn from(value: &WrappedValue) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn blanket_impl_uses_reference_conversion_without_consuming_value() {
+        let value = WrappedValue(7);
+
+        let converted: u32 = value.ref_into();
+
+        assert_eq!(converted, 7);
+        assert_eq!(value.0, 7);
+    }
+}
