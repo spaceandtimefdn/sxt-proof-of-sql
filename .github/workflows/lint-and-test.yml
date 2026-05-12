@@ -13,7 +13,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   BLITZAR_BACKEND: cpu
-  # MSRV: `cargo install wasm-pack` can pull in home 0.5.12, which requires Rust 1.89
+  # MSRV: wasm-pack and the workspace dependency graph require Rust 1.89.
   MSRV: "1.89"
 
 jobs:
@@ -37,7 +37,9 @@ jobs:
             echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
           fi
       - name: Install toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -84,11 +86,11 @@ jobs:
         run: |
           rustup target add thumbv7em-none-eabi
           cargo check -p proof-of-sql --target thumbv7em-none-eabi --no-default-features
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@wasm-pack
       - name: Check that we can compile `proof-of-sql-planner` to WebAssembly
         working-directory: ./crates/proof-of-sql-planner
-        run: |
-          cargo install wasm-pack
-          wasm-pack build --target deno
+        run: wasm-pack build --target deno
 
   test:
     name: Test Suite (${{ matrix.rust }})
@@ -109,7 +111,9 @@ jobs:
             echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
           fi
       - name: Install toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -137,7 +141,9 @@ jobs:
             echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
           fi
       - name: Install toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -165,7 +171,9 @@ jobs:
             echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
           fi
       - name: Install toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -204,7 +212,9 @@ jobs:
               echo "version=${{ matrix.rust }}" >> $GITHUB_OUTPUT
             fi
         - name: Install toolchain
-          run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install ${{ steps.rust-version.outputs.version }} && rustup default ${{ steps.rust-version.outputs.version }}
+          uses: dtolnay/rust-toolchain@master
+          with:
+            toolchain: ${{ steps.rust-version.outputs.version }}
         - name: Setup Rust cache
           uses: Swatinem/rust-cache@v2
           with:
@@ -235,9 +245,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install toolchain from rust-toolchain.toml
-        run: |
-          curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
-          rustup component add clippy
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+          components: clippy
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
@@ -253,9 +264,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install toolchain from rust-toolchain.toml
-        run: |
-          curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
-          rustup component add rustfmt
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+          components: rustfmt
       - name: Run cargo fmt
         run: cargo f --check
 
@@ -266,9 +278,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install nightly toolchain
-        run: |
-          curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install nightly
-          cargo +nightly install cargo-udeps --locked
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-udeps
+        run: cargo +nightly install cargo-udeps --locked
       - name: Run cargo udeps
         run: cargo +nightly udeps --all-targets
 
@@ -330,7 +342,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
