@@ -39,3 +39,19 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_ref_returns_table_column_and_type() {
+        let table_ref = TableRef::new("analytics", "orders");
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id().value, "amount");
+        assert_eq!(column_ref.column_type(), &ColumnType::BigInt);
+    }
+}

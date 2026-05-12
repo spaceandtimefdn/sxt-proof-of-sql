@@ -31,3 +31,16 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_field_returns_name_and_type() {
+        let field = ColumnField::new(Ident::new("amount"), ColumnType::BigInt);
+
+        assert_eq!(field.name().value, "amount");
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+    }
+}
