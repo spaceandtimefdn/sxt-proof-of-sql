@@ -1286,10 +1286,38 @@ mod tests {
             .unwrap(),
         );
         let alias_map = indexmap! {
+            "table.a".to_string() => "a".to_string(),
             "b+c".to_string() => "b_plus_c".to_string(),
         };
 
         // Test the function - should return an error
+        let result =
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_aggregate_if_an_aggregate_alias_is_missing() {
+        let group_expr = vec![df_column("table", "a")];
+        let aggr_expr = vec![SUM_B(), COUNT_1()];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                TABLE_SOURCE(),
+                Some(vec![0, 1, 2, 3]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let alias_map = indexmap! {
+            "table.a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+        };
+
         let result =
             aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
         assert!(matches!(
@@ -2222,6 +2250,69 @@ mod tests {
         assert!(
             matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
         );
+    }
+
+    #[test]
+    fn we_can_convert_inner_join_on_matching_columns() {
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left.clone()),
+            right: Arc::new(right.clone()),
+            on: vec![(df_column("table", "a"), df_column("table", "a"))],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &SCHEMAS()).unwrap();
+        let table_plan = DynProofPlan::new_table(
+            TABLE_REF_TABLE(),
+            vec![
+                ColumnField::new("a".into(), ColumnType::BigInt),
+                ColumnField::new("b".into(), ColumnType::Int),
+            ],
+        );
+        let expected = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(table_plan.clone()),
+            Box::new(table_plan),
+            vec![0],
+            vec![0],
+            vec!["a".into(), "b".into(), "b".into()],
+        ));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_cannot_convert_inner_join_on_different_column_names() {
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("table", TABLE_SOURCE(), Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left),
+            right: Arc::new(right),
+            on: vec![(df_column("table", "a"), df_column("table", "b"))],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &SCHEMAS());
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
     }
 
     // Filter (LogicalPlan::Filter) tests - Happy paths
