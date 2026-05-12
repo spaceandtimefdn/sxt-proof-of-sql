@@ -92,4 +92,42 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn we_ignore_non_create_table_statements() {
+        let sql = "
+            SELECT 1;
+            CREATE TABLE ETHEREUM.BLOCKS(
+                BLOCK_NUMBER BIGINT NOT NULL,
+                REWARD DECIMAL(78, 0)
+            );
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.BLOCKS").unwrap(),
+            &[("REWARD".to_string(), 78, 0)]
+        );
+    }
+
+    #[test]
+    fn we_only_collect_decimal_columns_with_precision_above_38() {
+        let sql = "
+            CREATE TABLE ETHEREUM.TRANSACTIONS(
+                HASH VARCHAR,
+                GAS_PRICE DECIMAL(38, 0),
+                VALUE DECIMAL(39, 0),
+                OPTIONAL_VALUE DECIMAL
+            );
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.TRANSACTIONS").unwrap(),
+            &[("VALUE".to_string(), 39, 0)]
+        );
+    }
 }
