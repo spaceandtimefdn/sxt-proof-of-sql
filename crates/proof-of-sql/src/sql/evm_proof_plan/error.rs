@@ -35,3 +35,65 @@ pub(crate) enum EVMProofPlanError {
 
 /// Result type for EVM proof plan operations.
 pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlanError;
+    use crate::{base::database::ColumnType, sql::AnalyzeError};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn we_can_render_evm_proof_plan_error_messages() {
+        let errors = vec![
+            (EVMProofPlanError::NotSupported, "plan not yet supported"),
+            (EVMProofPlanError::ColumnNotFound, "column not found"),
+            (EVMProofPlanError::TableNotFound, "table not found"),
+            (
+                EVMProofPlanError::InvalidTableName,
+                "table name can not be parsed into TableRef",
+            ),
+            (
+                EVMProofPlanError::InvalidOutputColumnName,
+                "invalid or missing output column name",
+            ),
+            (
+                EVMProofPlanError::InconsistentGroupByColumnCounts,
+                "column counts in group by plans are inconsistent",
+            ),
+            (
+                EVMProofPlanError::IncorrectScalingFactor,
+                "incorrect scaling factor",
+            ),
+        ];
+
+        for (error, expected_message) in errors {
+            assert_eq!(error.to_string(), expected_message);
+        }
+    }
+
+    #[test]
+    fn we_can_render_transparent_analyze_errors() {
+        let error = EVMProofPlanError::AnalyzeError {
+            source: AnalyzeError::InvalidDataType {
+                expr_type: ColumnType::VarChar,
+            },
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Expression has datatype VARCHAR, which was not valid"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_analyze_errors_into_evm_proof_plan_errors() {
+        let error = EVMProofPlanError::from(AnalyzeError::NotEnoughInputPlans);
+
+        assert_eq!(
+            error,
+            EVMProofPlanError::AnalyzeError {
+                source: AnalyzeError::NotEnoughInputPlans
+            }
+        );
+    }
+}
