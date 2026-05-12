@@ -116,3 +116,35 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::{table_utility::*, TableRef},
+        map::indexset,
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn column_expr_accesses_column_metadata_and_values() {
+        let alloc = Bump::new();
+        let table = table::<TestScalar>([borrowed_bigint("a", [1, 2, 3], &alloc)]);
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "a".into(), ColumnType::BigInt);
+        let expr = ColumnExpr::new(column_ref.clone());
+
+        assert_eq!(
+            expr.get_column_field(),
+            ColumnField::new("a".into(), ColumnType::BigInt)
+        );
+        assert_eq!(
+            expr.first_round_evaluate(&alloc, &table, &[]).unwrap(),
+            Column::BigInt(&[1, 2, 3])
+        );
+
+        let mut columns = IndexSet::default();
+        expr.get_column_references(&mut columns);
+        assert_eq!(columns, indexset! { column_ref });
+    }
+}
