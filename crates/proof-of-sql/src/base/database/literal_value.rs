@@ -97,6 +97,7 @@ mod tests {
         database::LiteralValue,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -125,5 +126,63 @@ mod tests {
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
         }
+    }
+
+    #[test]
+    fn literal_values_convert_to_scalars() {
+        assert_eq!(
+            LiteralValue::Boolean(true).to_scalar::<TestScalar>(),
+            TestScalar::from(true)
+        );
+        assert_eq!(
+            LiteralValue::Uint8(7).to_scalar::<TestScalar>(),
+            TestScalar::from(7_u8)
+        );
+        assert_eq!(
+            LiteralValue::TinyInt(-7).to_scalar::<TestScalar>(),
+            TestScalar::from(-7_i8)
+        );
+        assert_eq!(
+            LiteralValue::SmallInt(-123).to_scalar::<TestScalar>(),
+            TestScalar::from(-123_i16)
+        );
+        assert_eq!(
+            LiteralValue::Int(-456).to_scalar::<TestScalar>(),
+            TestScalar::from(-456_i32)
+        );
+        assert_eq!(
+            LiteralValue::BigInt(-789).to_scalar::<TestScalar>(),
+            TestScalar::from(-789_i64)
+        );
+        assert_eq!(
+            LiteralValue::Int128(-101_112).to_scalar::<TestScalar>(),
+            TestScalar::from(-101_112_i128)
+        );
+        assert_eq!(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 42)
+                .to_scalar::<TestScalar>(),
+            TestScalar::from(42_i64)
+        );
+    }
+
+    #[test]
+    fn hashed_and_limb_literal_values_convert_to_scalars() {
+        assert_eq!(
+            LiteralValue::VarChar("orders".to_string()).to_scalar::<TestScalar>(),
+            TestScalar::from("orders")
+        );
+        assert_eq!(
+            LiteralValue::VarBinary(vec![1, 2, 3]).to_scalar::<TestScalar>(),
+            TestScalar::from_byte_slice_via_hash(&[1, 2, 3])
+        );
+        assert_eq!(
+            LiteralValue::Decimal75(Precision::new(12).unwrap(), 2, 1234.into())
+                .to_scalar::<TestScalar>(),
+            TestScalar::from(1234_i32)
+        );
+        assert_eq!(
+            LiteralValue::Scalar([1, 2, 3, 4]).to_scalar::<TestScalar>(),
+            TestScalar::from([1, 2, 3, 4])
+        );
     }
 }
