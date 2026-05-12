@@ -10,13 +10,29 @@ use sqlparser::ast::Ident;
 pub struct ColumnField {
     name: Ident,
     data_type: ColumnType,
+    #[serde(default)]
+    nullable: bool,
 }
 
 impl ColumnField {
     /// Create a new `ColumnField` from a name and a type
     #[must_use]
     pub fn new(name: Ident, data_type: ColumnType) -> ColumnField {
-        ColumnField { name, data_type }
+        ColumnField {
+            name,
+            data_type,
+            nullable: false,
+        }
+    }
+
+    /// Create a new nullable `ColumnField` from a name and a type.
+    #[must_use]
+    pub fn new_nullable(name: Ident, data_type: ColumnType) -> ColumnField {
+        ColumnField {
+            name,
+            data_type,
+            nullable: true,
+        }
     }
 
     /// Returns the name of the column
@@ -29,5 +45,11 @@ impl ColumnField {
     #[must_use]
     pub fn data_type(&self) -> ColumnType {
         self.data_type
+    }
+
+    /// Returns whether the column may contain null values.
+    #[must_use]
+    pub fn is_nullable(&self) -> bool {
+        self.nullable
     }
 }
