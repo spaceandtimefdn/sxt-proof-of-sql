@@ -690,6 +690,81 @@ mod tests {
     }
 
     #[test]
+    fn we_can_access_columns_by_concrete_type() {
+        let decimal_values = [TestScalar::from(19), TestScalar::from(23)];
+        let varchar_values = ["alpha", "beta"];
+        let varchar_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
+        let varbinary_values = [b"abc".as_slice(), b"xyz".as_slice()];
+        let varbinary_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"abc"),
+            TestScalar::from_byte_slice_via_hash(b"xyz"),
+        ];
+
+        let boolean_column = Column::<TestScalar>::Boolean(&[true, false]);
+        assert_eq!(boolean_column.as_boolean(), Some([true, false].as_slice()));
+        assert_eq!(boolean_column.as_int(), None);
+
+        let uint8_column = Column::<TestScalar>::Uint8(&[3, 5]);
+        assert_eq!(uint8_column.as_uint8(), Some([3, 5].as_slice()));
+        assert_eq!(uint8_column.as_boolean(), None);
+
+        let tinyint_column = Column::<TestScalar>::TinyInt(&[-2, 7]);
+        assert_eq!(tinyint_column.as_tinyint(), Some([-2, 7].as_slice()));
+        assert_eq!(tinyint_column.as_uint8(), None);
+
+        let smallint_column = Column::<TestScalar>::SmallInt(&[-11, 13]);
+        assert_eq!(smallint_column.as_smallint(), Some([-11, 13].as_slice()));
+        assert_eq!(smallint_column.as_tinyint(), None);
+
+        let int_column = Column::<TestScalar>::Int(&[-17, 29]);
+        assert_eq!(int_column.as_int(), Some([-17, 29].as_slice()));
+        assert_eq!(int_column.as_smallint(), None);
+
+        let bigint_column = Column::<TestScalar>::BigInt(&[-31, 37]);
+        assert_eq!(bigint_column.as_bigint(), Some([-31, 37].as_slice()));
+        assert_eq!(bigint_column.as_int(), None);
+
+        let int128_column = Column::<TestScalar>::Int128(&[-41, 43]);
+        assert_eq!(int128_column.as_int128(), Some([-41, 43].as_slice()));
+        assert_eq!(int128_column.as_bigint(), None);
+
+        let scalar_column = Column::<TestScalar>::Scalar(&decimal_values);
+        assert_eq!(scalar_column.as_scalar(), Some(decimal_values.as_slice()));
+        assert_eq!(scalar_column.as_int128(), None);
+
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(75).unwrap(), 2, &decimal_values);
+        assert_eq!(
+            decimal_column.as_decimal75(),
+            Some(decimal_values.as_slice())
+        );
+        assert_eq!(decimal_column.as_scalar(), None);
+
+        let varchar_column = Column::<TestScalar>::VarChar((&varchar_values, &varchar_scalars));
+        assert_eq!(
+            varchar_column.as_varchar(),
+            Some((varchar_values.as_slice(), varchar_scalars.as_slice()))
+        );
+        assert_eq!(varchar_column.as_decimal75(), None);
+
+        let varbinary_column =
+            Column::<TestScalar>::VarBinary((&varbinary_values, &varbinary_scalars));
+        assert_eq!(
+            varbinary_column.as_varbinary(),
+            Some((varbinary_values.as_slice(), varbinary_scalars.as_slice()))
+        );
+        assert_eq!(varbinary_column.as_varchar(), None);
+
+        let timestamp_column = Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[47, 53],
+        );
+        assert_eq!(timestamp_column.as_timestamptz(), Some([47, 53].as_slice()));
+        assert_eq!(timestamp_column.as_varbinary(), None);
+    }
+
+    #[test]
     fn we_can_read_column_entries_as_scalars() {
         let decimal_values = [TestScalar::from(19), TestScalar::from(23)];
         let varchar_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
