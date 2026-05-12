@@ -56,6 +56,42 @@ fn we_can_pseudo_invert_arrays_of_length_bigger_than_1_with_zeros_and_non_zeros(
 }
 
 #[test]
+fn we_can_pseudo_invert_and_mul_mixed_arrays() {
+    let input = [
+        TestScalar::from(0_u32),
+        TestScalar::from(2_u32),
+        (-33_i32).into(),
+        TestScalar::from(0_u32),
+        TestScalar::from(45_u32),
+    ];
+    let coeff = TestScalar::from(7_u32);
+    let mut res = vec![TestScalar::from(0_u32); input.len()];
+    assert_eq!(res.len(), input.len());
+    res.copy_from_slice(&input[..]);
+    slice_ops::batch_inversion_and_mul(&mut res[..], coeff);
+
+    for (input_val, res_val) in input.iter().zip(res) {
+        if *input_val == TestScalar::zero() {
+            assert!(TestScalar::zero() == res_val);
+        } else {
+            assert!(input_val.inv().unwrap() * coeff == res_val);
+        }
+    }
+}
+
+#[test]
+fn we_can_pseudo_invert_and_mul_zero_only_arrays() {
+    let input = [TestScalar::from(0_u32), TestScalar::from(0_u32)];
+    let coeff = TestScalar::from(11_u32);
+    let mut res = vec![TestScalar::from(0_u32); input.len()];
+    assert_eq!(res.len(), input.len());
+    res.copy_from_slice(&input[..]);
+    slice_ops::batch_inversion_and_mul(&mut res[..], coeff);
+
+    assert!(res.iter().all(|res_val| *res_val == TestScalar::zero()));
+}
+
+#[test]
 fn we_can_pseudo_invert_arrays_with_nonzero_count_bigger_than_min_chunking_size_with_zeros_and_non_zeros(
 ) {
     let input: Vec<_> = vec![
