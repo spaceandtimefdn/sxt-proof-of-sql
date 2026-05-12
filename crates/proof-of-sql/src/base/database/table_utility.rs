@@ -363,3 +363,49 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn we_can_create_borrowed_integer_columns() {
+        let alloc = Bump::new();
+
+        let (name, column) = borrowed_uint8::<TestScalar>("uint8", [1_u8, 2, 3], &alloc);
+        assert_eq!(name, Ident::new("uint8"));
+        assert_eq!(column, Column::Uint8(&[1, 2, 3]));
+
+        let (name, column) = borrowed_tinyint::<TestScalar>("tinyint", [-1_i8, 0, 1], &alloc);
+        assert_eq!(name, Ident::new("tinyint"));
+        assert_eq!(column, Column::TinyInt(&[-1, 0, 1]));
+
+        let (name, column) = borrowed_smallint::<TestScalar>("smallint", [-2_i16, 0, 2], &alloc);
+        assert_eq!(name, Ident::new("smallint"));
+        assert_eq!(column, Column::SmallInt(&[-2, 0, 2]));
+
+        let (name, column) = borrowed_int::<TestScalar>("int", [-3_i32, 0, 3], &alloc);
+        assert_eq!(name, Ident::new("int"));
+        assert_eq!(column, Column::Int(&[-3, 0, 3]));
+    }
+
+    #[test]
+    fn we_can_create_borrowed_decimal75_columns() {
+        let alloc = Bump::new();
+
+        let (name, column) =
+            borrowed_decimal75::<TestScalar>("decimal", 12, -2, [-100_i64, 0, 250], &alloc);
+        let expected = [
+            TestScalar::from(-100_i64),
+            TestScalar::from(0_i64),
+            TestScalar::from(250_i64),
+        ];
+
+        assert_eq!(name, Ident::new("decimal"));
+        assert_eq!(
+            column,
+            Column::Decimal75(Precision::new(12).unwrap(), -2, &expected)
+        );
+    }
+}
