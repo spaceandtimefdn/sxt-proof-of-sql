@@ -320,3 +320,111 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::ColumnType, math::decimal::Precision, scalar::test_scalar::TestScalar,
+    };
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn we_can_create_owned_columns_with_utility_constructors() {
+        assert_eq!(
+            uint8::<TestScalar>("uint8", [1_u8, 2]),
+            (Ident::new("uint8"), OwnedColumn::Uint8(vec![1_u8, 2]))
+        );
+        assert_eq!(
+            tinyint::<TestScalar>("tinyint", [-1_i8, 2]),
+            (Ident::new("tinyint"), OwnedColumn::TinyInt(vec![-1_i8, 2]))
+        );
+        assert_eq!(
+            smallint::<TestScalar>("smallint", [-3_i16, 4]),
+            (
+                Ident::new("smallint"),
+                OwnedColumn::SmallInt(vec![-3_i16, 4])
+            )
+        );
+        assert_eq!(
+            int::<TestScalar>("int", [-5_i32, 6]),
+            (Ident::new("int"), OwnedColumn::Int(vec![-5_i32, 6]))
+        );
+        assert_eq!(
+            bigint::<TestScalar>("bigint", [-7_i64, 8]),
+            (Ident::new("bigint"), OwnedColumn::BigInt(vec![-7_i64, 8]))
+        );
+        assert_eq!(
+            boolean::<TestScalar>("boolean", [true, false]),
+            (
+                Ident::new("boolean"),
+                OwnedColumn::Boolean(vec![true, false])
+            )
+        );
+        assert_eq!(
+            int128::<TestScalar>("int128", [-9_i128, 10]),
+            (Ident::new("int128"), OwnedColumn::Int128(vec![-9_i128, 10]))
+        );
+        assert_eq!(
+            scalar::<TestScalar>("scalar", [TestScalar::from(11), TestScalar::from(12)]),
+            (
+                Ident::new("scalar"),
+                OwnedColumn::Scalar(vec![TestScalar::from(11), TestScalar::from(12)])
+            )
+        );
+        assert_eq!(
+            varchar::<TestScalar>("varchar", ["Space", "Time"]),
+            (
+                Ident::new("varchar"),
+                OwnedColumn::VarChar(["Space", "Time"].iter().map(ToString::to_string).collect())
+            )
+        );
+        assert_eq!(
+            varbinary::<TestScalar>("varbinary", [vec![1_u8, 2], vec![3]]),
+            (
+                Ident::new("varbinary"),
+                OwnedColumn::VarBinary(vec![vec![1_u8, 2], vec![3]])
+            )
+        );
+        assert_eq!(
+            decimal75::<TestScalar>("decimal", 9, -2, [13_i64, -14]),
+            (
+                Ident::new("decimal"),
+                OwnedColumn::Decimal75(
+                    Precision::new(9).unwrap(),
+                    -2,
+                    vec![TestScalar::from(13), TestScalar::from(-14)]
+                )
+            )
+        );
+
+        let timezone = PoSQLTimeZone::utc();
+        assert_eq!(
+            timestamptz::<TestScalar>(
+                "created_at",
+                PoSQLTimeUnit::Millisecond,
+                timezone,
+                [111_i64, 222],
+            ),
+            (
+                Ident::new("created_at"),
+                OwnedColumn::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, vec![111_i64, 222])
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_create_owned_tables_with_utility_constructor() {
+        let table = owned_table::<TestScalar>([
+            bigint("id", [1_i64, 2]),
+            boolean("is_active", [true, false]),
+            scalar("score", [TestScalar::from(7), TestScalar::from(8)]),
+        ]);
+
+        assert_eq!(table.num_columns(), 3);
+        assert_eq!(table.num_rows(), 2);
+        assert_eq!(table["id"].column_type(), ColumnType::BigInt);
+        assert_eq!(table["is_active"].column_type(), ColumnType::Boolean);
+        assert_eq!(table["score"].column_type(), ColumnType::Scalar);
+    }
+}
