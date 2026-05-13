@@ -834,6 +834,144 @@ mod tests {
     use indexmap::IndexSet;
 
     #[test]
+    fn evm_dyn_proof_plan_dispatches_wrapper_variants() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let alias = "alias".to_string();
+        let sum_alias = "sum_b".to_string();
+        let count_alias = "count".to_string();
+
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+        let table_refs = indexset![table_ref.clone()];
+        let column_refs = indexset![column_ref_a.clone(), column_ref_b.clone()];
+
+        let table_plan = DynProofPlan::Table(TableExec::new(
+            table_ref.clone(),
+            vec![
+                ColumnField::new(ident_a.clone(), ColumnType::BigInt),
+                ColumnField::new(ident_b.clone(), ColumnType::BigInt),
+            ],
+        ));
+        let true_literal = DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true)));
+
+        let empty = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Empty(EmptyExec::new()),
+            &table_refs,
+            &column_refs,
+        )
+        .unwrap();
+        assert!(matches!(
+            empty
+                .try_into_proof_plan(&table_refs, &column_refs, None)
+                .unwrap(),
+            DynProofPlan::Empty(_)
+        ));
+
+        let legacy_filter_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                alias: Ident::new(alias.clone()),
+            }],
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            true_literal.clone(),
+        ));
+        let legacy_filter =
+            EVMDynProofPlan::try_from_proof_plan(&legacy_filter_plan, &table_refs, &column_refs)
+                .unwrap();
+        assert!(matches!(
+            legacy_filter
+                .try_into_proof_plan(&table_refs, &column_refs, Some(&indexset![alias]))
+                .unwrap(),
+            DynProofPlan::LegacyFilter(_)
+        ));
+
+        let output_ref_a = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_a.clone(),
+            ColumnType::BigInt,
+        );
+        let output_ref_b = ColumnRef::new(
+            TableRef::from_names(None, ""),
+            ident_b.clone(),
+            ColumnType::BigInt,
+        );
+        let aggregate_like_group_by_exprs = vec![AliasedDynProofExpr {
+            expr: DynProofExpr::Column(ColumnExpr::new(output_ref_a)),
+            alias: ident_a.clone(),
+        }];
+        let aggregate_like_sum_expr = vec![AliasedDynProofExpr {
+            expr: DynProofExpr::Column(ColumnExpr::new(output_ref_b)),
+            alias: Ident::new(sum_alias.clone()),
+        }];
+        let aggregate_output_names = indexset![
+            ident_a.value.clone(),
+            sum_alias.clone(),
+            count_alias.clone()
+        ];
+
+        let group_by_plan = DynProofPlan::GroupBy(
+            GroupByExec::try_new(
+                vec![ColumnExpr::new(column_ref_a.clone())],
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::Column(ColumnExpr::new(column_ref_b.clone())),
+                    alias: Ident::new(sum_alias.clone()),
+                }],
+                Ident::new(count_alias.clone()),
+                TableExpr {
+                    table_ref: table_ref.clone(),
+                },
+                true_literal.clone(),
+            )
+            .unwrap(),
+        );
+        let group_by =
+            EVMDynProofPlan::try_from_proof_plan(&group_by_plan, &table_refs, &column_refs)
+                .unwrap();
+        assert!(matches!(
+            group_by
+                .try_into_proof_plan(&table_refs, &column_refs, Some(&aggregate_output_names))
+                .unwrap(),
+            DynProofPlan::GroupBy(_)
+        ));
+
+        let union_plan = DynProofPlan::Union(
+            UnionExec::try_new(vec![table_plan.clone(), table_plan.clone()]).unwrap(),
+        );
+        let union =
+            EVMDynProofPlan::try_from_proof_plan(&union_plan, &table_refs, &column_refs).unwrap();
+        assert!(matches!(
+            union
+                .try_into_proof_plan(&table_refs, &column_refs, None)
+                .unwrap(),
+            DynProofPlan::Union(_)
+        ));
+
+        let aggregate_plan = DynProofPlan::Aggregate(
+            AggregateExec::try_new(
+                aggregate_like_group_by_exprs,
+                aggregate_like_sum_expr,
+                Ident::new(count_alias),
+                Box::new(table_plan),
+                true_literal,
+            )
+            .unwrap(),
+        );
+        let aggregate =
+            EVMDynProofPlan::try_from_proof_plan(&aggregate_plan, &table_refs, &column_refs)
+                .unwrap();
+        assert!(matches!(
+            aggregate
+                .try_into_proof_plan(&table_refs, &column_refs, Some(&aggregate_output_names))
+                .unwrap(),
+            DynProofPlan::Aggregate(_)
+        ));
+    }
+
+    #[test]
     fn we_can_put_projection_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
         let ident_a: Ident = "a".into();

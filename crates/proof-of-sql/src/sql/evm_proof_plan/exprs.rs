@@ -1651,4 +1651,313 @@ mod tests {
         assert_eq!(evm_literal_exprs_bytes,
             "000000000000000a000000000100000002020000000300030000000400000004000000050000000000000005000000070000000000000001360000000a0000000000000000000000000000000000000000000000000000000000000007000000080a0000000000000000000000000000000000000000000000000000000000000000080000000b000000000000000109000000090000000100000000000000000000000a".to_string());
     }
+
+    #[test]
+    fn binary_evm_exprs_report_rhs_column_errors_when_converting_from_proof_exprs() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let bigint_lhs = ColumnRef::new(table_ref.clone(), "lhs".into(), ColumnType::BigInt);
+        let bigint_rhs = ColumnRef::new(table_ref.clone(), "rhs".into(), ColumnType::BigInt);
+        let bool_lhs = ColumnRef::new(table_ref.clone(), "left_flag".into(), ColumnType::Boolean);
+        let bool_rhs = ColumnRef::new(table_ref, "right_flag".into(), ColumnType::Boolean);
+
+        let bigint_refs = indexset! { bigint_lhs.clone() };
+        let bool_refs = indexset! { bool_lhs.clone() };
+
+        let lhs = DynProofExpr::new_column(bigint_lhs.clone());
+        let rhs = DynProofExpr::new_column(bigint_rhs.clone());
+        assert_eq!(
+            EVMEqualsExpr::try_from_proof_expr(
+                &EqualsExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMInequalityExpr::try_from_proof_expr(
+                &InequalityExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone()), true)
+                    .unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMAddExpr::try_from_proof_expr(
+                &AddExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMSubtractExpr::try_from_proof_expr(
+                &SubtractExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMMultiplyExpr::try_from_proof_expr(
+                &MultiplyExpr::try_new(Box::new(lhs.clone()), Box::new(rhs)).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+
+        let lhs = DynProofExpr::new_column(bool_lhs.clone());
+        let rhs = DynProofExpr::new_column(bool_rhs);
+        assert_eq!(
+            EVMAndExpr::try_from_proof_expr(
+                &AndExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bool_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMOrExpr::try_from_proof_expr(
+                &OrExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap(),
+                &bool_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+    }
+
+    #[test]
+    fn binary_evm_exprs_report_lhs_column_errors_when_converting_from_proof_exprs() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let bigint_lhs = ColumnRef::new(table_ref.clone(), "lhs".into(), ColumnType::BigInt);
+        let bigint_rhs = ColumnRef::new(table_ref.clone(), "rhs".into(), ColumnType::BigInt);
+        let bool_lhs = ColumnRef::new(table_ref.clone(), "left_flag".into(), ColumnType::Boolean);
+        let bool_rhs = ColumnRef::new(table_ref, "right_flag".into(), ColumnType::Boolean);
+
+        let bigint_refs = indexset! { bigint_rhs.clone() };
+        let bool_refs = indexset! { bool_rhs.clone() };
+
+        let lhs = DynProofExpr::new_column(bigint_lhs.clone());
+        let rhs = DynProofExpr::new_column(bigint_rhs.clone());
+        assert_eq!(
+            EVMInequalityExpr::try_from_proof_expr(
+                &InequalityExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone()), true)
+                    .unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMAddExpr::try_from_proof_expr(
+                &AddExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMSubtractExpr::try_from_proof_expr(
+                &SubtractExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMMultiplyExpr::try_from_proof_expr(
+                &MultiplyExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap(),
+                &bigint_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+
+        let lhs = DynProofExpr::new_column(bool_lhs.clone());
+        let rhs = DynProofExpr::new_column(bool_rhs);
+        assert_eq!(
+            EVMAndExpr::try_from_proof_expr(
+                &AndExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+                &bool_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMOrExpr::try_from_proof_expr(
+                &OrExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap(),
+                &bool_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+    }
+
+    #[test]
+    fn unary_evm_exprs_report_nested_column_errors_when_converting_from_proof_exprs() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let bool_column = ColumnRef::new(table_ref.clone(), "flag".into(), ColumnType::Boolean);
+        let int_column = ColumnRef::new(table_ref, "amount".into(), ColumnType::Int);
+
+        assert_eq!(
+            EVMNotExpr::try_from_proof_expr(
+                &NotExpr::try_new(Box::new(DynProofExpr::new_column(bool_column))).unwrap(),
+                &indexset! {},
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMCastExpr::try_from_proof_expr(
+                &CastExpr::try_new(
+                    Box::new(DynProofExpr::new_column(int_column.clone())),
+                    ColumnType::BigInt,
+                )
+                .unwrap(),
+                &indexset! {},
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMScalingCastExpr::try_from_proof_expr(
+                &ScalingCastExpr::try_new(
+                    Box::new(DynProofExpr::new_column(int_column)),
+                    ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+                )
+                .unwrap(),
+                &indexset! {},
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+    }
+
+    #[test]
+    fn binary_evm_exprs_report_rhs_column_errors_when_converting_into_proof_exprs() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let bigint_column = ColumnRef::new(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let bool_column = ColumnRef::new(table_ref, "flag".into(), ColumnType::Boolean);
+
+        let valid_bigint_column = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 });
+        let missing_bigint_column = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 });
+        let bigint_refs = indexset! { bigint_column };
+
+        assert_eq!(
+            EVMEqualsExpr::new(valid_bigint_column.clone(), missing_bigint_column.clone())
+                .try_into_proof_expr(&bigint_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMInequalityExpr::new(
+                valid_bigint_column.clone(),
+                missing_bigint_column.clone(),
+                true
+            )
+            .try_into_proof_expr(&bigint_refs)
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMAddExpr::new(valid_bigint_column.clone(), missing_bigint_column.clone())
+                .try_into_proof_expr(&bigint_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMSubtractExpr::new(valid_bigint_column.clone(), missing_bigint_column.clone())
+                .try_into_proof_expr(&bigint_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMMultiplyExpr::new(valid_bigint_column, missing_bigint_column)
+                .try_into_proof_expr(&bigint_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+
+        let valid_bool_column = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 });
+        let missing_bool_column = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 });
+        let bool_refs = indexset! { bool_column };
+
+        assert_eq!(
+            EVMAndExpr::new(valid_bool_column.clone(), missing_bool_column.clone())
+                .try_into_proof_expr(&bool_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_eq!(
+            EVMOrExpr::new(valid_bool_column, missing_bool_column)
+                .try_into_proof_expr(&bool_refs)
+                .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound
+        );
+    }
+
+    #[test]
+    fn evm_exprs_report_type_errors_after_nested_evm_conversion_succeeds() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let bigint_column = ColumnRef::new(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let bool_column = ColumnRef::new(table_ref, "flag".into(), ColumnType::Boolean);
+        let column_refs = indexset! { bigint_column, bool_column };
+        let bigint_expr = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 });
+        let bool_expr = EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 });
+
+        assert!(matches!(
+            EVMEqualsExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMInequalityExpr::new(bigint_expr.clone(), bool_expr.clone(), true)
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMAddExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMSubtractExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMMultiplyExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMAndExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMOrExpr::new(bigint_expr.clone(), bool_expr.clone())
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMNotExpr::new(bigint_expr.clone()).try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMCastExpr::new(bigint_expr.clone(), ColumnType::Boolean)
+                .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+        assert!(matches!(
+            EVMScalingCastExpr::new(
+                bigint_expr,
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+                [0, 0, 0, 100],
+            )
+            .try_into_proof_expr(&column_refs),
+            Err(EVMProofPlanError::AnalyzeError { .. })
+        ));
+    }
 }
