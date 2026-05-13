@@ -99,7 +99,26 @@ impl<S: Scalar> OwnedColumn<S> {
 mod test {
     use super::*;
     use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
+
+    fn decimal_column(values: &[i64], precision: u8, scale: i8) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(
+            Precision::new(precision).unwrap(),
+            scale,
+            values.iter().map(TestScalar::from).collect(),
+        )
+    }
+
+    fn assert_eq_comparison(
+        lhs: OwnedColumn<TestScalar>,
+        rhs: OwnedColumn<TestScalar>,
+        expected: Vec<bool>,
+    ) {
+        assert_eq!(
+            lhs.element_wise_eq(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(expected))
+        );
+    }
 
     #[test]
     fn we_cannot_do_binary_operation_on_columns_with_different_lengths() {
@@ -313,6 +332,214 @@ mod test {
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
         );
+    }
+
+    #[test]
+    fn we_can_compare_remaining_integer_pairs_for_equality() {
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::Uint8(vec![1_u8, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::TinyInt(vec![1_i8, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+
+        assert_eq_comparison(
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+
+        assert_eq_comparison(
+            OwnedColumn::Int(vec![1_i32, 2]),
+            OwnedColumn::TinyInt(vec![1_i8, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int(vec![1_i32, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int(vec![1_i32, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int(vec![1_i32, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::TinyInt(vec![1_i8, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            OwnedColumn::TinyInt(vec![1_i8, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            OwnedColumn::Int(vec![1_i32, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+    }
+
+    #[test]
+    fn we_can_compare_remaining_decimal_pairs_for_equality() {
+        assert_eq_comparison(
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int(vec![1_i32, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            OwnedColumn::Int128(vec![1_i128, 2]),
+            decimal_column(&[10, 30], 5, 1),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            decimal_column(&[10, 20], 5, 1),
+            OwnedColumn::SmallInt(vec![1_i16, 3]),
+            vec![true, false],
+        );
+        assert_eq_comparison(
+            decimal_column(&[10, 20], 5, 1),
+            OwnedColumn::Int128(vec![1_i128, 3]),
+            vec![true, false],
+        );
+    }
+
+    #[test]
+    fn we_reject_uint8_tinyint_comparison_pairs() {
+        let unsigned = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2]);
+        let signed = OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, 2]);
+
+        assert!(matches!(
+            unsigned.element_wise_eq(&signed),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            signed.element_wise_eq(&unsigned),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
     }
 
     #[test]
