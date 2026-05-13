@@ -83,3 +83,105 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FoldLogExpr;
+    use crate::{
+        base::{database::Column, scalar::test_scalar::TestScalar},
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            SumcheckSubpolynomialType,
+        },
+    };
+    use alloc::{collections::VecDeque, vec};
+    use bumpalo::Bump;
+    use num_traits::{Inv, One};
+
+    fn scalar(value: u64) -> TestScalar {
+        TestScalar::from(value)
+    }
+
+    #[test]
+    fn we_can_verify_fold_log_expr_evaluation() {
+        let expr = FoldLogExpr::new(scalar(2), scalar(3));
+        let column_evals = [scalar(4), scalar(5)];
+        let star_eval = scalar(7);
+        let fold_eval = scalar(34);
+        let chi_eval = star_eval + fold_eval * star_eval;
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![star_eval]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        assert_eq!(
+            expr.verify_evaluate(&mut builder, &column_evals, chi_eval)
+                .unwrap(),
+            (star_eval, fold_eval)
+        );
+        assert_eq!(builder.get_identity_results(), vec![vec![true]]);
+        assert!(builder.get_zero_sum_results().is_empty());
+    }
+
+    #[test]
+    fn we_error_if_fold_log_expr_is_missing_star_evaluation() {
+        let expr = FoldLogExpr::new(scalar(2), scalar(3));
+        let mut builder =
+            MockVerificationBuilder::new(vec![], 3, vec![], vec![vec![]], vec![], vec![], vec![]);
+
+        assert!(expr
+            .verify_evaluate(&mut builder, &[scalar(4), scalar(5)], scalar(1))
+            .is_err());
+    }
+
+    #[test]
+    fn we_can_build_final_round_fold_log_expr_constraints_with_custom_chi() {
+        let alloc = Bump::new();
+        let expr = FoldLogExpr::new(scalar(2), scalar(3));
+        let first_column = [1_i64, 2, 3];
+        let second_column = [10_i64, 20, 30];
+        let columns = [
+            Column::<TestScalar>::BigInt(&first_column),
+            Column::<TestScalar>::BigInt(&second_column),
+        ];
+        let chi = alloc.alloc_slice_fill_copy(3, true);
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let (star, fold) =
+            expr.final_round_evaluate_with_chi(&mut builder, &alloc, &columns, 3, chi);
+        let expected_fold = [scalar(26), scalar(52), scalar(78)];
+        let expected_star = expected_fold.map(|value| (value + TestScalar::one()).inv().unwrap());
+
+        assert_eq!(fold, expected_fold);
+        assert_eq!(star, expected_star);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        assert_eq!(
+            builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+            SumcheckSubpolynomialType::Identity
+        );
+    }
+
+    #[test]
+    fn we_can_build_final_round_fold_log_expr_constraints_with_default_chi() {
+        let alloc = Bump::new();
+        let expr = FoldLogExpr::new(scalar(5), scalar(7));
+        let column = [11_i64, 13];
+        let columns = [Column::<TestScalar>::BigInt(&column)];
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        let (star, fold) = expr.final_round_evaluate(&mut builder, &alloc, &columns, 2);
+        let expected_fold = [scalar(55), scalar(65)];
+        let expected_star = expected_fold.map(|value| (value + TestScalar::one()).inv().unwrap());
+
+        assert_eq!(fold, expected_fold);
+        assert_eq!(star, expected_star);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    }
+}
