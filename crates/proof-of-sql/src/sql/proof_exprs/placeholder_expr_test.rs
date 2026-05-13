@@ -1,14 +1,14 @@
 use super::{DynProofExpr, PlaceholderExpr, ProofExpr};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
         proof::{PlaceholderError, ProofError},
+        scalar::test_scalar::TestScalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{QueryError, VerifiableQueryResult},
         proof_exprs::test_utility::*,
@@ -52,7 +52,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -78,7 +78,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
         );
         let params = vec![random_bigint_literal, random_varchar_literal];
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &params).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &params)
+                .unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &params)
             .unwrap()
@@ -118,13 +119,13 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let expected_res = owned_table([boolean("p1", [true])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
+    let verifiable_res = VerifiableQueryResult::<NaiveEvaluationProof>::new(
         &ast,
         &accessor,
         &(),
@@ -144,13 +145,13 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let expected_res = owned_table([boolean("p1", [true; 0])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
+    let verifiable_res = VerifiableQueryResult::<NaiveEvaluationProof>::new(
         &ast,
         &accessor,
         &(),
@@ -167,8 +168,7 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
 #[test]
 fn we_can_compute_the_correct_output_of_a_placeholder_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> =
-        table([borrowed_bigint("a", [123_i64, 456, 789, 1011], &alloc)]);
+    let data: Table<TestScalar> = table([borrowed_bigint("a", [123_i64, 456, 789, 1011], &alloc)]);
     let placeholder_expr: DynProofExpr =
         DynProofExpr::try_new_placeholder(1, ColumnType::BigInt).unwrap();
     let res = placeholder_expr
@@ -181,16 +181,17 @@ fn we_can_compute_the_correct_output_of_a_placeholder_expr_using_first_round_eva
 #[test]
 fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
+    let data: Table<TestScalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
-    let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+    let accessor =
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
     assert!(matches!(
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[],),
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[],),
         Err(PlaceholderError::InvalidPlaceholderIndex { .. })
     ));
 }
@@ -198,15 +199,16 @@ fn we_cannot_prove_placeholder_expr_if_interpolate_fails() {
 #[test]
 fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
+    let data: Table<TestScalar> = table([borrowed_bigint("a", [123_i64], &alloc)]);
     let t = TableRef::new("sxt", "t");
-    let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+    let accessor =
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![aliased_placeholder(1, ColumnType::Boolean, "p1")],
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
+    let verifiable_res = VerifiableQueryResult::<NaiveEvaluationProof>::new(
         &ast,
         &accessor,
         &(),
@@ -224,9 +226,10 @@ fn we_cannot_verify_placeholder_expr_if_interpolate_fails() {
 #[test]
 fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_same_valid_params() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([borrowed_bigint("a", [123_i64, 456], &alloc)]);
+    let data: Table<TestScalar> = table([borrowed_bigint("a", [123_i64, 456], &alloc)]);
     let t = TableRef::new("sxt", "t");
-    let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+    let accessor =
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![
             col_expr_plan(&t, "a", &accessor),
@@ -236,7 +239,7 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::<InnerProductProof>::new(
+    let verifiable_res = VerifiableQueryResult::<NaiveEvaluationProof>::new(
         &ast,
         &accessor,
         &(),
@@ -247,9 +250,22 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
     )
     .unwrap();
 
+    let make_verifiable_res = || {
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(
+            &ast,
+            &accessor,
+            &(),
+            &[
+                LiteralValue::BigInt(504_i64),
+                LiteralValue::VarChar("abc".to_string()),
+            ],
+        )
+        .unwrap()
+    };
+
     // Try some wrong values
     assert!(matches!(
-        verifiable_res.clone().verify(
+        make_verifiable_res().verify(
             &ast,
             &accessor,
             &(),
@@ -262,7 +278,7 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
     ));
 
     assert!(matches!(
-        verifiable_res.clone().verify(
+        make_verifiable_res().verify(
             &ast,
             &accessor,
             &(),
@@ -275,7 +291,7 @@ fn we_can_verify_placeholder_expr_if_and_only_if_prover_and_verifier_have_the_sa
     ));
 
     assert!(matches!(
-        verifiable_res.clone().verify(
+        make_verifiable_res().verify(
             &ast,
             &accessor,
             &(),

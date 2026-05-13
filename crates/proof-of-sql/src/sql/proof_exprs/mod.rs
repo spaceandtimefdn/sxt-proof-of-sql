@@ -25,12 +25,12 @@ pub use dyn_proof_expr::DynProofExpr;
 
 mod literal_expr;
 pub(crate) use literal_expr::LiteralExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod literal_expr_test;
 
 mod placeholder_expr;
 pub(crate) use placeholder_expr::PlaceholderExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod placeholder_expr_test;
 
 mod and_expr;
@@ -71,7 +71,7 @@ pub(crate) mod test_utility;
 
 mod column_expr;
 pub use column_expr::ColumnExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod column_expr_test;
 
 mod cast_expr;
