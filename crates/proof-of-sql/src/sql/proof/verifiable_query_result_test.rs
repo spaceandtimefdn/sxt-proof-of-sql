@@ -3,7 +3,7 @@ use super::{
 };
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
@@ -100,13 +100,14 @@ fn we_can_verify_queries_on_an_empty_table() {
         columns: 1,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [0_i64; 0])]),
         0,
         (),
     );
-    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash: _,
         table,
