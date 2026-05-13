@@ -1,7 +1,14 @@
-use super::{DecimalProofExpr, DynProofExpr, ProofExpr};
+use super::{
+    final_round_evaluate_nullable_presence, first_round_evaluate_nullable_presence,
+    verifier_evaluate_nullable_presence, DecimalProofExpr, DynProofExpr, NullableColumnEvaluation,
+    ProofExpr,
+};
 use crate::{
     base::{
-        database::{try_multiply_column_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            try_multiply_column_types, Column, ColumnRef, ColumnType, LiteralValue, NullableColumn,
+            Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -53,6 +60,10 @@ impl ProofExpr for MultiplyExpr {
     fn data_type(&self) -> ColumnType {
         try_multiply_column_types(self.lhs.data_type(), self.rhs.data_type())
             .expect("Failed to multiply column types")
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.lhs.is_nullable() || self.rhs.is_nullable()
     }
 
     fn first_round_evaluate<'a, S: Scalar>(
@@ -129,6 +140,90 @@ impl ProofExpr for MultiplyExpr {
 
         // selection
         Ok(lhs_times_rhs)
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let res = multiply_columns(&lhs_column.values(), &rhs_column.values(), alloc);
+        let values = Column::Decimal75(self.precision(), self.scale(), res);
+        let presence = first_round_evaluate_nullable_presence(
+            table.num_rows(),
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+
+        let lhs_times_rhs = multiply_columns(&lhs_column.values(), &rhs_column.values(), alloc);
+        builder.produce_intermediate_mle(lhs_times_rhs);
+        builder.produce_sumcheck_subpolynomial(
+            SumcheckSubpolynomialType::Identity,
+            vec![
+                (S::one(), vec![Box::new(lhs_times_rhs)]),
+                (
+                    -S::one(),
+                    vec![Box::new(lhs_column.values()), Box::new(rhs_column.values())],
+                ),
+            ],
+        );
+        let values = Column::Decimal75(self.precision(), self.scale(), lhs_times_rhs);
+        let presence = final_round_evaluate_nullable_presence(
+            builder,
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let lhs = self
+            .lhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let rhs = self
+            .rhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+
+        let lhs_times_rhs = builder.try_consume_final_round_mle_evaluation()?;
+        builder.try_produce_sumcheck_subpolynomial_evaluation(
+            SumcheckSubpolynomialType::Identity,
+            lhs_times_rhs - lhs.value_eval() * rhs.value_eval(),
+            2,
+        )?;
+        let presence_eval =
+            verifier_evaluate_nullable_presence(builder, lhs.presence_eval(), rhs.presence_eval())?;
+        Ok(NullableColumnEvaluation::new(lhs_times_rhs, presence_eval))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {

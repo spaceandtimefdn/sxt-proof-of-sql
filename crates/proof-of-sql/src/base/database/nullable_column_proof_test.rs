@@ -1,6 +1,6 @@
 use super::{
-    owned_table_utility::*, ColumnType, NullableOwnedColumn, OwnedColumn, OwnedTableTestAccessor,
-    TableRef,
+    owned_table_utility::*, presence_column_id, ColumnField, ColumnRef, ColumnType,
+    NullableOwnedColumn, OwnedColumn, OwnedTableTestAccessor, TableRef,
 };
 use crate::{
     base::{
@@ -8,7 +8,9 @@ use crate::{
         scalar::test_scalar::TestScalar,
     },
     sql::{
-        proof::VerifiableQueryResult, proof_exprs::test_utility::*, proof_plans::test_utility::*,
+        proof::VerifiableQueryResult,
+        proof_exprs::{test_utility::*, DynProofExpr},
+        proof_plans::test_utility::*,
     },
 };
 use alloc::vec::Vec;
@@ -189,6 +191,83 @@ fn we_can_prove_nullable_bigint_addition_with_presence_columns() {
             bigint("sum_value", [12_i64, 12]),
             boolean("score_present", [true, true]),
             boolean("sum_present", [true, true]),
+        ])
+    );
+}
+
+#[test]
+fn we_can_prove_nullable_expressions_through_projection_and_filter() {
+    let nullable_score = nullable_bigint([Some(5_i64), None, Some(9), Some(5), None]);
+    let bonus = NullableOwnedColumn::<TestScalar>::non_nullable(OwnedColumn::BigInt(vec![
+        7_i64, 0, 1, 7, 0,
+    ]));
+    let t = TableRef::new("sxt", "nullable_scores");
+    let score_presence = presence_column_id(&"score".into());
+    let data = owned_table([
+        nullable_score.value_owned_column("score"),
+        nullable_score
+            .presence_owned_column(score_presence.clone())
+            .unwrap(),
+        bonus.value_owned_column("bonus"),
+    ]);
+    let accessor =
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
+    let score = DynProofExpr::new_column(ColumnRef::new_nullable(
+        t.clone(),
+        "score".into(),
+        ColumnType::BigInt,
+    ));
+    let bonus = DynProofExpr::new_column(ColumnRef::new(
+        t.clone(),
+        "bonus".into(),
+        ColumnType::BigInt,
+    ));
+    let total = add(score.clone(), bonus.clone());
+    let table_scan = table_exec(
+        t.clone(),
+        vec![
+            ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+            ColumnField::new("bonus".into(), ColumnType::BigInt),
+        ],
+    );
+    let projection_plan = projection(
+        vec![
+            aliased_plan(total.clone(), "total"),
+            aliased_plan(DynProofExpr::new_is_null(score.clone()), "score_is_null"),
+        ],
+        table_scan.clone(),
+    );
+    let projection_table =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&projection_plan, &accessor, &(), &[])
+            .unwrap()
+            .verify(&projection_plan, &accessor, &(), &[])
+            .unwrap()
+            .table;
+    assert_eq!(
+        projection_table,
+        owned_table([
+            decimal75("total", 20, 0, [12_i128, 0, 10, 12, 0]),
+            boolean("total__presence", [true, false, true, true, false]),
+            boolean("score_is_null", [false, true, false, false, true]),
+        ])
+    );
+
+    let filter_plan = filter(
+        vec![aliased_plan(total.clone(), "total")],
+        table_scan,
+        equal(total, const_decimal75(20, 0, 12_i128)),
+    );
+    let filtered_table =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&filter_plan, &accessor, &(), &[])
+            .unwrap()
+            .verify(&filter_plan, &accessor, &(), &[])
+            .unwrap()
+            .table;
+    assert_eq!(
+        filtered_table,
+        owned_table([
+            decimal75("total", 20, 0, [12_i128, 12]),
+            boolean("total__presence", [true, true]),
         ])
     );
 }

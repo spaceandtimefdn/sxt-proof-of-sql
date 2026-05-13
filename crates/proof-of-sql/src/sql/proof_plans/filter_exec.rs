@@ -2,8 +2,8 @@ use super::{fold_vals, DynProofPlan};
 use crate::{
     base::{
         database::{
-            filter_util::filter_columns, Column, ColumnField, ColumnRef, LiteralValue, Table,
-            TableEvaluation, TableOptions, TableRef,
+            filter_util::filter_columns, presence_column_id, Column, ColumnField, ColumnRef,
+            ColumnType, LiteralValue, Table, TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -13,7 +13,12 @@ use crate::{
         proof::{
             FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate, VerificationBuilder,
         },
-        proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
+        proof_exprs::{
+            final_round_evaluate_nullable_boolean_is_true,
+            first_round_evaluate_nullable_boolean_is_true,
+            verifier_evaluate_nullable_boolean_is_true, AliasedDynProofExpr, DynProofExpr,
+            ProofExpr,
+        },
         proof_gadgets::{final_round_evaluate_filter, verify_evaluate_filter},
     },
     utils::log,
@@ -91,27 +96,41 @@ impl ProofPlan for FilterExec {
             .collect::<IndexMap<_, _>>();
 
         // 1. selection
-        let selection_eval =
-            self.where_clause
-                .verifier_evaluate(builder, &accessor, input_chi_eval.0, params)?;
+        let selection_eval = {
+            let where_eval = self.where_clause.verifier_evaluate_nullable(
+                builder,
+                &accessor,
+                input_chi_eval.0,
+                params,
+            )?;
+            verifier_evaluate_nullable_boolean_is_true(
+                builder,
+                where_eval.value_eval(),
+                where_eval.presence_eval(),
+            )?
+        };
         // 2. columns
-        let columns_evals = Vec::from_iter(
-            self.aliased_results
-                .iter()
-                .map(|aliased_expr| {
-                    aliased_expr.expr.verifier_evaluate(
-                        builder,
-                        &accessor,
-                        input_chi_eval.0,
-                        params,
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        let columns_evals = self.aliased_results.iter().try_fold(
+            Vec::new(),
+            |mut columns_evals, aliased_expr| {
+                let eval = aliased_expr.expr.verifier_evaluate_nullable(
+                    builder,
+                    &accessor,
+                    input_chi_eval.0,
+                    params,
+                )?;
+                columns_evals.push(eval.value_eval());
+                if let Some(presence_eval) = eval.presence_eval() {
+                    columns_evals.push(presence_eval);
+                }
+                Ok::<_, ProofError>(columns_evals)
+            },
+        )?;
         // 3. filtered_columns
+        let output_fields = self.get_column_result_fields();
         let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
+            builder.try_consume_first_round_mle_evaluations(output_fields.len())?;
+        assert!(filtered_columns_evals.len() == output_fields.len());
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
@@ -135,8 +154,27 @@ impl ProofPlan for FilterExec {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.aliased_results
             .iter()
-            .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+            .flat_map(|aliased_expr| {
+                let mut fields = Vec::with_capacity(if aliased_expr.expr.is_nullable() {
+                    2
+                } else {
+                    1
+                });
+                fields.push(if aliased_expr.expr.is_nullable() {
+                    ColumnField::new_nullable(
+                        aliased_expr.alias.clone(),
+                        aliased_expr.expr.data_type(),
+                    )
+                } else {
+                    ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                });
+                if aliased_expr.expr.is_nullable() {
+                    fields.push(ColumnField::new(
+                        presence_column_id(&aliased_expr.alias),
+                        ColumnType::Boolean,
+                    ));
+                }
+                fields
             })
             .collect()
     }
@@ -166,24 +204,28 @@ impl ProverEvaluate for FilterExec {
             .first_round_evaluate(builder, alloc, table_map, params)?;
 
         // 1. selection
-        let selection_column: Column<'a, S> = self
+        let selection_column = self
             .where_clause
-            .first_round_evaluate(alloc, &input, params)?;
-        let selection = selection_column
-            .as_boolean()
-            .expect("selection is not boolean");
+            .first_round_evaluate_nullable(alloc, &input, params)?;
+        let selection = first_round_evaluate_nullable_boolean_is_true(alloc, selection_column);
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
-            .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr
+        let (column_aliases, columns) = self.aliased_results.iter().try_fold(
+            (Vec::new(), Vec::new()),
+            |(mut aliases, mut columns), aliased_expr| -> PlaceholderResult<_> {
+                let column = aliased_expr
                     .expr
-                    .first_round_evaluate(alloc, &input, params)
-            })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
+                    .first_round_evaluate_nullable(alloc, &input, params)?;
+                aliases.push(aliased_expr.alias.clone());
+                columns.push(column.values());
+                if let Some(presence) = column.presence() {
+                    aliases.push(presence_column_id(&aliased_expr.alias));
+                    columns.push(Column::Boolean(presence));
+                }
+                Ok((aliases, columns))
+            },
+        )?;
 
         // Compute filtered_columns and indexes
         let (filtered_columns, _) = filter_columns(alloc, &columns, selection);
@@ -192,10 +234,7 @@ impl ProverEvaluate for FilterExec {
             builder.produce_intermediate_mle(column);
         });
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
+            column_aliases.into_iter().zip(filtered_columns),
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");
@@ -223,24 +262,29 @@ impl ProverEvaluate for FilterExec {
             .input
             .final_round_evaluate(builder, alloc, table_map, params)?;
         // 1. selection
-        let selection_column: Column<'a, S> = self
+        let selection_column = self
             .where_clause
-            .final_round_evaluate(builder, alloc, &input, params)?;
-        let selection = selection_column
-            .as_boolean()
-            .expect("selection is not boolean");
+            .final_round_evaluate_nullable(builder, alloc, &input, params)?;
+        let selection =
+            final_round_evaluate_nullable_boolean_is_true(builder, alloc, selection_column);
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
-            .iter()
-            .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
-                aliased_expr
+        let (column_aliases, columns) = self.aliased_results.iter().try_fold(
+            (Vec::new(), Vec::new()),
+            |(mut aliases, mut columns), aliased_expr| -> PlaceholderResult<_> {
+                let column = aliased_expr
                     .expr
-                    .final_round_evaluate(builder, alloc, &input, params)
-            })
-            .collect::<PlaceholderResult<Vec<_>>>()?;
+                    .final_round_evaluate_nullable(builder, alloc, &input, params)?;
+                aliases.push(aliased_expr.alias.clone());
+                columns.push(column.values());
+                if let Some(presence) = column.presence() {
+                    aliases.push(presence_column_id(&aliased_expr.alias));
+                    columns.push(Column::Boolean(presence));
+                }
+                Ok((aliases, columns))
+            },
+        )?;
         // Compute filtered_columns
         let (filtered_columns, result_len) = filter_columns(alloc, &columns, selection);
 
@@ -256,10 +300,7 @@ impl ProverEvaluate for FilterExec {
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
-                .iter()
-                .map(|expr| expr.alias.clone())
-                .zip(filtered_columns),
+            column_aliases.into_iter().zip(filtered_columns),
             TableOptions::new(Some(output_length)),
         )
         .expect("Failed to create table from iterator");

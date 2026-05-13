@@ -1,13 +1,85 @@
-use super::{Column, ColumnOperationError, ColumnOperationResult, ColumnType, OwnedColumn};
+use super::{
+    Column, ColumnField, ColumnOperationError, ColumnOperationResult, ColumnType, OwnedColumn,
+};
 use crate::base::{
     database::OwnedColumnResult,
     math::permutation::{Permutation, PermutationError},
     scalar::Scalar,
 };
-use alloc::{string::String, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 use bumpalo::Bump;
 use snafu::Snafu;
 use sqlparser::ast::Ident;
+
+/// Suffix used for the physical boolean presence column backing a nullable value column.
+pub const PRESENCE_COLUMN_SUFFIX: &str = "__presence";
+
+/// Return the physical presence-column identifier for a logical nullable column.
+#[must_use]
+pub fn presence_column_id(column_id: &Ident) -> Ident {
+    Ident::new(format!("{}{}", column_id.value, PRESENCE_COLUMN_SUFFIX))
+}
+
+/// Return the logical value-column identifier if `column_id` is a physical presence column.
+#[must_use]
+pub fn value_column_id_from_presence(column_id: &Ident) -> Option<Ident> {
+    column_id
+        .value
+        .strip_suffix(PRESENCE_COLUMN_SUFFIX)
+        .map(Ident::new)
+}
+
+/// Convert a physical value/presence schema to a logical schema with nullable fields.
+#[must_use]
+pub fn logical_column_fields_from_physical_schema(
+    schema: impl IntoIterator<Item = (Ident, ColumnType)>,
+) -> Vec<ColumnField> {
+    let schema = schema.into_iter().collect::<Vec<_>>();
+    schema
+        .iter()
+        .filter_map(|(name, column_type)| {
+            if let Some(value_id) = value_column_id_from_presence(name) {
+                if *column_type == ColumnType::Boolean
+                    && schema
+                        .iter()
+                        .any(|(candidate_name, _)| *candidate_name == value_id)
+                {
+                    return None;
+                }
+            }
+            let presence_id = presence_column_id(name);
+            let is_nullable = schema.iter().any(|(candidate_name, candidate_type)| {
+                *candidate_name == presence_id && *candidate_type == ColumnType::Boolean
+            });
+            Some(if is_nullable {
+                ColumnField::new_nullable(name.clone(), *column_type)
+            } else {
+                ColumnField::new(name.clone(), *column_type)
+            })
+        })
+        .collect()
+}
+
+/// Convert a logical schema to the physical value/presence schema used by proofs.
+#[must_use]
+pub fn physical_column_fields_from_logical_schema(
+    schema: impl IntoIterator<Item = ColumnField>,
+) -> Vec<ColumnField> {
+    schema
+        .into_iter()
+        .flat_map(|field| {
+            let mut fields = Vec::with_capacity(if field.is_nullable() { 2 } else { 1 });
+            fields.push(field.clone());
+            if field.is_nullable() {
+                fields.push(ColumnField::new(
+                    presence_column_id(&field.name()),
+                    ColumnType::Boolean,
+                ));
+            }
+            fields
+        })
+        .collect()
+}
 
 /// Errors from operations related to nullable columns.
 #[derive(Snafu, Debug, PartialEq, Eq)]

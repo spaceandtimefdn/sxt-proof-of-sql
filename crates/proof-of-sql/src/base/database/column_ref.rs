@@ -8,6 +8,8 @@ pub struct ColumnRef {
     column_id: Ident,
     table_ref: TableRef,
     column_type: ColumnType,
+    #[serde(default)]
+    nullable: bool,
 }
 
 impl ColumnRef {
@@ -18,6 +20,18 @@ impl ColumnRef {
             column_id,
             table_ref,
             column_type,
+            nullable: false,
+        }
+    }
+
+    /// Create a new nullable `ColumnRef` from a table, column identifier and column type.
+    #[must_use]
+    pub fn new_nullable(table_ref: TableRef, column_id: Ident, column_type: ColumnType) -> Self {
+        Self {
+            column_id,
+            table_ref,
+            column_type,
+            nullable: true,
         }
     }
 
@@ -37,5 +51,11 @@ impl ColumnRef {
     #[must_use]
     pub fn column_type(&self) -> &ColumnType {
         &self.column_type
+    }
+
+    /// Returns whether the referenced column is nullable.
+    #[must_use]
+    pub fn is_nullable(&self) -> bool {
+        self.nullable
     }
 }

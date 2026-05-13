@@ -1,7 +1,13 @@
 //! This module proves provable expressions.
 mod proof_expr;
-pub(crate) use proof_expr::DecimalProofExpr;
-pub use proof_expr::ProofExpr;
+pub(crate) use proof_expr::{
+    final_round_evaluate_boolean_and, final_round_evaluate_nullable_boolean_is_true,
+    final_round_evaluate_nullable_presence, first_round_evaluate_boolean_and,
+    first_round_evaluate_nullable_boolean_is_true, first_round_evaluate_nullable_presence,
+    verifier_evaluate_boolean_and, verifier_evaluate_nullable_boolean_is_true,
+    verifier_evaluate_nullable_presence, DecimalProofExpr,
+};
+pub use proof_expr::{NullableColumnEvaluation, ProofExpr};
 #[cfg(all(test, feature = "blitzar"))]
 mod proof_expr_test;
 
@@ -62,6 +68,9 @@ mod equals_expr;
 pub(crate) use equals_expr::EqualsExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod equals_expr_test;
+
+mod is_null_expr;
+pub(crate) use is_null_expr::{IsNotNullExpr, IsNullExpr, IsTrueExpr};
 
 mod table_expr;
 pub use table_expr::TableExpr;

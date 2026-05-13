@@ -76,7 +76,9 @@ pub use owned_column::OwnedColumn;
 
 mod nullable_column;
 pub use nullable_column::{
-    NullableColumn, NullableColumnError, NullableColumnResult, NullableOwnedColumn,
+    logical_column_fields_from_physical_schema, physical_column_fields_from_logical_schema,
+    presence_column_id, value_column_id_from_presence, NullableColumn, NullableColumnError,
+    NullableColumnResult, NullableOwnedColumn, PRESENCE_COLUMN_SUFFIX,
 };
 #[cfg(test)]
 mod nullable_column_proof_test;

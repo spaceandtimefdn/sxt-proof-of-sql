@@ -169,6 +169,44 @@ fn test_simple_filter_queries() {
     );
 }
 
+#[test]
+fn test_nullable_column_queries() {
+    let alloc = Bump::new();
+    let sql = "
+        select score + bonus as total from nullable_scores where score + bonus = 12;
+        select score is null as score_missing from nullable_scores;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "nullable_scores") => table(
+            vec![
+                borrowed_bigint("score", [5_i64, 0, 9, 5, 0], &alloc),
+                borrowed_boolean("score__presence", [true, false, true, true, false], &alloc),
+                borrowed_bigint("bonus", [7_i64, 0, 1, 7, 0], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            decimal75("total", 20, 0, [12_i128, 12]),
+            boolean("total__presence", [true, true]),
+        ]),
+        owned_table([boolean("score_missing", [false, true, false, false, true])]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
 /// Test complex filter queries with nested filters using subqueries
 #[test]
 fn test_complex_filter_queries() {

@@ -1,16 +1,13 @@
 use super::{
     column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    PlannerError, PlannerResult,
+    PlannerError, PlannerResult, SchemaFields,
 };
 use datafusion::logical_expr::{
     expr::{Alias, Cast, Placeholder},
     BinaryExpr, Expr, Operator,
 };
 use indexmap::IndexSet;
-use proof_of_sql::{
-    base::database::ColumnType,
-    sql::{proof_exprs::DynProofExpr, scale_cast_binary_op},
-};
+use proof_of_sql::sql::{proof_exprs::DynProofExpr, scale_cast_binary_op};
 use sqlparser::ast::Ident;
 
 /// Recursively extract all column identifiers referenced in an expression
@@ -26,7 +23,9 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents.extend(get_column_idents_from_expr(right));
             left_idents
         }
-        Expr::Not(inner) => get_column_idents_from_expr(inner),
+        Expr::Not(inner) | Expr::IsNull(inner) | Expr::IsNotNull(inner) | Expr::IsTrue(inner) => {
+            get_column_idents_from_expr(inner)
+        }
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
         }
@@ -44,11 +43,11 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
     clippy::missing_panics_doc,
     reason = "Output of comparisons is always boolean"
 )]
-fn binary_expr_to_proof_expr(
+fn binary_expr_to_proof_expr<S: SchemaFields + ?Sized>(
     left: &Expr,
     right: &Expr,
     op: Operator,
-    schema: &[(Ident, ColumnType)],
+    schema: &S,
 ) -> PlannerResult<DynProofExpr> {
     let left_proof_expr = expr_to_proof_expr(left, schema)?;
     let right_proof_expr = expr_to_proof_expr(right, schema)?;
@@ -123,9 +122,9 @@ fn binary_expr_to_proof_expr(
 ///
 /// # Panics
 /// The function should not panic if Proof of SQL is working correctly
-pub fn expr_to_proof_expr(
+pub fn expr_to_proof_expr<S: SchemaFields + ?Sized>(
     expr: &Expr,
-    schema: &[(Ident, ColumnType)],
+    schema: &S,
 ) -> PlannerResult<DynProofExpr> {
     match expr {
         Expr::Alias(Alias { expr, .. }) => expr_to_proof_expr(expr, schema),
@@ -141,6 +140,11 @@ pub fn expr_to_proof_expr(
             let proof_expr = expr_to_proof_expr(expr, schema)?;
             Ok(DynProofExpr::try_new_not(proof_expr)?)
         }
+        Expr::IsNull(expr) => Ok(DynProofExpr::new_is_null(expr_to_proof_expr(expr, schema)?)),
+        Expr::IsNotNull(expr) => Ok(DynProofExpr::new_is_not_null(expr_to_proof_expr(
+            expr, schema,
+        )?)),
+        Expr::IsTrue(expr) => Ok(DynProofExpr::new_is_true(expr_to_proof_expr(expr, schema)?)),
         Expr::Cast(cast) => {
             match &*cast.expr {
                 // handle cases such as `$1::int`
@@ -183,7 +187,7 @@ mod tests {
         logical_expr::{expr::Placeholder, Cast},
     };
     use proof_of_sql::base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
         math::decimal::Precision,
     };
 
@@ -631,7 +635,7 @@ mod tests {
     fn we_can_convert_literal_expr_to_proof_expr() {
         let expr = Expr::Literal(ScalarValue::Int32(Some(1)));
         assert_eq!(
-            expr_to_proof_expr(&expr, &Vec::new()).unwrap(),
+            expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap(),
             DynProofExpr::new_literal(LiteralValue::Int(1))
         );
     }
@@ -659,7 +663,7 @@ mod tests {
             Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)))),
             DataType::Int32,
         ));
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap();
         assert_eq!(
             expression,
             DynProofExpr::try_new_cast(
@@ -677,7 +681,7 @@ mod tests {
             Box::new(Expr::Literal(ScalarValue::UInt64(Some(100)))),
             DataType::Int16,
         ));
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap_err();
         assert!(matches!(
             expression,
             PlannerError::UnsupportedDataType { data_type: _ }
@@ -691,7 +695,7 @@ mod tests {
             Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)))),
             DataType::UInt16,
         ));
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap_err();
         assert!(matches!(
             expression,
             PlannerError::UnsupportedDataType { data_type: _ }
@@ -706,7 +710,7 @@ mod tests {
             Box::new(Expr::Literal(ScalarValue::Int16(Some(100)))),
             DataType::Boolean,
         ));
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap_err();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap_err();
         assert!(matches!(
             expression,
             PlannerError::AnalyzeError { source: _ }
@@ -720,7 +724,7 @@ mod tests {
             id: "$1".to_string(),
             data_type: Some(DataType::Int32),
         });
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap();
         assert_eq!(
             expression,
             DynProofExpr::try_new_placeholder(1, ColumnType::Int).unwrap()
@@ -737,7 +741,7 @@ mod tests {
             })),
             DataType::Int32,
         ));
-        let expression = expr_to_proof_expr(&expr, &Vec::new()).unwrap();
+        let expression = expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()).unwrap();
         assert_eq!(
             expression,
             DynProofExpr::try_new_placeholder(1, ColumnType::Int).unwrap()
@@ -752,7 +756,7 @@ mod tests {
             Column::new(None::<TableReference>, "column"),
         );
         assert!(matches!(
-            expr_to_proof_expr(&expr, &Vec::new()),
+            expr_to_proof_expr(&expr, &Vec::<ColumnField>::new()),
             Err(PlannerError::UnsupportedLogicalExpression { .. })
         ));
     }
@@ -761,7 +765,7 @@ mod tests {
     fn we_can_get_proof_expr_for_timestamps_of_different_scale() {
         let lhs = Expr::Literal(ScalarValue::TimestampSecond(Some(1), None));
         let rhs = Expr::Literal(ScalarValue::TimestampNanosecond(Some(1), None));
-        binary_expr_to_proof_expr(&lhs, &rhs, Operator::Gt, &Vec::new()).unwrap();
+        binary_expr_to_proof_expr(&lhs, &rhs, Operator::Gt, &Vec::<ColumnField>::new()).unwrap();
     }
 
     // get_column_idents_from_expr tests
