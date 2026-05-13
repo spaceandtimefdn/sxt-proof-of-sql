@@ -235,6 +235,87 @@ fn test_nullable_column_queries() {
     );
 }
 
+#[test]
+fn test_nullable_select_star_filter_queries() {
+    let alloc = Bump::new();
+    let sql = "
+        select * from nullable_addends where a + b = 2;
+        select * from nullable_addends where a + b = 4;
+        select * from nullable_addends where a + b = 3;
+        select * from nullable_addends where a + b = 0;
+        select * from nullable_addends where a = 1 or b = 1;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "nullable_addends") => table(
+            vec![
+                borrowed_bigint("a", [1_i64, 1, 0, 0, 2, 2, 0], &alloc),
+                borrowed_boolean(
+                    "a__presence",
+                    [true, true, false, false, true, true, false],
+                    &alloc,
+                ),
+                borrowed_bigint("b", [1_i64, 0, 1, 0, 2, 0, 2], &alloc),
+                borrowed_boolean(
+                    "b__presence",
+                    [true, false, true, false, true, false, true],
+                    &alloc,
+                ),
+                borrowed_bigint("c", [101_i64, 102, 103, 104, 105, 106, 107], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            bigint("a", [1_i64]),
+            boolean("a__presence", [true]),
+            bigint("b", [1_i64]),
+            boolean("b__presence", [true]),
+            bigint("c", [101_i64]),
+        ]),
+        owned_table([
+            bigint("a", [2_i64]),
+            boolean("a__presence", [true]),
+            bigint("b", [2_i64]),
+            boolean("b__presence", [true]),
+            bigint("c", [105_i64]),
+        ]),
+        owned_table([
+            bigint("a", core::iter::empty::<i64>()),
+            boolean("a__presence", core::iter::empty::<bool>()),
+            bigint("b", core::iter::empty::<i64>()),
+            boolean("b__presence", core::iter::empty::<bool>()),
+            bigint("c", core::iter::empty::<i64>()),
+        ]),
+        owned_table([
+            bigint("a", core::iter::empty::<i64>()),
+            boolean("a__presence", core::iter::empty::<bool>()),
+            bigint("b", core::iter::empty::<i64>()),
+            boolean("b__presence", core::iter::empty::<bool>()),
+            bigint("c", core::iter::empty::<i64>()),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 1, 0]),
+            boolean("a__presence", [true, true, false]),
+            bigint("b", [1_i64, 0, 1]),
+            boolean("b__presence", [true, false, true]),
+            bigint("c", [101_i64, 102, 103]),
+        ]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
 /// Test complex filter queries with nested filters using subqueries
 #[test]
 fn test_complex_filter_queries() {
