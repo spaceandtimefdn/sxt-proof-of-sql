@@ -2,6 +2,7 @@ use crate::base::{
     encode::{ZigZag, U256},
     scalar::test_scalar::TestScalar,
 };
+use proptest::prelude::*;
 
 #[test]
 fn small_scalars_are_encoded_as_positive_zigzag_values() {
@@ -27,6 +28,27 @@ fn small_scalars_are_encoded_as_positive_zigzag_values() {
     for x in 1..1000_u128 {
         // since x < y, where x + y = 0, the ZigZag value is encoded as 2 * x
         assert!(TestScalar::from(x).zigzag() == U256::from_words(2 * x, 0));
+    }
+}
+
+#[test]
+fn even_zigzag_values_are_decoded_as_positive_scalars() {
+    assert!(U256::from_words(0, 0).zigzag() == TestScalar::from(0_u8));
+    assert!(U256::from_words(2, 0).zigzag() == TestScalar::from(1_u8));
+    assert!(U256::from_words(4, 0).zigzag() == TestScalar::from(2_u8));
+
+    for x in 0..1000_u128 {
+        assert!(U256::from_words(2 * x, 0).zigzag() == TestScalar::from(x));
+    }
+}
+
+#[test]
+fn odd_zigzag_values_are_decoded_as_negative_scalars() {
+    assert!(U256::from_words(1, 0).zigzag() == -TestScalar::from(1_u8));
+    assert!(U256::from_words(3, 0).zigzag() == -TestScalar::from(2_u8));
+
+    for y in 1..1000_u128 {
+        assert!(U256::from_words(2 * y - 1, 0).zigzag() == -TestScalar::from(y));
     }
 }
 
@@ -98,4 +120,33 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
         (-val).zigzag()
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
     );
+}
+
+proptest! {
+    #[test]
+    fn prop_positive_u64_zigzag_roundtrips(value in any::<u64>()) {
+        let scalar = TestScalar::from(value);
+        let encoded: U256 = scalar.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert_eq!(decoded, scalar);
+        prop_assert!(encoded == U256::from_words(u128::from(value) * 2, 0));
+    }
+
+    #[test]
+    fn prop_signed_i64_zigzag_roundtrips(value in any::<i64>()) {
+        let scalar = TestScalar::from(value);
+        let encoded: U256 = scalar.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert_eq!(decoded, scalar);
+    }
+
+    #[test]
+    fn prop_u64_encoded_values_decode_without_panicking(value in any::<u64>()) {
+        let encoded = U256::from_words(u128::from(value), 0);
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert!(decoded.zigzag() == encoded);
+    }
 }
