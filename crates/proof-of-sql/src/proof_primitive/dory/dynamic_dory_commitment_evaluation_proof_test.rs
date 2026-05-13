@@ -6,6 +6,29 @@ use ark_std::UniformRand;
 use merlin::Transcript;
 
 #[test]
+fn unsupported_generator_offset_returns_default_dynamic_dory_proof() {
+    let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let mut transcript = Transcript::new(b"invalid_offset_dynamic_evaluation_proof");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &[], &[], 1, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
+fn oversized_point_returns_default_dynamic_dory_proof() {
+    let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let b_point = vec![DoryScalar::from(1); 4];
+    let mut transcript = Transcript::new(b"small_setup_dynamic_evaluation_proof");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &[], &b_point, 0, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
 fn test_simple_ipa() {
     let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
