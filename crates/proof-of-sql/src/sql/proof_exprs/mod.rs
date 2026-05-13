@@ -12,12 +12,12 @@ mod add_expr;
 pub(crate) use add_expr::AddExpr;
 mod subtract_expr;
 pub(crate) use subtract_expr::SubtractExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod add_subtract_expr_test;
 
 mod multiply_expr;
 pub(crate) use multiply_expr::MultiplyExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod multiply_expr_test;
 
 mod dyn_proof_expr;
