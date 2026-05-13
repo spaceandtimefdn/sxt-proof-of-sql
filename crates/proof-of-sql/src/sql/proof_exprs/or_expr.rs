@@ -184,3 +184,27 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{base::database::TableRef, sql::proof_exprs::ColumnExpr};
+
+    #[test]
+    fn we_can_inspect_or_expr_operands_and_column_references() {
+        let table_ref: TableRef = "sxt.t".parse().unwrap();
+        let lhs_ref = ColumnRef::new(table_ref.clone(), Ident::from("lhs"), ColumnType::Boolean);
+        let rhs_ref = ColumnRef::new(table_ref, Ident::from("rhs"), ColumnType::Boolean);
+        let lhs = DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()));
+        let rhs = DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()));
+
+        let or_expr = OrExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap();
+
+        assert_eq!(or_expr.lhs(), &lhs);
+        assert_eq!(or_expr.rhs(), &rhs);
+
+        let mut referenced_columns = IndexSet::default();
+        or_expr.get_column_references(&mut referenced_columns);
+        assert_eq!(referenced_columns, IndexSet::from_iter([lhs_ref, rhs_ref]));
+    }
+}
