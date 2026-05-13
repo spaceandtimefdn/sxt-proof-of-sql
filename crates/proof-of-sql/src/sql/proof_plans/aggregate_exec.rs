@@ -493,3 +493,144 @@ impl ProverEvaluate for AggregateExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnRef, ColumnType},
+        sql::{proof::ProofPlan, proof_exprs::DynProofExpr},
+    };
+
+    fn column(table_ref: &TableRef, name: &str, column_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(table_ref.clone(), name.into(), column_type)
+    }
+
+    fn aliased_column(
+        table_ref: &TableRef,
+        name: &str,
+        column_type: ColumnType,
+    ) -> AliasedDynProofExpr {
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(column(table_ref, name, column_type)),
+            alias: name.into(),
+        }
+    }
+
+    fn simple_input(table_ref: TableRef) -> DynProofPlan {
+        DynProofPlan::Table(super::super::TableExec::new(
+            table_ref,
+            vec![
+                ColumnField::new("region_id".into(), ColumnType::BigInt),
+                ColumnField::new("amount".into(), ColumnType::Int),
+                ColumnField::new("active".into(), ColumnType::Boolean),
+            ],
+        ))
+    }
+
+    fn simple_aggregate_exec() -> AggregateExec {
+        let table_ref = TableRef::new("sxt", "sales");
+        let amount = column(&table_ref, "amount", ColumnType::Int);
+        let active = column(&table_ref, "active", ColumnType::Boolean);
+
+        AggregateExec::try_new(
+            vec![aliased_column(&table_ref, "region_id", ColumnType::BigInt)],
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount),
+                alias: "total_amount".into(),
+            }],
+            "row_count".into(),
+            Box::new(simple_input(table_ref)),
+            DynProofExpr::new_column(active),
+        )
+        .expect("single numeric group by expression should be provable")
+    }
+
+    #[test]
+    fn we_can_read_aggregate_exec_accessors() {
+        let aggregate = simple_aggregate_exec();
+
+        assert_eq!(aggregate.input(), &*aggregate.input);
+        assert_eq!(aggregate.where_clause(), &aggregate.where_clause);
+        assert_eq!(
+            aggregate.group_by_exprs(),
+            aggregate.group_by_exprs.as_slice()
+        );
+        assert_eq!(aggregate.sum_expr(), aggregate.sum_expr.as_slice());
+        assert_eq!(aggregate.count_alias(), &aggregate.count_alias);
+    }
+
+    #[test]
+    fn aggregate_result_fields_use_expression_aliases_and_count_alias() {
+        let aggregate = simple_aggregate_exec();
+
+        assert_eq!(
+            aggregate.get_column_result_fields(),
+            vec![
+                ColumnField::new("region_id".into(), ColumnType::BigInt),
+                ColumnField::new("total_amount".into(), ColumnType::Int),
+                ColumnField::new("row_count".into(), ColumnType::BigInt),
+            ]
+        );
+    }
+
+    #[test]
+    fn aggregate_references_are_forwarded_from_input_plan() {
+        let aggregate = simple_aggregate_exec();
+        let table_ref = TableRef::new("sxt", "sales");
+
+        assert_eq!(
+            aggregate.get_column_references(),
+            IndexSet::from_iter([
+                column(&table_ref, "region_id", ColumnType::BigInt),
+                column(&table_ref, "amount", ColumnType::Int),
+                column(&table_ref, "active", ColumnType::Boolean),
+            ])
+        );
+        assert_eq!(
+            aggregate.get_table_references(),
+            IndexSet::from_iter([table_ref])
+        );
+    }
+
+    #[test]
+    fn aggregate_uniqueness_provability_matches_group_by_shape_and_type() {
+        let table_ref = TableRef::new("sxt", "sales");
+        let input = || Box::new(simple_input(table_ref.clone()));
+
+        let no_group_by = AggregateExec::try_new(
+            vec![],
+            vec![],
+            "row_count".into(),
+            input(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .expect("empty group by should be allowed");
+        assert_eq!(no_group_by.try_get_is_uniqueness_provable(), Some(false));
+
+        let text_group_by = AggregateExec {
+            group_by_exprs: vec![aliased_column(
+                &table_ref,
+                "region_name",
+                ColumnType::VarChar,
+            )],
+            sum_expr: vec![],
+            count_alias: "row_count".into(),
+            input: input(),
+            where_clause: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        };
+        assert_eq!(text_group_by.try_get_is_uniqueness_provable(), None);
+
+        let two_group_by_columns = AggregateExec {
+            group_by_exprs: vec![
+                aliased_column(&table_ref, "region_id", ColumnType::BigInt),
+                aliased_column(&table_ref, "product_id", ColumnType::BigInt),
+            ],
+            sum_expr: vec![],
+            count_alias: "row_count".into(),
+            input: input(),
+            where_clause: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        };
+        assert_eq!(two_group_by_columns.try_get_is_uniqueness_provable(), None);
+    }
+}

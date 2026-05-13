@@ -184,3 +184,28 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::sql::AnalyzeError;
+
+    #[test]
+    fn try_new_union_wraps_valid_union_exec() {
+        let inputs = vec![DynProofPlan::new_empty(), DynProofPlan::new_empty()];
+        let plan = DynProofPlan::try_new_union(inputs.clone()).expect("union should be valid");
+
+        let DynProofPlan::Union(union) = plan else {
+            panic!("expected union proof plan");
+        };
+        assert_eq!(union.input_plans(), inputs.as_slice());
+    }
+
+    #[test]
+    fn try_new_union_forwards_union_exec_errors() {
+        assert_eq!(
+            DynProofPlan::try_new_union(vec![DynProofPlan::new_empty()]),
+            Err(AnalyzeError::NotEnoughInputPlans)
+        );
+    }
+}

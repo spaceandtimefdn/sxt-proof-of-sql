@@ -52,6 +52,56 @@ impl ProjectionExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        },
+    };
+
+    #[test]
+    fn we_can_read_projection_exec_plan_accessors() {
+        let input = DynProofPlan::new_empty();
+        let aliased_results = vec![AliasedDynProofExpr {
+            expr: DynProofExpr::new_literal(LiteralValue::BigInt(123)),
+            alias: "answer".into(),
+        }];
+        let projection = ProjectionExec::new(aliased_results.clone(), Box::new(input.clone()));
+
+        assert_eq!(projection.input(), &input);
+        assert_eq!(projection.aliased_results(), aliased_results.as_slice());
+    }
+
+    #[test]
+    fn we_can_get_literal_projection_result_fields() {
+        let projection = ProjectionExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_literal(LiteralValue::BigInt(123)),
+                    alias: "answer".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                    alias: "accepted".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_empty()),
+        );
+
+        assert_eq!(
+            projection.get_column_result_fields(),
+            vec![
+                ColumnField::new("answer".into(), ColumnType::BigInt),
+                ColumnField::new("accepted".into(), ColumnType::Boolean),
+            ]
+        );
+    }
+}
+
 impl ProofPlan for ProjectionExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
