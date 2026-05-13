@@ -1,13 +1,13 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
             TableRef, TableTestAccessor, TestAccessor,
         },
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{or_expr::OrExpr, test_utility::*, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
@@ -30,7 +30,7 @@ fn we_can_prove_a_simple_or_query() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -46,8 +46,8 @@ fn we_can_prove_a_simple_or_query() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -65,7 +65,7 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -81,8 +81,8 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -101,7 +101,7 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -118,8 +118,8 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
             equal(column(&t, "d", &accessor), const_varchar("g")),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -153,7 +153,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -178,8 +178,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 equal(column(&t, "c", &accessor), const_bigint(filter_val2)),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+            VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -225,7 +225,7 @@ fn we_can_compute_the_correct_output_of_an_or_expr_using_first_round_evaluate() 
         borrowed_bigint("c", [0, 2, 2, 0], &alloc),
         borrowed_varchar("d", ["ab", "t", "g", "efg"], &alloc),
     ]);
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
     accessor.add_table(t.clone(), data.clone(), 0);
     let and_expr: DynProofExpr = or(
@@ -246,7 +246,7 @@ fn we_cannot_or_mismatching_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let rhs = Box::new(column(&t, "b", &accessor));
     let and_err = OrExpr::try_new(lhs.clone(), rhs.clone()).unwrap_err();
