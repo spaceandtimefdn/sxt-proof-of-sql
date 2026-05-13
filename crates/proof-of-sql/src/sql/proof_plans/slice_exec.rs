@@ -247,3 +247,41 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::{ColumnType, TableRef},
+        map::indexset,
+    };
+
+    #[test]
+    fn we_can_fetch_slice_schema_and_input_references() {
+        let table_ref = TableRef::new("namespace", "table_name");
+        let fields = vec![
+            ColumnField::new("language_rank".into(), ColumnType::BigInt),
+            ColumnField::new("language_name".into(), ColumnType::VarChar),
+            ColumnField::new("space_and_time".into(), ColumnType::VarChar),
+        ];
+        let plan = SliceExec::new(
+            Box::new(DynProofPlan::new_table(table_ref.clone(), fields.clone())),
+            1,
+            Some(4),
+        );
+
+        assert_eq!(plan.skip(), 1);
+        assert_eq!(plan.fetch(), Some(4));
+        assert!(matches!(plan.input(), DynProofPlan::Table(_)));
+        assert_eq!(plan.get_column_result_fields(), fields);
+        assert_eq!(
+            plan.get_column_references(),
+            indexset! {
+                ColumnRef::new(table_ref.clone(), "language_rank".into(), ColumnType::BigInt),
+                ColumnRef::new(table_ref.clone(), "language_name".into(), ColumnType::VarChar),
+                ColumnRef::new(table_ref.clone(), "space_and_time".into(), ColumnType::VarChar),
+            }
+        );
+        assert_eq!(plan.get_table_references(), indexset! {table_ref});
+    }
+}
