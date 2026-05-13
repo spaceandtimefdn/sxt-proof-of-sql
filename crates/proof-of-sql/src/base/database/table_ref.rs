@@ -142,3 +142,74 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_omits_empty_schema() {
+        let table_ref = TableRef::new("", "transactions");
+
+        assert_eq!(table_ref.schema_id(), None);
+        assert_eq!(table_ref.table_id().value, "transactions");
+        assert_eq!(table_ref.to_string(), "transactions");
+    }
+
+    #[test]
+    fn new_records_non_empty_schema() {
+        let table_ref = TableRef::new("public", "transactions");
+
+        assert_eq!(
+            table_ref.schema_id().map(|schema| schema.value.as_str()),
+            Some("public")
+        );
+        assert_eq!(table_ref.table_id().value, "transactions");
+        assert_eq!(table_ref.to_string(), "public.transactions");
+    }
+
+    #[test]
+    fn from_strs_accepts_table_and_schema_table_forms() {
+        assert_eq!(
+            TableRef::from_strs(&["transactions"]).unwrap(),
+            TableRef::from_names(None, "transactions")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["public", "transactions"]).unwrap(),
+            TableRef::from_names(Some("public"), "transactions")
+        );
+    }
+
+    #[test]
+    fn from_strs_rejects_invalid_component_counts() {
+        assert!(matches!(
+            TableRef::from_strs::<&str>(&[]),
+            Err(ParseError::InvalidTableReference { table_reference }) if table_reference.is_empty()
+        ));
+        assert!(matches!(
+            TableRef::from_strs(&["catalog", "public", "transactions"]),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "catalog,public,transactions"
+        ));
+    }
+
+    #[test]
+    fn try_from_rejects_too_many_dot_separated_components() {
+        assert!(matches!(
+            TableRef::try_from("catalog.public.transactions"),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "catalog.public.transactions"
+        ));
+    }
+
+    #[test]
+    fn serde_round_trip_uses_display_form() {
+        let table_ref = TableRef::new("public", "transactions");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(serialized, "\"public.transactions\"");
+        assert_eq!(deserialized, table_ref);
+    }
+}
