@@ -1,7 +1,13 @@
-use super::{add_subtract_columns, DynProofExpr, ProofExpr};
+use super::{
+    add_subtract_columns, final_round_evaluate_nullable_presence,
+    first_round_evaluate_nullable_presence, verifier_evaluate_nullable_presence, DynProofExpr,
+    NullableColumnEvaluation, ProofExpr,
+};
 use crate::{
     base::{
-        database::{try_equals_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            try_equals_types, Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -52,6 +58,10 @@ impl EqualsExpr {
 impl ProofExpr for EqualsExpr {
     fn data_type(&self) -> ColumnType {
         ColumnType::Boolean
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.lhs.is_nullable() || self.rhs.is_nullable()
     }
 
     #[tracing::instrument(name = "EqualsExpr::first_round_evaluate", level = "debug", skip_all)]
@@ -120,6 +130,83 @@ impl ProofExpr for EqualsExpr {
             .rhs
             .verifier_evaluate(builder, accessor, chi_eval, params)?;
         verifier_evaluate_equals_zero(builder, lhs_eval - rhs_eval, chi_eval)
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let res = add_subtract_columns(lhs_column.values(), rhs_column.values(), alloc, true);
+        let values = Column::Boolean(first_round_evaluate_equals_zero(
+            table.num_rows(),
+            alloc,
+            res,
+        ));
+        let presence = first_round_evaluate_nullable_presence(
+            table.num_rows(),
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let scale_and_subtract_res =
+            add_subtract_columns(lhs_column.values(), rhs_column.values(), alloc, true);
+        let values = Column::Boolean(final_round_evaluate_equals_zero(
+            table.num_rows(),
+            builder,
+            alloc,
+            scale_and_subtract_res,
+        ));
+        let presence = final_round_evaluate_nullable_presence(
+            builder,
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let lhs = self
+            .lhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let rhs = self
+            .rhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let value_eval =
+            verifier_evaluate_equals_zero(builder, lhs.value_eval() - rhs.value_eval(), chi_eval)?;
+        let presence_eval =
+            verifier_evaluate_nullable_presence(builder, lhs.presence_eval(), rhs.presence_eval())?;
+        Ok(NullableColumnEvaluation::new(value_eval, presence_eval))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {

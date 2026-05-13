@@ -36,6 +36,10 @@ impl EVMDynProofExpr {
         expr: &DynProofExpr,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        if expr.is_nullable() {
+            return Err(EVMProofPlanError::NotSupported);
+        }
+
         match expr {
             DynProofExpr::Column(column_expr) => {
                 EVMColumnExpr::try_from_proof_expr(column_expr, column_refs).map(Self::Column)
@@ -78,6 +82,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            DynProofExpr::IsNull(_) | DynProofExpr::IsNotNull(_) | DynProofExpr::IsTrue(_) => {
+                Err(EVMProofPlanError::NotSupported)
+            }
         }
     }
 
@@ -710,6 +717,27 @@ mod tests {
         assert_eq!(
             EVMColumnExpr::try_from_proof_expr(&ColumnExpr::new(column_ref.clone()), &indexset! {}),
             Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    #[test]
+    fn we_cannot_put_nullable_exprs_in_evm_until_presence_evals_are_supported() {
+        let table_ref: TableRef = TableRef::try_from("namespace.table").unwrap();
+        let column_ref = ColumnRef::new_nullable(table_ref, "a".into(), ColumnType::BigInt);
+        let column_expr = DynProofExpr::new_column(column_ref.clone());
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(&column_expr, &indexset! { column_ref.clone() }),
+            Err(EVMProofPlanError::NotSupported)
+        );
+
+        let equals_expr = DynProofExpr::try_new_equals(
+            column_expr,
+            DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(&equals_expr, &indexset! { column_ref }),
+            Err(EVMProofPlanError::NotSupported)
         );
     }
 

@@ -1,6 +1,7 @@
 use super::{
-    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, OwnedColumn,
-    OwnedTable, SchemaAccessor, TableRef, TestAccessor,
+    logical_column_fields_from_physical_schema, Column, ColumnField, ColumnType,
+    CommitmentAccessor, DataAccessor, MetadataAccessor, OwnedColumn, OwnedTable, SchemaAccessor,
+    TableRef, TestAccessor,
 };
 use crate::base::{
     commitment::{CommitmentEvaluationProof, VecCommitmentExt},
@@ -189,6 +190,16 @@ impl<CP: CommitmentEvaluationProof> SchemaAccessor for OwnedTableTestAccessor<'_
             .iter()
             .map(|(id, col)| (id.clone(), col.column_type()))
             .collect()
+    }
+
+    fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
+        self.lookup_schema_fields(table_ref)
+            .into_iter()
+            .find(|field| field.name() == *column_id)
+    }
+
+    fn lookup_schema_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
+        logical_column_fields_from_physical_schema(self.lookup_schema(table_ref))
     }
 }
 

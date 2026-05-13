@@ -1,18 +1,25 @@
-use super::{DynProofExpr, ProofExpr};
+use super::{
+    final_round_evaluate_boolean_and, final_round_evaluate_nullable_boolean_and_presence,
+    first_round_evaluate_boolean_and, first_round_evaluate_nullable_boolean_and_presence,
+    verifier_evaluate_boolean_and, verifier_evaluate_nullable_boolean_and_presence, DynProofExpr,
+    NullableColumnEvaluation, ProofExpr,
+};
 use crate::{
     base::{
-        database::{can_and_or_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            can_and_or_types, Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
     },
     sql::{
-        proof::{FinalRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder},
+        proof::{FinalRoundBuilder, VerificationBuilder},
         AnalyzeError, AnalyzeResult,
     },
     utils::log,
 };
-use alloc::{boxed::Box, string::ToString, vec};
+use alloc::{boxed::Box, string::ToString};
 use bumpalo::Bump;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
@@ -66,8 +73,12 @@ impl ProofExpr for AndExpr {
         let rhs_column: Column<'a, S> = self.rhs.first_round_evaluate(alloc, table, params)?;
         let lhs = lhs_column.as_boolean().expect("lhs is not boolean");
         let rhs = rhs_column.as_boolean().expect("rhs is not boolean");
-        let result =
-            Column::Boolean(alloc.alloc_slice_fill_with(table.num_rows(), |i| lhs[i] && rhs[i]));
+        let result = Column::Boolean(first_round_evaluate_boolean_and(
+            table.num_rows(),
+            alloc,
+            lhs,
+            rhs,
+        ));
 
         log::log_memory_usage("End");
 
@@ -92,21 +103,7 @@ impl ProofExpr for AndExpr {
             .final_round_evaluate(builder, alloc, table, params)?;
         let lhs = lhs_column.as_boolean().expect("lhs is not boolean");
         let rhs = rhs_column.as_boolean().expect("rhs is not boolean");
-        let n = lhs.len();
-        assert_eq!(n, rhs.len());
-
-        // lhs_and_rhs
-        let lhs_and_rhs: &[bool] = alloc.alloc_slice_fill_with(n, |i| lhs[i] && rhs[i]);
-        builder.produce_intermediate_mle(lhs_and_rhs);
-
-        // subpolynomial: lhs_and_rhs - lhs * rhs
-        builder.produce_sumcheck_subpolynomial(
-            SumcheckSubpolynomialType::Identity,
-            vec![
-                (S::one(), vec![Box::new(lhs_and_rhs)]),
-                (-S::one(), vec![Box::new(lhs), Box::new(rhs)]),
-            ],
-        );
+        let lhs_and_rhs = final_round_evaluate_boolean_and(builder, alloc, lhs, rhs);
         let result = Column::Boolean(lhs_and_rhs);
 
         log::log_memory_usage("End");
@@ -128,18 +125,107 @@ impl ProofExpr for AndExpr {
             .rhs
             .verifier_evaluate(builder, accessor, chi_eval, params)?;
 
-        // lhs_and_rhs
-        let lhs_and_rhs = builder.try_consume_final_round_mle_evaluation()?;
+        verifier_evaluate_boolean_and(builder, lhs, rhs)
+    }
 
-        // subpolynomial: lhs_and_rhs - lhs * rhs
-        builder.try_produce_sumcheck_subpolynomial_evaluation(
-            SumcheckSubpolynomialType::Identity,
-            lhs_and_rhs - lhs * rhs,
-            2,
+    fn is_nullable(&self) -> bool {
+        self.lhs.is_nullable() || self.rhs.is_nullable()
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let lhs = lhs_column
+            .values()
+            .as_boolean()
+            .expect("lhs is not boolean");
+        let rhs = rhs_column
+            .values()
+            .as_boolean()
+            .expect("rhs is not boolean");
+        let values = Column::Boolean(first_round_evaluate_boolean_and(
+            table.num_rows(),
+            alloc,
+            lhs,
+            rhs,
+        ));
+        let presence = first_round_evaluate_nullable_boolean_and_presence(
+            table.num_rows(),
+            alloc,
+            lhs,
+            lhs_column.presence(),
+            rhs,
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let lhs = lhs_column
+            .values()
+            .as_boolean()
+            .expect("lhs is not boolean");
+        let rhs = rhs_column
+            .values()
+            .as_boolean()
+            .expect("rhs is not boolean");
+        let values = Column::Boolean(final_round_evaluate_boolean_and(builder, alloc, lhs, rhs));
+        let presence = final_round_evaluate_nullable_boolean_and_presence(
+            builder,
+            alloc,
+            lhs,
+            lhs_column.presence(),
+            rhs,
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let lhs = self
+            .lhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let rhs = self
+            .rhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let value_eval =
+            verifier_evaluate_boolean_and(builder, lhs.value_eval(), rhs.value_eval())?;
+        let presence_eval = verifier_evaluate_nullable_boolean_and_presence(
+            builder,
+            chi_eval,
+            lhs.value_eval(),
+            lhs.presence_eval(),
+            rhs.value_eval(),
+            rhs.presence_eval(),
         )?;
-
-        // selection
-        Ok(lhs_and_rhs)
+        Ok(NullableColumnEvaluation::new(value_eval, presence_eval))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
