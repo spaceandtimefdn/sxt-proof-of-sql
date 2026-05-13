@@ -104,3 +104,94 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EmptyExec;
+    use crate::{
+        base::{
+            database::{Table, TableEvaluation, TableRef},
+            map::IndexMap,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckMleEvaluations, VerificationBuilderImpl,
+        },
+    };
+    use alloc::vec::Vec;
+    use bumpalo::Bump;
+    use std::collections::VecDeque;
+
+    fn singleton_verification_builder(
+        singleton_chi: TestScalar,
+    ) -> VerificationBuilderImpl<'static, TestScalar> {
+        let mle_evaluations = SumcheckMleEvaluations {
+            singleton_chi_evaluation: singleton_chi,
+            first_round_pcs_proof_evaluations: &[],
+            final_round_pcs_proof_evaluations: &[],
+            ..Default::default()
+        };
+        VerificationBuilderImpl::new(
+            mle_evaluations,
+            &[],
+            &[],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            0,
+        )
+    }
+
+    #[test]
+    fn empty_exec_metadata_is_empty() {
+        let plan = EmptyExec::default();
+
+        assert_eq!(plan, EmptyExec::new());
+        assert!(plan.get_column_result_fields().is_empty());
+        assert!(plan.get_column_references().is_empty());
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn empty_exec_verifier_returns_singleton_empty_table_evaluation() {
+        let plan = EmptyExec::new();
+        let mut builder = singleton_verification_builder(TestScalar::from(7u64));
+        let result = plan
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                &IndexMap::default(),
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(
+            result,
+            TableEvaluation::new(Vec::new(), (TestScalar::from(7u64), 1))
+        );
+        assert!(result.column_evals().is_empty());
+        assert_eq!(result.chi(), (TestScalar::from(7u64), 1));
+    }
+
+    #[test]
+    fn empty_exec_prover_rounds_return_single_row_empty_tables() {
+        let alloc = Bump::new();
+        let plan = EmptyExec::new();
+        let table_map: IndexMap<TableRef, Table<'_, TestScalar>> = IndexMap::default();
+        let mut first_round_builder = FirstRoundBuilder::new(1);
+        let mut final_round_builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        let first_round_table = plan
+            .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        let final_round_table = plan
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert!(first_round_table.is_empty());
+        assert_eq!(first_round_table.num_rows(), 1);
+        assert!(final_round_table.is_empty());
+        assert_eq!(final_round_table.num_rows(), 1);
+    }
+}
