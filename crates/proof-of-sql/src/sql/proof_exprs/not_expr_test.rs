@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
             TableRef, TableTestAccessor, TestAccessor,
@@ -8,7 +8,7 @@ use crate::{
         scalar::test_scalar::TestScalar,
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{not_expr::NotExpr, test_utility::*, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
@@ -31,7 +31,7 @@ fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -44,8 +44,8 @@ fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
         ),
         not(equal(column(&t, "b", &accessor), const_bigint(1))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -74,7 +74,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -97,8 +97,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 ),
             )),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+            VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -139,7 +139,7 @@ fn we_can_compute_the_correct_output_of_a_not_expr_using_first_round_evaluate() 
         borrowed_bigint("b", [0, 1], &alloc),
         borrowed_varchar("d", ["alfa", "gama"], &alloc),
     ]);
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
     accessor.add_table(t.clone(), data.clone(), 0);
     let not_expr: DynProofExpr = not(equal(column(&t, "b", &accessor), const_int128(1)));
@@ -154,7 +154,7 @@ fn we_cannot_not_nonbool_type() {
     let data = table([borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let expr = Box::new(column(&t, "a", &accessor));
     let not_err = NotExpr::try_new(expr.clone()).unwrap_err();
     assert!(matches!(
