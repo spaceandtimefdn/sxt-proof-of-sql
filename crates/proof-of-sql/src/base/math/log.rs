@@ -57,6 +57,7 @@ pub fn log2_up_bytes<const N: usize>(data: &[u8; N]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_log2() {
@@ -140,5 +141,42 @@ mod tests {
             log2_up_bytes(&[255, 255, 255, 255]),
             4_294_967_295_f32.log2().ceil() as usize
         );
+    }
+
+    proptest! {
+        #[test]
+        fn prop_u64_powers_of_two_are_detected(k in 0usize..64) {
+            let value = 1_u64 << k;
+
+            prop_assert!(is_pow2(value));
+            prop_assert_eq!(log2_down(value), k);
+            prop_assert_eq!(log2_up(value), k);
+        }
+
+        #[test]
+        fn prop_u64_non_powers_of_two_round_up(k in 1usize..63) {
+            let value = (1_u64 << k) + 1;
+
+            prop_assert!(!is_pow2(value));
+            prop_assert_eq!(log2_down(value), k);
+            prop_assert_eq!(log2_up(value), k + 1);
+        }
+
+        #[test]
+        fn prop_byte_helpers_match_u32_semantics(value in any::<u32>()) {
+            let bytes = value.to_le_bytes();
+
+            prop_assert_eq!(is_pow2_bytes(&bytes), value == 0 || value.is_power_of_two());
+            if value == 0 {
+                prop_assert_eq!(log2_down_bytes(&bytes), 0);
+                prop_assert_eq!(log2_up_bytes(&bytes), 0);
+            } else {
+                let floor = u32::BITS - value.leading_zeros() - 1;
+                let ceil = floor + u32::from(!value.is_power_of_two());
+
+                prop_assert_eq!(log2_down_bytes(&bytes), floor as usize);
+                prop_assert_eq!(log2_up_bytes(&bytes), ceil as usize);
+            }
+        }
     }
 }
