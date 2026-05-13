@@ -849,3 +849,24 @@ fn we_cannot_inequality_mismatching_types() {
         }
     ));
 }
+
+#[test]
+fn we_can_access_inequality_expr_operands_and_direction() {
+    let alloc = Bump::new();
+    let data = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+    let t = TableRef::new("sxt", "t");
+    let accessor =
+        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+    let lhs = Box::new(column(&t, "a", &accessor));
+    let rhs = Box::new(const_bigint(2_i64));
+
+    let lt_expr = InequalityExpr::try_new(lhs.clone(), rhs.clone(), true).unwrap();
+    assert_eq!(lt_expr.lhs(), lhs.as_ref());
+    assert_eq!(lt_expr.rhs(), rhs.as_ref());
+    assert!(lt_expr.is_lt());
+
+    let gt_expr = InequalityExpr::try_new(lhs.clone(), rhs.clone(), false).unwrap();
+    assert_eq!(gt_expr.lhs(), lhs.as_ref());
+    assert_eq!(gt_expr.rhs(), rhs.as_ref());
+    assert!(!gt_expr.is_lt());
+}
