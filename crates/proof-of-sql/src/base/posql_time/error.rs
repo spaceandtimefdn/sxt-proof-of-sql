@@ -38,3 +38,67 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timestamp_errors_preserve_payloads() {
+        let invalid_timezone = PoSQLTimestampError::InvalidTimezone {
+            timezone: "BAD".to_string(),
+        };
+        assert!(matches!(
+            invalid_timezone,
+            PoSQLTimestampError::InvalidTimezone { ref timezone } if timezone == "BAD"
+        ));
+
+        let invalid_time_unit = PoSQLTimestampError::InvalidTimeUnit {
+            error: "hours".to_string(),
+        };
+        assert!(matches!(
+            invalid_time_unit,
+            PoSQLTimestampError::InvalidTimeUnit { ref error } if error == "hours"
+        ));
+
+        let unsupported_precision = PoSQLTimestampError::UnsupportedPrecision {
+            error: "10".to_string(),
+        };
+        assert!(matches!(
+            unsupported_precision,
+            PoSQLTimestampError::UnsupportedPrecision { ref error } if error == "10"
+        ));
+    }
+
+    #[test]
+    fn timestamp_errors_display_readable_messages() {
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezoneOffset.to_string(),
+            "invalid timezone offset"
+        );
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimeUnit {
+                error: "hours".to_string()
+            }
+            .to_string(),
+            "Invalid time unit"
+        );
+        assert_eq!(
+            PoSQLTimestampError::UnsupportedPrecision {
+                error: "10".to_string()
+            }
+            .to_string(),
+            "Unsupported precision for timestamp: 10"
+        );
+    }
+
+    #[test]
+    fn timestamp_errors_convert_into_strings() {
+        let error_string: String = PoSQLTimestampError::UnsupportedPrecision {
+            error: "5".to_string(),
+        }
+        .into();
+
+        assert_eq!(error_string, "Unsupported precision for timestamp: 5");
+    }
+}
