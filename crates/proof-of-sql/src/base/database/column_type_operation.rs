@@ -1455,6 +1455,10 @@ mod test {
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
         assert!(matches!(
+            try_inequality_types(ColumnType::VarBinary, ColumnType::VarBinary),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
             try_inequality_types(
                 ColumnType::Decimal75(Precision::new(39).unwrap(), 2),
                 ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
@@ -1499,6 +1503,10 @@ mod test {
         .unwrap();
         assert!(matches!(
             try_inequality_types_with_scaling(ColumnType::VarChar, ColumnType::Boolean),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
+            try_inequality_types_with_scaling(ColumnType::VarBinary, ColumnType::VarBinary),
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
         assert!(matches!(
