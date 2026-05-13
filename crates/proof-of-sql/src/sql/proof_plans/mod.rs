@@ -19,7 +19,7 @@ mod legacy_filter_exec;
 pub(crate) use legacy_filter_exec::LegacyFilterExec;
 #[cfg(test)]
 pub(crate) use legacy_filter_exec::OstensibleLegacyFilterExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod legacy_filter_exec_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod legacy_filter_exec_test_dishonest_prover;
