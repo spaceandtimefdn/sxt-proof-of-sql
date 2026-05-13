@@ -99,6 +99,8 @@ pub use table::{Table, TableOptions};
 #[cfg(test)]
 mod table_test;
 pub mod table_utility;
+#[cfg(test)]
+mod table_utility_test;
 
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
