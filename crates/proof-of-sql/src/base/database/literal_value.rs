@@ -100,6 +100,7 @@ mod tests {
         scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
+    use proptest::prelude::*;
 
     /// This allows us to reuse code within solidity more safely
     #[test]
@@ -184,5 +185,43 @@ mod tests {
             LiteralValue::Scalar([1, 2, 3, 4]).to_scalar::<TestScalar>(),
             TestScalar::from([1, 2, 3, 4])
         );
+    }
+
+    proptest! {
+        #[test]
+        fn prop_integer_literal_values_convert_to_matching_scalars(
+            tiny in any::<i8>(),
+            small in any::<i16>(),
+            int in any::<i32>(),
+            big in any::<i64>(),
+            uint in any::<u8>(),
+        ) {
+            prop_assert_eq!(LiteralValue::TinyInt(tiny).to_scalar::<TestScalar>(), TestScalar::from(tiny));
+            prop_assert_eq!(LiteralValue::SmallInt(small).to_scalar::<TestScalar>(), TestScalar::from(small));
+            prop_assert_eq!(LiteralValue::Int(int).to_scalar::<TestScalar>(), TestScalar::from(int));
+            prop_assert_eq!(LiteralValue::BigInt(big).to_scalar::<TestScalar>(), TestScalar::from(big));
+            prop_assert_eq!(LiteralValue::Uint8(uint).to_scalar::<TestScalar>(), TestScalar::from(uint));
+        }
+
+        #[test]
+        fn prop_bool_and_timestamp_literal_values_convert_to_matching_scalars(
+            boolean in any::<bool>(),
+            timestamp in any::<i64>(),
+        ) {
+            prop_assert_eq!(LiteralValue::Boolean(boolean).to_scalar::<TestScalar>(), TestScalar::from(boolean));
+            prop_assert_eq!(
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), timestamp)
+                    .to_scalar::<TestScalar>(),
+                TestScalar::from(timestamp)
+            );
+        }
+
+        #[test]
+        fn prop_byte_literals_use_hash_scalar(bytes in proptest::collection::vec(any::<u8>(), 0..64)) {
+            prop_assert_eq!(
+                LiteralValue::VarBinary(bytes.clone()).to_scalar::<TestScalar>(),
+                TestScalar::from_byte_slice_via_hash(&bytes)
+            );
+        }
     }
 }
