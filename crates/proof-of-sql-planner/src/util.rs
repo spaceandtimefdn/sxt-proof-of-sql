@@ -15,6 +15,58 @@ use proof_of_sql::{
 };
 use sqlparser::ast::Ident;
 
+/// Read-only access to planner schema fields.
+pub trait SchemaFields {
+    /// Return the field at the provided position.
+    fn field_at(&self, index: usize) -> Option<ColumnField>;
+
+    /// Find a field by identifier.
+    fn find_field(&self, ident: &Ident) -> Option<ColumnField>;
+}
+
+impl SchemaFields for [ColumnField] {
+    fn field_at(&self, index: usize) -> Option<ColumnField> {
+        self.get(index).cloned()
+    }
+
+    fn find_field(&self, ident: &Ident) -> Option<ColumnField> {
+        self.iter().find(|field| field.name() == *ident).cloned()
+    }
+}
+
+impl SchemaFields for Vec<ColumnField> {
+    fn field_at(&self, index: usize) -> Option<ColumnField> {
+        self.as_slice().field_at(index)
+    }
+
+    fn find_field(&self, ident: &Ident) -> Option<ColumnField> {
+        self.as_slice().find_field(ident)
+    }
+}
+
+impl SchemaFields for [(Ident, ColumnType)] {
+    fn field_at(&self, index: usize) -> Option<ColumnField> {
+        self.get(index)
+            .map(|(name, column_type)| ColumnField::new(name.clone(), *column_type))
+    }
+
+    fn find_field(&self, ident: &Ident) -> Option<ColumnField> {
+        self.iter()
+            .find(|(name, _)| name == ident)
+            .map(|(name, column_type)| ColumnField::new(name.clone(), *column_type))
+    }
+}
+
+impl SchemaFields for Vec<(Ident, ColumnType)> {
+    fn field_at(&self, index: usize) -> Option<ColumnField> {
+        self.as_slice().field_at(index)
+    }
+
+    fn find_field(&self, ident: &Ident) -> Option<ColumnField> {
+        self.as_slice().find_field(ident)
+    }
+}
+
 /// Parse a placeholder string of the form "$1", "$2", etc. into a `usize`.
 fn parse_placeholder_id(s: &str) -> Option<usize> {
     s.strip_prefix('$')
@@ -111,9 +163,9 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
 ///
 /// Note that the table name must be provided in the column which resolved logical plans do
 /// Otherwise we error out
-pub(crate) fn column_to_column_ref(
+pub(crate) fn column_to_column_ref<S: SchemaFields + ?Sized>(
     column: &Column,
-    schema: &[(Ident, ColumnType)],
+    schema: &S,
 ) -> PlannerResult<ColumnRef> {
     let table_ref = column
         .relation
@@ -122,12 +174,14 @@ pub(crate) fn column_to_column_ref(
         .transpose()?
         .unwrap_or_else(|| TableRef::from_names(None, ""));
     let ident: Ident = column.name.as_str().into();
-    let column_type = schema
-        .iter()
-        .find(|(i, _t)| *i == ident)
-        .ok_or(PlannerError::ColumnNotFound)?
-        .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+    let field = schema
+        .find_field(&ident)
+        .ok_or(PlannerError::ColumnNotFound)?;
+    Ok(if field.is_nullable() {
+        ColumnRef::new_nullable(table_ref, ident, field.data_type())
+    } else {
+        ColumnRef::new(table_ref, ident, field.data_type())
+    })
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -139,7 +193,11 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
             .map(|column_field| {
                 //TODO: Make columns nullable
                 let data_type = (&column_field.data_type()).into();
-                Field::new(column_field.name().value.as_str(), data_type, false)
+                Field::new(
+                    column_field.name().value.as_str(),
+                    data_type,
+                    column_field.is_nullable(),
+                )
             })
             .collect::<Vec<_>>(),
     )
@@ -148,6 +206,7 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
 /// Convert a [`DFSchema`] to a Vec<ColumnField>
 ///
 /// Note that this returns an error if any column has an unsupported `DataType`
+#[cfg(test)]
 pub(crate) fn schema_to_column_fields(schema: Vec<(Ident, ColumnType)>) -> Vec<ColumnField> {
     schema
         .into_iter()

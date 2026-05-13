@@ -2,8 +2,8 @@ use super::DynProofPlan;
 use crate::{
     base::{
         database::{
-            Column, ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableOptions,
-            TableRef,
+            presence_column_id, Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table,
+            TableEvaluation, TableOptions, TableRef,
         },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -74,23 +74,49 @@ impl ProofPlan for ProjectionExec {
             .zip(input_eval.column_evals())
             .map(|(field, eval)| (field.name().clone(), *eval))
             .collect::<IndexMap<_, _>>();
-        let output_column_evals = self
-            .aliased_results
-            .iter()
-            .map(|aliased_expr| {
-                aliased_expr
-                    .expr
-                    .verifier_evaluate(builder, &current_accessor, chi.0, params)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let output_column_evals = self.aliased_results.iter().try_fold(
+            Vec::new(),
+            |mut output_column_evals, aliased_expr| {
+                let eval = aliased_expr.expr.verifier_evaluate_nullable(
+                    builder,
+                    &current_accessor,
+                    chi.0,
+                    params,
+                )?;
+                output_column_evals.push(eval.value_eval());
+                if let Some(presence_eval) = eval.presence_eval() {
+                    output_column_evals.push(presence_eval);
+                }
+                Ok::<_, ProofError>(output_column_evals)
+            },
+        )?;
         Ok(TableEvaluation::new(output_column_evals, chi))
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.aliased_results
             .iter()
-            .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+            .flat_map(|aliased_expr| {
+                let mut fields = Vec::with_capacity(if aliased_expr.expr.is_nullable() {
+                    2
+                } else {
+                    1
+                });
+                fields.push(if aliased_expr.expr.is_nullable() {
+                    ColumnField::new_nullable(
+                        aliased_expr.alias.clone(),
+                        aliased_expr.expr.data_type(),
+                    )
+                } else {
+                    ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
+                });
+                if aliased_expr.expr.is_nullable() {
+                    fields.push(ColumnField::new(
+                        presence_column_id(&aliased_expr.alias),
+                        ColumnType::Boolean,
+                    ));
+                }
+                fields
             })
             .collect()
     }
@@ -124,20 +150,22 @@ impl ProverEvaluate for ProjectionExec {
             .input
             .first_round_evaluate(builder, alloc, table_map, params)?;
 
-        let cols = self
-            .aliased_results
-            .iter()
-            .map(
-                |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
-                    Ok((
-                        aliased_expr.alias.clone(),
-                        aliased_expr
-                            .expr
-                            .first_round_evaluate(alloc, &input, params)?,
-                    ))
-                },
-            )
-            .collect::<PlaceholderResult<IndexMap<_, _>>>()?;
+        let cols = self.aliased_results.iter().try_fold(
+            IndexMap::default(),
+            |mut cols, aliased_expr| -> PlaceholderResult<_> {
+                let column = aliased_expr
+                    .expr
+                    .first_round_evaluate_nullable(alloc, &input, params)?;
+                cols.insert(aliased_expr.alias.clone(), column.values());
+                if let Some(presence) = column.presence() {
+                    cols.insert(
+                        presence_column_id(&aliased_expr.alias),
+                        Column::Boolean(presence),
+                    );
+                }
+                Ok(cols)
+            },
+        )?;
 
         let res =
             Table::<'a, S>::try_new_with_options(cols, TableOptions::new(Some(input.num_rows())))
@@ -167,20 +195,22 @@ impl ProverEvaluate for ProjectionExec {
             .final_round_evaluate(builder, alloc, table_map, params)?;
 
         // Evaluate result expressions
-        let cols = self
-            .aliased_results
-            .iter()
-            .map(
-                |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
-                    Ok((
-                        aliased_expr.alias.clone(),
-                        aliased_expr
-                            .expr
-                            .final_round_evaluate(builder, alloc, &input, params)?,
-                    ))
-                },
-            )
-            .collect::<PlaceholderResult<IndexMap<_, _>>>()?;
+        let cols = self.aliased_results.iter().try_fold(
+            IndexMap::default(),
+            |mut cols, aliased_expr| -> PlaceholderResult<_> {
+                let column = aliased_expr
+                    .expr
+                    .final_round_evaluate_nullable(builder, alloc, &input, params)?;
+                cols.insert(aliased_expr.alias.clone(), column.values());
+                if let Some(presence) = column.presence() {
+                    cols.insert(
+                        presence_column_id(&aliased_expr.alias),
+                        Column::Boolean(presence),
+                    );
+                }
+                Ok(cols)
+            },
+        )?;
 
         let res =
             Table::<'a, S>::try_new_with_options(cols, TableOptions::new(Some(input.num_rows())))

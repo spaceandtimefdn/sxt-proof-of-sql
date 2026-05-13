@@ -1,10 +1,10 @@
 use super::{
     numerical_util::{cast_column_with_scaling, try_get_scaling_factor_with_precision_and_scale},
-    DynProofExpr, ProofExpr,
+    DynProofExpr, NullableColumnEvaluation, ProofExpr,
 };
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -63,6 +63,10 @@ impl ProofExpr for ScalingCastExpr {
         self.to_type
     }
 
+    fn is_nullable(&self) -> bool {
+        self.from_expr.is_nullable()
+    }
+
     fn first_round_evaluate<'a, S: Scalar>(
         &self,
         alloc: &'a Bump,
@@ -104,6 +108,51 @@ impl ProofExpr for ScalingCastExpr {
         self.from_expr
             .verifier_evaluate(builder, accessor, chi_eval, params)
             .map(|unscaled_eval| S::from(self.scaling_factor) * unscaled_eval)
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let uncasted_result = self
+            .from_expr
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let values = cast_column_with_scaling(alloc, uncasted_result.values(), self.to_type);
+        Ok(NullableColumn::try_new(values, uncasted_result.presence())
+            .expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let uncasted_result = self
+            .from_expr
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let values = cast_column_with_scaling(alloc, uncasted_result.values(), self.to_type);
+        Ok(NullableColumn::try_new(values, uncasted_result.presence())
+            .expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let unscaled = self
+            .from_expr
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        Ok(NullableColumnEvaluation::new(
+            S::from(self.scaling_factor) * unscaled.value_eval(),
+            unscaled.presence_eval(),
+        ))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
