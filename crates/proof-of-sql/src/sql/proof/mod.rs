@@ -71,6 +71,8 @@ pub(crate) use first_round_builder::FirstRoundBuilder;
 #[cfg(all(test, feature = "blitzar"))]
 mod first_round_builder_test;
 
+#[cfg(test)]
+mod provable_query_result_no_arrow_test;
 #[cfg(all(test, feature = "arrow"))]
 mod provable_query_result_test;
 
