@@ -204,3 +204,40 @@ impl ProverEvaluate for UnionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn we_can_fetch_union_input_plans_schema_and_references() {
+        let t0 = TableRef::new("sxt", "t0");
+        let t1 = TableRef::new("sxt", "t1");
+        let fields = vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::VarChar),
+        ];
+        let union = UnionExec::try_new(vec![
+            DynProofPlan::new_table(t0.clone(), fields.clone()),
+            DynProofPlan::new_table(t1.clone(), fields.clone()),
+        ])
+        .unwrap();
+
+        assert_eq!(union.input_plans().len(), 2);
+        assert_eq!(union.get_column_result_fields(), fields);
+        assert_eq!(
+            union.get_table_references(),
+            IndexSet::from_iter([t0.clone(), t1.clone()])
+        );
+        assert_eq!(
+            union.get_column_references(),
+            IndexSet::from_iter([
+                ColumnRef::new(t0.clone(), "a".into(), ColumnType::BigInt),
+                ColumnRef::new(t0, "b".into(), ColumnType::VarChar),
+                ColumnRef::new(t1.clone(), "a".into(), ColumnType::BigInt),
+                ColumnRef::new(t1, "b".into(), ColumnType::VarChar),
+            ])
+        );
+    }
+}
