@@ -147,6 +147,7 @@ impl<'d> Deserialize<'d> for TableRef {
 mod tests {
     use super::*;
     use alloc::string::ToString;
+    use proptest::prelude::*;
     use serde_json;
 
     #[test]
@@ -189,5 +190,46 @@ mod tests {
 
         let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized, table_ref);
+    }
+
+    proptest! {
+        #[test]
+        fn prop_unqualified_table_refs_roundtrip(table in "[A-Za-z_][A-Za-z0-9_]{0,31}") {
+            let table_ref = TableRef::try_from(table.as_str()).unwrap();
+
+            prop_assert_eq!(table_ref.schema_id(), None);
+            prop_assert_eq!(table_ref.table_id().value.as_str(), table.as_str());
+            prop_assert_eq!(TableRef::try_from(table_ref.to_string().as_str()).unwrap(), table_ref);
+        }
+
+        #[test]
+        fn prop_qualified_table_refs_roundtrip(
+            schema in "[A-Za-z_][A-Za-z0-9_]{0,31}",
+            table in "[A-Za-z_][A-Za-z0-9_]{0,31}",
+        ) {
+            let input = alloc::format!("{schema}.{table}");
+            let table_ref = TableRef::try_from(input.as_str()).unwrap();
+
+            prop_assert_eq!(table_ref.schema_id().unwrap().value.as_str(), schema.as_str());
+            prop_assert_eq!(table_ref.table_id().value.as_str(), table.as_str());
+            prop_assert_eq!(TableRef::try_from(table_ref.to_string().as_str()).unwrap(), table_ref);
+        }
+
+        #[test]
+        fn prop_dot_separated_refs_with_too_many_components_are_rejected(
+            a in "[A-Za-z_][A-Za-z0-9_]{0,8}",
+            b in "[A-Za-z_][A-Za-z0-9_]{0,8}",
+            c in "[A-Za-z_][A-Za-z0-9_]{0,8}",
+        ) {
+            let input = alloc::format!("{a}.{b}.{c}");
+            let err = TableRef::try_from(input.as_str()).unwrap_err();
+
+            prop_assert_eq!(
+                err,
+                ParseError::InvalidTableReference {
+                    table_reference: input
+                }
+            );
+        }
     }
 }
