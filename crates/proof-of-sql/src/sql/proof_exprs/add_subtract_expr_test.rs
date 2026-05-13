@@ -1,4 +1,4 @@
-use super::AddExpr;
+use super::{AddExpr, SubtractExpr};
 use crate::{
     base::{
         commitment::InnerProductProof,
@@ -268,6 +268,28 @@ fn we_can_compute_the_correct_output_of_an_add_subtract_expr_using_first_round_e
 }
 
 #[test]
+fn add_and_subtract_exprs_expose_their_input_expressions() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_int("b", [0_i32, 1, 0, 1], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let accessor =
+        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+    let lhs = Box::new(column(&t, "a", &accessor));
+    let rhs = Box::new(column(&t, "b", &accessor));
+
+    let add_expr = AddExpr::try_new(lhs.clone(), rhs.clone()).unwrap();
+    assert_eq!(add_expr.lhs(), lhs.as_ref());
+    assert_eq!(add_expr.rhs(), rhs.as_ref());
+
+    let subtract_expr = SubtractExpr::try_new(lhs.clone(), rhs.clone()).unwrap();
+    assert_eq!(subtract_expr.lhs(), lhs.as_ref());
+    assert_eq!(subtract_expr.rhs(), rhs.as_ref());
+}
+
+#[test]
 fn we_cannot_add_subtract_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
@@ -287,7 +309,7 @@ fn we_cannot_add_subtract_mismatching_types() {
             right_type: _
         }
     ));
-    let sub_err = AddExpr::try_new(lhs, rhs).unwrap_err();
+    let sub_err = SubtractExpr::try_new(lhs, rhs).unwrap_err();
     assert!(matches!(
         sub_err,
         AnalyzeError::DataTypeMismatch {
