@@ -150,6 +150,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{base::database::ColumnType, sql::proof::ProofPlan};
 
     #[test]
     fn we_can_read_slice_exec_plan_accessors() {
@@ -159,6 +160,41 @@ mod tests {
         assert_eq!(slice.input(), &input);
         assert_eq!(slice.skip(), 3);
         assert_eq!(slice.fetch(), Some(2));
+    }
+
+    #[test]
+    fn slice_selection_matches_skip_and_fetch_bounds() {
+        assert_eq!(
+            get_slice_select(6, 2, Some(3)),
+            vec![false, false, true, true, true, false]
+        );
+        assert_eq!(get_slice_select(4, 1, None), vec![false, true, true, true]);
+        assert_eq!(get_slice_select(3, 5, Some(2)), vec![false, false, false]);
+        assert_eq!(get_slice_select(3, 0, Some(0)), vec![false, false, false]);
+    }
+
+    #[test]
+    fn slice_exec_forwards_input_result_fields_and_references() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let aliased_results = vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("b".into(), ColumnType::VarChar),
+        ];
+        let input = DynProofPlan::new_table(table_ref.clone(), aliased_results.clone());
+        let slice = SliceExec::new(Box::new(input), 1, None);
+
+        assert_eq!(slice.get_column_result_fields(), aliased_results);
+        assert_eq!(
+            slice.get_column_references(),
+            IndexSet::from_iter([
+                ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt),
+                ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::VarChar),
+            ])
+        );
+        assert_eq!(
+            slice.get_table_references(),
+            IndexSet::from_iter([table_ref])
+        );
     }
 }
 
