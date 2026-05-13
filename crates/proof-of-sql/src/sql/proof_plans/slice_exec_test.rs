@@ -1,6 +1,11 @@
 use super::test_utility::*;
+#[cfg(not(feature = "blitzar"))]
+use crate::base::commitment::naive_evaluation_proof::NaiveEvaluationProof;
+#[cfg(feature = "blitzar")]
+use crate::{base::commitment::InnerProductProof, sql::proof::exercise_verification};
 use crate::{
     base::{
+        commitment::CommitmentEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnType, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
@@ -8,17 +13,18 @@ use crate::{
         map::{indexmap, IndexMap},
         math::decimal::Precision,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{
-            exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
-            VerifiableQueryResult,
-        },
+        proof::{FirstRoundBuilder, ProvableQueryResult, ProverEvaluate, VerifiableQueryResult},
         proof_exprs::{test_utility::*, DynProofExpr},
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+
+#[cfg(feature = "blitzar")]
+type TestEvaluationProof = InnerProductProof;
+#[cfg(not(feature = "blitzar"))]
+type TestEvaluationProof = NaiveEvaluationProof;
+type TestScalar = <TestEvaluationProof as CommitmentEvaluationProof>::Scalar;
 
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
@@ -28,7 +34,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
     ]);
     let t: TableRef = "sxt.t".parse().unwrap();
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<TestEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = slice_exec(
         projection(
             cols_expr_plan(&t, &["a", "b"], &accessor),
@@ -43,7 +49,9 @@ fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
         1,
         Some(2),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -61,7 +69,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<TestEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(2));
     let table_plan = table_exec(
         t.clone(),
@@ -79,7 +87,9 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
         1,
         Some(2),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
@@ -97,14 +107,14 @@ fn we_can_get_an_empty_result_from_a_slice_on_an_empty_table_using_first_round_e
         borrowed_bigint("b", [0; 0], &alloc),
         borrowed_int128("c", [0; 0], &alloc),
         borrowed_varchar("d", [""; 0], &alloc),
-        borrowed_scalar("e", [0; 0], &alloc),
+        borrowed_scalar("e", [0_i128; 0], &alloc),
     ]);
     let data_length = data.num_rows();
     let t = TableRef::new("sxt", "t");
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let table_plan = table_exec(
@@ -137,13 +147,13 @@ fn we_can_get_an_empty_result_from_a_slice_on_an_empty_table_using_first_round_e
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
@@ -168,7 +178,7 @@ fn we_can_get_an_empty_result_from_a_slice_using_first_round_evaluate() {
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let table_plan = table_exec(
@@ -201,13 +211,13 @@ fn we_can_get_an_empty_result_from_a_slice_using_first_round_evaluate() {
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
@@ -225,14 +235,14 @@ fn we_can_get_no_columns_from_a_slice_with_empty_input_using_first_round_evaluat
         borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
         borrowed_int128("c", [1, 2, 3, 4, 5], &alloc),
         borrowed_varchar("d", ["1", "2", "3", "4", "5"], &alloc),
-        borrowed_scalar("e", [1, 2, 3, 4, 5], &alloc),
+        borrowed_scalar("e", [1_i128, 2, 3, 4, 5], &alloc),
     ]);
     let data_length = data.num_rows();
     let t = TableRef::new("sxt", "t");
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
     let table_plan = table_exec(
@@ -252,7 +262,7 @@ fn we_can_get_no_columns_from_a_slice_with_empty_input_using_first_round_evaluat
     );
     let fields = &[];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
@@ -277,7 +287,7 @@ fn we_can_get_the_correct_result_from_a_slice_using_first_round_evaluate() {
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
     let table_plan = table_exec(
@@ -309,13 +319,13 @@ fn we_can_get_the_correct_result_from_a_slice_using_first_round_evaluate() {
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [5]),
         int128("c", [5]),
         varchar("d", ["5"]),
@@ -331,10 +341,10 @@ fn we_can_prove_a_slice_exec() {
         bigint("b", [1, 2, 3, 4, 7]),
         int128("c", [1, 3, 3, 4, 5]),
         varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
+        scalar("e", [1_i128, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let table_plan = table_exec(
         t.clone(),
@@ -365,14 +375,16 @@ fn we_can_prove_a_slice_exec() {
         2,
         Some(1),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [4]),
         int128("c", [4]),
         varchar("d", ["4"]),
-        scalar("e", [4]),
+        scalar("e", [4_i128]),
         int128("const", [105]),
         boolean("bool", [true]),
     ]);
@@ -386,10 +398,10 @@ fn we_can_prove_a_nested_slice_exec() {
         bigint("b", [1, 2, 3, 4, 7]),
         int128("c", [1, 3, 3, 4, 5]),
         varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
+        scalar("e", [1_i128, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let table_plan = table_exec(
         t.clone(),
@@ -424,14 +436,16 @@ fn we_can_prove_a_nested_slice_exec() {
         1,
         Some(1),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [4]),
         int128("c", [4]),
         varchar("d", ["4"]),
-        scalar("e", [4]),
+        scalar("e", [4_i128]),
         int128("const", [105]),
         boolean("bool", [true]),
     ]);
@@ -445,10 +459,10 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
         bigint("b", [1, 2, 3, 4, 7]),
         int128("c", [1, 3, 3, 4, 5]),
         varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
+        scalar("e", [1_i128, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let table_plan = table_exec(
         t.clone(),
@@ -483,14 +497,16 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
         3,
         None,
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
-        scalar("e", [0; 0]),
+        scalar("e", [0_i128; 0]),
         int128("const", [0; 0]),
         boolean("bool", [true; 0]),
     ]);
@@ -504,10 +520,10 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
         bigint("b", [1, 2, 3, 4, 7]),
         int128("c", [1, 3, 3, 4, 5]),
         varchar("d", ["1", "2", "3", "4", "5"]),
-        scalar("e", [1, 2, 3, 4, 5]),
+        scalar("e", [1_i128, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let table_plan = table_exec(
         t.clone(),
@@ -542,14 +558,16 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
         3,
         None,
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&res, &expr, &accessor, &t);
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
-        scalar("e", [0; 0]),
+        scalar("e", [0_i128; 0]),
         int128("const", [0; 0]),
         boolean("bool", [true; 0]),
     ]);
@@ -572,7 +590,7 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_a_table_exec() {
         1,
         Some(4),
     );
-    let accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = TableTestAccessor::<TestEvaluationProof>::new_from_table(
         table_ref.clone(),
         table([
             borrowed_bigint("language_rank", [0_i64, 1, 2, 3], &alloc),
@@ -595,7 +613,9 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_a_table_exec() {
         0_usize,
         (),
     );
-    let verifiable_res = VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+    let verifiable_res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
     let res = verifiable_res
         .verify(&plan, &accessor, &(), &[])
@@ -615,9 +635,10 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_a_table_exec() {
 #[test]
 fn we_can_create_and_prove_a_slice_exec_on_top_of_an_empty_exec() {
     let empty_table = owned_table([]);
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     let expr = slice_exec(empty_exec(), 3, Some(2));
-    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     assert_eq!(res, empty_table);
 }
@@ -630,7 +651,7 @@ fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input
         bigint("c", [101, 102, 103, 104, 105]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<TestEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let plan = slice_exec(
         group_by(
@@ -643,8 +664,9 @@ fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input
         1,
         None,
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
-        VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
+    let verifiable_res: VerifiableQueryResult<TestEvaluationProof> =
+        VerifiableQueryResult::<TestEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+    #[cfg(feature = "blitzar")]
     exercise_verification(&verifiable_res, &plan, &accessor, &t);
     let res = verifiable_res
         .verify(&plan, &accessor, &(), &[])
