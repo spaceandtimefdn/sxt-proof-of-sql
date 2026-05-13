@@ -25,6 +25,10 @@ jobs:
     - uses: taiki-e/install-action@cargo-llvm-cov
     - name: Clean Previous Coverage Artifacts
       run: cargo llvm-cov clean --workspace
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: coverage
     - name: Run Tests to Generate Coverage Data (All Features)
       run: cargo llvm-cov --no-report --all-features --workspace --exclude proof-of-sql-benches --ignore-filename-regex evm_tests
     #- name: Run Tests to Generate Coverage Data (Rayon Only)
