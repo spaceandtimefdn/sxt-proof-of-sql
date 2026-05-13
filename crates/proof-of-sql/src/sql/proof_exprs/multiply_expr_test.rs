@@ -290,6 +290,24 @@ fn we_can_compute_the_correct_output_of_a_multiply_expr_using_first_round_evalua
 }
 
 #[test]
+fn multiply_expr_exposes_its_input_expressions() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc),
+        borrowed_int("b", [0_i32, 1, 0, 1], &alloc),
+    ]);
+    let t = TableRef::new("sxt", "t");
+    let accessor =
+        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+    let lhs = Box::new(column(&t, "a", &accessor));
+    let rhs = Box::new(column(&t, "b", &accessor));
+
+    let multiply_expr = MultiplyExpr::try_new(lhs.clone(), rhs.clone()).unwrap();
+    assert_eq!(multiply_expr.lhs(), lhs.as_ref());
+    assert_eq!(multiply_expr.rhs(), rhs.as_ref());
+}
+
+#[test]
 fn we_cannot_multiply_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
