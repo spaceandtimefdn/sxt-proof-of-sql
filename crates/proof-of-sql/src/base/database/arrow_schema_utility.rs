@@ -35,3 +35,68 @@ pub fn get_posql_compatible_schema(schema: &SchemaRef) -> SchemaRef {
 
     Arc::new(Schema::new(new_fields))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_floating_point_fields_to_decimal256() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("half", DataType::Float16, true),
+            Field::new("single", DataType::Float32, false),
+            Field::new("double", DataType::Float64, true),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(
+            converted
+                .fields()
+                .iter()
+                .map(|field| field.data_type())
+                .collect::<Vec<_>>(),
+            vec![
+                &DataType::Decimal256(20, 10),
+                &DataType::Decimal256(20, 10),
+                &DataType::Decimal256(20, 10),
+            ]
+        );
+        assert!(converted.field(0).is_nullable());
+        assert!(!converted.field(1).is_nullable());
+        assert!(converted.field(2).is_nullable());
+    }
+
+    #[test]
+    fn preserves_non_floating_point_fields() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("payload", DataType::Utf8, true),
+            Field::new("amount", DataType::Decimal256(75, 30), false),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(converted.field(0), schema.field(0));
+        assert_eq!(converted.field(1), schema.field(1));
+        assert_eq!(converted.field(2), schema.field(2));
+    }
+
+    #[test]
+    fn returns_new_schema_without_mutating_input() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "score",
+            DataType::Float64,
+            false,
+        )]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(schema.field(0).data_type(), &DataType::Float64);
+        assert_eq!(
+            converted.field(0).data_type(),
+            &DataType::Decimal256(20, 10)
+        );
+        assert!(!Arc::ptr_eq(&schema, &converted));
+    }
+}
