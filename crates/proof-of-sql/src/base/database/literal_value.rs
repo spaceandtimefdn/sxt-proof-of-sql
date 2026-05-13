@@ -97,8 +97,10 @@ mod tests {
         database::LiteralValue,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
+    use proptest::prelude::*;
 
     /// This allows us to reuse code within solidity more safely
     #[test]
@@ -124,6 +126,102 @@ mod tests {
             let serialized_literal_value =
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
+        }
+    }
+
+    #[test]
+    fn literal_values_convert_to_scalars() {
+        assert_eq!(
+            LiteralValue::Boolean(true).to_scalar::<TestScalar>(),
+            TestScalar::from(true)
+        );
+        assert_eq!(
+            LiteralValue::Uint8(7).to_scalar::<TestScalar>(),
+            TestScalar::from(7_u8)
+        );
+        assert_eq!(
+            LiteralValue::TinyInt(-7).to_scalar::<TestScalar>(),
+            TestScalar::from(-7_i8)
+        );
+        assert_eq!(
+            LiteralValue::SmallInt(-123).to_scalar::<TestScalar>(),
+            TestScalar::from(-123_i16)
+        );
+        assert_eq!(
+            LiteralValue::Int(-456).to_scalar::<TestScalar>(),
+            TestScalar::from(-456_i32)
+        );
+        assert_eq!(
+            LiteralValue::BigInt(-789).to_scalar::<TestScalar>(),
+            TestScalar::from(-789_i64)
+        );
+        assert_eq!(
+            LiteralValue::Int128(-101_112).to_scalar::<TestScalar>(),
+            TestScalar::from(-101_112_i128)
+        );
+        assert_eq!(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 42)
+                .to_scalar::<TestScalar>(),
+            TestScalar::from(42_i64)
+        );
+    }
+
+    #[test]
+    fn hashed_and_limb_literal_values_convert_to_scalars() {
+        assert_eq!(
+            LiteralValue::VarChar("orders".to_string()).to_scalar::<TestScalar>(),
+            TestScalar::from("orders")
+        );
+        assert_eq!(
+            LiteralValue::VarBinary(vec![1, 2, 3]).to_scalar::<TestScalar>(),
+            TestScalar::from_byte_slice_via_hash(&[1, 2, 3])
+        );
+        assert_eq!(
+            LiteralValue::Decimal75(Precision::new(12).unwrap(), 2, 1234.into())
+                .to_scalar::<TestScalar>(),
+            TestScalar::from(1234_i32)
+        );
+        assert_eq!(
+            LiteralValue::Scalar([1, 2, 3, 4]).to_scalar::<TestScalar>(),
+            TestScalar::from([1, 2, 3, 4])
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn prop_integer_literal_values_convert_to_matching_scalars(
+            tiny in any::<i8>(),
+            small in any::<i16>(),
+            int in any::<i32>(),
+            big in any::<i64>(),
+            uint in any::<u8>(),
+        ) {
+            prop_assert_eq!(LiteralValue::TinyInt(tiny).to_scalar::<TestScalar>(), TestScalar::from(tiny));
+            prop_assert_eq!(LiteralValue::SmallInt(small).to_scalar::<TestScalar>(), TestScalar::from(small));
+            prop_assert_eq!(LiteralValue::Int(int).to_scalar::<TestScalar>(), TestScalar::from(int));
+            prop_assert_eq!(LiteralValue::BigInt(big).to_scalar::<TestScalar>(), TestScalar::from(big));
+            prop_assert_eq!(LiteralValue::Uint8(uint).to_scalar::<TestScalar>(), TestScalar::from(uint));
+        }
+
+        #[test]
+        fn prop_bool_and_timestamp_literal_values_convert_to_matching_scalars(
+            boolean in any::<bool>(),
+            timestamp in any::<i64>(),
+        ) {
+            prop_assert_eq!(LiteralValue::Boolean(boolean).to_scalar::<TestScalar>(), TestScalar::from(boolean));
+            prop_assert_eq!(
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), timestamp)
+                    .to_scalar::<TestScalar>(),
+                TestScalar::from(timestamp)
+            );
+        }
+
+        #[test]
+        fn prop_byte_literals_use_hash_scalar(bytes in proptest::collection::vec(any::<u8>(), 0..64)) {
+            prop_assert_eq!(
+                LiteralValue::VarBinary(bytes.clone()).to_scalar::<TestScalar>(),
+                TestScalar::from_byte_slice_via_hash(&bytes)
+            );
         }
     }
 }
