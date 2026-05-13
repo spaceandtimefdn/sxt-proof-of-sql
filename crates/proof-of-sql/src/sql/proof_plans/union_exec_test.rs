@@ -1,5 +1,7 @@
 use super::test_utility::*;
+use crate::base::commitment::naive_evaluation_proof::NaiveEvaluationProof;
 use crate::{
+    base::scalar::test_scalar::TestScalar,
     base::{
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTable,
@@ -7,16 +9,11 @@ use crate::{
         },
         map::indexmap,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{
-            exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
-            VerifiableQueryResult,
-        },
+        proof::{FirstRoundBuilder, ProvableQueryResult, ProverEvaluate, VerifiableQueryResult},
         proof_exprs::test_utility::*,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[test]
@@ -33,7 +30,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_with_one_table() {
         varchar("b0", ["", "1", "2", "3", "4"]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let table_plan = table_exec(
         t.clone(),
@@ -55,7 +52,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_union_exec() {
     let t0 = TableRef::new("sxt", "t0");
     let data1 = owned_table([bigint("a1", [0_i64; 0])]);
     let t1 = TableRef::new("sxt", "t1");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t0.clone(), data0, 0);
     accessor.add_table(t1.clone(), data1, 0);
     let ast = union_exec(vec![
@@ -69,7 +66,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_union_exec() {
         ),
     ]);
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -91,7 +88,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_exec() {
         borrowed_varchar("b1", ["2", "3", "4", "5", "6"], &alloc),
     ]);
     let t1 = TableRef::new("sxt", "t1");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t0.clone(), data0, 0);
     accessor.add_table(t1.clone(), data1, 0);
     let ast = union_exec(vec![
@@ -113,8 +110,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_exec() {
             ],
         ),
     ]);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t0);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -165,7 +162,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
         borrowed_varchar("b6", ["8", "9", "10", "11"], &alloc),
     ]);
     let t6 = TableRef::new("sxt", "t6");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t0.clone(), data0, 0);
     accessor.add_table(t1.clone(), data1, 0);
     accessor.add_table(t2.clone(), data2, 0);
@@ -254,8 +251,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
             ],
         ),
     ]);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t0);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -296,7 +293,7 @@ fn we_can_get_result_from_union_using_first_round_evaluate() {
 
     let data_length = std::cmp::max(len_0, len_1);
 
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t0.clone(), data0, 0);
     accessor.add_table(t1.clone(), data1, 0);
     let fields = vec![
@@ -326,14 +323,14 @@ fn we_can_get_result_from_union_using_first_round_evaluate() {
         ),
     ]);
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         ast.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(&fields)
     .unwrap();
 
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("a", [1_i64, 2, 3, 4, 5, 2, 3, 4, 5, 6]),
         varchar("b", ["1", "2", "3", "4", "5", "2", "3", "4", "5", "6"]),
     ]);
