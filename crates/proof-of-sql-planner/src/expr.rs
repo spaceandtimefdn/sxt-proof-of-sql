@@ -23,9 +23,15 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents.extend(get_column_idents_from_expr(right));
             left_idents
         }
-        Expr::Not(inner) | Expr::IsNull(inner) | Expr::IsNotNull(inner) | Expr::IsTrue(inner) => {
-            get_column_idents_from_expr(inner)
-        }
+        Expr::Not(inner)
+        | Expr::IsNull(inner)
+        | Expr::IsNotNull(inner)
+        | Expr::IsTrue(inner)
+        | Expr::IsFalse(inner)
+        | Expr::IsUnknown(inner)
+        | Expr::IsNotTrue(inner)
+        | Expr::IsNotFalse(inner)
+        | Expr::IsNotUnknown(inner) => get_column_idents_from_expr(inner),
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
         }
@@ -145,6 +151,19 @@ pub fn expr_to_proof_expr<S: SchemaFields + ?Sized>(
             expr, schema,
         )?)),
         Expr::IsTrue(expr) => Ok(DynProofExpr::new_is_true(expr_to_proof_expr(expr, schema)?)),
+        Expr::IsFalse(expr) => Ok(DynProofExpr::new_is_true(DynProofExpr::try_new_not(
+            expr_to_proof_expr(expr, schema)?,
+        )?)),
+        Expr::IsUnknown(expr) => Ok(DynProofExpr::new_is_null(expr_to_proof_expr(expr, schema)?)),
+        Expr::IsNotTrue(expr) => Ok(DynProofExpr::try_new_not(DynProofExpr::new_is_true(
+            expr_to_proof_expr(expr, schema)?,
+        ))?),
+        Expr::IsNotFalse(expr) => Ok(DynProofExpr::try_new_not(DynProofExpr::new_is_true(
+            DynProofExpr::try_new_not(expr_to_proof_expr(expr, schema)?)?,
+        ))?),
+        Expr::IsNotUnknown(expr) => Ok(DynProofExpr::new_is_not_null(expr_to_proof_expr(
+            expr, schema,
+        )?)),
         Expr::Cast(cast) => {
             match &*cast.expr {
                 // handle cases such as `$1::int`

@@ -6,7 +6,11 @@ use crate::base::{
     math::permutation::{Permutation, PermutationError},
     scalar::Scalar,
 };
-use alloc::{format, string::String, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use bumpalo::Bump;
 use snafu::Snafu;
 use sqlparser::ast::Ident;
@@ -259,14 +263,14 @@ impl<S: Scalar> NullableOwnedColumn<S> {
         })
     }
 
-    /// Element-wise AND operation. Presence is the conjunction of operand presences.
+    /// Element-wise SQL `AND` operation with three-valued null semantics.
     pub fn element_wise_and(&self, rhs: &Self) -> ColumnOperationResult<Self> {
-        self.try_binary_op(rhs, OwnedColumn::element_wise_and, NullRowReplacement::Zero)
+        self.try_boolean_op(rhs, SqlBooleanOp::And)
     }
 
-    /// Element-wise OR operation. Presence is the conjunction of operand presences.
+    /// Element-wise SQL `OR` operation with three-valued null semantics.
     pub fn element_wise_or(&self, rhs: &Self) -> ColumnOperationResult<Self> {
-        self.try_binary_op(rhs, OwnedColumn::element_wise_or, NullRowReplacement::Zero)
+        self.try_boolean_op(rhs, SqlBooleanOp::Or)
     }
 
     /// Element-wise equality check. Presence is the conjunction of operand presences.
@@ -324,6 +328,45 @@ impl<S: Scalar> NullableOwnedColumn<S> {
         let values = op(&lhs_values, &rhs_values)?;
         Ok(Self {
             values: canonicalize_null_rows(values, presence.as_deref()),
+            presence,
+        })
+    }
+
+    fn try_boolean_op(&self, rhs: &Self, op: SqlBooleanOp) -> ColumnOperationResult<Self> {
+        if self.len() != rhs.len() {
+            return Err(ColumnOperationError::DifferentColumnLength {
+                len_a: self.len(),
+                len_b: rhs.len(),
+            });
+        }
+        let (OwnedColumn::Boolean(lhs_values), OwnedColumn::Boolean(rhs_values)) =
+            (&self.values, &rhs.values)
+        else {
+            return Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: op.operator_name().to_string(),
+                left_type: self.column_type(),
+                right_type: rhs.column_type(),
+            });
+        };
+
+        let values = lhs_values
+            .iter()
+            .zip(rhs_values.iter())
+            .map(|(lhs, rhs)| match op {
+                SqlBooleanOp::And => *lhs && *rhs,
+                SqlBooleanOp::Or => *lhs || *rhs,
+            })
+            .collect();
+        let presence = match op {
+            SqlBooleanOp::And => {
+                sql_and_presence(lhs_values, self.presence(), rhs_values, rhs.presence())
+            }
+            SqlBooleanOp::Or => {
+                sql_or_presence(lhs_values, self.presence(), rhs_values, rhs.presence())
+            }
+        };
+        Ok(Self {
+            values: OwnedColumn::Boolean(values),
             presence,
         })
     }
@@ -436,6 +479,95 @@ fn combine_presence(lhs: Option<&[bool]>, rhs: Option<&[bool]>) -> Option<Vec<bo
 enum NullRowReplacement {
     Zero,
     One,
+}
+
+#[derive(Clone, Copy)]
+enum SqlBooleanOp {
+    And,
+    Or,
+}
+
+impl SqlBooleanOp {
+    fn operator_name(self) -> &'static str {
+        match self {
+            SqlBooleanOp::And => "AND",
+            SqlBooleanOp::Or => "OR",
+        }
+    }
+}
+
+fn sql_and_presence(
+    lhs_values: &[bool],
+    lhs_presence: Option<&[bool]>,
+    rhs_values: &[bool],
+    rhs_presence: Option<&[bool]>,
+) -> Option<Vec<bool>> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => Some(
+            lhs_presence
+                .iter()
+                .zip(rhs_values.iter())
+                .map(|(lhs_present, rhs_value)| *lhs_present || !*rhs_value)
+                .collect(),
+        ),
+        (None, Some(rhs_presence)) => Some(
+            lhs_values
+                .iter()
+                .zip(rhs_presence.iter())
+                .map(|(lhs_value, rhs_present)| *rhs_present || !*lhs_value)
+                .collect(),
+        ),
+        (Some(lhs_presence), Some(rhs_presence)) => Some(
+            lhs_values
+                .iter()
+                .zip(lhs_presence.iter())
+                .zip(rhs_values.iter().zip(rhs_presence.iter()))
+                .map(|((lhs_value, lhs_present), (rhs_value, rhs_present))| {
+                    (*lhs_present && *rhs_present)
+                        || (*lhs_present && !*lhs_value)
+                        || (*rhs_present && !*rhs_value)
+                })
+                .collect(),
+        ),
+    }
+}
+
+fn sql_or_presence(
+    lhs_values: &[bool],
+    lhs_presence: Option<&[bool]>,
+    rhs_values: &[bool],
+    rhs_presence: Option<&[bool]>,
+) -> Option<Vec<bool>> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => Some(
+            lhs_presence
+                .iter()
+                .zip(rhs_values.iter())
+                .map(|(lhs_present, rhs_value)| *lhs_present || *rhs_value)
+                .collect(),
+        ),
+        (None, Some(rhs_presence)) => Some(
+            lhs_values
+                .iter()
+                .zip(rhs_presence.iter())
+                .map(|(lhs_value, rhs_present)| *rhs_present || *lhs_value)
+                .collect(),
+        ),
+        (Some(lhs_presence), Some(rhs_presence)) => Some(
+            lhs_values
+                .iter()
+                .zip(lhs_presence.iter())
+                .zip(rhs_values.iter().zip(rhs_presence.iter()))
+                .map(|((lhs_value, lhs_present), (rhs_value, rhs_present))| {
+                    (*lhs_present && *rhs_present)
+                        || (*lhs_present && *lhs_value)
+                        || (*rhs_present && *rhs_value)
+                })
+                .collect(),
+        ),
+    }
 }
 
 fn replace_null_rows_with<S: Scalar>(
@@ -686,6 +818,52 @@ mod tests {
             &OwnedColumn::Boolean(vec![false, false, false])
         );
         assert_eq!(result.presence(), Some([true, false, true].as_slice()));
+    }
+
+    #[test]
+    fn nullable_boolean_and_or_use_sql_three_valued_logic() {
+        let lhs = NullableOwnedColumn::<TestScalar>::try_new(
+            OwnedColumn::Boolean(vec![
+                false, false, false, true, true, true, false, false, false,
+            ]),
+            Some(vec![
+                true, true, true, true, true, true, false, false, false,
+            ]),
+        )
+        .unwrap();
+        let rhs = NullableOwnedColumn::try_new(
+            OwnedColumn::Boolean(vec![
+                false, true, false, false, true, false, false, true, false,
+            ]),
+            Some(vec![
+                true, true, false, true, true, false, true, true, false,
+            ]),
+        )
+        .unwrap();
+
+        let and_result = lhs.element_wise_and(&rhs).unwrap();
+        assert_eq!(
+            and_result.values(),
+            &OwnedColumn::Boolean(vec![
+                false, false, false, false, true, false, false, false, false,
+            ])
+        );
+        assert_eq!(
+            and_result.presence(),
+            Some([true, true, true, true, true, false, true, false, false].as_slice())
+        );
+
+        let or_result = lhs.element_wise_or(&rhs).unwrap();
+        assert_eq!(
+            or_result.values(),
+            &OwnedColumn::Boolean(vec![
+                false, true, false, true, true, true, false, true, false,
+            ])
+        );
+        assert_eq!(
+            or_result.presence(),
+            Some([true, true, false, true, true, true, false, true, false].as_slice())
+        );
     }
 
     #[test]

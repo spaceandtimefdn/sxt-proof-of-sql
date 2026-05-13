@@ -1,11 +1,18 @@
 //! This module proves provable expressions.
 mod proof_expr;
 pub(crate) use proof_expr::{
-    final_round_evaluate_boolean_and, final_round_evaluate_nullable_boolean_is_true,
-    final_round_evaluate_nullable_presence, first_round_evaluate_boolean_and,
-    first_round_evaluate_nullable_boolean_is_true, first_round_evaluate_nullable_presence,
-    verifier_evaluate_boolean_and, verifier_evaluate_nullable_boolean_is_true,
-    verifier_evaluate_nullable_presence, DecimalProofExpr,
+    final_round_evaluate_boolean_and, final_round_evaluate_boolean_or,
+    final_round_evaluate_nullable_boolean_and_presence,
+    final_round_evaluate_nullable_boolean_is_true,
+    final_round_evaluate_nullable_boolean_or_presence, final_round_evaluate_nullable_presence,
+    first_round_evaluate_boolean_and, first_round_evaluate_boolean_or,
+    first_round_evaluate_nullable_boolean_and_presence,
+    first_round_evaluate_nullable_boolean_is_true,
+    first_round_evaluate_nullable_boolean_or_presence, first_round_evaluate_nullable_presence,
+    verifier_evaluate_boolean_and, verifier_evaluate_boolean_or,
+    verifier_evaluate_nullable_boolean_and_presence, verifier_evaluate_nullable_boolean_is_true,
+    verifier_evaluate_nullable_boolean_or_presence, verifier_evaluate_nullable_presence,
+    DecimalProofExpr,
 };
 pub use proof_expr::{NullableColumnEvaluation, ProofExpr};
 #[cfg(all(test, feature = "blitzar"))]

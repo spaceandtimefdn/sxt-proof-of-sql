@@ -175,6 +175,14 @@ fn test_nullable_column_queries() {
     let sql = "
         select score + bonus as total from nullable_scores where score + bonus = 12;
         select score is null as score_missing from nullable_scores;
+        select flag or guard as flag_or_guard, flag and guard as flag_and_guard from nullable_flags;
+        select
+            flag is false as flag_false,
+            flag is not true as flag_not_true,
+            flag is not false as flag_not_false,
+            flag is unknown as flag_unknown,
+            flag is not unknown as flag_known
+        from nullable_flags;
     ";
     let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
         TableRef::from_names(None, "nullable_scores") => table(
@@ -182,6 +190,13 @@ fn test_nullable_column_queries() {
                 borrowed_bigint("score", [5_i64, 0, 9, 5, 0], &alloc),
                 borrowed_boolean("score__presence", [true, false, true, true, false], &alloc),
                 borrowed_bigint("bonus", [7_i64, 0, 1, 7, 0], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "nullable_flags") => table(
+            vec![
+                borrowed_boolean("flag", [true, false, false, true], &alloc),
+                borrowed_boolean("flag__presence", [true, true, false, false], &alloc),
+                borrowed_boolean("guard", [false, false, false, true], &alloc),
             ]
         )
     };
@@ -191,6 +206,19 @@ fn test_nullable_column_queries() {
             boolean("total__presence", [true, true]),
         ]),
         owned_table([boolean("score_missing", [false, true, false, false, true])]),
+        owned_table([
+            boolean("flag_or_guard", [true, false, false, true]),
+            boolean("flag_or_guard__presence", [true, true, false, true]),
+            boolean("flag_and_guard", [false, false, false, true]),
+            boolean("flag_and_guard__presence", [true, true, true, false]),
+        ]),
+        owned_table([
+            boolean("flag_false", [false, true, false, false]),
+            boolean("flag_not_true", [false, true, true, true]),
+            boolean("flag_not_false", [true, false, true, true]),
+            boolean("flag_unknown", [false, false, true, true]),
+            boolean("flag_known", [true, true, false, false]),
+        ]),
     ];
 
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());

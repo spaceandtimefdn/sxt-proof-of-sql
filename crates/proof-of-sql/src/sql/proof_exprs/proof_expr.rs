@@ -190,6 +190,51 @@ pub(crate) fn verifier_evaluate_boolean_and<S: Scalar>(
     Ok(lhs_and_rhs)
 }
 
+/// Evaluate a boolean OR without producing proof data.
+pub(crate) fn first_round_evaluate_boolean_or<'a>(
+    table_length: usize,
+    alloc: &'a Bump,
+    lhs: &'a [bool],
+    rhs: &'a [bool],
+) -> &'a [bool] {
+    assert_eq!(table_length, lhs.len());
+    assert_eq!(table_length, rhs.len());
+    alloc.alloc_slice_fill_with(table_length, |i| lhs[i] || rhs[i])
+}
+
+/// Evaluate and prove a boolean OR.
+pub(crate) fn final_round_evaluate_boolean_or<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    lhs: &'a [bool],
+    rhs: &'a [bool],
+) -> &'a [bool] {
+    let n = lhs.len();
+    assert_eq!(n, rhs.len());
+
+    let _ = final_round_evaluate_boolean_and(builder, alloc, lhs, rhs);
+    alloc.alloc_slice_fill_with(n, |i| lhs[i] || rhs[i])
+}
+
+/// Verify a boolean OR.
+pub(crate) fn verifier_evaluate_boolean_or<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
+    lhs: S,
+    rhs: S,
+) -> Result<S, ProofError> {
+    let lhs_and_rhs = verifier_evaluate_boolean_and(builder, lhs, rhs)?;
+    Ok(lhs + rhs - lhs_and_rhs)
+}
+
+fn first_round_evaluate_boolean_not<'a>(
+    table_length: usize,
+    alloc: &'a Bump,
+    values: &'a [bool],
+) -> &'a [bool] {
+    assert_eq!(table_length, values.len());
+    alloc.alloc_slice_fill_with(table_length, |i| !values[i])
+}
+
 /// Combine optional presence masks using SQL binary-expression nullability rules.
 #[must_use]
 pub(crate) fn first_round_evaluate_nullable_presence<'a>(
@@ -237,6 +282,281 @@ pub(crate) fn verifier_evaluate_nullable_presence<S: Scalar>(
         (Some(lhs), None) => Ok(Some(lhs)),
         (None, Some(rhs)) => Ok(Some(rhs)),
         (Some(lhs), Some(rhs)) => Ok(Some(verifier_evaluate_boolean_and(builder, lhs, rhs)?)),
+    }
+}
+
+/// Compute SQL three-valued `AND` result presence for nullable boolean operands.
+#[must_use]
+pub(crate) fn first_round_evaluate_nullable_boolean_and_presence<'a>(
+    table_length: usize,
+    alloc: &'a Bump,
+    lhs_values: &'a [bool],
+    lhs_presence: Option<&'a [bool]>,
+    rhs_values: &'a [bool],
+    rhs_presence: Option<&'a [bool]>,
+) -> Option<&'a [bool]> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => {
+            let rhs_false = first_round_evaluate_boolean_not(table_length, alloc, rhs_values);
+            Some(first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                lhs_presence,
+                rhs_false,
+            ))
+        }
+        (None, Some(rhs_presence)) => {
+            let lhs_false = first_round_evaluate_boolean_not(table_length, alloc, lhs_values);
+            Some(first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                rhs_presence,
+                lhs_false,
+            ))
+        }
+        (Some(lhs_presence), Some(rhs_presence)) => {
+            let both_present =
+                first_round_evaluate_boolean_and(table_length, alloc, lhs_presence, rhs_presence);
+            let lhs_false = first_round_evaluate_boolean_not(table_length, alloc, lhs_values);
+            let lhs_false_present =
+                first_round_evaluate_boolean_and(table_length, alloc, lhs_presence, lhs_false);
+            let rhs_false = first_round_evaluate_boolean_not(table_length, alloc, rhs_values);
+            let rhs_false_present =
+                first_round_evaluate_boolean_and(table_length, alloc, rhs_presence, rhs_false);
+            let left = first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                both_present,
+                lhs_false_present,
+            );
+            Some(first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                left,
+                rhs_false_present,
+            ))
+        }
+    }
+}
+
+/// Compute SQL three-valued `OR` result presence for nullable boolean operands.
+#[must_use]
+pub(crate) fn first_round_evaluate_nullable_boolean_or_presence<'a>(
+    table_length: usize,
+    alloc: &'a Bump,
+    lhs_values: &'a [bool],
+    lhs_presence: Option<&'a [bool]>,
+    rhs_values: &'a [bool],
+    rhs_presence: Option<&'a [bool]>,
+) -> Option<&'a [bool]> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => Some(first_round_evaluate_boolean_or(
+            table_length,
+            alloc,
+            lhs_presence,
+            rhs_values,
+        )),
+        (None, Some(rhs_presence)) => Some(first_round_evaluate_boolean_or(
+            table_length,
+            alloc,
+            rhs_presence,
+            lhs_values,
+        )),
+        (Some(lhs_presence), Some(rhs_presence)) => {
+            let both_present =
+                first_round_evaluate_boolean_and(table_length, alloc, lhs_presence, rhs_presence);
+            let lhs_true_present =
+                first_round_evaluate_boolean_and(table_length, alloc, lhs_presence, lhs_values);
+            let rhs_true_present =
+                first_round_evaluate_boolean_and(table_length, alloc, rhs_presence, rhs_values);
+            let left = first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                both_present,
+                lhs_true_present,
+            );
+            Some(first_round_evaluate_boolean_or(
+                table_length,
+                alloc,
+                left,
+                rhs_true_present,
+            ))
+        }
+    }
+}
+
+/// Compute and prove SQL three-valued `AND` result presence for nullable boolean operands.
+pub(crate) fn final_round_evaluate_nullable_boolean_and_presence<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    lhs_values: &'a [bool],
+    lhs_presence: Option<&'a [bool]>,
+    rhs_values: &'a [bool],
+    rhs_presence: Option<&'a [bool]>,
+) -> Option<&'a [bool]> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => {
+            let rhs_false = first_round_evaluate_boolean_not(lhs_presence.len(), alloc, rhs_values);
+            Some(final_round_evaluate_boolean_or(
+                builder,
+                alloc,
+                lhs_presence,
+                rhs_false,
+            ))
+        }
+        (None, Some(rhs_presence)) => {
+            let lhs_false = first_round_evaluate_boolean_not(rhs_presence.len(), alloc, lhs_values);
+            Some(final_round_evaluate_boolean_or(
+                builder,
+                alloc,
+                rhs_presence,
+                lhs_false,
+            ))
+        }
+        (Some(lhs_presence), Some(rhs_presence)) => {
+            let both_present =
+                final_round_evaluate_boolean_and(builder, alloc, lhs_presence, rhs_presence);
+            let lhs_false = first_round_evaluate_boolean_not(lhs_presence.len(), alloc, lhs_values);
+            let lhs_false_present =
+                final_round_evaluate_boolean_and(builder, alloc, lhs_presence, lhs_false);
+            let rhs_false = first_round_evaluate_boolean_not(rhs_presence.len(), alloc, rhs_values);
+            let rhs_false_present =
+                final_round_evaluate_boolean_and(builder, alloc, rhs_presence, rhs_false);
+            let left =
+                final_round_evaluate_boolean_or(builder, alloc, both_present, lhs_false_present);
+            Some(final_round_evaluate_boolean_or(
+                builder,
+                alloc,
+                left,
+                rhs_false_present,
+            ))
+        }
+    }
+}
+
+/// Compute and prove SQL three-valued `OR` result presence for nullable boolean operands.
+pub(crate) fn final_round_evaluate_nullable_boolean_or_presence<'a, S: Scalar>(
+    builder: &mut FinalRoundBuilder<'a, S>,
+    alloc: &'a Bump,
+    lhs_values: &'a [bool],
+    lhs_presence: Option<&'a [bool]>,
+    rhs_values: &'a [bool],
+    rhs_presence: Option<&'a [bool]>,
+) -> Option<&'a [bool]> {
+    match (lhs_presence, rhs_presence) {
+        (None, None) => None,
+        (Some(lhs_presence), None) => Some(final_round_evaluate_boolean_or(
+            builder,
+            alloc,
+            lhs_presence,
+            rhs_values,
+        )),
+        (None, Some(rhs_presence)) => Some(final_round_evaluate_boolean_or(
+            builder,
+            alloc,
+            rhs_presence,
+            lhs_values,
+        )),
+        (Some(lhs_presence), Some(rhs_presence)) => {
+            let both_present =
+                final_round_evaluate_boolean_and(builder, alloc, lhs_presence, rhs_presence);
+            let lhs_true_present =
+                final_round_evaluate_boolean_and(builder, alloc, lhs_presence, lhs_values);
+            let rhs_true_present =
+                final_round_evaluate_boolean_and(builder, alloc, rhs_presence, rhs_values);
+            let left =
+                final_round_evaluate_boolean_or(builder, alloc, both_present, lhs_true_present);
+            Some(final_round_evaluate_boolean_or(
+                builder,
+                alloc,
+                left,
+                rhs_true_present,
+            ))
+        }
+    }
+}
+
+/// Verify SQL three-valued `AND` result presence for nullable boolean operands.
+pub(crate) fn verifier_evaluate_nullable_boolean_and_presence<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
+    chi_eval: S,
+    lhs_value_eval: S,
+    lhs_presence_eval: Option<S>,
+    rhs_value_eval: S,
+    rhs_presence_eval: Option<S>,
+) -> Result<Option<S>, ProofError> {
+    match (lhs_presence_eval, rhs_presence_eval) {
+        (None, None) => Ok(None),
+        (Some(lhs_presence_eval), None) => Ok(Some(verifier_evaluate_boolean_or(
+            builder,
+            lhs_presence_eval,
+            chi_eval - rhs_value_eval,
+        )?)),
+        (None, Some(rhs_presence_eval)) => Ok(Some(verifier_evaluate_boolean_or(
+            builder,
+            rhs_presence_eval,
+            chi_eval - lhs_value_eval,
+        )?)),
+        (Some(lhs_presence_eval), Some(rhs_presence_eval)) => {
+            let both_present =
+                verifier_evaluate_boolean_and(builder, lhs_presence_eval, rhs_presence_eval)?;
+            let lhs_false_present = verifier_evaluate_boolean_and(
+                builder,
+                lhs_presence_eval,
+                chi_eval - lhs_value_eval,
+            )?;
+            let rhs_false_present = verifier_evaluate_boolean_and(
+                builder,
+                rhs_presence_eval,
+                chi_eval - rhs_value_eval,
+            )?;
+            let left = verifier_evaluate_boolean_or(builder, both_present, lhs_false_present)?;
+            Ok(Some(verifier_evaluate_boolean_or(
+                builder,
+                left,
+                rhs_false_present,
+            )?))
+        }
+    }
+}
+
+/// Verify SQL three-valued `OR` result presence for nullable boolean operands.
+pub(crate) fn verifier_evaluate_nullable_boolean_or_presence<S: Scalar>(
+    builder: &mut impl VerificationBuilder<S>,
+    lhs_value_eval: S,
+    lhs_presence_eval: Option<S>,
+    rhs_value_eval: S,
+    rhs_presence_eval: Option<S>,
+) -> Result<Option<S>, ProofError> {
+    match (lhs_presence_eval, rhs_presence_eval) {
+        (None, None) => Ok(None),
+        (Some(lhs_presence_eval), None) => Ok(Some(verifier_evaluate_boolean_or(
+            builder,
+            lhs_presence_eval,
+            rhs_value_eval,
+        )?)),
+        (None, Some(rhs_presence_eval)) => Ok(Some(verifier_evaluate_boolean_or(
+            builder,
+            rhs_presence_eval,
+            lhs_value_eval,
+        )?)),
+        (Some(lhs_presence_eval), Some(rhs_presence_eval)) => {
+            let both_present =
+                verifier_evaluate_boolean_and(builder, lhs_presence_eval, rhs_presence_eval)?;
+            let lhs_true_present =
+                verifier_evaluate_boolean_and(builder, lhs_presence_eval, lhs_value_eval)?;
+            let rhs_true_present =
+                verifier_evaluate_boolean_and(builder, rhs_presence_eval, rhs_value_eval)?;
+            let left = verifier_evaluate_boolean_or(builder, both_present, lhs_true_present)?;
+            Ok(Some(verifier_evaluate_boolean_or(
+                builder,
+                left,
+                rhs_true_present,
+            )?))
+        }
     }
 }
 

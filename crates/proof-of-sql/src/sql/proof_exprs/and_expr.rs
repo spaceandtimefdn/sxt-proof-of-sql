@@ -1,7 +1,7 @@
 use super::{
-    final_round_evaluate_boolean_and, final_round_evaluate_nullable_presence,
-    first_round_evaluate_boolean_and, first_round_evaluate_nullable_presence,
-    verifier_evaluate_boolean_and, verifier_evaluate_nullable_presence, DynProofExpr,
+    final_round_evaluate_boolean_and, final_round_evaluate_nullable_boolean_and_presence,
+    first_round_evaluate_boolean_and, first_round_evaluate_nullable_boolean_and_presence,
+    verifier_evaluate_boolean_and, verifier_evaluate_nullable_boolean_and_presence, DynProofExpr,
     NullableColumnEvaluation, ProofExpr,
 };
 use crate::{
@@ -158,10 +158,12 @@ impl ProofExpr for AndExpr {
             lhs,
             rhs,
         ));
-        let presence = first_round_evaluate_nullable_presence(
+        let presence = first_round_evaluate_nullable_boolean_and_presence(
             table.num_rows(),
             alloc,
+            lhs,
             lhs_column.presence(),
+            rhs,
             rhs_column.presence(),
         );
         Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
@@ -189,10 +191,12 @@ impl ProofExpr for AndExpr {
             .as_boolean()
             .expect("rhs is not boolean");
         let values = Column::Boolean(final_round_evaluate_boolean_and(builder, alloc, lhs, rhs));
-        let presence = final_round_evaluate_nullable_presence(
+        let presence = final_round_evaluate_nullable_boolean_and_presence(
             builder,
             alloc,
+            lhs,
             lhs_column.presence(),
+            rhs,
             rhs_column.presence(),
         );
         Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
@@ -213,8 +217,14 @@ impl ProofExpr for AndExpr {
             .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
         let value_eval =
             verifier_evaluate_boolean_and(builder, lhs.value_eval(), rhs.value_eval())?;
-        let presence_eval =
-            verifier_evaluate_nullable_presence(builder, lhs.presence_eval(), rhs.presence_eval())?;
+        let presence_eval = verifier_evaluate_nullable_boolean_and_presence(
+            builder,
+            chi_eval,
+            lhs.value_eval(),
+            lhs.presence_eval(),
+            rhs.value_eval(),
+            rhs.presence_eval(),
+        )?;
         Ok(NullableColumnEvaluation::new(value_eval, presence_eval))
     }
 

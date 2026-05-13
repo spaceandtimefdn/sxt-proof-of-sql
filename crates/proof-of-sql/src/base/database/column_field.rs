@@ -53,3 +53,34 @@ impl ColumnField {
         self.nullable
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_field_defaults_to_non_nullable() {
+        let field = ColumnField::new("score".into(), ColumnType::BigInt);
+
+        assert!(!field.is_nullable());
+    }
+
+    #[test]
+    fn column_field_can_be_explicitly_nullable() {
+        let field = ColumnField::new_nullable("score".into(), ColumnType::BigInt);
+
+        assert!(field.is_nullable());
+    }
+
+    #[test]
+    fn column_field_serde_is_backward_compatible_without_nullable_flag() {
+        let field: ColumnField = serde_json::from_str(
+            r#"{"name":{"value":"score","quote_style":null},"data_type":"BigInt"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(field.name(), Ident::new("score"));
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+        assert!(!field.is_nullable());
+    }
+}
