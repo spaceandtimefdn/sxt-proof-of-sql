@@ -151,6 +151,11 @@ impl ProofExpr for PlaceholderExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        base::{map::indexmap, scalar::test_scalar::TestScalar},
+        sql::proof::{SumcheckMleEvaluations, VerificationBuilderImpl},
+    };
+    use alloc::collections::VecDeque;
     // new
     #[test]
     fn we_cannot_create_a_placeholder_with_zero_id() {
@@ -204,5 +209,77 @@ mod tests {
         let params = vec![LiteralValue::Boolean(true)];
         let res = placeholder_expr.interpolate(&params);
         assert_eq!(res.unwrap(), &LiteralValue::Boolean(true));
+    }
+
+    #[test]
+    fn we_can_evaluate_placeholder_in_the_first_round() {
+        let alloc = Bump::new();
+        let table_values = [10_i64, 20_i64, 30_i64];
+        let table = Table::try_new(indexmap! {
+            "a".into() => Column::BigInt::<TestScalar>(&table_values),
+        })
+        .unwrap();
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(42)];
+        let evaluated = placeholder_expr
+            .first_round_evaluate(&alloc, &table, &params)
+            .unwrap();
+        let expected_values = [42_i64, 42, 42];
+
+        assert_eq!(evaluated, Column::BigInt(&expected_values));
+    }
+
+    #[test]
+    fn we_can_evaluate_placeholder_in_the_final_round() {
+        let alloc = Bump::new();
+        let table_values = [true, false];
+        let table = Table::try_new(indexmap! {
+            "a".into() => Column::Boolean::<TestScalar>(&table_values),
+        })
+        .unwrap();
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
+        let params = [LiteralValue::Boolean(true)];
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(2, VecDeque::new());
+        let evaluated = placeholder_expr
+            .final_round_evaluate(&mut builder, &alloc, &table, &params)
+            .unwrap();
+        let expected_values = [true, true];
+
+        assert_eq!(evaluated, Column::Boolean(&expected_values));
+    }
+
+    #[test]
+    fn we_can_evaluate_placeholder_for_the_verifier() {
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(7)];
+        let mut builder = VerificationBuilderImpl::<TestScalar>::new(
+            SumcheckMleEvaluations::default(),
+            &[][..],
+            &[][..],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            0,
+        );
+        let evaluated = placeholder_expr
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                TestScalar::from(3),
+                &params,
+            )
+            .unwrap();
+
+        assert_eq!(evaluated, TestScalar::from(21));
+    }
+
+    #[test]
+    fn placeholders_do_not_reference_table_columns() {
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
+        let mut columns = IndexSet::default();
+
+        placeholder_expr.get_column_references(&mut columns);
+
+        assert!(columns.is_empty());
     }
 }
