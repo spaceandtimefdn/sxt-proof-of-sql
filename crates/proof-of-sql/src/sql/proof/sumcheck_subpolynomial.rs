@@ -91,7 +91,10 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
+    use super::{
+        CompositePolynomialBuilder, SumcheckSubpolynomial, SumcheckSubpolynomialTerm,
+        SumcheckSubpolynomialType,
+    };
     use crate::base::scalar::test_scalar::TestScalar;
     use alloc::boxed::Box;
 
@@ -118,5 +121,43 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn compose_adds_identity_terms_to_the_composite_polynomial() {
+        let fr = vec![TestScalar::from(3), TestScalar::from(4)];
+        let mle = vec![TestScalar::from(7), TestScalar::from(11)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(2), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::Identity, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        assert_eq!(
+            subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::Identity
+        );
+        subpoly.compose(&mut builder, TestScalar::from(5));
+
+        let composite = builder.make_composite_polynomial();
+        assert_eq!(composite.hypercube_sum(2), TestScalar::from(650));
+    }
+
+    #[test]
+    fn compose_adds_zero_sum_terms_to_the_composite_polynomial() {
+        let fr = vec![TestScalar::from(3), TestScalar::from(4)];
+        let mle = vec![TestScalar::from(7), TestScalar::from(11)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(2), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        assert_eq!(
+            subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::ZeroSum
+        );
+        subpoly.compose(&mut builder, TestScalar::from(5));
+
+        let composite = builder.make_composite_polynomial();
+        assert_eq!(composite.hypercube_sum(2), TestScalar::from(180));
     }
 }
