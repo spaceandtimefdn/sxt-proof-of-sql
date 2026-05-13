@@ -196,15 +196,17 @@ impl ProofPlan for MembershipCheckTestPlan {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         base::database::{table_utility::*, ColumnType, TableTestAccessor, TestAccessor},
-        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+        base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
+            scalar::test_scalar::TestScalar,
+        },
         sql::proof::VerifiableQueryResult,
     };
-    use blitzar::proof::InnerProductProof;
 
     #[test]
     fn we_can_do_minimal_membership_check() {
@@ -213,7 +215,7 @@ mod tests {
         let candidate_table = table([borrowed_bigint("c", [1, 2, 2, 1, 2], &alloc)]);
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -235,7 +237,7 @@ mod tests {
             )],
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
         let actual = verifiable_res
             .verify(&plan, &accessor, &(), &[])
             .unwrap()
@@ -261,7 +263,7 @@ mod tests {
         ]);
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -283,7 +285,7 @@ mod tests {
             ],
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
         let actual = verifiable_res
             .verify(&plan, &accessor, &(), &[])
             .unwrap()
@@ -309,7 +311,7 @@ mod tests {
         ]);
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -331,7 +333,7 @@ mod tests {
             ],
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
         let actual = verifiable_res
             .verify(&plan, &accessor, &(), &[])
             .unwrap()
@@ -351,7 +353,7 @@ mod tests {
         let candidate_table = table([borrowed_bigint("a", [1, 2, 1, 1, 2], &alloc)]);
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -371,25 +373,25 @@ mod tests {
                 ColumnType::BigInt,
             )],
         };
-        VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "The number of source columns should be greater than 0")]
     fn we_can_do_membership_check_if_there_are_no_columns_in_the_tables() {
-        let source_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let source_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(5) },
         )
         .unwrap();
-        let candidate_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let candidate_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(4) },
         )
         .unwrap();
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -403,26 +405,26 @@ mod tests {
             candidate_columns: vec![],
         };
         let _verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "The number of source columns should be greater than 0")]
     fn we_can_do_membership_check_if_there_are_no_columns_in_the_tables_and_candidate_has_no_rows_either(
     ) {
-        let source_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let source_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(5) },
         )
         .unwrap();
-        let candidate_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let candidate_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(0) },
         )
         .unwrap();
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -436,25 +438,25 @@ mod tests {
             candidate_columns: vec![],
         };
         let _verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "The number of source columns should be greater than 0")]
     fn we_cannot_do_membership_check_if_there_are_neither_rows_nor_columns_in_the_tables() {
-        let source_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let source_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(0) },
         )
         .unwrap();
-        let candidate_table = Table::<'_, Curve25519Scalar>::try_new_with_options(
+        let candidate_table = Table::<'_, TestScalar>::try_new_with_options(
             IndexMap::default(),
             TableOptions { row_count: Some(0) },
         )
         .unwrap();
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -468,7 +470,7 @@ mod tests {
             candidate_columns: vec![],
         };
         let _verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }
 
     #[test]
@@ -485,7 +487,7 @@ mod tests {
         ]);
         let source_table_ref: TableRef = "sxt.source_table".parse().unwrap();
         let candidate_table_ref: TableRef = "sxt.candidate_table".parse().unwrap();
-        let mut accessor = TableTestAccessor::<InnerProductProof>::new_from_table(
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             source_table_ref.clone(),
             source_table,
             0,
@@ -499,6 +501,6 @@ mod tests {
             candidate_columns: vec![],
         };
         let _verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
     }
 }
