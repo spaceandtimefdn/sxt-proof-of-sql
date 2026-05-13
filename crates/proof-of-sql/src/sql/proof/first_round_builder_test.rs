@@ -1,11 +1,12 @@
 use super::FirstRoundBuilder;
-use crate::{
-    base::commitment::{Commitment, CommittableColumn},
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
-};
+#[cfg(feature = "blitzar")]
+use crate::base::commitment::{Commitment, CommittableColumn};
+use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+#[cfg(feature = "blitzar")]
 use curve25519_dalek::RistrettoPoint;
 
 #[test]
+#[cfg(feature = "blitzar")]
 fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
     let mle1 = [1, 2];
     let mle2 = [10i64, 20];
@@ -26,6 +27,7 @@ fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
 }
 
 #[test]
+#[cfg(feature = "blitzar")]
 fn we_can_compute_commitments_for_intermediate_mles_using_a_non_zero_offset() {
     let mle1 = [1, 2];
     let mle2 = [10i64, 20];
