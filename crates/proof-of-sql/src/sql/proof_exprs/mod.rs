@@ -81,5 +81,5 @@ mod cast_expr_test;
 
 mod scaling_cast_expr;
 pub(crate) use scaling_cast_expr::ScalingCastExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod scaling_cast_expr_test;
