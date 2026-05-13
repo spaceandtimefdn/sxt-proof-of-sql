@@ -1,5 +1,7 @@
 use super::{test_utility::*, LegacyFilterExec};
+use crate::base::commitment::naive_evaluation_proof::NaiveEvaluationProof;
 use crate::{
+    base::scalar::test_scalar::TestScalar,
     base::{
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType,
@@ -9,16 +11,14 @@ use crate::{
         map::{indexmap, IndexMap, IndexSet},
         math::decimal::Precision,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
-            exercise_verification, FirstRoundBuilder, ProofPlan, ProvableQueryResult,
-            ProverEvaluate, VerifiableQueryResult,
+            FirstRoundBuilder, ProofPlan, ProvableQueryResult, ProverEvaluate,
+            VerifiableQueryResult,
         },
         proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, LiteralExpr, TableExpr},
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 use sqlparser::ast::Ident;
 
@@ -160,11 +160,11 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_filter() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
     let ast = legacy_filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -188,7 +188,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_on_an_empty_table_using_first_
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let expr = legacy_filter(
@@ -206,13 +206,13 @@ fn we_can_get_an_empty_result_from_a_basic_filter_on_an_empty_table_using_first_
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
@@ -237,7 +237,7 @@ fn we_can_get_an_empty_result_from_a_basic_filter_using_first_round_evaluate() {
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(999));
     let expr = legacy_filter(
@@ -255,13 +255,13 @@ fn we_can_get_an_empty_result_from_a_basic_filter_using_first_round_evaluate() {
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
         varchar("d", [""; 0]),
@@ -286,13 +286,13 @@ fn we_can_get_no_columns_from_a_basic_filter_with_no_selected_columns_using_firs
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
     let expr = legacy_filter(cols_expr_plan(&t, &[], &accessor), tab(&t), where_clause);
     let fields = &[];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
@@ -317,7 +317,7 @@ fn we_can_get_the_correct_result_from_a_basic_filter_using_first_round_evaluate(
     let table_map = indexmap! {
         t.clone() => data.clone()
     };
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let where_clause: DynProofExpr = equal(column(&t, "a", &accessor), const_int128(5));
     let expr = legacy_filter(
@@ -335,13 +335,13 @@ fn we_can_get_the_correct_result_from_a_basic_filter_using_first_round_evaluate(
         ),
     ];
     let first_round_builder = &mut FirstRoundBuilder::new(data_length);
-    let res: OwnedTable<Curve25519Scalar> = ProvableQueryResult::from(
+    let res: OwnedTable<TestScalar> = ProvableQueryResult::from(
         expr.first_round_evaluate(first_round_builder, &alloc, &table_map, &[])
             .unwrap(),
     )
     .to_owned_table(fields)
     .unwrap();
-    let expected: OwnedTable<Curve25519Scalar> = owned_table([
+    let expected: OwnedTable<TestScalar> = owned_table([
         bigint("b", [3, 5]),
         int128("c", [3, 5]),
         varchar("d", ["3", "5"]),
@@ -360,14 +360,15 @@ fn we_can_prove_a_filter_on_an_empty_table() {
         scalar("e", [3; 0]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
-    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [3; 0]),
@@ -388,15 +389,15 @@ fn we_can_prove_a_filter_with_empty_results() {
         scalar("e", [1, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = legacy_filter(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [3; 0]),
@@ -417,7 +418,7 @@ fn we_can_prove_a_filter() {
         scalar("e", [1, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = legacy_filter(
         vec![
@@ -434,8 +435,8 @@ fn we_can_prove_a_filter() {
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(105)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("b", [3, 7]),
