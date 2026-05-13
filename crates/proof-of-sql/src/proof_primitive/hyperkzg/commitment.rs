@@ -130,6 +130,22 @@ fn compute_commitment_generic_impl<T: Into<BNScalar> + Clone + Sync>(
 }
 
 #[cfg(any(not(feature = "blitzar"), test))]
+fn compute_limb_commitment_impl(
+    setup: HyperKZGPublicSetup<'_>,
+    offset: usize,
+    scalars: &[[u64; 4]],
+) -> HyperKZGCommitment {
+    assert!(offset + scalars.len() <= setup.len());
+    let product: G1Projective = if_rayon!(scalars.par_iter(), scalars.iter())
+        .zip(&setup[offset..offset + scalars.len()])
+        .map(|(limbs, s)| *s * BNScalar::from_limbs(*limbs).0)
+        .sum();
+    HyperKZGCommitment {
+        commitment: G1Projective::from(product),
+    }
+}
+
+#[cfg(any(not(feature = "blitzar"), test))]
 #[tracing::instrument(name = "compute_commitments_impl (cpu)", level = "debug", skip_all)]
 fn compute_commitments_impl(
     committable_columns: &[crate::base::commitment::CommittableColumn],
@@ -157,7 +173,7 @@ fn compute_commitments_impl(
             | CommittableColumn::Scalar(vals)
             | CommittableColumn::VarChar(vals)
             | CommittableColumn::VarBinary(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                compute_limb_commitment_impl(setup, offset, vals)
             }
         })
         .collect()
