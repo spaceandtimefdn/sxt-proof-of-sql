@@ -4,6 +4,8 @@ pub use empty_exec::EmptyExec;
 
 mod table_exec;
 pub use table_exec::TableExec;
+#[cfg(test)]
+mod table_exec_accessor_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod table_exec_test;
 
