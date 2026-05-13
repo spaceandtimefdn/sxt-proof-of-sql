@@ -150,3 +150,85 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_filter, verify_evaluate_filter};
+    use crate::{
+        base::{
+            database::table_utility::borrowed_bigint,
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder,
+        },
+        sql::proof_plans::fold_vals,
+    };
+    use bumpalo::Bump;
+    use core::convert::identity;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn we_can_verify_filter_constraints() {
+        let alloc = Bump::new();
+        let input_column = borrowed_bigint::<TestScalar>("input", [1, 2, 3], &alloc).1;
+        let filtered_column = borrowed_bigint::<TestScalar>("filtered", [1, 3], &alloc).1;
+        let selection = &[true, false, true];
+        let output_chi = &[true, true];
+        let alpha = TestScalar::TWO;
+        let beta = TestScalar::TEN;
+
+        let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(3);
+        let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+            FinalRoundBuilder::new(3, VecDeque::new());
+        final_round_evaluate_filter(
+            &mut final_round_builder,
+            &alloc,
+            alpha,
+            beta,
+            &[input_column.clone()],
+            selection,
+            &[filtered_column.clone()],
+            3,
+            2,
+        );
+
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 2);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 4);
+
+        let verification_builder = run_verify_for_each_row(
+            3,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, input_chi_eval, evaluation_point| {
+                let c_fold_eval =
+                    alpha * fold_vals(beta, &[input_column.inner_product(evaluation_point)]);
+                let d_fold_eval =
+                    alpha * fold_vals(beta, &[filtered_column.inner_product(evaluation_point)]);
+                verify_evaluate_filter(
+                    verification_builder,
+                    c_fold_eval,
+                    d_fold_eval,
+                    input_chi_eval,
+                    output_chi.inner_product(evaluation_point),
+                    selection.inner_product(evaluation_point),
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|row| row.iter().copied().all(identity)));
+        assert!(verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .copied()
+            .all(identity));
+    }
+}
