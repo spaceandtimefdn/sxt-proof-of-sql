@@ -39,3 +39,34 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_stores_column_metadata() {
+        let table_ref = TableRef::new("public", "transactions");
+        let column_id = Ident::new("amount");
+        let column_ref = ColumnRef::new(table_ref.clone(), column_id.clone(), ColumnType::BigInt);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), column_id);
+        assert_eq!(column_ref.column_type(), &ColumnType::BigInt);
+    }
+
+    #[test]
+    fn accessors_return_owned_identifier_values() {
+        let table_ref = TableRef::new("public", "transactions");
+        let column_ref = ColumnRef::new(table_ref, Ident::new("amount"), ColumnType::BigInt);
+
+        let mut returned_column_id = column_ref.column_id();
+        returned_column_id.value = "other_column".into();
+
+        assert_eq!(
+            column_ref.table_ref(),
+            TableRef::new("public", "transactions")
+        );
+        assert_eq!(column_ref.column_id().value, "amount");
+    }
+}
