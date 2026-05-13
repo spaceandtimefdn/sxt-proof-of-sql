@@ -2,6 +2,7 @@ use crate::base::{
     encode::{ZigZag, U256},
     scalar::test_scalar::TestScalar,
 };
+use proptest::prelude::*;
 
 #[test]
 fn small_scalars_are_encoded_as_positive_zigzag_values() {
@@ -119,4 +120,33 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
         (-val).zigzag()
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
     );
+}
+
+proptest! {
+    #[test]
+    fn prop_positive_u64_zigzag_roundtrips(value in any::<u64>()) {
+        let scalar = TestScalar::from(value);
+        let encoded: U256 = scalar.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert_eq!(decoded, scalar);
+        prop_assert!(encoded == U256::from_words(u128::from(value) * 2, 0));
+    }
+
+    #[test]
+    fn prop_signed_i64_zigzag_roundtrips(value in any::<i64>()) {
+        let scalar = TestScalar::from(value);
+        let encoded: U256 = scalar.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert_eq!(decoded, scalar);
+    }
+
+    #[test]
+    fn prop_u64_encoded_values_decode_without_panicking(value in any::<u64>()) {
+        let encoded = U256::from_words(u128::from(value), 0);
+        let decoded: TestScalar = encoded.zigzag();
+
+        prop_assert!(decoded.zigzag() == encoded);
+    }
 }
