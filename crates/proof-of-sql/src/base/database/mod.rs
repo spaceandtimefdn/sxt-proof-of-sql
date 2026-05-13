@@ -74,6 +74,13 @@ pub mod arrow_schema_utility;
 mod owned_column;
 pub use owned_column::OwnedColumn;
 
+mod nullable_column;
+pub use nullable_column::{
+    NullableColumn, NullableColumnError, NullableColumnResult, NullableOwnedColumn,
+};
+#[cfg(test)]
+mod nullable_column_proof_test;
+
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
