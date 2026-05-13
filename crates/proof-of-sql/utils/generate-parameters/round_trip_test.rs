@@ -1,12 +1,123 @@
+use super::{
+    compute_sha256 as utility_compute_sha256, rng_from_seed, save_digests, Args, Mode, SEED,
+};
+use ark_std::rand::RngCore;
+use clap::Parser;
 use proof_of_sql::proof_primitive::dory::{ProverSetup, PublicParameters, VerifierSetup};
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{self, BufRead},
+    io::{self, BufRead, Write},
     path::Path,
     process::Command,
 };
 use tempfile::tempdir;
+
+#[test]
+fn we_can_parse_default_args() {
+    let args = Args::try_parse_from(["generate-parameters"]).unwrap();
+
+    assert_eq!(args.nu, 8);
+    assert!(matches!(args.mode, Mode::All));
+    assert_eq!(args.seed, SEED);
+    assert_eq!(args.target, "./output");
+}
+
+#[test]
+fn we_can_parse_custom_args() {
+    let args = Args::try_parse_from([
+        "generate-parameters",
+        "--nu",
+        "5",
+        "--mode",
+        "verifier",
+        "--seed",
+        "custom",
+        "--target",
+        "./custom-output",
+    ])
+    .unwrap();
+
+    assert_eq!(args.nu, 5);
+    assert!(matches!(args.mode, Mode::Verifier));
+    assert_eq!(args.seed, "custom");
+    assert_eq!(args.target, "./custom-output");
+}
+
+#[test]
+fn we_can_seed_rng_deterministically() {
+    let args = Args::try_parse_from(["generate-parameters", "--seed", "abc"]).unwrap();
+    let mut first_rng = rng_from_seed(&args);
+    let mut second_rng = rng_from_seed(&args);
+
+    assert_eq!(first_rng.next_u64(), second_rng.next_u64());
+    assert_eq!(first_rng.next_u64(), second_rng.next_u64());
+}
+
+#[test]
+fn we_can_compute_sha256_for_existing_file() {
+    let temp_dir = tempdir().unwrap();
+    let file_path = temp_dir.path().join("data.txt");
+    std::fs::write(&file_path, b"proof-of-sql").unwrap();
+
+    assert_eq!(
+        utility_compute_sha256(file_path.to_str().unwrap()).unwrap(),
+        "58b1a9cc252e31aada59534f24bbd4b9b1b0cbd95dd1fbe5c38bb38577faeaac"
+    );
+}
+
+#[test]
+fn compute_sha256_returns_none_for_missing_file() {
+    let temp_dir = tempdir().unwrap();
+    let file_path = temp_dir.path().join("missing.txt");
+
+    assert!(utility_compute_sha256(file_path.to_str().unwrap()).is_none());
+}
+
+#[test]
+fn we_can_save_and_read_digest_entries() {
+    let temp_dir = tempdir().unwrap();
+    let target = temp_dir.path().to_str().unwrap();
+    let first_path = temp_dir.path().join("first.bin");
+    let second_path = temp_dir.path().join("second.bin");
+
+    let digests = vec![
+        (
+            first_path.to_string_lossy().into_owned(),
+            "abc123".to_string(),
+        ),
+        (
+            second_path.to_string_lossy().into_owned(),
+            "def456".to_string(),
+        ),
+    ];
+
+    save_digests(&digests, target, 3);
+
+    let digest_path = temp_dir.path().join("digests_nu_3.txt");
+    let entries = read_digests_from_file(digest_path.to_str().unwrap());
+
+    assert_eq!(entries.get(first_path.to_str().unwrap()).unwrap(), "abc123");
+    assert_eq!(
+        entries.get(second_path.to_str().unwrap()).unwrap(),
+        "def456"
+    );
+}
+
+#[test]
+fn read_digests_ignores_malformed_entries() {
+    let temp_dir = tempdir().unwrap();
+    let digest_path = temp_dir.path().join("digests.txt");
+    let mut file = File::create(&digest_path).unwrap();
+    writeln!(file, "abc123  /tmp/valid.bin").unwrap();
+    writeln!(file, "malformed only has too many fields").unwrap();
+    writeln!(file, "missing_path").unwrap();
+
+    let entries = read_digests_from_file(digest_path.to_str().unwrap());
+
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries.get("/tmp/valid.bin").unwrap(), "abc123");
+}
 
 /// # Panics
 /// This test will panic in a number of non-consequential, expected cases.
