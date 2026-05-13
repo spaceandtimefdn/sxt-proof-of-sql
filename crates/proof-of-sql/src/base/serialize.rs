@@ -51,3 +51,45 @@ macro_rules! impl_serde_for_ark_serde_unchecked {
 
 pub(crate) use impl_serde_for_ark_serde_checked;
 pub(crate) use impl_serde_for_ark_serde_unchecked;
+
+#[cfg(test)]
+mod tests {
+    use ark_bn254::Fr;
+    use ark_ff::PrimeField;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
+    #[derive(CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq, Eq)]
+    struct CheckedArkSerdeTest(Fr);
+
+    #[derive(CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq, Eq)]
+    struct UncheckedArkSerdeTest(Fr);
+
+    impl_serde_for_ark_serde_checked!(CheckedArkSerdeTest);
+    impl_serde_for_ark_serde_unchecked!(UncheckedArkSerdeTest);
+
+    #[test]
+    fn we_can_roundtrip_checked_ark_serde_type() {
+        let value = CheckedArkSerdeTest(Fr::from(123u64));
+        let serialized = serde_json::to_string(&value).unwrap();
+        let deserialized: CheckedArkSerdeTest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, value);
+    }
+
+    #[test]
+    fn we_can_roundtrip_unchecked_ark_serde_type() {
+        let value = UncheckedArkSerdeTest(Fr::from(456u64));
+        let serialized = serde_json::to_string(&value).unwrap();
+        let deserialized: UncheckedArkSerdeTest = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, value);
+    }
+
+    #[test]
+    fn we_reject_invalid_checked_ark_serde_bytes() {
+        let invalid_field_element_bytes = vec![u8::MAX; Fr::MODULUS_BIT_SIZE.div_ceil(8) as usize];
+        let serialized = serde_json::to_string(&invalid_field_element_bytes).unwrap();
+
+        assert!(serde_json::from_str::<CheckedArkSerdeTest>(&serialized).is_err());
+    }
+}
