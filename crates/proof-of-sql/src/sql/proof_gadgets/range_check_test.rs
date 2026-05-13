@@ -178,32 +178,32 @@ impl ProofPlan for RangeCheckTestPlan {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
             database::{owned_table_utility::*, ColumnRef, ColumnType, OwnedTableTestAccessor},
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+            scalar::test_scalar::TestScalar,
         },
-        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
         sql::proof::VerifiableQueryResult,
     };
-    use blitzar::proof::InnerProductProof;
     use num_bigint::BigUint;
 
     fn check_range(
         table_name: TableRef,
         col_name: &str,
         col_type: ColumnType,
-        accessor: &OwnedTableTestAccessor<InnerProductProof>,
+        accessor: &OwnedTableTestAccessor<NaiveEvaluationProof>,
     ) {
         let ast = RangeCheckTestPlan {
             column: ColumnRef::new(table_name, col_name.into(), col_type),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, accessor, &(), &[]).unwrap();
         assert!(verifiable_res.verify(&ast, accessor, &(), &[]).is_ok());
     }
 
@@ -227,9 +227,9 @@ mod tests {
                 74,
                 0,
                 [
-                    Curve25519Scalar::ZERO,
+                    TestScalar::ZERO,
                     // 2^248 - 1
-                    Curve25519Scalar::from_bigint(
+                    TestScalar::from_bigint(
                         (BigUint::from(2u8).pow(248) - BigUint::from(1u8))
                             .to_u64_digits()
                             .try_into()
@@ -241,7 +241,7 @@ mod tests {
 
         let t: TableRef = "sxt.t".parse().unwrap();
         let accessor =
-            OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+            OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
 
         check_range(t.clone(), "uint8", ColumnType::Uint8, &accessor);
         check_range(t.clone(), "tinyint", ColumnType::TinyInt, &accessor);
@@ -271,12 +271,12 @@ mod tests {
         let data = owned_table([scalar("a", -2..254)]);
         let t = TableRef::new("sxt", "t");
         let accessor =
-            OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+            OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
             column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
         let _ = verifiable_res.verify(&ast, &accessor, &(), &[]);
     }
 
@@ -289,28 +289,25 @@ mod tests {
         // Convert Vec<u64> to [u64; 4]
         let limbs: [u64; 4] = limbs_vec[..4].try_into().unwrap();
 
-        let upper_bound = Curve25519Scalar::from_bigint(limbs);
+        let upper_bound = TestScalar::from_bigint(limbs);
 
         // Generate the test data
-        let data: OwnedTable<Curve25519Scalar> = owned_table([scalar(
+        let data: OwnedTable<TestScalar> = owned_table([scalar(
             "a",
             (0..2u32.pow(10))
-                .map(|i| upper_bound - Curve25519Scalar::from(u64::from(i))) // Count backward from 2^248
+                .map(|i| upper_bound - TestScalar::from(u64::from(i))) // Count backward from 2^248
                 .collect::<Vec<_>>(),
         )]);
 
         let t = TableRef::new("sxt", "t");
         let accessor =
-            OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+            OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
             column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
-        let res: Result<
-            crate::sql::proof::QueryData<crate::base::scalar::MontScalar<ark_curve25519::FrConfig>>,
-            crate::sql::proof::QueryError,
-        > = verifiable_res.verify(&ast, &accessor, &(), &[]);
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        let res = verifiable_res.verify(&ast, &accessor, &(), &[]);
 
         if let Err(e) = res {
             panic!("Verification failed: {e}");
@@ -328,28 +325,25 @@ mod tests {
         // Convert Vec<u64> to [u64; 4]
         let limbs: [u64; 4] = limbs_vec[..4].try_into().unwrap();
 
-        let upper_bound = Curve25519Scalar::from_bigint(limbs);
+        let upper_bound = TestScalar::from_bigint(limbs);
 
         // Generate the test data
-        let data: OwnedTable<Curve25519Scalar> = owned_table([scalar(
+        let data: OwnedTable<TestScalar> = owned_table([scalar(
             "a",
             (0u8..1)
-                .map(|i| upper_bound - Curve25519Scalar::from(i)) // Count backward from 2^248
+                .map(|i| upper_bound - TestScalar::from(i)) // Count backward from 2^248
                 .collect::<Vec<_>>(),
         )]);
 
         let t = TableRef::new("sxt", "t");
         let accessor =
-            OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+            OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
             column: ColumnRef::new(t.clone(), "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
-        let res: Result<
-            crate::sql::proof::QueryData<crate::base::scalar::MontScalar<ark_curve25519::FrConfig>>,
-            crate::sql::proof::QueryError,
-        > = verifiable_res.verify(&ast, &accessor, &(), &[]);
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        let res = verifiable_res.verify(&ast, &accessor, &(), &[]);
 
         if let Err(e) = res {
             panic!("Verification failed: {e}");
@@ -369,24 +363,24 @@ mod tests {
         // Convert Vec<u64> to [u64; 4]
         let limbs: [u64; 4] = limbs_vec[..4].try_into().unwrap();
 
-        let upper_bound = Curve25519Scalar::from_bigint(limbs);
+        let upper_bound = TestScalar::from_bigint(limbs);
 
         // Generate the test data
-        let data: OwnedTable<Curve25519Scalar> = owned_table([scalar(
+        let data: OwnedTable<TestScalar> = owned_table([scalar(
             "a",
             (0u16..2u16.pow(10))
-                .map(|i| upper_bound - Curve25519Scalar::from(i)) // Count backward from 2^248
+                .map(|i| upper_bound - TestScalar::from(i)) // Count backward from 2^248
                 .collect::<Vec<_>>(),
         )]);
 
         let t: TableRef = "sxt.t".parse().unwrap();
         let accessor =
-            OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+            OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
         let ast = RangeCheckTestPlan {
             column: ColumnRef::new(t, "a".into(), ColumnType::Scalar),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
         verifiable_res.verify(&ast, &accessor, &(), &[]).unwrap();
     }
 }
