@@ -108,8 +108,51 @@ mod tests {
         },
         proof_primitive::dory::{test_rng, DoryScalar, ProverSetup, PublicParameters},
     };
+    use ark_ec::pairing::PairingOutput;
     use ark_ff::UniformRand;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use num_traits::One;
     use rand::{rngs::StdRng, SeedableRng};
+
+    #[test]
+    fn default_dynamic_dory_commitment_is_the_multiplicative_identity() {
+        assert_eq!(
+            DynamicDoryCommitment::default(),
+            DynamicDoryCommitment(PairingOutput(One::one()))
+        );
+    }
+
+    #[test]
+    fn we_can_scale_dynamic_dory_commitments_by_value_and_reference() {
+        let mut rng = StdRng::seed_from_u64(7);
+        let scalar = DoryScalar::rand(&mut rng);
+        let commitment = DynamicDoryCommitment(GT::rand(&mut rng));
+
+        assert_eq!(scalar * commitment, scalar * &commitment);
+        assert_eq!((scalar * commitment).0, commitment.0 * scalar.0);
+    }
+
+    #[test]
+    fn computing_empty_dynamic_dory_commitments_returns_empty() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+
+        let commitments = DynamicDoryCommitment::compute_commitments(&[], 0, &&setup);
+
+        assert!(commitments.is_empty());
+    }
+
+    #[test]
+    fn we_can_canonical_serialize_dynamic_dory_commitments() {
+        let mut rng = StdRng::seed_from_u64(11);
+        let commitment = DynamicDoryCommitment(GT::rand(&mut rng));
+        let mut bytes = Vec::new();
+
+        commitment.serialize_compressed(&mut bytes).unwrap();
+        let deserialized = DynamicDoryCommitment::deserialize_compressed(&bytes[..]).unwrap();
+
+        assert_eq!(deserialized, commitment);
+    }
 
     #[test]
     fn we_get_different_transcript_bytes_from_different_dynamic_dory_commitments() {
