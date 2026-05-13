@@ -161,3 +161,21 @@ fn we_can_interpolate_evaluations_to_reverse_coefficients_with_degree_3_degenera
         vec![S::from(0), S::from(0), S::from(2), S::from(1)]
     );
 }
+
+#[test]
+fn we_can_interpolate_evaluations_to_reverse_coefficients_with_degree_4() {
+    let coefficients = [S::from(3), S::from(-2), S::from(5), S::from(0), S::from(7)];
+    let evaluations = (0..coefficients.len())
+        .map(|x| {
+            let x = S::from(u32::try_from(x).unwrap());
+            coefficients
+                .iter()
+                .fold(S::from(0), |acc, coefficient| acc * x + *coefficient)
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        interpolate_evaluations_to_reverse_coefficients(&evaluations),
+        coefficients
+    );
+}
