@@ -1,6 +1,6 @@
 use super::{pairings, DoryScalar, DynamicDoryCommitment, G1Projective, ProverSetup, GT};
 use crate::{
-    base::{commitment::CommittableColumn, if_rayon, slice_ops::slice_cast},
+    base::{commitment::CommittableColumn, if_rayon, scalar::Scalar, slice_ops::slice_cast},
     proof_primitive::dynamic_matrix_utils::matrix_structure::{
         full_width_of_row, row_and_column_from_index, row_start_index,
     },
@@ -68,13 +68,63 @@ where
     ))
 }
 
+fn compute_dory_limb_commitment_impl(
+    column: &[[u64; 4]],
+    offset: usize,
+    setup: &ProverSetup,
+) -> DynamicDoryCommitment {
+    if column.is_empty() {
+        return DynamicDoryCommitment::default();
+    }
+    let Gamma_1 = setup.Gamma_1.last().unwrap();
+    let Gamma_2 = setup.Gamma_2.last().unwrap();
+    let (first_row, first_col) = row_and_column_from_index(offset);
+    let (last_row, last_col) = row_and_column_from_index(offset + column.len() - 1);
+
+    let row_commits: Vec<_> = if_rayon!(
+        (first_row..=last_row).into_par_iter(),
+        (first_row..=last_row)
+    )
+    .map(|row| {
+        let width = full_width_of_row(row);
+        let row_start = row_start_index(row);
+        let (gamma_range, column_range) = if first_row == last_row {
+            (first_col..last_col + 1, 0..column.len())
+        } else if row == 1 {
+            (1..2, (1 - offset)..(2 - offset))
+        } else if row == first_row {
+            (first_col..width, 0..width - first_col)
+        } else if row == last_row {
+            (0..last_col + 1, column.len() - last_col - 1..column.len())
+        } else {
+            (0..width, row_start - offset..width + row_start - offset)
+        };
+        G1Projective::msm_unchecked(
+            &Gamma_1[gamma_range],
+            &Vec::from_iter(
+                column[column_range]
+                    .iter()
+                    .map(|limbs| DoryScalar::from_limbs(*limbs).0),
+            ),
+        )
+    })
+    .collect();
+
+    DynamicDoryCommitment(pairings::multi_pairing(
+        row_commits,
+        &Gamma_2[first_row..=last_row],
+    ))
+}
+
 fn compute_dory_commitment(
     committable_column: &CommittableColumn,
     offset: usize,
     setup: &ProverSetup,
 ) -> DynamicDoryCommitment {
     match committable_column {
-        CommittableColumn::Scalar(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::Scalar(column) => {
+            compute_dory_limb_commitment_impl(column, offset, setup)
+        }
         CommittableColumn::Uint8(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
@@ -84,7 +134,7 @@ fn compute_dory_commitment(
         CommittableColumn::VarChar(column)
         | CommittableColumn::VarBinary(column)
         | CommittableColumn::Decimal75(_, _, column) => {
-            compute_dory_commitment_impl(column, offset, setup)
+            compute_dory_limb_commitment_impl(column, offset, setup)
         }
         CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::TimestampTZ(_, _, column) => {
