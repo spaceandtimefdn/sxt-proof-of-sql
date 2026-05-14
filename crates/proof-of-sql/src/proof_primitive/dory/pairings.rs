@@ -138,3 +138,72 @@ fn multi_pairing_4_impl<P: Pairing>(
     );
     (c0, c1, c2, c3)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{multi_pairing, multi_pairing_2, multi_pairing_4, pairing};
+    use ark_bls12_381::{Bls12_381, Fr, G1Affine, G2Affine};
+    use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+
+    fn g1(multiplier: u64) -> G1Affine {
+        (G1Affine::generator() * Fr::from(multiplier)).into_affine()
+    }
+
+    fn g2(multiplier: u64) -> G2Affine {
+        (G2Affine::generator() * Fr::from(multiplier)).into_affine()
+    }
+
+    #[test]
+    fn we_can_compute_a_single_pairing() {
+        let p = g1(2);
+        let q = g2(3);
+
+        assert_eq!(
+            pairing::<Bls12_381>(p, q),
+            <Bls12_381 as Pairing>::pairing(p, q)
+        );
+    }
+
+    #[test]
+    fn we_can_compute_a_multi_pairing() {
+        let left = [g1(2), g1(3), g1(5)];
+        let right = [g2(7), g2(11), g2(13)];
+
+        assert_eq!(
+            multi_pairing::<Bls12_381>(left, right),
+            <Bls12_381 as Pairing>::multi_pairing(left, right)
+        );
+    }
+
+    #[test]
+    fn we_can_compute_two_multi_pairings_together() {
+        let first = ([g1(2), g1(3)], [g2(5), g2(7)]);
+        let second = ([g1(11), g1(13), g1(17)], [g2(19), g2(23), g2(29)]);
+
+        assert_eq!(
+            multi_pairing_2::<Bls12_381>(first, second),
+            (
+                <Bls12_381 as Pairing>::multi_pairing(first.0, first.1),
+                <Bls12_381 as Pairing>::multi_pairing(second.0, second.1),
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_compute_four_multi_pairings_together() {
+        let first = ([g1(2)], [g2(3)]);
+        let second = ([g1(5), g1(7)], [g2(11), g2(13)]);
+        let third = ([g1(17), g1(19), g1(23)], [g2(29), g2(31), g2(37)]);
+        let fourth = ([g1(41), g1(43)], [g2(47), g2(53)]);
+
+        assert_eq!(
+            multi_pairing_4::<Bls12_381>(first, second, third, fourth),
+            (
+                <Bls12_381 as Pairing>::multi_pairing(first.0, first.1),
+                <Bls12_381 as Pairing>::multi_pairing(second.0, second.1),
+                <Bls12_381 as Pairing>::multi_pairing(third.0, third.1),
+                <Bls12_381 as Pairing>::multi_pairing(fourth.0, fourth.1),
+            )
+        );
+    }
+}
