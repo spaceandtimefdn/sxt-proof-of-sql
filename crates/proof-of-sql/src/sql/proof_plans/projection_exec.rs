@@ -52,6 +52,40 @@ impl ProjectionExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::ColumnType,
+        sql::{
+            proof_exprs::{ColumnExpr, DynProofExpr},
+            proof_plans::TableExec,
+        },
+    };
+
+    #[test]
+    fn we_can_access_projection_input_and_aliased_results() {
+        let table_ref = TableRef::new("sxt", "sxt_tab");
+        let input = DynProofPlan::Table(TableExec::new(
+            table_ref.clone(),
+            vec![ColumnField::new("a".into(), ColumnType::BigInt)],
+        ));
+        let aliased_results = vec![AliasedDynProofExpr {
+            expr: DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+                table_ref,
+                Ident::new("a"),
+                ColumnType::BigInt,
+            ))),
+            alias: Ident::new("a_alias"),
+        }];
+
+        let projection = ProjectionExec::new(aliased_results.clone(), Box::new(input.clone()));
+
+        assert_eq!(projection.input(), &input);
+        assert_eq!(projection.aliased_results(), aliased_results.as_slice());
+    }
+}
+
 impl ProofPlan for ProjectionExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
