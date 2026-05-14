@@ -268,7 +268,7 @@ mod tests {
         let strings = vec!["a", "b", "c"];
         let scalars = strings
             .iter()
-            .map(|s| TestScalar::from(*s))
+            .map(|&s| TestScalar::from_str_via_hash(s))
             .collect::<Vec<_>>();
         let col0: Column<TestScalar> = Column::VarChar((&strings, &scalars));
         let col1: Column<TestScalar> = Column::VarChar((&strings, &scalars));

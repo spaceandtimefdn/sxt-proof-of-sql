@@ -128,7 +128,7 @@ mod tests {
         )
         .unwrap();
 
-        let b_scals = ["1".into(), "2".into(), "3".into()];
+        let b_scals = ["1", "2", "3"].map(TestScalar::from_str_via_hash);
 
         let columns = [
             (&"a".into(), &Column::<TestScalar>::BigInt(&[1, 2, 3])),
@@ -161,7 +161,7 @@ mod tests {
         )
         .unwrap();
 
-        let b_scals2 = ["4".into(), "5".into(), "6".into()];
+        let b_scals2 = ["4", "5", "6"].map(TestScalar::from_str_via_hash);
 
         let columns2 = [
             (&"a".into(), &Column::<TestScalar>::BigInt(&[4, 5, 6])),

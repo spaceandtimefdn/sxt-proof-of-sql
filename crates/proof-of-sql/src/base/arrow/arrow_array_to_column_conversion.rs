@@ -279,7 +279,7 @@ impl ArrayRefExt for ArrayRef {
                     let scals = if let Some(scals) = precomputed_scals {
                         &scals[range.start..range.end]
                     } else {
-                        alloc.alloc_slice_fill_with(vals.len(), |i| -> S { vals[i].into() })
+                        alloc.alloc_slice_fill_with(vals.len(), |i| S::from_str_via_hash(vals[i]))
                     };
 
                     Ok(Column::VarChar((vals, scals)))
@@ -430,7 +430,10 @@ mod tests {
         let array: ArrayRef = Arc::new(StringArray::from(vec!["hello", "world", "test"]));
         let result = array.to_column::<TestScalar>(&alloc, &(1..3), None);
         let expected_vals = vec!["world", "test"];
-        let expected_scals: Vec<TestScalar> = expected_vals.iter().map(|&v| v.into()).collect();
+        let expected_scals: Vec<TestScalar> = expected_vals
+            .iter()
+            .map(|&v| TestScalar::from_str_via_hash(v))
+            .collect();
 
         assert_eq!(
             result.unwrap(),
@@ -463,7 +466,7 @@ mod tests {
         let array: ArrayRef = Arc::new(StringArray::from(vec!["hello", "world", "test"]));
         let precomputed_scals: Vec<DoryScalar> = ["hello", "world", "test"]
             .iter()
-            .map(|&v| v.into())
+            .map(|&v| DoryScalar::from_str_via_hash(v))
             .collect();
         let result = array.to_column::<DoryScalar>(&alloc, &(1..3), Some(&precomputed_scals));
         let expected_vals = vec!["world", "test"];
@@ -1007,7 +1010,10 @@ mod tests {
     fn we_can_convert_valid_string_array_refs_into_valid_columns() {
         let alloc = Bump::new();
         let data = vec!["ab", "-f34"];
-        let scals: Vec<_> = data.iter().map(core::convert::Into::into).collect();
+        let scals: Vec<_> = data
+            .iter()
+            .map(|&v| DoryScalar::from_str_via_hash(v))
+            .collect();
         let array: ArrayRef = Arc::new(arrow::array::StringArray::from(data.clone()));
         assert_eq!(
             array
@@ -1141,7 +1147,10 @@ mod tests {
     {
         let alloc = Bump::new();
         let data = ["ab", "-f34", "ehfh43"];
-        let scals: Vec<_> = data.iter().map(core::convert::Into::into).collect();
+        let scals: Vec<_> = data
+            .iter()
+            .map(|&v| DoryScalar::from_str_via_hash(v))
+            .collect();
 
         let array: ArrayRef = Arc::new(arrow::array::StringArray::from(data.to_vec()));
         assert_eq!(
@@ -1176,7 +1185,10 @@ mod tests {
     fn we_can_convert_valid_string_array_refs_into_valid_columns_using_precomputed_scalars() {
         let alloc = Bump::new();
         let data = vec!["ab", "-f34"];
-        let scals: Vec<_> = data.iter().map(core::convert::Into::into).collect();
+        let scals: Vec<_> = data
+            .iter()
+            .map(|&v| TestScalar::from_str_via_hash(v))
+            .collect();
         let array: ArrayRef = Arc::new(arrow::array::StringArray::from(data.clone()));
         assert_eq!(
             array
