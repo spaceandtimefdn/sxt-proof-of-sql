@@ -142,3 +142,64 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_create_table_ref_without_schema_from_empty_schema_name() {
+        let table_ref = TableRef::new("", "events");
+
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value.as_str(), "events");
+        assert_eq!(table_ref.to_string(), "events");
+    }
+
+    #[test]
+    fn we_can_create_table_ref_with_schema() {
+        let table_ref = TableRef::new("analytics", "events");
+
+        assert_eq!(table_ref.schema_id().unwrap().value.as_str(), "analytics");
+        assert_eq!(table_ref.table_id().value.as_str(), "events");
+        assert_eq!(table_ref.to_string(), "analytics.events");
+    }
+
+    #[test]
+    fn we_can_parse_table_ref_from_dot_separated_string() {
+        let table_ref = TableRef::try_from("analytics.events").unwrap();
+
+        assert_eq!(table_ref.schema_id().unwrap().value.as_str(), "analytics");
+        assert_eq!(table_ref.table_id().value.as_str(), "events");
+        assert_eq!(table_ref.to_string(), "analytics.events");
+    }
+
+    #[test]
+    fn we_can_parse_table_ref_from_component_slice() {
+        let table_ref = TableRef::from_strs(&["analytics", "events"]).unwrap();
+
+        assert_eq!(table_ref.schema_id().unwrap().value.as_str(), "analytics");
+        assert_eq!(table_ref.table_id().value.as_str(), "events");
+    }
+
+    #[test]
+    fn we_reject_table_ref_with_too_many_components() {
+        assert!(matches!(
+            TableRef::try_from("catalog.analytics.events"),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+        assert!(matches!(
+            TableRef::from_strs(&["catalog", "analytics", "events"]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_roundtrip_table_ref_through_json() {
+        let table_ref = TableRef::new("analytics", "events");
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+
+        assert_eq!(serialized, "\"analytics.events\"");
+        assert_eq!(serde_json::from_str::<TableRef>(&serialized).unwrap(), table_ref);
+    }
+}
