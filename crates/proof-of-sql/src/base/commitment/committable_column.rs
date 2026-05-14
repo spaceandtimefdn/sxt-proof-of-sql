@@ -162,7 +162,7 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::VarChar(strings) => CommittableColumn::VarChar(
                 strings
                     .iter()
-                    .map(Into::<S>::into)
+                    .map(|s| S::from_str_via_hash(s))
                     .map(Into::<[u64; 4]>::into)
                     .collect(),
             ),
@@ -807,7 +807,12 @@ mod tests {
         let from_owned_column = CommittableColumn::from(&owned_column);
         assert_eq!(
             from_owned_column,
-            CommittableColumn::VarChar(strings.map(TestScalar::from).map(<[u64; 4]>::from).into())
+            CommittableColumn::VarChar(
+                strings
+                    .map(|s| TestScalar::from_str_via_hash(&s))
+                    .map(<[u64; 4]>::from)
+                    .into()
+            )
         );
     }
 
