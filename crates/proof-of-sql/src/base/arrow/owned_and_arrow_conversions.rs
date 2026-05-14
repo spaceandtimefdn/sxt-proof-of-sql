@@ -34,6 +34,9 @@ use arrow::{
 use snafu::Snafu;
 use sqlparser::ast::Ident;
 
+/// Suffix used for the generated validity bitmap column when nullable Arrow arrays are materialized.
+pub const NULL_PRESENCE_COLUMN_SUFFIX: &str = "__presence";
+
 #[derive(Snafu, Debug)]
 #[non_exhaustive]
 /// Errors caused by conversions between Arrow and owned types.
@@ -64,6 +67,229 @@ pub enum OwnedArrowConversionError {
         /// The underlying source error
         source: PoSQLTimestampError,
     },
+}
+
+/// Returns the generated validity bitmap identifier for a nullable column.
+#[must_use]
+pub fn null_presence_column_id(column_id: &Ident) -> Ident {
+    Ident::new(format!("{}{NULL_PRESENCE_COLUMN_SUFFIX}", column_id.value))
+}
+
+fn insert_unique_column<S: Scalar>(
+    table: &mut IndexMap<Ident, OwnedColumn<S>>,
+    identifier: Ident,
+    owned_column: OwnedColumn<S>,
+) -> Result<(), OwnedArrowConversionError> {
+    if table.insert(identifier, owned_column).is_some() {
+        Err(OwnedArrowConversionError::DuplicateIdents)
+    } else {
+        Ok(())
+    }
+}
+
+fn null_presence_column<S: Scalar>(value: &ArrayRef) -> OwnedColumn<S> {
+    OwnedColumn::Boolean(
+        (0..value.len())
+            .map(|index| value.is_valid(index))
+            .collect(),
+    )
+}
+
+#[expect(clippy::too_many_lines)]
+fn owned_column_from_nullable_array<S: Scalar>(
+    value: &ArrayRef,
+) -> Result<OwnedColumn<S>, OwnedArrowConversionError> {
+    match &value.data_type() {
+        DataType::Boolean => Ok(OwnedColumn::Boolean(
+            value
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::UInt8 => Ok(OwnedColumn::Uint8(
+            value
+                .as_any()
+                .downcast_ref::<UInt8Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Int8 => Ok(OwnedColumn::TinyInt(
+            value
+                .as_any()
+                .downcast_ref::<Int8Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Int16 => Ok(OwnedColumn::SmallInt(
+            value
+                .as_any()
+                .downcast_ref::<Int16Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Int32 => Ok(OwnedColumn::Int(
+            value
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Int64 => Ok(OwnedColumn::BigInt(
+            value
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Decimal128(38, 0) => Ok(OwnedColumn::Int128(
+            value
+                .as_any()
+                .downcast_ref::<Decimal128Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Decimal256(precision, scale) if *precision <= 75 => Ok(OwnedColumn::Decimal75(
+            Precision::new(*precision).expect("precision is less than 76"),
+            *scale,
+            value
+                .as_any()
+                .downcast_ref::<Decimal256Array>()
+                .unwrap()
+                .iter()
+                .map(|value| {
+                    value
+                        .map_or(Some(S::ZERO), |value| convert_i256_to_scalar(&value))
+                        .unwrap()
+                })
+                .collect(),
+        )),
+        DataType::Utf8 => Ok(OwnedColumn::VarChar(
+            value
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default().to_string())
+                .collect(),
+        )),
+        DataType::LargeBinary => Ok(OwnedColumn::VarBinary(
+            value
+                .as_any()
+                .downcast_ref::<LargeBinaryArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.map(<[u8]>::to_vec).unwrap_or_default())
+                .collect(),
+        )),
+        DataType::Timestamp(time_unit, timezone) => match time_unit {
+            ArrowTimeUnit::Second => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampSecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                Ok(OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Second,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                ))
+            }
+            ArrowTimeUnit::Millisecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampMillisecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                Ok(OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                ))
+            }
+            ArrowTimeUnit::Microsecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                Ok(OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                ))
+            }
+            ArrowTimeUnit::Nanosecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                Ok(OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Nanosecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                ))
+            }
+        },
+        &data_type => Err(OwnedArrowConversionError::UnsupportedType {
+            datatype: data_type.clone(),
+        }),
+    }
+}
+
+/// Converts an Arrow [`RecordBatch`] into an [`OwnedTable`], materializing nullable arrays
+/// as a value column plus a generated boolean validity bitmap column.
+///
+/// Null value slots are canonicalized to the type's default value. Query plans can then combine the
+/// generated presence column with ordinary proof expressions to avoid treating those defaults as
+/// present user data.
+pub fn owned_table_from_record_batch_with_nulls<S: Scalar>(
+    value: RecordBatch,
+) -> Result<OwnedTable<S>, OwnedArrowConversionError> {
+    let mut table = IndexMap::default();
+
+    for (field, array_ref) in value.schema().fields().iter().zip(value.columns()) {
+        let identifier = Ident::new(field.name());
+        let owned_column = if array_ref.null_count() == 0 {
+            OwnedColumn::try_from(array_ref)?
+        } else {
+            owned_column_from_nullable_array(array_ref)?
+        };
+        insert_unique_column(&mut table, identifier.clone(), owned_column)?;
+
+        if array_ref.null_count() != 0 {
+            insert_unique_column(
+                &mut table,
+                null_presence_column_id(&identifier),
+                null_presence_column(array_ref),
+            )?;
+        }
+    }
+
+    Ok(OwnedTable::try_new(table)?)
 }
 
 /// # Panics

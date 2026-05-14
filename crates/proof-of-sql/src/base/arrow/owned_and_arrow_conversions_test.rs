@@ -1,8 +1,17 @@
-use super::owned_and_arrow_conversions::OwnedArrowConversionError;
+use super::owned_and_arrow_conversions::{
+    null_presence_column_id, owned_table_from_record_batch_with_nulls, OwnedArrowConversionError,
+};
 use crate::base::{
-    database::{owned_table_utility::*, OwnedColumn, OwnedTable},
+    commitment::naive_evaluation_proof::NaiveEvaluationProof,
+    database::{
+        owned_table_utility::*, ColumnField, ColumnType, OwnedColumn, OwnedTable,
+        OwnedTableTestAccessor, TableRef, TestAccessor,
+    },
     map::IndexMap,
     scalar::test_scalar::TestScalar,
+};
+use crate::sql::{
+    proof::VerifiableQueryResult, proof_exprs::test_utility::*, proof_plans::test_utility::*,
 };
 use alloc::sync::Arc;
 use arrow::{
@@ -14,6 +23,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use proptest::prelude::*;
+use sqlparser::ast::Ident;
 
 fn we_can_convert_between_owned_column_and_array_ref_impl(
     owned_column: &OwnedColumn<TestScalar>,
@@ -190,6 +200,137 @@ fn we_can_convert_between_owned_table_and_record_batch() {
             ),
         ]),
         &batch2,
+    );
+}
+
+#[test]
+fn we_can_materialize_nullable_arrow_arrays_as_value_and_presence_columns() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("score", DataType::Int64, true),
+        Field::new("flag", DataType::Boolean, true),
+        Field::new("name", DataType::Utf8, true),
+        Field::new("bonus", DataType::Int64, false),
+    ]));
+
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![Some(5), None, Some(9)])),
+            Arc::new(BooleanArray::from(vec![Some(true), None, Some(false)])),
+            Arc::new(StringArray::from(vec![Some("ready"), None, Some("done")])),
+            Arc::new(Int64Array::from(vec![7, 7, 1])),
+        ],
+    )
+    .unwrap();
+
+    let actual = owned_table_from_record_batch_with_nulls::<TestScalar>(batch).unwrap();
+
+    assert_eq!(
+        null_presence_column_id(&Ident::new("score")),
+        "score__presence".into()
+    );
+    assert_eq!(
+        actual,
+        owned_table([
+            bigint("score", [5_i64, 0, 9]),
+            boolean("score__presence", [true, false, true]),
+            boolean("flag", [true, false, false]),
+            boolean("flag__presence", [true, false, true]),
+            varchar("name", ["ready", "", "done"]),
+            boolean("name__presence", [true, false, true]),
+            bigint("bonus", [7_i64, 7, 1]),
+        ])
+    );
+}
+
+#[test]
+fn we_get_duplicate_idents_when_nullable_arrow_presence_column_already_exists() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("score", DataType::Int64, true),
+        Field::new("score__presence", DataType::Boolean, false),
+    ]));
+
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![Some(5), None])),
+            Arc::new(BooleanArray::from(vec![true, false])),
+        ],
+    )
+    .unwrap();
+
+    assert!(matches!(
+        owned_table_from_record_batch_with_nulls::<TestScalar>(batch),
+        Err(OwnedArrowConversionError::DuplicateIdents)
+    ));
+}
+
+#[test]
+fn we_can_prove_over_materialized_nullable_arrow_columns() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("score", DataType::Int64, true),
+        Field::new("bonus", DataType::Int64, false),
+    ]));
+
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![
+                Some(5),
+                None,
+                Some(9),
+                Some(5),
+                None,
+            ])),
+            Arc::new(Int64Array::from(vec![7, 99, 1, 7, 6])),
+        ],
+    )
+    .unwrap();
+    let table = owned_table_from_record_batch_with_nulls::<TestScalar>(batch).unwrap();
+
+    let t = TableRef::new("sxt", "nullable_scores");
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+    accessor.add_table(t.clone(), table, 0);
+
+    let score_plus_bonus = add(
+        column(&t, "score", &accessor),
+        column(&t, "bonus", &accessor),
+    );
+    let where_clause = and(
+        column(&t, "score__presence", &accessor),
+        equal(score_plus_bonus.clone(), const_decimal75(20, 0, 12_i128)),
+    );
+    let plan = filter(
+        vec![
+            aliased_plan(score_plus_bonus, "score_plus_bonus"),
+            col_expr_plan(&t, "score", &accessor),
+            col_expr_plan(&t, "score__presence", &accessor),
+        ],
+        table_exec(
+            t.clone(),
+            vec![
+                ColumnField::new("score".into(), ColumnType::BigInt),
+                ColumnField::new("score__presence".into(), ColumnType::Boolean),
+                ColumnField::new("bonus".into(), ColumnType::BigInt),
+            ],
+        ),
+        where_clause,
+    );
+
+    let verifiable_result =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+    let result = verifiable_result
+        .verify(&plan, &accessor, &(), &[])
+        .unwrap()
+        .table;
+
+    assert_eq!(
+        result,
+        owned_table([
+            decimal75("score_plus_bonus", 20, 0, [12_i64, 12]),
+            bigint("score", [5_i64, 5]),
+            boolean("score__presence", [true, true]),
+        ])
     );
 }
 
