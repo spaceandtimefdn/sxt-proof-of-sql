@@ -329,8 +329,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install stable toolchain
-        run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
+      - name: Install Rust EVM test toolchain
+        uses: dtolnay/rust-toolchain@1.85.0
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Install Dependencies
@@ -345,7 +345,6 @@ jobs:
           version: v1.0.0
       - name: Install dependencies
         run: solidity/scripts/install_deps.sh
-      - uses: dtolnay/rust-toolchain@1.85.0
       - name: Run Rust EVM tests
         run: cargo test --package proof-of-sql --lib --all-features -- evm_tests --ignored --test-threads=1
       - name: Run Planner Rust EVM tests
