@@ -1,7 +1,10 @@
-use super::ProofExpr;
+use super::{NullableColumnEvaluation, ProofExpr};
 use crate::{
     base::{
-        database::{Column, ColumnField, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            presence_column_id, Column, ColumnField, ColumnRef, ColumnType, LiteralValue,
+            NullableColumn, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -41,7 +44,11 @@ impl ColumnExpr {
     /// Wrap the column output name and its type within the [`ColumnField`]
     #[must_use]
     pub fn get_column_field(&self) -> ColumnField {
-        ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        if self.column_ref.is_nullable() {
+            ColumnField::new_nullable(self.column_ref.column_id(), *self.column_ref.column_type())
+        } else {
+            ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        }
     }
 
     /// Get the column identifier
@@ -62,12 +69,40 @@ impl ColumnExpr {
             .get(&self.column_ref.column_id())
             .expect("Column not found")
     }
+
+    /// Fetch the value column and optional physical presence column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value column is missing, or if a nullable column's physical presence column
+    /// is missing or is not boolean. Parser/planner validation should prevent this.
+    #[must_use]
+    pub fn fetch_nullable_column<'a, S: Scalar>(
+        &self,
+        table: &Table<'a, S>,
+    ) -> NullableColumn<'a, S> {
+        let values = self.fetch_column(table);
+        let presence = self.column_ref.is_nullable().then(|| {
+            let presence_id = presence_column_id(&self.column_ref.column_id());
+            table
+                .inner_table()
+                .get(&presence_id)
+                .expect("Presence column not found")
+                .as_boolean()
+                .expect("Presence column is not boolean")
+        });
+        NullableColumn::try_new(values, presence).expect("presence length should match values")
+    }
 }
 
 impl ProofExpr for ColumnExpr {
     /// Get the data type of the expression
     fn data_type(&self) -> ColumnType {
         *self.get_column_reference().column_type()
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.column_ref.is_nullable()
     }
 
     /// Evaluate the column expression and
@@ -109,10 +144,63 @@ impl ProofExpr for ColumnExpr {
             })?)
     }
 
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        _alloc: &'a Bump,
+        table: &Table<'a, S>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        Ok(self.fetch_nullable_column(table))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        _builder: &mut FinalRoundBuilder<'a, S>,
+        _alloc: &'a Bump,
+        table: &Table<'a, S>,
+        _params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        Ok(self.fetch_nullable_column(table))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        _builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        _chi_eval: S,
+        _params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let value_eval =
+            *accessor
+                .get(&self.column_ref.column_id())
+                .ok_or(ProofError::VerificationError {
+                    error: "Column Not Found",
+                })?;
+        let presence_eval = if self.column_ref.is_nullable() {
+            Some(
+                *accessor
+                    .get(&presence_column_id(&self.column_ref.column_id()))
+                    .ok_or(ProofError::VerificationError {
+                        error: "Presence Column Not Found",
+                    })?,
+            )
+        } else {
+            None
+        };
+        Ok(NullableColumnEvaluation::new(value_eval, presence_eval))
+    }
+
     /// Insert in the [`IndexSet`] `columns` all the column
     /// references in the `BoolExpr` or forwards the call to some
     /// subsequent `bool_expr`
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {
         columns.insert(self.column_ref.clone());
+        if self.column_ref.is_nullable() {
+            columns.insert(ColumnRef::new(
+                self.column_ref.table_ref(),
+                presence_column_id(&self.column_ref.column_id()),
+                ColumnType::Boolean,
+            ));
+        }
     }
 }

@@ -64,8 +64,10 @@ impl SortMergeJoinExec {
         right_join_column_indexes: Vec<usize>,
         result_idents: Vec<Ident>,
     ) -> Self {
-        let num_columns_left = left.get_column_result_fields().len();
-        let num_columns_right = right.get_column_result_fields().len();
+        let left_column_fields = left.get_column_result_fields();
+        let right_column_fields = right.get_column_result_fields();
+        let num_columns_left = left_column_fields.len();
+        let num_columns_right = right_column_fields.len();
         let max_left_join_column_index = left_join_column_indexes.iter().max().unwrap_or(&0);
         let max_right_join_column_index = right_join_column_indexes.iter().max().unwrap_or(&0);
         if *max_left_join_column_index >= num_columns_left
@@ -81,6 +83,15 @@ impl SortMergeJoinExec {
         assert!(
             (result_idents.len() == num_columns_left + num_columns_right - num_join_columns),
             "The amount of result idents should be the same as the expected number of columns"
+        );
+        assert!(
+            left_join_column_indexes
+                .iter()
+                .all(|i| !left_column_fields[*i].is_nullable())
+                && right_join_column_indexes
+                    .iter()
+                    .all(|i| !right_column_fields[*i].is_nullable()),
+            "Nullable join columns are not supported"
         );
         Self {
             left,
@@ -283,16 +294,21 @@ where
             &right_other_column_indexes,
         )
         .expect("Indexes can not be out of bounds");
-        let column_types = left_join_column_fields
+        let result_fields = left_join_column_fields
             .iter()
             .chain(left_other_column_fields.iter())
             .chain(right_other_column_fields.iter())
-            .map(ColumnField::data_type)
             .collect::<Vec<_>>();
         self.result_idents
             .iter()
-            .zip_eq(column_types)
-            .map(|(ident, column_type)| ColumnField::new(ident.clone(), column_type))
+            .zip_eq(result_fields)
+            .map(|(ident, field)| {
+                if field.is_nullable() {
+                    ColumnField::new_nullable(ident.clone(), field.data_type())
+                } else {
+                    ColumnField::new(ident.clone(), field.data_type())
+                }
+            })
             .collect()
     }
 
@@ -582,5 +598,75 @@ impl ProverEvaluate for SortMergeJoinExec {
             TableOptions::new(Some(num_rows_res)),
         )
         .expect("Can not create table"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::ColumnType,
+        sql::{
+            proof::ProofPlan,
+            proof_plans::{DynProofPlan, TableExec},
+        },
+    };
+
+    fn table_plan(table_name: &str, schema: Vec<ColumnField>) -> Box<DynProofPlan> {
+        Box::new(DynProofPlan::Table(TableExec::new(
+            TableRef::from_names(None, table_name),
+            schema,
+        )))
+    }
+
+    #[test]
+    fn sort_merge_join_preserves_nullable_payload_fields() {
+        let join = SortMergeJoinExec::new(
+            table_plan(
+                "left",
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+                ],
+            ),
+            table_plan(
+                "right",
+                vec![ColumnField::new("id".into(), ColumnType::BigInt)],
+            ),
+            vec![0],
+            vec![0],
+            vec![
+                Ident::new("id"),
+                Ident::new("score"),
+                Ident::new("score__presence"),
+            ],
+        );
+
+        assert_eq!(
+            join.get_column_result_fields(),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+                ColumnField::new("score__presence".into(), ColumnType::Boolean),
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Nullable join columns are not supported")]
+    fn sort_merge_join_rejects_nullable_join_columns() {
+        let _ = SortMergeJoinExec::new(
+            table_plan(
+                "left",
+                vec![ColumnField::new_nullable("id".into(), ColumnType::BigInt)],
+            ),
+            table_plan(
+                "right",
+                vec![ColumnField::new("id".into(), ColumnType::BigInt)],
+            ),
+            vec![0],
+            vec![0],
+            vec![Ident::new("id"), Ident::new("id__presence")],
+        );
     }
 }

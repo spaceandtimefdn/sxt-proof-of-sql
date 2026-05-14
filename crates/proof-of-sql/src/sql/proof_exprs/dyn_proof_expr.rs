@@ -1,16 +1,18 @@
 use super::{
-    AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr, MultiplyExpr,
-    NotExpr, OrExpr, PlaceholderExpr, ProofExpr, ScalingCastExpr, SubtractExpr,
+    AddExpr, AndExpr, CastExpr, ColumnExpr, EqualsExpr, InequalityExpr, IsNotNullExpr, IsNullExpr,
+    IsTrueExpr, LiteralExpr, MultiplyExpr, NotExpr, OrExpr, PlaceholderExpr, ProofExpr,
+    ScalingCastExpr, SubtractExpr,
 };
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
     },
     sql::{
         proof::{FinalRoundBuilder, VerificationBuilder},
+        proof_exprs::NullableColumnEvaluation,
         AnalyzeResult,
     },
 };
@@ -50,6 +52,12 @@ pub enum DynProofExpr {
     Cast(CastExpr),
     /// Provable expression for casting numeric expressions to decimal expressions
     ScalingCast(ScalingCastExpr),
+    /// Provable SQL `IS NULL` expression
+    IsNull(IsNullExpr),
+    /// Provable SQL `IS NOT NULL` expression
+    IsNotNull(IsNotNullExpr),
+    /// Provable SQL `IS TRUE` expression
+    IsTrue(IsTrueExpr),
 }
 impl DynProofExpr {
     /// Create column expression
@@ -120,5 +128,23 @@ impl DynProofExpr {
         to_datatype: ColumnType,
     ) -> AnalyzeResult<Self> {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
+    }
+
+    /// Create a new SQL `IS NULL` expression.
+    #[must_use]
+    pub fn new_is_null(expr: DynProofExpr) -> Self {
+        Self::IsNull(IsNullExpr::new(Box::new(expr)))
+    }
+
+    /// Create a new SQL `IS NOT NULL` expression.
+    #[must_use]
+    pub fn new_is_not_null(expr: DynProofExpr) -> Self {
+        Self::IsNotNull(IsNotNullExpr::new(Box::new(expr)))
+    }
+
+    /// Create a new SQL `IS TRUE` expression.
+    #[must_use]
+    pub fn new_is_true(expr: DynProofExpr) -> Self {
+        Self::IsTrue(IsTrueExpr::new(Box::new(expr)))
     }
 }
