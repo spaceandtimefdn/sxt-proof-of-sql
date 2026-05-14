@@ -102,11 +102,18 @@ impl CommitmentEvaluationProof for NaiveEvaluationProof {
 }
 
 mod tests {
-    use super::NaiveEvaluationProof;
-    use crate::base::commitment::commitment_evaluation_proof_test::{
-        test_commitment_evaluation_proof_with_length_1, test_random_commitment_evaluation_proof,
-        test_simple_commitment_evaluation_proof,
+    use super::{NaiveCommitment, NaiveEvaluationProof};
+    use crate::base::{
+        commitment::{
+            commitment_evaluation_proof_test::{
+                test_commitment_evaluation_proof_with_length_1,
+                test_random_commitment_evaluation_proof, test_simple_commitment_evaluation_proof,
+            },
+            CommitmentEvaluationProof,
+        },
+        scalar::{test_scalar::TestScalar, Scalar},
     };
+    use merlin::Transcript;
 
     #[test]
     fn test_simple_ipa() {
@@ -233,5 +240,49 @@ mod tests {
         test_random_commitment_evaluation_proof::<NaiveEvaluationProof>(2, 10, &(), &());
         test_random_commitment_evaluation_proof::<NaiveEvaluationProof>(2, 2, &(), &());
         test_random_commitment_evaluation_proof::<NaiveEvaluationProof>(2, 200, &(), &());
+    }
+
+    #[test]
+    fn verification_rejects_mismatched_evaluation_point() {
+        let scalars = [TestScalar::ONE, TestScalar::from(2u64)];
+        let b_point = [TestScalar::ZERO];
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        let proof = NaiveEvaluationProof::new(&mut transcript, &scalars, &b_point, 0, &());
+        let commit = NaiveCommitment(scalars.to_vec());
+
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        let result = proof.verify_proof(
+            &mut transcript,
+            &commit,
+            &TestScalar::ONE,
+            &[TestScalar::ONE],
+            0,
+            scalars.len(),
+            &(),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verification_rejects_mismatched_commitment() {
+        let scalars = [TestScalar::ONE, TestScalar::from(2u64)];
+        let b_point = [TestScalar::ZERO];
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        let proof = NaiveEvaluationProof::new(&mut transcript, &scalars, &b_point, 0, &());
+        let wrong_commit = NaiveCommitment(vec![TestScalar::ONE, TestScalar::from(3u64)]);
+
+        let mut transcript = Transcript::new(b"evaluation_proof");
+        let result = proof.verify_proof(
+            &mut transcript,
+            &wrong_commit,
+            &TestScalar::ONE,
+            &b_point,
+            0,
+            scalars.len(),
+            &(),
+        );
+
+        assert!(result.is_err());
     }
 }
