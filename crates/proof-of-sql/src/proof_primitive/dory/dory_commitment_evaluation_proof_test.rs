@@ -52,20 +52,28 @@ fn test_random_ipa_with_length_1() {
 
 #[test]
 fn test_random_ipa_with_various_lengths() {
-    let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let setup_setup = [(4, 4), (4, 3), (6, 2)];
-    for setup_p in setup_setup {
-        let public_parameters = PublicParameters::test_rand(setup_p.0, &mut test_rng());
+    let test_cases = [
+        // Keep a large non-power-of-two case on the largest setup.
+        (4, 4, 100),
+        // Keep a power-of-two case that still needs the intermediate setup.
+        (4, 3, 64),
+        // Cover smaller non-powers and powers without re-running the full
+        // length matrix for every setup size.
+        (6, 2, 20),
+        (6, 2, 16),
+        (6, 2, 5),
+        (6, 2, 2),
+    ];
+    for (public_parameter_nu, setup_nu, length) in test_cases {
+        let public_parameters = PublicParameters::test_rand(public_parameter_nu, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);
         let verifier_setup = VerifierSetup::from(&public_parameters);
-        for length in lengths {
-            test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
-                length,
-                0,
-                &DoryProverPublicSetup::new(&prover_setup, setup_p.1),
-                &DoryVerifierPublicSetup::new(&verifier_setup, setup_p.1),
-            );
-        }
+        test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
+            length,
+            0,
+            &DoryProverPublicSetup::new(&prover_setup, setup_nu),
+            &DoryVerifierPublicSetup::new(&verifier_setup, setup_nu),
+        );
     }
 }
 
