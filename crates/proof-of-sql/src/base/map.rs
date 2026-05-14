@@ -18,3 +18,31 @@ macro_rules! indexset {
 #[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
+
+#[cfg(test)]
+mod tests {
+    use super::{IndexMap, IndexSet};
+
+    #[test]
+    fn indexmap_macro_uses_ahash_builder_and_preserves_insertion_order() {
+        let map: IndexMap<&str, i32> = super::indexmap! {
+            "alpha" => 1,
+            "beta" => 2,
+        };
+
+        assert_eq!(map.get("alpha"), Some(&1));
+        assert_eq!(
+            map.keys().copied().collect::<alloc::vec::Vec<_>>(),
+            alloc::vec!["alpha", "beta"]
+        );
+    }
+
+    #[test]
+    fn indexset_macro_deduplicates_values() {
+        let set: IndexSet<&str> = super::indexset!("alpha", "beta", "alpha");
+
+        assert!(set.contains("alpha"));
+        assert!(set.contains("beta"));
+        assert_eq!(set.len(), 2);
+    }
+}
