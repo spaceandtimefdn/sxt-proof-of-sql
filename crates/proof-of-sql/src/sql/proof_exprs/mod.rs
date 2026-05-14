@@ -7,6 +7,8 @@ mod proof_expr_test;
 
 mod aliased_dyn_proof_expr;
 pub use aliased_dyn_proof_expr::AliasedDynProofExpr;
+#[cfg(test)]
+mod aliased_dyn_proof_expr_test;
 
 mod add_expr;
 pub(crate) use add_expr::AddExpr;
