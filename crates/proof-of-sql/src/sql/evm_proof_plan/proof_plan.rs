@@ -191,3 +191,42 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sql::proof_plans::TableExec;
+
+    #[test]
+    fn evm_proof_plan_exposes_and_delegates_to_inner_plan() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let column_fields = vec![
+            ColumnField::new(Ident::new("a"), ColumnType::BigInt),
+            ColumnField::new(Ident::new("b"), ColumnType::VarChar),
+        ];
+        let plan = DynProofPlan::Table(TableExec::new(table_ref.clone(), column_fields.clone()));
+        let evm_plan = EVMProofPlan::new(plan.clone());
+
+        assert_eq!(evm_plan.inner(), &plan);
+        assert_eq!(evm_plan.get_column_result_fields(), column_fields);
+        assert_eq!(
+            evm_plan.get_table_references(),
+            IndexSet::from_iter([table_ref])
+        );
+
+        let column_references = evm_plan.get_column_references();
+        assert_eq!(column_references.len(), 2);
+        assert!(column_references.contains(&ColumnRef::new(
+            "namespace.table".parse().unwrap(),
+            Ident::new("a"),
+            ColumnType::BigInt,
+        )));
+        assert!(column_references.contains(&ColumnRef::new(
+            "namespace.table".parse().unwrap(),
+            Ident::new("b"),
+            ColumnType::VarChar,
+        )));
+
+        assert_eq!(evm_plan.into_inner(), plan);
+    }
+}
