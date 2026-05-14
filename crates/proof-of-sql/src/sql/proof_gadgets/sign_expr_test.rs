@@ -6,7 +6,8 @@ use crate::{
         scalar::{test_scalar::TestScalar, Scalar},
     },
     sql::proof::{
-        FinalRoundBuilder, SumcheckMleEvaluations, SumcheckRandomScalars, VerificationBuilderImpl,
+        FinalRoundBuilder, SumcheckMleEvaluations, SumcheckRandomScalars,
+        SumcheckSubpolynomialType, VerificationBuilderImpl,
     },
 };
 use alloc::collections::VecDeque;
@@ -34,6 +35,49 @@ fn prover_evaluation_generates_the_bit_distribution_of_a_negative_constant_colum
     let sign = final_round_evaluate_sign(&mut builder, &alloc, &data);
     assert_eq!(sign, [true; 3]);
     assert_eq!(builder.bit_distributions(), [dist]);
+}
+
+#[test]
+fn prover_evaluation_proves_varying_bits_are_binary() {
+    let data = [0_i64, 1, 0, 1];
+    let dist = BitDistribution::new::<TestScalar, _>(&data);
+    assert_eq!(dist.num_varying_bits(), 1);
+
+    let alloc = Bump::new();
+    let data: Vec<TestScalar> = data.into_iter().map(TestScalar::from).collect();
+    let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+    let sign = final_round_evaluate_sign(&mut builder, &alloc, &data);
+
+    assert_eq!(sign, [false; 4]);
+    assert_eq!(builder.bit_distributions(), [dist]);
+    assert_eq!(builder.pcs_proof_mles().len(), 1);
+    assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+
+    let subpolynomial = &builder.sumcheck_subpolynomials()[0];
+    let terms: Vec<_> = subpolynomial.iter_mul_by(TestScalar::ONE).collect();
+    assert_eq!(terms.len(), 2);
+    assert!(terms
+        .iter()
+        .all(|(kind, _, _)| *kind == SumcheckSubpolynomialType::Identity));
+    assert_eq!(terms[0].1, TestScalar::ONE);
+    assert_eq!(terms[1].1, -TestScalar::ONE);
+
+    for row in 0..data.len() {
+        let mut basis = vec![TestScalar::ZERO; data.len()];
+        basis[row] = TestScalar::ONE;
+        assert_eq!(builder.pcs_proof_mles()[0].inner_product(&basis), data[row]);
+        let value: TestScalar = terms
+            .iter()
+            .map(|(_, coefficient, multiplicands)| {
+                let product = multiplicands
+                    .iter()
+                    .map(|mle| mle.inner_product(&basis))
+                    .product::<TestScalar>();
+                *coefficient * product
+            })
+            .sum();
+        assert_eq!(value, TestScalar::ZERO);
+    }
 }
 
 #[test]
