@@ -19,7 +19,7 @@ fn test_simple_ipa() {
         &DoryProverPublicSetup::new(&prover_setup, 3),
         &DoryVerifierPublicSetup::new(&verifier_setup, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
@@ -41,7 +41,7 @@ fn test_random_ipa_with_length_1() {
         &DoryProverPublicSetup::new(&prover_setup, 3),
         &DoryVerifierPublicSetup::new(&verifier_setup, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
@@ -53,7 +53,7 @@ fn test_random_ipa_with_length_1() {
 #[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let setup_setup = [(4, 4), (4, 3), (6, 2)];
+    let setup_setup = [(4, 4), (4, 3), (5, 2)];
     for setup_p in setup_setup {
         let public_parameters = PublicParameters::test_rand(setup_p.0, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);
