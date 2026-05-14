@@ -83,6 +83,24 @@ pub enum PlannerError {
         /// Unsupported `AggregateFunction`
         function: AggregateFunction,
     },
+    /// Returned when a nullable expression is used in an aggregate path that is not nullable-aware.
+    #[snafu(display("Nullable aggregate expression {expr:?} is not supported"))]
+    UnsupportedNullableAggregateExpression {
+        /// Unsupported nullable aggregate expression
+        expr: Box<Expr>,
+    },
+    /// Returned when a nullable expression is used in a group-by path that is not nullable-aware.
+    #[snafu(display("Nullable group-by expression {expr:?} is not supported"))]
+    UnsupportedNullableGroupByExpression {
+        /// Unsupported nullable group-by expression
+        expr: Box<Expr>,
+    },
+    /// Returned when a nullable column is used as a join key.
+    #[snafu(display("Nullable join column {column:?} is not supported"))]
+    UnsupportedNullableJoinColumn {
+        /// Unsupported nullable join column
+        column: String,
+    },
     /// Returned when a logical expression is not resolved
     #[snafu(display("Logical expression {:?} is not supported", expr))]
     UnsupportedLogicalExpression {

@@ -192,6 +192,18 @@ impl SchemaAccessor for SchemaAccessorImpl {
             .expect("Table does not exist in schema accessor.")
             .clone()
     }
+
+    fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
+        self.lookup_schema_fields(table_ref)
+            .into_iter()
+            .find(|field| field.name() == *column_id)
+    }
+
+    fn lookup_schema_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
+        crate::base::database::logical_column_fields_from_physical_schema(
+            self.lookup_schema(table_ref),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -260,6 +272,33 @@ mod tests {
         assert_eq!(
             accessor.lookup_schema(&table2),
             vec![("col1".into(), ColumnType::BigInt),]
+        );
+    }
+
+    #[test]
+    fn test_lookup_schema_fields_infers_nullable_physical_pairs() {
+        let table = TableRef::new("schema", "nullable_table");
+        let accessor = SchemaAccessorImpl::new(indexmap! {
+            table.clone() => vec![
+                ("score".into(), ColumnType::BigInt),
+                ("score__presence".into(), ColumnType::Boolean),
+                ("orphan__presence".into(), ColumnType::Boolean),
+            ],
+        });
+
+        assert_eq!(
+            accessor.lookup_schema_fields(&table),
+            vec![
+                ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+                ColumnField::new("orphan__presence".into(), ColumnType::Boolean),
+            ]
+        );
+        assert_eq!(
+            accessor.lookup_column_field(&table, &"score".into()),
+            Some(ColumnField::new_nullable(
+                "score".into(),
+                ColumnType::BigInt
+            ))
         );
     }
 

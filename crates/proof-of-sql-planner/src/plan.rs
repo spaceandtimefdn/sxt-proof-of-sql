@@ -14,8 +14,8 @@ use datafusion::{
 use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
     base::database::{
-        value_column_id_from_presence, ColumnRef, ColumnType, LiteralValue, SchemaAccessor,
-        TableRef,
+        presence_column_id, value_column_id_from_presence, ColumnField, ColumnRef, ColumnType,
+        LiteralValue, SchemaAccessor, TableRef,
     },
     sql::{
         proof::ProofPlan,
@@ -78,6 +78,17 @@ fn table_scan_get_required_columns(
         .filter_map(|&i| input_schema.field_at(i).map(|field| field.name()))
         .chain(filters.iter().flat_map(get_column_idents_from_expr))
         .collect()
+}
+
+fn is_generated_nullable_presence_field(field: &ColumnField, fields: &[ColumnField]) -> bool {
+    let Some(value_column_id) = value_column_id_from_presence(&field.name()) else {
+        return false;
+    };
+    fields.iter().any(|candidate| {
+        candidate.is_nullable()
+            && candidate.name() == value_column_id
+            && presence_column_id(&candidate.name()) == field.name()
+    })
 }
 
 /// Convert a `TableScan` without filters or fetch limit to a `DynProofPlan`
@@ -190,6 +201,11 @@ fn aggregate_to_proof_plan(
         .map(|(e, aggregate_alias)| -> PlannerResult<_> {
             let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
             let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            if aggregate_proof_expr.is_nullable() {
+                return Err(PlannerError::UnsupportedNullableGroupByExpression {
+                    expr: Box::new(e.clone()),
+                });
+            }
             let name_string = e.clone().unalias().display_name()?;
             let alias = alias_map.get(&name_string).ok_or_else(|| {
                 PlannerError::UnsupportedLogicalPlan {
@@ -315,15 +331,15 @@ fn join_to_proof_plan(
     }
     let left_plan = Box::new(logical_plan_to_proof_plan(&join.left, schema_accessor)?);
     let right_plan = Box::new(logical_plan_to_proof_plan(&join.right, schema_accessor)?);
-    let left_column_result_fields = left_plan
-        .get_column_result_fields()
-        .into_iter()
-        .map(|c| c.name())
+    let left_column_result_fields = left_plan.get_column_result_fields();
+    let right_column_result_fields = right_plan.get_column_result_fields();
+    let left_column_result_idents = left_column_result_fields
+        .iter()
+        .map(ColumnField::name)
         .collect::<IndexSet<_>>();
-    let right_column_result_fields = right_plan
-        .get_column_result_fields()
-        .into_iter()
-        .map(|c| c.name())
+    let right_column_result_idents = right_column_result_fields
+        .iter()
+        .map(ColumnField::name)
         .collect::<IndexSet<_>>();
     let on_indices_and_idents = join
         .on
@@ -334,8 +350,8 @@ fn join_to_proof_plan(
                     let column_id = Ident::new(col_a.name.clone());
                     Ok((
                         (
-                            left_column_result_fields.get_index_of(&column_id)?,
-                            right_column_result_fields.get_index_of(&column_id)?,
+                            left_column_result_idents.get_index_of(&column_id)?,
+                            right_column_result_idents.get_index_of(&column_id)?,
                         ),
                         column_id,
                     ))
@@ -348,14 +364,22 @@ fn join_to_proof_plan(
         .collect::<Result<Vec<_>, _>>()?;
     let (on_indices, join_idents): (Vec<(usize, usize)>, Vec<Ident>) =
         on_indices_and_idents.into_iter().unzip();
+    for ((left_index, right_index), join_ident) in on_indices.iter().zip(join_idents.iter()) {
+        if left_column_result_fields[*left_index].is_nullable()
+            || right_column_result_fields[*right_index].is_nullable()
+        {
+            return Err(PlannerError::UnsupportedNullableJoinColumn {
+                column: join_ident.value.clone(),
+            });
+        }
+    }
     let (left_indices, right_indices): (Vec<usize>, Vec<usize>) = on_indices.into_iter().unzip();
     let (left_indices_cloned, right_indices_cloned) = (left_indices.clone(), right_indices.clone());
-    let left_other_column_idents = left_column_result_fields
-        .clone()
+    let left_other_column_idents = left_column_result_idents
         .into_iter()
         .enumerate()
         .filter_map(|(i, col_ident)| (!left_indices.contains(&i)).then_some(col_ident));
-    let right_other_column_idents = right_column_result_fields
+    let right_other_column_idents = right_column_result_idents
         .into_iter()
         .enumerate()
         .filter_map(|(i, col_ident)| (!right_indices.contains(&i)).then_some(col_ident));
@@ -438,12 +462,11 @@ pub fn logical_plan_to_proof_plan(
             input, predicate, ..
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            let input_schema = input_plan.get_column_result_fields();
-            let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
-            let aliased_exprs = input_plan
-                .get_column_result_fields()
+            let input_fields = input_plan.get_column_result_fields();
+            let filter_proof_expr = expr_to_proof_expr(predicate, &input_fields)?;
+            let aliased_exprs = input_fields
                 .iter()
-                .filter(|field| value_column_id_from_presence(&field.name()).is_none())
+                .filter(|field| !is_generated_nullable_presence_field(field, &input_fields))
                 .map(|field| -> PlannerResult<AliasedDynProofExpr> {
                     let alias = field.name();
                     Ok(AliasedDynProofExpr {
@@ -1256,6 +1279,42 @@ mod tests {
         assert!(matches!(
             result,
             Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_group_by_nullable_expressions() {
+        let group_expr = vec![df_column("table", "a")];
+        let aggr_expr = vec![COUNT_1()];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                Arc::new(PoSqlTableSource::new(vec![
+                    ColumnField::new_nullable("a".into(), ColumnType::BigInt),
+                    ColumnField::new("b".into(), ColumnType::Int),
+                ])) as Arc<dyn TableSource>,
+                Some(vec![0, 1]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {
+            AHasher;
+            TABLE_REF_TABLE() => vec![
+                ("a".into(), ColumnType::BigInt),
+                ("a__presence".into(), ColumnType::Boolean),
+                ("b".into(), ColumnType::Int),
+            ],
+        });
+        let alias_map = indexmap! {
+            "a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+        };
+
+        assert!(matches!(
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &schemas, &alias_map),
+            Err(PlannerError::UnsupportedNullableGroupByExpression { .. })
         ));
     }
 
@@ -2233,6 +2292,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn we_cannot_join_on_nullable_columns() {
+        let left_table = Arc::new(PoSqlTableSource::new(vec![ColumnField::new_nullable(
+            "id".into(),
+            ColumnType::BigInt,
+        )])) as Arc<dyn TableSource>;
+        let right_table = Arc::new(PoSqlTableSource::new(vec![ColumnField::new(
+            "id".into(),
+            ColumnType::BigInt,
+        )])) as Arc<dyn TableSource>;
+        let left_scan = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_table, Some(vec![0]), vec![], None).unwrap(),
+        );
+        let right_scan = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_table, Some(vec![0]), vec![], None).unwrap(),
+        );
+        let join_plan = LogicalPlan::Join(Join {
+            left: Arc::new(left_scan),
+            right: Arc::new(right_scan),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("id__presence".into(), ColumnType::Boolean),
+            ],
+            TableRef::new("", "right_table") => vec![("id".into(), ColumnType::BigInt)],
+        });
+
+        assert!(matches!(
+            logical_plan_to_proof_plan(&join_plan, &schemas),
+            Err(PlannerError::UnsupportedNullableJoinColumn { column }) if column == "id"
+        ));
+    }
+
     // Filter (LogicalPlan::Filter) tests - Happy paths
     #[test]
     fn we_can_convert_simple_nested_filters() {
@@ -2320,6 +2422,26 @@ mod tests {
         let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
         let expected: IndexSet<Ident> = ["a".into(), "c".into()].into_iter().collect();
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn generated_presence_field_detection_keeps_orphan_suffix_columns() {
+        let fields = vec![
+            ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+            ColumnField::new("score__presence".into(), ColumnType::Boolean),
+            ColumnField::new("orphan__presence".into(), ColumnType::Boolean),
+        ];
+
+        let visible_fields = fields
+            .iter()
+            .filter(|field| !is_generated_nullable_presence_field(field, &fields))
+            .map(ColumnField::name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            visible_fields,
+            vec!["score".into(), "orphan__presence".into()]
+        );
     }
 
     #[test]
