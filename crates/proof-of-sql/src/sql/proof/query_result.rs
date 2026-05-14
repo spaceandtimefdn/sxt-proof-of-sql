@@ -69,3 +69,54 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::QueryError;
+    use crate::base::{
+        database::{ColumnCoercionError, TableCoercionError},
+        proof::ProofError,
+    };
+
+    #[test]
+    fn table_coercion_overflow_maps_to_query_overflow() {
+        let err = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        });
+
+        assert!(matches!(err, QueryError::Overflow));
+    }
+
+    #[test]
+    fn table_coercion_invalid_type_maps_to_proof_error() {
+        let err = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        });
+
+        assert!(matches!(
+            err,
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion
+            }
+        ));
+    }
+
+    #[test]
+    fn table_coercion_schema_mismatches_map_to_proof_errors() {
+        let name_mismatch = QueryError::from(TableCoercionError::NameMismatch);
+        let column_count_mismatch = QueryError::from(TableCoercionError::ColumnCountMismatch);
+
+        assert!(matches!(
+            name_mismatch,
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch
+            }
+        ));
+        assert!(matches!(
+            column_count_mismatch,
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch
+            }
+        ));
+    }
+}
