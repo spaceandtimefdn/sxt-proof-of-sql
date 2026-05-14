@@ -31,3 +31,33 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnField, ColumnType};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn column_field_accessors_clone_name_and_copy_type() {
+        let field = ColumnField::new(Ident::new("amount"), ColumnType::BigInt);
+
+        assert_eq!(field.name(), Ident::new("amount"));
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+
+        let mut cloned_name = field.name();
+        cloned_name.value = "mutated".into();
+        assert_eq!(field.name(), Ident::new("amount"));
+    }
+
+    #[test]
+    fn column_field_round_trips_through_serde() {
+        let field = ColumnField::new(Ident::new("description"), ColumnType::VarChar);
+
+        let serialized = serde_json::to_string(&field).unwrap();
+        let deserialized: ColumnField = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, field);
+        assert_eq!(deserialized.name(), Ident::new("description"));
+        assert_eq!(deserialized.data_type(), ColumnType::VarChar);
+    }
+}
