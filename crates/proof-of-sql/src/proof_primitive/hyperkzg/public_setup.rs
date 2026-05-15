@@ -121,6 +121,15 @@ pub fn load_small_setup_for_testing() -> (
 #[cfg(all(test, feature = "std"))]
 mod std_tests {
     use super::*;
+    use std::io::{Error, ErrorKind, Read};
+
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(Error::new(ErrorKind::UnexpectedEof, "forced read failure"))
+        }
+    }
 
     #[test]
     fn we_can_deserialize_empty_setup_from_slice() {
@@ -161,6 +170,28 @@ mod std_tests {
                 .unwrap()
                 .len(),
             4,
+        );
+    }
+
+    #[test]
+    fn we_reject_truncated_compressed_setup_from_slice() {
+        let bytes = include_bytes!("test_ppot_0080_02.bin");
+        let truncated = &bytes[..bytes.len() - 1];
+
+        assert!(
+            deserialize_flat_compressed_hyperkzg_public_setup_from_slice(truncated, Validate::Yes)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn we_propagate_reader_errors_when_deserializing_setup() {
+        assert!(
+            deserialize_flat_compressed_hyperkzg_public_setup_from_reader(
+                FailingReader,
+                Validate::Yes
+            )
+            .is_err()
         );
     }
 }
