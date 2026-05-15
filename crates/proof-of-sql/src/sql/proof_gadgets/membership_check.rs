@@ -177,8 +177,8 @@ mod tests {
         let mut builder = MockVerificationBuilder::new(
             Vec::new(),
             3,
-            Vec::new(),
-            Vec::new(),
+            vec![Vec::new()],
+            vec![Vec::new()],
             Vec::new(),
             Vec::new(),
             Vec::new(),
