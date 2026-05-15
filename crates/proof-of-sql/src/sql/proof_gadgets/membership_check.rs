@@ -132,3 +132,74 @@ pub(crate) fn verify_membership_check<S: Scalar>(
 
     Ok(multiplicity_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::verify_membership_check;
+    use crate::{
+        base::{
+            proof::ProofError,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+
+    #[test]
+    fn verifier_accepts_matching_folded_membership_evaluations() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            vec![vec![TestScalar::ONE]],
+            vec![vec![TestScalar::ONE, TestScalar::ONE]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let multiplicity_eval = verify_membership_check(
+            &mut builder,
+            TestScalar::ONE,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            &[TestScalar::ZERO],
+            &[TestScalar::ZERO],
+        )
+        .unwrap();
+
+        assert_eq!(multiplicity_eval, TestScalar::ONE);
+        assert_eq!(builder.get_identity_results(), vec![vec![true, true]]);
+        assert_eq!(builder.get_zero_sum_results(), vec![true]);
+    }
+
+    #[test]
+    fn verifier_rejects_mismatched_source_and_candidate_column_counts() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            vec![Vec::new()],
+            vec![Vec::new()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let error = verify_membership_check(
+            &mut builder,
+            TestScalar::ONE,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            &[TestScalar::ZERO],
+            &[TestScalar::ZERO, TestScalar::ONE],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            }
+        ));
+    }
+}
