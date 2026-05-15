@@ -117,3 +117,102 @@ impl ProofExpr for AddExpr {
 }
 
 impl DecimalProofExpr for AddExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_bigint, borrowed_varchar, table},
+                TableRef,
+            },
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::{collections::VecDeque, vec::Vec};
+    use bumpalo::Bump;
+
+    fn bigint_column_expr(table_ref: &TableRef, name: &str) -> (ColumnRef, DynProofExpr) {
+        let column_ref = ColumnRef::new(table_ref.clone(), name.into(), ColumnType::BigInt);
+        (column_ref.clone(), DynProofExpr::new_column(column_ref))
+    }
+
+    #[test]
+    fn add_expr_evaluates_column_and_literal_without_blitzar() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "t");
+        let table = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+        let (column_ref, lhs) = bigint_column_expr(&table_ref, "a");
+        let rhs = DynProofExpr::new_literal(LiteralValue::BigInt(4));
+        let expr = AddExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap();
+
+        assert_eq!(
+            expr.data_type(),
+            ColumnType::Decimal75(expr.precision(), expr.scale())
+        );
+
+        let first_round = expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(
+            first_round,
+            Column::Decimal75(
+                expr.precision(),
+                expr.scale(),
+                &[
+                    TestScalar::from(5),
+                    TestScalar::from(6),
+                    TestScalar::from(7)
+                ]
+            )
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round, first_round);
+        assert!(final_round_builder.pcs_proof_mles().is_empty());
+        assert!(final_round_builder.sumcheck_subpolynomials().is_empty());
+
+        let mut accessor = IndexMap::default();
+        accessor.insert("a".into(), TestScalar::from(9));
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let verifier_eval = expr
+            .verifier_evaluate(
+                &mut verification_builder,
+                &accessor,
+                TestScalar::from(3),
+                &[],
+            )
+            .unwrap();
+        assert_eq!(verifier_eval, TestScalar::from(21));
+
+        let mut columns = IndexSet::default();
+        expr.get_column_references(&mut columns);
+        assert_eq!(columns.len(), 1);
+        assert!(columns.contains(&column_ref));
+    }
+
+    #[test]
+    fn add_expr_rejects_non_numeric_inputs_without_blitzar() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "t");
+        let table = table([borrowed_varchar::<TestScalar>("name", ["a", "b"], &alloc)]);
+        let column_ref = ColumnRef::new(table_ref, "name".into(), ColumnType::VarChar);
+        let lhs = DynProofExpr::new_column(column_ref);
+        let rhs = DynProofExpr::new_literal(LiteralValue::BigInt(1));
+
+        let err = AddExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap_err();
+        assert!(matches!(err, AnalyzeError::DataTypeMismatch { .. }));
+        assert_eq!(table.num_rows(), 2);
+    }
+}
