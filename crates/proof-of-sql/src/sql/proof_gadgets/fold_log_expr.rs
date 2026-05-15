@@ -163,7 +163,7 @@ mod tests {
             Column::Int128::<TestScalar>(&[1, 2]),
             Column::Int128::<TestScalar>(&[3, 4]),
         ];
-        let chi = &[true, false];
+        let chi = &[true, true];
         let mut builder = FinalRoundBuilder::new(columns.len(), VecDeque::new());
 
         let (star, fold) =
