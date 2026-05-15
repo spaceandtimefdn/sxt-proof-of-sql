@@ -468,11 +468,22 @@ pub fn bit_table_and_scalars_for_packed_msm(
 
 #[cfg(test)]
 mod tests {
+    use super::super::F;
     use super::*;
     use crate::base::{
+        database::ColumnType,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+
+    fn g1_multiple(value: u64) -> G1Affine {
+        G1Affine::generator().mul(F::from(value)).into_affine()
+    }
+
+    fn shifted_commit(first: G1Affine, second: G1Affine, column_type: ColumnType) -> G1Affine {
+        (first + second.mul(min_as_f(column_type))).into_affine()
+    }
 
     #[test]
     fn we_can_get_a_bit_table() {
@@ -542,6 +553,73 @@ mod tests {
             256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 8, 8, 8, 64, 64,
         ];
         assert_eq!(bit_table, expected);
+    }
+
+    #[test]
+    fn we_can_modify_signed_sub_commits_with_offset_commits() {
+        let bigints = [1_i64, 2, 3, 4, 5];
+        let smallints = [1_i16, 2, 3];
+        let ints = [1_i32];
+        let uints = [1_u8, 2];
+        let committable_columns = [
+            CommittableColumn::BigInt(&bigints),
+            CommittableColumn::SmallInt(&smallints),
+            CommittableColumn::Int(&ints),
+            CommittableColumn::Uint8(&uints),
+        ];
+        let offset = 0;
+        let num_matrix_commitment_columns = 2;
+        let bit_table = vec![64; 13];
+        let signed_sub_commits: Vec<G1Affine> = (1..=7).map(g1_multiple).collect();
+        let offset_sub_commits: Vec<G1Affine> = (10..=15).map(g1_multiple).collect();
+        let sub_commits = signed_sub_commits
+            .iter()
+            .chain(offset_sub_commits.iter())
+            .copied()
+            .collect::<Vec<_>>();
+
+        let modified = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_matrix_commitment_columns,
+        );
+
+        let expected = vec![
+            shifted_commit(
+                signed_sub_commits[0],
+                offset_sub_commits[0],
+                ColumnType::BigInt,
+            ),
+            shifted_commit(
+                signed_sub_commits[1],
+                offset_sub_commits[1],
+                ColumnType::BigInt,
+            ),
+            shifted_commit(
+                signed_sub_commits[2],
+                offset_sub_commits[2],
+                ColumnType::BigInt,
+            ),
+            shifted_commit(
+                signed_sub_commits[3],
+                offset_sub_commits[0],
+                ColumnType::SmallInt,
+            ),
+            shifted_commit(
+                signed_sub_commits[4],
+                offset_sub_commits[3],
+                ColumnType::SmallInt,
+            ),
+            shifted_commit(
+                signed_sub_commits[5],
+                offset_sub_commits[4],
+                ColumnType::Int,
+            ),
+            signed_sub_commits[6],
+        ];
+        assert_eq!(modified, expected);
     }
 
     #[test]
