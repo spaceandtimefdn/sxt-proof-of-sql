@@ -7,7 +7,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 /// Converts an Arrow schema to a PoSQL-compatible schema.
 ///
 /// This function takes an Arrow `SchemaRef` and returns a new `SchemaRef` where
-/// floating-point data types (Float16, Float32, Float64) are converted to Decimal256(75, 30).
+/// floating-point data types (Float16, Float32, Float64) are converted to Decimal256(20, 10).
 /// Other data types remain unchanged.
 ///
 /// # Arguments
