@@ -108,12 +108,12 @@ pub use test_accessor::TestAccessor;
 
 mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod owned_table_test_accessor_test;
 
 mod table_test_accessor;
 pub use table_test_accessor::TableTestAccessor;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod table_test_accessor_test;
 
 /// Module providing utilities for filtering columns based on selection vectors.
