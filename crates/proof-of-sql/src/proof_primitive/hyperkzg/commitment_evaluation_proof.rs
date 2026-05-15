@@ -160,6 +160,11 @@ mod tests {
             test_commitment_evaluation_proof_with_length_1,
             test_random_commitment_evaluation_proof, test_simple_commitment_evaluation_proof,
         },
+        base::{
+            commitment::{Commitment, CommitmentEvaluationProof, CommittableColumn},
+            polynomial::compute_evaluation_vector,
+            proof::{Keccak256Transcript, Transcript},
+        },
         proof_primitive::hyperkzg::{
             nova_commitment_key_to_hyperkzg_public_setup,
             public_setup::load_small_setup_for_testing,
@@ -276,5 +281,45 @@ mod tests {
             &&pk[..],
             &&vk,
         );
+    }
+
+    #[test]
+    fn we_reject_nonzero_generator_offsets_when_verifying_hyperkzg_proofs() {
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 8);
+        let (_, vk) = EvaluationEngine::setup(&ck);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
+        let a = [BNScalar::from(1), BNScalar::from(2)];
+        let b_point = [BNScalar::from(3)];
+        let mut b_vec = vec![BNScalar::default(); a.len()];
+        compute_evaluation_vector(&mut b_vec, &b_point);
+        let evaluation = a.iter().zip(b_vec).map(|(a, b)| *a * b).sum();
+        let commit = HyperKZGCommitment::compute_commitments(
+            &[CommittableColumn::from(&a[..])],
+            0,
+            &&public_setup[..],
+        )[0];
+
+        let mut transcript = Keccak256Transcript::new();
+        let proof = HyperKZGCommitmentEvaluationProof::new(
+            &mut transcript,
+            &a,
+            &b_point,
+            0,
+            &&public_setup[..],
+        );
+
+        let mut transcript = Keccak256Transcript::new();
+        assert!(matches!(
+            proof.verify_proof(
+                &mut transcript,
+                &commit,
+                &evaluation,
+                &b_point,
+                1,
+                a.len(),
+                &&vk,
+            ),
+            Err(NovaError::InvalidPCS)
+        ));
     }
 }
