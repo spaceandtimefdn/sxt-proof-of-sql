@@ -57,3 +57,63 @@ pub fn nova_commitment_key_to_hyperkzg_public_setup(
 ) -> HyperKZGPublicSetupOwned {
     slice_ops::slice_cast_with(setup.ck(), convert_g1_affine_from_halo2_to_ark)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::hyperkzg::convert_g1_affine_from_ark_to_halo2;
+    use ff::Field;
+    use nova_snark::{
+        provider::{
+            bn256_grumpkin::bn256::Scalar as NovaScalar,
+            hyperkzg::{Commitment as NovaCommitment, CommitmentEngine},
+        },
+        traits::{commitment::CommitmentEngineTrait, TranscriptEngineTrait},
+    };
+
+    #[test]
+    fn commitment_key_conversion_preserves_nova_points() {
+        let commitment_key: CommitmentKey<HyperKZGEngine> =
+            CommitmentEngine::setup(b"nova-engine-test", 4);
+
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&commitment_key);
+
+        assert_eq!(public_setup.len(), commitment_key.ck().len());
+        for (ark_point, halo2_point) in public_setup.iter().zip(commitment_key.ck()) {
+            assert_eq!(convert_g1_affine_from_ark_to_halo2(ark_point), *halo2_point);
+        }
+    }
+
+    #[test]
+    fn transcript_engine_absorbs_commitments_and_squeezes_scalars() {
+        let commitment_key: CommitmentKey<HyperKZGEngine> =
+            CommitmentEngine::setup(b"nova-transcript-test", 1);
+        let zero_commitment = NovaCommitment::<HyperKZGEngine>::default();
+        let nonzero_commitment =
+            CommitmentEngine::commit(&commitment_key, &[NovaScalar::ONE], &NovaScalar::ZERO);
+
+        let mut zero_transcript =
+            <Keccak256Transcript as TranscriptEngineTrait<HyperKZGEngine>>::new(b"ignored-label");
+        zero_transcript.dom_sep(b"ignored-domain-separator");
+        zero_transcript.absorb(b"ignored-absorb-label", &zero_commitment);
+
+        let mut matching_transcript =
+            <Keccak256Transcript as TranscriptEngineTrait<HyperKZGEngine>>::new(b"different-label");
+        matching_transcript.absorb(b"different-absorb-label", &zero_commitment);
+
+        let mut nonzero_transcript =
+            <Keccak256Transcript as TranscriptEngineTrait<HyperKZGEngine>>::new(b"ignored-label");
+        nonzero_transcript.absorb(b"ignored-absorb-label", &nonzero_commitment);
+
+        let zero_challenge = zero_transcript.squeeze(b"ignored-squeeze-label").unwrap();
+        let matching_challenge = matching_transcript
+            .squeeze(b"different-squeeze-label")
+            .unwrap();
+        let nonzero_challenge = nonzero_transcript
+            .squeeze(b"ignored-squeeze-label")
+            .unwrap();
+
+        assert_eq!(zero_challenge, matching_challenge);
+        assert_ne!(zero_challenge, nonzero_challenge);
+    }
+}
