@@ -35,3 +35,57 @@ pub fn get_posql_compatible_schema(schema: &SchemaRef) -> SchemaRef {
 
     Arc::new(Schema::new(new_fields))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::get_posql_compatible_schema;
+    use alloc::sync::Arc;
+    use arrow::datatypes::{DataType, Field, Schema};
+
+    #[test]
+    fn converts_arrow_float_types_to_posql_decimal() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("float16_col", DataType::Float16, false),
+            Field::new("float32_col", DataType::Float32, true),
+            Field::new("float64_col", DataType::Float64, false),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(
+            converted.field(0).data_type(),
+            &DataType::Decimal256(20, 10)
+        );
+        assert_eq!(
+            converted.field(1).data_type(),
+            &DataType::Decimal256(20, 10)
+        );
+        assert_eq!(
+            converted.field(2).data_type(),
+            &DataType::Decimal256(20, 10)
+        );
+    }
+
+    #[test]
+    fn preserves_non_float_field_metadata() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("int_col", DataType::Int64, true),
+            Field::new("decimal_col", DataType::Decimal256(38, 6), false),
+            Field::new("text_col", DataType::Utf8, true),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(converted.field(0).name(), "int_col");
+        assert_eq!(converted.field(0).data_type(), &DataType::Int64);
+        assert!(converted.field(0).is_nullable());
+
+        assert_eq!(converted.field(1).name(), "decimal_col");
+        assert_eq!(converted.field(1).data_type(), &DataType::Decimal256(38, 6));
+        assert!(!converted.field(1).is_nullable());
+
+        assert_eq!(converted.field(2).name(), "text_col");
+        assert_eq!(converted.field(2).data_type(), &DataType::Utf8);
+        assert!(converted.field(2).is_nullable());
+    }
+}
