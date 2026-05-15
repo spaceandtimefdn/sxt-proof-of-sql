@@ -157,12 +157,17 @@ mod tests {
     use crate::{
         base::{
             database::Column,
+            math::log2_up,
             proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar},
         },
-        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            SumcheckSubpolynomialType,
+        },
     };
     use bumpalo::Bump;
+    use num_traits::Inv;
     use std::collections::VecDeque;
 
     #[test]
@@ -227,7 +232,7 @@ mod tests {
         let columns = [Column::Int128::<TestScalar>(&[1, 2, 3])];
         let filtered_columns = [Column::Int128::<TestScalar>(&[1, 3])];
         let selection = &[true, false, true];
-        let mut builder = FinalRoundBuilder::new(columns.len(), VecDeque::new());
+        let mut builder = FinalRoundBuilder::new(log2_up(selection.len()).max(1), VecDeque::new());
 
         final_round_evaluate_filter(
             &mut builder,
@@ -241,7 +246,62 @@ mod tests {
             2,
         );
 
-        assert_eq!(builder.pcs_proof_mles().len(), 2);
-        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+        let inverse = |value| TestScalar::from(value).inv().unwrap();
+        let sumcheck_variables = builder.num_sumcheck_variables();
+        assert_eq!(
+            builder.pcs_proof_mles()[0].to_sumcheck_term(sumcheck_variables),
+            vec![
+                inverse(3u64),
+                inverse(5u64),
+                inverse(7u64),
+                TestScalar::ZERO
+            ]
+        );
+        assert_eq!(
+            builder.pcs_proof_mles()[1].to_sumcheck_term(sumcheck_variables),
+            vec![
+                inverse(3u64),
+                inverse(7u64),
+                TestScalar::ZERO,
+                TestScalar::ZERO
+            ]
+        );
+
+        let subpolynomial_term_shapes: Vec<Vec<_>> = builder
+            .sumcheck_subpolynomials()
+            .iter()
+            .map(|subpolynomial| {
+                subpolynomial
+                    .iter_mul_by(TestScalar::ONE)
+                    .map(|(subpolynomial_type, coefficient, multiplicands)| {
+                        (subpolynomial_type, coefficient, multiplicands.len())
+                    })
+                    .collect()
+            })
+            .collect();
+
+        assert_eq!(
+            subpolynomial_term_shapes,
+            vec![
+                vec![
+                    (SumcheckSubpolynomialType::Identity, TestScalar::ONE, 1),
+                    (SumcheckSubpolynomialType::Identity, TestScalar::ONE, 2),
+                    (SumcheckSubpolynomialType::Identity, -TestScalar::ONE, 1),
+                ],
+                vec![
+                    (SumcheckSubpolynomialType::Identity, TestScalar::ONE, 1),
+                    (SumcheckSubpolynomialType::Identity, TestScalar::ONE, 2),
+                    (SumcheckSubpolynomialType::Identity, -TestScalar::ONE, 1),
+                ],
+                vec![
+                    (SumcheckSubpolynomialType::ZeroSum, TestScalar::ONE, 2),
+                    (SumcheckSubpolynomialType::ZeroSum, -TestScalar::ONE, 1),
+                ],
+                vec![
+                    (SumcheckSubpolynomialType::Identity, TestScalar::ONE, 2),
+                    (SumcheckSubpolynomialType::Identity, -TestScalar::ONE, 1),
+                ],
+            ]
+        );
     }
 }
