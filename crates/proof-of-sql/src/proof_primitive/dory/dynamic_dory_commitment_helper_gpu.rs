@@ -3,7 +3,7 @@ use super::{
     pairings, DynamicDoryCommitment, G1Affine, ProverSetup,
 };
 use crate::{
-    base::{commitment::CommittableColumn, if_rayon, slice_ops::slice_cast},
+    base::{commitment::CommittableColumn, if_rayon, math::is_multiple_of, slice_ops::slice_cast},
     proof_primitive::dynamic_matrix_utils::matrix_structure::row_and_column_from_index,
     utils::log,
 };
@@ -66,9 +66,7 @@ pub(super) fn compute_dynamic_dory_commitments(
     let all_sub_commits: Vec<G1Affine> = slice_cast(&blitzar_sub_commits);
     let signed_sub_commits = signed_commits(&all_sub_commits, committable_columns);
     assert!(
-        signed_sub_commits
-            .len()
-            .is_multiple_of(committable_columns.len()),
+        is_multiple_of(signed_sub_commits.len(), committable_columns.len()),
         "Invalid number of sub commits"
     );
     let num_commits = signed_sub_commits.len() / committable_columns.len();
