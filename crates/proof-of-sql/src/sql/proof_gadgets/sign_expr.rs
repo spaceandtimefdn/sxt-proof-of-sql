@@ -162,14 +162,18 @@ mod tests {
             scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
         },
         sql::{
-            proof::mock_verification_builder::MockVerificationBuilder,
-            proof_gadgets::verifier_evaluate_sign,
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_gadgets::{
+                final_round_evaluate_sign, first_round_evaluate_sign, verifier_evaluate_sign,
+            },
         },
     };
+    use alloc::collections::VecDeque;
     use bnum::{
         cast::As,
         types::{I256, U256},
     };
+    use bumpalo::Bump;
     use core::ops::Shl;
 
     fn evaluate_matrix(matrix: &[&[I256]], terms: &[TestScalar]) -> Vec<TestScalar> {
@@ -191,6 +195,40 @@ mod tests {
                 }
             })
             .sum()
+    }
+
+    #[test]
+    fn we_can_first_round_evaluate_sign_for_mixed_scalars() {
+        let alloc = Bump::new();
+        let data = [
+            TestScalar::ZERO,
+            TestScalar::from(7_i64),
+            TestScalar::from(-3_i64),
+            TestScalar::from(-128_i64),
+        ];
+        let signs = first_round_evaluate_sign(data.len(), &alloc, &data);
+        assert_eq!(signs, [false, false, true, true]);
+    }
+
+    #[test]
+    fn we_can_final_round_evaluate_sign_for_varying_scalars() {
+        let alloc = Bump::new();
+        let data = [
+            TestScalar::ZERO,
+            TestScalar::from(7_i64),
+            TestScalar::from(-3_i64),
+            TestScalar::from(-128_i64),
+        ];
+        let expected_distribution = BitDistribution::new::<TestScalar, _>(&data);
+        let expected_varying_bits = expected_distribution.num_varying_bits() as usize;
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let signs = final_round_evaluate_sign(&mut builder, &alloc, &data);
+
+        assert_eq!(signs, [false, false, true, true]);
+        assert_eq!(builder.bit_distributions(), [expected_distribution]);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), expected_varying_bits);
+        assert_eq!(builder.pcs_proof_mles().len(), expected_varying_bits);
     }
 
     #[test]
