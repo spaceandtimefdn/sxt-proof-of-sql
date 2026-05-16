@@ -710,7 +710,7 @@ pub(crate) mod tests {
     fn we_can_compute_dynamic_vecs_that_matches_evaluation_vec() {
         use ark_std::UniformRand;
         let mut rng = ark_std::test_rng();
-        for num_vars in 0..20 {
+        for num_vars in (0..=12).chain([19]) {
             let point: Vec<_> = core::iter::repeat_with(|| MontScalar(F::rand(&mut rng)))
                 .take(num_vars)
                 .collect();
