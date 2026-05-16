@@ -23,3 +23,27 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    #[derive(Debug, PartialEq)]
+    struct Source(u8);
+
+    impl From<&Source> for u16 {
+        fn from(value: &Source) -> Self {
+            u16::from(value.0) + 1
+        }
+    }
+
+    #[test]
+    fn ref_into_uses_reference_conversion_without_consuming_value() {
+        let source = Source(41);
+
+        let converted: u16 = source.ref_into();
+
+        assert_eq!(converted, 42);
+        assert_eq!(source, Source(41));
+    }
+}
