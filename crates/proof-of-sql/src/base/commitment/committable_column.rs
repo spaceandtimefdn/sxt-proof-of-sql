@@ -3,7 +3,6 @@ use crate::base::{
     if_rayon,
     math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-    ref_into::RefInto,
     scalar::{Scalar, ScalarExt},
 };
 use alloc::vec::Vec;
@@ -116,16 +115,16 @@ impl<'a, S: Scalar> From<&Column<'a, S>> for CommittableColumn<'a> {
             Column::BigInt(ints) => CommittableColumn::BigInt(ints),
             Column::Int128(ints) => CommittableColumn::Int128(ints),
             Column::Decimal75(precision, scale, decimals) => {
-                let as_limbs: Vec<_> = decimals.iter().map(RefInto::<[u64; 4]>::ref_into).collect();
+                let as_limbs: Vec<_> = decimals.iter().map(Scalar::to_limbs).collect();
                 CommittableColumn::Decimal75(*precision, *scale, as_limbs)
             }
             Column::Scalar(scalars) => (scalars as &[_]).into(),
             Column::VarChar((_, scalars)) => {
-                let as_limbs: Vec<_> = scalars.iter().map(RefInto::<[u64; 4]>::ref_into).collect();
+                let as_limbs: Vec<_> = scalars.iter().map(Scalar::to_limbs).collect();
                 CommittableColumn::VarChar(as_limbs)
             }
             Column::VarBinary((_, scalars)) => {
-                let as_limbs: Vec<_> = scalars.iter().map(RefInto::<[u64; 4]>::ref_into).collect();
+                let as_limbs: Vec<_> = scalars.iter().map(Scalar::to_limbs).collect();
                 CommittableColumn::VarBinary(as_limbs)
             }
             Column::TimestampTZ(tu, tz, times) => CommittableColumn::TimestampTZ(*tu, *tz, times),
@@ -152,25 +151,21 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
             OwnedColumn::Decimal75(precision, scale, decimals) => CommittableColumn::Decimal75(
                 *precision,
                 *scale,
-                decimals
-                    .iter()
-                    .map(Into::<S>::into)
-                    .map(Into::<[u64; 4]>::into)
-                    .collect(),
+                decimals.iter().map(Scalar::to_limbs).collect(),
             ),
             OwnedColumn::Scalar(scalars) => (scalars as &[_]).into(),
             OwnedColumn::VarChar(strings) => CommittableColumn::VarChar(
                 strings
                     .iter()
                     .map(Into::<S>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar| scalar.to_limbs())
                     .collect(),
             ),
             OwnedColumn::VarBinary(bytes) => CommittableColumn::VarBinary(
                 bytes
                     .iter()
                     .map(|b| S::from_byte_slice_via_hash(b))
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|scalar| scalar.to_limbs())
                     .collect(),
             ),
             OwnedColumn::TimestampTZ(tu, tz, times) => {
@@ -216,7 +211,7 @@ impl<'a, S: Scalar> From<&'a [S]> for CommittableColumn<'a> {
     fn from(value: &'a [S]) -> Self {
         CommittableColumn::Scalar(
             if_rayon!(value.par_iter(), value.iter())
-                .map(RefInto::<[u64; 4]>::ref_into)
+                .map(Scalar::to_limbs)
                 .collect(),
         )
     }
