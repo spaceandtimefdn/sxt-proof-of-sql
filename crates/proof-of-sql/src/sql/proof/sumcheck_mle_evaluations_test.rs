@@ -48,3 +48,24 @@ fn we_can_track_the_evaluation_of_mles_used_within_sumcheck() {
         expected_eval
     );
 }
+
+#[test]
+fn we_can_track_the_rho_256_evaluation_for_long_evaluation_points() {
+    let zero = Curve25519Scalar::from(0u64);
+    let one = Curve25519Scalar::from(1u64);
+    let evaluation_point = [one, zero, one, zero, zero, zero, zero, zero, zero];
+    let random_scalars = evaluation_point;
+    let sumcheck_random_scalars = SumcheckRandomScalars::new(&random_scalars, 3, 9);
+
+    let evals = SumcheckMleEvaluations::new(
+        3,
+        [],
+        [],
+        &evaluation_point,
+        &sumcheck_random_scalars,
+        &[],
+        &[],
+    );
+
+    assert_eq!(evals.rho_256_evaluation, Some(Curve25519Scalar::from(5u64)));
+}
