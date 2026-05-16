@@ -100,6 +100,70 @@ pub struct QueryProof<CP: CommitmentEvaluationProof> {
     pub(super) evaluation_proof: CP,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::get_index_range;
+    use crate::base::database::{MetadataAccessor, TableRef};
+
+    struct MockMetadataAccessor {
+        spans: Vec<(TableRef, usize, usize)>,
+    }
+
+    impl MetadataAccessor for MockMetadataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            self.spans
+                .iter()
+                .find(|(candidate, _, _)| candidate == table_ref)
+                .map(|(_, length, _)| *length)
+                .expect("table length should be present")
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            self.spans
+                .iter()
+                .find(|(candidate, _, _)| candidate == table_ref)
+                .map(|(_, _, offset)| *offset)
+                .expect("table offset should be present")
+        }
+    }
+
+    #[test]
+    fn index_range_defaults_to_single_row_for_empty_table_reference_set() {
+        let accessor = MockMetadataAccessor { spans: vec![] };
+
+        assert_eq!(get_index_range(&accessor, [].iter()), (0, 1));
+    }
+
+    #[test]
+    fn index_range_uses_the_span_for_a_single_table_reference() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let accessor = MockMetadataAccessor {
+            spans: vec![(table_ref.clone(), 5, 7)],
+        };
+
+        assert_eq!(get_index_range(&accessor, [&table_ref]), (7, 12));
+    }
+
+    #[test]
+    fn index_range_covers_the_full_extent_of_multiple_table_references() {
+        let early = TableRef::new("sxt", "early");
+        let middle = TableRef::new("sxt", "middle");
+        let late = TableRef::new("sxt", "late");
+        let accessor = MockMetadataAccessor {
+            spans: vec![
+                (middle.clone(), 4, 10),
+                (late.clone(), 2, 21),
+                (early.clone(), 3, 2),
+            ],
+        };
+
+        assert_eq!(
+            get_index_range(&accessor, [&middle, &late, &early]),
+            (2, 23)
+        );
+    }
+}
+
 impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
     /// Create a new `QueryProof`.
     #[tracing::instrument(name = "QueryProof::new", level = "debug", skip_all)]
