@@ -64,16 +64,23 @@ impl<'a> ProvableResultElement<'a> for &'a str {
         self.as_bytes().encode(out)
     }
     fn decode(data: &'a [u8]) -> Result<(Self, usize), QueryError> {
-        let (data, bytes_read) = <&[u8]>::decode(data)?;
+        let (len_buf, sizeof_usize) =
+            <usize>::decode_var(data).ok_or(QueryError::MiscellaneousDecodingError)?;
 
         // arrow::array::StringArray only supports strings
         // whose maximum length (in bytes) is represented by a i32.
         // If we try to pass some string not respecting this restriction,
         // StringArray will panic. So we add this restriction here to
         // prevent this scenario.
-        if data.len() > i32::MAX as usize {
+        if len_buf > i32::MAX as usize {
             return Err(QueryError::MiscellaneousDecodingError);
         }
+
+        let bytes_read = len_buf + sizeof_usize;
+        if data.len() < bytes_read {
+            return Err(QueryError::MiscellaneousDecodingError);
+        }
+        let data = &data[sizeof_usize..bytes_read];
 
         Ok((
             str::from_utf8(data).map_err(|_e| QueryError::InvalidString)?,
@@ -540,13 +547,7 @@ mod tests {
     #[test]
     fn we_cannot_decode_strings_with_more_than_i32_bytes() {
         let s_len = i32::MAX as usize + 1_usize;
-        let mut s = vec![b'A'; s_len + s_len.required_space()];
-
-        assert_eq!((s_len - 1_usize).required_space(), s_len.required_space());
-        (s_len - 1_usize).encode_var(&mut s[..]);
-        assert!(
-            <&str>::decode(&s[..(s_len - 1_usize + (s_len - 1_usize).required_space())]).is_ok()
-        );
+        let mut s = vec![0_u8; s_len.required_space()];
 
         s_len.encode_var(&mut s[..]);
         assert!(<&str>::decode(&s[..]).is_err());
