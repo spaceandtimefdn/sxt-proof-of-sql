@@ -978,6 +978,37 @@ mod tests {
             join_left_right_columns.remaining_right_columns[0],
             Column::BigInt(&[7_i64, 8, 9, 8, 9])
         );
+        assert_eq!(
+            join_left_right_columns.right_less_join_columns(),
+            vec![
+                Column::BigInt(&[7_i64, 8, 9, 8, 9]),
+                Column::Int128(&[5_i128, 3, 4, 3, 4])
+            ]
+        );
+        assert_eq!(
+            join_left_right_columns.left_columns(),
+            vec![
+                Column::Int(&[4_i32, 5, 5, 5, 5]),
+                Column::SmallInt(&[1_i16, 2, 2, 3, 3]),
+                Column::Int128(&[3_i128, 1, 1, 4, 4])
+            ]
+        );
+        assert_eq!(
+            join_left_right_columns.right_columns(),
+            vec![
+                Column::Int(&[4_i32, 5, 5, 5, 5]),
+                Column::BigInt(&[7_i64, 8, 9, 8, 9]),
+                Column::Int128(&[5_i128, 3, 4, 3, 4])
+            ]
+        );
+        assert_eq!(
+            join_left_right_columns.result_columns(),
+            vec![
+                Column::Int(&[4_i32, 5, 5, 5, 5]),
+                Column::SmallInt(&[1_i16, 2, 2, 3, 3]),
+                Column::BigInt(&[7_i64, 8, 9, 8, 9])
+            ]
+        );
     }
 
     #[test]
