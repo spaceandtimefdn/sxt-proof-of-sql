@@ -79,6 +79,30 @@ mod tests {
     }
 
     #[test]
+    fn we_can_transpose_rectangular_u64_column() {
+        type T = u64;
+        let column: Vec<T> = vec![0, 1, 2, 3, 4, 5];
+        let offset = 0;
+        let rows = 3;
+        let cols = 2;
+        let data_size = mem::size_of::<T>();
+
+        let expected_len = data_size * (column.len() + offset);
+
+        let transpose = transpose_for_fixed_msm(&column, offset, rows, cols, data_size);
+
+        assert_eq!(transpose.len(), expected_len);
+
+        let expected_order = [0, 2, 4, 1, 3, 5];
+        for (index, value) in expected_order.iter().enumerate() {
+            assert_eq!(
+                &transpose[index * data_size..(index + 1) * data_size],
+                column[*value].as_bytes()
+            );
+        }
+    }
+
+    #[test]
     fn we_can_transpose_u64_column_with_offset() {
         type T = u64;
         let column: Vec<T> = vec![1, 2, 3];
