@@ -611,11 +611,11 @@ mod tests {
             ColumnBounds::Int(Bounds::Sharp(BoundsInner { min: 1, max: 6 }))
         );
 
-        let bigint_a = ColumnBounds::BigInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
-        let bigint_b = ColumnBounds::BigInt(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
         assert_eq!(
-            bigint_a.try_union(bigint_b).unwrap(),
-            ColumnBounds::BigInt(Bounds::Sharp(BoundsInner { min: 1, max: 6 }))
+            uint8_a.try_union(uint8_b).unwrap(),
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 6 }))
         );
 
         let bigint_a = ColumnBounds::BigInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
@@ -732,5 +732,20 @@ mod tests {
 
         assert!(smallint.try_difference(timestamp).is_err());
         assert!(timestamp.try_difference(smallint).is_err());
+    }
+
+    #[test]
+    fn we_can_use_uint8_column_bounds() {
+        let uint8_column = OwnedColumn::<TestScalar>::Uint8([1, 2, 3, 1, 0].to_vec());
+        let committable_uint8_column = CommittableColumn::from(&uint8_column);
+        let uint8_column_bounds = ColumnBounds::from_column(&committable_uint8_column);
+        assert_eq!(
+            uint8_column_bounds,
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 0, max: 3 }))
+        );
+
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Empty);
+        assert_eq!(uint8_a.try_difference(uint8_b).unwrap(), uint8_a);
     }
 }
