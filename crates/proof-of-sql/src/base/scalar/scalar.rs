@@ -1,19 +1,36 @@
 #![expect(clippy::module_inception)]
 
 use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
-use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
 use num_bigint::BigInt;
+use tiny_keccak::Hasher;
 
 /// A trait for the scalar field used in Proof of SQL.
+///
+/// String hashing should be explicit at generic call sites:
+///
+/// ```
+/// # use proof_of_sql::base::scalar::Scalar;
+/// fn hash_str<S: Scalar>(value: &str) -> S {
+///     S::from_str_via_hash(value)
+/// }
+/// ```
+///
+/// Generic `Scalar` code should not rely on implicit string conversions:
+///
+/// ```compile_fail
+/// # use proof_of_sql::base::scalar::Scalar;
+/// fn implicit_string_conversion<S: Scalar>(value: &str) -> S {
+///     value.into()
+/// }
+/// ```
 pub trait Scalar:
     Clone
     + core::fmt::Debug
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -52,9 +69,7 @@ pub trait Scalar:
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
     + RefInto<[u64; 4]>
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -85,4 +100,25 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Converts a string to a scalar by hashing its bytes.
+    ///
+    /// This is not a parsing method. It hashes the UTF-8 bytes and masks the result
+    /// into the range supported by Proof of SQL cryptographic objects.
+    #[must_use]
+    fn from_str_via_hash(value: &str) -> Self {
+        if value.is_empty() {
+            return Self::zero();
+        }
+
+        let mut hasher = tiny_keccak::Keccak::v256();
+        hasher.update(value.as_bytes());
+        let mut hashed_bytes = [0_u8; 32];
+        hasher.finalize(&mut hashed_bytes);
+        let hashed_val =
+            U256::from_le_slice(&hashed_bytes).expect("32 bytes => guaranteed to parse as U256");
+        let masked_val = hashed_val & Self::CHALLENGE_MASK;
+        let limbs: [u64; 4] = masked_val.into();
+        Self::from(limbs)
+    }
 }
