@@ -267,6 +267,72 @@ mod tests {
             .expect("Deserialized parameters are not valid");
     }
 
+    #[test]
+    fn serialized_size_matches_written_bytes() {
+        let mut rng = thread_rng();
+        let params = PublicParameters::test_rand(2, &mut rng);
+
+        let mut serialized_data = Vec::new();
+        params
+            .serialize_with_mode(&mut serialized_data, ark_serialize::Compress::No)
+            .expect("Failed to serialize PublicParameters");
+
+        assert_eq!(
+            params.serialized_size(ark_serialize::Compress::No),
+            serialized_data.len()
+        );
+    }
+
+    #[test]
+    fn truncated_public_parameters_are_rejected() {
+        let mut rng = thread_rng();
+        let params = PublicParameters::test_rand(2, &mut rng);
+
+        let mut serialized_data = Vec::new();
+        params
+            .serialize_with_mode(&mut serialized_data, ark_serialize::Compress::No)
+            .expect("Failed to serialize PublicParameters");
+
+        for truncate_at in [0, 8, serialized_data.len() - 1] {
+            let result = PublicParameters::deserialize_with_mode(
+                &mut &serialized_data[..truncate_at],
+                ark_serialize::Compress::No,
+                ark_serialize::Validate::Yes,
+            );
+            assert!(matches!(
+                result,
+                Err(SerializationError::IoError(_) | SerializationError::InvalidData)
+            ));
+        }
+    }
+
+    #[test]
+    fn bad_public_parameter_files_return_io_errors() {
+        let mut rng = thread_rng();
+        let params = PublicParameters::test_rand(1, &mut rng);
+        let temp_dir = std::env::temp_dir();
+        let unique_id = format!(
+            "{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("System clock is before the Unix epoch")
+                .as_nanos()
+        );
+
+        assert!(params.save_to_file(&temp_dir).is_err());
+
+        let missing_path = temp_dir.join(format!("missing-public-params-{unique_id}.bin"));
+        assert!(PublicParameters::load_from_file(&missing_path).is_err());
+
+        let invalid_path = temp_dir.join(format!("invalid-public-params-{unique_id}.bin"));
+        std::fs::write(&invalid_path, [1_u8, 2, 3])
+            .expect("Failed to write invalid public parameters");
+        let result = PublicParameters::load_from_file(&invalid_path);
+        std::fs::remove_file(&invalid_path).expect("Failed to remove invalid public parameters");
+        assert!(result.is_err());
+    }
+
     // 13th Gen Intel® Core™ i9-13900H × 20
     // nu vs proof size & time:
     // nu = 4  |  0.005 MB  | 287.972567ms
