@@ -295,6 +295,49 @@ mod tests {
     }
 
     #[test]
+    fn test_owned_table_accessors_and_mle_evaluations() {
+        let table =
+            owned_table::<TestScalar>([bigint("bigint", [1_i64, 2]), scalar("scalar", [3, 4])]);
+
+        assert_eq!(table.num_columns(), 2);
+        assert_eq!(table.num_rows(), 2);
+        assert!(!table.is_empty());
+        assert_eq!(
+            table
+                .column_names()
+                .map(|ident| ident.value.as_str())
+                .collect::<Vec<_>>(),
+            ["bigint", "scalar"]
+        );
+        assert_eq!(table.column_by_index(0), Some(&table["bigint"]));
+        assert_eq!(table.column_by_index(1), Some(&table["scalar"]));
+        assert!(table.column_by_index(2).is_none());
+        assert_eq!(table.inner_table().len(), 2);
+
+        let r = TestScalar::from(10);
+        let one_minus_r = TestScalar::from(1) - r;
+        assert_eq!(
+            table.mle_evaluations(&[r]),
+            [
+                TestScalar::from(1) * one_minus_r + TestScalar::from(2) * r,
+                TestScalar::from(3) * one_minus_r + TestScalar::from(4) * r,
+            ]
+        );
+
+        let reversed =
+            owned_table::<TestScalar>([scalar("scalar", [3, 4]), bigint("bigint", [1_i64, 2])]);
+        assert_ne!(table, reversed);
+
+        let inner = table.into_inner();
+        assert_eq!(inner.len(), 2);
+
+        let empty = owned_table::<TestScalar>([]);
+        assert_eq!(empty.num_columns(), 0);
+        assert_eq!(empty.num_rows(), 0);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
     fn test_try_coerce_with_fields() {
         use crate::base::database::{ColumnField, ColumnType};
 
