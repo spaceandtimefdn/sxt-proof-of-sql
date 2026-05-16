@@ -165,9 +165,55 @@ mod tests {
             public_setup::load_small_setup_for_testing,
         },
     };
+    use ark_ec::{AffineRepr, CurveGroup};
     use nova_snark::{
-        provider::hyperkzg::CommitmentEngine, traits::commitment::CommitmentEngineTrait,
+        provider::hyperkzg::{CommitmentEngine, CommitmentKey, EvaluationArgument},
+        traits::commitment::CommitmentEngineTrait,
     };
+
+    #[test]
+    fn we_can_round_trip_nova_evaluation_arguments() {
+        let doubled_generator = (G1Affine::generator() * BNScalar::from(2u64).0).into_affine();
+        let com = vec![
+            (&G1Affine::generator()).into(),
+            (&G1Affine::default()).into(),
+        ];
+        let w = [
+            (&G1Affine::default()).into(),
+            (&G1Affine::generator()).into(),
+            (&doubled_generator).into(),
+        ];
+        let v = vec![
+            [
+                BNScalar::from(3u64),
+                BNScalar::from(5u64),
+                BNScalar::from(7u64),
+            ],
+            [
+                BNScalar::from(11u64),
+                BNScalar::from(13u64),
+                BNScalar::from(17u64),
+            ],
+        ];
+
+        let proof = HyperKZGCommitmentEvaluationProof {
+            com: com.clone(),
+            v: v.clone(),
+            w,
+        };
+
+        let nova_argument = EvaluationArgument::<HyperKZGEngine>::from(&proof);
+        let round_trip_proof = HyperKZGCommitmentEvaluationProof::from(nova_argument.clone());
+
+        assert_eq!(round_trip_proof.com, com);
+        assert_eq!(round_trip_proof.w, w);
+        assert_eq!(round_trip_proof.v, v);
+
+        let round_trip_argument = EvaluationArgument::<HyperKZGEngine>::from(&round_trip_proof);
+        assert_eq!(round_trip_argument.com(), nova_argument.com());
+        assert_eq!(round_trip_argument.w(), nova_argument.w());
+        assert_eq!(round_trip_argument.v(), nova_argument.v());
+    }
 
     #[test]
     fn we_can_create_small_hyperkzg_evaluation_proofs() {
