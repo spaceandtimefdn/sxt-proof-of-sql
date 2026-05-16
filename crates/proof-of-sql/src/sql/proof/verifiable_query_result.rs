@@ -119,3 +119,124 @@ impl<CP: CommitmentEvaluationProof> VerifiableQueryResult<CP> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
+            database::{
+                owned_table_utility::{bigint, owned_table},
+                table_utility::{borrowed_bigint, table_with_row_count},
+                ColumnField, ColumnRef, ColumnType, OwnedTableTestAccessor, Table, TableEvaluation,
+                TableRef,
+            },
+            map::{indexset, IndexMap, IndexSet},
+            proof::{PlaceholderResult, ProofError},
+            scalar::Scalar,
+        },
+        sql::proof::{FinalRoundBuilder, FirstRoundBuilder, ProverEvaluate, VerificationBuilder},
+    };
+    use bumpalo::Bump;
+    use serde::Serialize;
+    use sqlparser::ast::Ident;
+
+    #[derive(Debug, Serialize)]
+    struct EmptyTestQueryExpr {
+        table_ref: TableRef,
+        length: usize,
+        columns: usize,
+    }
+
+    impl ProverEvaluate for EmptyTestQueryExpr {
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FirstRoundBuilder<'a, S>,
+            alloc: &'a Bump,
+            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            let zeros = vec![0_i64; self.length];
+            builder.produce_chi_evaluation_length(self.length);
+            Ok(table_with_row_count(
+                (1..=self.columns)
+                    .map(|i| borrowed_bigint(format!("a{i}").as_str(), zeros.clone(), alloc)),
+                self.length,
+            ))
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            builder: &mut FinalRoundBuilder<'a, S>,
+            alloc: &'a Bump,
+            _table_map: &IndexMap<TableRef, Table<'a, S>>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Table<'a, S>> {
+            let zeros = vec![0_i64; self.length];
+            let values: &[_] = alloc.alloc_slice_copy(&zeros);
+            let _ = core::iter::repeat_with(|| builder.produce_intermediate_mle(values))
+                .take(self.columns)
+                .collect::<Vec<_>>();
+            Ok(table_with_row_count(
+                (1..=self.columns)
+                    .map(|i| borrowed_bigint(format!("a{i}").as_str(), zeros.clone(), alloc)),
+                self.length,
+            ))
+        }
+    }
+
+    impl ProofPlan for EmptyTestQueryExpr {
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<TableRef, IndexMap<Ident, S>>,
+            _chi_eval_map: &IndexMap<TableRef, (S, usize)>,
+            _params: &[LiteralValue],
+        ) -> Result<TableEvaluation<S>, ProofError> {
+            assert_eq!(
+                builder.try_consume_final_round_mle_evaluations(self.columns)?,
+                vec![S::ZERO; self.columns]
+            );
+            Ok(TableEvaluation::new(
+                vec![S::ZERO; self.columns],
+                builder.try_consume_chi_evaluation()?,
+            ))
+        }
+
+        fn get_column_result_fields(&self) -> Vec<ColumnField> {
+            (1..=self.columns)
+                .map(|i| ColumnField::new(format!("a{i}").as_str().into(), ColumnType::BigInt))
+                .collect()
+        }
+
+        fn get_column_references(&self) -> IndexSet<ColumnRef> {
+            indexset! {}
+        }
+
+        fn get_table_references(&self) -> IndexSet<TableRef> {
+            indexset![self.table_ref.clone()]
+        }
+    }
+
+    #[test]
+    fn we_can_verify_an_empty_query_result_with_naive_evaluation_proof() {
+        let table_ref = TableRef::new("sxt", "test");
+        let expr = EmptyTestQueryExpr {
+            table_ref: table_ref.clone(),
+            length: 0,
+            columns: 1,
+        };
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref,
+            owned_table([bigint("a1", [0_i64; 0])]),
+            0,
+            (),
+        );
+        let result =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+        let QueryData { table, .. } = result.verify(&expr, &accessor, &(), &[]).unwrap();
+
+        assert_eq!(table, owned_table([bigint("a1", [0_i64; 0])]));
+    }
+}
