@@ -276,7 +276,7 @@ mod tests {
     // nu = 15 |  9.000 MB  | 504.351756724s
     #[test]
     fn we_can_read_and_write_a_file_round_trip() {
-        let nu_values = vec![1, 2, 4];
+        let nu_values = vec![1, 2, 3];
 
         // Loop through each nu value
         for &nu in &nu_values {
