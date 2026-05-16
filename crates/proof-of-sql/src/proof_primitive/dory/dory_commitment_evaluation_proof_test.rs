@@ -1,8 +1,12 @@
 use super::{
-    test_rng, DoryEvaluationProof, DoryProverPublicSetup, DoryScalar, DoryVerifierPublicSetup,
-    ProverSetup, PublicParameters, VerifierSetup,
+    dory_commitment_evaluation_proof::DoryError, test_rng, DoryCommitment, DoryEvaluationProof,
+    DoryProverPublicSetup, DoryScalar, DoryVerifierPublicSetup, ProverSetup, PublicParameters,
+    VerifierSetup,
 };
-use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof};
+use crate::base::{
+    commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof},
+    scalar::Scalar,
+};
 use ark_std::UniformRand;
 use merlin::Transcript;
 
@@ -91,4 +95,82 @@ fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let encoded = postcard::to_allocvec(&proof).unwrap();
     let decoded: DoryEvaluationProof = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(decoded, proof);
+}
+
+#[test]
+fn new_returns_default_for_unsupported_generators_offset() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(2, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = [DoryScalar::rand(&mut rng)];
+    let b_point = [DoryScalar::rand(&mut rng)];
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let proof = DoryEvaluationProof::new(
+        &mut transcript,
+        &a,
+        &b_point,
+        1,
+        &DoryProverPublicSetup::new(&prover_setup, 1),
+    );
+
+    assert_eq!(proof, DoryEvaluationProof::default());
+}
+
+#[test]
+fn new_returns_default_when_the_prover_setup_is_too_small() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(0, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = [DoryScalar::rand(&mut rng)];
+    let b_point = [
+        DoryScalar::rand(&mut rng),
+        DoryScalar::rand(&mut rng),
+        DoryScalar::rand(&mut rng),
+    ];
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let proof = DoryEvaluationProof::new(
+        &mut transcript,
+        &a,
+        &b_point,
+        0,
+        &DoryProverPublicSetup::new(&prover_setup, 1),
+    );
+
+    assert_eq!(proof, DoryEvaluationProof::default());
+}
+
+#[test]
+fn verify_batched_proof_reports_small_verifier_setup() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(0, &mut rng);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let b_point = [
+        DoryScalar::rand(&mut rng),
+        DoryScalar::rand(&mut rng),
+        DoryScalar::rand(&mut rng),
+    ];
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let err = DoryEvaluationProof::default()
+        .verify_batched_proof(
+            &mut transcript,
+            &[DoryCommitment::default()],
+            &[DoryScalar::ONE],
+            &[DoryScalar::ONE],
+            &b_point,
+            0,
+            1,
+            &DoryVerifierPublicSetup::new(&verifier_setup, 1),
+        )
+        .unwrap_err();
+
+    match err {
+        DoryError::SmallSetup { actual, required } => {
+            assert_eq!(actual, 0);
+            assert_eq!(required, 2);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
