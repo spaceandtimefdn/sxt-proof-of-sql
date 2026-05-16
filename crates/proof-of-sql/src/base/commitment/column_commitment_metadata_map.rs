@@ -140,7 +140,7 @@ mod tests {
     use super::*;
     use crate::base::{
         commitment::{column_bounds::Bounds, ColumnBounds},
-        database::{owned_table_utility::*, ColumnType, OwnedTable},
+        database::{owned_table_utility::*, ColumnField, ColumnType, OwnedTable},
         scalar::test_scalar::TestScalar,
     };
     use alloc::vec::Vec;
@@ -156,6 +156,26 @@ mod tests {
             .unzip();
 
         ColumnCommitmentMetadataMap::from_columns(identifiers.into_iter().zip(columns.iter()))
+    }
+
+    #[test]
+    fn we_can_construct_metadata_map_from_column_fields_with_max_bounds() {
+        let fields = vec![
+            ColumnField::new("bigint_column".into(), ColumnType::BigInt),
+            ColumnField::new("varchar_column".into(), ColumnType::VarChar),
+        ];
+
+        let metadata_map = ColumnCommitmentMetadataMap::from_column_fields_with_max_bounds(&fields);
+
+        assert_eq!(metadata_map.len(), 2);
+        let (bigint_ident, bigint_metadata) = metadata_map.get_index(0).unwrap();
+        assert_eq!(bigint_ident.value.as_str(), "bigint_column");
+        assert_eq!(bigint_metadata.column_type(), &ColumnType::BigInt);
+
+        let (varchar_ident, varchar_metadata) = metadata_map.get_index(1).unwrap();
+        assert_eq!(varchar_ident.value.as_str(), "varchar_column");
+        assert_eq!(varchar_metadata.column_type(), &ColumnType::VarChar);
+        assert_eq!(varchar_metadata.bounds(), &ColumnBounds::NoOrder);
     }
 
     #[test]
@@ -323,6 +343,26 @@ mod tests {
         ));
         assert!(matches!(
             empty_metadata.try_union(metadata_a),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+    }
+
+    #[test]
+    fn we_cannot_difference_metadata_maps_with_different_column_counts() {
+        let metadata_a = metadata_map_from_owned_table(&owned_table([
+            bigint("bigint_column", [1, 5, -5]),
+            varchar("varchar_column", ["Lorem", "ipsum", "dolor"]),
+        ]));
+
+        let metadata_b =
+            metadata_map_from_owned_table(&owned_table([bigint("bigint_column", [1, 5, -5])]));
+
+        assert!(matches!(
+            metadata_a.clone().try_difference(metadata_b.clone()),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+        assert!(matches!(
+            metadata_b.try_difference(metadata_a),
             Err(ColumnCommitmentsMismatch::NumColumns)
         ));
     }
