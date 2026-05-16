@@ -690,9 +690,12 @@ fn test_implicit_casts() {
 
 #[test]
 fn test_dynamic_dory_setup_is_reused() {
+    let first_public_parameters = dynamic_dory_public_parameters();
     let (first_prover_setup, first_verifier_setup) = dynamic_dory_test_setup();
+    let second_public_parameters = dynamic_dory_public_parameters();
     let (second_prover_setup, second_verifier_setup) = dynamic_dory_test_setup();
 
+    assert!(ptr::eq(first_public_parameters, second_public_parameters));
     assert!(ptr::eq(first_prover_setup, second_prover_setup));
     assert!(ptr::eq(first_verifier_setup, second_verifier_setup));
 }
