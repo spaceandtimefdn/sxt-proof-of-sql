@@ -778,6 +778,11 @@ mod tests {
 
         let result = get_multiplicities(&data, &unique, &alloc);
         assert_eq!(result, &[1, 0, 3, 1], "Expected multiplicities");
+
+        let data_before_unique = vec![Column::<TestScalar>::Int(&[1])];
+        let unique_after_data = vec![Column::<TestScalar>::Int(&[5])];
+        let result = get_multiplicities(&data_before_unique, &unique_after_data, &alloc);
+        assert_eq!(result, &[0]);
     }
 
     // Get Columns of Table
@@ -925,6 +930,14 @@ mod tests {
         let left_on = vec![Column::<TestScalar>::Int(&[0_i32; 0])];
         let right_on = vec![Column::<TestScalar>::Int(&[0_i32; 0])];
         let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 0, 0);
+        assert!(row_indexes.is_empty());
+    }
+
+    #[test]
+    fn we_get_empty_sort_merge_join_indexes_for_incompatible_columns() {
+        let left_on = vec![Column::<TestScalar>::Int(&[1])];
+        let right_on = vec![Column::<TestScalar>::BigInt(&[1_i64])];
+        let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 1, 1);
         assert!(row_indexes.is_empty());
     }
 
