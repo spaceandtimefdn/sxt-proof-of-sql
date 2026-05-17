@@ -133,17 +133,124 @@ mod tests {
     use super::{final_round_evaluate_permutation_check, verify_permutation_check};
     use crate::{
         base::{
+            bit::BitDistribution,
             database::table_utility::borrowed_bigint,
             polynomial::MultilinearExtension,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::proof::{
             mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-            FirstRoundBuilder,
+            FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder,
         },
     };
     use bumpalo::Bump;
     use std::collections::VecDeque;
+
+    struct SumcheckErrorBuilder<S: Scalar> {
+        final_round_mle_evaluations: Vec<S>,
+        consumed_final_round_mle_evaluations: usize,
+        fail_on_subpolynomial: Option<usize>,
+        produced_subpolynomials: usize,
+    }
+
+    impl<S: Scalar> SumcheckErrorBuilder<S> {
+        fn new(fail_on_subpolynomial: Option<usize>) -> Self {
+            Self {
+                final_round_mle_evaluations: vec![S::ONE, S::TWO],
+                consumed_final_round_mle_evaluations: 0,
+                fail_on_subpolynomial,
+                produced_subpolynomials: 0,
+            }
+        }
+    }
+
+    impl<S: Scalar> VerificationBuilder<S> for SumcheckErrorBuilder<S> {
+        fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
+            unimplemented!("permutation check tests consume chi evaluation through arguments")
+        }
+
+        fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+            unimplemented!("permutation check tests do not consume rho evaluations")
+        }
+
+        fn try_consume_first_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+            unimplemented!("permutation check tests do not consume first round evaluations")
+        }
+
+        fn try_consume_first_round_mle_evaluations(
+            &mut self,
+            _count: usize,
+        ) -> Result<Vec<S>, ProofSizeMismatch> {
+            unimplemented!("permutation check tests do not consume first round evaluations")
+        }
+
+        fn try_consume_final_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+            let index = self.consumed_final_round_mle_evaluations;
+            self.consumed_final_round_mle_evaluations += 1;
+            self.final_round_mle_evaluations
+                .get(index)
+                .copied()
+                .ok_or(ProofSizeMismatch::TooFewMLEEvaluations)
+        }
+
+        fn try_consume_final_round_mle_evaluations(
+            &mut self,
+            _count: usize,
+        ) -> Result<Vec<S>, ProofSizeMismatch> {
+            unimplemented!("permutation check tests consume one final-round evaluation at a time")
+        }
+
+        fn try_consume_bit_distribution(&mut self) -> Result<BitDistribution, ProofSizeMismatch> {
+            unimplemented!("permutation check tests do not consume bit distributions")
+        }
+
+        fn try_produce_sumcheck_subpolynomial_evaluation(
+            &mut self,
+            _subpolynomial_type: SumcheckSubpolynomialType,
+            _eval: S,
+            _degree: usize,
+        ) -> Result<(), ProofSizeMismatch> {
+            self.produced_subpolynomials += 1;
+            if self.fail_on_subpolynomial == Some(self.produced_subpolynomials) {
+                Err(ProofSizeMismatch::ConstraintCountMismatch)
+            } else {
+                Ok(())
+            }
+        }
+
+        fn try_consume_post_result_challenge(&mut self) -> Result<S, ProofSizeMismatch> {
+            unimplemented!("permutation check tests do not consume post-result challenges")
+        }
+
+        fn singleton_chi_evaluation(&self) -> S {
+            unimplemented!("permutation check tests do not read singleton chi evaluations")
+        }
+
+        fn rho_256_evaluation(&self) -> Option<S> {
+            unimplemented!("permutation check tests do not read rho evaluations")
+        }
+    }
+
+    fn assert_permutation_check_propagates_subpolynomial_error(fail_on_subpolynomial: usize) {
+        let mut builder = SumcheckErrorBuilder::new(Some(fail_on_subpolynomial));
+        let err = verify_permutation_check(
+            &mut builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[TestScalar::TWO],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::ConstraintCountMismatch
+            }
+        ));
+    }
 
     #[test]
     fn we_can_do_permutation_check() {
@@ -188,5 +295,41 @@ mod tests {
             .get_zero_sum_results()
             .iter()
             .all(|v| *v));
+    }
+
+    #[test]
+    fn we_cannot_verify_permutation_check_with_different_column_counts() {
+        let mut builder = SumcheckErrorBuilder::new(None);
+        let err = verify_permutation_check(
+            &mut builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[TestScalar::ONE, TestScalar::TWO],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            }
+        ));
+    }
+
+    #[test]
+    fn we_propagate_zero_sum_permutation_check_verification_errors() {
+        assert_permutation_check_propagates_subpolynomial_error(1);
+    }
+
+    #[test]
+    fn we_propagate_source_identity_permutation_check_verification_errors() {
+        assert_permutation_check_propagates_subpolynomial_error(2);
+    }
+
+    #[test]
+    fn we_propagate_candidate_identity_permutation_check_verification_errors() {
+        assert_permutation_check_propagates_subpolynomial_error(3);
     }
 }
