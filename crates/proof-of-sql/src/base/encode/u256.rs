@@ -50,3 +50,28 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from(val.to_limbs())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::U256;
+
+    #[test]
+    fn limbs_round_trip_in_little_endian_word_order() {
+        let limbs = [
+            0x0123_4567_89ab_cdef,
+            0xfedc_ba98_7654_3210,
+            0x0f1e_2d3c_4b5a_6978,
+            0x8877_6655_4433_2211,
+        ];
+
+        let value = U256::from_limbs(limbs);
+
+        let expected = U256::from_words(
+            0xfedc_ba98_7654_3210_0123_4567_89ab_cdef,
+            0x8877_6655_4433_2211_0f1e_2d3c_4b5a_6978,
+        );
+        assert_eq!(value.low, expected.low);
+        assert_eq!(value.high, expected.high);
+        assert_eq!(value.to_limbs(), limbs);
+    }
+}
