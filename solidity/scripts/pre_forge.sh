@@ -13,8 +13,17 @@ compute_input_fingerprint() {
   } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
 }
 
+should_skip_presl_file() {
+  local source_file=$1
+  head -n 10 "$source_file" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]' | grep -Eq 'does-not-compile|doesnotcompile'
+}
+
 generated_outputs_present() {
   while IFS= read -r -d '' source_file; do
+    if should_skip_presl_file "$source_file"; then
+      continue
+    fi
+
     if [[ ! -f "${source_file%.presl}.post.sol" ]]; then
       return 1
     fi
