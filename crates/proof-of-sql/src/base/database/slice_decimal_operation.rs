@@ -1313,4 +1313,143 @@ mod test {
         let expected = (Precision::new(9).unwrap(), 6, expected_scalars);
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn we_cover_decimal_columns_scale_edge_cases() {
+        let left_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 26);
+        let right_column_type = ColumnType::Decimal75(Precision::new(40).unwrap(), -50);
+        let lhs = [0_i8, 1, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i8, 0, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![true, false, false],
+            eq_decimal_columns(&lhs, &rhs, left_column_type, right_column_type)
+        );
+
+        let lhs = [-1_i8, 0, 1, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i8, 0, 0, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![true, true, false, true],
+            le_decimal_columns(&lhs, &rhs, left_column_type, right_column_type)
+        );
+
+        let lhs = [-1_i8, 0, 1, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i8, 0, 0, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![false, true, true, true],
+            ge_decimal_columns(&lhs, &rhs, left_column_type, right_column_type)
+        );
+
+        let same_scale_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+        let lhs = [1_i8, 2, 3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [1_i8, 0, 3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![true, false, true],
+            eq_decimal_columns(&lhs, &rhs, same_scale_column_type, same_scale_column_type)
+        );
+
+        let rhs = [1_i8, 0, 4]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![true, false, true],
+            le_decimal_columns(&lhs, &rhs, same_scale_column_type, same_scale_column_type)
+        );
+
+        let rhs = [1_i8, 3, 3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![true, false, true],
+            ge_decimal_columns(&lhs, &rhs, same_scale_column_type, same_scale_column_type)
+        );
+    }
+
+    #[test]
+    fn we_cover_decimal_arithmetic_scale_edge_cases() {
+        let lhs = [4_i16, 15, -2]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [71_i64, -82, 23]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let left_column_type = ColumnType::Decimal75(Precision::new(12).unwrap(), 3);
+        let right_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_add_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected = (
+            Precision::new(13).unwrap(),
+            3,
+            vec![
+                TestScalar::from(714),
+                TestScalar::from(-805),
+                TestScalar::from(228),
+            ],
+        );
+        assert_eq!(expected, actual);
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_subtract_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected = (
+            Precision::new(13).unwrap(),
+            3,
+            vec![
+                TestScalar::from(-706),
+                TestScalar::from(835),
+                TestScalar::from(-232),
+            ],
+        );
+        assert_eq!(expected, actual);
+
+        let lhs = [1000_i64];
+        let rhs = [2_i64];
+        let left_column_type = ColumnType::Decimal75(Precision::new(60).unwrap(), 50);
+        let right_column_type = ColumnType::Decimal75(Precision::new(3).unwrap(), -50);
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_divide_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        assert_eq!(
+            (
+                Precision::new(14).unwrap(),
+                54,
+                vec![TestScalar::from(0_i64)]
+            ),
+            actual
+        );
+
+        let actual = try_divide_decimal_columns::<TestScalar, _, _>(
+            &[1_i8],
+            &[0_i8],
+            ColumnType::TinyInt,
+            ColumnType::Decimal75(Precision::new(3).unwrap(), 2),
+        );
+        assert_eq!(Err(ColumnOperationError::DivisionByZero), actual);
+    }
 }
