@@ -496,3 +496,136 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
     ]);
     assert_eq!(res, expected_res);
 }
+
+#[test]
+#[should_panic(expected = "Join column index out of bounds")]
+fn we_cannot_create_sort_merge_join_with_out_of_bounds_join_index() {
+    let table_left: TableRef = "sxt.cats".parse().unwrap();
+    let table_right: TableRef = "sxt.cat_details".parse().unwrap();
+
+    sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("name", ColumnType::VarChar),
+            ],
+        ),
+        table_exec(
+            table_right,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("human", ColumnType::VarChar),
+            ],
+        ),
+        vec![2],
+        vec![0],
+        vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join columns should have the same number of columns")]
+fn we_cannot_create_sort_merge_join_with_different_join_column_counts() {
+    let table_left: TableRef = "sxt.cats".parse().unwrap();
+    let table_right: TableRef = "sxt.cat_details".parse().unwrap();
+
+    sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("household_id", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(
+            table_right,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("household_id", ColumnType::BigInt),
+            ],
+        ),
+        vec![0, 1],
+        vec![0],
+        vec![Ident::new("id"), Ident::new("household_id")],
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "The amount of result idents should be the same as the expected number of columns"
+)]
+fn we_cannot_create_sort_merge_join_with_wrong_result_ident_count() {
+    let table_left: TableRef = "sxt.cats".parse().unwrap();
+    let table_right: TableRef = "sxt.cat_details".parse().unwrap();
+
+    sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("name", ColumnType::VarChar),
+            ],
+        ),
+        table_exec(
+            table_right,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("human", ColumnType::VarChar),
+            ],
+        ),
+        vec![0],
+        vec![0],
+        vec![Ident::new("id"), Ident::new("name")],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join on multiple columns not supported yet")]
+fn we_cannot_prove_sort_merge_join_with_multiple_join_columns() {
+    let alloc = Bump::new();
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let left = table([
+        borrowed_bigint("id", [1_i64, 2], &alloc),
+        borrowed_bigint("household_id", [10_i64, 20], &alloc),
+        borrowed_varchar("name", ["Chloe", "Margaret"], &alloc),
+    ]);
+    let table_left: TableRef = "sxt.cats".parse().unwrap();
+    let right = table([
+        borrowed_bigint("id", [1_i64, 2], &alloc),
+        borrowed_bigint("household_id", [10_i64, 20], &alloc),
+        borrowed_varchar("human", ["Cassia", "Ian"], &alloc),
+    ]);
+    let table_right: TableRef = "sxt.cat_details".parse().unwrap();
+    accessor.add_table(table_left.clone(), left, 0);
+    accessor.add_table(table_right.clone(), right, 0);
+
+    let ast = sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("household_id", ColumnType::BigInt),
+                column_field("name", ColumnType::VarChar),
+            ],
+        ),
+        table_exec(
+            table_right,
+            vec![
+                column_field("id", ColumnType::BigInt),
+                column_field("household_id", ColumnType::BigInt),
+                column_field("human", ColumnType::VarChar),
+            ],
+        ),
+        vec![0, 1],
+        vec![0, 1],
+        vec![
+            Ident::new("id"),
+            Ident::new("household_id"),
+            Ident::new("name"),
+            Ident::new("human"),
+        ],
+    );
+
+    VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+}
