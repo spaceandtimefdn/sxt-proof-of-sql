@@ -168,3 +168,33 @@ impl<'a, S: Scalar> core::ops::Index<&str> for Table<'a, S> {
         self.table.get(&Ident::new(index)).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_identify_empty_table_with_specified_row_count() {
+        let table = Table::<TestScalar>::try_new_with_options(
+            IndexMap::default(),
+            TableOptions::new(Some(3)),
+        )
+        .unwrap();
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_rows(), 3);
+    }
+
+    #[test]
+    fn we_can_index_table_by_column_name() {
+        let table = Table::<TestScalar>::try_new(IndexMap::from_iter([
+            (Ident::new("bigint"), Column::BigInt(&[1_i64, 2])),
+            (Ident::new("int"), Column::Int(&[3_i32, 4])),
+        ]))
+        .unwrap();
+
+        assert_eq!(table["bigint"], Column::BigInt(&[1_i64, 2]));
+        assert_eq!(table["int"], Column::Int(&[3_i32, 4]));
+    }
+}
