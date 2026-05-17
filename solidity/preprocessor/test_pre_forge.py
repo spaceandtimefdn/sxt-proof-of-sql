@@ -164,6 +164,39 @@ def test_pre_forge_rebuilds_when_generated_output_is_missing(tmp_path: Path) -> 
     assert _forge_log_lines(env) == ["test", "test"]
 
 
+def test_pre_forge_cache_ignores_presl_files_marked_does_not_compile(tmp_path: Path) -> None:
+    workspace, env = _create_workspace(tmp_path)
+    skipped_source = workspace / "src" / "Broken.presl"
+    _write(
+        skipped_source,
+        """
+        // does-not-compile
+        contract Broken {
+            function missingImport() external pure returns (uint256 out) {
+                assembly {
+                    // import missing from Missing.sol
+                    out := missing()
+                }
+            }
+        }
+        """,
+    )
+
+    _run_preforge(workspace, env, "test")
+    assert not skipped_source.with_suffix(".post.sol").exists()
+
+    generated = workspace / GENERATED_FILE
+    initial_mtime = generated.stat().st_mtime_ns
+    time.sleep(0.02)
+
+    second_run = _run_preforge(workspace, env, "test")
+
+    assert "cache hit" in second_run.stdout.lower()
+    assert generated.stat().st_mtime_ns == initial_mtime
+    assert not skipped_source.with_suffix(".post.sol").exists()
+    assert _forge_log_lines(env) == ["test", "test"]
+
+
 def test_pre_forge_clean_removes_generated_files_without_reprocessing(tmp_path: Path) -> None:
     workspace, env = _create_workspace(tmp_path)
     _run_preforge(workspace, env, "test")
