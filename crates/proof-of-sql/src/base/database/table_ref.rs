@@ -79,7 +79,7 @@ impl TableRef {
                     .iter()
                     .map(AsRef::as_ref)
                     .collect::<Vec<_>>()
-                    .join(","),
+                    .join("."),
             }),
         }
     }
@@ -140,5 +140,128 @@ impl<'d> Deserialize<'d> for TableRef {
     {
         let string = alloc::string::String::deserialize(deserializer)?;
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_construct_table_refs_from_schema_and_table_names() {
+        let table_ref = TableRef::new("public", "users");
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "public");
+        assert_eq!(table_ref.table_id().value, "users");
+        assert_eq!(table_ref.to_string(), "public.users");
+    }
+
+    #[test]
+    fn empty_schema_names_are_omitted_from_table_refs() {
+        let table_ref = TableRef::new("", "users");
+
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "users");
+        assert_eq!(table_ref.to_string(), "users");
+    }
+
+    #[test]
+    fn we_can_parse_table_refs_from_string_components() {
+        assert_eq!(
+            TableRef::from_strs(&["users"]).unwrap(),
+            TableRef::from_names(None, "users")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["public", "users"]).unwrap(),
+            TableRef::from_names(Some("public"), "users")
+        );
+    }
+
+    #[test]
+    fn we_error_when_table_ref_has_too_many_string_components() {
+        let err = TableRef::from_strs(&["a", "b", "c"]).unwrap_err();
+
+        assert!(matches!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference
+            } if table_reference == "a.b.c"
+        ));
+    }
+
+    #[test]
+    fn we_can_try_from_dot_separated_table_refs() {
+        assert_eq!(
+            TableRef::try_from("public.users").unwrap(),
+            TableRef::from_names(Some("public"), "users")
+        );
+        assert_eq!(
+            TableRef::try_from("users").unwrap(),
+            TableRef::from_names(None, "users")
+        );
+    }
+
+    #[test]
+    fn we_error_when_try_from_has_too_many_dot_separated_components() {
+        let err = TableRef::try_from("a.b.c").unwrap_err();
+
+        assert!(matches!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference
+            } if table_reference == "a.b.c"
+        ));
+    }
+
+    #[test]
+    fn table_ref_equivalence_matches_schema_and_table_names() {
+        let table_ref = TableRef::from_names(Some("public"), "users");
+        let same_table_ref = TableRef::from_names(Some("public"), "users");
+        let different_schema = TableRef::from_names(Some("private"), "users");
+        let different_table = TableRef::from_names(Some("public"), "orders");
+
+        assert!((&same_table_ref).equivalent(&table_ref));
+        assert!(!(&different_schema).equivalent(&table_ref));
+        assert!(!(&different_table).equivalent(&table_ref));
+    }
+
+    #[test]
+    fn table_refs_serialize_and_deserialize_as_strings() {
+        let table_ref = TableRef::from_names(Some("public"), "users");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(serialized, "\"public.users\"");
+        assert_eq!(deserialized, table_ref);
+    }
+
+    #[test]
+    fn deserializing_invalid_table_ref_strings_returns_an_error() {
+        let err = serde_json::from_str::<TableRef>("\"a.b.c\"").unwrap_err();
+
+        assert!(err.to_string().contains("a.b.c"));
+    }
+
+    #[test]
+    fn table_refs_can_be_constructed_from_idents() {
+        let schema = Ident::new("public");
+        let table = Ident::new("users");
+
+        let table_ref = TableRef::from_idents(Some(schema), table);
+
+        assert_eq!(table_ref.to_string(), "public.users");
+    }
+
+    #[test]
+    fn empty_component_slices_are_invalid_table_refs() {
+        let err = TableRef::from_strs::<&str>(&[]).unwrap_err();
+
+        assert!(matches!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference
+            } if table_reference.is_empty()
+        ));
     }
 }
