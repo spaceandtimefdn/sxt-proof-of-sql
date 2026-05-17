@@ -79,7 +79,7 @@ impl TableRef {
                     .iter()
                     .map(AsRef::as_ref)
                     .collect::<Vec<_>>()
-                    .join(","),
+                    .join("."),
             }),
         }
     }
@@ -146,7 +146,6 @@ impl<'d> Deserialize<'d> for TableRef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec;
 
     #[test]
     fn we_can_construct_table_refs_from_schema_and_table_names() {
@@ -186,7 +185,7 @@ mod tests {
             err,
             ParseError::InvalidTableReference {
                 table_reference
-            } if table_reference == "a,b,c"
+            } if table_reference == "a.b.c"
         ));
     }
 
@@ -219,9 +218,11 @@ mod tests {
         let table_ref = TableRef::from_names(Some("public"), "users");
         let same_table_ref = TableRef::from_names(Some("public"), "users");
         let different_schema = TableRef::from_names(Some("private"), "users");
+        let different_table = TableRef::from_names(Some("public"), "orders");
 
         assert!((&same_table_ref).equivalent(&table_ref));
         assert!(!(&different_schema).equivalent(&table_ref));
+        assert!(!(&different_table).equivalent(&table_ref));
     }
 
     #[test]
@@ -254,7 +255,7 @@ mod tests {
 
     #[test]
     fn empty_component_slices_are_invalid_table_refs() {
-        let err = TableRef::from_strs::<&str>(&vec![]).unwrap_err();
+        let err = TableRef::from_strs::<&str>(&[]).unwrap_err();
 
         assert!(matches!(
             err,
