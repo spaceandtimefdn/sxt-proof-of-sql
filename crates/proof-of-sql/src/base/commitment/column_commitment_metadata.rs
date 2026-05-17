@@ -380,6 +380,35 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_max_bounds_for_ordered_column_types() {
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::SmallInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::SmallInt,
+                bounds: ColumnBounds::SmallInt(Bounds::bounded(i16::MIN, i16::MAX).unwrap()),
+            }
+        );
+
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Int,
+                bounds: ColumnBounds::Int(Bounds::bounded(i32::MIN, i32::MAX).unwrap()),
+            }
+        );
+
+        let timestamp_type =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc());
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(timestamp_type),
+            ColumnCommitmentMetadata {
+                column_type: timestamp_type,
+                bounds: ColumnBounds::TimestampTZ(Bounds::bounded(i64::MIN, i64::MAX).unwrap()),
+            }
+        );
+    }
+
+    #[test]
     fn we_can_construct_metadata_from_column() {
         let boolean_column =
             OwnedColumn::<TestScalar>::Boolean([true, false, true, false, true].to_vec());
