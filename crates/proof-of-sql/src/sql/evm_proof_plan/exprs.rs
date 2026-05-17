@@ -1621,6 +1621,251 @@ mod tests {
     }
 
     #[test]
+    fn evm_nested_expr_conversion_surfaces_missing_columns() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let int_column = ColumnRef::new(table_ref.clone(), "i".into(), ColumnType::BigInt);
+        let bool_column = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::Boolean);
+        let no_column_refs = indexset! {};
+
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &equal(
+                    DynProofExpr::new_literal(LiteralValue::BigInt(5)),
+                    DynProofExpr::new_column(int_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &lt(
+                    DynProofExpr::new_column(int_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &lt(
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                    DynProofExpr::new_column(int_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &add(
+                    DynProofExpr::new_column(int_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &add(
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                    DynProofExpr::new_column(int_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &subtract(
+                    DynProofExpr::new_column(int_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &subtract(
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                    DynProofExpr::new_column(int_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &multiply(
+                    DynProofExpr::new_column(int_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &multiply(
+                    DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+                    DynProofExpr::new_column(int_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &and(
+                    DynProofExpr::new_column(bool_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &and(
+                    DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                    DynProofExpr::new_column(bool_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &or(
+                    DynProofExpr::new_column(bool_column.clone()),
+                    DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &or(
+                    DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                    DynProofExpr::new_column(bool_column.clone()),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &not(DynProofExpr::new_column(bool_column.clone())),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &cast(
+                    DynProofExpr::new_column(int_column.clone()),
+                    ColumnType::BigInt
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+        assert_eq!(
+            EVMDynProofExpr::try_from_proof_expr(
+                &scaling_cast(
+                    DynProofExpr::new_column(int_column.clone()),
+                    ColumnType::Decimal75(Precision::new(30).unwrap(), 2),
+                ),
+                &no_column_refs,
+            )
+            .unwrap_err(),
+            EVMProofPlanError::ColumnNotFound,
+        );
+    }
+
+    #[test]
+    fn evm_nested_expr_conversion_surfaces_analyze_errors() {
+        let bigint = EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::BigInt(1)));
+        let bool_value = EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::Boolean(true)));
+        let smallint = EVMDynProofExpr::Literal(EVMLiteralExpr(LiteralValue::SmallInt(1)));
+        let column_refs = indexset! {};
+
+        assert!(
+            EVMDynProofExpr::Equals(EVMEqualsExpr::new(bigint.clone(), bool_value.clone()))
+                .try_into_proof_expr(&column_refs)
+                .is_err()
+        );
+        assert!(EVMDynProofExpr::Inequality(EVMInequalityExpr::new(
+            bigint.clone(),
+            bool_value.clone(),
+            true,
+        ))
+        .try_into_proof_expr(&column_refs)
+        .is_err());
+        assert!(
+            EVMDynProofExpr::Add(EVMAddExpr::new(bool_value.clone(), bool_value.clone()))
+                .try_into_proof_expr(&column_refs)
+                .is_err()
+        );
+        assert!(EVMDynProofExpr::Subtract(EVMSubtractExpr::new(
+            bool_value.clone(),
+            bool_value.clone(),
+        ))
+        .try_into_proof_expr(&column_refs)
+        .is_err());
+        assert!(EVMDynProofExpr::Multiply(EVMMultiplyExpr::new(
+            bool_value.clone(),
+            bool_value.clone(),
+        ))
+        .try_into_proof_expr(&column_refs)
+        .is_err());
+        assert!(
+            EVMDynProofExpr::And(EVMAndExpr::new(bigint.clone(), bigint.clone()))
+                .try_into_proof_expr(&column_refs)
+                .is_err()
+        );
+        assert!(
+            EVMDynProofExpr::Or(EVMOrExpr::new(bigint.clone(), bigint.clone()))
+                .try_into_proof_expr(&column_refs)
+                .is_err()
+        );
+        assert!(EVMDynProofExpr::Not(EVMNotExpr::new(bigint.clone()))
+            .try_into_proof_expr(&column_refs)
+            .is_err());
+        assert!(
+            EVMDynProofExpr::Cast(EVMCastExpr::new(smallint, ColumnType::TinyInt))
+                .try_into_proof_expr(&column_refs)
+                .is_err()
+        );
+        assert!(EVMDynProofExpr::ScalingCast(EVMScalingCastExpr::new(
+            bool_value,
+            ColumnType::Decimal75(Precision::new(30).unwrap(), 2),
+            [0, 0, 0, 100],
+        ))
+        .try_into_proof_expr(&column_refs)
+        .is_err());
+    }
+
+    #[test]
     fn we_can_catch_evm_literal_expr_serialization_change() {
         let literal_values = vec![
             LiteralValue::Boolean(true),
