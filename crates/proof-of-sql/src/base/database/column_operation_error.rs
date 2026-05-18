@@ -108,3 +108,95 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::DecimalError;
+    use alloc::string::{String, ToString};
+
+    #[test]
+    fn we_display_basic_column_operation_errors() {
+        assert_eq!(
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }.to_string(),
+            "Columns have different lengths: 2 != 3"
+        );
+        assert_eq!(
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: String::from("add"),
+                left_type: ColumnType::Int,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "\"add\"(lhs: Int, rhs: VarChar) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::UnaryOperationInvalidColumnType {
+                operator: String::from("not"),
+                operand_type: ColumnType::Scalar,
+            }
+            .to_string(),
+            "\"not\"(operand: Scalar) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: String::from("i64 overflow"),
+            }
+            .to_string(),
+            "Overflow in integer operation: i64 overflow"
+        );
+        assert_eq!(
+            ColumnOperationError::DivisionByZero.to_string(),
+            "Division by zero"
+        );
+    }
+
+    #[test]
+    fn we_display_column_conversion_and_bounds_errors() {
+        assert_eq!(
+            ColumnOperationError::DecimalConversionError {
+                source: DecimalError::InvalidScale {
+                    scale: String::from("-1"),
+                },
+            }
+            .to_string(),
+            "Decimal scale is not valid: -1"
+        );
+        assert_eq!(
+            ColumnOperationError::UnionDifferentTypes {
+                correct_type: ColumnType::Boolean,
+                actual_type: ColumnType::BigInt,
+            }
+            .to_string(),
+            "Cannot union columns of different types: Boolean and BigInt"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 4, len: 4 }.to_string(),
+            "Index out of bounds: 4 >= 4"
+        );
+        assert_eq!(
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+            .to_string(),
+            "Cannot fit TINYINT into UINT8 without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::CastingError {
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot fit VARCHAR into INT without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::ScaleCastingError {
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::Scalar,
+            }
+            .to_string(),
+            "Cannot fit BIGINT into SCALAR without losing data"
+        );
+    }
+}
