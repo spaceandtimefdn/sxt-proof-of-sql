@@ -65,3 +65,72 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{string::ToString, vec};
+
+    fn column_field(name: &str, data_type: ColumnType) -> ColumnField {
+        ColumnField::new(Ident::new(name), data_type)
+    }
+
+    #[test]
+    fn we_display_table_operation_errors() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+        assert_eq!(
+            TableOperationError::JoinWithDifferentNumberOfColumns {
+                left_num_columns: 1,
+                right_num_columns: 2,
+            }
+            .to_string(),
+            "Cannot join tables with different numbers of columns: 1 and 2"
+        );
+        assert_eq!(
+            TableOperationError::JoinIncompatibleTypes {
+                left_type: ColumnType::Boolean,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Cannot join tables on columns with incompatible types: Boolean and VarChar"
+        );
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+        assert_eq!(
+            TableOperationError::ColumnIndexOutOfBounds { column_index: 7 }.to_string(),
+            "Column index out of bounds: 7"
+        );
+    }
+
+    #[test]
+    fn we_display_schema_and_nested_column_errors() {
+        let union_error = TableOperationError::UnionIncompatibleSchemas {
+            correct_schema: vec![column_field("id", ColumnType::Int)],
+            actual_schema: vec![column_field("id", ColumnType::BigInt)],
+        }
+        .to_string();
+        assert!(union_error.contains("Cannot union tables with incompatible schemas"));
+        assert!(union_error.contains("Int"));
+        assert!(union_error.contains("BigInt"));
+
+        let missing_column_error = TableOperationError::ColumnDoesNotExist {
+            column_ident: Ident::new("missing_column"),
+        }
+        .to_string();
+        assert!(missing_column_error.contains("missing_column"));
+        assert!(missing_column_error.contains("does not exist in table"));
+
+        assert_eq!(
+            TableOperationError::ColumnOperationError {
+                source: ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 5 },
+            }
+            .to_string(),
+            "Columns have different lengths: 3 != 5"
+        );
+    }
+}
