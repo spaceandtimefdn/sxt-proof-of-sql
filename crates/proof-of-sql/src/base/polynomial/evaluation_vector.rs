@@ -67,3 +67,35 @@ where
 
     log::log_memory_usage("End");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_point_fills_the_allowed_prefix_with_one() {
+        let mut single = [0_i64];
+        compute_evaluation_vector(&mut single, &[]);
+        assert_eq!(single, [1]);
+
+        let mut empty: [i64; 0] = [];
+        compute_evaluation_vector(&mut empty, &[]);
+        assert_eq!(empty, []);
+    }
+
+    #[test]
+    fn single_point_produces_left_and_right_factors() {
+        let mut v = [0_i64; 2];
+        compute_evaluation_vector(&mut v, &[3]);
+
+        assert_eq!(v, [-2, 3]);
+    }
+
+    #[test]
+    fn partial_vector_keeps_the_truncated_multilinear_prefix() {
+        let mut v = [0_i64; 3];
+        compute_evaluation_vector(&mut v, &[2, 3]);
+
+        assert_eq!(v, [2, -4, -3]);
+    }
+}
