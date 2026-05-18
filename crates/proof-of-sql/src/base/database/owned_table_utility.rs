@@ -320,3 +320,72 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn constructors_build_expected_owned_columns() {
+        let table = owned_table::<TestScalar>([
+            boolean("bools", [true, false]),
+            uint8("u8s", [1_u8, 2]),
+            tinyint("i8s", [-1_i8, 2]),
+            smallint("i16s", [-10_i16, 20]),
+            int("i32s", [-100_i32, 200]),
+            bigint("i64s", [-1000_i64, 2000]),
+            int128("i128s", [-10000_i128, 20000]),
+            scalar("scalars", [3_u64, 4]),
+            varchar("strings", ["a", "b"]),
+            varbinary("bytes", [vec![1_u8, 2], vec![3]]),
+            decimal75("decimals", 12, 2, [5_u64, 6]),
+            timestamptz(
+                "timestamps",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                [7_i64, 8],
+            ),
+        ]);
+
+        assert_eq!(table.num_columns(), 12);
+        assert_eq!(table.num_rows(), 2);
+        assert_eq!(table["bools"], OwnedColumn::Boolean(vec![true, false]));
+        assert_eq!(table["u8s"], OwnedColumn::Uint8(vec![1, 2]));
+        assert_eq!(table["i8s"], OwnedColumn::TinyInt(vec![-1, 2]));
+        assert_eq!(table["i16s"], OwnedColumn::SmallInt(vec![-10, 20]));
+        assert_eq!(table["i32s"], OwnedColumn::Int(vec![-100, 200]));
+        assert_eq!(table["i64s"], OwnedColumn::BigInt(vec![-1000, 2000]));
+        assert_eq!(table["i128s"], OwnedColumn::Int128(vec![-10000, 20000]));
+        assert_eq!(
+            table["scalars"],
+            OwnedColumn::Scalar(vec![TestScalar::from(3_u64), TestScalar::from(4_u64)])
+        );
+        assert_eq!(
+            table["strings"],
+            OwnedColumn::VarChar(vec!["a".to_string(), "b".to_string()])
+        );
+        assert_eq!(
+            table["bytes"],
+            OwnedColumn::VarBinary(vec![vec![1, 2], vec![3]])
+        );
+        assert_eq!(
+            table["decimals"],
+            OwnedColumn::Decimal75(
+                Precision::new(12).unwrap(),
+                2,
+                vec![TestScalar::from(5_u64), TestScalar::from(6_u64)],
+            )
+        );
+        assert_eq!(
+            table["timestamps"],
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![7, 8])
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "ColumnLengthMismatch")]
+    fn owned_table_panics_for_mismatched_column_lengths() {
+        owned_table::<TestScalar>([bigint("a", [1, 2]), bigint("b", [3])]);
+    }
+}
