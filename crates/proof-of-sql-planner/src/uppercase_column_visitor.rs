@@ -47,14 +47,47 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
 #[cfg(test)]
 mod tests {
-    use super::statement_with_uppercase_identifiers;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use super::{statement_with_uppercase_identifiers, uppercase_identifier};
+    use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
+
+    #[test]
+    fn we_can_uppercase_identifier_while_preserving_quote_style() {
+        let ident = Ident {
+            value: "mixedCase".into(),
+            quote_style: Some('"'),
+        };
+
+        let result = uppercase_identifier(ident);
+
+        assert_eq!(result.value, "MIXEDCASE");
+        assert_eq!(result.quote_style, Some('"'));
+    }
 
     #[test]
     fn we_can_capitalize_statement_idents() {
         let statement = Parser::parse_sql(&GenericDialect{}, "SELECT a.thissum from (SELECT Sum(uppercase_Value) as thissum, COUNT(puppies) as coUNT fRoM NonSEnSE) as a").unwrap()[0].clone();
         let statement = statement_with_uppercase_identifiers(statement);
         let expected_statement = Parser::parse_sql(&GenericDialect{}, "SELECT A.THISSUM from (SELECT Sum(UPPERCASE_VALUE) as thissum, COUNT(PUPPIES) as coUNT fRoM NONSENSE) as a").unwrap()[0].clone();
+        assert_eq!(statement, expected_statement);
+    }
+
+    #[test]
+    fn we_can_capitalize_schema_qualified_statement_idents() {
+        let statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT db.tbl.id, other_schema.other_table.value FROM db.tbl JOIN other_schema.other_table ON db.tbl.id = other_schema.other_table.id",
+        )
+        .unwrap()[0]
+            .clone();
+
+        let statement = statement_with_uppercase_identifiers(statement);
+        let expected_statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT DB.TBL.ID, OTHER_SCHEMA.OTHER_TABLE.VALUE FROM DB.TBL JOIN OTHER_SCHEMA.OTHER_TABLE ON DB.TBL.ID = OTHER_SCHEMA.OTHER_TABLE.ID",
+        )
+        .unwrap()[0]
+            .clone();
+
         assert_eq!(statement, expected_statement);
     }
 }
