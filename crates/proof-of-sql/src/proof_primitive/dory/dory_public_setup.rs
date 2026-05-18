@@ -57,3 +57,32 @@ impl<'a> DoryVerifierPublicSetup<'a> {
         self.verifier_setup
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DoryProverPublicSetup, DoryVerifierPublicSetup};
+    use crate::proof_primitive::dory::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+    use core::ptr;
+
+    #[test]
+    fn prover_public_setup_exposes_wrapped_setup_and_sigma() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(1, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let public_setup = DoryProverPublicSetup::new(&prover_setup, 3);
+
+        assert_eq!(public_setup.sigma(), 3);
+        assert!(ptr::eq(public_setup.prover_setup(), &prover_setup));
+    }
+
+    #[test]
+    fn verifier_public_setup_exposes_wrapped_setup_and_sigma() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(1, &mut rng);
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let public_setup = DoryVerifierPublicSetup::new(&verifier_setup, 5);
+
+        assert_eq!(public_setup.sigma(), 5);
+        assert!(ptr::eq(public_setup.verifier_setup(), &verifier_setup));
+    }
+}
