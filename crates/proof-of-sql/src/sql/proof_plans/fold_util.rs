@@ -37,6 +37,7 @@ fn powers<S: Scalar>(init: S, base: S) -> impl Iterator<Item = S> {
 mod tests {
     use super::*;
     use crate::base::scalar::test_scalar::TestScalar;
+    use ark_std::Zero;
     use alloc::vec;
 
     #[test]
