@@ -80,7 +80,7 @@ mod tests {
 
         let mut empty: [i64; 0] = [];
         compute_evaluation_vector(&mut empty, &[]);
-        assert_eq!(empty, []);
+        assert!(empty.is_empty());
     }
 
     #[test]
