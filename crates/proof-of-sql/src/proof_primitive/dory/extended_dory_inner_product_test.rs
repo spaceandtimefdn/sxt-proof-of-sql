@@ -316,3 +316,52 @@ fn we_fail_to_verify_an_extended_dory_inner_product_when_a_scalar_commitment_is_
         extended_dory_reduce_verify_fold_s_vecs
     ));
 }
+
+#[test]
+#[should_panic(expected = "assertion failed: setup.max_nu >= nu")]
+fn we_panic_when_proving_with_setup_smaller_than_the_state_nu() {
+    let mut rng = test_rng();
+    let nu = 3;
+    let undersized_pp = PublicParameters::test_rand(nu - 1, &mut rng);
+    let undersized_prover_setup = (&undersized_pp).into();
+    let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+
+    let mut transcript = Transcript::new(b"extended_dory_inner_product_test");
+    let mut messages = DoryMessages::default();
+    extended_dory_inner_product_prove(
+        &mut messages,
+        &mut transcript,
+        prover_state,
+        &undersized_prover_setup,
+    );
+}
+
+#[test]
+#[should_panic(expected = "assertion failed: setup.max_nu >= nu")]
+fn we_panic_when_verifying_with_setup_smaller_than_the_state_nu() {
+    let mut rng = test_rng();
+    let nu = 3;
+    let pp = PublicParameters::test_rand(nu, &mut rng);
+    let prover_setup = (&pp).into();
+    let undersized_pp = PublicParameters::test_rand(nu - 1, &mut rng);
+    let undersized_verifier_setup = (&undersized_pp).into();
+    let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+    let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+    let mut transcript = Transcript::new(b"extended_dory_inner_product_test");
+    let mut messages = DoryMessages::default();
+    extended_dory_inner_product_prove(&mut messages, &mut transcript, prover_state, &prover_setup);
+
+    let mut transcript = Transcript::new(b"extended_dory_inner_product_test");
+    extended_dory_inner_product_verify(
+        &mut messages,
+        &mut transcript,
+        verifier_state,
+        &undersized_verifier_setup,
+        extended_dory_reduce_verify_fold_s_vecs,
+    );
+}
