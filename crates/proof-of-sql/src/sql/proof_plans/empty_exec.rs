@@ -104,3 +104,82 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EmptyExec;
+    use crate::{
+        base::{map::IndexMap, scalar::test_scalar::TestScalar},
+        sql::proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckMleEvaluations, VerificationBuilderImpl,
+        },
+    };
+    use alloc::collections::VecDeque;
+    use bumpalo::Bump;
+
+    #[test]
+    fn empty_exec_constructors_create_empty_plans() {
+        assert_eq!(EmptyExec::default(), EmptyExec::new());
+    }
+
+    #[test]
+    fn empty_exec_reports_no_columns_or_tables() {
+        let plan = EmptyExec::new();
+
+        assert!(plan.get_column_result_fields().is_empty());
+        assert!(plan.get_column_references().is_empty());
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn empty_exec_prover_rounds_return_one_empty_row() {
+        let alloc = Bump::new();
+        let plan = EmptyExec::new();
+        let table_map = IndexMap::default();
+        let mut first_round_builder = FirstRoundBuilder::<TestScalar>::new(0);
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+
+        let first_round_table = plan
+            .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        let final_round_table = plan
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert!(first_round_table.is_empty());
+        assert_eq!(first_round_table.num_rows(), 1);
+        assert!(final_round_table.is_empty());
+        assert_eq!(final_round_table.num_rows(), 1);
+    }
+
+    #[test]
+    fn empty_exec_verifier_returns_singleton_table_evaluation() {
+        let plan = EmptyExec::new();
+        let singleton_chi = TestScalar::from(42);
+        let mut builder = VerificationBuilderImpl::new(
+            SumcheckMleEvaluations {
+                singleton_chi_evaluation: singleton_chi,
+                ..Default::default()
+            },
+            &[],
+            &[],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            0,
+        );
+
+        let evaluation = plan
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                &IndexMap::default(),
+                &[],
+            )
+            .unwrap();
+
+        assert!(evaluation.column_evals().is_empty());
+        assert_eq!(evaluation.chi(), (singleton_chi, 1));
+    }
+}
