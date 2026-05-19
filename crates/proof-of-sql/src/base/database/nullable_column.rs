@@ -1,4 +1,6 @@
-use super::{Column, ColumnOperationError, ColumnOperationResult, NullableOwnedColumn};
+use super::{
+    Column, ColumnOperationError, ColumnOperationResult, NullableOwnedColumn, OwnedColumn,
+};
 use crate::base::scalar::Scalar;
 use bumpalo::Bump;
 
@@ -77,6 +79,76 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
+    }
+
+    fn binary_presence(
+        &self,
+        rhs: &Self,
+        alloc: &'a Bump,
+    ) -> ColumnOperationResult<Option<&'a [bool]>> {
+        if self.len() != rhs.len() {
+            return Err(ColumnOperationError::DifferentColumnLength {
+                len_a: self.len(),
+                len_b: rhs.len(),
+            });
+        }
+
+        Ok(match (self.presence(), rhs.presence()) {
+            (None, None) => None,
+            (Some(lhs), None) => Some(alloc.alloc_slice_copy(lhs)),
+            (None, Some(rhs)) => Some(alloc.alloc_slice_copy(rhs)),
+            (Some(lhs), Some(rhs)) => {
+                Some(alloc.alloc_slice_fill_iter(
+                    lhs.iter().zip(rhs.iter()).map(|(lhs, rhs)| *lhs && *rhs),
+                ))
+            }
+        })
+    }
+
+    fn apply_binary_operation(
+        &self,
+        rhs: &Self,
+        alloc: &'a Bump,
+        operation: impl FnOnce(
+            &OwnedColumn<S>,
+            &OwnedColumn<S>,
+        ) -> ColumnOperationResult<OwnedColumn<S>>,
+    ) -> ColumnOperationResult<Self> {
+        let lhs_values = OwnedColumn::from(&self.values);
+        let rhs_values = OwnedColumn::from(&rhs.values);
+        let values = alloc.alloc(operation(&lhs_values, &rhs_values)?);
+        let presence = self.binary_presence(rhs, alloc)?;
+        Self::try_new(Column::from_owned_column(values, alloc), presence)
+    }
+
+    /// Adds two columns element-wise and propagates nullable presence data.
+    pub fn element_wise_add(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_add)
+    }
+
+    /// Subtracts two columns element-wise and propagates nullable presence data.
+    pub fn element_wise_sub(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_sub)
+    }
+
+    /// Multiplies two columns element-wise and propagates nullable presence data.
+    pub fn element_wise_mul(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_mul)
+    }
+
+    /// Compares two columns for equality and propagates nullable presence data.
+    pub fn element_wise_eq(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_eq)
+    }
+
+    /// Compares two columns with less-than and propagates nullable presence data.
+    pub fn element_wise_lt(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_lt)
+    }
+
+    /// Compares two columns with greater-than and propagates nullable presence data.
+    pub fn element_wise_gt(&self, rhs: &Self, alloc: &'a Bump) -> ColumnOperationResult<Self> {
+        self.apply_binary_operation(rhs, alloc, OwnedColumn::element_wise_gt)
     }
 
     /// Returns a non-nullable boolean column matching SQL `IS NULL`.
@@ -171,6 +243,84 @@ mod tests {
         assert_eq!(
             column.is_not_null(&alloc),
             Column::Boolean(&[true, true, true])
+        );
+    }
+
+    #[test]
+    fn nullable_column_propagates_presence_from_nullable_lhs() {
+        let alloc = Bump::new();
+        let lhs = NullableColumn::<TestScalar>::try_new(
+            Column::BigInt(&[10, 20, 30]),
+            Some(&[true, false, true]),
+        )
+        .unwrap();
+        let rhs = NullableColumn::<TestScalar>::new_nonnullable(Column::BigInt(&[1, 2, 3]));
+
+        let result = lhs.element_wise_add(&rhs, &alloc).unwrap();
+
+        assert_eq!(
+            result,
+            NullableColumn::try_new(Column::BigInt(&[11, 22, 33]), Some(&[true, false, true]))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn nullable_column_ands_presence_for_two_nullable_columns() {
+        let alloc = Bump::new();
+        let lhs = NullableColumn::<TestScalar>::try_new(
+            Column::BigInt(&[10, 20, 30]),
+            Some(&[true, false, true]),
+        )
+        .unwrap();
+        let rhs = NullableColumn::<TestScalar>::try_new(
+            Column::BigInt(&[1, 2, 3]),
+            Some(&[false, true, true]),
+        )
+        .unwrap();
+
+        let result = lhs.element_wise_add(&rhs, &alloc).unwrap();
+
+        assert_eq!(
+            result,
+            NullableColumn::try_new(Column::BigInt(&[11, 22, 33]), Some(&[false, false, true]))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn nullable_column_keeps_nonnullable_result_when_inputs_are_nonnullable() {
+        let alloc = Bump::new();
+        let lhs = NullableColumn::<TestScalar>::new_nonnullable(Column::BigInt(&[10, 20, 30]));
+        let rhs = NullableColumn::<TestScalar>::new_nonnullable(Column::BigInt(&[1, 2, 3]));
+
+        let result = lhs.element_wise_add(&rhs, &alloc).unwrap();
+
+        assert_eq!(
+            result,
+            NullableColumn::new_nonnullable(Column::BigInt(&[11, 22, 33]))
+        );
+    }
+
+    #[test]
+    fn nullable_column_propagates_presence_for_comparison_results() {
+        let alloc = Bump::new();
+        let lhs = NullableColumn::<TestScalar>::try_new(
+            Column::BigInt(&[10, 20, 30]),
+            Some(&[true, false, true]),
+        )
+        .unwrap();
+        let rhs = NullableColumn::<TestScalar>::new_nonnullable(Column::BigInt(&[10, 2, 30]));
+
+        let result = lhs.element_wise_eq(&rhs, &alloc).unwrap();
+
+        assert_eq!(
+            result,
+            NullableColumn::try_new(
+                Column::Boolean(&[true, false, true]),
+                Some(&[true, false, true])
+            )
+            .unwrap()
         );
     }
 }
