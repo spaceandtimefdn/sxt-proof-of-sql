@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -56,6 +56,140 @@ impl DynProofExpr {
     #[must_use]
     pub fn new_column(column_ref: ColumnRef) -> Self {
         Self::Column(ColumnExpr::new(column_ref))
+    }
+
+    /// Evaluate expressions whose SQL nullability is simple operand-presence propagation.
+    ///
+    /// This returns `None` for expressions such as `AND` / `OR`, where PostgreSQL
+    /// three-valued boolean result nullability depends on both values and
+    /// presence rather than just operand presence.
+    pub fn first_round_evaluate_nullable_propagating<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<Option<NullableColumn<'a, S>>> {
+        let values = self.first_round_evaluate(alloc, table, params)?;
+        let result = match self {
+            Self::Column(column) => {
+                let presence = column.column_ref().is_nullable().then(|| {
+                    let presence_column_id = column.column_ref().presence_column_ref().column_id();
+                    match table
+                        .inner_table()
+                        .get(&presence_column_id)
+                        .expect("Nullable column presence data should be available")
+                    {
+                        Column::Boolean(presence) => *presence,
+                        _ => panic!("Nullable column presence data should be boolean"),
+                    }
+                });
+                Some(
+                    NullableColumn::try_new(values, presence)
+                        .expect("Nullable column values and presence should match"),
+                )
+            }
+            Self::Literal(_) | Self::Placeholder(_) => {
+                Some(NullableColumn::new_nonnullable(values))
+            }
+            Self::Add(expr) => Self::nullable_binary_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::Subtract(expr) => Self::nullable_binary_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::Multiply(expr) => Self::nullable_binary_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::Equals(expr) => Self::nullable_binary_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::Inequality(expr) => Self::nullable_binary_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::Not(expr) => {
+                Self::nullable_unary_first_round_result(values, expr.input(), alloc, table, params)?
+            }
+            Self::Cast(expr) => Self::nullable_unary_first_round_result(
+                values,
+                expr.get_from_expr(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::ScalingCast(expr) => Self::nullable_unary_first_round_result(
+                values,
+                expr.get_from_expr(),
+                alloc,
+                table,
+                params,
+            )?,
+            Self::And(_) | Self::Or(_) => None,
+        };
+        Ok(result)
+    }
+
+    fn nullable_binary_first_round_result<'a, S: Scalar>(
+        values: Column<'a, S>,
+        lhs: &Self,
+        rhs: &Self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<Option<NullableColumn<'a, S>>> {
+        let Some(lhs) = lhs.first_round_evaluate_nullable_propagating(alloc, table, params)? else {
+            return Ok(None);
+        };
+        let Some(rhs) = rhs.first_round_evaluate_nullable_propagating(alloc, table, params)? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            NullableColumn::try_new(
+                values,
+                lhs.propagated_binary_presence(&rhs, alloc)
+                    .expect("Nullable operand lengths should match"),
+            )
+            .expect("Nullable expression values and presence should match"),
+        ))
+    }
+
+    fn nullable_unary_first_round_result<'a, S: Scalar>(
+        values: Column<'a, S>,
+        input: &Self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<Option<NullableColumn<'a, S>>> {
+        Ok(input
+            .first_round_evaluate_nullable_propagating(alloc, table, params)?
+            .map(|input| {
+                NullableColumn::try_new(values, input.presence())
+                    .expect("Nullable expression values and presence should match")
+            }))
     }
 
     /// Create a SQL `IS NULL` expression for a column reference.
@@ -200,7 +334,11 @@ impl DynProofExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::database::{ColumnRef, ColumnType, TableRef};
+    use crate::base::{
+        database::{table_utility::*, Column, ColumnRef, ColumnType, Table, TableRef},
+        scalar::test_scalar::TestScalar,
+    };
+    use bumpalo::Bump;
 
     #[test]
     fn is_null_builders_target_presence_columns_for_nullable_refs() {
@@ -323,5 +461,91 @@ mod tests {
         );
 
         assert!(DynProofExpr::try_new_is_false(column_ref).is_err());
+    }
+
+    #[test]
+    fn nullable_first_round_evaluation_reads_generated_presence_columns() {
+        let alloc = Bump::new();
+        let table = nullable_test_table(&alloc);
+        let amount_ref = nullable_amount_ref();
+
+        let result = DynProofExpr::new_column(amount_ref)
+            .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.values(), Column::BigInt(&[10, 20, 30]));
+        assert_eq!(result.presence(), Some([true, false, true].as_slice()));
+    }
+
+    #[test]
+    fn nullable_first_round_evaluation_propagates_arithmetic_comparison_presence() {
+        let alloc = Bump::new();
+        let table = nullable_test_table(&alloc);
+        let amount_ref = nullable_amount_ref();
+        let fee_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "fee".into(),
+            ColumnType::BigInt,
+        );
+        let amount_plus_fee = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+        let expression = DynProofExpr::try_new_inequality(
+            amount_plus_fee,
+            DynProofExpr::new_literal(LiteralValue::BigInt(30)),
+            true,
+        )
+        .unwrap();
+
+        let result = expression
+            .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.values(), Column::Boolean(&[true, true, false]));
+        assert_eq!(result.presence(), Some([true, false, true].as_slice()));
+    }
+
+    #[test]
+    fn nullable_first_round_evaluation_does_not_guess_and_or_nullability() {
+        let alloc = Bump::new();
+        let table = nullable_test_table(&alloc);
+        let flag_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "flag".into(),
+            ColumnType::Boolean,
+        );
+        let expression = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .unwrap();
+
+        let result = expression
+            .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    fn nullable_test_table<'a>(alloc: &'a Bump) -> Table<'a, TestScalar> {
+        table([
+            borrowed_bigint("amount", [10, 20, 30], alloc),
+            borrowed_boolean("__posql_presence_amount", [true, false, true], alloc),
+            borrowed_bigint("fee", [5, 5, 5], alloc),
+            borrowed_boolean("flag", [true, true, false], alloc),
+            borrowed_boolean("__posql_presence_flag", [true, false, true], alloc),
+        ])
+    }
+
+    fn nullable_amount_ref() -> ColumnRef {
+        ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "amount".into(),
+            ColumnType::BigInt,
+        )
     }
 }

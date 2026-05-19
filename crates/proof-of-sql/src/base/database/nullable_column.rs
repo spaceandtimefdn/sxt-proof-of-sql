@@ -81,7 +81,11 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
         self.values.is_empty()
     }
 
-    fn binary_presence(
+    /// Returns row presence for a binary nullable-propagating operation.
+    ///
+    /// A binary expression is present only when both operands are present. `None`
+    /// is preserved when both operands are non-nullable.
+    pub fn propagated_binary_presence(
         &self,
         rhs: &Self,
         alloc: &'a Bump,
@@ -117,7 +121,7 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
         let lhs_values = OwnedColumn::from(&self.values);
         let rhs_values = OwnedColumn::from(&rhs.values);
         let values = alloc.alloc(operation(&lhs_values, &rhs_values)?);
-        let presence = self.binary_presence(rhs, alloc)?;
+        let presence = self.propagated_binary_presence(rhs, alloc)?;
         Self::try_new(Column::from_owned_column(values, alloc), presence)
     }
 
