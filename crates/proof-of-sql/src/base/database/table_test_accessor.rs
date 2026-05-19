@@ -168,3 +168,136 @@ impl<'a, CP: CommitmentEvaluationProof> TableTestAccessor<'a, CP> {
         res
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
+        database::table_utility::*,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
+    };
+    use alloc::vec;
+    use bumpalo::Bump;
+
+    #[test]
+    fn we_can_access_every_borrowed_column_variant() {
+        let alloc = Bump::new();
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        let table_ref = TableRef::new("sxt", "variant_table");
+        let raw_bytes = [b"alpha".as_ref(), b"beta".as_ref(), b"".as_ref()];
+        let byte_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"alpha"),
+            TestScalar::from_byte_slice_via_hash(b"beta"),
+            TestScalar::ZERO,
+        ];
+        let table = table([
+            borrowed_boolean("boolean", [true, false, true], &alloc),
+            borrowed_uint8("uint8", [1_u8, 2, 3], &alloc),
+            borrowed_tinyint("tinyint", [-1_i8, 0, 1], &alloc),
+            borrowed_smallint("smallint", [-10_i16, 0, 10], &alloc),
+            borrowed_int("int", [-100_i32, 0, 100], &alloc),
+            borrowed_bigint("bigint", [-1000_i64, 0, 1000], &alloc),
+            borrowed_int128("int128", [-10000_i128, 0, 10000], &alloc),
+            borrowed_decimal75("decimal", 12, 2, [101, 202, 303], &alloc),
+            borrowed_scalar("scalar", [11, 22, 33], &alloc),
+            borrowed_varchar("varchar", ["alpha", "beta", ""], &alloc),
+            (
+                "bytes".into(),
+                Column::VarBinary((raw_bytes.as_slice(), byte_scalars.as_slice())),
+            ),
+            borrowed_timestamptz(
+                "time",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                [1_700_000_000, 1_700_000_001, 1_700_000_002],
+                &alloc,
+            ),
+        ]);
+
+        accessor.add_table(table_ref.clone(), table, 4);
+
+        assert_eq!(accessor.get_length(&table_ref), 3);
+        assert_eq!(accessor.get_offset(&table_ref), 4);
+        assert_eq!(
+            accessor.get_column_names(&table_ref),
+            vec![
+                "boolean", "uint8", "tinyint", "smallint", "int", "bigint", "int128", "decimal",
+                "scalar", "varchar", "bytes", "time"
+            ]
+        );
+
+        match accessor.get_column(&table_ref, &"boolean".into()) {
+            Column::Boolean(col) => assert_eq!(col, &[true, false, true]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"uint8".into()) {
+            Column::Uint8(col) => assert_eq!(col, &[1, 2, 3]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"tinyint".into()) {
+            Column::TinyInt(col) => assert_eq!(col, &[-1, 0, 1]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"smallint".into()) {
+            Column::SmallInt(col) => assert_eq!(col, &[-10, 0, 10]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"int".into()) {
+            Column::Int(col) => assert_eq!(col, &[-100, 0, 100]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"bigint".into()) {
+            Column::BigInt(col) => assert_eq!(col, &[-1000, 0, 1000]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"int128".into()) {
+            Column::Int128(col) => assert_eq!(col, &[-10000, 0, 10000]),
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"decimal".into()) {
+            Column::Decimal75(precision, scale, col) => {
+                assert_eq!(precision.value(), 12);
+                assert_eq!(scale, 2);
+                assert_eq!(col, &[101.into(), 202.into(), 303.into()]);
+            }
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"scalar".into()) {
+            Column::Scalar(col) => {
+                assert_eq!(col, &[11.into(), 22.into(), 33.into()]);
+            }
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"varchar".into()) {
+            Column::VarChar((strings, scalars)) => {
+                assert_eq!(strings, &["alpha", "beta", ""]);
+                assert_eq!(scalars, &["alpha".into(), "beta".into(), TestScalar::ZERO]);
+            }
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"bytes".into()) {
+            Column::VarBinary((bytes, scalars)) => {
+                assert_eq!(bytes, &[b"alpha".as_ref(), b"beta".as_ref(), b"".as_ref()]);
+                assert_eq!(
+                    scalars,
+                    &[
+                        TestScalar::from_byte_slice_via_hash(b"alpha"),
+                        TestScalar::from_byte_slice_via_hash(b"beta"),
+                        TestScalar::ZERO
+                    ]
+                );
+            }
+            _ => panic!("Invalid column type"),
+        }
+        match accessor.get_column(&table_ref, &"time".into()) {
+            Column::TimestampTZ(time_unit, timezone, col) => {
+                assert_eq!(time_unit, PoSQLTimeUnit::Second);
+                assert_eq!(timezone, PoSQLTimeZone::utc());
+                assert_eq!(col, &[1_700_000_000, 1_700_000_001, 1_700_000_002]);
+            }
+            _ => panic!("Invalid column type"),
+        }
+    }
+}
