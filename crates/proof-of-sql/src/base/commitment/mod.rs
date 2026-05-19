@@ -9,6 +9,8 @@ pub use blitzar::{
 use core::ops::{AddAssign, SubAssign};
 mod committable_column;
 pub use committable_column::CommittableColumn;
+#[cfg(test)]
+mod committable_column_test;
 
 mod vec_commitment_ext;
 pub use vec_commitment_ext::{NumColumnsMismatch, VecCommitmentExt};

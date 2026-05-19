@@ -1,28 +1,28 @@
 //! Module with database related functionality. In particular, this module contains the
 //! accessor traits and the `OwnedTable` type along with some utility functions to convert
 //! between Arrow and `OwnedTable`.
+
 mod accessor;
 pub use accessor::{
     CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
 };
-
 mod column;
 pub use column::Column;
-
+#[cfg(test)]
+mod column_test;
 mod column_type;
 pub use column_type::ColumnType;
-
+#[cfg(test)]
+mod column_type_test;
 mod column_ref;
 pub use column_ref::ColumnRef;
-
 mod column_field;
+#[cfg(test)]
+mod column_field_test;
 pub use column_field::ColumnField;
-
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
-
 mod slice_decimal_operation;
-
 mod column_type_operation;
 pub use column_type_operation::{
     can_and_or_types, can_not_type, try_add_subtract_column_types,
@@ -31,34 +31,34 @@ pub use column_type_operation::{
     try_inequality_types_with_scaling, try_multiply_column_types, try_neg_type,
     try_scale_cast_types,
 };
-
+#[cfg(test)]
+mod column_type_operation_test;
 mod column_arithmetic_operation;
+#[cfg(test)]
+mod column_arithmetic_operation_test;
 pub(super) use column_arithmetic_operation::{AddOp, ArithmeticOp, DivOp, MulOp, SubOp};
-
 mod column_comparison_operation;
 pub(super) use column_comparison_operation::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
-
+#[cfg(test)]
+mod column_comparison_operation_test;
 mod column_index_operation;
 pub(super) use column_index_operation::apply_column_to_indexes;
-
 mod column_repetition_operation;
 pub(super) use column_repetition_operation::{ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp};
-
 mod column_operation_error;
 pub use column_operation_error::{ColumnOperationError, ColumnOperationResult};
-
+#[cfg(test)]
+mod error_types_test;
 mod table_operation_error;
 pub use table_operation_error::{TableOperationError, TableOperationResult};
-
 mod columnar_value;
 pub use columnar_value::ColumnarValue;
-
 mod literal_value;
+#[cfg(test)]
+mod literal_value_test;
 pub use literal_value::LiteralValue;
-
 mod error;
 pub use error::ParseError;
-
 mod table_ref;
 #[cfg(feature = "arrow")]
 pub use crate::base::arrow::{
@@ -67,31 +67,33 @@ pub use crate::base::arrow::{
     scalar_and_i256_conversions,
 };
 pub use table_ref::TableRef;
-
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub mod arrow_schema_utility;
-
 mod owned_column;
 pub use owned_column::OwnedColumn;
-
+#[cfg(test)]
+mod owned_column_test;
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
-
+#[cfg(test)]
+mod owned_column_error_test;
 /// Module providing element-wise operations on [`OwnedColumn`] types.
 ///
 /// This module implements arithmetic, comparison, and logical operations
 /// for columns including NOT, AND, OR, addition, subtraction, multiplication,
 /// division, and equality/inequality comparisons.
 pub(crate) mod owned_column_operation;
-
 mod owned_table;
 pub(crate) use owned_table::TableCoercionError;
 pub use owned_table::{OwnedTable, OwnedTableError};
 #[cfg(test)]
 mod owned_table_test;
 pub mod owned_table_utility;
-
+#[cfg(test)]
+mod owned_table_utility_test;
 mod table;
 #[cfg(test)]
 pub(crate) use table::TableError;
@@ -99,23 +101,22 @@ pub use table::{Table, TableOptions};
 #[cfg(test)]
 mod table_test;
 pub mod table_utility;
-
+#[cfg(test)]
+mod table_utility_test;
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
-
+#[cfg(test)]
+mod table_evaluation_test;
 mod test_accessor;
 pub use test_accessor::TestAccessor;
-
 mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]
 mod owned_table_test_accessor_test;
-
 mod table_test_accessor;
 pub use table_test_accessor::TableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]
 mod table_test_accessor_test;
-
 /// Module providing utilities for filtering columns based on selection vectors.
 ///
 /// This module contains functions to filter columns by boolean selection vectors
@@ -123,16 +124,12 @@ mod table_test_accessor_test;
 pub(crate) mod filter_util;
 #[cfg(test)]
 mod filter_util_test;
-
 pub(crate) mod group_by_util;
 #[cfg(test)]
 mod group_by_util_test;
-
 pub(crate) mod union_util;
-
 pub(crate) mod order_by_util;
 #[cfg(test)]
 mod order_by_util_test;
-
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod join_util;
