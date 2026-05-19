@@ -78,6 +78,26 @@ impl<'a, S: Scalar> NullableColumn<'a, S> {
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
+
+    /// Returns a non-nullable boolean column matching SQL `IS NULL`.
+    #[must_use]
+    pub fn is_null(&self, alloc: &'a Bump) -> Column<'a, S> {
+        Column::Boolean(match self.presence {
+            Some(presence) => {
+                alloc.alloc_slice_fill_iter(presence.iter().map(|is_present| !*is_present))
+            }
+            None => alloc.alloc_slice_fill_copy(self.len(), false),
+        })
+    }
+
+    /// Returns a non-nullable boolean column matching SQL `IS NOT NULL`.
+    #[must_use]
+    pub fn is_not_null(&self, alloc: &'a Bump) -> Column<'a, S> {
+        Column::Boolean(match self.presence {
+            Some(presence) => alloc.alloc_slice_copy(presence),
+            None => alloc.alloc_slice_fill_copy(self.len(), true),
+        })
+    }
 }
 
 impl<'a, S: Scalar> From<Column<'a, S>> for NullableColumn<'a, S> {
@@ -118,5 +138,39 @@ mod tests {
             result,
             Err(ColumnOperationError::DifferentColumnLength { .. })
         ));
+    }
+
+    #[test]
+    fn nullable_column_null_checks_reflect_presence() {
+        let alloc = Bump::new();
+        let column = NullableColumn::<TestScalar>::try_new(
+            Column::BigInt(&[10, 20, 30]),
+            Some(&[true, false, true]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            column.is_null(&alloc),
+            Column::Boolean(&[false, true, false])
+        );
+        assert_eq!(
+            column.is_not_null(&alloc),
+            Column::Boolean(&[true, false, true])
+        );
+    }
+
+    #[test]
+    fn nonnullable_column_null_checks_are_constant() {
+        let alloc = Bump::new();
+        let column = NullableColumn::<TestScalar>::new_nonnullable(Column::BigInt(&[10, 20, 30]));
+
+        assert_eq!(
+            column.is_null(&alloc),
+            Column::Boolean(&[false, false, false])
+        );
+        assert_eq!(
+            column.is_not_null(&alloc),
+            Column::Boolean(&[true, true, true])
+        );
     }
 }

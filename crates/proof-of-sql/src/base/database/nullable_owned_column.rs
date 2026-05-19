@@ -1,6 +1,6 @@
 use super::{ColumnOperationError, ColumnOperationResult, OwnedColumn};
 use crate::base::scalar::Scalar;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use serde::{Deserialize, Serialize};
 
 /// An owned column plus optional row-presence data.
@@ -138,6 +138,24 @@ impl<S: Scalar> NullableOwnedColumn<S> {
     pub fn element_wise_gt(&self, rhs: &Self) -> ColumnOperationResult<Self> {
         self.apply_binary_operation(rhs, OwnedColumn::element_wise_gt)
     }
+
+    /// Returns a non-nullable boolean column matching SQL `IS NULL`.
+    #[must_use]
+    pub fn is_null(&self) -> OwnedColumn<S> {
+        OwnedColumn::Boolean(match self.presence() {
+            Some(presence) => presence.iter().map(|is_present| !*is_present).collect(),
+            None => vec![false; self.len()],
+        })
+    }
+
+    /// Returns a non-nullable boolean column matching SQL `IS NOT NULL`.
+    #[must_use]
+    pub fn is_not_null(&self) -> OwnedColumn<S> {
+        OwnedColumn::Boolean(match self.presence() {
+            Some(presence) => presence.to_vec(),
+            None => vec![true; self.len()],
+        })
+    }
 }
 
 impl<S: Scalar> From<OwnedColumn<S>> for NullableOwnedColumn<S> {
@@ -273,6 +291,40 @@ mod tests {
                 Some(vec![true, false, true])
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn nullable_owned_column_null_checks_reflect_presence() {
+        let column = NullableOwnedColumn::try_new(
+            OwnedColumn::<TestScalar>::BigInt(vec![10, 20, 30]),
+            Some(vec![true, false, true]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            column.is_null(),
+            OwnedColumn::<TestScalar>::Boolean(vec![false, true, false])
+        );
+        assert_eq!(
+            column.is_not_null(),
+            OwnedColumn::<TestScalar>::Boolean(vec![true, false, true])
+        );
+    }
+
+    #[test]
+    fn nonnullable_owned_column_null_checks_are_constant() {
+        let column = NullableOwnedColumn::new_nonnullable(OwnedColumn::<TestScalar>::BigInt(vec![
+            10, 20, 30,
+        ]));
+
+        assert_eq!(
+            column.is_null(),
+            OwnedColumn::<TestScalar>::Boolean(vec![false, false, false])
+        );
+        assert_eq!(
+            column.is_not_null(),
+            OwnedColumn::<TestScalar>::Boolean(vec![true, true, true])
         );
     }
 }
