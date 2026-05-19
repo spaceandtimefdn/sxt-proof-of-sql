@@ -148,12 +148,10 @@ impl ProofPlan for FilterExec {
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        let mut columns = self.input.get_column_references();
-        self.where_clause.get_column_references(&mut columns);
-        for aliased_expr in self.physical_aliased_results() {
-            aliased_expr.expr.get_column_references(&mut columns);
-        }
-        columns
+        // Filter results and predicates can reference intermediate columns produced by child
+        // plans. Source commitments should come from the input plan, whose physical result schema
+        // already includes generated nullable presence columns when needed.
+        self.input.get_column_references()
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {

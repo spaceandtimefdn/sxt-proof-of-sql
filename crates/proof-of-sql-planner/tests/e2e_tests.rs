@@ -202,6 +202,100 @@ fn test_nullable_is_null_query() {
     }
 }
 
+/// Test SQL queries that return nullable result columns and reassemble verified
+/// value-plus-presence proof outputs.
+#[test]
+fn test_nullable_select_results_can_round_trip_nulls() {
+    let sql = "
+        SELECT amount FROM nullable;
+        SELECT amount + 5 AS total FROM nullable;
+        SELECT flag AND (id > 1) AS maybe_flag FROM nullable;
+    ";
+    let table_ref = TableRef::from_names(None, "nullable");
+    let nullable_table = NullableOwnedTable::try_from_iter([
+        (
+            "id".into(),
+            NullableOwnedColumn::new_nonnullable(OwnedColumn::<DoryScalar>::BigInt(vec![
+                1, 2, 3, 4,
+            ])),
+        ),
+        (
+            "amount".into(),
+            NullableOwnedColumn::try_new(
+                OwnedColumn::<DoryScalar>::BigInt(vec![10, 99, 30, 50]),
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        ),
+        (
+            "flag".into(),
+            NullableOwnedColumn::try_new(
+                OwnedColumn::<DoryScalar>::Boolean(vec![true, true, false, true]),
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        ),
+    ])
+    .unwrap();
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let prover_setup_ref = &prover_setup;
+    let verifier_setup_ref = &verifier_setup;
+    let accessor = NullableOwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_from_table(
+        table_ref,
+        nullable_table,
+        0,
+        prover_setup_ref,
+    );
+    let statements = Parser::parse_sql(&GenericDialect {}, sql).unwrap();
+    let plans = sql_to_proof_plans(&statements, &accessor, &ConfigOptions::default()).unwrap();
+    let expected_results: Vec<NullableOwnedTable<DoryScalar>> = vec![
+        NullableOwnedTable::try_from_iter([(
+            "amount".into(),
+            NullableOwnedColumn::try_new(
+                OwnedColumn::<DoryScalar>::BigInt(vec![10, 99, 30, 50]),
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        )])
+        .unwrap(),
+        NullableOwnedTable::try_from_iter([(
+            "total".into(),
+            NullableOwnedColumn::try_new(
+                decimal75::<DoryScalar>("total", 20, 0, [15_i64, 104, 35, 55]).1,
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        )])
+        .unwrap(),
+        NullableOwnedTable::try_from_iter([(
+            "maybe_flag".into(),
+            NullableOwnedColumn::try_new(
+                OwnedColumn::<DoryScalar>::Boolean(vec![false, true, false, true]),
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        )])
+        .unwrap(),
+    ];
+
+    for (plan, expected) in plans.iter().zip(expected_results.iter()) {
+        let res = VerifiableQueryResult::<DynamicDoryEvaluationProof>::new(
+            plan,
+            &accessor,
+            &prover_setup_ref,
+            &[],
+        )
+        .unwrap();
+        let verified = res
+            .verify_nullable(plan, &accessor, &verifier_setup_ref, &[])
+            .unwrap()
+            .table;
+        assert_eq!(verified, expected.clone());
+    }
+}
+
 /// Test a simple SQL query
 #[test]
 fn test_simple_filter_queries() {
