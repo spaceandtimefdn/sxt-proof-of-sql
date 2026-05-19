@@ -47,6 +47,55 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
     }
 }
 
+fn is_filter_comparison_operator(op: Operator) -> bool {
+    matches!(
+        op,
+        Operator::Eq
+            | Operator::NotEq
+            | Operator::Lt
+            | Operator::Gt
+            | Operator::LtEq
+            | Operator::GtEq
+    )
+}
+
+fn nullable_column_refs_in_expr(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<IndexSet<ColumnRef>> {
+    match expr {
+        Expr::Column(col) => {
+            let column_ref = column_to_column_ref_from_fields(col, schema)?;
+            Ok(if column_ref.is_nullable() {
+                IndexSet::from_iter([column_ref])
+            } else {
+                IndexSet::new()
+            })
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            let mut left_refs = nullable_column_refs_in_expr(left, schema)?;
+            left_refs.extend(nullable_column_refs_in_expr(right, schema)?);
+            Ok(left_refs)
+        }
+        Expr::Not(inner)
+        | Expr::Alias(Alias { expr: inner, .. })
+        | Expr::Cast(Cast { expr: inner, .. }) => nullable_column_refs_in_expr(inner, schema),
+        Expr::IsNull(_) | Expr::IsNotNull(_) => Ok(IndexSet::new()),
+        _ => Ok(IndexSet::new()),
+    }
+}
+
+fn and_nullable_presence_guards(
+    mut proof_expr: DynProofExpr,
+    column_refs: IndexSet<ColumnRef>,
+) -> PlannerResult<DynProofExpr> {
+    for column_ref in column_refs {
+        proof_expr =
+            DynProofExpr::try_new_and(proof_expr, DynProofExpr::new_is_not_null(column_ref))?;
+    }
+    Ok(proof_expr)
+}
+
 /// Convert a [`BinaryExpr`] to [`DynProofExpr`]
 #[expect(
     clippy::missing_panics_doc,
@@ -235,6 +284,12 @@ pub(crate) fn filter_expr_to_proof_expr_with_fields(
                 filter_expr_to_proof_expr_with_fields(right, schema)?,
             )?)
         }
+        Expr::BinaryExpr(BinaryExpr { op, .. }) if is_filter_comparison_operator(*op) => {
+            and_nullable_presence_guards(
+                expr_to_proof_expr_with_fields(expr, schema)?,
+                nullable_column_refs_in_expr(expr, schema)?,
+            )
+        }
         Expr::Not(inner) => match &**inner {
             Expr::Column(col) => Ok(DynProofExpr::try_new_is_false(
                 column_to_column_ref_from_fields(col, schema)?,
@@ -414,6 +469,35 @@ mod tests {
                     DynProofExpr::new_literal(LiteralValue::BigInt(4)),
                 )
                 .unwrap(),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_comparison_filter_to_presence_guarded_proof_expr() {
+        let expr = df_column("namespace.table_name", "amount")
+            .gt(Expr::Literal(ScalarValue::Int64(Some(15))));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_inequality(
+                    DynProofExpr::new_column(amount_ref.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                    false,
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
             )
             .unwrap()
         );

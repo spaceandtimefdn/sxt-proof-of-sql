@@ -7,8 +7,8 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Operator, Projection,
-        SubqueryAlias, TableScan, Union,
+        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias,
+        TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -88,7 +88,7 @@ fn get_aliased_dyn_proof_exprs<F: PlannerSchemaField>(
 }
 
 /// Get column identifiers needed in a `TableScan` given its projection and filters
-fn insert_nullable_boolean_filter_presence_column<F: PlannerSchemaField>(
+fn insert_nullable_filter_presence_columns<F: PlannerSchemaField>(
     filter: &Expr,
     input_schema: &[F],
     required_columns: &mut IndexSet<Ident>,
@@ -104,13 +104,20 @@ fn insert_nullable_boolean_filter_presence_column<F: PlannerSchemaField>(
             }
         }
         Expr::Not(inner) => {
-            insert_nullable_boolean_filter_presence_column(inner, input_schema, required_columns);
+            insert_nullable_filter_presence_columns(inner, input_schema, required_columns);
         }
-        Expr::BinaryExpr(BinaryExpr { left, right, op })
-            if matches!(op, Operator::And | Operator::Or) =>
-        {
-            insert_nullable_boolean_filter_presence_column(left, input_schema, required_columns);
-            insert_nullable_boolean_filter_presence_column(right, input_schema, required_columns);
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            insert_nullable_filter_presence_columns(left, input_schema, required_columns);
+            insert_nullable_filter_presence_columns(right, input_schema, required_columns);
+        }
+        Expr::Alias(alias) => {
+            insert_nullable_filter_presence_columns(&alias.expr, input_schema, required_columns);
+        }
+        Expr::Cast(cast) => {
+            insert_nullable_filter_presence_columns(&cast.expr, input_schema, required_columns);
+        }
+        Expr::IsNull(inner) | Expr::IsNotNull(inner) => {
+            insert_nullable_filter_presence_columns(inner, input_schema, required_columns);
         }
         _ => {}
     }
@@ -128,7 +135,7 @@ fn table_scan_get_required_columns<F: PlannerSchemaField>(
         .collect::<IndexSet<_>>();
 
     for filter in filters {
-        insert_nullable_boolean_filter_presence_column(filter, input_schema, &mut required_columns);
+        insert_nullable_filter_presence_columns(filter, input_schema, &mut required_columns);
     }
 
     required_columns
@@ -1047,6 +1054,54 @@ mod tests {
                     DynProofExpr::new_literal(LiteralValue::BigInt(4)),
                 )
                 .unwrap(),
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nullable_comparison_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = df_column("table", "amount").gt(Expr::Literal(ScalarValue::Int64(Some(15))));
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_inequality(
+                    DynProofExpr::new_column(amount_ref.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                    false,
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
             )
             .unwrap(),
         );

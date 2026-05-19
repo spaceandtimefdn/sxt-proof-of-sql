@@ -129,6 +129,7 @@ fn test_nullable_is_null_query() {
         SELECT id FROM nullable WHERE NOT flag;
         SELECT id FROM nullable WHERE flag OR id = 4;
         SELECT id FROM nullable WHERE flag AND id > 1;
+        SELECT id FROM nullable WHERE amount > 15;
     ";
     let table_ref = TableRef::from_names(None, "nullable");
     let nullable_table = NullableOwnedTable::try_from_iter([
@@ -141,7 +142,7 @@ fn test_nullable_is_null_query() {
         (
             "amount".into(),
             NullableOwnedColumn::try_new(
-                OwnedColumn::<DoryScalar>::BigInt(vec![10, 0, 30, 50]),
+                OwnedColumn::<DoryScalar>::BigInt(vec![10, 99, 30, 50]),
                 Some(vec![true, false, true, true]),
             )
             .unwrap(),
@@ -176,6 +177,7 @@ fn test_nullable_is_null_query() {
         owned_table([bigint("id", [3_i64])]),
         owned_table([bigint("id", [1_i64, 4])]),
         owned_table([bigint("id", [4_i64])]),
+        owned_table([bigint("id", [3_i64, 4])]),
     ];
 
     for (plan, expected) in plans.iter().zip(expected_results.iter()) {
