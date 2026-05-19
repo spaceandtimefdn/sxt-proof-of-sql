@@ -8,6 +8,8 @@ pub use accessor::{
 };
 mod column;
 pub use column::Column;
+#[cfg(test)]
+mod column_test;
 mod column_type;
 pub use column_type::ColumnType;
 mod column_ref;
@@ -69,6 +71,8 @@ mod table_ref_test;
 pub mod arrow_schema_utility;
 mod owned_column;
 pub use owned_column::OwnedColumn;
+#[cfg(test)]
+mod owned_column_test;
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
