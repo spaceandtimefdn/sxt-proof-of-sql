@@ -294,6 +294,12 @@ pub(crate) fn filter_expr_to_proof_expr_with_fields(
             Expr::Column(col) => Ok(DynProofExpr::try_new_is_false(
                 column_to_column_ref_from_fields(col, schema)?,
             )?),
+            Expr::BinaryExpr(BinaryExpr { op, .. }) if is_filter_comparison_operator(*op) => {
+                and_nullable_presence_guards(
+                    DynProofExpr::try_new_not(expr_to_proof_expr_with_fields(inner, schema)?)?,
+                    nullable_column_refs_in_expr(inner, schema)?,
+                )
+            }
             _ => expr_to_proof_expr_with_fields(expr, schema),
         },
         _ => expr_to_proof_expr_with_fields(expr, schema),
@@ -495,6 +501,40 @@ mod tests {
                     DynProofExpr::new_column(amount_ref.clone()),
                     DynProofExpr::new_literal(LiteralValue::BigInt(15)),
                     false,
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_negated_nullable_comparison_filter_to_presence_guarded_proof_expr() {
+        let expr = Expr::Not(Box::new(
+            df_column("namespace.table_name", "amount")
+                .lt(Expr::Literal(ScalarValue::Int64(Some(15)))),
+        ));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_not(
+                    DynProofExpr::try_new_inequality(
+                        DynProofExpr::new_column(amount_ref.clone()),
+                        DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                        true,
+                    )
+                    .unwrap(),
                 )
                 .unwrap(),
                 DynProofExpr::new_is_not_null(amount_ref),

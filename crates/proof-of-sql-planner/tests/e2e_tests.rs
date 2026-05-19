@@ -130,6 +130,7 @@ fn test_nullable_is_null_query() {
         SELECT id FROM nullable WHERE flag OR id = 4;
         SELECT id FROM nullable WHERE flag AND id > 1;
         SELECT id FROM nullable WHERE amount > 15;
+        SELECT id FROM nullable WHERE NOT (amount < 15);
     ";
     let table_ref = TableRef::from_names(None, "nullable");
     let nullable_table = NullableOwnedTable::try_from_iter([
@@ -177,6 +178,7 @@ fn test_nullable_is_null_query() {
         owned_table([bigint("id", [3_i64])]),
         owned_table([bigint("id", [1_i64, 4])]),
         owned_table([bigint("id", [4_i64])]),
+        owned_table([bigint("id", [3_i64, 4])]),
         owned_table([bigint("id", [3_i64, 4])]),
     ];
 
