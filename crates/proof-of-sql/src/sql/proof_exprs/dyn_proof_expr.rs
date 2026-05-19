@@ -4,7 +4,9 @@ use super::{
 };
 use crate::{
     base::{
-        database::{Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table},
+        database::{
+            Column, ColumnField, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -56,6 +58,56 @@ impl DynProofExpr {
     #[must_use]
     pub fn new_column(column_ref: ColumnRef) -> Self {
         Self::Column(ColumnExpr::new(column_ref))
+    }
+
+    /// Return the output field for expressions whose nullability is simple presence propagation.
+    ///
+    /// `AND` / `OR` are deliberately not marked nullable here because their
+    /// PostgreSQL three-valued result nullability depends on values as well as
+    /// operand presence.
+    #[must_use]
+    pub(crate) fn nullable_propagating_result_field(&self, alias: Ident) -> ColumnField {
+        if self
+            .nullable_propagating_result_is_nullable()
+            .unwrap_or(false)
+        {
+            ColumnField::new_nullable(alias, self.data_type())
+        } else {
+            ColumnField::new(alias, self.data_type())
+        }
+    }
+
+    fn nullable_propagating_result_is_nullable(&self) -> Option<bool> {
+        match self {
+            Self::Column(column) => Some(column.column_ref().is_nullable()),
+            Self::Literal(_) | Self::Placeholder(_) => Some(false),
+            Self::Add(expr) => Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs()),
+            Self::Subtract(expr) => {
+                Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs())
+            }
+            Self::Multiply(expr) => {
+                Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs())
+            }
+            Self::Equals(expr) => Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs()),
+            Self::Inequality(expr) => {
+                Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs())
+            }
+            Self::Not(expr) => expr.input().nullable_propagating_result_is_nullable(),
+            Self::Cast(expr) => expr
+                .get_from_expr()
+                .nullable_propagating_result_is_nullable(),
+            Self::ScalingCast(expr) => expr
+                .get_from_expr()
+                .nullable_propagating_result_is_nullable(),
+            Self::And(_) | Self::Or(_) => None,
+        }
+    }
+
+    fn nullable_binary_result_is_nullable(lhs: &Self, rhs: &Self) -> Option<bool> {
+        Some(
+            lhs.nullable_propagating_result_is_nullable()?
+                || rhs.nullable_propagating_result_is_nullable()?,
+        )
     }
 
     /// Evaluate expressions whose SQL nullability is simple operand-presence propagation.
@@ -529,6 +581,47 @@ mod tests {
             .unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn nullable_result_fields_mark_presence_propagating_outputs() {
+        let amount_ref = nullable_amount_ref();
+        let fee_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "fee".into(),
+            ColumnType::BigInt,
+        );
+        let expression = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+
+        let field = expression.nullable_propagating_result_field("total".into());
+
+        assert_eq!(field.name(), "total".into());
+        assert_eq!(field.data_type(), expression.data_type());
+        assert!(field.is_nullable());
+    }
+
+    #[test]
+    fn nullable_result_fields_do_not_claim_and_or_result_nullability() {
+        let flag_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "flag".into(),
+            ColumnType::Boolean,
+        );
+        let expression = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .unwrap();
+
+        let field = expression.nullable_propagating_result_field("flag_and_true".into());
+
+        assert_eq!(field.name(), "flag_and_true".into());
+        assert_eq!(field.data_type(), ColumnType::Boolean);
+        assert!(!field.is_nullable());
     }
 
     fn nullable_test_table<'a>(alloc: &'a Bump) -> Table<'a, TestScalar> {

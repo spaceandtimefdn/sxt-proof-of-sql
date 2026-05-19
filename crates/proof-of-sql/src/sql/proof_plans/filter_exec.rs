@@ -135,9 +135,7 @@ impl ProofPlan for FilterExec {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.aliased_results
             .iter()
-            .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
-            })
+            .map(AliasedDynProofExpr::result_field)
             .collect()
     }
 
@@ -267,5 +265,66 @@ impl ProverEvaluate for FilterExec {
         log::log_memory_usage("End");
 
         Ok(res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{ColumnField, ColumnRef, ColumnType, LiteralValue},
+            math::decimal::Precision,
+        },
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        },
+    };
+
+    #[test]
+    fn filter_result_schema_preserves_nullable_propagating_fields() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let fee_ref = ColumnRef::new(table_ref.clone(), "fee".into(), ColumnType::BigInt);
+        let total = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref.clone()),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+        let plan = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(amount_ref),
+                    alias: "amount".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: total,
+                    alias: "total".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_table(
+                table_ref,
+                vec![
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new("fee".into(), ColumnType::BigInt),
+                ],
+            )),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        let column_fields = plan.get_column_result_fields();
+
+        assert_eq!(
+            column_fields,
+            vec![
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new_nullable(
+                    "total".into(),
+                    ColumnType::Decimal75(Precision::new(20).unwrap(), 0)
+                ),
+            ]
+        );
     }
 }
