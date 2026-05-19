@@ -33,10 +33,14 @@ pub use column_type_operation::{
 };
 
 mod column_arithmetic_operation;
+#[cfg(test)]
+mod column_arithmetic_operation_test;
 pub(super) use column_arithmetic_operation::{AddOp, ArithmeticOp, DivOp, MulOp, SubOp};
 
 mod column_comparison_operation;
 pub(super) use column_comparison_operation::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+#[cfg(test)]
+mod column_comparison_operation_test;
 
 mod column_index_operation;
 pub(super) use column_index_operation::apply_column_to_indexes;
