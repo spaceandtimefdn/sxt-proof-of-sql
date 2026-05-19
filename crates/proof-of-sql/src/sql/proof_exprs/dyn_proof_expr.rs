@@ -60,11 +60,7 @@ impl DynProofExpr {
         Self::Column(ColumnExpr::new(column_ref))
     }
 
-    /// Return the output field for expressions whose nullability is simple presence propagation.
-    ///
-    /// `AND` / `OR` are deliberately not marked nullable here because their
-    /// PostgreSQL three-valued result nullability depends on values as well as
-    /// operand presence.
+    /// Return the output field for expressions whose nullability can be derived locally.
     #[must_use]
     pub(crate) fn nullable_propagating_result_field(&self, alias: Ident) -> ColumnField {
         if self
@@ -99,7 +95,8 @@ impl DynProofExpr {
             Self::ScalingCast(expr) => expr
                 .get_from_expr()
                 .nullable_propagating_result_is_nullable(),
-            Self::And(_) | Self::Or(_) => None,
+            Self::And(expr) => Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs()),
+            Self::Or(expr) => Self::nullable_binary_result_is_nullable(expr.lhs(), expr.rhs()),
         }
     }
 
@@ -110,11 +107,7 @@ impl DynProofExpr {
         )
     }
 
-    /// Evaluate expressions whose SQL nullability is simple operand-presence propagation.
-    ///
-    /// This returns `None` for expressions such as `AND` / `OR`, where PostgreSQL
-    /// three-valued boolean result nullability depends on both values and
-    /// presence rather than just operand presence.
+    /// Evaluate expressions whose SQL nullability can be derived from local operands.
     pub fn first_round_evaluate_nullable_propagating<'a, S: Scalar>(
         &self,
         alloc: &'a Bump,
@@ -200,7 +193,32 @@ impl DynProofExpr {
                 table,
                 params,
             )?,
-            Self::And(_) | Self::Or(_) => None,
+            Self::And(expr) => Self::nullable_boolean_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+                |lhs_present, lhs_value, rhs_present, rhs_value| {
+                    (lhs_present && rhs_present)
+                        || (lhs_present && !lhs_value)
+                        || (rhs_present && !rhs_value)
+                },
+            )?,
+            Self::Or(expr) => Self::nullable_boolean_first_round_result(
+                values,
+                expr.lhs(),
+                expr.rhs(),
+                alloc,
+                table,
+                params,
+                |lhs_present, lhs_value, rhs_present, rhs_value| {
+                    (lhs_present && rhs_present)
+                        || (lhs_present && lhs_value)
+                        || (rhs_present && rhs_value)
+                },
+            )?,
         };
         Ok(result)
     }
@@ -242,6 +260,50 @@ impl DynProofExpr {
                 NullableColumn::try_new(values, input.presence())
                     .expect("Nullable expression values and presence should match")
             }))
+    }
+
+    fn nullable_boolean_first_round_result<'a, S: Scalar>(
+        values: Column<'a, S>,
+        lhs: &Self,
+        rhs: &Self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+        is_present: impl Fn(bool, bool, bool, bool) -> bool,
+    ) -> PlaceholderResult<Option<NullableColumn<'a, S>>> {
+        let Some(lhs) = lhs.first_round_evaluate_nullable_propagating(alloc, table, params)? else {
+            return Ok(None);
+        };
+        let Some(rhs) = rhs.first_round_evaluate_nullable_propagating(alloc, table, params)? else {
+            return Ok(None);
+        };
+
+        assert_eq!(lhs.len(), rhs.len(), "Boolean operand lengths should match");
+        assert_eq!(
+            values.len(),
+            lhs.len(),
+            "Boolean expression values and operand lengths should match"
+        );
+        let lhs_values = lhs.values().as_boolean().expect("lhs is not boolean");
+        let rhs_values = rhs.values().as_boolean().expect("rhs is not boolean");
+
+        let presence: Option<&'a [bool]> = if lhs.presence().is_none() && rhs.presence().is_none() {
+            None
+        } else {
+            Some(&*alloc.alloc_slice_fill_iter(
+                lhs_values.iter().zip(rhs_values.iter()).enumerate().map(
+                    |(i, (lhs_value, rhs_value))| {
+                        let lhs_present = lhs.presence().map_or(true, |presence| presence[i]);
+                        let rhs_present = rhs.presence().map_or(true, |presence| presence[i]);
+                        is_present(lhs_present, *lhs_value, rhs_present, *rhs_value)
+                    },
+                ),
+            ))
+        };
+
+        Ok(Some(NullableColumn::try_new(values, presence).expect(
+            "Nullable boolean expression values and presence should match",
+        )))
     }
 
     /// Create a SQL `IS NULL` expression for a column reference.
@@ -562,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn nullable_first_round_evaluation_does_not_guess_and_or_nullability() {
+    fn nullable_first_round_evaluation_handles_boolean_and_or_presence() {
         let alloc = Bump::new();
         let table = nullable_test_table(&alloc);
         let flag_ref = ColumnRef::new_nullable(
@@ -570,17 +632,47 @@ mod tests {
             "flag".into(),
             ColumnType::Boolean,
         );
-        let expression = DynProofExpr::try_new_and(
+        let and_true = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .unwrap()
+        .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+        .unwrap()
+        .unwrap();
+        let and_false = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+        )
+        .unwrap()
+        .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+        .unwrap()
+        .unwrap();
+        let or_false = DynProofExpr::try_new_or(
+            DynProofExpr::new_column(flag_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+        )
+        .unwrap()
+        .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+        .unwrap()
+        .unwrap();
+        let or_true = DynProofExpr::try_new_or(
             DynProofExpr::new_column(flag_ref),
             DynProofExpr::new_literal(LiteralValue::Boolean(true)),
         )
+        .unwrap()
+        .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
+        .unwrap()
         .unwrap();
 
-        let result = expression
-            .first_round_evaluate_nullable_propagating(&alloc, &table, &[])
-            .unwrap();
-
-        assert!(result.is_none());
+        assert_eq!(and_true.values(), Column::Boolean(&[true, true, false]));
+        assert_eq!(and_true.presence(), Some([true, false, true].as_slice()));
+        assert_eq!(and_false.values(), Column::Boolean(&[false, false, false]));
+        assert_eq!(and_false.presence(), Some([true, true, true].as_slice()));
+        assert_eq!(or_false.values(), Column::Boolean(&[true, true, false]));
+        assert_eq!(or_false.presence(), Some([true, false, true].as_slice()));
+        assert_eq!(or_true.values(), Column::Boolean(&[true, true, true]));
+        assert_eq!(or_true.presence(), Some([true, true, true].as_slice()));
     }
 
     #[test]
@@ -605,7 +697,7 @@ mod tests {
     }
 
     #[test]
-    fn nullable_result_fields_do_not_claim_and_or_result_nullability() {
+    fn nullable_result_fields_mark_and_or_outputs_nullable() {
         let flag_ref = ColumnRef::new_nullable(
             TableRef::new("sxt", "orders"),
             "flag".into(),
@@ -621,7 +713,7 @@ mod tests {
 
         assert_eq!(field.name(), "flag_and_true".into());
         assert_eq!(field.data_type(), ColumnType::Boolean);
-        assert!(!field.is_nullable());
+        assert!(field.is_nullable());
     }
 
     fn nullable_test_table<'a>(alloc: &'a Bump) -> Table<'a, TestScalar> {
