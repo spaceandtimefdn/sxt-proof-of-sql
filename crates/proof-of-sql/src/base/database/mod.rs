@@ -43,6 +43,8 @@ mod column_repetition_operation;
 pub(super) use column_repetition_operation::{ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp};
 mod column_operation_error;
 pub use column_operation_error::{ColumnOperationError, ColumnOperationResult};
+#[cfg(test)]
+mod error_types_test;
 mod table_operation_error;
 pub use table_operation_error::{TableOperationError, TableOperationResult};
 mod columnar_value;
@@ -70,6 +72,8 @@ pub use owned_column::OwnedColumn;
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
+#[cfg(test)]
+mod owned_column_error_test;
 /// Module providing element-wise operations on [`OwnedColumn`] types.
 ///
 /// This module implements arithmetic, comparison, and logical operations
@@ -95,6 +99,8 @@ pub mod table_utility;
 mod table_utility_test;
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
+#[cfg(test)]
+mod table_evaluation_test;
 mod test_accessor;
 pub use test_accessor::TestAccessor;
 mod owned_table_test_accessor;
