@@ -180,7 +180,7 @@ impl DynProofPlan {
     pub(crate) fn get_column_result_fields_as_references(&self) -> IndexSet<ColumnRef> {
         self.get_column_result_fields()
             .into_iter()
-            .map(|f| ColumnRef::new(TableRef::from_names(None, ""), f.name(), f.data_type()))
+            .map(|f| ColumnRef::from_field(TableRef::from_names(None, ""), &f))
             .collect()
     }
 }
