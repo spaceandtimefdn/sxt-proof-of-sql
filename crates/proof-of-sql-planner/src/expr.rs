@@ -212,6 +212,21 @@ pub(crate) fn expr_to_proof_expr_with_fields(
     }
 }
 
+/// Convert a filter predicate to a [`DynProofExpr`] while applying SQL `IS TRUE`
+/// semantics to direct nullable boolean columns.
+pub(crate) fn filter_expr_to_proof_expr_with_fields(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<DynProofExpr> {
+    match expr {
+        Expr::Alias(Alias { expr, .. }) => filter_expr_to_proof_expr_with_fields(expr, schema),
+        Expr::Column(col) => Ok(DynProofExpr::try_new_is_true(
+            column_to_column_ref_from_fields(col, schema)?,
+        )?),
+        _ => expr_to_proof_expr_with_fields(expr, schema),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,6 +328,25 @@ mod tests {
         let expr = df_column("namespace.table_name", "column");
         let schema = vec![("column".into(), ColumnType::Int)];
         assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), COLUMN_INT());
+    }
+
+    #[test]
+    fn we_can_convert_nullable_boolean_filter_column_to_is_true_proof_expr() {
+        let expr = df_column("namespace.table_name", "is_paid");
+        let schema = vec![ColumnField::new_nullable(
+            "is_paid".into(),
+            ColumnType::Boolean,
+        )];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_true(column_ref).unwrap()
+        );
     }
 
     #[test]

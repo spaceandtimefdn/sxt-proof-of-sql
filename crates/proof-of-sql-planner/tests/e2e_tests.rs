@@ -125,6 +125,7 @@ fn test_nullable_is_null_query() {
     let sql = "
         SELECT id FROM nullable WHERE amount IS NULL;
         SELECT amount FROM nullable WHERE amount IS NOT NULL AND amount > 15;
+        SELECT id FROM nullable WHERE flag;
     ";
     let table_ref = TableRef::from_names(None, "nullable");
     let nullable_table = NullableOwnedTable::try_from_iter([
@@ -138,6 +139,14 @@ fn test_nullable_is_null_query() {
             "amount".into(),
             NullableOwnedColumn::try_new(
                 OwnedColumn::<DoryScalar>::BigInt(vec![10, 0, 30, 50]),
+                Some(vec![true, false, true, true]),
+            )
+            .unwrap(),
+        ),
+        (
+            "flag".into(),
+            NullableOwnedColumn::try_new(
+                OwnedColumn::<DoryScalar>::Boolean(vec![true, true, false, true]),
                 Some(vec![true, false, true, true]),
             )
             .unwrap(),
@@ -160,6 +169,7 @@ fn test_nullable_is_null_query() {
     let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
         owned_table([bigint("id", [2_i64])]),
         owned_table([bigint("amount", [30_i64, 50])]),
+        owned_table([bigint("id", [1_i64, 4])]),
     ];
 
     for (plan, expected) in plans.iter().zip(expected_results.iter()) {

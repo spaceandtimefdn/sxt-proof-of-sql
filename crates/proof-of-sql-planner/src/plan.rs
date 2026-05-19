@@ -1,5 +1,6 @@
 use super::{
-    aggregate_function_to_proof_expr, expr_to_proof_expr_with_fields, get_column_idents_from_expr,
+    aggregate_function_to_proof_expr, expr_to_proof_expr_with_fields,
+    filter_expr_to_proof_expr_with_fields, get_column_idents_from_expr,
     table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
 };
 use alloc::vec::Vec;
@@ -30,12 +31,17 @@ use proof_of_sql::{
 /// However that shouldn't be taken for granted.
 trait PlannerSchemaField {
     fn schema_ident(&self) -> Ident;
+    fn is_nullable(&self) -> bool;
     fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef;
 }
 
 impl PlannerSchemaField for ColumnField {
     fn schema_ident(&self) -> Ident {
         self.name()
+    }
+
+    fn is_nullable(&self) -> bool {
+        ColumnField::is_nullable(self)
     }
 
     fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef {
@@ -47,6 +53,10 @@ impl PlannerSchemaField for ColumnField {
 impl PlannerSchemaField for (Ident, ColumnType) {
     fn schema_ident(&self) -> Ident {
         self.0.clone()
+    }
+
+    fn is_nullable(&self) -> bool {
+        false
     }
 
     fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef {
@@ -83,11 +93,25 @@ fn table_scan_get_required_columns<F: PlannerSchemaField>(
     filters: &[Expr],
     input_schema: &[F],
 ) -> IndexSet<Ident> {
-    projection
+    let mut required_columns = projection
         .iter()
         .filter_map(|&i| input_schema.get(i).map(PlannerSchemaField::schema_ident))
         .chain(filters.iter().flat_map(get_column_idents_from_expr))
-        .collect()
+        .collect::<IndexSet<_>>();
+
+    for filter in filters {
+        if let Expr::Column(col) = filter {
+            let column_id: Ident = col.name.as_str().into();
+            if input_schema
+                .iter()
+                .any(|field| field.schema_ident() == column_id && field.is_nullable())
+            {
+                required_columns.insert(ColumnRef::presence_column_id(&column_id));
+            }
+        }
+    }
+
+    required_columns
 }
 
 fn table_scan_input_fields_for_required_columns(
@@ -157,7 +181,7 @@ fn table_scan_to_filter(
     let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
     let filter_proof_exprs = filters
         .iter()
-        .map(|f| expr_to_proof_expr_with_fields(f, &input_schema))
+        .map(|f| filter_expr_to_proof_expr_with_fields(f, &input_schema))
         .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
         .expect("At least one filter expression is required")?;
     Ok(DynProofPlan::new_filter(
@@ -465,7 +489,8 @@ pub fn logical_plan_to_proof_plan(
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
             let input_schema = input_plan.get_column_result_fields().to_vec();
-            let filter_proof_expr = expr_to_proof_expr_with_fields(predicate, &input_schema)?;
+            let filter_proof_expr =
+                filter_expr_to_proof_expr_with_fields(predicate, &input_schema)?;
             let aliased_exprs = input_plan
                 .get_column_result_fields()
                 .iter()
@@ -569,6 +594,7 @@ mod tests {
         fn lookup_column(&self, _table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
             match column_id.value.as_str() {
                 "id" | "amount" => Some(ColumnType::BigInt),
+                "flag" => Some(ColumnType::Boolean),
                 _ => None,
             }
         }
@@ -577,6 +603,7 @@ mod tests {
             vec![
                 ("id".into(), ColumnType::BigInt),
                 ("amount".into(), ColumnType::BigInt),
+                ("flag".into(), ColumnType::Boolean),
             ]
         }
 
@@ -584,6 +611,7 @@ mod tests {
             vec![
                 ColumnField::new("id".into(), ColumnType::BigInt),
                 ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
             ]
         }
     }
@@ -866,6 +894,47 @@ mod tests {
                 ],
             ),
             DynProofExpr::new_is_null(amount_ref),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_generated_presence_columns_for_nullable_boolean_predicate() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let flag_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "flag".into(), ColumnType::Boolean);
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[df_column("table", "flag")],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "id".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"flag".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_is_true(flag_ref).unwrap(),
         );
 
         assert_eq!(result, expected);
