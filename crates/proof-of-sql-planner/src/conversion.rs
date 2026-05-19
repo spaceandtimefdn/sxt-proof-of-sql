@@ -117,10 +117,43 @@ mod tests {
     use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
     use indexmap::IndexSet;
     use proof_of_sql::{
-        base::database::{TableRef, TableTestAccessor},
+        base::database::{
+            ColumnField, ColumnRef, ColumnType, SchemaAccessor, TableRef, TableTestAccessor,
+        },
         proof_primitive::dory::DynamicDoryEvaluationProof,
+        sql::{
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+            proof_plans::DynProofPlan,
+        },
     };
+    use sqlparser::ast::Ident;
     use sqlparser::{dialect::GenericDialect, parser::Parser};
+
+    #[derive(Clone)]
+    struct NullableOrdersSchema;
+
+    impl SchemaAccessor for NullableOrdersSchema {
+        fn lookup_column(&self, _table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
+            match column_id.value.as_str() {
+                "id" | "amount" => Some(ColumnType::BigInt),
+                _ => None,
+            }
+        }
+
+        fn lookup_schema(&self, _table_ref: &TableRef) -> Vec<(Ident, ColumnType)> {
+            vec![
+                ("id".into(), ColumnType::BigInt),
+                ("amount".into(), ColumnType::BigInt),
+            ]
+        }
+
+        fn lookup_column_fields(&self, _table_ref: &TableRef) -> Vec<ColumnField> {
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+            ]
+        }
+    }
 
     #[test]
     fn we_can_get_table_references() {
@@ -174,5 +207,48 @@ AND s.salary > (
             |a, _| -> PlannerResult<LogicalPlan> { Ok(a.clone()) },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn sql_is_null_uses_generated_presence_column_in_plan() {
+        let statements = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT id FROM orders WHERE amount IS NULL;",
+        )
+        .unwrap();
+        let plans = super::sql_to_proof_plans(
+            &statements,
+            &NullableOrdersSchema,
+            &ConfigOptions::default(),
+        )
+        .unwrap();
+        let table_ref = TableRef::from_names(None, "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+
+        assert_eq!(
+            plans,
+            vec![DynProofPlan::new_filter(
+                vec![AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(ColumnRef::new(
+                        table_ref.clone(),
+                        "id".into(),
+                        ColumnType::BigInt,
+                    )),
+                    alias: "id".into(),
+                }],
+                DynProofPlan::new_table(
+                    table_ref,
+                    vec![
+                        ColumnField::new("id".into(), ColumnType::BigInt),
+                        ColumnField::new(
+                            ColumnRef::presence_column_id(&"amount".into()),
+                            ColumnType::Boolean,
+                        ),
+                    ],
+                ),
+                DynProofExpr::new_is_null(amount_ref),
+            )]
+        );
     }
 }

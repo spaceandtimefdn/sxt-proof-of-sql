@@ -1,7 +1,7 @@
 use super::{
     Column, ColumnField, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor,
-    NullableColumn, NullableDataAccessor, NullableOwnedTable, SchemaAccessor, TableRef,
-    TestAccessor,
+    NullableColumn, NullableDataAccessor, NullableOwnedTable, OwnedColumn, SchemaAccessor,
+    TableRef, TestAccessor,
 };
 use crate::base::{
     commitment::{CommitmentEvaluationProof, VecCommitmentExt},
@@ -103,7 +103,15 @@ impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar>
     for NullableOwnedTableTestAccessor<'_, CP>
 {
     fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, CP::Scalar> {
-        self.get_nullable_column(table_ref, column_id).values()
+        let table = &self.tables.get(table_ref).unwrap().0;
+        if let Some(owned_column) = table.inner_table().get(column_id) {
+            return Column::from_owned_column(owned_column.values(), &self.alloc);
+        }
+        let (presence, len) = presence_column(table, column_id).unwrap();
+        Column::Boolean(match presence {
+            Some(presence) => self.alloc.alloc_slice_copy(presence),
+            None => self.alloc.alloc_slice_fill_copy(len, true),
+        })
     }
 }
 
@@ -112,13 +120,25 @@ impl<CP: CommitmentEvaluationProof> CommitmentAccessor<CP::Commitment>
 {
     fn get_commitment(&self, table_ref: &TableRef, column_id: &Ident) -> CP::Commitment {
         let (table, offset) = self.tables.get(table_ref).unwrap();
-        let nullable_owned_column = table.inner_table().get(column_id).unwrap();
-        Vec::<CP::Commitment>::from_columns_with_offset(
-            [nullable_owned_column.values()],
-            *offset,
-            self.setup.as_ref().unwrap(),
-        )[0]
-        .clone()
+        if let Some(nullable_owned_column) = table.inner_table().get(column_id) {
+            Vec::<CP::Commitment>::from_columns_with_offset(
+                [nullable_owned_column.values()],
+                *offset,
+                self.setup.as_ref().unwrap(),
+            )[0]
+            .clone()
+        } else {
+            let (presence, len) = presence_column(table, column_id).unwrap();
+            let owned_presence = OwnedColumn::<CP::Scalar>::Boolean(
+                presence.map_or_else(|| alloc::vec![true; len], |presence| presence.to_vec()),
+            );
+            Vec::<CP::Commitment>::from_columns_with_offset(
+                [&owned_presence],
+                *offset,
+                self.setup.as_ref().unwrap(),
+            )[0]
+            .clone()
+        }
     }
 }
 
@@ -140,15 +160,12 @@ impl<CP: CommitmentEvaluationProof> MetadataAccessor for NullableOwnedTableTestA
 
 impl<CP: CommitmentEvaluationProof> SchemaAccessor for NullableOwnedTableTestAccessor<'_, CP> {
     fn lookup_column(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
-        Some(
-            self.tables
-                .get(table_ref)?
-                .0
-                .inner_table()
-                .get(column_id)?
-                .values()
-                .column_type(),
-        )
+        let table = &self.tables.get(table_ref)?.0;
+        table
+            .inner_table()
+            .get(column_id)
+            .map(|column| column.values().column_type())
+            .or_else(|| presence_column(table, column_id).map(|_| ColumnType::Boolean))
     }
 
     /// # Panics
@@ -166,7 +183,11 @@ impl<CP: CommitmentEvaluationProof> SchemaAccessor for NullableOwnedTableTestAcc
     }
 
     fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
-        let column = self.tables.get(table_ref)?.0.inner_table().get(column_id)?;
+        let table = &self.tables.get(table_ref)?.0;
+        if presence_column(table, column_id).is_some() {
+            return Some(ColumnField::new(column_id.clone(), ColumnType::Boolean));
+        }
+        let column = table.inner_table().get(column_id)?;
         Some(if column.is_nullable() {
             ColumnField::new_nullable(column_id.clone(), column.values().column_type())
         } else {
@@ -180,6 +201,16 @@ impl<CP: CommitmentEvaluationProof> SchemaAccessor for NullableOwnedTableTestAcc
     fn lookup_column_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
         self.tables.get(table_ref).unwrap().0.schema()
     }
+}
+
+fn presence_column<'a, S: crate::base::scalar::Scalar>(
+    table: &'a NullableOwnedTable<S>,
+    presence_column_id: &Ident,
+) -> Option<(Option<&'a [bool]>, usize)> {
+    table.inner_table().iter().find_map(|(column_id, column)| {
+        (NullableOwnedTable::<S>::presence_column_name(column_id) == *presence_column_id)
+            .then(|| (column.presence(), column.len()))
+    })
 }
 
 impl<'a, CP: CommitmentEvaluationProof> NullableOwnedTableTestAccessor<'a, CP> {
@@ -208,7 +239,7 @@ mod tests {
     use super::*;
     use crate::base::{
         commitment::naive_evaluation_proof::NaiveEvaluationProof,
-        database::{NullableOwnedColumn, OwnedColumn},
+        database::{ColumnRef, NullableOwnedColumn, OwnedColumn},
         map::{indexmap, IndexSet},
         scalar::test_scalar::TestScalar,
     };
@@ -243,6 +274,13 @@ mod tests {
         assert_eq!(
             accessor.get_column(&table_ref, &"amount".into()),
             Column::BigInt(&[10, 0, 30])
+        );
+        assert_eq!(
+            accessor.get_column(
+                &table_ref,
+                &ColumnRef::presence_column_id(&Ident::new("amount"))
+            ),
+            Column::Boolean(&[true, false, true])
         );
     }
 
@@ -291,6 +329,20 @@ mod tests {
                 ("id".into(), ColumnType::BigInt),
                 ("amount".into(), ColumnType::BigInt)
             ]
+        );
+
+        let presence_field = accessor
+            .lookup_column_field(
+                &table_ref,
+                &ColumnRef::presence_column_id(&Ident::new("amount")),
+            )
+            .unwrap();
+        assert_eq!(
+            presence_field,
+            ColumnField::new(
+                ColumnRef::presence_column_id(&Ident::new("amount")),
+                ColumnType::Boolean
+            )
         );
     }
 }
