@@ -3,7 +3,8 @@
 //! between Arrow and `OwnedTable`.
 mod accessor;
 pub use accessor::{
-    CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
+    CommitmentAccessor, DataAccessor, MetadataAccessor, NullableDataAccessor, SchemaAccessor,
+    SchemaAccessorImpl,
 };
 
 mod column;
@@ -122,6 +123,9 @@ mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]
 mod owned_table_test_accessor_test;
+
+mod nullable_owned_table_test_accessor;
+pub use nullable_owned_table_test_accessor::NullableOwnedTableTestAccessor;
 
 mod table_test_accessor;
 pub use table_test_accessor::TableTestAccessor;

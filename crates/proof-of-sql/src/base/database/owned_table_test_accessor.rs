@@ -1,6 +1,6 @@
 use super::{
-    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, OwnedColumn,
-    OwnedTable, SchemaAccessor, TableRef, TestAccessor,
+    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, NullableColumn,
+    NullableDataAccessor, OwnedColumn, OwnedTable, SchemaAccessor, TableRef, TestAccessor,
 };
 use crate::base::{
     commitment::{CommitmentEvaluationProof, VecCommitmentExt},
@@ -128,6 +128,18 @@ impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for OwnedTableTestA
             }
             OwnedColumn::TimestampTZ(tu, tz, col) => Column::TimestampTZ(*tu, *tz, col),
         }
+    }
+}
+
+impl<CP: CommitmentEvaluationProof> NullableDataAccessor<CP::Scalar>
+    for OwnedTableTestAccessor<'_, CP>
+{
+    fn get_nullable_column(
+        &self,
+        table_ref: &TableRef,
+        column_id: &Ident,
+    ) -> NullableColumn<'_, CP::Scalar> {
+        NullableColumn::new_nonnullable(self.get_column(table_ref, column_id))
     }
 }
 

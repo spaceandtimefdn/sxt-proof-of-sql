@@ -1,6 +1,9 @@
 use crate::base::{
     commitment::Commitment,
-    database::{Column, ColumnType, Table, TableOptions, TableRef},
+    database::{
+        Column, ColumnField, ColumnType, NullableColumn, NullableTable, Table, TableOptions,
+        TableRef,
+    },
     map::{IndexMap, IndexSet},
     scalar::Scalar,
 };
@@ -110,6 +113,42 @@ pub trait DataAccessor<S: Scalar>: MetadataAccessor {
     }
 }
 
+/// Access nullable database columns of an in-memory table span.
+///
+/// This extends [`DataAccessor`] for callers that need the SQL-null presence bits
+/// in addition to the backing value column.
+pub trait NullableDataAccessor<S: Scalar>: DataAccessor<S> {
+    /// Return the nullable data span in the table.
+    fn get_nullable_column(&self, table_ref: &TableRef, column_id: &Ident)
+        -> NullableColumn<'_, S>;
+
+    /// Creates a new [`NullableTable`] from a [`TableRef`] and [`Ident`]s.
+    ///
+    /// Columns are retrieved from the [`NullableDataAccessor`] using the provided [`TableRef`] and [`Ident`]s.
+    /// The only reason why [`table_ref`] is needed is because [`column_ids`] can be empty.
+    /// # Panics
+    /// Column length mismatches can occur in theory. In practice, this should not happen.
+    fn get_nullable_table(
+        &self,
+        table_ref: &TableRef,
+        column_ids: &IndexSet<Ident>,
+    ) -> NullableTable<'_, S> {
+        if column_ids.is_empty() {
+            let input_length = self.get_length(table_ref);
+            NullableTable::<S>::try_new_with_options(
+                IndexMap::default(),
+                TableOptions::new(Some(input_length)),
+            )
+        } else {
+            NullableTable::<S>::try_from_iter(column_ids.into_iter().map(|column_id| {
+                let column = self.get_nullable_column(table_ref, column_id);
+                (column_id.clone(), column)
+            }))
+        }
+        .expect("Failed to create nullable table from table and column references")
+    }
+}
+
 /// Access tables and their schemas in a database.
 ///
 /// This accessor should be implemented by both the prover and verifier
@@ -134,6 +173,24 @@ pub trait SchemaAccessor {
     /// Precondition 1: the table must exist and be tamperproof.
     /// Precondition 2: `table_name` must be lowercase.
     fn lookup_schema(&self, table_ref: &TableRef) -> Vec<(Ident, ColumnType)>;
+
+    /// Lookup the full column field in the specified table.
+    ///
+    /// Implementations that support nullable metadata should override this.
+    fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
+        self.lookup_column(table_ref, column_id)
+            .map(|column_type| ColumnField::new(column_id.clone(), column_type))
+    }
+
+    /// Lookup all column fields in the specified table.
+    ///
+    /// Implementations that support nullable metadata should override this.
+    fn lookup_column_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
+        self.lookup_schema(table_ref)
+            .into_iter()
+            .map(|(column_id, column_type)| ColumnField::new(column_id, column_type))
+            .collect()
+    }
 }
 
 /// The simplest implementation of `SchemaAccessor`.

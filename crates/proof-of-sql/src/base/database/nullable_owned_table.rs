@@ -1,4 +1,4 @@
-use super::{NullableOwnedColumn, NullableTable, OwnedTableError};
+use super::{ColumnField, NullableOwnedColumn, NullableTable, OwnedTableError};
 use crate::base::{map::IndexMap, scalar::Scalar};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
@@ -64,6 +64,21 @@ impl<S: Scalar> NullableOwnedTable<S> {
     #[must_use]
     pub const fn inner_table(&self) -> &IndexMap<Ident, NullableOwnedColumn<S>> {
         &self.table
+    }
+
+    /// Return the schema of this table as a `Vec` of `ColumnField`s.
+    #[must_use]
+    pub fn schema(&self) -> Vec<ColumnField> {
+        self.table
+            .iter()
+            .map(|(name, column)| {
+                if column.is_nullable() {
+                    ColumnField::new_nullable(name.clone(), column.values().column_type())
+                } else {
+                    ColumnField::new(name.clone(), column.values().column_type())
+                }
+            })
+            .collect()
     }
 
     /// Returns the column names as an iterator.
