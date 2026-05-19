@@ -5,9 +5,11 @@ use datafusion::{
     common::{Column, ScalarValue},
     logical_expr::expr::Placeholder,
 };
+#[cfg(test)]
+use proof_of_sql::base::database::ColumnType;
 use proof_of_sql::{
     base::{
-        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnRef, LiteralValue, TableRef},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
@@ -111,9 +113,9 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
 ///
 /// Note that the table name must be provided in the column which resolved logical plans do
 /// Otherwise we error out
-pub(crate) fn column_to_column_ref(
+pub(crate) fn column_to_column_ref_from_fields(
     column: &Column,
-    schema: &[(Ident, ColumnType)],
+    schema: &[ColumnField],
 ) -> PlannerResult<ColumnRef> {
     let table_ref = column
         .relation
@@ -122,12 +124,25 @@ pub(crate) fn column_to_column_ref(
         .transpose()?
         .unwrap_or_else(|| TableRef::from_names(None, ""));
     let ident: Ident = column.name.as_str().into();
-    let column_type = schema
+    let column_field = schema
         .iter()
-        .find(|(i, _t)| *i == ident)
+        .find(|field| field.name() == ident)
         .ok_or(PlannerError::ColumnNotFound)?
-        .1;
-    Ok(ColumnRef::new(table_ref, ident, column_type))
+        .clone();
+    Ok(ColumnRef::from_field(table_ref, &column_field))
+}
+
+/// Find a column in a non-nullable schema and return its info as a [`ColumnRef`].
+#[cfg(test)]
+pub(crate) fn column_to_column_ref(
+    column: &Column,
+    schema: &[(Ident, ColumnType)],
+) -> PlannerResult<ColumnRef> {
+    let column_fields = schema
+        .iter()
+        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .collect::<Vec<_>>();
+    column_to_column_ref_from_fields(column, &column_fields)
 }
 
 /// Convert a Vec<ColumnField> to a Schema
@@ -137,9 +152,12 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
         column_fields
             .into_iter()
             .map(|column_field| {
-                //TODO: Make columns nullable
                 let data_type = (&column_field.data_type()).into();
-                Field::new(column_field.name().value.as_str(), data_type, false)
+                Field::new(
+                    column_field.name().value.as_str(),
+                    data_type,
+                    column_field.is_nullable(),
+                )
             })
             .collect::<Vec<_>>(),
     )
@@ -148,6 +166,7 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
 /// Convert a [`DFSchema`] to a Vec<ColumnField>
 ///
 /// Note that this returns an error if any column has an unsupported `DataType`
+#[cfg(test)]
 pub(crate) fn schema_to_column_fields(schema: Vec<(Ident, ColumnType)>) -> Vec<ColumnField> {
     schema
         .into_iter()
@@ -516,6 +535,7 @@ mod tests {
         let column_fields = vec![
             ColumnField::new("a".into(), ColumnType::SmallInt),
             ColumnField::new("b".into(), ColumnType::VarChar),
+            ColumnField::new_nullable("c".into(), ColumnType::BigInt),
         ];
         let schema = column_fields_to_schema(column_fields);
         assert_eq!(
@@ -523,6 +543,7 @@ mod tests {
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
+                &Field::new("c", DataType::Int64, true),
             ]
         );
     }

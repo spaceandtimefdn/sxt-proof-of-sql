@@ -106,7 +106,6 @@ mod owned_table_test;
 pub mod owned_table_utility;
 
 mod table;
-#[cfg(test)]
 pub(crate) use table::TableError;
 pub use table::{Table, TableOptions};
 #[cfg(test)]

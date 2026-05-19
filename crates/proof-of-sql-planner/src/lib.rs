@@ -15,7 +15,7 @@ pub use conversion::{get_table_refs_from_statement, sql_to_proof_plans};
 mod df_util;
 mod expr;
 pub use expr::expr_to_proof_expr;
-pub(crate) use expr::get_column_idents_from_expr;
+pub(crate) use expr::{expr_to_proof_expr_with_fields, get_column_idents_from_expr};
 mod error;
 pub use error::{PlannerError, PlannerResult};
 mod plan;
@@ -25,6 +25,6 @@ pub use uppercase_column_visitor::{statement_with_uppercase_identifiers, upperca
 mod util;
 pub use util::column_fields_to_schema;
 pub(crate) use util::{
-    column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    schema_to_column_fields, table_reference_to_table_ref,
+    column_to_column_ref_from_fields, placeholder_to_placeholder_expr,
+    scalar_value_to_literal_value, table_reference_to_table_ref,
 };

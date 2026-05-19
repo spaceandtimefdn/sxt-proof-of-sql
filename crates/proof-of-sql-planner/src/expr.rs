@@ -1,6 +1,6 @@
 use super::{
-    column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    PlannerError, PlannerResult,
+    column_to_column_ref_from_fields, placeholder_to_placeholder_expr,
+    scalar_value_to_literal_value, PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
     expr::{Alias, Cast, Placeholder},
@@ -8,7 +8,7 @@ use datafusion::logical_expr::{
 };
 use indexmap::IndexSet;
 use proof_of_sql::{
-    base::database::ColumnType,
+    base::database::{ColumnField, ColumnRef, ColumnType},
     sql::{proof_exprs::DynProofExpr, scale_cast_binary_op},
 };
 use sqlparser::ast::Ident;
@@ -26,6 +26,14 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents.extend(get_column_idents_from_expr(right));
             left_idents
         }
+        Expr::IsNull(inner) | Expr::IsNotNull(inner) => match &**inner {
+            Expr::Column(col) => {
+                let mut set = IndexSet::new();
+                set.insert(ColumnRef::presence_column_id(&col.name.as_str().into()));
+                set
+            }
+            _ => get_column_idents_from_expr(inner),
+        },
         Expr::Not(inner) => get_column_idents_from_expr(inner),
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
@@ -48,10 +56,10 @@ fn binary_expr_to_proof_expr(
     left: &Expr,
     right: &Expr,
     op: Operator,
-    schema: &[(Ident, ColumnType)],
+    schema: &[ColumnField],
 ) -> PlannerResult<DynProofExpr> {
-    let left_proof_expr = expr_to_proof_expr(left, schema)?;
-    let right_proof_expr = expr_to_proof_expr(right, schema)?;
+    let left_proof_expr = expr_to_proof_expr_with_fields(left, schema)?;
+    let right_proof_expr = expr_to_proof_expr_with_fields(right, schema)?;
 
     let (left_proof_expr, right_proof_expr) = match op {
         Operator::Eq
@@ -127,9 +135,26 @@ pub fn expr_to_proof_expr(
     expr: &Expr,
     schema: &[(Ident, ColumnType)],
 ) -> PlannerResult<DynProofExpr> {
+    let column_fields = schema
+        .iter()
+        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .collect::<Vec<_>>();
+    expr_to_proof_expr_with_fields(expr, &column_fields)
+}
+
+/// Convert a [`datafusion::expr::Expr`] to [`DynProofExpr`] while preserving column nullability.
+///
+/// # Panics
+/// The function should not panic if Proof of SQL is working correctly
+pub(crate) fn expr_to_proof_expr_with_fields(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<DynProofExpr> {
     match expr {
-        Expr::Alias(Alias { expr, .. }) => expr_to_proof_expr(expr, schema),
-        Expr::Column(col) => Ok(DynProofExpr::new_column(column_to_column_ref(col, schema)?)),
+        Expr::Alias(Alias { expr, .. }) => expr_to_proof_expr_with_fields(expr, schema),
+        Expr::Column(col) => Ok(DynProofExpr::new_column(column_to_column_ref_from_fields(
+            col, schema,
+        )?)),
         Expr::Placeholder(placeholder) => placeholder_to_placeholder_expr(placeholder),
         Expr::BinaryExpr(BinaryExpr { left, right, op }) => {
             binary_expr_to_proof_expr(left, right, *op, schema)
@@ -138,9 +163,25 @@ pub fn expr_to_proof_expr(
             val.clone(),
         )?)),
         Expr::Not(expr) => {
-            let proof_expr = expr_to_proof_expr(expr, schema)?;
+            let proof_expr = expr_to_proof_expr_with_fields(expr, schema)?;
             Ok(DynProofExpr::try_new_not(proof_expr)?)
         }
+        Expr::IsNull(expr) => match &**expr {
+            Expr::Column(col) => Ok(DynProofExpr::new_is_null(column_to_column_ref_from_fields(
+                col, schema,
+            )?)),
+            _ => Err(PlannerError::UnsupportedLogicalExpression {
+                expr: Box::new(expr.as_ref().clone()),
+            }),
+        },
+        Expr::IsNotNull(expr) => match &**expr {
+            Expr::Column(col) => Ok(DynProofExpr::new_is_not_null(
+                column_to_column_ref_from_fields(col, schema)?,
+            )),
+            _ => Err(PlannerError::UnsupportedLogicalExpression {
+                expr: Box::new(expr.as_ref().clone()),
+            }),
+        },
         Expr::Cast(cast) => {
             match &*cast.expr {
                 // handle cases such as `$1::int`
@@ -150,7 +191,7 @@ pub fn expr_to_proof_expr(
                     placeholder_to_placeholder_expr(&typed_placeholder)
                 }
                 _ => {
-                    let from_expr = expr_to_proof_expr(&cast.expr, schema)?;
+                    let from_expr = expr_to_proof_expr_with_fields(&cast.expr, schema)?;
                     let to_type = cast.data_type.clone().try_into().map_err(|_| {
                         PlannerError::UnsupportedDataType {
                             data_type: cast.data_type.clone(),
@@ -183,7 +224,7 @@ mod tests {
         logical_expr::{expr::Placeholder, Cast},
     };
     use proof_of_sql::base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
         math::decimal::Precision,
     };
 
@@ -272,6 +313,33 @@ mod tests {
         let expr = df_column("namespace.table_name", "column");
         let schema = vec![("column".into(), ColumnType::Int)];
         assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), COLUMN_INT());
+    }
+
+    #[test]
+    fn we_can_convert_nullable_column_is_null_expr_to_proof_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("namespace.table_name", "column")));
+        let schema = vec![ColumnField::new_nullable("column".into(), ColumnType::Int)];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column".into(),
+            ColumnType::Int,
+        );
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::new_is_null(column_ref)
+        );
+    }
+
+    #[test]
+    fn we_can_convert_non_nullable_column_is_not_null_expr_to_constant_true() {
+        let expr = Expr::IsNotNull(Box::new(df_column("namespace.table_name", "column")));
+        let schema = vec![ColumnField::new("column".into(), ColumnType::Int)];
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true))
+        );
     }
 
     // BinaryExpr
@@ -797,6 +865,16 @@ mod tests {
         let expr = Expr::Not(Box::new(df_column("table", "bool_col")));
         let result = get_column_idents_from_expr(&expr);
         let expected: IndexSet<Ident> = ["bool_col".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_is_null_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("table", "nullable_col")));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = [ColumnRef::presence_column_id(&"nullable_col".into())]
+            .into_iter()
+            .collect();
         assert_eq!(result, expected);
     }
 
