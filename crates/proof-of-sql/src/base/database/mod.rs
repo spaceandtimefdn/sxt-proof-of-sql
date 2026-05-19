@@ -80,6 +80,12 @@ pub use nullable_column::NullableColumn;
 mod nullable_owned_column;
 pub use nullable_owned_column::NullableOwnedColumn;
 
+mod nullable_table;
+pub use nullable_table::NullableTable;
+
+mod nullable_owned_table;
+pub use nullable_owned_table::NullableOwnedTable;
+
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
