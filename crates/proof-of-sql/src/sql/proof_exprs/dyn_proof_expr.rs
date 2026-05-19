@@ -57,6 +57,34 @@ impl DynProofExpr {
     pub fn new_column(column_ref: ColumnRef) -> Self {
         Self::Column(ColumnExpr::new(column_ref))
     }
+
+    /// Create a SQL `IS NULL` expression for a column reference.
+    ///
+    /// Nullable columns are represented by their generated row-presence column.
+    /// Non-nullable columns fold to constant `false`.
+    #[must_use]
+    pub fn new_is_null(column_ref: ColumnRef) -> Self {
+        if column_ref.is_nullable() {
+            Self::try_new_not(Self::new_column(column_ref.presence_column_ref()))
+                .expect("Presence columns are boolean")
+        } else {
+            Self::new_literal(LiteralValue::Boolean(false))
+        }
+    }
+
+    /// Create a SQL `IS NOT NULL` expression for a column reference.
+    ///
+    /// Nullable columns are represented by their generated row-presence column.
+    /// Non-nullable columns fold to constant `true`.
+    #[must_use]
+    pub fn new_is_not_null(column_ref: ColumnRef) -> Self {
+        if column_ref.is_nullable() {
+            Self::new_column(column_ref.presence_column_ref())
+        } else {
+            Self::new_literal(LiteralValue::Boolean(true))
+        }
+    }
+
     /// Create logical AND expression
     pub fn try_new_and(lhs: DynProofExpr, rhs: DynProofExpr) -> AnalyzeResult<Self> {
         AndExpr::try_new(Box::new(lhs), Box::new(rhs)).map(DynProofExpr::And)
@@ -120,5 +148,48 @@ impl DynProofExpr {
         to_datatype: ColumnType,
     ) -> AnalyzeResult<Self> {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::{ColumnRef, ColumnType, TableRef};
+
+    #[test]
+    fn is_null_builders_target_presence_columns_for_nullable_refs() {
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            DynProofExpr::new_is_not_null(column_ref.clone()),
+            DynProofExpr::new_column(column_ref.presence_column_ref())
+        );
+        assert_eq!(
+            DynProofExpr::new_is_null(column_ref.clone()),
+            DynProofExpr::try_new_not(DynProofExpr::new_column(column_ref.presence_column_ref()))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn is_null_builders_fold_constants_for_non_nullable_refs() {
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            DynProofExpr::new_is_null(column_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false))
+        );
+        assert_eq!(
+            DynProofExpr::new_is_not_null(column_ref),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true))
+        );
     }
 }

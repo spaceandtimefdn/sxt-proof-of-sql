@@ -1,4 +1,5 @@
 use super::{ColumnField, ColumnType, TableRef};
+use alloc::format;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -43,6 +44,22 @@ impl ColumnRef {
         } else {
             Self::new(table_ref, field.name(), field.data_type())
         }
+    }
+
+    /// Returns the generated proof-column name for a nullable column's row-presence data.
+    #[must_use]
+    pub fn presence_column_id(column_id: &Ident) -> Ident {
+        Ident::new(format!("__posql_presence_{}", column_id.value))
+    }
+
+    /// Returns the generated proof-column reference for this nullable column's row-presence data.
+    #[must_use]
+    pub fn presence_column_ref(&self) -> Self {
+        Self::new(
+            self.table_ref(),
+            Self::presence_column_id(&self.column_id),
+            ColumnType::Boolean,
+        )
     }
 
     /// Returns the table reference of this column
@@ -124,5 +141,27 @@ mod tests {
         assert_eq!(column_ref.column_id(), "amount".into());
         assert_eq!(column_ref.column_type(), &ColumnType::BigInt);
         assert!(column_ref.is_nullable());
+    }
+
+    #[test]
+    fn nullable_column_refs_can_derive_presence_column_refs() {
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            ColumnRef::presence_column_id(&"amount".into()),
+            "__posql_presence_amount".into()
+        );
+        assert_eq!(
+            column_ref.presence_column_ref(),
+            ColumnRef::new(
+                TableRef::new("sxt", "orders"),
+                "__posql_presence_amount".into(),
+                ColumnType::Boolean
+            )
+        );
     }
 }

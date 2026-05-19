@@ -1,8 +1,9 @@
 use super::{
-    ColumnField, NullableOwnedColumn, NullableTable, OwnedColumn, OwnedTable, OwnedTableError,
+    ColumnField, ColumnRef, NullableOwnedColumn, NullableTable, OwnedColumn, OwnedTable,
+    OwnedTableError,
 };
 use crate::base::{map::IndexMap, scalar::Scalar};
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -98,7 +99,7 @@ impl<S: Scalar> NullableOwnedTable<S> {
     /// Returns the generated proof-column name for a nullable column's row-presence data.
     #[must_use]
     pub fn presence_column_name(column_name: &Ident) -> Ident {
-        Ident::new(format!("__posql_presence_{}", column_name.value))
+        ColumnRef::presence_column_id(column_name)
     }
 
     /// Returns a non-null proof table with backing values plus presence columns for nullable data.
@@ -265,20 +266,17 @@ mod tests {
         );
         let amount_ref =
             ColumnRef::new_nullable(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
-        let amount_presence_ref = ColumnRef::new(
-            table_ref.clone(),
-            NullableOwnedTable::<TestScalar>::presence_column_name(&Ident::new("amount")),
-            ColumnType::Boolean,
-        );
         let amount_gt_15 = DynProofExpr::try_new_inequality(
             DynProofExpr::new_column(amount_ref.clone()),
             DynProofExpr::new_literal(LiteralValue::BigInt(15)),
             false,
         )
         .unwrap();
-        let where_clause =
-            DynProofExpr::try_new_and(DynProofExpr::new_column(amount_presence_ref), amount_gt_15)
-                .unwrap();
+        let where_clause = DynProofExpr::try_new_and(
+            DynProofExpr::new_is_not_null(amount_ref.clone()),
+            amount_gt_15,
+        )
+        .unwrap();
         let plan = filter(
             vec![AliasedDynProofExpr {
                 expr: DynProofExpr::new_column(amount_ref),
@@ -298,6 +296,39 @@ mod tests {
             verified.table,
             owned_table([bigint("amount", [30_i64, 50])])
         );
+    }
+
+    #[test]
+    fn nullable_is_null_expr_can_drive_a_query_proof() {
+        let table_ref = TableRef::new("sxt", "nullable");
+        let nullable_table = nullable_table_for_proof();
+        let schema = nullable_table.values_and_presence_schema();
+        let proof_table = nullable_table.values_and_presence_table();
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            proof_table,
+            0,
+            (),
+        );
+        let id_ref = ColumnRef::new(table_ref.clone(), Ident::new("id"), ColumnType::BigInt);
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+        let plan = filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref),
+                alias: Ident::new("id"),
+            }],
+            table_exec(table_ref, schema),
+            DynProofExpr::new_is_null(amount_ref),
+        );
+
+        let verifiable_result =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+        let verified = verifiable_result
+            .verify(&plan, &accessor, &(), &[])
+            .unwrap();
+
+        assert_eq!(verified.table, owned_table([bigint("id", [2_i64])]));
     }
 
     fn nullable_table_for_proof() -> NullableOwnedTable<TestScalar> {
