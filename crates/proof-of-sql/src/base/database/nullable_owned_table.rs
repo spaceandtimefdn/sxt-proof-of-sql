@@ -209,14 +209,18 @@ impl<S: Scalar> core::ops::Index<&str> for NullableOwnedTable<S> {
 mod tests {
     use super::*;
     use crate::base::{
-        commitment::naive_evaluation_proof::NaiveEvaluationProof,
+        commitment::{naive_evaluation_proof::NaiveEvaluationProof, CommitmentEvaluationProof},
         database::{
             owned_table_utility::{bigint, boolean, owned_table},
             Column, ColumnRef, ColumnType, LiteralValue, NullableColumn,
             NullableOwnedTableTestAccessor, OwnedColumn, OwnedTableTestAccessor, TableRef,
         },
         map::indexmap,
-        scalar::test_scalar::TestScalar,
+        scalar::{test_scalar::TestScalar, Scalar},
+    };
+    use crate::proof_primitive::dory::{
+        test_rng, DoryEvaluationProof, DoryProverPublicSetup, DoryVerifierPublicSetup, ProverSetup,
+        PublicParameters, VerifierSetup,
     };
     use crate::sql::{
         proof::VerifiableQueryResult,
@@ -429,6 +433,93 @@ mod tests {
     }
 
     #[test]
+    fn nullable_projection_query_result_verifies_with_dory_evaluation_proof() {
+        let table_ref = TableRef::new("sxt", "nullable");
+        let nullable_table = nullable_table_for_scalar::<
+            <DoryEvaluationProof as CommitmentEvaluationProof>::Scalar,
+        >();
+        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let prover_setup_ref = DoryProverPublicSetup::new(&prover_setup, 3);
+        let verifier_setup_ref = DoryVerifierPublicSetup::new(&verifier_setup, 3);
+        let accessor = NullableOwnedTableTestAccessor::<DoryEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            nullable_table.clone(),
+            0,
+            prover_setup_ref,
+        );
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+        let plan = projection(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount_ref),
+                alias: Ident::new("amount"),
+            }],
+            table_exec(table_ref, nullable_table.schema()),
+        );
+
+        let verifiable_result = VerifiableQueryResult::<DoryEvaluationProof>::new(
+            &plan,
+            &accessor,
+            &prover_setup_ref,
+            &[],
+        )
+        .unwrap();
+        let verified_nullable = verifiable_result
+            .verify_nullable(&plan, &accessor, &verifier_setup_ref, &[])
+            .unwrap();
+
+        assert_eq!(
+            verified_nullable.table,
+            NullableOwnedTable::try_new(indexmap! {
+                "amount".into() => nullable_table["amount"].clone(),
+            })
+            .unwrap()
+        );
+    }
+
+    #[cfg(feature = "blitzar")]
+    #[test]
+    fn nullable_projection_query_result_verifies_with_inner_product_proof() {
+        use crate::base::commitment::{init_backend, InnerProductProof};
+
+        init_backend();
+        let table_ref = TableRef::new("sxt", "nullable");
+        let nullable_table =
+            nullable_table_for_scalar::<<InnerProductProof as CommitmentEvaluationProof>::Scalar>();
+        let accessor = NullableOwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+            table_ref.clone(),
+            nullable_table.clone(),
+            0,
+            (),
+        );
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+        let plan = projection(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount_ref),
+                alias: Ident::new("amount"),
+            }],
+            table_exec(table_ref, nullable_table.schema()),
+        );
+
+        let verifiable_result =
+            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+        let verified_nullable = verifiable_result
+            .verify_nullable(&plan, &accessor, &(), &[])
+            .unwrap();
+
+        assert_eq!(
+            verified_nullable.table,
+            NullableOwnedTable::try_new(indexmap! {
+                "amount".into() => nullable_table["amount"].clone(),
+            })
+            .unwrap()
+        );
+    }
+
+    #[test]
     fn nullable_is_null_expr_can_drive_a_query_proof() {
         let table_ref = TableRef::new("sxt", "nullable");
         let nullable_table = nullable_table_for_proof();
@@ -462,12 +553,16 @@ mod tests {
     }
 
     fn nullable_table_for_proof() -> NullableOwnedTable<TestScalar> {
+        nullable_table_for_scalar()
+    }
+
+    fn nullable_table_for_scalar<S: Scalar>() -> NullableOwnedTable<S> {
         NullableOwnedTable::try_new(indexmap! {
             "id".into() => NullableOwnedColumn::new_nonnullable(
-                OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3, 4])
+                OwnedColumn::<S>::BigInt(vec![1, 2, 3, 4])
             ),
             "amount".into() => NullableOwnedColumn::try_new(
-                OwnedColumn::<TestScalar>::BigInt(vec![10, 0, 30, 50]),
+                OwnedColumn::<S>::BigInt(vec![10, 0, 30, 50]),
                 Some(vec![true, false, true, true])
             ).unwrap(),
         })
