@@ -50,6 +50,13 @@ impl ProjectionExec {
     pub fn aliased_results(&self) -> &[AliasedDynProofExpr] {
         &self.aliased_results
     }
+
+    fn physical_aliased_results(&self) -> Vec<AliasedDynProofExpr> {
+        self.aliased_results
+            .iter()
+            .flat_map(AliasedDynProofExpr::physical_result_exprs)
+            .collect()
+    }
 }
 
 impl ProofPlan for ProjectionExec {
@@ -68,14 +75,14 @@ impl ProofPlan for ProjectionExec {
         // Build new accessors
         // TODO: Make this work with inputs with multiple tables such as join
         // and union results
-        let input_schema = self.input.get_column_result_fields();
+        let input_schema = self.input.get_column_result_fields_with_presence();
         let current_accessor = input_schema
             .iter()
             .zip(input_eval.column_evals())
             .map(|(field, eval)| (field.name().clone(), *eval))
             .collect::<IndexMap<_, _>>();
         let output_column_evals = self
-            .aliased_results
+            .physical_aliased_results()
             .iter()
             .map(|aliased_expr| {
                 aliased_expr
@@ -94,8 +101,11 @@ impl ProofPlan for ProjectionExec {
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        // For projections any output column reference is a reference to an input column
-        self.input.get_column_references()
+        let mut columns = self.input.get_column_references();
+        for aliased_expr in self.physical_aliased_results() {
+            aliased_expr.expr.get_column_references(&mut columns);
+        }
+        columns
     }
 
     fn get_table_references(&self) -> IndexSet<TableRef> {
@@ -123,7 +133,7 @@ impl ProverEvaluate for ProjectionExec {
             .first_round_evaluate(builder, alloc, table_map, params)?;
 
         let cols = self
-            .aliased_results
+            .physical_aliased_results()
             .iter()
             .map(
                 |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
@@ -166,7 +176,7 @@ impl ProverEvaluate for ProjectionExec {
 
         // Evaluate result expressions
         let cols = self
-            .aliased_results
+            .physical_aliased_results()
             .iter()
             .map(
                 |aliased_expr| -> PlaceholderResult<(Ident, Column<'a, S>)> {
@@ -195,8 +205,9 @@ mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{ColumnField, ColumnRef, ColumnType},
+            database::{table_utility::*, ColumnField, ColumnRef, ColumnType},
             math::decimal::Precision,
+            scalar::test_scalar::TestScalar,
         },
         sql::{
             proof::ProofPlan,
@@ -293,6 +304,66 @@ mod tests {
                 ),
                 ColumnField::new("__posql_presence_total".into(), ColumnType::Boolean),
             ]
+        );
+    }
+
+    #[test]
+    fn projection_first_round_evaluates_physical_nullable_results() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "orders");
+        let flag_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "flag".into(), ColumnType::Boolean);
+        let flag_and_false = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+        )
+        .unwrap();
+        let plan = ProjectionExec::new(
+            vec![AliasedDynProofExpr {
+                expr: flag_and_false,
+                alias: "flag_known_false".into(),
+            }],
+            Box::new(DynProofPlan::new_table(
+                table_ref.clone(),
+                vec![ColumnField::new_nullable(
+                    "flag".into(),
+                    ColumnType::Boolean,
+                )],
+            )),
+        );
+        let table_map = IndexMap::from_iter([(
+            table_ref,
+            table([
+                borrowed_boolean("flag", [true, true, false], &alloc),
+                borrowed_boolean("__posql_presence_flag", [true, false, true], &alloc),
+            ]),
+        )]);
+        let mut builder = FirstRoundBuilder::new(3);
+
+        let result: Table<TestScalar> = plan
+            .first_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert_eq!(
+            result.inner_table().keys().cloned().collect::<Vec<_>>(),
+            vec![
+                "flag_known_false".into(),
+                "__posql_presence_flag_known_false".into(),
+            ]
+        );
+        assert_eq!(
+            *result
+                .inner_table()
+                .get(&Ident::new("flag_known_false"))
+                .unwrap(),
+            Column::Boolean(&[false, false, false])
+        );
+        assert_eq!(
+            *result
+                .inner_table()
+                .get(&Ident::new("__posql_presence_flag_known_false"))
+                .unwrap(),
+            Column::Boolean(&[true, true, true])
         );
     }
 }

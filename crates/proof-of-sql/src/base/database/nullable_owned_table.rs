@@ -211,9 +211,9 @@ mod tests {
     use crate::base::{
         commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
-            owned_table_utility::{bigint, owned_table},
-            Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, OwnedColumn,
-            OwnedTableTestAccessor, TableRef,
+            owned_table_utility::{bigint, boolean, owned_table},
+            Column, ColumnRef, ColumnType, LiteralValue, NullableColumn,
+            NullableOwnedTableTestAccessor, OwnedColumn, OwnedTableTestAccessor, TableRef,
         },
         map::indexmap,
         scalar::test_scalar::TestScalar,
@@ -221,7 +221,7 @@ mod tests {
     use crate::sql::{
         proof::VerifiableQueryResult,
         proof_exprs::{AliasedDynProofExpr, DynProofExpr},
-        proof_plans::test_utility::{filter, table_exec},
+        proof_plans::test_utility::{filter, projection, table_exec},
     };
     use alloc::vec;
 
@@ -371,6 +371,60 @@ mod tests {
         assert_eq!(
             verified.table,
             owned_table([bigint("amount", [30_i64, 50])])
+        );
+    }
+
+    #[test]
+    fn nullable_projection_query_result_can_reassemble_presence_after_verification() {
+        let table_ref = TableRef::new("sxt", "nullable");
+        let nullable_table = nullable_table_for_proof();
+        let accessor = NullableOwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            nullable_table.clone(),
+            0,
+            (),
+        );
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+        let plan = projection(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount_ref),
+                alias: Ident::new("amount"),
+            }],
+            table_exec(table_ref, nullable_table.schema()),
+        );
+
+        let verifiable_result =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
+
+        assert_eq!(
+            verifiable_result.result,
+            owned_table([
+                bigint("amount", [10_i64, 0, 30, 50]),
+                boolean("__posql_presence_amount", [true, false, true, true]),
+            ])
+        );
+
+        let verified_nullable = verifiable_result
+            .verify_nullable(&plan, &accessor, &(), &[])
+            .unwrap();
+        assert_eq!(
+            verified_nullable.table,
+            NullableOwnedTable::try_new(indexmap! {
+                "amount".into() => nullable_table["amount"].clone(),
+            })
+            .unwrap()
+        );
+
+        let verified_values =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[])
+                .unwrap()
+                .verify(&plan, &accessor, &(), &[])
+                .unwrap()
+                .table;
+        assert_eq!(
+            verified_values,
+            owned_table([bigint("amount", [10_i64, 0, 30, 50])])
         );
     }
 

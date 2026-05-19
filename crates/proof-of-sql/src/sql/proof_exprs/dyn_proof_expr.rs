@@ -107,6 +107,118 @@ impl DynProofExpr {
         )
     }
 
+    /// Return a proof expression for this nullable-propagating result's row presence.
+    ///
+    /// `None` means the expression is statically non-nullable.
+    #[must_use]
+    pub(crate) fn nullable_result_presence_expr(&self) -> Option<Self> {
+        match self {
+            Self::Column(column) => column
+                .column_ref()
+                .is_nullable()
+                .then(|| Self::new_column(column.column_ref().presence_column_ref())),
+            Self::Literal(_) | Self::Placeholder(_) => None,
+            Self::Add(expr) => Self::nullable_binary_result_presence_expr(expr.lhs(), expr.rhs()),
+            Self::Subtract(expr) => {
+                Self::nullable_binary_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+            Self::Multiply(expr) => {
+                Self::nullable_binary_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+            Self::Equals(expr) => {
+                Self::nullable_binary_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+            Self::Inequality(expr) => {
+                Self::nullable_binary_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+            Self::Not(expr) => expr.input().nullable_result_presence_expr(),
+            Self::Cast(expr) => expr.get_from_expr().nullable_result_presence_expr(),
+            Self::ScalingCast(expr) => expr.get_from_expr().nullable_result_presence_expr(),
+            Self::And(expr) => {
+                Self::nullable_boolean_and_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+            Self::Or(expr) => {
+                Self::nullable_boolean_or_result_presence_expr(expr.lhs(), expr.rhs())
+            }
+        }
+    }
+
+    fn nullable_binary_result_presence_expr(lhs: &Self, rhs: &Self) -> Option<Self> {
+        match (
+            lhs.nullable_result_presence_expr(),
+            rhs.nullable_result_presence_expr(),
+        ) {
+            (None, None) => None,
+            (Some(presence), None) | (None, Some(presence)) => Some(presence),
+            (Some(lhs_presence), Some(rhs_presence)) => Some(
+                Self::try_new_and(lhs_presence, rhs_presence)
+                    .expect("Nullable binary presence expressions are boolean"),
+            ),
+        }
+    }
+
+    fn nullable_boolean_and_result_presence_expr(lhs: &Self, rhs: &Self) -> Option<Self> {
+        let lhs_presence = lhs.nullable_result_presence_expr();
+        let rhs_presence = rhs.nullable_result_presence_expr();
+        if lhs_presence.is_none() && rhs_presence.is_none() {
+            return None;
+        }
+
+        let lhs_present = Self::presence_expr_or_true(lhs_presence);
+        let rhs_present = Self::presence_expr_or_true(rhs_presence);
+        let both_present = Self::try_new_and(lhs_present.clone(), rhs_present.clone())
+            .expect("Nullable boolean presence expressions are boolean");
+        let lhs_present_and_lhs_false = Self::try_new_and(
+            lhs_present,
+            Self::try_new_not(lhs.clone()).expect("AND operands are boolean"),
+        )
+        .expect("Nullable boolean presence expressions are boolean");
+        let rhs_present_and_rhs_false = Self::try_new_and(
+            rhs_present,
+            Self::try_new_not(rhs.clone()).expect("AND operands are boolean"),
+        )
+        .expect("Nullable boolean presence expressions are boolean");
+
+        Some(
+            Self::try_new_or(
+                Self::try_new_or(both_present, lhs_present_and_lhs_false)
+                    .expect("Nullable boolean presence expressions are boolean"),
+                rhs_present_and_rhs_false,
+            )
+            .expect("Nullable boolean presence expressions are boolean"),
+        )
+    }
+
+    fn nullable_boolean_or_result_presence_expr(lhs: &Self, rhs: &Self) -> Option<Self> {
+        let lhs_presence = lhs.nullable_result_presence_expr();
+        let rhs_presence = rhs.nullable_result_presence_expr();
+        if lhs_presence.is_none() && rhs_presence.is_none() {
+            return None;
+        }
+
+        let lhs_present = Self::presence_expr_or_true(lhs_presence);
+        let rhs_present = Self::presence_expr_or_true(rhs_presence);
+        let both_present = Self::try_new_and(lhs_present.clone(), rhs_present.clone())
+            .expect("Nullable boolean presence expressions are boolean");
+        let lhs_present_and_lhs_true = Self::try_new_and(lhs_present, lhs.clone())
+            .expect("Nullable boolean presence expressions are boolean");
+        let rhs_present_and_rhs_true = Self::try_new_and(rhs_present, rhs.clone())
+            .expect("Nullable boolean presence expressions are boolean");
+
+        Some(
+            Self::try_new_or(
+                Self::try_new_or(both_present, lhs_present_and_lhs_true)
+                    .expect("Nullable boolean presence expressions are boolean"),
+                rhs_present_and_rhs_true,
+            )
+            .expect("Nullable boolean presence expressions are boolean"),
+        )
+    }
+
+    fn presence_expr_or_true(expr: Option<Self>) -> Self {
+        expr.unwrap_or_else(|| Self::new_literal(LiteralValue::Boolean(true)))
+    }
+
     /// Evaluate expressions whose SQL nullability can be derived from local operands.
     pub fn first_round_evaluate_nullable_propagating<'a, S: Scalar>(
         &self,
@@ -714,6 +826,65 @@ mod tests {
         assert_eq!(field.name(), "flag_and_true".into());
         assert_eq!(field.data_type(), ColumnType::Boolean);
         assert!(field.is_nullable());
+    }
+
+    #[test]
+    fn nullable_presence_expression_ands_binary_operand_presence() {
+        let amount_ref = nullable_amount_ref();
+        let discount_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "discount".into(),
+            ColumnType::BigInt,
+        );
+        let expression = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref.clone()),
+            DynProofExpr::new_column(discount_ref.clone()),
+        )
+        .unwrap();
+
+        let presence_expr = expression.nullable_result_presence_expr().unwrap();
+
+        assert_eq!(
+            presence_expr,
+            DynProofExpr::try_new_and(
+                DynProofExpr::new_column(amount_ref.presence_column_ref()),
+                DynProofExpr::new_column(discount_ref.presence_column_ref()),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn nullable_boolean_presence_expression_matches_sql_short_circuit_presence() {
+        let alloc = Bump::new();
+        let table = nullable_test_table(&alloc);
+        let flag_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "flag".into(),
+            ColumnType::Boolean,
+        );
+
+        let and_false_presence = DynProofExpr::try_new_and(
+            DynProofExpr::new_column(flag_ref.clone()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+        )
+        .unwrap()
+        .nullable_result_presence_expr()
+        .unwrap()
+        .first_round_evaluate(&alloc, &table, &[])
+        .unwrap();
+        let or_true_presence = DynProofExpr::try_new_or(
+            DynProofExpr::new_column(flag_ref),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        )
+        .unwrap()
+        .nullable_result_presence_expr()
+        .unwrap()
+        .first_round_evaluate(&alloc, &table, &[])
+        .unwrap();
+
+        assert_eq!(and_false_presence, Column::Boolean(&[true, true, true]));
+        assert_eq!(or_true_presence, Column::Boolean(&[true, true, true]));
     }
 
     fn nullable_test_table<'a>(alloc: &'a Bump) -> Table<'a, TestScalar> {

@@ -1,5 +1,7 @@
 use crate::base::{
-    database::{ColumnCoercionError, OwnedTable, OwnedTableError, TableCoercionError},
+    database::{
+        ColumnCoercionError, NullableOwnedTable, OwnedTable, OwnedTableError, TableCoercionError,
+    },
     proof::ProofError,
     scalar::Scalar,
 };
@@ -69,3 +71,14 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+/// The verified nullable results of a query along with metadata produced by verification.
+pub struct NullableQueryData<S: Scalar> {
+    /// Query result reassembled from physical value-plus-presence columns.
+    pub table: NullableOwnedTable<S>,
+    /// A 32-byte verification hash included with this table.
+    pub verification_hash: [u8; 32],
+}
+
+/// The nullable result of a query -- either an error or a nullable table.
+pub type NullableQueryResult<S> = Result<NullableQueryData<S>, QueryError>;

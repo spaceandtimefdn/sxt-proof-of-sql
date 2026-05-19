@@ -44,7 +44,9 @@ pub use query_proof::QueryProof;
 mod query_proof_test;
 
 mod query_result;
-pub use query_result::{QueryData, QueryError, QueryResult};
+pub use query_result::{
+    NullableQueryData, NullableQueryResult, QueryData, QueryError, QueryResult,
+};
 
 mod sumcheck_subpolynomial;
 pub(crate) use sumcheck_subpolynomial::{

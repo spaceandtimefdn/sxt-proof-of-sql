@@ -1,12 +1,20 @@
-use super::{ProofPlan, QueryData, QueryProof, QueryResult};
+use super::{
+    NullableQueryData, NullableQueryResult, ProofPlan, QueryData, QueryProof, QueryResult,
+};
 use crate::{
     base::{
         commitment::CommitmentEvaluationProof,
-        database::{CommitmentAccessor, DataAccessor, LiteralValue, OwnedTable},
+        database::{
+            ColumnField, ColumnRef, CommitmentAccessor, DataAccessor, LiteralValue,
+            NullableOwnedTable, OwnedTable,
+        },
         proof::PlaceholderResult,
+        scalar::Scalar,
     },
+    sql::proof::QueryError,
     utils::log,
 };
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 /// The result of an sql query along with a proof that the query is valid. The
@@ -97,7 +105,9 @@ impl<CP: CommitmentEvaluationProof> VerifiableQueryResult<CP> {
     /// Note: a verified result can still respresent an error (e.g. overflow), but it is a verified
     /// error.
     ///
-    /// Note: This does NOT transform the result!
+    /// Nullable results are verified against their physical value-plus-presence columns, then
+    /// returned as the compatibility value-only [`OwnedTable`]. Use [`Self::verify_nullable`] to
+    /// preserve nullable presence data.
     #[tracing::instrument(name = "VerifiableQueryResult::verify", level = "info", skip_all)]
     pub fn verify(
         self,
@@ -114,8 +124,76 @@ impl<CP: CommitmentEvaluationProof> VerifiableQueryResult<CP> {
             .proof
             .verify(expr, accessor, self.result, setup, params)?;
         Ok(QueryData {
-            table: table.try_coerce_with_fields(expr.get_column_result_fields())?,
+            table: coerce_physical_table_to_logical_values(
+                table,
+                expr.get_column_result_fields(),
+                expr.get_column_result_fields_with_presence(),
+            )?,
             verification_hash,
         })
     }
+
+    /// Verify a `VerifiableQueryResult` and return nullable columns reassembled from the
+    /// physical value-plus-presence result.
+    #[tracing::instrument(
+        name = "VerifiableQueryResult::verify_nullable",
+        level = "info",
+        skip_all
+    )]
+    pub fn verify_nullable(
+        self,
+        expr: &(impl ProofPlan + Serialize),
+        accessor: &impl CommitmentAccessor<CP::Commitment>,
+        setup: &CP::VerifierPublicSetup<'_>,
+        params: &[LiteralValue],
+    ) -> NullableQueryResult<CP::Scalar> {
+        log::log_memory_usage("Start");
+        let QueryData {
+            table,
+            verification_hash,
+        } = self
+            .proof
+            .verify(expr, accessor, self.result, setup, params)?;
+        let physical_table =
+            table.try_coerce_with_fields(expr.get_column_result_fields_with_presence())?;
+        let result = NullableQueryData {
+            table: NullableOwnedTable::try_from_values_and_presence_table_with_fields(
+                physical_table,
+                expr.get_column_result_fields(),
+            )?,
+            verification_hash,
+        };
+        log::log_memory_usage("End");
+        Ok(result)
+    }
+}
+
+fn coerce_physical_table_to_logical_values<S: Scalar>(
+    table: OwnedTable<S>,
+    logical_fields: Vec<ColumnField>,
+    physical_fields: Vec<ColumnField>,
+) -> Result<OwnedTable<S>, QueryError> {
+    let mut physical_columns = table
+        .try_coerce_with_fields(physical_fields)?
+        .into_inner()
+        .into_iter();
+    let logical_columns = logical_fields
+        .into_iter()
+        .map(|field| {
+            let (name, column) = physical_columns
+                .next()
+                .expect("Coerced physical table should include every logical value column");
+            debug_assert_eq!(name, field.name());
+            if field.is_nullable() {
+                let (presence_name, _) = physical_columns
+                    .next()
+                    .expect("Coerced physical table should include nullable presence columns");
+                debug_assert_eq!(presence_name, ColumnRef::presence_column_id(&name));
+            }
+            Ok((name, column))
+        })
+        .collect::<Result<Vec<_>, QueryError>>()?;
+    debug_assert!(physical_columns.next().is_none());
+
+    Ok(OwnedTable::try_from_iter(logical_columns)?)
 }
