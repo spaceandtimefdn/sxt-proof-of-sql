@@ -57,6 +57,8 @@ pub use crate::base::arrow::{
     scalar_and_i256_conversions,
 };
 pub use table_ref::TableRef;
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub mod arrow_schema_utility;
 mod owned_column;
@@ -76,6 +78,8 @@ pub use owned_table::{OwnedTable, OwnedTableError};
 #[cfg(test)]
 mod owned_table_test;
 pub mod owned_table_utility;
+#[cfg(test)]
+mod owned_table_utility_test;
 mod table;
 #[cfg(test)]
 pub(crate) use table::TableError;
@@ -83,6 +87,8 @@ pub use table::{Table, TableOptions};
 #[cfg(test)]
 mod table_test;
 pub mod table_utility;
+#[cfg(test)]
+mod table_utility_test;
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
 mod test_accessor;
