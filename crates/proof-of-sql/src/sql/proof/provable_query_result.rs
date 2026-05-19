@@ -1,6 +1,9 @@
 use super::{decode_and_convert, decode_multiple_elements, ProvableResultColumn, QueryError};
 use crate::base::{
-    database::{Column, ColumnField, ColumnType, OwnedColumn, OwnedTable, Table},
+    database::{
+        Column, ColumnField, ColumnRef, ColumnType, NullableOwnedTable, OwnedColumn, OwnedTable,
+        Table,
+    },
     polynomial::compute_evaluation_vector,
     scalar::{Scalar, ScalarExt},
 };
@@ -237,6 +240,20 @@ impl ProvableQueryResult {
 
         Ok(owned_table)
     }
+
+    /// Convert a physical value-plus-presence result into a nullable owned table.
+    pub fn to_nullable_owned_table<S: Scalar>(
+        &self,
+        column_result_fields: &[ColumnField],
+    ) -> Result<NullableOwnedTable<S>, QueryError> {
+        let physical_fields = nullable_physical_result_fields(column_result_fields);
+        let values_and_presence_table = self.to_owned_table(&physical_fields)?;
+        NullableOwnedTable::try_from_values_and_presence_table_with_fields(
+            values_and_presence_table,
+            column_result_fields.iter().cloned(),
+        )
+        .map_err(Into::into)
+    }
 }
 
 impl<S: Scalar> From<Table<'_, S>> for ProvableQueryResult {
@@ -249,4 +266,18 @@ impl<S: Scalar> From<Table<'_, S>> for ProvableQueryResult {
             .collect::<Vec<_>>();
         Self::new(num_rows as u64, &columns)
     }
+}
+
+fn nullable_physical_result_fields(column_result_fields: &[ColumnField]) -> Vec<ColumnField> {
+    column_result_fields
+        .iter()
+        .flat_map(|field| {
+            let value_field = field.clone();
+            let presence_field = field.is_nullable().then(|| {
+                let name = field.name();
+                ColumnField::new(ColumnRef::presence_column_id(&name), ColumnType::Boolean)
+            });
+            core::iter::once(value_field).chain(presence_field)
+        })
+        .collect()
 }

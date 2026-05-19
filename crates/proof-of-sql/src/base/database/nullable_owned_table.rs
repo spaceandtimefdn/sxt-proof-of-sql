@@ -1,6 +1,6 @@
 use super::{
-    ColumnField, ColumnRef, NullableOwnedColumn, NullableTable, OwnedColumn, OwnedTable,
-    OwnedTableError,
+    ColumnField, ColumnRef, ColumnType, NullableOwnedColumn, NullableTable, OwnedColumn,
+    OwnedTable, OwnedTableError, TableCoercionError,
 };
 use crate::base::{map::IndexMap, scalar::Scalar};
 use alloc::vec::Vec;
@@ -136,6 +136,59 @@ impl<S: Scalar> NullableOwnedTable<S> {
             })
             .collect()
     }
+
+    pub(crate) fn try_from_values_and_presence_table_with_fields<T>(
+        values_and_presence_table: OwnedTable<S>,
+        fields: T,
+    ) -> Result<Self, TableCoercionError>
+    where
+        T: IntoIterator<Item = ColumnField>,
+    {
+        let fields = fields.into_iter().collect::<Vec<_>>();
+        let physical_fields = fields
+            .iter()
+            .flat_map(|field| {
+                let value_field = field.clone();
+                let presence_field = field.is_nullable().then(|| {
+                    ColumnField::new(
+                        Self::presence_column_name(&field.name()),
+                        ColumnType::Boolean,
+                    )
+                });
+                core::iter::once(value_field).chain(presence_field)
+            })
+            .collect::<Vec<_>>();
+        let mut physical_columns = values_and_presence_table
+            .try_coerce_with_fields(physical_fields)?
+            .into_inner()
+            .into_iter();
+        let table = fields
+            .into_iter()
+            .map(|field| {
+                let (name, value_column) = physical_columns
+                    .next()
+                    .expect("Coerced table should have a value column for each field");
+                debug_assert_eq!(name, field.name());
+                let column = if field.is_nullable() {
+                    let (presence_name, presence_column) = physical_columns
+                        .next()
+                        .expect("Coerced table should have presence columns for nullable fields");
+                    debug_assert_eq!(presence_name, Self::presence_column_name(&name));
+                    let OwnedColumn::Boolean(presence) = presence_column else {
+                        unreachable!("Presence fields are coerced to Boolean before reassembly");
+                    };
+                    NullableOwnedColumn::try_new(value_column, Some(presence))
+                        .expect("OwnedTable guarantees matching value and presence lengths")
+                } else {
+                    NullableOwnedColumn::new_nonnullable(value_column)
+                };
+                Ok((name, column))
+            })
+            .collect::<Result<_, TableCoercionError>>()?;
+        debug_assert!(physical_columns.next().is_none());
+
+        Self::try_new(table).map_err(|_| TableCoercionError::ColumnCountMismatch)
+    }
 }
 
 impl<S: Scalar> PartialEq for NullableOwnedTable<S> {
@@ -250,6 +303,41 @@ mod tests {
             Ident::new("__posql_presence_amount")
         );
         assert_eq!(proof_schema[2].data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn values_and_presence_table_reassembles_nullable_table() {
+        let nullable_table = nullable_table_for_proof();
+        let proof_table = nullable_table.values_and_presence_table();
+        let logical_schema = nullable_table.schema();
+
+        let reassembled = NullableOwnedTable::try_from_values_and_presence_table_with_fields(
+            proof_table,
+            logical_schema,
+        )
+        .unwrap();
+
+        assert_eq!(reassembled, nullable_table);
+    }
+
+    #[test]
+    fn values_and_presence_reassembly_rejects_missing_presence_column() {
+        let proof_table = owned_table([bigint("amount", [10_i64, 20])]);
+        let logical_schema = vec![ColumnField::new_nullable(
+            Ident::new("amount"),
+            ColumnType::BigInt,
+        )];
+
+        let result =
+            NullableOwnedTable::<TestScalar>::try_from_values_and_presence_table_with_fields(
+                proof_table,
+                logical_schema,
+            );
+
+        assert!(matches!(
+            result,
+            Err(TableCoercionError::ColumnCountMismatch)
+        ));
     }
 
     #[test]

@@ -1,5 +1,8 @@
 use super::{ProvableQueryResult, QueryError};
-use crate::base::scalar::test_scalar::TestScalar;
+use crate::base::{
+    database::{NullableOwnedColumn, OwnedColumn},
+    scalar::test_scalar::TestScalar,
+};
 use crate::{
     base::{
         database::{Column, ColumnField, ColumnType},
@@ -11,7 +14,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use arrow::{
-    array::{Decimal128Array, Decimal256Array, Int64Array, LargeBinaryArray, StringArray},
+    array::{Array, Decimal128Array, Decimal256Array, Int64Array, LargeBinaryArray, StringArray},
     datatypes::{i256, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -225,6 +228,65 @@ fn we_can_convert_a_provable_result_to_a_final_result() {
     let expected_res =
         RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![10, 12]))]).unwrap();
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_convert_a_provable_result_to_a_nullable_owned_table() {
+    let amount_values = [10_i64, 0, 30];
+    let amount_presence = [true, false, true];
+    let ids = [1_i64, 2, 3];
+    let cols: [Column<TestScalar>; 3] = [
+        Column::BigInt(&amount_values),
+        Column::Boolean(&amount_presence),
+        Column::BigInt(&ids),
+    ];
+    let res = ProvableQueryResult::new(3, &cols);
+    let column_fields = vec![
+        ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+        ColumnField::new("id".into(), ColumnType::BigInt),
+    ];
+
+    let nullable_table = res
+        .to_nullable_owned_table::<TestScalar>(&column_fields)
+        .unwrap();
+
+    assert_eq!(
+        nullable_table["amount"],
+        NullableOwnedColumn::try_new(
+            OwnedColumn::BigInt(vec![10, 0, 30]),
+            Some(vec![true, false, true]),
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        nullable_table["id"],
+        NullableOwnedColumn::new_nonnullable(OwnedColumn::BigInt(vec![1, 2, 3]))
+    );
+
+    let record_batch = RecordBatch::try_from(nullable_table).unwrap();
+    let amount = record_batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap();
+    assert_eq!(amount.value(0), 10);
+    assert!(amount.is_null(1));
+    assert_eq!(amount.value(2), 30);
+}
+
+#[test]
+fn nullable_result_requires_presence_column() {
+    let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[10, 0])];
+    let res = ProvableQueryResult::new(2, &cols);
+    let column_fields = vec![ColumnField::new_nullable(
+        "amount".into(),
+        ColumnType::BigInt,
+    )];
+
+    assert!(matches!(
+        res.to_nullable_owned_table::<TestScalar>(&column_fields),
+        Err(QueryError::InvalidColumnCount)
+    ));
 }
 
 #[test]
