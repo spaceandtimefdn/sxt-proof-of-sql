@@ -1,6 +1,6 @@
 use super::{
-    ColumnField, ColumnRef, ColumnType, NullableOwnedColumn, NullableTable, OwnedColumn,
-    OwnedTable, OwnedTableError, TableCoercionError,
+    ColumnField, ColumnRef, NullableOwnedColumn, NullableTable, OwnedColumn, OwnedTable,
+    OwnedTableError, TableCoercionError,
 };
 use crate::base::{map::IndexMap, scalar::Scalar};
 use alloc::vec::Vec;
@@ -145,19 +145,7 @@ impl<S: Scalar> NullableOwnedTable<S> {
         T: IntoIterator<Item = ColumnField>,
     {
         let fields = fields.into_iter().collect::<Vec<_>>();
-        let physical_fields = fields
-            .iter()
-            .flat_map(|field| {
-                let value_field = field.clone();
-                let presence_field = field.is_nullable().then(|| {
-                    ColumnField::new(
-                        Self::presence_column_name(&field.name()),
-                        ColumnType::Boolean,
-                    )
-                });
-                core::iter::once(value_field).chain(presence_field)
-            })
-            .collect::<Vec<_>>();
+        let physical_fields = ColumnField::value_and_presence_fields(fields.iter().cloned());
         let mut physical_columns = values_and_presence_table
             .try_coerce_with_fields(physical_fields)?
             .into_inner()

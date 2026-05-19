@@ -1,4 +1,5 @@
-use super::ColumnType;
+use super::{ColumnRef, ColumnType};
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Ident;
 
@@ -52,6 +53,25 @@ impl ColumnField {
     pub const fn is_nullable(&self) -> bool {
         self.nullable
     }
+
+    /// Expand logical nullable fields into the physical value plus presence result schema.
+    pub(crate) fn value_and_presence_fields<T>(fields: T) -> Vec<ColumnField>
+    where
+        T: IntoIterator<Item = ColumnField>,
+    {
+        fields
+            .into_iter()
+            .flat_map(|field| {
+                let presence_field = field.is_nullable().then(|| {
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&field.name()),
+                        ColumnType::Boolean,
+                    )
+                });
+                core::iter::once(field).chain(presence_field)
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -74,5 +94,22 @@ mod tests {
         assert_eq!(field.name(), "amount".into());
         assert_eq!(field.data_type(), ColumnType::BigInt);
         assert!(field.is_nullable());
+    }
+
+    #[test]
+    fn nullable_fields_expand_to_value_and_presence_fields() {
+        let physical_fields = ColumnField::value_and_presence_fields([
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+        ]);
+
+        assert_eq!(
+            physical_fields,
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new("__posql_presence_amount".into(), ColumnType::Boolean),
+            ]
+        );
     }
 }

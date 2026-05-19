@@ -327,4 +327,52 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn filter_physical_result_schema_adds_presence_fields_for_nullable_results() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let fee_ref = ColumnRef::new(table_ref.clone(), "fee".into(), ColumnType::BigInt);
+        let total = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref.clone()),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+        let plan = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(amount_ref),
+                    alias: "amount".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: total,
+                    alias: "total".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_table(
+                table_ref,
+                vec![
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new("fee".into(), ColumnType::BigInt),
+                ],
+            )),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        let column_fields = plan.get_column_result_fields_with_presence();
+
+        assert_eq!(
+            column_fields,
+            vec![
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new("__posql_presence_amount".into(), ColumnType::Boolean),
+                ColumnField::new_nullable(
+                    "total".into(),
+                    ColumnType::Decimal75(Precision::new(20).unwrap(), 0)
+                ),
+                ColumnField::new("__posql_presence_total".into(), ColumnType::Boolean),
+            ]
+        );
+    }
 }
