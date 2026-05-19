@@ -20,7 +20,7 @@ use crate::base::{
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone, PoSQLTimestampError},
     scalar::Scalar,
 };
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc};
 use arrow::{
     array::{
         ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
@@ -58,6 +58,12 @@ pub enum OwnedArrowConversionError {
     /// This error occurs when trying to convert from an Arrow array with nulls.
     #[snafu(display("null values are not supported in OwnedColumn yet"))]
     NullNotSupportedYet,
+    /// This error occurs when trying to convert from an Arrow field marked nullable.
+    #[snafu(display("nullable Arrow field {field_name} is not supported in OwnedTable yet"))]
+    NullableFieldNotSupportedYet {
+        /// The nullable field name.
+        field_name: String,
+    },
     /// Using `TimeError` to handle all time-related errors
     #[snafu(transparent)]
     TimestampConversionError {
@@ -314,6 +320,11 @@ impl<S: Scalar> TryFrom<RecordBatch> for OwnedTable<S> {
             .iter()
             .zip(value.columns())
             .map(|(field, array_ref)| {
+                if field.is_nullable() {
+                    return Err(OwnedArrowConversionError::NullableFieldNotSupportedYet {
+                        field_name: field.name().clone(),
+                    });
+                }
                 let owned_column = OwnedColumn::try_from(array_ref)?;
                 let identifier = Ident::new(field.name());
                 Ok((identifier, owned_column))
