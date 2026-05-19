@@ -374,6 +374,192 @@ fn num_rows_of_columns<'a>(
     Ok(num_rows)
 }
 
+#[cfg(test)]
+mod no_feature_tests {
+    use super::*;
+    use crate::base::{
+        commitment::naive_commitment::NaiveCommitment,
+        database::{owned_table_utility::*, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+    use alloc::vec::Vec;
+
+    fn table_commitment_from_rows(
+        name: &str,
+        values: impl IntoIterator<Item = i64>,
+        offset: usize,
+    ) -> TableCommitment<NaiveCommitment> {
+        let table = owned_table::<TestScalar>([bigint(name, values)]);
+        TableCommitment::from_owned_table_with_offset(&table, offset, &())
+    }
+
+    #[test]
+    #[expect(clippy::reversed_empty_ranges)]
+    fn we_can_validate_table_commitment_construction_without_arrow_features() {
+        let negative_range =
+            TableCommitment::<NaiveCommitment>::try_new(ColumnCommitments::default(), 3..2);
+        assert!(matches!(negative_range, Err(NegativeRange)));
+
+        let empty_columns: Vec<(Ident, OwnedColumn<TestScalar>)> = Vec::new();
+        let empty_commitment = TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+            empty_columns.iter().map(|(ident, column)| (ident, column)),
+            7,
+            &(),
+        )
+        .unwrap();
+        assert_eq!(empty_commitment.range(), &(7..7));
+        assert_eq!(empty_commitment.num_columns(), 0);
+        assert_eq!(empty_commitment.num_rows(), 0);
+
+        let table = owned_table::<TestScalar>([
+            bigint("a", [1, 2, 3]),
+            varchar("b", ["one", "two", "three"]),
+            scalar("c", [10, 20, 30]),
+        ]);
+        let commitment = TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+            table.inner_table(),
+            4,
+            &(),
+        )
+        .unwrap();
+        assert_eq!(commitment.range(), &(4..7));
+        assert_eq!(commitment.num_columns(), 3);
+        assert_eq!(commitment.num_rows(), 3);
+        assert_eq!(
+            commitment,
+            TableCommitment::from_owned_table_with_offset(&table, 4, &())
+        );
+    }
+
+    #[test]
+    fn we_can_reject_invalid_table_commitment_inputs_without_arrow_features() {
+        let duplicate_ident: Ident = "dup".into();
+        let other_ident: Ident = "other".into();
+        let one_row_column = OwnedColumn::<TestScalar>::BigInt(vec![1]);
+        let two_row_column = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+
+        let duplicate_result = TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+            [
+                (&duplicate_ident, &one_row_column),
+                (&other_ident, &one_row_column),
+                (&duplicate_ident, &one_row_column),
+            ],
+            0,
+            &(),
+        );
+        assert!(matches!(
+            duplicate_result,
+            Err(TableCommitmentFromColumnsError::DuplicateIdents { .. })
+        ));
+
+        let mixed_length_result = TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+            [
+                (&duplicate_ident, &one_row_column),
+                (&other_ident, &two_row_column),
+            ],
+            0,
+            &(),
+        );
+        assert!(matches!(
+            mixed_length_result,
+            Err(TableCommitmentFromColumnsError::MixedLengthColumns { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_append_and_extend_table_commitments_without_arrow_features() {
+        let initial =
+            owned_table::<TestScalar>([bigint("id", [1, 2]), varchar("label", ["one", "two"])]);
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::from_owned_table_with_offset(&initial, 5, &());
+
+        let appended =
+            owned_table::<TestScalar>([bigint("id", [3, 4]), varchar("label", ["three", "four"])]);
+        commitment.append_owned_table(&appended, &()).unwrap();
+        assert_eq!(commitment.range(), &(5..9));
+
+        let extra = owned_table::<TestScalar>([scalar("score", [10, 20, 30, 40])]);
+        commitment
+            .try_extend_columns(extra.inner_table(), &())
+            .unwrap();
+
+        let expected = owned_table::<TestScalar>([
+            bigint("id", [1, 2, 3, 4]),
+            varchar("label", ["one", "two", "three", "four"]),
+            scalar("score", [10, 20, 30, 40]),
+        ]);
+        assert_eq!(
+            commitment,
+            TableCommitment::from_owned_table_with_offset(&expected, 5, &())
+        );
+
+        let mismatched_append = owned_table::<TestScalar>([
+            varchar("id", ["bad"]),
+            varchar("label", ["bad"]),
+            scalar("score", [50]),
+        ]);
+        assert!(matches!(
+            commitment.append_owned_table(&mismatched_append, &()),
+            Err(ColumnCommitmentsMismatch::ColumnCommitmentMetadata { .. })
+        ));
+
+        let wrong_length_column = owned_table::<TestScalar>([bigint("too_short", [1, 2])]);
+        assert!(matches!(
+            commitment.try_extend_columns(wrong_length_column.inner_table(), &()),
+            Err(TableCommitmentFromColumnsError::MixedLengthColumns { .. })
+        ));
+
+        let duplicate_column = owned_table::<TestScalar>([bigint("id", [5, 6, 7, 8])]);
+        assert!(matches!(
+            commitment.try_extend_columns(duplicate_column.inner_table(), &()),
+            Err(TableCommitmentFromColumnsError::DuplicateIdents { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_add_and_sub_table_commitments_without_arrow_features() {
+        let low = table_commitment_from_rows("id", [1, 2], 0);
+        let high = table_commitment_from_rows("id", [3, 4, 5], 2);
+        let all = table_commitment_from_rows("id", [1, 2, 3, 4, 5], 0);
+
+        assert_eq!(low.clone().try_add(high.clone()).unwrap(), all);
+        assert_eq!(high.clone().try_add(low.clone()).unwrap(), all);
+        let high_difference = all.clone().try_sub(low.clone()).unwrap();
+        assert_eq!(
+            high_difference.column_commitments().commitments(),
+            high.column_commitments().commitments()
+        );
+        assert_eq!(high_difference.range(), high.range());
+
+        let low_difference = all.clone().try_sub(high.clone()).unwrap();
+        assert_eq!(
+            low_difference.column_commitments().commitments(),
+            low.column_commitments().commitments()
+        );
+        assert_eq!(low_difference.range(), low.range());
+
+        let disjoint = table_commitment_from_rows("id", [6, 7], 8);
+        assert!(matches!(
+            low.clone().try_add(disjoint.clone()),
+            Err(TableCommitmentArithmeticError::NonContiguous)
+        ));
+        assert!(matches!(
+            all.clone().try_sub(disjoint),
+            Err(TableCommitmentArithmeticError::NonContiguous)
+        ));
+        assert!(matches!(
+            low.clone().try_sub(all.clone()),
+            Err(TableCommitmentArithmeticError::NegativeRange { .. })
+        ));
+
+        let mismatched = table_commitment_from_rows("other_id", [1, 2], 5);
+        assert!(matches!(
+            all.try_add(mismatched),
+            Err(TableCommitmentArithmeticError::ColumnMismatch { .. })
+        ));
+    }
+}
+
 #[cfg(all(test, feature = "arrow", feature = "blitzar"))]
 mod tests {
     use super::*;
