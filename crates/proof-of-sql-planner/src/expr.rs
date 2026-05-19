@@ -223,6 +223,18 @@ pub(crate) fn filter_expr_to_proof_expr_with_fields(
         Expr::Column(col) => Ok(DynProofExpr::try_new_is_true(
             column_to_column_ref_from_fields(col, schema)?,
         )?),
+        Expr::BinaryExpr(BinaryExpr { left, right, op }) if *op == Operator::And => {
+            Ok(DynProofExpr::try_new_and(
+                filter_expr_to_proof_expr_with_fields(left, schema)?,
+                filter_expr_to_proof_expr_with_fields(right, schema)?,
+            )?)
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, op }) if *op == Operator::Or => {
+            Ok(DynProofExpr::try_new_or(
+                filter_expr_to_proof_expr_with_fields(left, schema)?,
+                filter_expr_to_proof_expr_with_fields(right, schema)?,
+            )?)
+        }
         Expr::Not(inner) => match &**inner {
             Expr::Column(col) => Ok(DynProofExpr::try_new_is_false(
                 column_to_column_ref_from_fields(col, schema)?,
@@ -371,6 +383,39 @@ mod tests {
         assert_eq!(
             filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
             DynProofExpr::try_new_is_false(column_ref).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nested_nullable_boolean_filter_columns_to_truth_proof_exprs() {
+        let expr = Expr::BinaryExpr(BinaryExpr {
+            left: Box::new(df_column("namespace.table_name", "is_paid")),
+            right: Box::new(
+                df_column("namespace.table_name", "id")
+                    .eq(Expr::Literal(ScalarValue::Int64(Some(4)))),
+            ),
+            op: Operator::Or,
+        });
+        let schema = vec![
+            ColumnField::new_nullable("is_paid".into(), ColumnType::Boolean),
+            ColumnField::new("id".into(), ColumnType::BigInt),
+        ];
+        let table_ref = TableRef::from_names(Some("namespace"), "table_name");
+        let is_paid_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "is_paid".into(), ColumnType::Boolean);
+        let id_ref = ColumnRef::new(table_ref, "id".into(), ColumnType::BigInt);
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_or(
+                DynProofExpr::try_new_is_true(is_paid_ref).unwrap(),
+                DynProofExpr::try_new_equals(
+                    DynProofExpr::new_column(id_ref),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(4)),
+                )
+                .unwrap(),
+            )
+            .unwrap()
         );
     }
 

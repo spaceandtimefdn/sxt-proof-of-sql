@@ -7,8 +7,8 @@ use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias, TableScan,
-        Union,
+        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Operator, Projection,
+        SubqueryAlias, TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -105,6 +105,12 @@ fn insert_nullable_boolean_filter_presence_column<F: PlannerSchemaField>(
         }
         Expr::Not(inner) => {
             insert_nullable_boolean_filter_presence_column(inner, input_schema, required_columns);
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, op })
+            if matches!(op, Operator::And | Operator::Or) =>
+        {
+            insert_nullable_boolean_filter_presence_column(left, input_schema, required_columns);
+            insert_nullable_boolean_filter_presence_column(right, input_schema, required_columns);
         }
         _ => {}
     }
@@ -990,6 +996,59 @@ mod tests {
                 ],
             ),
             DynProofExpr::try_new_is_false(flag_ref).unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nested_nullable_boolean_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let flag_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "flag".into(), ColumnType::Boolean);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = Expr::BinaryExpr(BinaryExpr {
+            left: Box::new(df_column("table", "flag")),
+            right: Box::new(
+                df_column("table", "id").eq(Expr::Literal(ScalarValue::Int64(Some(4)))),
+            ),
+            op: Operator::Or,
+        });
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"flag".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_or(
+                DynProofExpr::try_new_is_true(flag_ref).unwrap(),
+                DynProofExpr::try_new_equals(
+                    DynProofExpr::new_column(id_ref),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(4)),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
         );
 
         assert_eq!(result, expected);
