@@ -122,22 +122,23 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        base::{
-            commitment::{naive_commitment::NaiveCommitment, Bounds, ColumnBounds},
-            database::{
-                owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor,
-                TestAccessor,
-            },
-            scalar::test_scalar::TestScalar,
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+            Bounds, ColumnBounds,
         },
-        proof_primitive::dory::{
-            test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
-            PublicParameters,
+        database::{
+            owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor, TestAccessor,
         },
+        scalar::test_scalar::TestScalar,
+    };
+    #[cfg(feature = "blitzar")]
+    use crate::proof_primitive::dory::{
+        test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
+        PublicParameters,
     };
 
     #[test]
@@ -319,6 +320,80 @@ mod tests {
     #[expect(clippy::similar_names)]
     #[test]
     fn we_can_get_query_commitments_from_accessor() {
+        let column_a_id: Ident = "column_a".into();
+        let column_b_id: Ident = "column_b".into();
+
+        let table_a = owned_table([
+            bigint(column_a_id.value.as_str(), [1, 2, 3, 4]),
+            varchar(
+                column_b_id.value.as_str(),
+                ["Lorem", "ipsum", "dolor", "sit"],
+            ),
+        ]);
+        let table_b = owned_table([
+            scalar(column_a_id.value.as_str(), [1, 2]),
+            int128(column_b_id.value.as_str(), [1, 2]),
+        ]);
+
+        let table_a_id = TableRef::new("table", "a");
+        let table_b_id = TableRef::new("table", "b");
+
+        let mut expected_table_a_commitment =
+            TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+                [
+                    (
+                        &column_a_id,
+                        table_a.inner_table().get(&column_a_id).unwrap(),
+                    ),
+                    (
+                        &column_b_id,
+                        table_a.inner_table().get(&column_b_id).unwrap(),
+                    ),
+                ],
+                1,
+                &(),
+            )
+            .unwrap();
+        *expected_table_a_commitment
+            .column_commitments_mut()
+            .column_metadata_mut()
+            .get_mut(&column_a_id)
+            .unwrap()
+            .bounds_mut() = ColumnBounds::BigInt(Bounds::bounded(i64::MIN, i64::MAX).unwrap());
+        let expected_table_b_commitment =
+            TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(
+                [(
+                    &column_a_id,
+                    table_b.inner_table().get(&column_a_id).unwrap(),
+                )],
+                3,
+                &(),
+            )
+            .unwrap();
+        let expected_query_commitments = QueryCommitments::from_iter([
+            (table_a_id.clone(), expected_table_a_commitment),
+            (table_b_id.clone(), expected_table_b_commitment),
+        ]);
+
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(table_a_id.clone(), table_a, 1);
+        accessor.add_table(table_b_id.clone(), table_b, 3);
+
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_a_id.clone(), column_b_id.clone(), ColumnType::VarChar),
+                ColumnRef::new(table_b_id, column_a_id.clone(), ColumnType::Scalar),
+                ColumnRef::new(table_a_id, column_a_id, ColumnType::BigInt),
+            ],
+            &accessor,
+        );
+        assert_eq!(query_commitments, expected_query_commitments);
+    }
+
+    #[cfg(feature = "blitzar")]
+    #[expect(clippy::similar_names)]
+    #[test]
+    fn we_can_get_query_commitments_from_accessor_with_dory() {
         let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);
         let setup = DoryProverPublicSetup::new(&prover_setup, 3);
