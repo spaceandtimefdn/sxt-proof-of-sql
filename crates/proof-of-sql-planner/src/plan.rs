@@ -1162,6 +1162,47 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[test]
+    fn table_scan_filter_includes_presence_for_nullable_expression_is_null_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = Expr::IsNull(Box::new(
+            df_column("table", "amount").add(Expr::Literal(ScalarValue::Int64(Some(5)))),
+        ));
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_not(DynProofExpr::new_is_not_null(amount_ref)).unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
     // aggregate_to_proof_plan
     #[test]
     fn we_can_aggregate_with_group_by_and_sum_count() {
