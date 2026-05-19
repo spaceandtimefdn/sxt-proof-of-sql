@@ -95,8 +95,9 @@ impl LiteralValue {
 mod tests {
     use crate::base::{
         database::LiteralValue,
-        math::decimal::Precision,
+        math::{decimal::Precision, i256::I256},
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -124,6 +125,47 @@ mod tests {
             let serialized_literal_value =
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
+        }
+    }
+
+    #[test]
+    fn we_can_convert_literal_values_to_scalars() {
+        let varchar = String::from("test");
+        let varbinary = vec![1, 2, 3];
+        let decimal = I256::from(-7010_i32);
+        let scalar_limbs = [1, 2, 3, 4];
+        let cases = vec![
+            (LiteralValue::Boolean(true), TestScalar::from(true)),
+            (LiteralValue::Uint8(2), TestScalar::from(2_u8)),
+            (LiteralValue::TinyInt(-3), TestScalar::from(-3_i8)),
+            (LiteralValue::SmallInt(-4), TestScalar::from(-4_i16)),
+            (LiteralValue::Int(-5), TestScalar::from(-5_i32)),
+            (LiteralValue::BigInt(-6), TestScalar::from(-6_i64)),
+            (LiteralValue::Int128(-7), TestScalar::from(-7_i128)),
+            (
+                LiteralValue::VarChar(varchar.clone()),
+                TestScalar::from(&varchar),
+            ),
+            (
+                LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, decimal),
+                decimal.into_scalar(),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), -10),
+                TestScalar::from(-10_i64),
+            ),
+            (
+                LiteralValue::Scalar(scalar_limbs),
+                TestScalar::from(scalar_limbs),
+            ),
+            (
+                LiteralValue::VarBinary(varbinary.clone()),
+                TestScalar::from_byte_slice_via_hash(&varbinary),
+            ),
+        ];
+
+        for (literal_value, expected_scalar) in cases {
+            assert_eq!(literal_value.to_scalar::<TestScalar>(), expected_scalar);
         }
     }
 }
