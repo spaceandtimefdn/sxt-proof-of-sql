@@ -13,6 +13,8 @@ pub use column_type::ColumnType;
 mod column_ref;
 pub use column_ref::ColumnRef;
 mod column_field;
+#[cfg(test)]
+mod column_field_test;
 pub use column_field::ColumnField;
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
@@ -46,6 +48,8 @@ pub use table_operation_error::{TableOperationError, TableOperationResult};
 mod columnar_value;
 pub use columnar_value::ColumnarValue;
 mod literal_value;
+#[cfg(test)]
+mod literal_value_test;
 pub use literal_value::LiteralValue;
 mod error;
 pub use error::ParseError;
