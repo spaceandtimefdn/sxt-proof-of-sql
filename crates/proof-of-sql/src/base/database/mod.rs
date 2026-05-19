@@ -14,6 +14,8 @@ pub use column_type::ColumnType;
 
 mod column_ref;
 pub use column_ref::ColumnRef;
+#[cfg(test)]
+mod column_ref_test;
 
 mod column_field;
 pub use column_field::ColumnField;
@@ -67,7 +69,8 @@ pub use crate::base::arrow::{
     scalar_and_i256_conversions,
 };
 pub use table_ref::TableRef;
-
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub mod arrow_schema_utility;
 
