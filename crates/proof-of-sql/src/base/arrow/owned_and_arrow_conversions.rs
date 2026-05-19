@@ -14,7 +14,7 @@
 //! However, the actual arrow backing `i128` is the correct value.
 use super::scalar_and_i256_conversions::{convert_i256_to_scalar, convert_scalar_to_i256};
 use crate::base::{
-    database::{OwnedColumn, OwnedTable, OwnedTableError},
+    database::{NullableOwnedColumn, NullableOwnedTable, OwnedColumn, OwnedTable, OwnedTableError},
     map::IndexMap,
     math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone, PoSQLTimestampError},
@@ -23,11 +23,11 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
         Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
         TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
     },
-    datatypes::{i256, DataType, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
+    datatypes::{i256, DataType, Field, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
     error::ArrowError,
     record_batch::RecordBatch,
 };
@@ -58,6 +58,12 @@ pub enum OwnedArrowConversionError {
     /// This error occurs when trying to convert from an Arrow array with nulls.
     #[snafu(display("null values are not supported in OwnedColumn yet"))]
     NullNotSupportedYet,
+    /// This error occurs when trying to convert from an i256 to a Scalar.
+    #[snafu(display("decimal conversion failed: {number}"))]
+    DecimalConversionFailed {
+        /// The `i256` value for which conversion is attempted
+        number: i256,
+    },
     /// Using `TimeError` to handle all time-related errors
     #[snafu(transparent)]
     TimestampConversionError {
@@ -109,6 +115,79 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
     }
 }
 
+fn nullable_values<T>(values: Vec<T>, presence: Vec<bool>) -> Vec<Option<T>> {
+    values
+        .into_iter()
+        .zip(presence)
+        .map(|(value, present)| present.then_some(value))
+        .collect()
+}
+
+/// # Panics
+///
+/// Will panic if setting precision and scale fails when converting decimal columns.
+/// Will panic if trying to convert `OwnedColumn::Scalar`, as this conversion is not implemented.
+impl<S: Scalar> From<NullableOwnedColumn<S>> for ArrayRef {
+    fn from(value: NullableOwnedColumn<S>) -> Self {
+        let (values, presence) = value.into_parts();
+        let Some(presence) = presence else {
+            return ArrayRef::from(values);
+        };
+        match values {
+            OwnedColumn::Boolean(col) => {
+                Arc::new(BooleanArray::from(nullable_values(col, presence)))
+            }
+            OwnedColumn::Uint8(col) => Arc::new(UInt8Array::from(nullable_values(col, presence))),
+            OwnedColumn::TinyInt(col) => Arc::new(Int8Array::from(nullable_values(col, presence))),
+            OwnedColumn::SmallInt(col) => {
+                Arc::new(Int16Array::from(nullable_values(col, presence)))
+            }
+            OwnedColumn::Int(col) => Arc::new(Int32Array::from(nullable_values(col, presence))),
+            OwnedColumn::BigInt(col) => Arc::new(Int64Array::from(nullable_values(col, presence))),
+            OwnedColumn::Int128(col) => Arc::new(
+                Decimal128Array::from(nullable_values(col, presence))
+                    .with_precision_and_scale(38, 0)
+                    .unwrap(),
+            ),
+            OwnedColumn::Decimal75(precision, scale, col) => {
+                let converted_col = col
+                    .into_iter()
+                    .zip(presence)
+                    .map(|(value, present)| present.then_some(convert_scalar_to_i256(&value)))
+                    .collect::<Vec<_>>();
+                Arc::new(
+                    Decimal256Array::from(converted_col)
+                        .with_precision_and_scale(precision.value(), scale)
+                        .unwrap(),
+                )
+            }
+            OwnedColumn::Scalar(_) => unimplemented!("Cannot convert Scalar type to arrow type"),
+            OwnedColumn::VarChar(col) => {
+                Arc::new(StringArray::from(nullable_values(col, presence)))
+            }
+            OwnedColumn::VarBinary(col) => Arc::new(LargeBinaryArray::from_iter(
+                col.iter()
+                    .zip(presence.iter())
+                    .map(|(value, present)| present.then_some(value.as_slice())),
+            )),
+            OwnedColumn::TimestampTZ(time_unit, _, col) => match time_unit {
+                PoSQLTimeUnit::Second => {
+                    Arc::new(TimestampSecondArray::from(nullable_values(col, presence)))
+                }
+                PoSQLTimeUnit::Millisecond => Arc::new(TimestampMillisecondArray::from(
+                    nullable_values(col, presence),
+                )),
+                PoSQLTimeUnit::Microsecond => Arc::new(TimestampMicrosecondArray::from(
+                    nullable_values(col, presence),
+                )),
+                PoSQLTimeUnit::Nanosecond => Arc::new(TimestampNanosecondArray::from(
+                    nullable_values(col, presence),
+                )),
+            },
+        }
+    }
+}
+
 impl<S: Scalar> TryFrom<OwnedTable<S>> for RecordBatch {
     type Error = ArrowError;
     fn try_from(value: OwnedTable<S>) -> Result<Self, Self::Error> {
@@ -127,10 +206,224 @@ impl<S: Scalar> TryFrom<OwnedTable<S>> for RecordBatch {
     }
 }
 
+impl<S: Scalar> TryFrom<NullableOwnedTable<S>> for RecordBatch {
+    type Error = ArrowError;
+    fn try_from(value: NullableOwnedTable<S>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            Ok(RecordBatch::new_empty(SchemaRef::new(Schema::empty())))
+        } else {
+            let (fields, columns): (Vec<_>, Vec<_>) = value
+                .into_inner()
+                .into_iter()
+                .map(|(identifier, nullable_owned_column)| {
+                    let is_nullable = nullable_owned_column.is_nullable();
+                    let array_ref = ArrayRef::from(nullable_owned_column);
+                    (
+                        Field::new(identifier.value, array_ref.data_type().clone(), is_nullable),
+                        array_ref,
+                    )
+                })
+                .unzip();
+            RecordBatch::try_new(SchemaRef::new(Schema::new(fields)), columns)
+        }
+    }
+}
+
 impl<S: Scalar> TryFrom<ArrayRef> for OwnedColumn<S> {
     type Error = OwnedArrowConversionError;
     fn try_from(value: ArrayRef) -> Result<Self, Self::Error> {
         Self::try_from(&value)
+    }
+}
+
+fn arrow_presence(value: &ArrayRef, preserve_nullable: bool) -> Option<Vec<bool>> {
+    (preserve_nullable || value.null_count() != 0)
+        .then(|| (0..value.len()).map(|i| !value.is_null(i)).collect())
+}
+
+fn nullable_owned_column_from_array_ref<S: Scalar>(
+    value: &ArrayRef,
+    preserve_nullable: bool,
+) -> Result<NullableOwnedColumn<S>, OwnedArrowConversionError> {
+    let presence = arrow_presence(value, preserve_nullable);
+    let values = match &value.data_type() {
+        DataType::Boolean => OwnedColumn::Boolean(
+            value
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::UInt8 => OwnedColumn::Uint8(
+            value
+                .as_any()
+                .downcast_ref::<UInt8Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Int8 => OwnedColumn::TinyInt(
+            value
+                .as_any()
+                .downcast_ref::<Int8Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Int16 => OwnedColumn::SmallInt(
+            value
+                .as_any()
+                .downcast_ref::<Int16Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Int32 => OwnedColumn::Int(
+            value
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Int64 => OwnedColumn::BigInt(
+            value
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Decimal128(38, 0) => OwnedColumn::Int128(
+            value
+                .as_any()
+                .downcast_ref::<Decimal128Array>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Decimal256(precision, scale) if *precision <= 75 => OwnedColumn::Decimal75(
+            Precision::new(*precision).expect("precision is less than 76"),
+            *scale,
+            value
+                .as_any()
+                .downcast_ref::<Decimal256Array>()
+                .unwrap()
+                .iter()
+                .map(|value| {
+                    value.map_or(Ok(S::ZERO), |value| {
+                        convert_i256_to_scalar(&value).ok_or(
+                            OwnedArrowConversionError::DecimalConversionFailed { number: value },
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        DataType::Utf8 => OwnedColumn::VarChar(
+            value
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.unwrap_or_default().to_string())
+                .collect(),
+        ),
+        DataType::LargeBinary => OwnedColumn::VarBinary(
+            value
+                .as_any()
+                .downcast_ref::<LargeBinaryArray>()
+                .unwrap()
+                .iter()
+                .map(|value| value.map(<[u8]>::to_vec).unwrap_or_default())
+                .collect(),
+        ),
+        DataType::Timestamp(time_unit, timezone) => match time_unit {
+            ArrowTimeUnit::Second => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampSecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Second,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                )
+            }
+            ArrowTimeUnit::Millisecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampMillisecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                )
+            }
+            ArrowTimeUnit::Microsecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                )
+            }
+            ArrowTimeUnit::Nanosecond => {
+                let array = value
+                    .as_any()
+                    .downcast_ref::<TimestampNanosecondArray>()
+                    .expect("This cannot fail, all Arrow TimeUnits are mapped to PoSQL TimeUnits");
+                OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Nanosecond,
+                    PoSQLTimeZone::try_from(timezone)?,
+                    array
+                        .iter()
+                        .map(|value| value.unwrap_or_default())
+                        .collect(),
+                )
+            }
+        },
+        &data_type => {
+            return Err(OwnedArrowConversionError::UnsupportedType {
+                datatype: data_type.clone(),
+            })
+        }
+    };
+    Ok(NullableOwnedColumn::try_new(values, presence)
+        .expect("Arrow arrays should produce matching value and presence lengths"))
+}
+
+impl<S: Scalar> TryFrom<ArrayRef> for NullableOwnedColumn<S> {
+    type Error = OwnedArrowConversionError;
+    fn try_from(value: ArrayRef) -> Result<Self, Self::Error> {
+        Self::try_from(&value)
+    }
+}
+
+impl<S: Scalar> TryFrom<&ArrayRef> for NullableOwnedColumn<S> {
+    type Error = OwnedArrowConversionError;
+    fn try_from(value: &ArrayRef) -> Result<Self, Self::Error> {
+        nullable_owned_column_from_array_ref(value, false)
     }
 }
 impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
@@ -315,6 +608,31 @@ impl<S: Scalar> TryFrom<RecordBatch> for OwnedTable<S> {
             .zip(value.columns())
             .map(|(field, array_ref)| {
                 let owned_column = OwnedColumn::try_from(array_ref)?;
+                let identifier = Ident::new(field.name());
+                Ok((identifier, owned_column))
+            })
+            .collect();
+        let owned_table = Self::try_new(table?)?;
+        if num_columns == owned_table.num_columns() {
+            Ok(owned_table)
+        } else {
+            Err(OwnedArrowConversionError::DuplicateIdents)
+        }
+    }
+}
+
+impl<S: Scalar> TryFrom<RecordBatch> for NullableOwnedTable<S> {
+    type Error = OwnedArrowConversionError;
+    fn try_from(value: RecordBatch) -> Result<Self, Self::Error> {
+        let num_columns = value.num_columns();
+        let table: Result<IndexMap<_, _>, Self::Error> = value
+            .schema()
+            .fields()
+            .iter()
+            .zip(value.columns())
+            .map(|(field, array_ref)| {
+                let owned_column =
+                    nullable_owned_column_from_array_ref(array_ref, field.is_nullable())?;
                 let identifier = Ident::new(field.name());
                 Ok((identifier, owned_column))
             })
