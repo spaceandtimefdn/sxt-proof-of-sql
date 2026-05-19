@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -115,6 +116,43 @@ fn we_can_filter_columns_with_varbinary() {
         vec![
             Column::VarBinary((filtered_bytes.as_slice(), filtered_scalars.as_slice())),
             Column::BigInt(&[10, 30, 40]),
+        ]
+    );
+}
+
+#[test]
+fn we_can_filter_columns_with_primitive_and_timestamp_variants() {
+    let selection = vec![false, true, true, false];
+    let columns: Vec<Column<TestScalar>> = vec![
+        Column::Boolean(&[true, false, true, false]),
+        Column::Uint8(&[10, 20, 30, 40]),
+        Column::TinyInt(&[-1, -2, -3, -4]),
+        Column::SmallInt(&[100, 200, 300, 400]),
+        Column::Int(&[1_000, 2_000, 3_000, 4_000]),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::new(3_600),
+            &[1_700_000_001, 1_700_000_002, 1_700_000_003, 1_700_000_004],
+        ),
+    ];
+    let alloc = Bump::new();
+
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+
+    assert_eq!(len, 2);
+    assert_eq!(
+        result,
+        vec![
+            Column::Boolean(&[false, true]),
+            Column::Uint8(&[20, 30]),
+            Column::TinyInt(&[-2, -3]),
+            Column::SmallInt(&[200, 300]),
+            Column::Int(&[2_000, 3_000]),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::new(3_600),
+                &[1_700_000_002, 1_700_000_003],
+            ),
         ]
     );
 }
