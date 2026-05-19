@@ -108,6 +108,29 @@ impl DynProofExpr {
         }
     }
 
+    /// Create a SQL `IS FALSE` expression for a boolean column reference.
+    ///
+    /// Nullable boolean columns are false only when the value is false and the
+    /// row is present. Non-nullable boolean columns are already two-valued.
+    pub fn try_new_is_false(column_ref: ColumnRef) -> AnalyzeResult<Self> {
+        if column_ref.column_type() != &ColumnType::Boolean {
+            return Err(AnalyzeError::DataTypeMismatch {
+                left_type: column_ref.column_type().to_string(),
+                right_type: ColumnType::Boolean.to_string(),
+            });
+        }
+
+        let value_expr = Self::try_new_not(Self::new_column(column_ref.clone()))?;
+        if column_ref.is_nullable() {
+            Self::try_new_and(
+                value_expr,
+                Self::new_column(column_ref.presence_column_ref()),
+            )
+        } else {
+            Ok(value_expr)
+        }
+    }
+
     /// Create logical AND expression
     pub fn try_new_and(lhs: DynProofExpr, rhs: DynProofExpr) -> AnalyzeResult<Self> {
         AndExpr::try_new(Box::new(lhs), Box::new(rhs)).map(DynProofExpr::And)
@@ -257,5 +280,48 @@ mod tests {
         );
 
         assert!(DynProofExpr::try_new_is_true(column_ref).is_err());
+    }
+
+    #[test]
+    fn is_false_builder_ands_negated_value_with_presence_for_nullable_boolean_refs() {
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::new("sxt", "orders"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            DynProofExpr::try_new_is_false(column_ref.clone()).unwrap(),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_not(DynProofExpr::new_column(column_ref.clone())).unwrap(),
+                DynProofExpr::new_column(column_ref.presence_column_ref()),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn is_false_builder_keeps_non_nullable_boolean_refs_direct() {
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            DynProofExpr::try_new_is_false(column_ref.clone()).unwrap(),
+            DynProofExpr::try_new_not(DynProofExpr::new_column(column_ref)).unwrap()
+        );
+    }
+
+    #[test]
+    fn is_false_builder_rejects_non_boolean_refs() {
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert!(DynProofExpr::try_new_is_false(column_ref).is_err());
     }
 }

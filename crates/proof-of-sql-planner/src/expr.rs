@@ -223,6 +223,12 @@ pub(crate) fn filter_expr_to_proof_expr_with_fields(
         Expr::Column(col) => Ok(DynProofExpr::try_new_is_true(
             column_to_column_ref_from_fields(col, schema)?,
         )?),
+        Expr::Not(inner) => match &**inner {
+            Expr::Column(col) => Ok(DynProofExpr::try_new_is_false(
+                column_to_column_ref_from_fields(col, schema)?,
+            )?),
+            _ => expr_to_proof_expr_with_fields(expr, schema),
+        },
         _ => expr_to_proof_expr_with_fields(expr, schema),
     }
 }
@@ -346,6 +352,25 @@ mod tests {
         assert_eq!(
             filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
             DynProofExpr::try_new_is_true(column_ref).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_boolean_filter_not_column_to_is_false_proof_expr() {
+        let expr = Expr::Not(Box::new(df_column("namespace.table_name", "is_paid")));
+        let schema = vec![ColumnField::new_nullable(
+            "is_paid".into(),
+            ColumnType::Boolean,
+        )];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_false(column_ref).unwrap()
         );
     }
 
