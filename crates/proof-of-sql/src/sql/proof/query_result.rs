@@ -69,3 +69,72 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_and_analyze_error_we_can_convert_table_coercion_errors_to_query_errors() {
+        let error = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        });
+        assert!(matches!(error, QueryError::Overflow));
+        assert_eq!(error.to_string(), "Overflow error");
+
+        let error = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        });
+        assert!(matches!(
+            error,
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "Result does not match query: type mismatch"
+        );
+
+        let error = QueryError::from(TableCoercionError::NameMismatch);
+        assert!(matches!(
+            error,
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+
+        let error = QueryError::from(TableCoercionError::ColumnCountMismatch);
+        assert!(matches!(
+            error,
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+
+    #[test]
+    fn query_and_analyze_error_we_can_display_direct_query_error_variants() {
+        assert_eq!(QueryError::InvalidString.to_string(), "String decode error");
+        assert_eq!(
+            QueryError::MiscellaneousDecodingError.to_string(),
+            "Miscellaneous decoding error"
+        );
+        assert_eq!(
+            QueryError::MiscellaneousEvaluationError.to_string(),
+            "Miscellaneous evaluation error"
+        );
+        assert_eq!(
+            QueryError::InvalidColumnCount.to_string(),
+            "Invalid number of columns"
+        );
+    }
+}
