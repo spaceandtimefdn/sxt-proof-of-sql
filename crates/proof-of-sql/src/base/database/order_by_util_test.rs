@@ -1,6 +1,8 @@
 use crate::{
     base::{
         database::{order_by_util::*, Column, ColumnType, TableOperationError},
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -77,6 +79,43 @@ fn we_can_compare_indexes_by_columns_for_mixed_columns() {
 }
 
 #[test]
+fn we_can_compare_indexes_by_columns_for_primitive_and_decimal_columns() {
+    let uint8_values = &[9_u8, 3, 9];
+    let tinyint_values = &[5_i8, -2, 5];
+    let smallint_values = &[7_i16, 11, 7];
+    let decimal_values = &[
+        TestScalar::from(100_i64),
+        TestScalar::from(90_i64),
+        TestScalar::from(100_i64),
+    ];
+
+    assert_eq!(
+        compare_indexes_by_columns(&[Column::Uint8::<TestScalar>(uint8_values)], 0, 1),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_indexes_by_columns(&[Column::TinyInt::<TestScalar>(tinyint_values)], 1, 0),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_indexes_by_columns(&[Column::SmallInt::<TestScalar>(smallint_values)], 0, 2),
+        Ordering::Equal
+    );
+    assert_eq!(
+        compare_indexes_by_columns(
+            &[Column::Decimal75(
+                Precision::new(75).unwrap(),
+                0,
+                decimal_values
+            )],
+            1,
+            0
+        ),
+        Ordering::Less
+    );
+}
+
+#[test]
 fn we_can_compare_single_row_of_tables() {
     let left_slice_a = &[55, 44, 44, 66, 66, 77, 66, 66, 66, 66];
     let left_slice_b = &[22, 44, 55, 44, 33, 22, 22, 11, 22, 22];
@@ -113,6 +152,131 @@ fn we_can_compare_single_row_of_tables() {
     assert_eq!(
         compare_single_row_of_tables(left, right, 5, 0).unwrap(),
         Ordering::Equal
+    );
+}
+
+#[test]
+fn we_can_compare_single_row_of_tables_for_column_variants() {
+    let left_uint8 = &[9_u8];
+    let right_uint8 = &[3_u8];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::Uint8::<TestScalar>(left_uint8)],
+            &[Column::Uint8(right_uint8)],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Greater
+    );
+
+    let left_tinyint = &[-5_i8];
+    let right_tinyint = &[7_i8];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::TinyInt::<TestScalar>(left_tinyint)],
+            &[Column::TinyInt(right_tinyint)],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Less
+    );
+
+    let left_smallint = &[12_i16];
+    let right_smallint = &[12_i16];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::SmallInt::<TestScalar>(left_smallint)],
+            &[Column::SmallInt(right_smallint)],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Equal
+    );
+
+    let left_timestamp = &[101_i64];
+    let right_timestamp = &[99_i64];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::TimestampTZ::<TestScalar>(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                left_timestamp
+            )],
+            &[Column::TimestampTZ::<TestScalar>(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                right_timestamp
+            )],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Greater
+    );
+
+    let left_int128 = &[i128::MIN];
+    let right_int128 = &[0_i128];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::Int128::<TestScalar>(left_int128)],
+            &[Column::Int128(right_int128)],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Less
+    );
+
+    let left_decimal = &[TestScalar::from(33_i64)];
+    let right_decimal = &[TestScalar::from(33_i64)];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::Decimal75(
+                Precision::new(75).unwrap(),
+                0,
+                left_decimal
+            )],
+            &[Column::Decimal75(
+                Precision::new(75).unwrap(),
+                0,
+                right_decimal
+            )],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Equal
+    );
+
+    let left_scalar = &[TestScalar::from(2_i64)];
+    let right_scalar = &[TestScalar::from(4_i64)];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::Scalar(left_scalar)],
+            &[Column::Scalar(right_scalar)],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Less
+    );
+
+    let left_strings = &["zebra"];
+    let right_strings = &["ant"];
+    let left_string_scalars = &[TestScalar::from_le_bytes_mod_order(b"zebra")];
+    let right_string_scalars = &[TestScalar::from_le_bytes_mod_order(b"ant")];
+    assert_eq!(
+        compare_single_row_of_tables(
+            &[Column::VarChar((left_strings, left_string_scalars))],
+            &[Column::VarChar((right_strings, right_string_scalars))],
+            0,
+            0
+        )
+        .unwrap(),
+        Ordering::Greater
     );
 }
 
