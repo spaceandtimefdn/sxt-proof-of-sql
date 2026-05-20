@@ -1,4 +1,6 @@
 mod error;
+#[cfg(test)]
+mod error_test;
 /// Errors related to time operations, including timezone and timestamp conversions.
 pub use error::PoSQLTimestampError;
 mod timezone;
