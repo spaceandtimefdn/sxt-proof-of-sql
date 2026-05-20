@@ -11,3 +11,21 @@ pub enum ParseError {
         table_reference: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_format_parse_errors() {
+        let error = ParseError::InvalidTableReference {
+            table_reference: "schema.table.extra".into(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid table reference: schema.table.extra"
+        );
+    }
+}
