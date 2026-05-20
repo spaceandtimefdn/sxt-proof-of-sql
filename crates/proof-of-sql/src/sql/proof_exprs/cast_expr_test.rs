@@ -84,11 +84,7 @@ fn we_can_prove_a_simple_cast_expr() {
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         tinyint("a_cast", [0i8, 1, 0, 1]),
         smallint("b_cast", [1i16, 1, 0, 1]),
@@ -169,11 +165,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         smallint("a_cast", [1i16]),
         uint8("b_cast", [1u8]),

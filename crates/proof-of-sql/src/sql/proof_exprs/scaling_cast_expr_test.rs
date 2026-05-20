@@ -92,11 +92,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         decimal75("a_cast", 4, 1, [10]),
         decimal75("b_cast", 4, 1, [10]),
@@ -153,11 +149,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_decimal_to_decimal() {
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         decimal75("a_cast", 5, -1, [100]),
         decimal75("b_cast", 5, 2, [10]),
@@ -195,11 +187,7 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([timestamptz(
         "a_cast",
         PoSQLTimeUnit::Millisecond,

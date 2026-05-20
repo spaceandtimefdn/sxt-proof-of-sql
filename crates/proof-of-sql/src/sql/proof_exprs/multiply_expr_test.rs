@@ -69,11 +69,7 @@ fn we_can_prove_a_typical_multiply_query() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         decimal75("a", 16, 0, [2_i32, 6]),
         bigint("c", [0_i64, 2]),
@@ -136,11 +132,7 @@ fn where_clause_can_wrap_around() {
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         bigint(
             "a",
@@ -221,11 +213,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
-        let res = verifiable_res
-            .verify(&ast, &accessor, &(), &[])
-            .unwrap()
-            .table;
+        let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
 
         // Calculate/compare expected result
         let (expected_f, expected_d): (Vec<_>, Vec<_>) = multizip((
