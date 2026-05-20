@@ -45,11 +45,7 @@ fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
         not(equal(column(&t, "b", &accessor), const_bigint(1))),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("a", [123]), varchar("d", ["alfa"])]);
     assert_eq!(res, expected_res);
 }
@@ -98,11 +94,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             )),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
-        let res = verifiable_res
-            .verify(&ast, &accessor, &(), &[])
-            .unwrap()
-            .table;
+        let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
 
         // Calculate/compare expected result
         let (expected_a, expected_b): (Vec<_>, Vec<_>) =
