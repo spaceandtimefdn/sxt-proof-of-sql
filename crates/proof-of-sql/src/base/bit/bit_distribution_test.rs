@@ -6,6 +6,12 @@ use crate::base::{
 use bnum::types::U256;
 use core::ops::Shl;
 
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn we_panic_when_converting_no_lead_bit_to_proof_error() {
+    let _: crate::base::proof::ProofError = BitDistributionError::NoLeadBit.into();
+}
+
 // vary_mask function start
 
 #[test]
