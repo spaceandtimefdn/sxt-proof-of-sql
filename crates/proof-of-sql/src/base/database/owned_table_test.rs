@@ -101,6 +101,49 @@ fn we_can_create_an_owned_table_with_data() {
     );
     assert_eq!(owned_table.into_inner(), table);
 }
+
+#[test]
+fn we_can_inspect_owned_table_rows_columns_and_values() {
+    let owned_table: OwnedTable<TestScalar> = owned_table([
+        bigint("bigint", [1, 2, 3]),
+        varchar("varchar", ["a", "b", "c"]),
+    ]);
+
+    assert_eq!(owned_table.num_rows(), 3);
+    assert!(!owned_table.is_empty());
+    assert_eq!(
+        owned_table
+            .column_names()
+            .map(|ident| ident.value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["bigint", "varchar"]
+    );
+    assert_eq!(
+        owned_table.column_by_index(0),
+        Some(&OwnedColumn::BigInt(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        owned_table.column_by_index(1),
+        Some(&OwnedColumn::VarChar(vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string()
+        ]))
+    );
+    assert_eq!(owned_table.column_by_index(2), None);
+    assert_eq!(owned_table["bigint"], OwnedColumn::BigInt(vec![1, 2, 3]));
+}
+
+#[test]
+fn we_can_inspect_owned_table_with_no_columns() {
+    let owned_table = OwnedTable::<TestScalar>::try_new(IndexMap::default()).unwrap();
+
+    assert_eq!(owned_table.num_rows(), 0);
+    assert!(owned_table.is_empty());
+    assert_eq!(owned_table.column_names().count(), 0);
+    assert_eq!(owned_table.column_by_index(0), None);
+}
+
 #[test]
 fn we_get_inequality_between_tables_with_differing_column_order() {
     let owned_table_a: OwnedTable<TestScalar> = owned_table([
