@@ -99,6 +99,47 @@ impl<C: Commitment> TableCommitment<C> {
     }
 }
 
+#[cfg(test)]
+mod batch_to_columns_tests {
+    use super::*;
+    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use arrow::{
+        array::{Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn we_can_convert_record_batch_to_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("amount", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![10, 20, 30])),
+                Arc::new(StringArray::from(vec!["ten", "twenty", "thirty"])),
+            ],
+        )
+        .unwrap();
+        let bump = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &bump).unwrap();
+
+        assert_eq!(columns[0].0, Ident::new("amount"));
+        assert_eq!(columns[0].1, Column::BigInt(&[10, 20, 30]));
+
+        assert_eq!(columns[1].0, Ident::new("label"));
+        let expected_scalars = ["ten".into(), "twenty".into(), "thirty".into()];
+        assert_eq!(
+            columns[1].1,
+            Column::VarChar((&["ten", "twenty", "thirty"], &expected_scalars))
+        );
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
