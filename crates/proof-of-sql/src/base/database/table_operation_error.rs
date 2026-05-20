@@ -65,3 +65,50 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::TableOperationError;
+    use crate::base::database::{ColumnOperationError, ColumnType};
+    use alloc::string::ToString;
+
+    #[test]
+    fn table_operation_errors_render_context() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+
+        assert_eq!(
+            TableOperationError::JoinWithDifferentNumberOfColumns {
+                left_num_columns: 1,
+                right_num_columns: 2,
+            }
+            .to_string(),
+            "Cannot join tables with different numbers of columns: 1 and 2"
+        );
+
+        assert_eq!(
+            TableOperationError::JoinIncompatibleTypes {
+                left_type: ColumnType::Int,
+                right_type: ColumnType::BigInt,
+            }
+            .to_string(),
+            "Cannot join tables on columns with incompatible types: Int and BigInt"
+        );
+
+        assert_eq!(
+            TableOperationError::ColumnIndexOutOfBounds { column_index: 4 }.to_string(),
+            "Column index out of bounds: 4"
+        );
+    }
+
+    #[test]
+    fn table_operation_errors_forward_column_operation_context() {
+        let error = TableOperationError::ColumnOperationError {
+            source: ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 },
+        };
+
+        assert_eq!(error.to_string(), "Columns have different lengths: 2 != 3");
+    }
+}
