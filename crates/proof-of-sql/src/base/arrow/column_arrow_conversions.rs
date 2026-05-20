@@ -87,6 +87,68 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[test]
+    fn we_can_convert_column_types_to_arrow_datatypes() {
+        let cases = [
+            (ColumnType::Boolean, DataType::Boolean),
+            (ColumnType::Uint8, DataType::UInt8),
+            (ColumnType::TinyInt, DataType::Int8),
+            (ColumnType::SmallInt, DataType::Int16),
+            (ColumnType::Int, DataType::Int32),
+            (ColumnType::BigInt, DataType::Int64),
+            (ColumnType::Int128, DataType::Decimal128(38, 0)),
+            (
+                ColumnType::Decimal75(Precision::new(75).unwrap(), -2),
+                DataType::Decimal256(75, -2),
+            ),
+            (ColumnType::VarChar, DataType::Utf8),
+            (ColumnType::VarBinary, DataType::LargeBinary),
+        ];
+
+        for (column_type, data_type) in cases {
+            assert_eq!(DataType::from(&column_type), data_type);
+            assert_eq!(ColumnType::try_from(data_type).unwrap(), column_type);
+        }
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_column_types_to_arrow_fields() {
+        let cases = [
+            (PoSQLTimeUnit::Second, ArrowTimeUnit::Second),
+            (PoSQLTimeUnit::Millisecond, ArrowTimeUnit::Millisecond),
+            (PoSQLTimeUnit::Microsecond, ArrowTimeUnit::Microsecond),
+            (PoSQLTimeUnit::Nanosecond, ArrowTimeUnit::Nanosecond),
+        ];
+
+        for (posql_time_unit, arrow_time_unit) in cases {
+            let column_type = ColumnType::TimestampTZ(posql_time_unit, PoSQLTimeZone::new(9000));
+            let data_type = DataType::Timestamp(arrow_time_unit, Some(Arc::from("+02:30")));
+
+            assert_eq!(DataType::from(&column_type), data_type);
+            assert_eq!(
+                ColumnType::try_from(data_type.clone()).unwrap(),
+                column_type
+            );
+
+            let field = Field::from(&ColumnField::new("event_time".into(), column_type));
+            assert_eq!(field.name(), "event_time");
+            assert_eq!(field.data_type(), &data_type);
+            assert!(!field.is_nullable());
+        }
+    }
+
+    #[test]
+    fn we_reject_unsupported_arrow_datatypes() {
+        let err = ColumnType::try_from(DataType::Float64).unwrap_err();
+        assert_eq!(err, "Unsupported arrow data type Float64");
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot convert Scalar type to arrow type")]
+    fn we_cannot_convert_scalar_column_type_to_arrow_datatype() {
+        let _ = DataType::from(&ColumnType::Scalar);
+    }
+
     proptest! {
         #[test]
         fn we_can_roundtrip_arbitrary_column_type(column_type: ColumnType) {
