@@ -472,8 +472,7 @@ fn we_can_prove_a_projection() {
         ),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [1, 2, 3, 4, 7]),
         int128("c", [1, 3, 3, 4, 5]),

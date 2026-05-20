@@ -392,8 +392,7 @@ fn we_can_prove_a_filter_with_empty_results() {
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [3; 0]),
         int128("c", [3; 0]),
@@ -431,8 +430,7 @@ fn we_can_prove_a_filter() {
         equal(column(&t, "a", &accessor), const_int128(105)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [3, 7]),
         int128("c", [3, 5]),
