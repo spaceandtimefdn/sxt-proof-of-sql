@@ -1,5 +1,6 @@
 use super::*;
 use crate::base::{
+    proof::ProofError,
     scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
     try_standard_binary_deserialization, try_standard_binary_serialization,
 };
@@ -211,6 +212,23 @@ fn we_can_get_leading_bit_eval_while_constant_and_non_zero() {
 // leading_bit_eval functions start
 
 // leading_bit_eval functions end
+
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn converting_missing_lead_bit_error_panics() {
+    let _proof_error: ProofError = BitDistributionError::NoLeadBit.into();
+}
+
+#[test]
+fn converting_bit_verification_error_preserves_context() {
+    let proof_error = ProofError::from(BitDistributionError::Verification);
+    assert!(matches!(
+        proof_error,
+        ProofError::VerificationError {
+            error: "invalid bit_decomposition"
+        }
+    ));
+}
 
 #[test]
 fn we_can_compute_the_bit_distribution_of_an_empty_slice() {
