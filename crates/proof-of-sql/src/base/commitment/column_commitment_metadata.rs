@@ -293,6 +293,65 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_metadata_with_max_bounds_for_column_type() {
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::SmallInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::SmallInt,
+                bounds: ColumnBounds::SmallInt(Bounds::Bounded(
+                    BoundsInner::try_new(i16::MIN, i16::MAX).unwrap()
+                )),
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Int,
+                bounds: ColumnBounds::Int(Bounds::Bounded(
+                    BoundsInner::try_new(i32::MIN, i32::MAX).unwrap()
+                )),
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::BigInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::BigInt,
+                bounds: ColumnBounds::BigInt(Bounds::Bounded(
+                    BoundsInner::try_new(i64::MIN, i64::MAX).unwrap()
+                )),
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+                bounds: ColumnBounds::TimestampTZ(Bounds::Bounded(
+                    BoundsInner::try_new(i64::MIN, i64::MAX).unwrap()
+                )),
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int128),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Int128,
+                bounds: ColumnBounds::Int128(Bounds::Bounded(
+                    BoundsInner::try_new(i128::MIN, i128::MAX).unwrap()
+                )),
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Boolean),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Boolean,
+                bounds: ColumnBounds::NoOrder,
+            }
+        );
+    }
+
+    #[test]
     fn we_cannot_construct_metadata_with_type_bounds_mismatch() {
         assert!(matches!(
             ColumnCommitmentMetadata::try_new(
