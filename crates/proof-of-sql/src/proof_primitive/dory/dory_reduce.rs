@@ -53,3 +53,100 @@ pub fn dory_reduce_verify(
     state.nu -= 1;
     true
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{rand_G_vecs, test_rng, PublicParameters};
+    use super::*;
+    use merlin::Transcript as MerlinTranscript;
+
+    #[test]
+    fn we_can_prove_and_verify_one_dory_reduce_round_directly() {
+        let mut rng = test_rng();
+        let nu = 3;
+        let pp = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&pp).into();
+        let verifier_setup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let mut prover_state = ProverState::new(v1, v2, nu);
+        let mut verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        let mut messages = DoryMessages::default();
+        dory_reduce_prove(&mut messages, &mut transcript, &mut prover_state, &prover_setup);
+
+        assert_eq!(prover_state.nu, nu - 1);
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        assert!(dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup
+        ));
+        assert_eq!(verifier_state.nu, nu - 1);
+    }
+
+    #[test]
+    fn we_fail_to_verify_one_dory_reduce_round_when_gt_messages_are_missing() {
+        let mut rng = test_rng();
+        let nu = 3;
+        let pp = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&pp).into();
+        let verifier_setup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let mut prover_state = ProverState::new(v1, v2, nu);
+        let mut verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        let mut messages = DoryMessages::default();
+        dory_reduce_prove(&mut messages, &mut transcript, &mut prover_state, &prover_setup);
+        messages.GT_messages.pop();
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        assert!(!dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup
+        ));
+        assert_eq!(verifier_state.nu, nu);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dory_reduce_prove_requires_positive_nu() {
+        let mut rng = test_rng();
+        let nu = 0;
+        let pp = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let mut prover_state = ProverState::new(v1, v2, nu);
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        let mut messages = DoryMessages::default();
+        dory_reduce_prove(&mut messages, &mut transcript, &mut prover_state, &prover_setup);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dory_reduce_verify_requires_positive_nu() {
+        let mut rng = test_rng();
+        let nu = 0;
+        let pp = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&pp).into();
+        let verifier_setup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let prover_state = ProverState::new(v1, v2, nu);
+        let mut verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+        let mut transcript = MerlinTranscript::new(b"dory_reduce_test");
+        let mut messages = DoryMessages::default();
+        dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup,
+        );
+    }
+}
