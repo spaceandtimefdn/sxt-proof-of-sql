@@ -216,6 +216,26 @@ mod scale_adjust_test {
     }
 
     #[test]
+    fn we_can_validate_precision_conversion_and_decimal_errors() {
+        assert_eq!(
+            Precision::try_from(75_u64).unwrap(),
+            Precision::new(75).unwrap()
+        );
+
+        let precision_err = Precision::try_from(u64::from(u8::MAX) + 1).unwrap_err();
+        assert_eq!(
+            precision_err,
+            DecimalError::InvalidPrecision {
+                error: "256".to_string()
+            }
+        );
+
+        let precision_err = Precision::try_from(0_u64).unwrap_err();
+        let precision_err_as_string = String::from(precision_err);
+        assert_eq!(precision_err_as_string, "Decimal precision is not valid: 0");
+    }
+
+    #[test]
     fn we_can_match_integers_with_negative_scale() {
         let decimal = "12300".parse().unwrap();
         let target_scale = -2;
