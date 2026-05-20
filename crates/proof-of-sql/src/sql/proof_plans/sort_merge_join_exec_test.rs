@@ -155,46 +155,32 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
     let alloc = Bump::new();
     let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
     let cats = table([
-        borrowed_bigint("id", [1_i64, 2, 3, 4, 5, 6, 10, 29, 20, 21], &alloc),
+        borrowed_bigint("id", [1_i64, 2, 10, 20, 21], &alloc),
         borrowed_varchar(
             "name",
-            [
-                "Chloe", "Margaret", "Prudence", "Lucy", "Pepper", "Rocky", "Nova", "Whiskers",
-                "Mittens", "Felix",
-            ],
+            ["Chloe", "Margaret", "Nova", "Mittens", "Felix"],
             &alloc,
         ),
     ]);
     let table_cats: TableRef = "sxt.cats".parse().unwrap();
     let cat_human = table([
-        borrowed_bigint("id", [1_i64, 2, 98, 4, 10, 1, 2, 7, 5, 6], &alloc),
+        borrowed_bigint("id", [1_i64, 1, 2, 2, 4, 7, 10], &alloc),
         borrowed_varchar(
             "human",
-            [
-                "Cassia", "Cassia", "Gretta", "Gretta", "Trevor", "Ian", "Ian", "Erik", "Gretta",
-                "Gretta",
-            ],
+            ["Cassia", "Ian", "Cassia", "Ian", "Gretta", "Erik", "Trevor"],
             &alloc,
         ),
-        borrowed_varchar(
-            "state",
-            ["TX", "TX", "NC", "NC", "CO", "NC", "NC", "ND", "NC", "NC"],
-            &alloc,
-        ),
+        borrowed_varchar("state", ["TX", "NC", "TX", "NC", "NC", "ND", "CO"], &alloc),
     ]);
     let table_cat_human: TableRef = "sxt.cat_human".parse().unwrap();
     let cat_vet = table([
-        borrowed_bigint("id", [1_i64, 2, 3, 4, 5, 6, 9, 8, 10], &alloc),
+        borrowed_bigint("id", [1_i64, 2, 3, 5, 10], &alloc),
         borrowed_varchar(
             "hospital",
             [
                 "Mint Hill",
                 "Mint Hill",
                 "Brown Creek",
-                "Brown Creek",
-                "Brown Creek",
-                "Brown Creek",
-                "Clear Creek",
                 "Clear Creek",
                 "Rock Creek",
             ],
@@ -269,11 +255,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
 
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_cats);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &table_cats);
     let expected_res = owned_table([
         bigint("id", [1_i64, 1, 2, 2, 10]),
         varchar("name", ["Chloe", "Chloe", "Margaret", "Margaret", "Nova"]),

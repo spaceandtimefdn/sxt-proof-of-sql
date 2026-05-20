@@ -215,11 +215,7 @@ fn we_can_compare_columns_with_extreme_values() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("bigint_b", [i64::MAX, i64::MIN])]);
     assert_eq!(res, expected_res);
 }
