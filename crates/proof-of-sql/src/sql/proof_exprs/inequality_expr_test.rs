@@ -140,11 +140,7 @@ fn we_can_compare_a_constant_column() {
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [0; 0])]);
     assert_eq!(res, expected_res);
 }
@@ -167,11 +163,7 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [0; 0])]);
     assert_eq!(res, expected_res);
 }
@@ -215,11 +207,7 @@ fn we_can_compare_columns_with_extreme_values() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("bigint_b", [i64::MAX, i64::MIN])]);
     assert_eq!(res, expected_res);
 }
@@ -251,11 +239,7 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
         lte(column(&t, "e", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [25]),
         varchar("d", ["de"]),
@@ -300,11 +284,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [123]),
         varchar("d", ["abc"]),
@@ -350,11 +330,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [25]),
         varchar("d", ["de"]),
@@ -395,11 +371,7 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
         lte(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [25]),
         varchar("d", ["de"]),
@@ -453,11 +425,7 @@ fn we_can_compare_two_columns() {
         lte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 7])]);
     assert_eq!(res, expected_res);
 }
@@ -483,11 +451,7 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -513,11 +477,7 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 2, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -543,11 +503,7 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 2, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -570,11 +526,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
         lte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -597,11 +549,7 @@ fn we_can_compare_column_with_greater_than_or_equal() {
         gte(column(&t, "a", &accessor), const_bigint(1)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [2_i64])]);
     assert_eq!(res, expected_res);
 }
@@ -632,11 +580,7 @@ fn we_can_run_nested_comparison() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -659,11 +603,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64])]);
     assert_eq!(res, expected_res);
 }
@@ -686,11 +626,7 @@ fn we_can_compare_a_constant_column_of_zeros() {
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [1_i64, 2, 3])]);
     assert_eq!(res, expected_res);
 }
@@ -713,11 +649,7 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected = owned_table([bigint("b", [1_i64, 2, 3])]);
     assert_eq!(res, expected);
 }
@@ -759,11 +691,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             lte(column(&t, "a", &accessor), const_bigint(filter_val)),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
-        let res = verifiable_res
-            .verify(&ast, &accessor, &(), &[])
-            .unwrap()
-            .table;
+        let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
 
         // Calculate/compare expected result
         let (expected_a, expected_b): (Vec<_>, Vec<_>) =
