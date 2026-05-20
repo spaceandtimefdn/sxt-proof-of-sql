@@ -590,6 +590,13 @@ mod tests {
         let no_order = ColumnBounds::NoOrder;
         assert_eq!(no_order.try_union(no_order).unwrap(), no_order);
 
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
+        assert_eq!(
+            uint8_a.try_union(uint8_b).unwrap(),
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 6 }))
+        );
+
         let tinyint_a = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
         let tinyint_b = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
         assert_eq!(
@@ -677,6 +684,13 @@ mod tests {
     fn we_can_difference_column_bounds_with_matching_variant() {
         let no_order = ColumnBounds::NoOrder;
         assert_eq!(no_order.try_difference(no_order).unwrap(), no_order);
+
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 4 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 3, max: 6 }));
+        assert_eq!(
+            uint8_a.try_difference(uint8_b).unwrap(),
+            ColumnBounds::Uint8(Bounds::Bounded(BoundsInner { min: 1, max: 4 }))
+        );
 
         let tinyint_a = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
         let tinyint_b = ColumnBounds::TinyInt(Bounds::Empty);
