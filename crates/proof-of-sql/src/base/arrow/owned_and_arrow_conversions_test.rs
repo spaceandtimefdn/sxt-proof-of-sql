@@ -7,10 +7,12 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Float32Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
-    datatypes::{DataType, Field, Schema},
+    datatypes::{i256, DataType, Field, Schema},
     record_batch::RecordBatch,
 };
 use proptest::prelude::*;
@@ -99,6 +101,51 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
         OwnedColumn::<TestScalar>::try_from(array_ref),
         Err(OwnedArrowConversionError::UnsupportedType { .. })
     ));
+}
+
+fn assert_null_array_is_rejected(array_ref: ArrayRef) {
+    assert!(matches!(
+        OwnedColumn::<TestScalar>::try_from(array_ref),
+        Err(OwnedArrowConversionError::NullNotSupportedYet)
+    ));
+}
+
+#[test]
+fn we_reject_nulls_for_all_arrow_types_before_reading_backing_values() {
+    assert_null_array_is_rejected(Arc::new(BooleanArray::from(vec![Some(true), None])));
+    assert_null_array_is_rejected(Arc::new(UInt8Array::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(Int8Array::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(Int16Array::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(Int32Array::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(Int64Array::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(
+        Decimal128Array::from(vec![Some(1), None])
+            .with_precision_and_scale(38, 0)
+            .unwrap(),
+    ));
+    assert_null_array_is_rejected(Arc::new(
+        Decimal256Array::from(vec![Some(i256::from_i128(1)), None])
+            .with_precision_and_scale(75, 0)
+            .unwrap(),
+    ));
+    assert_null_array_is_rejected(Arc::new(StringArray::from(vec![Some("a"), None])));
+    assert_null_array_is_rejected(Arc::new(LargeBinaryArray::from_opt_vec(vec![
+        Some(b"a".as_slice()),
+        None,
+    ])));
+    assert_null_array_is_rejected(Arc::new(TimestampSecondArray::from(vec![Some(1), None])));
+    assert_null_array_is_rejected(Arc::new(TimestampMillisecondArray::from(vec![
+        Some(1),
+        None,
+    ])));
+    assert_null_array_is_rejected(Arc::new(TimestampMicrosecondArray::from(vec![
+        Some(1),
+        None,
+    ])));
+    assert_null_array_is_rejected(Arc::new(TimestampNanosecondArray::from(vec![
+        Some(1),
+        None,
+    ])));
 }
 
 fn we_can_convert_between_owned_table_and_record_batch_impl(
