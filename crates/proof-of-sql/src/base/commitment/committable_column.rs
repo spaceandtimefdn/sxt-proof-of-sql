@@ -227,6 +227,109 @@ impl<'a> From<&'a [bool]> for CommittableColumn<'a> {
     }
 }
 
+#[cfg(test)]
+mod conversion_tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_convert_column_views_to_committable_columns() {
+        let bools = [true, false];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Boolean(&bools)),
+            CommittableColumn::Boolean(&bools)
+        );
+
+        let uint8s = [1_u8, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Uint8(&uint8s)),
+            CommittableColumn::Uint8(&uint8s)
+        );
+
+        let tinyints = [-2_i8, 3];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TinyInt(&tinyints)),
+            CommittableColumn::TinyInt(&tinyints)
+        );
+
+        let smallints = [-5_i16, 8];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::SmallInt(&smallints)),
+            CommittableColumn::SmallInt(&smallints)
+        );
+
+        let ints = [-13_i32, 21];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int(&ints)),
+            CommittableColumn::Int(&ints)
+        );
+
+        let bigints = [-34_i64, 55];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::BigInt(&bigints)),
+            CommittableColumn::BigInt(&bigints)
+        );
+
+        let int128s = [-89_i128, 144];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int128(&int128s)),
+            CommittableColumn::Int128(&int128s)
+        );
+
+        let decimals = [TestScalar::from(233_i64), TestScalar::from(377_i64)];
+        match CommittableColumn::from(&Column::Decimal75(
+            Precision::new(75).unwrap(),
+            2,
+            &decimals,
+        )) {
+            CommittableColumn::Decimal75(precision, scale, limbs) => {
+                assert_eq!(precision, Precision::new(75).unwrap());
+                assert_eq!(scale, 2);
+                assert_eq!(limbs.len(), decimals.len());
+            }
+            other => panic!("Expected Decimal75, got {other:?}"),
+        }
+
+        let string_scalars = [TestScalar::from_le_bytes_mod_order(b"alpha")];
+        match CommittableColumn::from(&Column::VarChar((&["alpha"], &string_scalars))) {
+            CommittableColumn::VarChar(limbs) => assert_eq!(limbs.len(), string_scalars.len()),
+            other => panic!("Expected VarChar, got {other:?}"),
+        }
+
+        let bytes = [b"blob".as_slice()];
+        let byte_scalars = [TestScalar::from_le_bytes_mod_order(b"blob")];
+        match CommittableColumn::from(&Column::VarBinary((&bytes, &byte_scalars))) {
+            CommittableColumn::VarBinary(limbs) => assert_eq!(limbs.len(), byte_scalars.len()),
+            other => panic!("Expected VarBinary, got {other:?}"),
+        }
+
+        let times = [1_700_000_000_i64];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &times
+            )),
+            CommittableColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &times)
+        );
+    }
+
+    #[test]
+    fn we_can_convert_bool_and_uint8_slices_to_committable_columns() {
+        let bools = [true, false, true];
+        let committable = CommittableColumn::from(bools.as_slice());
+        assert_eq!(committable, CommittableColumn::Boolean(&bools));
+        assert_eq!(committable.len(), bools.len());
+        assert_eq!(committable.column_type(), ColumnType::Boolean);
+
+        let bytes = [2_u8, 3, 5];
+        let committable = CommittableColumn::from(bytes.as_slice());
+        assert_eq!(committable, CommittableColumn::Uint8(&bytes));
+        assert_eq!(committable.len(), bytes.len());
+        assert_eq!(committable.column_type(), ColumnType::Uint8);
+    }
+}
+
 #[cfg(feature = "blitzar")]
 impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
     fn from(value: &'a CommittableColumn<'b>) -> Self {
