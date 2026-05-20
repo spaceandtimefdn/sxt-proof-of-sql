@@ -92,4 +92,38 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn find_bigdecimals_only_returns_precision_and_scale_above_38() {
+        let sql = "CREATE TABLE TYPES(
+            DECIMAL_38 DECIMAL(38, 2),
+            DECIMAL_39 DECIMAL(39, 2),
+            DECIMAL_PRECISION_ONLY DECIMAL(39),
+            DECIMAL_WITHOUT_PRECISION DECIMAL,
+            INTEGER_VALUE INT
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("TYPES").unwrap(),
+            &[("DECIMAL_39".to_string(), 39, 2)]
+        );
+    }
+
+    #[test]
+    fn find_bigdecimals_ignores_non_create_table_statements() {
+        let sql = "SELECT 1;
+        CREATE TABLE BIG_TABLE(
+            VALUE DECIMAL(40, 1)
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("BIG_TABLE").unwrap(),
+            &[("VALUE".to_string(), 40, 1)]
+        );
+    }
 }
