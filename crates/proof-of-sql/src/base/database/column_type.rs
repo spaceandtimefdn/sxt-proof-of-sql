@@ -607,6 +607,90 @@ mod tests {
     }
 
     #[test]
+    fn we_can_compare_integer_widths_and_timestamp_scales() {
+        assert_eq!(
+            ColumnType::TinyInt.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::Int128),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(ColumnType::VarChar.max_integer_type(&ColumnType::Int), None);
+        assert_eq!(ColumnType::Int.max_integer_type(&ColumnType::VarChar), None);
+
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::SmallInt.max_unsigned_integer_type(&ColumnType::Int),
+            None
+        );
+        assert_eq!(
+            ColumnType::Boolean.max_unsigned_integer_type(&ColumnType::Uint8),
+            None
+        );
+
+        let timestamp_scales = [
+            (PoSQLTimeUnit::Second, Some(0)),
+            (PoSQLTimeUnit::Millisecond, Some(3)),
+            (PoSQLTimeUnit::Microsecond, Some(6)),
+            (PoSQLTimeUnit::Nanosecond, Some(9)),
+        ];
+        for (time_unit, expected_scale) in timestamp_scales {
+            assert_eq!(
+                ColumnType::TimestampTZ(time_unit, PoSQLTimeZone::utc()).scale(),
+                expected_scale
+            );
+        }
+        assert_eq!(ColumnType::Scalar.precision_value(), Some(0));
+        assert_eq!(ColumnType::VarBinary.precision_value(), None);
+        assert_eq!(ColumnType::VarChar.scale(), None);
+    }
+
+    #[test]
+    fn we_can_get_column_type_sizes_and_display_names() {
+        assert_eq!(ColumnType::Boolean.byte_size(), size_of::<bool>());
+        assert_eq!(ColumnType::Uint8.byte_size(), size_of::<u8>());
+        assert_eq!(ColumnType::TinyInt.byte_size(), size_of::<i8>());
+        assert_eq!(ColumnType::SmallInt.byte_size(), size_of::<i16>());
+        assert_eq!(ColumnType::Int.byte_size(), size_of::<i32>());
+        assert_eq!(ColumnType::BigInt.byte_size(), size_of::<i64>());
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()).byte_size(),
+            size_of::<i64>()
+        );
+        assert_eq!(ColumnType::Int128.byte_size(), size_of::<i128>());
+        assert_eq!(
+            ColumnType::Decimal75(Precision::new(75).unwrap(), 0).byte_size(),
+            size_of::<[u64; 4]>()
+        );
+        assert_eq!(ColumnType::Scalar.byte_size(), size_of::<[u64; 4]>());
+        assert_eq!(ColumnType::VarBinary.byte_size(), size_of::<[u64; 4]>());
+        assert_eq!(ColumnType::VarChar.byte_size(), size_of::<[u64; 4]>());
+
+        assert_eq!(ColumnType::Boolean.bit_size(), 8);
+        assert_eq!(format!("{}", ColumnType::Uint8), "UINT8");
+        assert_eq!(format!("{}", ColumnType::TinyInt), "TINYINT");
+        assert_eq!(format!("{}", ColumnType::Int), "INT");
+        assert_eq!(format!("{}", ColumnType::Int128), "DECIMAL");
+        assert_eq!(format!("{}", ColumnType::VarChar), "VARCHAR");
+        assert_eq!(format!("{}", ColumnType::Scalar), "SCALAR");
+        assert_eq!(
+            format!(
+                "{}",
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc())
+            ),
+            "TIMESTAMP(TIMEUNIT: seconds (precision: 0), TIMEZONE: +00:00)"
+        );
+    }
+
+    #[test]
     fn we_can_get_min_scalar() {
         assert_eq!(
             ColumnType::TinyInt.min_scalar(),
