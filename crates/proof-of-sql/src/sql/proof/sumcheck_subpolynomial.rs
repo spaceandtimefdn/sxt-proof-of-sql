@@ -91,8 +91,12 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
+    use super::{
+        CompositePolynomialBuilder, SumcheckSubpolynomial, SumcheckSubpolynomialTerm,
+        SumcheckSubpolynomialType,
+    };
     use crate::base::scalar::test_scalar::TestScalar;
+    use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
     use alloc::boxed::Box;
 
     #[test]
@@ -118,5 +122,42 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn we_can_compose_identity_and_zero_sum_subpolynomials() {
+        let fr = [Curve25519Scalar::from(1u64), Curve25519Scalar::from(2u64)];
+        let mle1 = [10, 20];
+        let mle2 = [11, 21];
+        let mle3 = [12, 22];
+
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+        let identity_terms: Vec<SumcheckSubpolynomialTerm<_>> = vec![(
+            Curve25519Scalar::from(2u64),
+            vec![Box::new(&mle1), Box::new(&mle2)],
+        )];
+        let zerosum_terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(Curve25519Scalar::from(3u64), vec![Box::new(&mle3)])];
+        let group_multiplier = Curve25519Scalar::from(5u64);
+
+        SumcheckSubpolynomial::new(SumcheckSubpolynomialType::Identity, identity_terms)
+            .compose(&mut builder, group_multiplier);
+        SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, zerosum_terms)
+            .compose(&mut builder, group_multiplier);
+
+        let p = builder.make_composite_polynomial();
+        assert_eq!(p.products.len(), 3);
+        assert_eq!(p.flattened_ml_extensions.len(), 5);
+
+        let pt = [Curve25519Scalar::from(9_268_764_u64)];
+        let m0 = Curve25519Scalar::from(1u64) - pt[0];
+        let m1 = pt[0];
+        let eval_fr = fr[0] * m0 + fr[1] * m1;
+        let eval1 = Curve25519Scalar::from(mle1[0]) * m0 + Curve25519Scalar::from(mle1[1]) * m1;
+        let eval2 = Curve25519Scalar::from(mle2[0]) * m0 + Curve25519Scalar::from(mle2[1]) * m1;
+        let eval3 = Curve25519Scalar::from(mle3[0]) * m0 + Curve25519Scalar::from(mle3[1]) * m1;
+        let expected = Curve25519Scalar::from(10u64) * eval_fr * eval1 * eval2
+            + Curve25519Scalar::from(15u64) * eval3;
+        assert_eq!(p.evaluate(&pt), expected);
     }
 }
