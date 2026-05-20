@@ -127,6 +127,67 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_qualified_count_star_to_count_one() {
+        use proof_of_sql::base::database::LiteralValue;
+
+        let wildcard_expr = Expr::Wildcard {
+            qualifier: Some("table".to_string()),
+        };
+        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let function = AggregateFunction::new(
+            physical_plan::aggregates::AggregateFunction::Count,
+            vec![wildcard_expr],
+            false,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            aggregate_function_to_proof_expr(&function, &schema).unwrap(),
+            (
+                AggregateFunc::Count,
+                DynProofExpr::new_literal(LiteralValue::BigInt(1))
+            )
+        );
+    }
+
+    #[test]
+    fn aggregate_conversion_propagates_column_errors() {
+        let expr = df_column("table", "missing");
+        let schema = vec![("a".into(), ColumnType::BigInt)];
+
+        for function in [
+            physical_plan::aggregates::AggregateFunction::Sum,
+            physical_plan::aggregates::AggregateFunction::Count,
+        ] {
+            let function =
+                AggregateFunction::new(function, vec![expr.clone()], false, None, None, None);
+            assert!(matches!(
+                aggregate_function_to_proof_expr(&function, &schema),
+                Err(PlannerError::ColumnNotFound)
+            ));
+        }
+    }
+
+    #[test]
+    fn we_cannot_convert_sum_star_to_proof_expr() {
+        let schema = vec![("a".into(), ColumnType::BigInt)];
+        let function = AggregateFunction::new(
+            physical_plan::aggregates::AggregateFunction::Sum,
+            vec![Expr::Wildcard { qualifier: None }],
+            false,
+            None,
+            None,
+            None,
+        );
+
+        assert!(matches!(
+            aggregate_function_to_proof_expr(&function, &schema),
+            Err(PlannerError::UnsupportedLogicalExpression { .. })
+        ));
+    }
+
+    #[test]
     fn we_cannot_convert_an_aggregate_function_to_pair_if_unsupported() {
         let expr = df_column("table", "a");
         let schema = vec![("a".into(), ColumnType::BigInt)];
