@@ -20,8 +20,11 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
-    - name: Install Dependencies
-      run: sudo apt-get update && sudo apt-get install -y clang lld
+    - name: Install cached apt dependencies
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: clang lld
+        version: 1.0
     - uses: taiki-e/install-action@cargo-llvm-cov
     - name: Clean Previous Coverage Artifacts
       run: cargo llvm-cov clean --workspace
