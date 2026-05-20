@@ -162,14 +162,18 @@ mod tests {
             scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
         },
         sql::{
-            proof::mock_verification_builder::MockVerificationBuilder,
-            proof_gadgets::verifier_evaluate_sign,
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_gadgets::{
+                final_round_evaluate_sign, first_round_evaluate_sign, verifier_evaluate_sign,
+            },
         },
     };
+    use alloc::collections::VecDeque;
     use bnum::{
         cast::As,
         types::{I256, U256},
     };
+    use bumpalo::Bump;
     use core::ops::Shl;
 
     fn evaluate_matrix(matrix: &[&[I256]], terms: &[TestScalar]) -> Vec<TestScalar> {
@@ -191,6 +195,51 @@ mod tests {
                 }
             })
             .sum()
+    }
+
+    #[test]
+    fn we_can_prove_signs_without_blitzar() {
+        let raw_data = [123_i64, -452, 0, 789, -910];
+        let data: Vec<TestScalar> = raw_data.into_iter().map(TestScalar::from).collect();
+        let alloc = Bump::new();
+
+        let first_round_signs = first_round_evaluate_sign(data.len(), &alloc, &data);
+        assert_eq!(first_round_signs, [false, true, false, false, true]);
+
+        let mut builder = FinalRoundBuilder::new(3, VecDeque::new());
+        let final_round_signs = final_round_evaluate_sign(&mut builder, &alloc, &data);
+        assert_eq!(final_round_signs, first_round_signs);
+        assert_eq!(
+            builder.bit_distributions(),
+            [BitDistribution::new::<TestScalar, _>(&raw_data)]
+        );
+        assert!(!builder.pcs_proof_mles().is_empty());
+        assert!(builder.num_sumcheck_subpolynomials() > 0);
+    }
+
+    #[test]
+    fn we_can_prove_constant_signs_without_blitzar() {
+        let raw_data = [-123_i64, -123, -123];
+        let data: Vec<TestScalar> = raw_data.into_iter().map(TestScalar::from).collect();
+        let alloc = Bump::new();
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let signs = final_round_evaluate_sign(&mut builder, &alloc, &data);
+        assert_eq!(signs, [true; 3]);
+        assert_eq!(
+            builder.bit_distributions(),
+            [BitDistribution::new::<TestScalar, _>(&raw_data)]
+        );
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn we_cannot_first_round_evaluate_sign_with_wrong_length() {
+        let alloc = Bump::new();
+        let data = [TestScalar::from(1), TestScalar::from(2)];
+        first_round_evaluate_sign(data.len() + 1, &alloc, &data);
     }
 
     #[test]
