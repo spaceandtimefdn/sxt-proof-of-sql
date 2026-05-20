@@ -113,7 +113,10 @@ pub fn get_table_refs_from_statement(
 #[cfg(test)]
 mod tests {
     use super::get_table_refs_from_statement;
-    use crate::{conversion::sql_to_posql_plans, PlannerResult};
+    use crate::{
+        conversion::{sql_to_posql_plans, sql_to_proof_plans},
+        PlannerResult,
+    };
     use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
     use indexmap::IndexSet;
     use proof_of_sql::{
@@ -172,6 +175,18 @@ AND s.salary > (
             &TableTestAccessor::<DynamicDoryEvaluationProof>::default(),
             &ConfigOptions::default(),
             |a, _| -> PlannerResult<LogicalPlan> { Ok(a.clone()) },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn we_can_convert_sql_to_proof_plans() {
+        let statements = Parser::parse_sql(&GenericDialect {}, "SELECT 1 AS one;").unwrap();
+
+        sql_to_proof_plans(
+            &statements,
+            &TableTestAccessor::<DynamicDoryEvaluationProof>::default(),
+            &ConfigOptions::default(),
         )
         .unwrap();
     }

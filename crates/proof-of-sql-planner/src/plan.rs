@@ -2224,6 +2224,73 @@ mod tests {
         );
     }
 
+    #[test]
+    fn we_can_convert_inner_join_plan_to_proof_plan() {
+        let left_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("left_value".into(), ColumnType::Int),
+        ]));
+        let right_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("right_value".into(), ColumnType::VarChar),
+        ]));
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_source, Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_source, Some(vec![0, 1]), vec![], None)
+                .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left),
+            right: Arc::new(right),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("left_value".into(), ColumnType::Int),
+            ],
+            TableRef::new("", "right_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("right_value".into(), ColumnType::VarChar),
+            ],
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
+
+        let expected_left = DynProofPlan::new_table(
+            TableRef::new("", "left_table"),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::Int),
+            ],
+        );
+        let expected_right = DynProofPlan::new_table(
+            TableRef::new("", "right_table"),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("right_value".into(), ColumnType::VarChar),
+            ],
+        );
+        let expected = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(expected_left),
+            Box::new(expected_right),
+            vec![0],
+            vec![0],
+            vec!["id".into(), "left_value".into(), "right_value".into()],
+        ));
+        assert_eq!(result, expected);
+    }
+
     // Filter (LogicalPlan::Filter) tests - Happy paths
     #[test]
     fn we_can_convert_simple_nested_filters() {
