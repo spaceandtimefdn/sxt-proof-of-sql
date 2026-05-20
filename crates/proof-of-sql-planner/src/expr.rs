@@ -85,68 +85,6 @@ fn nullable_column_refs_in_expr(
     }
 }
 
-fn nullable_propagating_column_refs_in_expr(
-    expr: &Expr,
-    schema: &[ColumnField],
-) -> PlannerResult<IndexSet<ColumnRef>> {
-    match expr {
-        Expr::Column(col) => {
-            let column_ref = column_to_column_ref_from_fields(col, schema)?;
-            Ok(if column_ref.is_nullable() {
-                IndexSet::from_iter([column_ref])
-            } else {
-                IndexSet::new()
-            })
-        }
-        Expr::Literal(_) | Expr::Placeholder(_) | Expr::IsNull(_) | Expr::IsNotNull(_) => {
-            Ok(IndexSet::new())
-        }
-        Expr::BinaryExpr(BinaryExpr { left, right, op })
-            if matches!(
-                op,
-                Operator::Eq
-                    | Operator::NotEq
-                    | Operator::Lt
-                    | Operator::Gt
-                    | Operator::LtEq
-                    | Operator::GtEq
-                    | Operator::Plus
-                    | Operator::Minus
-                    | Operator::Multiply
-            ) =>
-        {
-            let mut left_refs = nullable_propagating_column_refs_in_expr(left, schema)?;
-            left_refs.extend(nullable_propagating_column_refs_in_expr(right, schema)?);
-            Ok(left_refs)
-        }
-        Expr::Not(inner)
-        | Expr::Alias(Alias { expr: inner, .. })
-        | Expr::Cast(Cast { expr: inner, .. }) => {
-            nullable_propagating_column_refs_in_expr(inner, schema)
-        }
-        _ => Err(PlannerError::UnsupportedLogicalExpression {
-            expr: Box::new(expr.clone()),
-        }),
-    }
-}
-
-fn nullable_propagating_presence_expr(
-    expr: &Expr,
-    schema: &[ColumnField],
-) -> PlannerResult<Option<DynProofExpr>> {
-    let column_refs = nullable_propagating_column_refs_in_expr(expr, schema)?;
-    let mut column_refs = column_refs.into_iter();
-    let Some(first_column_ref) = column_refs.next() else {
-        return Ok(None);
-    };
-    let mut proof_expr = DynProofExpr::new_is_not_null(first_column_ref);
-    for column_ref in column_refs {
-        proof_expr =
-            DynProofExpr::try_new_and(proof_expr, DynProofExpr::new_is_not_null(column_ref))?;
-    }
-    Ok(Some(proof_expr))
-}
-
 fn and_nullable_presence_guards(
     mut proof_expr: DynProofExpr,
     column_refs: IndexSet<ColumnRef>,
@@ -281,21 +219,22 @@ pub(crate) fn expr_to_proof_expr_with_fields(
             Expr::Column(col) => Ok(DynProofExpr::new_is_null(column_to_column_ref_from_fields(
                 col, schema,
             )?)),
-            _ => Ok(
-                nullable_propagating_presence_expr(expr, schema)?.map_or_else(
+            _ => Ok(expr_to_proof_expr_with_fields(expr, schema)?
+                .nullable_result_presence_expr()
+                .map_or_else(
                     || DynProofExpr::new_literal(LiteralValue::Boolean(false)),
                     |presence_expr| {
                         DynProofExpr::try_new_not(presence_expr)
                             .expect("Presence expressions have boolean type")
                     },
-                ),
-            ),
+                )),
         },
         Expr::IsNotNull(expr) => match &**expr {
             Expr::Column(col) => Ok(DynProofExpr::new_is_not_null(
                 column_to_column_ref_from_fields(col, schema)?,
             )),
-            _ => Ok(nullable_propagating_presence_expr(expr, schema)?
+            _ => Ok(expr_to_proof_expr_with_fields(expr, schema)?
+                .nullable_result_presence_expr()
                 .unwrap_or_else(|| DynProofExpr::new_literal(LiteralValue::Boolean(true)))),
         },
         Expr::Cast(cast) => {
@@ -655,18 +594,26 @@ mod tests {
     }
 
     #[test]
-    fn we_reject_is_null_for_general_logical_exprs() {
-        let expr = Expr::IsNull(Box::new(Expr::BinaryExpr(BinaryExpr {
+    fn we_can_convert_is_null_for_nullable_logical_exprs() {
+        let logical_expr = Expr::BinaryExpr(BinaryExpr {
             left: Box::new(df_column("namespace.table_name", "is_paid")),
-            right: Box::new(Expr::Literal(ScalarValue::Boolean(Some(true)))),
+            right: Box::new(Expr::Literal(ScalarValue::Boolean(Some(false)))),
             op: Operator::Or,
-        })));
+        });
         let schema = vec![ColumnField::new_nullable(
             "is_paid".into(),
             ColumnType::Boolean,
         )];
 
-        assert!(expr_to_proof_expr_with_fields(&expr, &schema).is_err());
+        assert!(expr_to_proof_expr_with_fields(
+            &Expr::IsNull(Box::new(logical_expr.clone())),
+            &schema
+        )
+        .is_ok());
+        assert!(
+            expr_to_proof_expr_with_fields(&Expr::IsNotNull(Box::new(logical_expr)), &schema)
+                .is_ok()
+        );
     }
 
     #[test]

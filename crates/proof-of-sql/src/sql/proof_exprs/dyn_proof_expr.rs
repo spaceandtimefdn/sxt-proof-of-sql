@@ -111,7 +111,7 @@ impl DynProofExpr {
     ///
     /// `None` means the expression is statically non-nullable.
     #[must_use]
-    pub(crate) fn nullable_result_presence_expr(&self) -> Option<Self> {
+    pub fn nullable_result_presence_expr(&self) -> Option<Self> {
         match self {
             Self::Column(column) => column
                 .column_ref()
