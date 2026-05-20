@@ -99,3 +99,94 @@ impl ProofExpr for CastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::table_with_row_count, ColumnType, LiteralValue, TableRef},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::{collections::VecDeque, vec};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn cast_expr_casts_literal_columns_without_blitzar() {
+        let alloc = Bump::new();
+        let table = table_with_row_count::<TestScalar>([], 2);
+        let cast_expr = CastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true))),
+            ColumnType::BigInt,
+        )
+        .unwrap();
+
+        assert_eq!(cast_expr.data_type(), ColumnType::BigInt);
+        assert_eq!(cast_expr.to_type(), &ColumnType::BigInt);
+        assert_eq!(cast_expr.get_from_expr().data_type(), ColumnType::Boolean);
+
+        let first_round = cast_expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(first_round, Column::BigInt(&[1_i64, 1]));
+
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+        let final_round = cast_expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round, Column::BigInt(&[1_i64, 1]));
+    }
+
+    #[test]
+    fn cast_expr_delegates_verifier_and_column_refs_without_blitzar() {
+        let cast_expr = CastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::TinyInt(7))),
+            ColumnType::BigInt,
+        )
+        .unwrap();
+        let mut verifier = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let eval = cast_expr
+            .verifier_evaluate(&mut verifier, &IndexMap::default(), 3_i64.into(), &[])
+            .unwrap();
+        assert_eq!(eval, TestScalar::from(21_i64));
+
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "casts"),
+            Ident::new("flag"),
+            ColumnType::Boolean,
+        );
+        let cast_expr = CastExpr::try_new(
+            Box::new(DynProofExpr::new_column(column_ref.clone())),
+            ColumnType::BigInt,
+        )
+        .unwrap();
+        let mut column_refs = IndexSet::default();
+
+        cast_expr.get_column_references(&mut column_refs);
+
+        assert_eq!(column_refs.len(), 1);
+        assert!(column_refs.contains(&column_ref));
+    }
+
+    #[test]
+    fn cast_expr_rejects_unsupported_casts_without_blitzar() {
+        let error = CastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::VarChar(
+                "not_numeric".into(),
+            ))),
+            ColumnType::BigInt,
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, AnalyzeError::DataTypeMismatch { .. }));
+    }
+}
