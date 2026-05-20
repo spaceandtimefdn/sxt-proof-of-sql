@@ -111,6 +111,14 @@ mod tests {
     }
 
     #[test]
+    fn mont_scalar_hashing_masks_non_empty_input() {
+        type Scalar = MontScalar<ark_curve25519::FrConfig>;
+        let scalar = Scalar::from_byte_slice_via_hash(b"abc");
+        assert_ne!(scalar, Scalar::ZERO);
+        assert!(scalar.into_u256_wrapping() <= Scalar::CHALLENGE_MASK);
+    }
+
+    #[test]
     fn we_can_compute_powers_of_10() {
         for i in 0..=u128::MAX.ilog10() {
             assert_eq!(

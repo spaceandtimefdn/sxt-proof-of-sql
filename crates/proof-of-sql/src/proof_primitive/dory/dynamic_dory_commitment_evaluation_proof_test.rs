@@ -1,5 +1,6 @@
 use super::{
-    test_rng, DoryScalar, DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
+    dynamic_dory_commitment_evaluation_proof::DoryError, test_rng, DoryScalar,
+    DynamicDoryEvaluationProof, ProverSetup, PublicParameters, VerifierSetup,
 };
 use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof};
 use ark_std::UniformRand;
@@ -56,6 +57,68 @@ fn test_random_ipa_with_various_lengths() {
             &&verifier_setup,
         );
     }
+}
+
+#[test]
+fn new_returns_default_proof_for_nonzero_generator_offset() {
+    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let proof = DynamicDoryEvaluationProof::new(
+        &mut transcript,
+        &[DoryScalar::from(1u64)],
+        &[],
+        1,
+        &&prover_setup,
+    );
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
+fn verify_reports_invalid_generator_offset() {
+    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let error = DynamicDoryEvaluationProof::default()
+        .verify_batched_proof(&mut transcript, &[], &[], &[], &[], 7, 0, &&verifier_setup)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        DoryError::InvalidGeneratorsOffset { offset: 7 }
+    ));
+}
+
+#[test]
+fn verify_reports_small_setup_for_large_evaluation_points() {
+    let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let b_point = vec![DoryScalar::from(0u64); 8];
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let error = DynamicDoryEvaluationProof::default()
+        .verify_batched_proof(
+            &mut transcript,
+            &[],
+            &[],
+            &[],
+            &b_point,
+            0,
+            0,
+            &&verifier_setup,
+        )
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        DoryError::SmallSetup {
+            actual: 1,
+            required: _
+        }
+    ));
 }
 
 #[test]
