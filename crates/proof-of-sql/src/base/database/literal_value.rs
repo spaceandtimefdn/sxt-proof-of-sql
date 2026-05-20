@@ -95,8 +95,9 @@ impl LiteralValue {
 mod tests {
     use crate::base::{
         database::LiteralValue,
-        math::decimal::Precision,
+        math::{decimal::Precision, i256::I256},
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -125,5 +126,59 @@ mod tests {
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
         }
+    }
+
+    #[test]
+    fn we_can_convert_literal_values_to_scalars() {
+        assert_eq!(
+            LiteralValue::Boolean(true).to_scalar::<TestScalar>(),
+            true.into()
+        );
+        assert_eq!(
+            LiteralValue::Uint8(2).to_scalar::<TestScalar>(),
+            2_u8.into()
+        );
+        assert_eq!(
+            LiteralValue::TinyInt(-3).to_scalar::<TestScalar>(),
+            (-3_i8).into()
+        );
+        assert_eq!(
+            LiteralValue::SmallInt(-4).to_scalar::<TestScalar>(),
+            (-4_i16).into()
+        );
+        assert_eq!(
+            LiteralValue::Int(-5).to_scalar::<TestScalar>(),
+            (-5_i32).into()
+        );
+        assert_eq!(
+            LiteralValue::BigInt(-6).to_scalar::<TestScalar>(),
+            (-6_i64).into()
+        );
+        assert_eq!(
+            LiteralValue::Int128(-7).to_scalar::<TestScalar>(),
+            (-7_i128).into()
+        );
+        assert_eq!(
+            LiteralValue::VarChar("test".to_string()).to_scalar::<TestScalar>(),
+            "test".into()
+        );
+        assert_eq!(
+            LiteralValue::VarBinary(vec![1, 2, 3]).to_scalar::<TestScalar>(),
+            TestScalar::from_byte_slice_via_hash(&[1, 2, 3])
+        );
+        assert_eq!(
+            LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, 7010.into())
+                .to_scalar::<TestScalar>(),
+            I256::from(7010).into_scalar()
+        );
+        assert_eq!(
+            LiteralValue::Scalar([1, 2, 3, 4]).to_scalar::<TestScalar>(),
+            [1, 2, 3, 4].into()
+        );
+        assert_eq!(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), 10)
+                .to_scalar::<TestScalar>(),
+            10_i64.into()
+        );
     }
 }
