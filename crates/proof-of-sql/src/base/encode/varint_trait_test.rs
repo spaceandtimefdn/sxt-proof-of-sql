@@ -1,4 +1,4 @@
-use super::VarInt;
+use super::{VarInt, U256};
 use crate::base::scalar::{test_scalar::TestScalar, Scalar};
 use alloc::{vec, vec::Vec};
 use core::{
@@ -276,16 +276,82 @@ fn we_can_encode_and_decode_small_u32_values() {
 }
 
 #[test]
+fn we_can_encode_and_decode_small_isize_values() {
+    test_small_signed_values_encode_and_decode_properly::<isize>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_small_usize_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<usize>();
+}
+
+#[test]
+fn we_can_encode_and_decode_small_i16_values() {
+    test_small_signed_values_encode_and_decode_properly::<i16>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_small_u16_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u16>();
+}
+
+#[test]
+fn we_can_encode_and_decode_small_i8_values() {
+    test_small_signed_values_encode_and_decode_properly::<i8>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_small_u8_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u8>();
+}
+
+#[test]
+fn we_can_encode_and_decode_bool_values() {
+    test_encode_decode(false, [0]);
+    test_encode_decode(true, [1]);
+    assert!(bool::decode_var(&2_u8.encode_var_vec()).is_none());
+}
+
+#[test]
 fn we_can_encode_and_decode_large_u32_values() {
     test_encode_decode(u32::MAX, [0xFF, 0xFF, 0xFF, 0xFF, 0x0F]);
     assert!(u32::decode_var(&[0x80, 0x80, 0x80, 0x80, 0x20]).is_none());
 }
+
+#[test]
+fn we_can_encode_and_decode_large_u16_values() {
+    test_encode_decode(u16::MAX, [0xFF, 0xFF, 0x03]);
+    assert!(u16::decode_var(&[0x80, 0x80, 0x04]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_large_u8_values() {
+    test_encode_decode(u8::MAX, [0xFF, 0x01]);
+    assert!(u8::decode_var(&[0x80, 0x02]).is_none());
+}
+
 #[test]
 fn we_can_encode_and_decode_large_i32_values() {
     test_encode_decode(i32::MAX, [0xFE, 0xFF, 0xFF, 0xFF, 0x0F]);
     test_encode_decode(i32::MIN, [0xFF, 0xFF, 0xFF, 0xFF, 0x0F]);
     assert!(i32::decode_var(&[0x80, 0x80, 0x80, 0x80, 0x10]).is_none());
     assert!(i32::decode_var(&[0x81, 0x80, 0x80, 0x80, 0x10]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_large_i16_values() {
+    test_encode_decode(i16::MAX, [0xFE, 0xFF, 0x03]);
+    test_encode_decode(i16::MIN, [0xFF, 0xFF, 0x03]);
+    assert!(i16::decode_var(&(i32::from(i16::MAX) + 1).encode_var_vec()).is_none());
+    assert!(i16::decode_var(&(i32::from(i16::MIN) - 1).encode_var_vec()).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_large_i8_values() {
+    test_encode_decode(i8::MAX, [0xFE, 0x01]);
+    test_encode_decode(i8::MIN, [0xFF, 0x01]);
+    assert!(i8::decode_var(&(i16::from(i8::MAX) + 1).encode_var_vec()).is_none());
+    assert!(i8::decode_var(&(i16::from(i8::MIN) - 1).encode_var_vec()).is_none());
 }
 
 #[test]
@@ -335,6 +401,15 @@ fn we_can_encode_and_decode_large_positive_u128() {
     value.encode_var(result);
     assert_eq!(expected_result, result);
     assert_eq!((value, 11), u128::decode_var(result).unwrap());
+}
+
+#[test]
+fn u128_decode_rejects_encoded_u256_values_with_high_words() {
+    let too_large = U256::from_words(0, 1);
+    let encoded = too_large.encode_var_vec();
+
+    assert!(U256::decode_var(&encoded).unwrap().0 == too_large);
+    assert!(u128::decode_var(&encoded).is_none());
 }
 
 #[test]
