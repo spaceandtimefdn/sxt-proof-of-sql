@@ -1,5 +1,6 @@
 use super::{PlaceholderError, ProofError, ProofSizeMismatch};
 use crate::base::database::ColumnType;
+use std::error::Error;
 
 #[test]
 fn proof_error_display_messages_are_stable() {
@@ -113,5 +114,28 @@ fn transparent_proof_error_variants_preserve_source_message() {
     assert_eq!(
         placeholder_error.to_string(),
         "Placeholder id must be greater than 0"
+    );
+}
+
+#[test]
+fn transparent_proof_error_variants_expose_wrapped_source() {
+    let size_error = ProofError::ProofSizeMismatch {
+        source: ProofSizeMismatch::TooFewMLEEvaluations,
+    };
+    let size_source = size_error.source().expect("proof size source is present");
+    assert_eq!(size_source.to_string(), "Proof has too few MLE evaluations");
+
+    let placeholder_error = ProofError::PlaceholderError {
+        source: PlaceholderError::InvalidPlaceholderIndex {
+            index: 3,
+            num_params: 1,
+        },
+    };
+    let placeholder_source = placeholder_error
+        .source()
+        .expect("placeholder source is present");
+    assert_eq!(
+        placeholder_source.to_string(),
+        "Invalid placeholder index: 3, number of params: 1"
     );
 }
