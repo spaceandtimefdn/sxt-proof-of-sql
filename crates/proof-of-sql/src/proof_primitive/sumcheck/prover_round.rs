@@ -124,3 +124,157 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn prover_state() -> ProverState<TestScalar> {
+        ProverState::new(
+            vec![
+                (TestScalar::from(10), vec![0]),
+                (TestScalar::from(20), vec![0, 1]),
+            ],
+            vec![
+                vec![
+                    TestScalar::from(1),
+                    TestScalar::from(2),
+                    TestScalar::from(3),
+                    TestScalar::from(4),
+                ],
+                vec![
+                    TestScalar::from(5),
+                    TestScalar::from(6),
+                    TestScalar::from(7),
+                    TestScalar::from(8),
+                ],
+            ],
+            2,
+            2,
+        )
+    }
+
+    #[test]
+    fn prove_round_evaluates_first_and_followup_rounds() {
+        let mut state = prover_state();
+
+        let first_round = prove_round(&mut state, &None);
+        assert_eq!(
+            first_round,
+            vec![
+                TestScalar::from(560),
+                TestScalar::from(940),
+                TestScalar::from(1400)
+            ]
+        );
+        assert_eq!(state.round, 1);
+        assert_eq!(
+            state.flattened_ml_extensions[0],
+            vec![
+                TestScalar::from(1),
+                TestScalar::from(2),
+                TestScalar::from(3),
+                TestScalar::from(4),
+            ]
+        );
+
+        let second_round = prove_round(&mut state, &Some(TestScalar::from(7)));
+        assert_eq!(
+            second_round,
+            vec![
+                TestScalar::from(2000),
+                TestScalar::from(2900),
+                TestScalar::from(3960)
+            ]
+        );
+        assert_eq!(state.round, 2);
+        assert_eq!(
+            state.flattened_ml_extensions,
+            vec![
+                vec![
+                    TestScalar::from(8),
+                    TestScalar::from(10),
+                    TestScalar::from(3),
+                    TestScalar::from(4),
+                ],
+                vec![
+                    TestScalar::from(12),
+                    TestScalar::from(14),
+                    TestScalar::from(7),
+                    TestScalar::from(8),
+                ],
+            ]
+        );
+    }
+
+    #[test]
+    fn in_place_fix_variable_updates_the_lower_half_in_place() {
+        let mut multiplicand = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(4),
+            TestScalar::from(8),
+            TestScalar::from(16),
+            TestScalar::from(32),
+            TestScalar::from(64),
+            TestScalar::from(128),
+        ];
+
+        in_place_fix_variable(&mut multiplicand, TestScalar::from(3), 2);
+
+        assert_eq!(
+            multiplicand,
+            vec![
+                TestScalar::from(4),
+                TestScalar::from(16),
+                TestScalar::from(64),
+                TestScalar::from(256),
+                TestScalar::from(16),
+                TestScalar::from(32),
+                TestScalar::from(64),
+                TestScalar::from(128),
+            ]
+        );
+    }
+
+    #[test]
+    fn vec_elementwise_add_adds_until_the_shorter_input_ends() {
+        assert_eq!(
+            vec_elementwise_add(
+                vec![
+                    TestScalar::from(1),
+                    TestScalar::from(2),
+                    TestScalar::from(3)
+                ],
+                vec![TestScalar::from(4), TestScalar::from(5)]
+            ),
+            vec![TestScalar::from(5), TestScalar::from(7)]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first.")]
+    fn prove_round_rejects_verifier_message_on_first_round() {
+        let mut state = prover_state();
+
+        prove_round(&mut state, &Some(TestScalar::from(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn prove_round_rejects_missing_verifier_message_after_first_round() {
+        let mut state = prover_state();
+
+        prove_round(&mut state, &None);
+        prove_round(&mut state, &None);
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid size of partial point")]
+    fn in_place_fix_variable_rejects_zero_variables() {
+        let mut multiplicand = vec![TestScalar::from(1), TestScalar::from(2)];
+
+        in_place_fix_variable(&mut multiplicand, TestScalar::from(1), 0);
+    }
+}
