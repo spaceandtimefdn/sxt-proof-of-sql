@@ -118,3 +118,135 @@ impl ProofExpr for SubtractExpr {
 }
 
 impl DecimalProofExpr for SubtractExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_bigint, table},
+                TableRef,
+            },
+            map::{IndexMap, IndexSet},
+            math::decimal::Precision,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+
+    fn literal(value: LiteralValue) -> DynProofExpr {
+        DynProofExpr::new_literal(value)
+    }
+
+    #[test]
+    fn subtract_expr_exposes_operands_and_decimal_type() {
+        let lhs = literal(LiteralValue::BigInt(10));
+        let rhs = literal(LiteralValue::Int(3));
+
+        let expr = SubtractExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap();
+
+        assert_eq!(expr.lhs(), &lhs);
+        assert_eq!(expr.rhs(), &rhs);
+        assert_eq!(
+            expr.data_type(),
+            ColumnType::Decimal75(Precision::new(20).unwrap(), 0)
+        );
+    }
+
+    #[test]
+    fn subtract_expr_rejects_mismatched_operand_types() {
+        let err = SubtractExpr::try_new(
+            Box::new(literal(LiteralValue::VarChar("abc".into()))),
+            Box::new(literal(LiteralValue::BigInt(1))),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: _,
+                right_type: _
+            }
+        ));
+    }
+
+    #[test]
+    fn subtract_expr_evaluates_literal_columns_in_first_and_final_rounds() {
+        let alloc = Bump::new();
+        let table = table([borrowed_bigint::<TestScalar>(
+            "unused",
+            [0_i64, 1, 2],
+            &alloc,
+        )]);
+        let expr = SubtractExpr::try_new(
+            Box::new(literal(LiteralValue::BigInt(10))),
+            Box::new(literal(LiteralValue::Int(3))),
+        )
+        .unwrap();
+        let expected = [TestScalar::from(7_i64); 3];
+
+        let first_round = expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert!(matches!(
+            first_round,
+            Column::Decimal75(precision, 0, values)
+                if precision == Precision::new(20).unwrap() && values == expected
+        ));
+
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut builder, &alloc, &table, &[])
+            .unwrap();
+        assert!(matches!(
+            final_round,
+            Column::Decimal75(precision, 0, values)
+                if precision == Precision::new(20).unwrap() && values == expected
+        ));
+    }
+
+    #[test]
+    fn subtract_expr_verifier_evaluation_subtracts_rhs_from_lhs() {
+        let expr = SubtractExpr::try_new(
+            Box::new(literal(LiteralValue::BigInt(10))),
+            Box::new(literal(LiteralValue::Int(3))),
+        )
+        .unwrap();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let accessor = IndexMap::<Ident, TestScalar>::default();
+
+        let eval = expr
+            .verifier_evaluate(&mut builder, &accessor, TestScalar::from(5_i64), &[])
+            .unwrap();
+
+        assert_eq!(eval, TestScalar::from(35_i64));
+    }
+
+    #[test]
+    fn subtract_expr_collects_column_references_from_both_sides() {
+        let table_ref = TableRef::new("sxt", "t");
+        let lhs = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let rhs = ColumnRef::new(table_ref, "b".into(), ColumnType::BigInt);
+        let expr = SubtractExpr::try_new(
+            Box::new(DynProofExpr::new_column(lhs.clone())),
+            Box::new(DynProofExpr::new_column(rhs.clone())),
+        )
+        .unwrap();
+        let mut columns = IndexSet::<ColumnRef>::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert!(columns.contains(&lhs));
+        assert!(columns.contains(&rhs));
+    }
+}
