@@ -35,7 +35,7 @@ mod placeholder_expr_test;
 
 mod and_expr;
 pub(crate) use and_expr::AndExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod and_expr_test;
 
 mod inequality_expr;
