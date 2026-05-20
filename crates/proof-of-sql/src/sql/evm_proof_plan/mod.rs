@@ -1,5 +1,7 @@
 mod error;
 pub(crate) use error::{EVMProofPlanError, EVMProofPlanResult};
+#[cfg(test)]
+mod error_test;
 mod exprs;
 pub(crate) use exprs::EVMDynProofExpr;
 mod plans;
