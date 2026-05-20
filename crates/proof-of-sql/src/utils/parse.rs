@@ -92,4 +92,31 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn test_find_bigdecimals_filters_precision_and_statement_types() {
+        let sql = "SELECT 1;
+
+        CREATE TABLE metrics(
+            ID BIGINT NOT NULL,
+            SMALL_AMOUNT DECIMAL(38, 4),
+            BIG_AMOUNT DECIMAL(39, 4),
+            UNSCALED_AMOUNT DECIMAL(78),
+            DESCRIPTION VARCHAR
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("metrics").unwrap(),
+            &[("BIG_AMOUNT".to_string(), 39, 4)]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to parse SQL")]
+    fn test_find_bigdecimals_panics_on_invalid_sql() {
+        let _ = find_bigdecimals("CREATE TABLE");
+    }
 }
