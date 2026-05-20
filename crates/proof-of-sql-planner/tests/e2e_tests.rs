@@ -20,6 +20,9 @@ use proof_of_sql::{
 use proof_of_sql_planner::sql_to_proof_plans;
 use sqlparser::{dialect::GenericDialect, parser::Parser};
 
+/// `max_nu = 4` supports tables with fewer than 128 rows, which covers these e2e fixtures.
+const E2E_DORY_SETUP_MAX_NU: usize = 4;
+
 /// Get a new `TableTestAccessor` with the provided tables
 fn new_test_accessor<'a, CP: CommitmentEvaluationProof>(
     tables: &IndexMap<TableRef, Table<'a, CP::Scalar>>,
@@ -64,7 +67,7 @@ fn posql_end_to_end_test<'a, CP: CommitmentEvaluationProof>(
 #[test]
 fn test_empty_sql() {
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -101,7 +104,7 @@ fn test_tableless_queries() {
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -155,7 +158,7 @@ fn test_simple_filter_queries() {
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -212,7 +215,7 @@ fn test_complex_filter_queries() {
         ]),
     ];
 
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -257,7 +260,7 @@ fn test_projection() {
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -290,7 +293,7 @@ fn test_projection_scaling() {
         vec![owned_table([decimal75("res", 7, 2, [15, 26, 37, 48])])];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -327,7 +330,7 @@ fn test_slicing_limit() {
     ])];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -416,7 +419,7 @@ fn test_group_by() {
     ];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -468,7 +471,7 @@ fn test_coin() {
     ])];
 
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
 
@@ -519,7 +522,7 @@ fn test_join() {
         owned_table([decimal75("sum_result", 11, 0, [11, 15, 14])]),
     ];
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
@@ -620,7 +623,7 @@ JOIN (
         ),
     ])];
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
@@ -665,7 +668,7 @@ fn test_union() {
         ],
     )])];
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
@@ -695,7 +698,7 @@ fn test_implicit_casts() {
         decimal75("product", 14, 1, [300, 800, 30, 8]),
     ])];
     // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(E2E_DORY_SETUP_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
