@@ -1,5 +1,5 @@
 use crate::base::{
-    database::{table_utility::*, Column, Table, TableError, TableOptions},
+    database::{table_utility::*, Column, ColumnField, ColumnType, Table, TableError, TableOptions},
     map::{indexmap, IndexMap},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
@@ -101,6 +101,36 @@ fn we_cannot_create_a_table_with_no_columns_without_specified_row_count() {
         Table::<TestScalar>::try_new(IndexMap::default()),
         Err(TableError::EmptyTableWithoutSpecifiedRowCount)
     ));
+}
+
+#[test]
+fn we_can_inspect_table_schema_and_columns_in_order() {
+    let table = Table::<TestScalar>::try_new(indexmap! {
+        "a".into() => Column::BigInt(&[10, 20]),
+        "b".into() => Column::Boolean(&[true, false]),
+    })
+    .unwrap();
+
+    assert!(!table.is_empty());
+    assert_eq!(
+        table.schema(),
+        vec![
+            ColumnField::new(Ident::new("a"), ColumnType::BigInt),
+            ColumnField::new(Ident::new("b"), ColumnType::Boolean),
+        ]
+    );
+    assert_eq!(
+        table
+            .column_names()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        vec!["a", "b"]
+    );
+    assert_eq!(table.columns().count(), 2);
+    assert_eq!(table.column(0), Some(&Column::BigInt(&[10, 20])));
+    assert_eq!(table.column(1), Some(&Column::Boolean(&[true, false])));
+    assert_eq!(table.column(2), None);
+    assert_eq!(table.inner_table().len(), 2);
 }
 
 #[test]
