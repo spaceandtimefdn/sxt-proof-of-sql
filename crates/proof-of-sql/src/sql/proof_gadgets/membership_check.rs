@@ -132,3 +132,172 @@ pub(crate) fn verify_membership_check<S: Scalar>(
 
     Ok(multiplicity_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        final_round_evaluate_membership_check, first_round_evaluate_membership_check,
+        verify_membership_check,
+    };
+    use crate::{
+        base::{
+            database::{table_utility::*, Column},
+            polynomial::MultilinearExtension,
+            proof::ProofError,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+            FinalRoundBuilder, FirstRoundBuilder,
+        },
+    };
+    use alloc::{collections::VecDeque, vec, vec::Vec};
+    use bumpalo::Bump;
+
+    #[test]
+    fn we_can_verify_membership_check_without_blitzar() {
+        let alloc = Bump::new();
+        let source_column = borrowed_bigint::<TestScalar>("a", [1, 2, 3], &alloc).1;
+        let candidate_column =
+            borrowed_bigint::<TestScalar>("candidate_a", [1, 2, 2, 1, 2], &alloc).1;
+        let source_columns = [source_column];
+        let candidate_columns = [candidate_column];
+        let source_len = source_columns[0].len();
+        let candidate_len = candidate_columns[0].len();
+        let source_chi = alloc.alloc_slice_fill_copy(source_len, true) as &[bool];
+        let candidate_chi = alloc.alloc_slice_fill_copy(candidate_len, true) as &[bool];
+
+        let mut first_round_builder = FirstRoundBuilder::new(candidate_len);
+        let multiplicities = first_round_evaluate_membership_check(
+            &mut first_round_builder,
+            &alloc,
+            &source_columns,
+            &candidate_columns,
+        );
+        assert_eq!(multiplicities, &[2, 3, 0]);
+        assert_eq!(first_round_builder.pcs_proof_mles().len(), 1);
+
+        let alpha = TestScalar::from(7);
+        let beta = TestScalar::from(19);
+        let mut final_round_builder = FinalRoundBuilder::new(candidate_len, VecDeque::new());
+        let final_multiplicities = final_round_evaluate_membership_check(
+            &mut final_round_builder,
+            &alloc,
+            alpha,
+            beta,
+            source_chi,
+            candidate_chi,
+            &source_columns,
+            &candidate_columns,
+        );
+        assert_eq!(final_multiplicities, multiplicities);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 3);
+
+        let verification_builder = run_verify_for_each_row(
+            source_len,
+            &first_round_builder,
+            &final_round_builder,
+            vec![],
+            3,
+            |builder, chi_n_eval, evaluation_point| {
+                let chi_m_eval = candidate_chi.inner_product(evaluation_point);
+                let column_evals = eval_columns(&source_columns, evaluation_point);
+                let candidate_evals = eval_columns(&candidate_columns, evaluation_point);
+                let multiplicity_eval = verify_membership_check(
+                    builder,
+                    alpha,
+                    beta,
+                    chi_n_eval,
+                    chi_m_eval,
+                    &column_evals,
+                    &candidate_evals,
+                )
+                .unwrap();
+                assert_eq!(
+                    multiplicity_eval,
+                    multiplicities.inner_product(evaluation_point)
+                );
+            },
+        );
+
+        assert!(verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .all(|result| *result));
+    }
+
+    #[test]
+    fn we_can_reject_membership_check_with_mismatched_column_counts() {
+        let mut builder: MockVerificationBuilder<TestScalar> = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            Vec::new(),
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let err = verify_membership_check(
+            &mut builder,
+            TestScalar::from(7),
+            TestScalar::from(19),
+            TestScalar::ONE,
+            TestScalar::ONE,
+            &[TestScalar::from(1), TestScalar::from(2)],
+            &[TestScalar::from(1)],
+        )
+        .unwrap_err();
+
+        assert!(matches!(err, ProofError::VerificationError { .. }));
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source and candidate columns should be equal")]
+    fn we_cannot_first_round_membership_check_with_mismatched_column_counts() {
+        let alloc = Bump::new();
+        let source_columns = [
+            borrowed_bigint::<TestScalar>("a", [1, 2, 3], &alloc).1,
+            borrowed_bigint::<TestScalar>("b", [4, 5, 6], &alloc).1,
+        ];
+        let candidate_columns = [borrowed_bigint::<TestScalar>("candidate_a", [1, 2, 3], &alloc).1];
+        let mut builder = FirstRoundBuilder::new(3);
+
+        let _ = first_round_evaluate_membership_check(
+            &mut builder,
+            &alloc,
+            &source_columns,
+            &candidate_columns,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source columns should be greater than 0")]
+    fn we_cannot_final_round_membership_check_without_columns() {
+        let alloc = Bump::new();
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+        let columns: [Column<'_, TestScalar>; 0] = [];
+        let candidate_columns: [Column<'_, TestScalar>; 0] = [];
+
+        let _ = final_round_evaluate_membership_check(
+            &mut builder,
+            &alloc,
+            TestScalar::from(7),
+            TestScalar::from(19),
+            &[true],
+            &[true],
+            &columns,
+            &candidate_columns,
+        );
+    }
+
+    fn eval_columns(
+        columns: &[Column<'_, TestScalar>],
+        evaluation_point: &[TestScalar],
+    ) -> Vec<TestScalar> {
+        columns
+            .iter()
+            .map(|column| column.inner_product(evaluation_point))
+            .collect()
+    }
+}
