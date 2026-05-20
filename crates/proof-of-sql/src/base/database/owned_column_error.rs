@@ -40,3 +40,58 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_format_owned_column_type_cast_errors() {
+        let error = OwnedColumnError::TypeCastError {
+            from_type: ColumnType::VarChar,
+            to_type: ColumnType::BigInt,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Can not perform type casting from VarChar to BigInt"
+        );
+    }
+
+    #[test]
+    fn we_can_format_owned_column_scalar_conversion_errors() {
+        let error = OwnedColumnError::ScalarConversionError {
+            error: "value is outside target range".to_string(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Error in converting scalars to a given column type: value is outside target range"
+        );
+    }
+
+    #[test]
+    fn we_can_format_owned_column_unsupported_errors() {
+        let error = OwnedColumnError::Unsupported {
+            error: "cannot coerce varbinary to scalar".to_string(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Unsupported operation: cannot coerce varbinary to scalar"
+        );
+    }
+
+    #[test]
+    fn we_can_format_column_coercion_errors() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}
