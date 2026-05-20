@@ -1,15 +1,21 @@
 use super::{ProvableQueryResult, QueryError};
+use crate::base::math::decimal::Precision;
 use crate::base::scalar::test_scalar::TestScalar;
-use crate::{
-    base::{
-        database::{Column, ColumnField, ColumnType},
-        math::decimal::Precision,
-        polynomial::compute_evaluation_vector,
-        scalar::Scalar,
+use crate::base::{
+    database::{
+        owned_table_utility::{
+            bigint, boolean, decimal75, int, int128, owned_table, scalar, smallint, timestamptz,
+            tinyint, uint8, varbinary, varchar,
+        },
+        Column, ColumnField, ColumnType,
     },
-    // proof_primitive::inner_product::TestScalar,
+    polynomial::compute_evaluation_vector,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    scalar::Scalar,
 };
+#[cfg(feature = "arrow")]
 use alloc::sync::Arc;
+#[cfg(feature = "arrow")]
 use arrow::{
     array::{Decimal128Array, Decimal256Array, Int64Array, LargeBinaryArray, StringArray},
     datatypes::{i256, Field, Schema},
@@ -17,6 +23,7 @@ use arrow::{
 };
 use num_traits::Zero;
 
+#[cfg(feature = "arrow")]
 #[test]
 fn we_can_convert_an_empty_provable_result_to_a_final_result() {
     let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[0_i64; 0])];
@@ -211,6 +218,90 @@ fn evaluation_fails_if_data_is_missing() {
 }
 
 #[test]
+fn we_can_convert_a_provable_result_to_an_owned_table_with_mixed_data_types() {
+    let varchar_values = ["abc", "de"];
+    let varchar_scalars = varchar_values
+        .iter()
+        .map(|value| TestScalar::from(*value))
+        .collect::<Vec<_>>();
+    let scalar_values = [TestScalar::from(3), TestScalar::from(4)];
+    let decimal_values = [TestScalar::from(10), TestScalar::from(-11)];
+    let varbinary_values = [b"foo".as_ref(), b"bar".as_ref()];
+    let varbinary_scalars = varbinary_values
+        .iter()
+        .map(|value| TestScalar::from_le_bytes_mod_order(value))
+        .collect::<Vec<_>>();
+    let time_unit = PoSQLTimeUnit::Second;
+    let time_zone = PoSQLTimeZone::utc();
+    let precision = Precision::new(12).unwrap();
+    let columns = [
+        Column::Boolean(&[true, false]),
+        Column::Uint8(&[1, 2]),
+        Column::TinyInt(&[-1, 2]),
+        Column::SmallInt(&[-3, 4]),
+        Column::Int(&[-5, 6]),
+        Column::BigInt(&[-7, 8]),
+        Column::Int128(&[-9, 10]),
+        Column::VarChar((&varchar_values, &varchar_scalars)),
+        Column::Scalar(&scalar_values),
+        Column::Decimal75(precision, 2, &decimal_values),
+        Column::TimestampTZ(time_unit, time_zone, &[1_700_000_000, 1_700_000_001]),
+        Column::VarBinary((&varbinary_values, &varbinary_scalars)),
+    ];
+    let column_fields = [
+        ColumnField::new("bool_col".into(), ColumnType::Boolean),
+        ColumnField::new("uint8_col".into(), ColumnType::Uint8),
+        ColumnField::new("tinyint_col".into(), ColumnType::TinyInt),
+        ColumnField::new("smallint_col".into(), ColumnType::SmallInt),
+        ColumnField::new("int_col".into(), ColumnType::Int),
+        ColumnField::new("bigint_col".into(), ColumnType::BigInt),
+        ColumnField::new("int128_col".into(), ColumnType::Int128),
+        ColumnField::new("varchar_col".into(), ColumnType::VarChar),
+        ColumnField::new("scalar_col".into(), ColumnType::Scalar),
+        ColumnField::new("decimal_col".into(), ColumnType::Decimal75(precision, 2)),
+        ColumnField::new(
+            "timestamp_col".into(),
+            ColumnType::TimestampTZ(time_unit, time_zone),
+        ),
+        ColumnField::new("varbinary_col".into(), ColumnType::VarBinary),
+    ];
+    let res = ProvableQueryResult::new(2, &columns);
+    let result_table = res.to_owned_table::<TestScalar>(&column_fields).unwrap();
+    let expected = owned_table([
+        boolean("bool_col", [true, false]),
+        uint8("uint8_col", [1_u8, 2]),
+        tinyint("tinyint_col", [-1_i8, 2]),
+        smallint("smallint_col", [-3_i16, 4]),
+        int("int_col", [-5_i32, 6]),
+        bigint("bigint_col", [-7_i64, 8]),
+        int128("int128_col", [-9_i128, 10]),
+        varchar("varchar_col", varchar_values),
+        scalar("scalar_col", scalar_values),
+        decimal75("decimal_col", 12, 2, decimal_values),
+        timestamptz(
+            "timestamp_col",
+            time_unit,
+            time_zone,
+            [1_700_000_000, 1_700_000_001],
+        ),
+        varbinary("varbinary_col", [b"foo".to_vec(), b"bar".to_vec()]),
+    ]);
+
+    assert_eq!(result_table, expected);
+}
+
+#[test]
+fn converting_to_owned_table_fails_if_the_column_count_does_not_match() {
+    let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[10, 12])];
+    let res = ProvableQueryResult::new(2, &cols);
+    assert!(matches!(
+        res.to_owned_table::<TestScalar>(&[]),
+        Err(QueryError::InvalidColumnCount)
+    ));
+}
+
+#[cfg(feature = "arrow")]
+#[test]
 fn we_can_convert_a_provable_result_to_a_final_result() {
     let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[10, 12])];
     let res = ProvableQueryResult::new(2, &cols);
@@ -227,6 +318,7 @@ fn we_can_convert_a_provable_result_to_a_final_result() {
     assert_eq!(res, expected_res);
 }
 
+#[cfg(feature = "arrow")]
 #[test]
 fn we_can_convert_a_provable_result_to_a_final_result_with_128_bits() {
     let cols: [Column<TestScalar>; 1] = [Column::Int128(&[10, i128::MAX])];
@@ -251,6 +343,7 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_128_bits() {
     assert_eq!(res, expected_res);
 }
 
+#[cfg(feature = "arrow")]
 #[test]
 fn we_can_convert_a_provable_result_to_a_final_result_with_252_bits() {
     let values = [TestScalar::from(10), TestScalar::MAX_SIGNED];
@@ -281,6 +374,7 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_252_bits() {
     assert_eq!(res, expected_res);
 }
 
+#[cfg(feature = "arrow")]
 #[test]
 fn we_can_convert_a_provable_result_to_a_final_result_with_mixed_data_types() {
     let values1: [i64; 2] = [6, i64::MAX];
@@ -336,6 +430,7 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_mixed_data_types() {
     assert_eq!(res, expected_res);
 }
 
+#[cfg(feature = "arrow")]
 #[test]
 fn we_can_convert_a_provable_result_to_a_final_result_with_varbinary() {
     let raw_bytes = [b"foo".as_ref(), b"bar"];
