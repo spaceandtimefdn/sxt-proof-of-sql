@@ -379,6 +379,35 @@ fn compute_truncated_lagrange_basis_sum_matches_sum_of_result_from_compute_evalu
 }
 
 #[test]
+fn compute_rho_eval_matches_weighted_sum_of_result_from_compute_evaluation_vector() {
+    use ark_std::rand::{
+        distributions::{Distribution, Uniform},
+        rngs::StdRng,
+        SeedableRng,
+    };
+
+    let mut rng = StdRng::from_seed([0u8; 32]);
+    let dist = Uniform::new(2, 10);
+    for _ in 0..20 {
+        let variables = dist.sample(&mut rng);
+        let length = Uniform::new((1 << (variables - 1)) + 1, 1 << variables).sample(&mut rng);
+        let point: Vec<_> = iter::repeat_with(|| TestScalar::rand(&mut rng))
+            .take(variables)
+            .collect();
+        let mut eval_vec = vec![TestScalar::zero(); length];
+        compute_evaluation_vector(&mut eval_vec, &point);
+        let expected = eval_vec
+            .into_iter()
+            .enumerate()
+            .map(|(index, eval)| TestScalar::from(index as u64) * eval)
+            .sum();
+        // ---------------- This is the actual test --------------------
+        assert_eq!(compute_rho_eval(length, &point), expected);
+        // -----------------------------------------------------------
+    }
+}
+
+#[test]
 fn compute_truncated_lagrange_basis_inner_product_matches_inner_product_of_results_compute_evaluation_vector(
 ) {
     use ark_std::rand::{
