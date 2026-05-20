@@ -48,3 +48,48 @@ fn we_can_track_the_evaluation_of_mles_used_within_sumcheck() {
         expected_eval
     );
 }
+
+#[test]
+fn we_can_compute_rho_256_evaluation_for_large_evaluation_points() {
+    let evaluation_point = [
+        Curve25519Scalar::from(1u64),
+        Curve25519Scalar::from(2u64),
+        Curve25519Scalar::from(3u64),
+        Curve25519Scalar::from(4u64),
+        Curve25519Scalar::from(5u64),
+        Curve25519Scalar::from(6u64),
+        Curve25519Scalar::from(7u64),
+        Curve25519Scalar::from(8u64),
+        Curve25519Scalar::from(9u64),
+    ];
+    let random_scalars = evaluation_point;
+
+    let sumcheck_random_scalars =
+        SumcheckRandomScalars::new(&random_scalars, 4, evaluation_point.len());
+
+    let evals = SumcheckMleEvaluations::new(
+        4,
+        [],
+        [],
+        &evaluation_point,
+        &sumcheck_random_scalars,
+        &[],
+        &[],
+    );
+
+    let expected_rho_256_prefix = evaluation_point
+        .iter()
+        .take(8)
+        .rev()
+        .fold(Curve25519Scalar::from(0u64), |acc, &x| {
+            acc * Curve25519Scalar::from(2u64) + x
+        });
+    let expected_rho_256 = evaluation_point
+        .iter()
+        .skip(8)
+        .fold(expected_rho_256_prefix, |acc, &x| {
+            acc * (Curve25519Scalar::one() - x)
+        });
+
+    assert_eq!(evals.rho_256_evaluation, Some(expected_rho_256));
+}
