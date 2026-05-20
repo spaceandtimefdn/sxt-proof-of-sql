@@ -5,9 +5,13 @@ use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEva
 use ark_std::UniformRand;
 use merlin::Transcript;
 
+const SMALL_EVALUATION_MAX_NU: usize = 1;
+const LENGTH_128_MAX_NU: usize = 4;
+const SERIALIZATION_MAX_NU: usize = 3;
+
 #[test]
 fn test_simple_ipa() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(SMALL_EVALUATION_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     test_simple_commitment_evaluation_proof::<DynamicDoryEvaluationProof>(
@@ -18,7 +22,7 @@ fn test_simple_ipa() {
 
 #[test]
 fn test_random_ipa_with_length_1() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(SMALL_EVALUATION_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     test_commitment_evaluation_proof_with_length_1::<DynamicDoryEvaluationProof>(
@@ -30,7 +34,7 @@ fn test_random_ipa_with_length_1() {
 #[test]
 #[should_panic = "verification improperly failed"]
 fn test_random_ipa_fails_with_too_small_of_verifier_setup() {
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(LENGTH_128_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let public_parameters = PublicParameters::test_rand(2, &mut test_rng());
     let verifier_setup = VerifierSetup::from(&public_parameters);
@@ -45,7 +49,7 @@ fn test_random_ipa_fails_with_too_small_of_verifier_setup() {
 #[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(LENGTH_128_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     for length in lengths {
@@ -61,7 +65,7 @@ fn test_random_ipa_with_various_lengths() {
 #[test]
 fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let mut rng = test_rng();
-    let public_parameters = PublicParameters::test_rand(4, &mut rng);
+    let public_parameters = PublicParameters::test_rand(SERIALIZATION_MAX_NU, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
     let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
         .take(30)
