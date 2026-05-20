@@ -12,6 +12,24 @@ fn test_mul_add_assign() {
     assert_eq!(a, c);
 }
 
+#[test]
+fn test_mul_add_assign_empty_input_keeps_result_unchanged() {
+    let mut a = [1, 2, 3].map(TestScalar::from).to_vec();
+    let b: Vec<i32> = Vec::new();
+    let expected = a.clone();
+    mul_add_assign(&mut a, TestScalar::from(10i32), &b);
+    assert_eq!(a, expected);
+}
+
+#[test]
+fn test_mul_add_assign_zero_multiplier_keeps_result_unchanged() {
+    let mut a = [1, 2, 3].map(TestScalar::from).to_vec();
+    let b = vec![10, 20, 30];
+    let expected = a.clone();
+    mul_add_assign(&mut a, TestScalar::from(0i32), &b);
+    assert_eq!(a, expected);
+}
+
 /// test [`mul_add_assign`] with uneven vectors
 #[test]
 fn test_mul_add_assign_uneven() {
