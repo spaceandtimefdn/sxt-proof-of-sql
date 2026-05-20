@@ -97,6 +97,7 @@ mod tests {
         database::LiteralValue,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -124,6 +125,48 @@ mod tests {
             let serialized_literal_value =
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
+        }
+    }
+
+    #[test]
+    fn we_can_convert_literal_values_to_scalars() {
+        let string = "proof".to_string();
+        let binary = vec![1, 2, 3, 4];
+        let decimal = crate::base::math::i256::I256::from(-123);
+        let scalar_limbs = [1, 2, 3, 4];
+
+        let cases = [
+            (LiteralValue::Boolean(true), TestScalar::from(true)),
+            (LiteralValue::Uint8(2), TestScalar::from(2_u8)),
+            (LiteralValue::TinyInt(-3), TestScalar::from(-3_i8)),
+            (LiteralValue::SmallInt(-4), TestScalar::from(-4_i16)),
+            (LiteralValue::Int(-5), TestScalar::from(-5_i32)),
+            (LiteralValue::BigInt(-6), TestScalar::from(-6_i64)),
+            (
+                LiteralValue::VarChar(string.clone()),
+                TestScalar::from(&string),
+            ),
+            (
+                LiteralValue::VarBinary(binary.clone()),
+                TestScalar::from_byte_slice_via_hash(&binary),
+            ),
+            (
+                LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, decimal),
+                decimal.into_scalar(),
+            ),
+            (LiteralValue::Int128(-7), TestScalar::from(-7_i128)),
+            (
+                LiteralValue::Scalar(scalar_limbs),
+                TestScalar::from(scalar_limbs),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 8),
+                TestScalar::from(8_i64),
+            ),
+        ];
+
+        for (literal, expected) in cases {
+            assert_eq!(literal.to_scalar::<TestScalar>(), expected);
         }
     }
 }
