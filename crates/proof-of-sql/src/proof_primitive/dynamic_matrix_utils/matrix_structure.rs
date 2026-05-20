@@ -273,4 +273,11 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn we_can_reject_explicit_invalid_row_column_edges() {
+        assert_eq!(index_from_row_and_column(1, 0), None);
+        assert_eq!(index_from_row_and_column(0, 1), None);
+        assert_eq!(index_from_row_and_column(3, 4), None);
+    }
 }
