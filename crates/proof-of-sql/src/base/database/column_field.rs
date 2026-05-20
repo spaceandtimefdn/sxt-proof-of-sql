@@ -31,3 +31,29 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnField, ColumnType};
+    use alloc::string::ToString;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn new_preserves_column_name_and_type() {
+        let field = ColumnField::new(Ident::new("amount".to_string()), ColumnType::BigInt);
+
+        assert_eq!(field.name().value, "amount");
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn serde_round_trips_column_metadata() {
+        let field = ColumnField::new(Ident::new("is_active".to_string()), ColumnType::Boolean);
+
+        let serialized = serde_json::to_string(&field).unwrap();
+        assert_eq!(
+            serde_json::from_str::<ColumnField>(&serialized).unwrap(),
+            field
+        );
+    }
+}
