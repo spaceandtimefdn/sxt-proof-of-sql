@@ -78,3 +78,79 @@ pub(crate) trait DecimalProofExpr: ProofExpr {
         self.data_type().scale().expect("Scale should be valid")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DecimalProofExpr, ProofExpr};
+    use crate::{
+        base::{
+            database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
+            map::{IndexMap, IndexSet},
+            math::decimal::Precision,
+            proof::{PlaceholderResult, ProofError},
+            scalar::Scalar,
+        },
+        sql::proof::{FinalRoundBuilder, VerificationBuilder},
+    };
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+
+    #[derive(Debug)]
+    struct TestDecimalExpr(ColumnType);
+
+    impl ProofExpr for TestDecimalExpr {
+        fn data_type(&self) -> ColumnType {
+            self.0
+        }
+
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unimplemented!("not needed for DecimalProofExpr accessors")
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            _builder: &mut FinalRoundBuilder<'a, S>,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unimplemented!("not needed for DecimalProofExpr accessors")
+        }
+
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            _builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<Ident, S>,
+            _chi_eval: S,
+            _params: &[LiteralValue],
+        ) -> Result<S, ProofError> {
+            unimplemented!("not needed for DecimalProofExpr accessors")
+        }
+
+        fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
+    }
+
+    impl DecimalProofExpr for TestDecimalExpr {}
+
+    #[test]
+    fn decimal_proof_expr_uses_decimal75_precision_and_scale() {
+        let precision = Precision::new(18).unwrap();
+        let expr = TestDecimalExpr(ColumnType::Decimal75(precision, 6));
+
+        assert_eq!(expr.precision(), precision);
+        assert_eq!(expr.scale(), 6);
+    }
+
+    #[test]
+    fn decimal_proof_expr_uses_integer_precision_with_zero_scale() {
+        let expr = TestDecimalExpr(ColumnType::BigInt);
+
+        assert_eq!(expr.precision(), Precision::new(19).unwrap());
+        assert_eq!(expr.scale(), 0);
+    }
+}
