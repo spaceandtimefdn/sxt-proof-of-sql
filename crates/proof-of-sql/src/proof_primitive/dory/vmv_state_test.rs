@@ -99,10 +99,10 @@ fn we_can_create_correct_vmv_states_from_a_small_fixed_vmv() {
 #[test]
 fn we_can_create_vmv_states_from_random_vmv_and_get_correct_sizes() {
     let mut rng = test_rng();
-    let max_nu = 5;
+    let max_nu = 4;
     let pp = PublicParameters::test_rand(max_nu, &mut rng);
     let prover_setup = (&pp).into();
-    for nu in 0..max_nu {
+    for nu in 0..=max_nu {
         let vmv = VMV::rand(nu, &mut rng);
 
         assert_eq!(vmv.L.len(), 1 << nu);
