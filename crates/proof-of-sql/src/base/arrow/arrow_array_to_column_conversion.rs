@@ -348,6 +348,53 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_timestamp_array_units() {
+        let alloc = Bump::new();
+        let data = vec![1_625_072_400, 1_625_076_000, 1_625_083_200];
+
+        let millis: ArrayRef = Arc::new(TimestampMillisecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("+00:00"),
+        ));
+        assert_eq!(
+            millis
+                .to_column::<TestScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &data[1..3]
+            )
+        );
+
+        let micros: ArrayRef = Arc::new(TimestampMicrosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("UTC"),
+        ));
+        assert_eq!(
+            micros
+                .to_column::<TestScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                PoSQLTimeZone::utc(),
+                &data[0..2]
+            )
+        );
+
+        let nanos: ArrayRef = Arc::new(TimestampNanosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("Z"),
+        ));
+        assert_eq!(
+            nanos
+                .to_column::<TestScalar>(&alloc, &(2..3), None)
+                .unwrap(),
+            Column::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc(), &data[2..3])
+        );
+    }
+
+    #[test]
     fn we_can_build_an_empty_column_from_an_empty_range_timestamp() {
         let alloc = Bump::new();
         let data = vec![1_625_072_400, 1_625_076_000]; // Example Unix timestamps
@@ -646,6 +693,46 @@ mod tests {
         ]));
         let result = array.to_column::<TestScalar>(&alloc, &(1..1), None);
         assert_eq!(result.unwrap(), Column::Boolean(&[]));
+    }
+
+    #[test]
+    fn we_can_convert_uint8_array_normal_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, u8::MAX]));
+        let result = array.to_column::<DoryScalar>(&alloc, &(1..3), None);
+        assert_eq!(result.unwrap(), Column::Uint8(&[3, u8::MAX]));
+    }
+
+    #[test]
+    fn we_can_convert_uint8_array_empty_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, u8::MAX]));
+        let result = array.to_column::<TestScalar>(&alloc, &(1..1), None);
+        assert_eq!(result.unwrap(), Column::Uint8(&[]));
+    }
+
+    #[test]
+    fn we_cannot_convert_uint8_array_oob_range() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![1, 3, u8::MAX]));
+
+        let result = array.to_column::<DoryScalar>(&alloc, &(2..4), None);
+
+        assert_eq!(
+            result,
+            Err(ArrowArrayToColumnConversionError::IndexOutOfBounds { len: 3, index: 4 })
+        );
+    }
+
+    #[test]
+    fn we_can_convert_uint8_array_with_nulls() {
+        let alloc = Bump::new();
+        let array: ArrayRef = Arc::new(UInt8Array::from(vec![Some(1), None, Some(u8::MAX)]));
+        let result = array.to_column::<TestScalar>(&alloc, &(0..3), None);
+        assert!(matches!(
+            result,
+            Err(ArrowArrayToColumnConversionError::ArrayContainsNulls)
+        ));
     }
 
     #[test]
