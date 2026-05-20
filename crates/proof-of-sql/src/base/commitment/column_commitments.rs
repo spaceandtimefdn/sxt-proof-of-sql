@@ -349,7 +349,7 @@ impl<C> FromIterator<(Ident, ColumnCommitmentMetadata, C)> for ColumnCommitments
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::base::{
@@ -669,10 +669,6 @@ mod tests {
             bigint("column_a", [5, 6, 7, 8]),
             varchar("b", ["amet", "ipsum", "dolor", "sit"]),
         ]);
-        println!(
-            "{:?}",
-            base_commitments.try_append_rows_with_offset(table_diff_id.inner_table(), 4, &())
-        );
         assert!(matches!(
             base_commitments.try_append_rows_with_offset(table_diff_id.inner_table(), 4, &()),
             Err(AppendColumnCommitmentsError::Mismatch {
