@@ -7,10 +7,12 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Float32Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
-    datatypes::{DataType, Field, Schema},
+    datatypes::{i256, DataType, Field, Schema},
     record_batch::RecordBatch,
 };
 use proptest::prelude::*;
@@ -42,6 +44,30 @@ fn we_can_convert_between_boolean_owned_column_and_array_ref_impl(data: Vec<bool
         Arc::new(BooleanArray::from(data)),
     );
 }
+fn we_can_convert_between_uint8_owned_column_and_array_ref_impl(data: Vec<u8>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Uint8(data.clone()),
+        Arc::new(UInt8Array::from(data)),
+    );
+}
+fn we_can_convert_between_tinyint_owned_column_and_array_ref_impl(data: Vec<i8>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::TinyInt(data.clone()),
+        Arc::new(Int8Array::from(data)),
+    );
+}
+fn we_can_convert_between_smallint_owned_column_and_array_ref_impl(data: Vec<i16>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::SmallInt(data.clone()),
+        Arc::new(Int16Array::from(data)),
+    );
+}
+fn we_can_convert_between_int_owned_column_and_array_ref_impl(data: Vec<i32>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Int(data.clone()),
+        Arc::new(Int32Array::from(data)),
+    );
+}
 fn we_can_convert_between_bigint_owned_column_and_array_ref_impl(data: Vec<i64>) {
     we_can_convert_between_owned_column_and_array_ref_impl(
         &OwnedColumn::<TestScalar>::BigInt(data.clone()),
@@ -58,28 +84,106 @@ fn we_can_convert_between_int128_owned_column_and_array_ref_impl(data: Vec<i128>
         ),
     );
 }
+fn we_can_convert_between_decimal75_owned_column_and_array_ref_impl(
+    precision: u8,
+    scale: i8,
+    data: Vec<i64>,
+) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Decimal75(
+            crate::base::math::decimal::Precision::new(precision).unwrap(),
+            scale,
+            data.iter().copied().map(TestScalar::from).collect(),
+        ),
+        Arc::new(
+            Decimal256Array::from(data.into_iter().map(i256::from).collect::<Vec<_>>())
+                .with_precision_and_scale(precision, scale)
+                .unwrap(),
+        ),
+    );
+}
 fn we_can_convert_between_varchar_owned_column_and_array_ref_impl(data: Vec<String>) {
     we_can_convert_between_owned_column_and_array_ref_impl(
         &OwnedColumn::<TestScalar>::VarChar(data.clone()),
         Arc::new(StringArray::from(data)),
     );
 }
+fn we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+    time_unit: crate::base::posql_time::PoSQLTimeUnit,
+    data: Vec<i64>,
+) {
+    let timezone = crate::base::posql_time::PoSQLTimeZone::utc();
+    let owned_column = OwnedColumn::<TestScalar>::TimestampTZ(time_unit, timezone, data.clone());
+    let array_ref: ArrayRef = match time_unit {
+        crate::base::posql_time::PoSQLTimeUnit::Second => {
+            Arc::new(TimestampSecondArray::from(data))
+        }
+        crate::base::posql_time::PoSQLTimeUnit::Millisecond => {
+            Arc::new(TimestampMillisecondArray::from(data))
+        }
+        crate::base::posql_time::PoSQLTimeUnit::Microsecond => {
+            Arc::new(TimestampMicrosecondArray::from(data))
+        }
+        crate::base::posql_time::PoSQLTimeUnit::Nanosecond => {
+            Arc::new(TimestampNanosecondArray::from(data))
+        }
+    };
+    we_can_convert_between_owned_column_and_array_ref_impl(&owned_column, array_ref);
+}
 #[test]
 fn we_can_convert_between_owned_column_and_array_ref() {
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_uint8_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_tinyint_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_smallint_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_int_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_bigint_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_int128_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_decimal75_owned_column_and_array_ref_impl(10, 2, vec![]);
     we_can_convert_between_varchar_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        crate::base::posql_time::PoSQLTimeUnit::Second,
+        vec![],
+    );
     let data = vec![true, false, true, false, true, false, true, false, true];
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(data);
+    we_can_convert_between_uint8_owned_column_and_array_ref_impl(vec![0, 1, 2, u8::MAX]);
+    we_can_convert_between_tinyint_owned_column_and_array_ref_impl(vec![
+        0,
+        1,
+        -1,
+        i8::MIN,
+        i8::MAX,
+    ]);
+    we_can_convert_between_smallint_owned_column_and_array_ref_impl(vec![
+        0,
+        1,
+        -1,
+        i16::MIN,
+        i16::MAX,
+    ]);
+    we_can_convert_between_int_owned_column_and_array_ref_impl(vec![0, 1, -1, i32::MIN, i32::MAX]);
     let data = vec![0, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX];
     we_can_convert_between_bigint_owned_column_and_array_ref_impl(data);
     let data = vec![0, 1, 2, 3, 4, 5, 6, i128::MIN, i128::MAX];
     we_can_convert_between_int128_owned_column_and_array_ref_impl(data);
+    we_can_convert_between_decimal75_owned_column_and_array_ref_impl(10, 2, vec![0, 1, -1, 42]);
     let data = vec!["0", "1", "2", "3", "4", "5", "6"];
     we_can_convert_between_varchar_owned_column_and_array_ref_impl(
         data.into_iter().map(String::from).collect(),
     );
+    let timestamp_data = vec![0, 1_625_072_400, i64::MAX / 2];
+    for time_unit in [
+        crate::base::posql_time::PoSQLTimeUnit::Second,
+        crate::base::posql_time::PoSQLTimeUnit::Millisecond,
+        crate::base::posql_time::PoSQLTimeUnit::Microsecond,
+        crate::base::posql_time::PoSQLTimeUnit::Nanosecond,
+    ] {
+        we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+            time_unit,
+            timestamp_data.clone(),
+        );
+    }
 
     let varbin_data = vec![
         b"foo".to_vec(),
