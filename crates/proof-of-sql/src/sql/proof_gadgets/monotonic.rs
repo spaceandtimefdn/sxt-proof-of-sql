@@ -134,3 +134,117 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_monotonic, first_round_evaluate_monotonic, verify_monotonic};
+    use crate::{
+        base::{
+            polynomial::MultilinearExtension,
+            proof::ProofError,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder,
+        },
+    };
+    use bumpalo::Bump;
+    use core::cell::Cell;
+    use std::collections::VecDeque;
+
+    fn verify_column<const STRICT: bool, const ASC: bool>(column: &[i64]) -> (bool, bool, bool) {
+        let alloc = Bump::new();
+        let column = column
+            .iter()
+            .copied()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let column = &*alloc.alloc_slice_copy(&column);
+        let mut first_round_builder: FirstRoundBuilder<'_, TestScalar> =
+            FirstRoundBuilder::new(column.len());
+        first_round_evaluate_monotonic(&mut first_round_builder, &alloc, column);
+
+        let alpha = TestScalar::TWO;
+        let beta = TestScalar::from(7);
+        let mut final_round_builder =
+            FinalRoundBuilder::new(first_round_builder.range_length(), VecDeque::new());
+        final_round_evaluate_monotonic::<TestScalar, STRICT, ASC>(
+            &mut final_round_builder,
+            &alloc,
+            alpha,
+            beta,
+            column,
+        );
+
+        let saw_success = Cell::new(false);
+        let saw_error = Cell::new(false);
+        let verification_builder = run_verify_for_each_row(
+            column.len(),
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |builder, chi_eval, evaluation_point| {
+                let column_eval = column.inner_product(evaluation_point);
+                match verify_monotonic::<TestScalar, STRICT, ASC>(
+                    builder,
+                    alpha,
+                    beta,
+                    column_eval,
+                    chi_eval,
+                ) {
+                    Ok(()) => saw_success.set(true),
+                    Err(ProofError::VerificationError { .. }) => saw_error.set(true),
+                    Err(error) => panic!("unexpected monotonic verification error: {error:?}"),
+                }
+            },
+        );
+
+        let identity_constraints_hold = verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|row| row.iter().all(|constraint| *constraint));
+        let zero_sum_constraints_hold = verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .all(|constraint| *constraint);
+
+        (
+            saw_success.get(),
+            saw_error.get(),
+            identity_constraints_hold && zero_sum_constraints_hold,
+        )
+    }
+
+    #[test]
+    fn we_can_verify_monotonic_columns_without_blitzar() {
+        assert_eq!(
+            verify_column::<true, true>(&[1, 2, 3, 4]),
+            (true, false, true)
+        );
+        assert_eq!(
+            verify_column::<false, true>(&[1, 1, 2, 4]),
+            (true, false, true)
+        );
+        assert_eq!(
+            verify_column::<true, false>(&[4, 3, 2, 1]),
+            (true, false, true)
+        );
+        assert_eq!(
+            verify_column::<false, false>(&[4, 2, 2, 1]),
+            (true, false, true)
+        );
+    }
+
+    #[test]
+    fn we_can_verify_empty_monotonic_column_without_blitzar() {
+        assert_eq!(verify_column::<true, true>(&[]), (true, false, true));
+    }
+
+    #[test]
+    fn we_reject_non_monotonic_columns_without_blitzar() {
+        let (_, saw_error, _) = verify_column::<true, true>(&[1, 3, 2, 4]);
+        assert!(saw_error);
+    }
+}
