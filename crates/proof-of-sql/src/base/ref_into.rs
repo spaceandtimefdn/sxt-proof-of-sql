@@ -23,3 +23,35 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Eq, PartialEq)]
+    struct RefSource {
+        value: usize,
+    }
+
+    impl From<&RefSource> for usize {
+        fn from(source: &RefSource) -> Self {
+            source.value
+        }
+    }
+
+    #[test]
+    fn ref_into_uses_reference_based_conversion() {
+        let source = RefSource { value: 42 };
+
+        assert_eq!(source.ref_into(), 42);
+        assert_eq!(source, RefSource { value: 42 });
+    }
+
+    #[test]
+    fn ref_into_allows_explicit_target_types() {
+        let source = RefSource { value: 7 };
+        let converted: usize = source.ref_into();
+
+        assert_eq!(converted, 7);
+    }
+}
