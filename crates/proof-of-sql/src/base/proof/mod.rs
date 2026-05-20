@@ -2,6 +2,8 @@
 //! as well as an error type which can occur when verification fails.
 mod error;
 pub use error::{PlaceholderError, PlaceholderResult, ProofError, ProofSizeMismatch};
+#[cfg(test)]
+mod error_test;
 
 /// Contains an extension trait for `merlin::Transcript`, which is used to construct a proof.
 #[cfg(any(test, feature = "blitzar"))]
