@@ -83,3 +83,117 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::Column,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::{collections::VecDeque, vec, vec::Vec};
+    use num_traits::Inv;
+
+    #[test]
+    fn final_round_evaluate_builds_star_for_folded_columns() {
+        let alloc = Bump::new();
+        let alpha = TestScalar::from(2);
+        let beta = TestScalar::from(3);
+        let lhs = [1_i64, 2, 3];
+        let rhs = [10_i64, 20, 30];
+        let columns: [Column<'_, TestScalar>; 2] = [Column::BigInt(&lhs), Column::BigInt(&rhs)];
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let (star, fold) =
+            FoldLogExpr::new(alpha, beta).final_round_evaluate(&mut builder, &alloc, &columns, 3);
+
+        let expected_fold = [26_i64, 52, 78].map(TestScalar::from);
+        let expected_star = expected_fold.map(|value| (TestScalar::ONE + value).inv().unwrap());
+        assert_eq!(fold, expected_fold.as_slice());
+        assert_eq!(star, expected_star.as_slice());
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        assert_eq!(
+            builder.evaluate_pcs_proof_mles(&[TestScalar::ONE, TestScalar::ZERO, TestScalar::ZERO]),
+            vec![expected_star[0]]
+        );
+    }
+
+    #[test]
+    fn verify_evaluate_records_the_fold_identity_constraint() {
+        let alpha = TestScalar::from(2);
+        let beta = TestScalar::from(3);
+        let column_evals = [TestScalar::from(4), TestScalar::from(5)];
+        let fold_eval = TestScalar::from(34);
+        let star_eval = (TestScalar::ONE + fold_eval).inv().unwrap();
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![vec![star_eval]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let (actual_star_eval, actual_fold_eval) = FoldLogExpr::new(alpha, beta)
+            .verify_evaluate(&mut builder, &column_evals, TestScalar::ONE)
+            .unwrap();
+
+        assert_eq!(actual_star_eval, star_eval);
+        assert_eq!(actual_fold_eval, fold_eval);
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![TestScalar::ZERO]]
+        );
+    }
+
+    #[test]
+    fn verify_evaluate_errors_when_the_star_evaluation_is_missing() {
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![Vec::new()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let result = FoldLogExpr::new(TestScalar::from(2), TestScalar::from(3)).verify_evaluate(
+            &mut builder,
+            &[TestScalar::from(4), TestScalar::from(5)],
+            TestScalar::ONE,
+        );
+
+        assert!(result.is_err());
+        assert!(builder.identity_subpolynomial_evaluations.is_empty());
+    }
+
+    #[test]
+    fn verify_evaluate_errors_when_the_identity_constraint_is_too_large() {
+        let fold_eval = TestScalar::from(34);
+        let star_eval = (TestScalar::ONE + fold_eval).inv().unwrap();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            2,
+            Vec::new(),
+            vec![vec![star_eval]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let result = FoldLogExpr::new(TestScalar::from(2), TestScalar::from(3)).verify_evaluate(
+            &mut builder,
+            &[TestScalar::from(4), TestScalar::from(5)],
+            TestScalar::ONE,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(builder.identity_subpolynomial_evaluations, vec![Vec::new()]);
+    }
+}
