@@ -485,6 +485,90 @@ mod test {
         );
     }
 
+    fn sample_owned_columns() -> Vec<(OwnedColumn<TestScalar>, ColumnType)> {
+        let decimal_precision = Precision::new(75).unwrap();
+
+        vec![
+            (
+                OwnedColumn::Boolean(vec![false, true, true]),
+                ColumnType::Boolean,
+            ),
+            (OwnedColumn::Uint8(vec![1, 2, 3]), ColumnType::Uint8),
+            (OwnedColumn::TinyInt(vec![-1, 0, 1]), ColumnType::TinyInt),
+            (
+                OwnedColumn::SmallInt(vec![-10, 0, 10]),
+                ColumnType::SmallInt,
+            ),
+            (OwnedColumn::Int(vec![-100, 0, 100]), ColumnType::Int),
+            (
+                OwnedColumn::BigInt(vec![-1000, 0, 1000]),
+                ColumnType::BigInt,
+            ),
+            (
+                OwnedColumn::Int128(vec![-10000, 0, 10000]),
+                ColumnType::Int128,
+            ),
+            (
+                OwnedColumn::VarChar(vec!["a".to_string(), "b".to_string(), "c".to_string()]),
+                ColumnType::VarChar,
+            ),
+            (
+                OwnedColumn::VarBinary(vec![b"a".to_vec(), b"b".to_vec(), b"c".to_vec()]),
+                ColumnType::VarBinary,
+            ),
+            (
+                OwnedColumn::Decimal75(
+                    decimal_precision,
+                    2,
+                    vec![TestScalar::ONE, TestScalar::TWO, TestScalar::from(3)],
+                ),
+                ColumnType::Decimal75(decimal_precision, 2),
+            ),
+            (
+                OwnedColumn::TimestampTZ(
+                    PoSQLTimeUnit::Second,
+                    PoSQLTimeZone::utc(),
+                    vec![1, 2, 3],
+                ),
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+            ),
+            (
+                OwnedColumn::Scalar(vec![TestScalar::ONE, TestScalar::TWO, TestScalar::from(3)]),
+                ColumnType::Scalar,
+            ),
+        ]
+    }
+
+    #[test]
+    fn we_can_get_metadata_for_all_owned_column_variants() {
+        for (column, column_type) in sample_owned_columns() {
+            assert_eq!(column.len(), 3);
+            assert!(!column.is_empty());
+            assert_eq!(column.column_type(), column_type);
+        }
+    }
+
+    #[test]
+    fn we_can_slice_all_owned_column_variants() {
+        for (column, _) in sample_owned_columns() {
+            assert_eq!(column.slice(1, 3).len(), 2);
+            assert_eq!(column.slice(2, 2).len(), 0);
+            assert!(column.slice(2, 2).is_empty());
+        }
+    }
+
+    #[test]
+    fn we_can_permute_all_owned_column_variants() {
+        let permutation = Permutation::try_new(vec![2, 0, 1]).unwrap();
+
+        for (column, column_type) in sample_owned_columns() {
+            let permuted = column.try_permute(&permutation).unwrap();
+
+            assert_eq!(permuted.len(), 3);
+            assert_eq!(permuted.column_type(), column_type);
+        }
+    }
+
     #[test]
     fn we_can_convert_columns_to_owned_columns_round_trip() {
         let alloc = Bump::new();
