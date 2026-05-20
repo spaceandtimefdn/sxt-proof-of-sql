@@ -58,11 +58,7 @@ fn we_can_prove_a_typical_add_subtract_query() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         smallint("a", [3_i16, 4]),
         bigint("c", [2_i16, 0]),
@@ -129,11 +125,7 @@ fn we_can_prove_a_typical_add_subtract_query_with_decimals() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([
         decimal75("a", 12, 1, [4_i64, 2]),
         decimal75("c", 17, 3, [1040_i64, 477]),
@@ -205,11 +197,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
-        let res = verifiable_res
-            .verify(&ast, &accessor, &(), &[])
-            .unwrap()
-            .table;
+        let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
 
         // Calculate/compare expected result
         let (expected_f, expected_d): (Vec<_>, Vec<_>) = multizip((
