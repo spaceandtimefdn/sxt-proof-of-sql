@@ -1,4 +1,4 @@
-use super::{ProofPlan, VerifiableQueryResult};
+use super::{ProofPlan, QueryData, VerifiableQueryResult};
 use crate::{
     base::{
         commitment::{Commitment, CommittableColumn},
@@ -27,8 +27,9 @@ pub fn exercise_verification(
     expr: &(impl ProofPlan + Serialize),
     accessor: &impl TestAccessor<RistrettoPoint>,
     table_ref: &TableRef,
-) {
-    res.clone()
+) -> QueryData<Curve25519Scalar> {
+    let verified_result = res
+        .clone()
         .verify(expr, accessor, &(), &[])
         .expect("Verification failed");
 
@@ -80,6 +81,8 @@ pub fn exercise_verification(
         fake_accessor.update_offset(table_ref, offset_generators + 1);
         assert!(res.clone().verify(expr, &fake_accessor, &(), &[]).is_err());
     }
+
+    verified_result
 }
 
 fn tampered_table<S: Scalar>(table: &OwnedTable<S>) -> OwnedTable<S> {
