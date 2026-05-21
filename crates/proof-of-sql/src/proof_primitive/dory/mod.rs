@@ -140,6 +140,8 @@ type DeferredG2 = deferred_msm::DeferredMSM<G2Affine, F>;
 
 mod blitzar_metadata_table;
 mod offset_to_bytes;
+#[cfg(test)]
+mod offset_to_bytes_test;
 mod pack_scalars;
 mod pairings;
 mod transpose;
