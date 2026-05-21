@@ -47,4 +47,33 @@ fn we_can_track_the_evaluation_of_mles_used_within_sumcheck() {
         *evals.chi_evaluations.values().next().unwrap(),
         expected_eval
     );
+    assert_eq!(evals.rho_256_evaluation, None);
+}
+
+#[test]
+fn we_can_compute_rho_256_evaluation_for_eight_variable_points() {
+    let evaluation_point = [
+        Curve25519Scalar::from(1u64),
+        Curve25519Scalar::from(0u64),
+        Curve25519Scalar::from(1u64),
+        Curve25519Scalar::from(0u64),
+        Curve25519Scalar::from(0u64),
+        Curve25519Scalar::from(0u64),
+        Curve25519Scalar::from(0u64),
+        Curve25519Scalar::from(0u64),
+    ];
+    let random_scalars = [Curve25519Scalar::from(2u64); 8];
+    let sumcheck_random_scalars = SumcheckRandomScalars::new(&random_scalars, 2, 8);
+
+    let evals = SumcheckMleEvaluations::new(
+        2,
+        [],
+        [],
+        &evaluation_point,
+        &sumcheck_random_scalars,
+        &[],
+        &[],
+    );
+
+    assert_eq!(evals.rho_256_evaluation, Some(Curve25519Scalar::from(5u64)));
 }
