@@ -171,6 +171,19 @@ impl<C: Commitment> VecCommitmentExt for Vec<C> {
     }
 }
 
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::*;
+    use crate::base::commitment::naive_commitment::NaiveCommitment;
+
+    #[test]
+    fn we_can_count_commitments() {
+        let commitments = vec![NaiveCommitment::default(), NaiveCommitment::default()];
+
+        assert_eq!(commitments.num_commitments(), 2);
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;

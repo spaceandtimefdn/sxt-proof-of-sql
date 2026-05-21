@@ -780,6 +780,17 @@ mod tests {
         assert_eq!(result, &[1, 0, 3, 1], "Expected multiplicities");
     }
 
+    #[test]
+    fn we_can_get_multiplicities_when_data_has_smaller_rows() {
+        let alloc = Bump::new();
+        let data = vec![Column::<TestScalar>::Int(&[1, 3])];
+        let unique = vec![Column::<TestScalar>::Int(&[3])];
+
+        let result = get_multiplicities(&data, &unique, &alloc);
+
+        assert_eq!(result, &[1]);
+    }
+
     // Get Columns of Table
     #[test]
     fn we_can_get_columns_of_table() {
@@ -904,6 +915,16 @@ mod tests {
         let left_on = vec![Column::<TestScalar>::Int(&[3_i32, 15, 9, 14, 15, 7])];
         let right_on = vec![Column::<TestScalar>::Int(&[10_i32, 11, 6, 5, 5, 4, 8])];
         let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 6, 7);
+        assert!(row_indexes.is_empty());
+    }
+
+    #[test]
+    fn we_get_no_sort_merge_join_indexes_for_incompatible_column_types() {
+        let left_on = vec![Column::<TestScalar>::Int(&[1])];
+        let right_on = vec![Column::<TestScalar>::BigInt(&[1_i64])];
+
+        let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 1, 1);
+
         assert!(row_indexes.is_empty());
     }
 
