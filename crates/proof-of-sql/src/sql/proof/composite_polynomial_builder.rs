@@ -21,10 +21,11 @@ pub struct CompositePolynomialBuilder<S: Scalar> {
 }
 
 impl<S: Scalar> CompositePolynomialBuilder<S> {
-    #[expect(
-        clippy::missing_panics_doc,
-        reason = "The assertion ensures that the length of 'fr' does not exceed the allowable range based on 'num_sumcheck_variables', making the panic clear from context."
-    )]
+    /// Create a builder for sumcheck polynomials over `num_sumcheck_variables`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `fr.len()` exceeds the domain size implied by `num_sumcheck_variables`.
     pub fn new(num_sumcheck_variables: usize, fr: &[S]) -> Self {
         assert!(1 << num_sumcheck_variables >= fr.len());
         Self {
@@ -62,10 +63,11 @@ impl<S: Scalar> CompositePolynomialBuilder<S> {
     }
     /// Produce a polynomial term of the form
     ///    mult * term1(X1, ..., Xr) * ... * termK(X1, ..., Xr)
-    #[expect(
-        clippy::missing_panics_doc,
-        reason = "The assertion guarantees that terms are not empty, which is inherently clear from the context of this function."
-    )]
+    /// Produce a zerosum multiplicand from non-empty multilinear extension terms.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `terms` is empty.
     pub fn produce_zerosum_multiplicand(
         &mut self,
         mult: &S,
