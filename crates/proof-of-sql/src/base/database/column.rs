@@ -578,4 +578,198 @@ mod tests {
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
     }
+
+    #[test]
+    fn we_can_create_constant_columns_from_literals() {
+        let alloc = Bump::new();
+        let precision = Precision::new(10).unwrap();
+        let timezone = PoSQLTimeZone::utc();
+
+        let cases = [
+            (
+                LiteralValue::Boolean(true),
+                ColumnType::Boolean,
+                TestScalar::from(true),
+            ),
+            (
+                LiteralValue::Uint8(2),
+                ColumnType::Uint8,
+                TestScalar::from(2_u8),
+            ),
+            (
+                LiteralValue::TinyInt(-3),
+                ColumnType::TinyInt,
+                TestScalar::from(-3_i8),
+            ),
+            (
+                LiteralValue::SmallInt(4),
+                ColumnType::SmallInt,
+                TestScalar::from(4_i16),
+            ),
+            (
+                LiteralValue::Int(-5),
+                ColumnType::Int,
+                TestScalar::from(-5_i32),
+            ),
+            (
+                LiteralValue::BigInt(6),
+                ColumnType::BigInt,
+                TestScalar::from(6_i64),
+            ),
+            (
+                LiteralValue::Int128(-7),
+                ColumnType::Int128,
+                TestScalar::from(-7_i128),
+            ),
+            (
+                LiteralValue::Scalar([8, 0, 0, 0]),
+                ColumnType::Scalar,
+                TestScalar::from([8, 0, 0, 0]),
+            ),
+            (
+                LiteralValue::Decimal75(precision, 2, 9.into()),
+                ColumnType::Decimal75(precision, 2),
+                TestScalar::from(9_i32),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, timezone, 10),
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Second, timezone),
+                TestScalar::from(10_i64),
+            ),
+            (
+                LiteralValue::VarChar("abc".into()),
+                ColumnType::VarChar,
+                TestScalar::from("abc"),
+            ),
+            (
+                LiteralValue::VarBinary(vec![1, 2, 3]),
+                ColumnType::VarBinary,
+                TestScalar::from_byte_slice_via_hash(&[1, 2, 3]),
+            ),
+        ];
+
+        for (literal, column_type, expected_scalar) in cases {
+            let column: Column<'_, TestScalar> =
+                Column::from_literal_with_length(&literal, 3, &alloc);
+            assert_eq!(column.len(), 3);
+            assert_eq!(column.column_type(), column_type);
+            assert_eq!(column.to_scalar(), vec![expected_scalar; 3]);
+        }
+    }
+
+    #[test]
+    fn we_can_create_rho_columns() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::rho(4, &alloc);
+
+        assert_eq!(column, Column::Int128(&[0, 1, 2, 3]));
+    }
+
+    #[test]
+    fn we_can_get_typed_column_accessors() {
+        let scalars = [TestScalar::from(1), TestScalar::from(2)];
+        let strings = ["a", "b"];
+        let bytes: &[&[u8]] = &[b"a", b"b"];
+        let precision = Precision::new(10).unwrap();
+        let timezone = PoSQLTimeZone::utc();
+
+        let boolean = Column::<TestScalar>::Boolean(&[true, false]);
+        assert_eq!(boolean.as_boolean(), Some(&[true, false][..]));
+        assert_eq!(boolean.as_uint8(), None);
+
+        let uint8 = Column::<TestScalar>::Uint8(&[1, 2]);
+        assert_eq!(uint8.as_uint8(), Some(&[1, 2][..]));
+        assert_eq!(uint8.as_boolean(), None);
+
+        let tinyint = Column::<TestScalar>::TinyInt(&[-1, 2]);
+        assert_eq!(tinyint.as_tinyint(), Some(&[-1, 2][..]));
+
+        let smallint = Column::<TestScalar>::SmallInt(&[-3, 4]);
+        assert_eq!(smallint.as_smallint(), Some(&[-3, 4][..]));
+
+        let int = Column::<TestScalar>::Int(&[-5, 6]);
+        assert_eq!(int.as_int(), Some(&[-5, 6][..]));
+
+        let bigint = Column::<TestScalar>::BigInt(&[-7, 8]);
+        assert_eq!(bigint.as_bigint(), Some(&[-7, 8][..]));
+
+        let int128 = Column::<TestScalar>::Int128(&[-9, 10]);
+        assert_eq!(int128.as_int128(), Some(&[-9, 10][..]));
+
+        let scalar = Column::Scalar(&scalars);
+        assert_eq!(scalar.as_scalar(), Some(&scalars[..]));
+
+        let decimal = Column::Decimal75(precision, 2, &scalars);
+        assert_eq!(decimal.as_decimal75(), Some(&scalars[..]));
+
+        let varchar = Column::VarChar((&strings, &scalars));
+        assert_eq!(varchar.as_varchar(), Some((&strings[..], &scalars[..])));
+
+        let varbinary = Column::VarBinary((bytes, &scalars));
+        assert_eq!(varbinary.as_varbinary(), Some((bytes, &scalars[..])));
+
+        let timestamptz =
+            Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, &[11, 12]);
+        assert_eq!(timestamptz.as_timestamptz(), Some(&[11, 12][..]));
+    }
+
+    #[test]
+    fn we_can_get_column_values_as_scalars() {
+        let scalars = [TestScalar::from(1), TestScalar::from(2)];
+        let strings = ["a", "b"];
+        let bytes: &[&[u8]] = &[b"a", b"b"];
+        let binary_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"a"),
+            TestScalar::from_byte_slice_via_hash(b"b"),
+        ];
+        let precision = Precision::new(10).unwrap();
+        let timezone = PoSQLTimeZone::utc();
+
+        let cases = [
+            (
+                Column::<TestScalar>::Boolean(&[true, false]),
+                vec![TestScalar::from(true), TestScalar::from(false)],
+            ),
+            (
+                Column::<TestScalar>::Uint8(&[1, 2]),
+                vec![TestScalar::from(1_u8), TestScalar::from(2_u8)],
+            ),
+            (
+                Column::<TestScalar>::TinyInt(&[-1, 2]),
+                vec![TestScalar::from(-1_i8), TestScalar::from(2_i8)],
+            ),
+            (
+                Column::<TestScalar>::SmallInt(&[-3, 4]),
+                vec![TestScalar::from(-3_i16), TestScalar::from(4_i16)],
+            ),
+            (
+                Column::<TestScalar>::Int(&[-5, 6]),
+                vec![TestScalar::from(-5_i32), TestScalar::from(6_i32)],
+            ),
+            (
+                Column::<TestScalar>::BigInt(&[-7, 8]),
+                vec![TestScalar::from(-7_i64), TestScalar::from(8_i64)],
+            ),
+            (
+                Column::<TestScalar>::Int128(&[-9, 10]),
+                vec![TestScalar::from(-9_i128), TestScalar::from(10_i128)],
+            ),
+            (Column::Scalar(&scalars), scalars.to_vec()),
+            (Column::Decimal75(precision, 2, &scalars), scalars.to_vec()),
+            (Column::VarChar((&strings, &scalars)), scalars.to_vec()),
+            (
+                Column::VarBinary((bytes, &binary_scalars)),
+                binary_scalars.to_vec(),
+            ),
+            (
+                Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, &[11, 12]),
+                vec![TestScalar::from(11_i64), TestScalar::from(12_i64)],
+            ),
+        ];
+
+        for (column, expected_scalars) in cases {
+            assert_eq!(column.scalar_at(0), Some(expected_scalars[0]));
+            assert_eq!(column.to_scalar(), expected_scalars);
+        }
+    }
 }
