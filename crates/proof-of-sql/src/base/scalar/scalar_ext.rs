@@ -51,6 +51,12 @@ pub trait ScalarExt: Scalar {
         let masked_val = hashed_val & Self::CHALLENGE_MASK;
         Self::from_wrapping(masked_val)
     }
+
+    /// Converts a string slice to a Scalar using the same hash path as byte slices.
+    #[must_use]
+    fn from_str_via_hash(val: &str) -> Self {
+        Self::from_byte_slice_via_hash(val.as_bytes())
+    }
 }
 
 impl<S: Scalar> ScalarExt for S {}
@@ -107,6 +113,14 @@ mod tests {
         assert_eq!(
             scalar_from_bytes, scalar_from_ref,
             "The masked keccak v256 of 'abc' must match"
+        );
+    }
+
+    #[test]
+    fn from_str_via_hash_matches_byte_hashing() {
+        assert_eq!(
+            TestScalar::from_str_via_hash("abc"),
+            TestScalar::from_byte_slice_via_hash(b"abc")
         );
     }
 
