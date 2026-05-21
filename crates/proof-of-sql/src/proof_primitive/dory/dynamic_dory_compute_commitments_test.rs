@@ -11,9 +11,13 @@ use crate::{
 use ark_ec::pairing::Pairing;
 use num_traits::Zero;
 
+const EMPTY_COLUMN_SETUP_NU: usize = 1;
+const TWO_COLUMN_SETUP_NU: usize = 2;
+const THREE_COLUMN_SETUP_NU: usize = 3;
+
 #[test]
 fn we_can_handle_calling_with_an_empty_committable_column() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(EMPTY_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(&[], 0, &setup);
 
@@ -22,7 +26,7 @@ fn we_can_handle_calling_with_an_empty_committable_column() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(THREE_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[CommittableColumn::BigInt(&[
@@ -57,7 +61,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values_and_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(THREE_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[CommittableColumn::BigInt(&[
@@ -92,7 +96,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_unsigned_bigint_values_and_an_o
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_signed_bigint_values_and_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(TWO_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(&[CommittableColumn::BigInt(&[-2, -3])], 2, &setup);
     let Gamma_1 = public_parameters.Gamma_1;
@@ -104,7 +108,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_signed_bigint_values_and_an_off
 
 #[test]
 fn we_can_compute_three_dynamic_dory_commitments_with_unsigned_bigint_and_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(THREE_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[
@@ -189,7 +193,7 @@ fn we_can_compute_three_dynamic_dory_commitments_with_unsigned_bigint_and_offset
 
 #[test]
 fn we_can_compute_an_empty_dynamic_dory_commitment() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(EMPTY_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(&[CommittableColumn::BigInt(&[0; 0])], 0, &setup);
     assert_eq!(res[0].0, GT::zero());
@@ -231,7 +235,7 @@ fn we_can_compute_an_empty_dynamic_dory_commitment() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(TWO_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[
@@ -306,7 +310,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns() {
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(TWO_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[
@@ -381,7 +385,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
 
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_signed_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(TWO_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[
@@ -469,7 +473,7 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
 #[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_an_offset_and_signed_values(
 ) {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(THREE_COLUMN_SETUP_NU, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
     let res = compute_dynamic_dory_commitments(
         &[
