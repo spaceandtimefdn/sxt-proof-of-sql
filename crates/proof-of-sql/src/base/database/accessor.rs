@@ -179,7 +179,55 @@ impl SchemaAccessor for SchemaAccessorImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::map::indexmap;
+    use crate::base::{
+        map::{indexmap, IndexSet},
+        scalar::test_scalar::TestScalar,
+    };
+
+    static BIGINT_COLUMN: [i64; 3] = [10, 20, 30];
+    static BOOLEAN_COLUMN: [bool; 3] = [true, false, true];
+
+    #[derive(Clone)]
+    struct MockDataAccessor {
+        table_ref: TableRef,
+        table_length: usize,
+        table_offset: usize,
+        columns: IndexMap<Ident, Column<'static, TestScalar>>,
+    }
+
+    impl MockDataAccessor {
+        fn new() -> Self {
+            let table_ref = TableRef::new("schema", "data");
+            Self {
+                table_ref,
+                table_length: 5,
+                table_offset: 2,
+                columns: indexmap! {
+                    Ident::new("amount") => Column::BigInt(&BIGINT_COLUMN),
+                    Ident::new("flag") => Column::Boolean(&BOOLEAN_COLUMN),
+                },
+            }
+        }
+    }
+
+    impl MetadataAccessor for MockDataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.table_length
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.table_offset
+        }
+    }
+
+    impl DataAccessor<TestScalar> for MockDataAccessor {
+        fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(table_ref, &self.table_ref);
+            *self.columns.get(column_id).expect("column exists")
+        }
+    }
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -251,5 +299,33 @@ mod tests {
         let accessor = sample_schema_accessor();
         let not_a_table = TableRef::new("schema", "not_a_table");
         accessor.lookup_schema(&not_a_table);
+    }
+
+    #[test]
+    fn data_accessor_get_table_uses_metadata_length_for_empty_column_set() {
+        let accessor = MockDataAccessor::new();
+        let column_ids = IndexSet::default();
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(accessor.get_offset(&accessor.table_ref), 2);
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), 5);
+    }
+
+    #[test]
+    fn data_accessor_get_table_returns_requested_columns_in_requested_order() {
+        let accessor = MockDataAccessor::new();
+        let column_ids = IndexSet::from_iter([Ident::new("flag"), Ident::new("amount")]);
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(
+            table.column_names().cloned().collect::<Vec<_>>(),
+            vec![Ident::new("flag"), Ident::new("amount")]
+        );
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table["flag"], Column::Boolean(&BOOLEAN_COLUMN));
+        assert_eq!(table["amount"], Column::BigInt(&BIGINT_COLUMN));
     }
 }
