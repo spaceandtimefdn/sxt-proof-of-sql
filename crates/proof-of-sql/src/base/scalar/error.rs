@@ -11,3 +11,18 @@ pub enum ScalarConversionError {
         error: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_display_scalar_conversion_errors() {
+        let error = ScalarConversionError::Overflow {
+            error: "too many bits".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "Overflow error: too many bits");
+    }
+}
