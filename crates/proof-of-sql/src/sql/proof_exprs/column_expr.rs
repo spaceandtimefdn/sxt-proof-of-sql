@@ -116,3 +116,113 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_int, table},
+                Column, ColumnField, TableRef,
+            },
+            map::{IndexMap, IndexSet},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::collections::VecDeque;
+
+    fn column_expr() -> (ColumnExpr, ColumnRef) {
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "orders"),
+            "quantity".into(),
+            ColumnType::Int,
+        );
+        (ColumnExpr::new(column_ref.clone()), column_ref)
+    }
+
+    #[test]
+    fn we_can_inspect_column_expr_metadata_and_references() {
+        let (expr, column_ref) = column_expr();
+
+        assert_eq!(expr.get_column_reference(), column_ref);
+        assert_eq!(expr.column_ref(), &column_ref);
+        assert_eq!(
+            expr.get_column_field(),
+            ColumnField::new("quantity".into(), ColumnType::Int)
+        );
+        assert_eq!(expr.column_id(), "quantity".into());
+        assert_eq!(expr.data_type(), ColumnType::Int);
+
+        let mut columns = IndexSet::default();
+        expr.get_column_references(&mut columns);
+        assert_eq!(columns.len(), 1);
+        assert!(columns.contains(&column_ref));
+    }
+
+    #[test]
+    fn we_can_evaluate_column_expr_rounds() {
+        let alloc = Bump::new();
+        let data = table([borrowed_int("quantity", [3, 5, 8], &alloc)]);
+        let (expr, _) = column_expr();
+        let expected = Column::Int(&[3, 5, 8]);
+
+        assert_eq!(expr.fetch_column(&data), expected);
+        assert_eq!(
+            expr.first_round_evaluate(&alloc, &data, &[]).unwrap(),
+            expected
+        );
+
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(2, VecDeque::new());
+        assert_eq!(
+            expr.final_round_evaluate(&mut builder, &alloc, &data, &[])
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn we_can_verify_column_expr_from_accessor() {
+        let (expr, _) = column_expr();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        let mut accessor = IndexMap::default();
+        accessor.insert("quantity".into(), TestScalar::from(13_u64));
+
+        assert_eq!(
+            expr.verifier_evaluate(&mut builder, &accessor, TestScalar::from(7_u64), &[])
+                .unwrap(),
+            TestScalar::from(13_u64)
+        );
+    }
+
+    #[test]
+    fn we_cannot_verify_column_expr_without_accessor_value() {
+        let (expr, _) = column_expr();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        let accessor = IndexMap::default();
+
+        assert!(matches!(
+            expr.verifier_evaluate(&mut builder, &accessor, TestScalar::from(7_u64), &[]),
+            Err(ProofError::VerificationError {
+                error: "Column Not Found"
+            })
+        ));
+    }
+}
