@@ -64,6 +64,8 @@ mod sort_merge_join_exec_test;
 
 mod dyn_proof_plan;
 pub use dyn_proof_plan::DynProofPlan;
+#[cfg(test)]
+mod dyn_proof_plan_test;
 
 #[cfg(test)]
 mod demo_mock_plan;
