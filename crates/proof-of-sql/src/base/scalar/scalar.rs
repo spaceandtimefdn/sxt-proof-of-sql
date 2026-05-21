@@ -40,8 +40,6 @@ pub trait Scalar:
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
     + core::convert::TryInto <i128>
-    + core::convert::Into<[u64; 4]>
-    + core::convert::From<[u64; 4]>
     + core::convert::From<u8>
     + core::cmp::Ord
     + core::ops::Neg<Output = Self>
@@ -65,6 +63,11 @@ pub trait Scalar:
     + core::convert::Into<BigInt>
     + TryFrom<BigInt, Error = ScalarConversionError>
 {
+    /// Convert limb representation into a scalar field element.
+    fn from_limbs(val: [u64; 4]) -> Self;
+    /// Convert a scalar field element into limb representation.
+    fn to_limbs(&self) -> [u64; 4];
+
     /// The value (p - 1) / 2. This is "mid-point" of the field - the "six" on the clock.
     /// It is the largest signed value that can be represented in the field with the natural embedding.
     const MAX_SIGNED: Self;

@@ -155,7 +155,7 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
                 decimals
                     .iter()
                     .map(Into::<S>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|s| s.to_limbs())
                     .collect(),
             ),
             OwnedColumn::Scalar(scalars) => (scalars as &[_]).into(),
@@ -163,14 +163,14 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
                 strings
                     .iter()
                     .map(Into::<S>::into)
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|s| s.to_limbs())
                     .collect(),
             ),
             OwnedColumn::VarBinary(bytes) => CommittableColumn::VarBinary(
                 bytes
                     .iter()
                     .map(|b| S::from_byte_slice_via_hash(b))
-                    .map(Into::<[u64; 4]>::into)
+                    .map(|s| s.to_limbs())
                     .collect(),
             ),
             OwnedColumn::TimestampTZ(tu, tz, times) => {
