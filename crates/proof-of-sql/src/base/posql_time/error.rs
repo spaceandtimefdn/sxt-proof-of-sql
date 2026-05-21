@@ -38,3 +38,14 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+
+    #[test]
+    fn we_can_convert_error_into_string() {
+        let message: String = PoSQLTimestampError::InvalidTimezoneOffset.into();
+        assert_eq!(message, "invalid timezone offset");
+    }
+}
