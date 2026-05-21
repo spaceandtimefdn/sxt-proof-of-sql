@@ -122,6 +122,7 @@ mod tests {
     #[test]
     fn we_can_compute_a_commitment_with_only_one_column() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 6);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
         let committable_columns = vec![CommittableColumn::BigInt(&[0, 1, 2, 3, 4, 5, 6, 7])];
 
@@ -130,7 +131,7 @@ mod tests {
         let res = HyperKZGCommitment::compute_commitments(
             &committable_columns,
             offset,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
         )
         .into_iter()
         .map(ark_to_nova_commitment)
@@ -143,6 +144,7 @@ mod tests {
     #[test]
     fn we_can_compute_commitments_with_a_single_empty_column() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 32);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
         let committable_columns = vec![CommittableColumn::BigInt(&[0; 0])];
 
@@ -150,7 +152,7 @@ mod tests {
             let res = HyperKZGCommitment::compute_commitments(
                 &committable_columns,
                 offset,
-                &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+                &&public_setup[..],
             )
             .into_iter()
             .map(ark_to_nova_commitment)
@@ -164,6 +166,7 @@ mod tests {
     #[test]
     fn we_can_compute_commitments_with_a_multiple_mixed_empty_columns() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 32);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
         let committable_columns = vec![
             CommittableColumn::TinyInt(&[0; 0]),
@@ -178,7 +181,7 @@ mod tests {
             let res = HyperKZGCommitment::compute_commitments(
                 &committable_columns,
                 offset,
-                &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+                &&public_setup[..],
             )
             .into_iter()
             .map(ark_to_nova_commitment)
@@ -192,6 +195,7 @@ mod tests {
     #[test]
     fn we_can_compute_a_commitment_with_mixed_columns_of_different_sizes_and_offsets() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 128);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
         let committable_columns = vec![
             CommittableColumn::BigInt(&[0, 1]),
@@ -219,7 +223,7 @@ mod tests {
             let res = HyperKZGCommitment::compute_commitments(
                 &committable_columns,
                 offset,
-                &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+                &&public_setup[..],
             )
             .into_iter()
             .map(ark_to_nova_commitment)
@@ -233,6 +237,7 @@ mod tests {
     #[test]
     fn we_can_compute_a_commitment_with_mixed_signed_columns_of_different_sizes_and_offsets() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 128);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
         let committable_columns = vec![
             CommittableColumn::BigInt(&[-1, -2, -3]),
@@ -245,7 +250,7 @@ mod tests {
             let res = HyperKZGCommitment::compute_commitments(
                 &committable_columns,
                 offset,
-                &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+                &&public_setup[..],
             )
             .into_iter()
             .map(ark_to_nova_commitment)
