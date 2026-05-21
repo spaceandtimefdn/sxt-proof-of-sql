@@ -138,3 +138,114 @@ impl ProofExpr for MultiplyExpr {
 }
 
 impl DecimalProofExpr for MultiplyExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_int, table},
+                Column, ColumnRef, ColumnType, TableRef,
+            },
+            map::{IndexMap, IndexSet},
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_exprs::test_utility::{const_bigint, const_int, const_varchar},
+            AnalyzeError,
+        },
+    };
+    use alloc::{boxed::Box, collections::VecDeque, vec};
+    use bumpalo::Bump;
+
+    fn literal_multiply_expr() -> MultiplyExpr {
+        MultiplyExpr::try_new(Box::new(const_int(3)), Box::new(const_bigint(4))).unwrap()
+    }
+
+    #[test]
+    fn we_can_inspect_multiply_expr_inputs_and_references() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let quantity_ref = ColumnRef::new(table_ref.clone(), "quantity".into(), ColumnType::Int);
+        let price_ref = ColumnRef::new(table_ref, "price".into(), ColumnType::BigInt);
+        let expr = MultiplyExpr::try_new(
+            Box::new(DynProofExpr::new_column(quantity_ref.clone())),
+            Box::new(DynProofExpr::new_column(price_ref.clone())),
+        )
+        .unwrap();
+
+        assert_eq!(expr.lhs().data_type(), ColumnType::Int);
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+        assert!(matches!(expr.data_type(), ColumnType::Decimal75(_, 0)));
+
+        let mut columns = IndexSet::default();
+        expr.get_column_references(&mut columns);
+        assert_eq!(columns.len(), 2);
+        assert!(columns.contains(&quantity_ref));
+        assert!(columns.contains(&price_ref));
+    }
+
+    #[test]
+    fn we_cannot_build_multiply_expr_for_non_numeric_inputs() {
+        let err = MultiplyExpr::try_new(Box::new(const_int(3)), Box::new(const_varchar("x")))
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: _,
+                right_type: _
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_evaluate_literal_multiply_expr_rounds() {
+        let alloc = Bump::new();
+        let data = table([borrowed_int("rows", [0, 0], &alloc)]);
+        let expr = literal_multiply_expr();
+        let expected_values = [TestScalar::from(12_u64), TestScalar::from(12_u64)];
+        let expected = Column::Decimal75(expr.precision(), expr.scale(), &expected_values);
+
+        assert_eq!(
+            expr.first_round_evaluate(&alloc, &data, &[]).unwrap(),
+            expected
+        );
+
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(1, VecDeque::new());
+        assert_eq!(
+            expr.final_round_evaluate(&mut builder, &alloc, &data, &[])
+                .unwrap(),
+            expected
+        );
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        assert_eq!(
+            builder.evaluate_pcs_proof_mles(&[TestScalar::ONE, TestScalar::ZERO]),
+            [TestScalar::from(12_u64)]
+        );
+    }
+
+    #[test]
+    fn we_can_verify_literal_multiply_expr_evaluation() {
+        let expr = literal_multiply_expr();
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(12_u64)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+        let accessor = IndexMap::default();
+
+        assert_eq!(
+            expr.verifier_evaluate(&mut builder, &accessor, TestScalar::ONE, &[])
+                .unwrap(),
+            TestScalar::from(12_u64)
+        );
+        assert_eq!(builder.get_identity_results(), vec![vec![true]]);
+    }
+}
