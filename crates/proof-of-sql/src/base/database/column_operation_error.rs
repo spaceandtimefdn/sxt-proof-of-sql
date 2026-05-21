@@ -108,3 +108,85 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_display_column_operation_errors() {
+        let cases = [
+            (
+                ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 4 },
+                "Columns have different lengths: 3 != 4",
+            ),
+            (
+                ColumnOperationError::BinaryOperationInvalidColumnType {
+                    operator: "add".to_string(),
+                    left_type: ColumnType::BigInt,
+                    right_type: ColumnType::VarChar,
+                },
+                "\"add\"(lhs: BigInt, rhs: VarChar) is not supported",
+            ),
+            (
+                ColumnOperationError::UnaryOperationInvalidColumnType {
+                    operator: "negation".to_string(),
+                    operand_type: ColumnType::Boolean,
+                },
+                "\"negation\"(operand: Boolean) is not supported",
+            ),
+            (
+                ColumnOperationError::IntegerOverflow {
+                    error: "i64 overflow".to_string(),
+                },
+                "Overflow in integer operation: i64 overflow",
+            ),
+            (ColumnOperationError::DivisionByZero, "Division by zero"),
+            (
+                ColumnOperationError::DecimalConversionError {
+                    source: DecimalError::InvalidDecimal {
+                        error: "not a decimal".to_string(),
+                    },
+                },
+                "Invalid decimal format or value: not a decimal",
+            ),
+            (
+                ColumnOperationError::UnionDifferentTypes {
+                    correct_type: ColumnType::BigInt,
+                    actual_type: ColumnType::Int,
+                },
+                "Cannot union columns of different types: BigInt and Int",
+            ),
+            (
+                ColumnOperationError::IndexOutOfBounds { index: 9, len: 7 },
+                "Index out of bounds: 9 >= 7",
+            ),
+            (
+                ColumnOperationError::SignedCastingError {
+                    left_type: ColumnType::TinyInt,
+                    right_type: ColumnType::Uint8,
+                },
+                "Cannot fit TINYINT into UINT8 without losing data",
+            ),
+            (
+                ColumnOperationError::CastingError {
+                    left_type: ColumnType::BigInt,
+                    right_type: ColumnType::Int,
+                },
+                "Cannot fit BIGINT into INT without losing data",
+            ),
+            (
+                ColumnOperationError::ScaleCastingError {
+                    left_type: ColumnType::Int128,
+                    right_type: ColumnType::SmallInt,
+                },
+                "Cannot fit DECIMAL into SMALLINT without losing data",
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+}
