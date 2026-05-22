@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn we_can_union_integer_columns_across_supported_widths() {
+    fn we_can_union_each_integer_column_type() {
         let alloc = Bump::new();
 
         let uint8_a: Column<TestScalar> = Column::Uint8(&[1, 2]);
@@ -369,12 +369,12 @@ mod tests {
         let timestamp_a: Column<TestScalar> = Column::TimestampTZ(
             PoSQLTimeUnit::Millisecond,
             PoSQLTimeZone::utc(),
-            &[1_700_000_000, 1_700_000_001],
+            &[1_700_000_000_000, 1_700_000_000_001],
         );
         let timestamp_b: Column<TestScalar> = Column::TimestampTZ(
             PoSQLTimeUnit::Millisecond,
             PoSQLTimeZone::utc(),
-            &[1_700_000_002, 1_700_000_003],
+            &[1_700_000_000_002, 1_700_000_000_003],
         );
         assert_eq!(
             column_union(
@@ -386,7 +386,12 @@ mod tests {
             Column::TimestampTZ(
                 PoSQLTimeUnit::Millisecond,
                 PoSQLTimeZone::utc(),
-                &[1_700_000_000, 1_700_000_001, 1_700_000_002, 1_700_000_003],
+                &[
+                    1_700_000_000_000,
+                    1_700_000_000_001,
+                    1_700_000_000_002,
+                    1_700_000_000_003,
+                ],
             )
         );
     }
