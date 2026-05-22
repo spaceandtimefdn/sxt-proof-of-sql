@@ -111,6 +111,30 @@ mod timezone_parsing_tests {
     }
 
     #[test]
+    fn we_can_parse_utc_alias_time_zones() {
+        for alias in ["Z", "z", "UTC", "utc", "00:00", "+00:00", "0:00", "+0:00"] {
+            let timezone_as_str: Option<Arc<str>> = Some(alias.into());
+            let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+
+            assert_eq!(timezone, PoSQLTimeZone::utc());
+            assert_eq!(timezone.offset(), 0);
+        }
+    }
+
+    #[test]
+    fn malformed_offset_components_report_invalid_timezone_offset() {
+        for invalid_offset in ["+AA:00", "+01:BB"] {
+            let timezone_as_str: Option<Arc<str>> = Some(invalid_offset.into());
+            let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+
+            assert!(matches!(
+                timezone_err,
+                PoSQLTimestampError::InvalidTimezoneOffset
+            ));
+        }
+    }
+
+    #[test]
     fn we_cannot_parse_invalid_time_zone() {
         let timezone_as_str: Option<Arc<str>> = Some("111111111".into());
         let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
