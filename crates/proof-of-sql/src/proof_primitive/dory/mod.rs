@@ -38,6 +38,10 @@ mod dory_messages_test;
 mod setup;
 pub use setup::{ProverSetup, VerifierSetup};
 #[cfg(test)]
+mod test_setup;
+#[cfg(test)]
+use test_setup::test_dory_setup;
+#[cfg(test)]
 mod setup_test;
 
 mod state;
