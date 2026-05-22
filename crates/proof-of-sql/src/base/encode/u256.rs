@@ -35,3 +35,53 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::U256;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn from_words_preserves_low_and_high_limbs() {
+        let value = U256::from_words(
+            0x1122_3344_5566_7788_99aa_bbcc_ddee_ff00,
+            0x0102_0304_0506_0708_090a_0b0c_0d0e_0f10,
+        );
+
+        assert_eq!(value.low, 0x1122_3344_5566_7788_99aa_bbcc_ddee_ff00);
+        assert_eq!(value.high, 0x0102_0304_0506_0708_090a_0b0c_0d0e_0f10);
+    }
+
+    #[test]
+    fn scalar_conversion_splits_limbs_into_low_and_high_words() {
+        let scalar = TestScalar::from_bigint([
+            0x0123_4567_89ab_cdef,
+            0xfedc_ba98_7654_3210,
+            0x0f0e_0d0c_0b0a_0908,
+            0x0000_0000_0000_0007,
+        ]);
+        let value = U256::from(&scalar);
+
+        assert_eq!(value.low, 0xfedc_ba98_7654_3210_0123_4567_89ab_cdef);
+        assert_eq!(value.high, 0x0000_0000_0000_0007_0f0e_0d0c_0b0a_0908);
+    }
+
+    #[test]
+    fn u256_conversion_restores_scalar_limbs() {
+        let value = U256::from_words(
+            0x89ab_cdef_0123_4567_0011_2233_4455_6677,
+            0x0000_0000_0000_0004_7788_99aa_bbcc_ddee,
+        );
+        let scalar = TestScalar::from(&value);
+
+        assert_eq!(
+            <[u64; 4]>::from(scalar),
+            [
+                0x0011_2233_4455_6677,
+                0x89ab_cdef_0123_4567,
+                0x7788_99aa_bbcc_ddee,
+                0x0000_0000_0000_0004,
+            ]
+        );
+    }
+}
