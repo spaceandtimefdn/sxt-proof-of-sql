@@ -363,3 +363,49 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn borrowed_integer_helpers_preserve_types_and_values() {
+        let alloc = Bump::new();
+
+        assert_eq!(
+            borrowed_uint8::<TestScalar>("u8", [1_u8, 2, 3], &alloc),
+            ("u8".into(), Column::Uint8(&[1, 2, 3]))
+        );
+        assert_eq!(
+            borrowed_tinyint::<TestScalar>("i8", [-1_i8, 0, 1], &alloc),
+            ("i8".into(), Column::TinyInt(&[-1, 0, 1]))
+        );
+        assert_eq!(
+            borrowed_smallint::<TestScalar>("i16", [-10_i16, 0, 10], &alloc),
+            ("i16".into(), Column::SmallInt(&[-10, 0, 10]))
+        );
+        assert_eq!(
+            borrowed_int::<TestScalar>("i32", [-100_i32, 0, 100], &alloc),
+            ("i32".into(), Column::Int(&[-100, 0, 100]))
+        );
+    }
+
+    #[test]
+    fn borrowed_decimal_helper_preserves_precision_scale_and_values() {
+        let alloc = Bump::new();
+        let expected = [
+            TestScalar::from(-123),
+            TestScalar::from(0),
+            TestScalar::from(456),
+        ];
+
+        assert_eq!(
+            borrowed_decimal75::<TestScalar>("amount", 12, 2, [-123, 0, 456], &alloc),
+            (
+                "amount".into(),
+                Column::Decimal75(Precision::new(12).unwrap(), 2, &expected)
+            )
+        );
+    }
+}
