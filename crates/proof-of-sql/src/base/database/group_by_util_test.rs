@@ -1,6 +1,8 @@
 use crate::{
     base::{
         database::{group_by_util::*, Column},
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -148,6 +150,20 @@ fn we_can_aggregate_columns_with_empty_group_by() {
     assert_eq!(aggregate_result.count_column, expected_count_result);
     assert_eq!(aggregate_result.max_columns, expected_max_result);
     assert_eq!(aggregate_result.min_columns, expected_min_result);
+}
+
+#[test]
+fn we_cannot_aggregate_columns_with_mismatched_lengths() {
+    let group_by = &[Column::<TestScalar>::BigInt(&[1, 2, 3])];
+    let sum_columns = &[Column::Int(&[10, 20])];
+    let selection = &[true, false, true];
+    let alloc = Bump::new();
+    let result = aggregate_columns(&alloc, group_by, sum_columns, &[], &[], selection);
+
+    assert!(matches!(
+        result,
+        Err(AggregateColumnsError::ColumnLengthMismatch)
+    ));
 }
 
 #[expect(clippy::too_many_lines)]
@@ -375,6 +391,42 @@ fn we_can_sum_aggregate_columns_by_counts() {
     assert_eq!(result, expected);
 }
 
+#[test]
+fn we_can_sum_aggregate_additional_numeric_column_types_by_counts() {
+    let uint8_values = &[1_u8, 2, 3, 4];
+    let tinyint_values = &[-1_i8, 2, -3, 4];
+    let smallint_values = &[10_i16, 20, 30, 40];
+    let int_values = &[100_i32, 200, 300, 400];
+    let decimal_values = [
+        TestScalar::from(1),
+        TestScalar::from(2),
+        TestScalar::from(3),
+        TestScalar::from(4),
+    ];
+    let columns = [
+        Column::Uint8::<TestScalar>(uint8_values),
+        Column::TinyInt(tinyint_values),
+        Column::SmallInt(smallint_values),
+        Column::Int(int_values),
+        Column::Decimal75(Precision::new(75).unwrap(), 0, &decimal_values),
+    ];
+    let indexes = &[0, 1, 2, 3];
+    let counts = &[2, 2];
+    let expected = [
+        &[TestScalar::from(3), TestScalar::from(7)][..],
+        &[TestScalar::from(1), TestScalar::from(1)],
+        &[TestScalar::from(30), TestScalar::from(70)],
+        &[TestScalar::from(300), TestScalar::from(700)],
+        &[TestScalar::from(3), TestScalar::from(7)],
+    ];
+    let alloc = Bump::new();
+
+    for (column, expected) in columns.iter().zip(expected) {
+        let result = sum_aggregate_column_by_index_counts(&alloc, column, counts, indexes);
+        assert_eq!(result, expected);
+    }
+}
+
 // MAX slices
 #[test]
 fn we_can_max_aggregate_slice_by_counts_for_empty_slice() {
@@ -495,6 +547,40 @@ fn we_can_max_aggregate_columns_by_counts() {
     assert_eq!(result, expected);
 }
 
+#[test]
+fn we_can_max_aggregate_boolean_decimal_and_timestamp_columns_by_counts() {
+    let bool_values = &[false, true, false, false];
+    let decimal_values = [
+        TestScalar::from(-5),
+        TestScalar::from(9),
+        TestScalar::from(4),
+        TestScalar::from(-3),
+    ];
+    let timestamp_values = &[1_000_i64, 4_000, 2_000, 3_000];
+    let columns = [
+        Column::Boolean::<TestScalar>(bool_values),
+        Column::Decimal75(Precision::new(75).unwrap(), 2, &decimal_values),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            timestamp_values,
+        ),
+    ];
+    let indexes = &[0, 1, 2, 3];
+    let counts = &[2, 2];
+    let expected = [
+        &[Some(TestScalar::from(true)), Some(TestScalar::from(false))][..],
+        &[Some(TestScalar::from(9)), Some(TestScalar::from(4))],
+        &[Some(TestScalar::from(4_000)), Some(TestScalar::from(3_000))],
+    ];
+    let alloc = Bump::new();
+
+    for (column, expected) in columns.iter().zip(expected) {
+        let result = max_aggregate_column_by_index_counts(&alloc, column, counts, indexes);
+        assert_eq!(result, expected);
+    }
+}
+
 // MIN slices
 #[test]
 fn we_can_min_aggregate_slice_by_counts_for_empty_slice() {
@@ -613,6 +699,40 @@ fn we_can_min_aggregate_columns_by_counts() {
     assert_eq!(result, expected);
     let result = min_aggregate_column_by_index_counts(&alloc, &columns_c, counts, indexes);
     assert_eq!(result, expected);
+}
+
+#[test]
+fn we_can_min_aggregate_boolean_decimal_and_timestamp_columns_by_counts() {
+    let bool_values = &[true, true, false, true];
+    let decimal_values = [
+        TestScalar::from(-5),
+        TestScalar::from(9),
+        TestScalar::from(4),
+        TestScalar::from(-3),
+    ];
+    let timestamp_values = &[1_000_i64, 4_000, 2_000, 3_000];
+    let columns = [
+        Column::Boolean::<TestScalar>(bool_values),
+        Column::Decimal75(Precision::new(75).unwrap(), 2, &decimal_values),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            timestamp_values,
+        ),
+    ];
+    let indexes = &[0, 1, 2, 3];
+    let counts = &[2, 2];
+    let expected = [
+        &[Some(TestScalar::from(true)), Some(TestScalar::from(false))][..],
+        &[Some(TestScalar::from(-5)), Some(TestScalar::from(-3))],
+        &[Some(TestScalar::from(1_000)), Some(TestScalar::from(2_000))],
+    ];
+    let alloc = Bump::new();
+
+    for (column, expected) in columns.iter().zip(expected) {
+        let result = min_aggregate_column_by_index_counts(&alloc, column, counts, indexes);
+        assert_eq!(result, expected);
+    }
 }
 
 #[test]
