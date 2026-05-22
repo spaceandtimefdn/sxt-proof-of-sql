@@ -274,3 +274,37 @@ fn we_can_correctly_update_offsets() {
     assert_eq!(accessor1.get_offset(&table_ref), offset);
     assert_eq!(accessor2.get_offset(&table_ref), offset);
 }
+
+#[test]
+fn new_from_table_sets_up_metadata_and_commitments() {
+    let alloc = Bump::new();
+    let table_ref = TableRef::new("sxt", "from_table");
+    let offset = 7;
+    let data = table([
+        borrowed_bigint("id", [11, 12, 13], &alloc),
+        borrowed_varchar("label", ["a", "b", "c"], &alloc),
+    ]);
+
+    let accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        data,
+        offset,
+        (),
+    );
+
+    assert_eq!(accessor.get_length(&table_ref), 3);
+    assert_eq!(accessor.get_offset(&table_ref), offset);
+    assert_eq!(accessor.get_column_names(&table_ref), vec!["id", "label"]);
+    assert_eq!(
+        accessor.lookup_column(&table_ref, &"id".into()),
+        Some(ColumnType::BigInt)
+    );
+    assert_eq!(
+        accessor.get_commitment(&table_ref, &"id".into()),
+        NaiveCommitment::compute_commitments(
+            &[CommittableColumn::from(&[11i64, 12, 13][..])],
+            offset,
+            &()
+        )[0]
+    );
+}

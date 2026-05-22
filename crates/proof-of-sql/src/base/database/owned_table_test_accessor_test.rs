@@ -241,3 +241,52 @@ fn we_can_correctly_update_offsets() {
     assert_eq!(accessor1.get_offset(&table_ref), offset);
     assert_eq!(accessor2.get_offset(&table_ref), offset);
 }
+
+#[test]
+fn new_from_table_sets_up_metadata_and_commitments() {
+    let table_ref = TableRef::new("sxt", "owned_from_table");
+    let offset = 7;
+    let data = owned_table([
+        bigint("id", [11, 12, 13]),
+        varchar("label", ["a", "b", "c"]),
+    ]);
+
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        data,
+        offset,
+        (),
+    );
+
+    assert_eq!(accessor.get_length(&table_ref), 3);
+    assert_eq!(accessor.get_offset(&table_ref), offset);
+    assert_eq!(accessor.get_column_names(&table_ref), vec!["id", "label"]);
+    assert_eq!(
+        accessor.lookup_column(&table_ref, &"id".into()),
+        Some(ColumnType::BigInt)
+    );
+    assert_eq!(
+        accessor.get_commitment(&table_ref, &"id".into()),
+        NaiveCommitment::compute_commitments(
+            &[CommittableColumn::from(&[11i64, 12, 13][..])],
+            offset,
+            &()
+        )[0]
+    );
+}
+
+#[test]
+fn owned_accessor_returns_varbinary_columns() {
+    let table_ref = TableRef::new("sxt", "binary_payloads");
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+    let data = owned_table([varbinary("payload", [vec![1_u8, 2], vec![3, 4, 5]])]);
+    accessor.add_table(table_ref.clone(), data, 0_usize);
+
+    match accessor.get_column(&table_ref, &"payload".into()) {
+        Column::VarBinary((bytes, scalars)) => {
+            assert_eq!(bytes, [&[1_u8, 2][..], &[3_u8, 4, 5][..]]);
+            assert_eq!(scalars.len(), 2);
+        }
+        _ => panic!("Invalid column type"),
+    }
+}
