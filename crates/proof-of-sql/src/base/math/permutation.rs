@@ -29,7 +29,7 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
@@ -90,6 +90,7 @@ impl Permutation {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::format;
     use alloc::vec;
 
     #[test]
@@ -123,6 +124,35 @@ mod test {
                 permutation_size: 3,
                 slice_length: 2
             })
+        );
+    }
+
+    #[test]
+    fn unchecked_new_from_cmp_orders_by_comparator() {
+        let permutation = Permutation::unchecked_new_from_cmp(4, |left, right| right.cmp(left));
+
+        assert_eq!(permutation.size(), 4);
+        assert_eq!(
+            permutation
+                .try_apply(&["zero", "one", "two", "three"])
+                .unwrap(),
+            vec!["three", "two", "one", "zero"]
+        );
+    }
+
+    #[test]
+    fn permutation_errors_have_stable_display_messages() {
+        let duplicate_error = Permutation::try_new(vec![1, 0, 0]).unwrap_err();
+        assert_eq!(
+            format!("{duplicate_error}"),
+            "Permutation is invalid Permutation can not have duplicate elements: [1, 0, 0]"
+        );
+
+        let permutation = Permutation::try_new(vec![0]).unwrap();
+        let size_mismatch_error = permutation.try_apply(&["too", "long"]).unwrap_err();
+        assert_eq!(
+            format!("{size_mismatch_error}"),
+            "Application of a permutation to a slice with a different length 1 != 2"
         );
     }
 }
