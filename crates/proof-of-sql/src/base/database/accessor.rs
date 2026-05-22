@@ -179,7 +179,11 @@ impl SchemaAccessor for SchemaAccessorImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::map::indexmap;
+    use crate::base::{
+        database::ColumnField,
+        map::{indexmap, indexset},
+        scalar::test_scalar::TestScalar,
+    };
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -251,5 +255,71 @@ mod tests {
         let accessor = sample_schema_accessor();
         let not_a_table = TableRef::new("schema", "not_a_table");
         accessor.lookup_schema(&not_a_table);
+    }
+
+    struct SampleDataAccessor {
+        table_ref: TableRef,
+        flags: Vec<bool>,
+        amounts: Vec<i64>,
+    }
+
+    impl SampleDataAccessor {
+        fn new() -> Self {
+            Self {
+                table_ref: TableRef::new("schema", "table"),
+                flags: vec![true, false, true],
+                amounts: vec![10, 20, 30],
+            }
+        }
+    }
+
+    impl MetadataAccessor for SampleDataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.amounts.len()
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            7
+        }
+    }
+
+    impl DataAccessor<TestScalar> for SampleDataAccessor {
+        fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(table_ref, &self.table_ref);
+            match column_id.value.as_str() {
+                "flag" => Column::Boolean(&self.flags),
+                "amount" => Column::BigInt(&self.amounts),
+                _ => panic!("unexpected column id: {column_id}"),
+            }
+        }
+    }
+
+    #[test]
+    fn get_table_preserves_row_count_for_empty_column_selection() {
+        let accessor = SampleDataAccessor::new();
+        let column_ids = IndexSet::default();
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), accessor.amounts.len());
+    }
+
+    #[test]
+    fn get_table_materializes_selected_columns_in_requested_order() {
+        let accessor = SampleDataAccessor::new();
+        let column_ids = indexset! { Ident::new("flag"), Ident::new("amount") };
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(
+            table.schema(),
+            vec![
+                ColumnField::new("flag".into(), ColumnType::Boolean),
+                ColumnField::new("amount".into(), ColumnType::BigInt),
+            ]
+        );
+        assert_eq!(table["flag"], Column::Boolean(&accessor.flags));
+        assert_eq!(table["amount"], Column::BigInt(&accessor.amounts));
     }
 }
