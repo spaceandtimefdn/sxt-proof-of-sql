@@ -162,3 +162,31 @@ fn test_inner_product_testscalar_uneven() {
     ];
     assert_eq!(TestScalar::from(8u64), inner_product(&a, &b));
 }
+
+#[test]
+fn test_inner_product_ref_cast() {
+    let a = vec![1_u64, 2, 3];
+    let b = vec![
+        TestScalar::from(4_u64),
+        TestScalar::from(5_u64),
+        TestScalar::from(6_u64),
+    ];
+
+    assert_eq!(TestScalar::from(32_u64), inner_product_ref_cast(&a, &b));
+}
+
+#[test]
+fn test_inner_product_ref_cast_uses_shorter_length() {
+    let a = vec![1_u64, 2, 3, 100];
+    let b = vec![TestScalar::from(4_u64), TestScalar::from(5_u64)];
+
+    assert_eq!(TestScalar::from(14_u64), inner_product_ref_cast(&a, &b));
+}
+
+#[test]
+fn test_inner_product_ref_cast_empty_inputs() {
+    let a: Vec<u64> = vec![];
+    let b: Vec<TestScalar> = vec![];
+
+    assert_eq!(TestScalar::from(0_u64), inner_product_ref_cast(&a, &b));
+}
