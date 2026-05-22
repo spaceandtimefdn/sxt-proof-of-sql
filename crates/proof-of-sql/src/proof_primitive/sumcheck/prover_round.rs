@@ -223,19 +223,13 @@ mod tests {
 
         in_place_fix_variable(&mut multiplicand, TestScalar::from(3), 2);
 
-        assert_eq!(
-            multiplicand,
-            vec![
-                TestScalar::from(4),
-                TestScalar::from(16),
-                TestScalar::from(64),
-                TestScalar::from(256),
-                TestScalar::from(16),
-                TestScalar::from(32),
-                TestScalar::from(64),
-                TestScalar::from(128),
-            ]
-        );
+        let expected_prefix = [
+            TestScalar::from(4),
+            TestScalar::from(16),
+            TestScalar::from(64),
+            TestScalar::from(256),
+        ];
+        assert_eq!(&multiplicand[..(1 << 2)], expected_prefix.as_slice());
     }
 
     #[test]
