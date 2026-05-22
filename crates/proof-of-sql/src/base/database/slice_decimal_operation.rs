@@ -1313,4 +1313,39 @@ mod test {
         let expected = (Precision::new(9).unwrap(), 6, expected_scalars);
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn we_error_when_dividing_decimal_columns_by_zero() {
+        let lhs = [1_i16, -2, 3];
+        let rhs = [2_i16, 0, -1];
+        let left_column_type = ColumnType::Decimal75(Precision::new(5).unwrap(), 2);
+        let right_column_type = ColumnType::SmallInt;
+
+        let actual = try_divide_decimal_columns::<TestScalar, _, _>(
+            &lhs,
+            &rhs,
+            left_column_type,
+            right_column_type,
+        );
+
+        assert!(matches!(actual, Err(ColumnOperationError::DivisionByZero)));
+    }
+
+    #[test]
+    fn we_can_divide_decimal_columns_when_applied_scale_is_negative() {
+        let lhs = [50_000_000_000_000_000_i128, -120_000_000_000_000_000_i128];
+        let rhs = [5_i128, 3_i128];
+        let left_column_type = ColumnType::Decimal75(Precision::new(30).unwrap(), 20);
+        let right_column_type = ColumnType::Decimal75(Precision::new(3).unwrap(), -20);
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_divide_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+
+        let expected = (
+            Precision::new(14).unwrap(),
+            24,
+            vec![TestScalar::from(1_i128), TestScalar::from(-4_i128)],
+        );
+        assert_eq!(expected, actual);
+    }
 }
