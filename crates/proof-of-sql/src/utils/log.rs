@@ -30,3 +30,69 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tracing::{
+        span::{Attributes, Id, Record},
+        Event, Metadata, Subscriber,
+    };
+
+    struct TraceCountingSubscriber {
+        events: AtomicUsize,
+    }
+
+    impl TraceCountingSubscriber {
+        const fn new() -> Self {
+            Self {
+                events: AtomicUsize::new(0),
+            }
+        }
+
+        fn event_count(&self) -> usize {
+            self.events.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Subscriber for TraceCountingSubscriber {
+        fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+            *metadata.level() == Level::TRACE
+        }
+
+        fn new_span(&self, _span: &Attributes<'_>) -> Id {
+            Id::from_u64(1)
+        }
+
+        fn record(&self, _span: &Id, _values: &Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &Id, _follows: &Id) {}
+
+        fn event(&self, _event: &Event<'_>) {
+            self.events.fetch_add(1, Ordering::Relaxed);
+        }
+
+        fn enter(&self, _span: &Id) {}
+
+        fn exit(&self, _span: &Id) {}
+    }
+
+    #[test]
+    fn we_skip_memory_logging_when_trace_is_disabled() {
+        log_memory_usage("trace-disabled");
+    }
+
+    #[test]
+    fn we_emit_memory_logging_when_trace_is_enabled() {
+        let subscriber = Arc::new(TraceCountingSubscriber::new());
+        let observed_subscriber = Arc::clone(&subscriber);
+
+        tracing::subscriber::with_default(subscriber, || {
+            log_memory_usage("trace-enabled");
+        });
+
+        assert_eq!(observed_subscriber.event_count(), 1);
+    }
+}
