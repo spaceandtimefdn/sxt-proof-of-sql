@@ -78,6 +78,9 @@ mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
 
+#[cfg(test)]
+mod owned_column_error_test;
+
 /// Module providing element-wise operations on [`OwnedColumn`] types.
 ///
 /// This module implements arithmetic, comparison, and logical operations
