@@ -104,6 +104,8 @@ mod vmv_state_test;
 
 mod dory_public_setup;
 pub use dory_public_setup::{DoryProverPublicSetup, DoryVerifierPublicSetup};
+#[cfg(test)]
+mod dory_public_setup_test;
 
 mod dory_commitment;
 #[cfg(test)]
