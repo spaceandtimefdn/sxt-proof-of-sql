@@ -223,6 +223,63 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
     assert_eq!(commitments[0].0, expected);
 }
 
+#[test]
+fn we_can_compute_commitments_from_remaining_committable_column_variants() {
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
+    use core::iter::once;
+
+    fn with_offset(values: impl IntoIterator<Item = TestScalar>) -> Vec<TestScalar> {
+        once(TestScalar::ZERO).chain(values).collect()
+    }
+
+    let boolean_column = [true, false, true];
+    let uint8_column = [1_u8, 2, 3];
+    let tinyint_column = [-1_i8, 0, 2];
+    let smallint_column = [-3_i16, 5, 8];
+    let int_column = [-13_i32, 21, 34];
+    let int128_column = [-55_i128, 89, 144];
+    let decimal_limbs = vec![[1_u64, 2, 3, 4], [5, 6, 7, 8]];
+    let timestamp_column = [1_700_000_000_i64, -1_700_000_001];
+
+    let expected = vec![
+        with_offset(boolean_column.iter().map(Into::into)),
+        with_offset(uint8_column.iter().map(Into::into)),
+        with_offset(tinyint_column.iter().map(Into::into)),
+        with_offset(smallint_column.iter().map(Into::into)),
+        with_offset(int_column.iter().map(Into::into)),
+        with_offset(int128_column.iter().map(Into::into)),
+        with_offset(decimal_limbs.iter().map(Into::into)),
+        with_offset(timestamp_column.iter().map(Into::into)),
+    ];
+
+    let committable_columns = [
+        CommittableColumn::Boolean(&boolean_column),
+        CommittableColumn::Uint8(&uint8_column),
+        CommittableColumn::TinyInt(&tinyint_column),
+        CommittableColumn::SmallInt(&smallint_column),
+        CommittableColumn::Int(&int_column),
+        CommittableColumn::Int128(&int128_column),
+        CommittableColumn::Decimal75(Precision::new(10).unwrap(), 2, decimal_limbs),
+        CommittableColumn::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &timestamp_column,
+        ),
+    ];
+
+    let commitments = NaiveCommitment::compute_commitments(&committable_columns, 1, &());
+    assert_eq!(
+        commitments
+            .into_iter()
+            .map(|commitment| commitment.0)
+            .collect::<Vec<_>>(),
+        expected
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
