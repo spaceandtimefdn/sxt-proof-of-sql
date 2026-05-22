@@ -84,7 +84,7 @@ pub fn scalar_product_verify(
 mod tests {
     use super::super::{
         rand_G_vecs, test_rng, DoryMessages, G1Affine, ProverSetup, ProverState, PublicParameters,
-        VerifierSetup, VerifierState, GT,
+        VerifierSetup, VerifierState,
     };
     use super::{scalar_product_prove, scalar_product_verify};
     use ark_std::UniformRand;
@@ -132,9 +132,8 @@ mod tests {
             &verifier_setup
         ));
 
-        let mut rng = test_rng();
         let (mut messages, verifier_state, verifier_setup) = prove_scalar_product();
-        messages.GT_messages.push(GT::rand(&mut rng));
+        messages.G1_messages.push(messages.G1_messages[0]);
         let mut transcript = Transcript::new(b"scalar_product_test");
 
         assert!(!scalar_product_verify(
@@ -149,7 +148,12 @@ mod tests {
     fn scalar_product_verify_rejects_tampered_g1_message() {
         let mut rng = test_rng();
         let (mut messages, verifier_state, verifier_setup) = prove_scalar_product();
-        messages.G1_messages[0] = G1Affine::rand(&mut rng);
+        let original_message = messages.G1_messages[0];
+        let mut tampered_message = G1Affine::rand(&mut rng);
+        while tampered_message == original_message {
+            tampered_message = G1Affine::rand(&mut rng);
+        }
+        messages.G1_messages[0] = tampered_message;
         let mut transcript = Transcript::new(b"scalar_product_test");
 
         assert!(!scalar_product_verify(
