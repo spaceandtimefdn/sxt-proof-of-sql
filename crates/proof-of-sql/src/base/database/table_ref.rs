@@ -142,3 +142,84 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableRef;
+    use crate::base::database::ParseError;
+    use alloc::{format, vec};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn constructors_preserve_schema_and_table_identifiers() {
+        let unqualified = TableRef::new("", "orders");
+        assert!(unqualified.schema_id().is_none());
+        assert_eq!(unqualified.table_id().value, "orders");
+        assert_eq!(unqualified.to_string(), "orders");
+
+        let qualified = TableRef::new("sxt", "orders");
+        assert_eq!(qualified.schema_id().unwrap().value, "sxt");
+        assert_eq!(qualified.table_id().value, "orders");
+        assert_eq!(qualified.to_string(), "sxt.orders");
+
+        let from_idents =
+            TableRef::from_idents(Some(Ident::new("analytics")), Ident::new("events"));
+        assert_eq!(from_idents.schema_id().unwrap().value, "analytics");
+        assert_eq!(from_idents.table_id().value, "events");
+        assert_eq!(from_idents.to_string(), "analytics.events");
+    }
+
+    #[test]
+    fn parses_one_and_two_part_table_references() {
+        let table_only = TableRef::try_from("orders").unwrap();
+        assert!(table_only.schema_id().is_none());
+        assert_eq!(table_only.table_id().value, "orders");
+
+        let schema_and_table: TableRef = "sxt.orders".parse().unwrap();
+        assert_eq!(schema_and_table.schema_id().unwrap().value, "sxt");
+        assert_eq!(schema_and_table.table_id().value, "orders");
+
+        assert_eq!(
+            TableRef::from_strs(&["sxt", "orders"]).unwrap(),
+            schema_and_table
+        );
+        assert_eq!(TableRef::from_strs(&["orders"]).unwrap(), table_only);
+    }
+
+    #[test]
+    fn rejects_table_references_with_too_many_components() {
+        let from_str_error = TableRef::try_from("catalog.sxt.orders").unwrap_err();
+        assert!(matches!(
+            from_str_error,
+            ParseError::InvalidTableReference { .. }
+        ));
+        assert_eq!(
+            format!("{from_str_error}"),
+            "Invalid table reference: catalog.sxt.orders"
+        );
+
+        let from_slice_error = TableRef::from_strs(&vec!["catalog", "sxt", "orders"]).unwrap_err();
+        assert!(matches!(
+            from_slice_error,
+            ParseError::InvalidTableReference { .. }
+        ));
+        assert_eq!(
+            format!("{from_slice_error}"),
+            "Invalid table reference: catalog,sxt,orders"
+        );
+    }
+
+    #[test]
+    fn serializes_and_deserializes_as_display_string() {
+        let table_ref = TableRef::new("sxt", "orders");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, "\"sxt.orders\"");
+
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, table_ref);
+
+        let invalid = serde_json::from_str::<TableRef>("\"catalog.sxt.orders\"");
+        assert!(invalid.is_err());
+    }
+}
