@@ -124,3 +124,75 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::prove_round;
+    use crate::{base::scalar::test_scalar::TestScalar, proof_primitive::sumcheck::ProverState};
+    use alloc::vec;
+
+    fn scalar(value: u64) -> TestScalar {
+        TestScalar::from(value)
+    }
+
+    #[test]
+    fn first_round_evaluates_product_terms_at_each_degree_point() {
+        let mut prover_state = ProverState::new(
+            vec![(scalar(1), vec![0, 1])],
+            vec![vec![scalar(2), scalar(5)], vec![scalar(3), scalar(7)]],
+            1,
+            2,
+        );
+
+        let round_message = prove_round(&mut prover_state, &None);
+
+        assert_eq!(round_message, vec![scalar(6), scalar(35), scalar(88)]);
+        assert_eq!(prover_state.round, 1);
+    }
+
+    #[test]
+    fn later_round_fixes_variable_before_evaluating_products() {
+        let mut prover_state = ProverState::new(
+            vec![(scalar(1), vec![0])],
+            vec![vec![scalar(1), scalar(5), scalar(3), scalar(7)]],
+            2,
+            1,
+        );
+
+        let first_round = prove_round(&mut prover_state, &None);
+        let verifier_message = Some(scalar(2));
+        let second_round = prove_round(&mut prover_state, &verifier_message);
+
+        assert_eq!(first_round, vec![scalar(4), scalar(12)]);
+        assert_eq!(second_round, vec![scalar(9), scalar(11)]);
+        assert_eq!(prover_state.round, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first.")]
+    fn first_round_rejects_verifier_message() {
+        let mut prover_state = ProverState::new(
+            vec![(scalar(1), vec![0])],
+            vec![vec![scalar(1), scalar(2)]],
+            1,
+            1,
+        );
+        let verifier_message = Some(scalar(2));
+
+        let _ = prove_round(&mut prover_state, &verifier_message);
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn later_round_requires_verifier_message() {
+        let mut prover_state = ProverState::new(
+            vec![(scalar(1), vec![0])],
+            vec![vec![scalar(1), scalar(2)]],
+            1,
+            1,
+        );
+
+        let _ = prove_round(&mut prover_state, &None);
+        let _ = prove_round(&mut prover_state, &None);
+    }
+}
