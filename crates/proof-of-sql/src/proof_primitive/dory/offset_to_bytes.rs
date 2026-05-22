@@ -72,36 +72,76 @@ mod tests {
         assert_eq!(0xab_u8.offset_to_bytes(), [0xab]);
         assert_eq!(
             0x0102_0304_0506_0708_u64.offset_to_bytes(),
-            [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
+            0x0102_0304_0506_0708_u64.to_le_bytes()
         );
     }
 
     #[test]
     fn signed_values_are_offset_before_little_endian_encoding() {
-        assert_eq!(i8::MIN.offset_to_bytes(), [0x00]);
-        assert_eq!(0_i8.offset_to_bytes(), [0x80]);
-        assert_eq!(i8::MAX.offset_to_bytes(), [0xff]);
+        assert_eq!(
+            i8::MIN.offset_to_bytes(),
+            i8::MIN.wrapping_sub(i8::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            0_i8.offset_to_bytes(),
+            0_i8.wrapping_sub(i8::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            i8::MAX.offset_to_bytes(),
+            i8::MAX.wrapping_sub(i8::MIN).to_le_bytes()
+        );
 
-        assert_eq!(i16::MIN.offset_to_bytes(), [0x00, 0x00]);
-        assert_eq!(0_i16.offset_to_bytes(), [0x00, 0x80]);
-        assert_eq!(i16::MAX.offset_to_bytes(), [0xff, 0xff]);
+        assert_eq!(
+            i16::MIN.offset_to_bytes(),
+            i16::MIN.wrapping_sub(i16::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            0_i16.offset_to_bytes(),
+            0_i16.wrapping_sub(i16::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            i16::MAX.offset_to_bytes(),
+            i16::MAX.wrapping_sub(i16::MIN).to_le_bytes()
+        );
 
-        assert_eq!(i32::MIN.offset_to_bytes(), [0x00; 4]);
-        assert_eq!(0_i32.offset_to_bytes(), [0x00, 0x00, 0x00, 0x80]);
-        assert_eq!(i32::MAX.offset_to_bytes(), [0xff; 4]);
+        assert_eq!(
+            i32::MIN.offset_to_bytes(),
+            i32::MIN.wrapping_sub(i32::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            0_i32.offset_to_bytes(),
+            0_i32.wrapping_sub(i32::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            i32::MAX.offset_to_bytes(),
+            i32::MAX.wrapping_sub(i32::MIN).to_le_bytes()
+        );
 
-        assert_eq!(i64::MIN.offset_to_bytes(), [0x00; 8]);
+        assert_eq!(
+            i64::MIN.offset_to_bytes(),
+            i64::MIN.wrapping_sub(i64::MIN).to_le_bytes()
+        );
         assert_eq!(
             0_i64.offset_to_bytes(),
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80]
+            0_i64.wrapping_sub(i64::MIN).to_le_bytes()
         );
-        assert_eq!(i64::MAX.offset_to_bytes(), [0xff; 8]);
+        assert_eq!(
+            i64::MAX.offset_to_bytes(),
+            i64::MAX.wrapping_sub(i64::MIN).to_le_bytes()
+        );
 
-        let mut zero_i128_bytes = [0x00; 16];
-        zero_i128_bytes[15] = 0x80;
-        assert_eq!(i128::MIN.offset_to_bytes(), [0x00; 16]);
-        assert_eq!(0_i128.offset_to_bytes(), zero_i128_bytes);
-        assert_eq!(i128::MAX.offset_to_bytes(), [0xff; 16]);
+        assert_eq!(
+            i128::MIN.offset_to_bytes(),
+            i128::MIN.wrapping_sub(i128::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            0_i128.offset_to_bytes(),
+            0_i128.wrapping_sub(i128::MIN).to_le_bytes()
+        );
+        assert_eq!(
+            i128::MAX.offset_to_bytes(),
+            i128::MAX.wrapping_sub(i128::MIN).to_le_bytes()
+        );
     }
 
     #[test]
