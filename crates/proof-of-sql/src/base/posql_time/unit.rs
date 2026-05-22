@@ -59,6 +59,7 @@ impl fmt::Display for PoSQLTimeUnit {
 mod time_unit_tests {
     use super::*;
     use crate::base::posql_time::PoSQLTimestampError;
+    use alloc::format;
 
     #[test]
     fn test_valid_precisions() {
@@ -79,6 +80,43 @@ mod time_unit_tests {
                 result,
                 Err(PoSQLTimestampError::UnsupportedPrecision { .. })
             ));
+        }
+    }
+
+    #[test]
+    fn we_can_convert_time_unit_into_precision() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn we_can_display_each_time_unit() {
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Second),
+            "seconds (precision: 0)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Millisecond),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Microsecond),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Nanosecond),
+            "nanoseconds (precision: 9)"
+        );
+    }
+
+    #[test]
+    fn precision_digit_round_trips_through_time_unit() {
+        // The digit used to build a unit must equal the precision it reports.
+        for digit in ["0", "3", "6", "9"] {
+            let unit = PoSQLTimeUnit::try_from(digit).unwrap();
+            assert_eq!(u64::from(unit), digit.parse::<u64>().unwrap());
         }
     }
 }

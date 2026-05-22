@@ -864,4 +864,170 @@ mod test {
             OwnedColumn::<TestScalar>::Decimal75(Precision::new(13).unwrap(), 6, expected_scalars)
         );
     }
+
+    #[test]
+    fn we_can_add_uint8_columns_to_wider_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Uint8(vec![10, 20])),
+            Ok(OwnedColumn::Uint8(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::SmallInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
+
+    #[test]
+    fn we_cannot_mix_unsigned_and_signed_eight_bit_columns() {
+        // u8 and i8 share a bit width but differ in signedness, so a cast
+        // between them could lose data; the operation is rejected both ways.
+        let unsigned = OwnedColumn::<TestScalar>::Uint8(vec![1, 2]);
+        let signed = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2]);
+        assert!(matches!(
+            unsigned.element_wise_add(&signed),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            signed.element_wise_add(&unsigned),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_add_tinyint_columns_to_wider_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::TinyInt(vec![10, 20])),
+            Ok(OwnedColumn::TinyInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::SmallInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
+
+    #[test]
+    fn we_can_add_smallint_columns_to_other_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::TinyInt(vec![10, 20])),
+            Ok(OwnedColumn::SmallInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::SmallInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
+
+    #[test]
+    fn we_can_add_int_columns_to_other_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::TinyInt(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::Int(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
+
+    #[test]
+    fn we_can_add_bigint_columns_to_other_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::TinyInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::BigInt(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
+
+    #[test]
+    fn we_can_add_int128_columns_to_other_integer_types() {
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![3, 5]);
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::TinyInt(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::SmallInt(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::BigInt(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+        assert_eq!(
+            lhs.element_wise_add(&OwnedColumn::Int128(vec![10, 20])),
+            Ok(OwnedColumn::Int128(vec![13, 25]))
+        );
+    }
 }
