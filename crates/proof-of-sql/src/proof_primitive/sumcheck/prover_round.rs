@@ -124,3 +124,89 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    #[test]
+    fn prove_round_evaluates_first_round_without_verifier_message() {
+        let mut state = ProverState::new(
+            vec![(TestScalar::from(3u64), vec![0])],
+            vec![vec![TestScalar::from(2u64), TestScalar::from(5u64)]],
+            1,
+            1,
+        );
+
+        let evaluations = prove_round(&mut state, &None);
+
+        assert_eq!(
+            evaluations,
+            vec![TestScalar::from(6u64), TestScalar::from(15u64)]
+        );
+        assert_eq!(state.round, 1);
+    }
+
+    #[test]
+    fn prove_round_fixes_previous_variable_with_verifier_challenge() {
+        let mut state = ProverState::new(
+            vec![(TestScalar::from(2u64), vec![0])],
+            vec![vec![
+                TestScalar::from(1u64),
+                TestScalar::from(3u64),
+                TestScalar::from(5u64),
+                TestScalar::from(7u64),
+            ]],
+            2,
+            1,
+        );
+
+        assert_eq!(
+            prove_round(&mut state, &None),
+            vec![TestScalar::from(12u64), TestScalar::from(20u64)]
+        );
+        assert_eq!(
+            prove_round(&mut state, &Some(TestScalar::from(4u64))),
+            vec![TestScalar::from(18u64), TestScalar::from(26u64)]
+        );
+        assert_eq!(
+            state.flattened_ml_extensions[0][..2],
+            [TestScalar::from(9u64), TestScalar::from(13u64)]
+        );
+        assert_eq!(state.round, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first.")]
+    fn prove_round_rejects_verifier_message_on_first_round() {
+        let mut state = ProverState::new(
+            vec![(TestScalar::from(3u64), vec![0])],
+            vec![vec![TestScalar::from(2u64), TestScalar::from(5u64)]],
+            1,
+            1,
+        );
+
+        let _ = prove_round(&mut state, &Some(TestScalar::from(7u64)));
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn prove_round_requires_verifier_message_after_first_round() {
+        let mut state = ProverState::new(
+            vec![(TestScalar::from(2u64), vec![0])],
+            vec![vec![
+                TestScalar::from(1u64),
+                TestScalar::from(3u64),
+                TestScalar::from(5u64),
+                TestScalar::from(7u64),
+            ]],
+            2,
+            1,
+        );
+
+        let _ = prove_round(&mut state, &None);
+        let _ = prove_round(&mut state, &None);
+    }
+}
