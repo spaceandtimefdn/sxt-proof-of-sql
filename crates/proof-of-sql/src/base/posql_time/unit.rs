@@ -59,6 +59,7 @@ impl fmt::Display for PoSQLTimeUnit {
 mod time_unit_tests {
     use super::*;
     use crate::base::posql_time::PoSQLTimestampError;
+    use alloc::format;
 
     #[test]
     fn test_valid_precisions() {
@@ -69,16 +70,46 @@ mod time_unit_tests {
     }
 
     #[test]
+    fn we_can_convert_time_units_to_precision_values() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn we_can_display_time_units() {
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Second),
+            "seconds (precision: 0)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Millisecond),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Microsecond),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Nanosecond),
+            "nanoseconds (precision: 9)"
+        );
+    }
+
+    #[test]
     fn test_invalid_precision() {
         let invalid_precisions = [
             "1", "2", "4", "5", "7", "8", "10", "zero", "three", "cat", "-1", "-2",
-        ]; // Testing all your various invalid inputs
+        ];
         for &value in &invalid_precisions {
             let result = PoSQLTimeUnit::try_from(value);
-            assert!(matches!(
+            assert_eq!(
                 result,
-                Err(PoSQLTimestampError::UnsupportedPrecision { .. })
-            ));
+                Err(PoSQLTimestampError::UnsupportedPrecision {
+                    error: value.into()
+                })
+            );
         }
     }
 }
