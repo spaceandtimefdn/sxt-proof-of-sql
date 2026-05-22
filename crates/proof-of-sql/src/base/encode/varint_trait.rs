@@ -293,3 +293,55 @@ impl<T: MontConfig<4>> VarInt for MontScalar<T> {
         write_scalar_varint(dst, &self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{VarInt, MSB, U256};
+
+    #[test]
+    fn bool_decode_rejects_non_boolean_values() {
+        assert_eq!(bool::decode_var(&[0]), Some((false, 1)));
+        assert_eq!(bool::decode_var(&[1]), Some((true, 1)));
+        assert_eq!(bool::decode_var(&[2]), None);
+    }
+
+    #[test]
+    fn narrow_integer_decode_rejects_overflow_values() {
+        let encoded_u8_overflow = 256_u64.encode_var_vec();
+        assert_eq!(u8::decode_var(&encoded_u8_overflow), None);
+
+        let encoded_i8_high_overflow = 128_i64.encode_var_vec();
+        assert_eq!(i8::decode_var(&encoded_i8_high_overflow), None);
+
+        let encoded_i8_low_overflow = (-129_i64).encode_var_vec();
+        assert_eq!(i8::decode_var(&encoded_i8_low_overflow), None);
+    }
+
+    #[test]
+    fn u64_decode_rejects_incomplete_or_overwide_varints() {
+        assert_eq!(u64::decode_var(&[MSB]), None);
+        assert_eq!(u64::decode_var(&[0xff; 10]), None);
+    }
+
+    #[test]
+    fn u128_decode_rejects_values_with_high_u256_limb() {
+        let encoded_high_limb = U256 { low: 0, high: 1 }.encode_var_vec();
+
+        assert_eq!(u128::decode_var(&encoded_high_limb), None);
+    }
+
+    #[test]
+    fn u128_and_i128_round_trip_large_values() {
+        let unsigned = u128::MAX;
+        assert_eq!(
+            u128::decode_var(&unsigned.encode_var_vec()),
+            Some((unsigned, unsigned.required_space()))
+        );
+
+        let signed = i128::MIN + 1;
+        assert_eq!(
+            i128::decode_var(&signed.encode_var_vec()),
+            Some((signed, signed.required_space()))
+        );
+    }
+}
