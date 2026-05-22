@@ -38,3 +38,61 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PoSQLTimestampError;
+    use alloc::string::{String, ToString};
+
+    #[test]
+    fn we_can_display_timestamp_errors() {
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezone {
+                timezone: "Mars/Phobos".to_string()
+            }
+            .to_string(),
+            "invalid timezone string: Mars/Phobos"
+        );
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezoneOffset.to_string(),
+            "invalid timezone offset"
+        );
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimeUnit {
+                error: "fortnight".to_string()
+            }
+            .to_string(),
+            "Invalid time unit"
+        );
+        assert_eq!(
+            PoSQLTimestampError::UnsupportedPrecision {
+                error: "picoseconds".to_string()
+            }
+            .to_string(),
+            "Unsupported precision for timestamp: picoseconds"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_errors_into_strings() {
+        let error = PoSQLTimestampError::UnsupportedPrecision {
+            error: "weeks".to_string(),
+        };
+        let message: String = error.into();
+
+        assert_eq!(message, "Unsupported precision for timestamp: weeks");
+    }
+
+    #[test]
+    fn timestamp_errors_have_stable_equality_and_serde_roundtrip() {
+        let error = PoSQLTimestampError::InvalidTimeUnit {
+            error: "century".to_string(),
+        };
+        let bytes = bincode::serde::encode_to_vec(&error, bincode::config::legacy()).unwrap();
+        let (roundtripped, consumed): (PoSQLTimestampError, usize) =
+            bincode::serde::decode_from_slice(&bytes, bincode::config::legacy()).unwrap();
+
+        assert_eq!(consumed, bytes.len());
+        assert_eq!(roundtripped, error);
+    }
+}
