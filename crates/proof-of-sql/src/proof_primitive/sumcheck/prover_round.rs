@@ -129,7 +129,6 @@ fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
 mod tests {
     use super::prove_round;
     use crate::{base::scalar::test_scalar::TestScalar, proof_primitive::sumcheck::ProverState};
-    use alloc::vec;
 
     fn scalar(value: u64) -> TestScalar {
         TestScalar::from(value)
@@ -169,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "first round should be prover first.")]
+    #[should_panic(expected = "first round should be prover first")]
     fn first_round_rejects_verifier_message() {
         let mut prover_state = ProverState::new(
             vec![(scalar(1), vec![0])],
