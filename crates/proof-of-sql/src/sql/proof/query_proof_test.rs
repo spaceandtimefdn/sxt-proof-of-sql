@@ -2,7 +2,7 @@ use super::{FinalRoundBuilder, ProofPlan, ProverEvaluate, QueryProof, Verificati
 use crate::{
     base::{
         bit::BitDistribution,
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof as InnerProductProof,
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
@@ -11,9 +11,8 @@ use crate::{
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{test_scalar::TestScalar as Curve25519Scalar, Scalar},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::proof::{FirstRoundBuilder, QueryData, SumcheckSubpolynomialType},
 };
 use bumpalo::Bump;
@@ -605,7 +604,7 @@ fn verify_fails_if_an_intermediate_commitment_doesnt_match() {
     let (mut proof, result) =
         QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
     proof.final_round_message.round_commitments[0] =
-        proof.final_round_message.round_commitments[0] * Curve25519Scalar::from(2u64);
+        proof.final_round_message.round_commitments[0].clone() * Curve25519Scalar::from(2u64);
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
