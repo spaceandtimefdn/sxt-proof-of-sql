@@ -18,6 +18,20 @@ pub use column_ref::ColumnRef;
 mod column_field;
 pub use column_field::ColumnField;
 
+mod validity;
+pub use validity::{
+    all_rows_valid, and_validity_masks, canonicalize_nulls, ensure_canonical_column_nulls,
+    ensure_canonical_nulls, filter_valid_owned_values, validate_mask_length, validity_column,
+    ValidityError, ValidityResult,
+};
+
+mod nullable_column;
+pub use nullable_column::{
+    NullableColumn, NullableColumnError, NullableColumnResult, NullableOwnedColumn,
+};
+#[cfg(test)]
+mod nullable_column_test;
+
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
 

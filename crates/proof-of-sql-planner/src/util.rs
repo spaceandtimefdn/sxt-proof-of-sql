@@ -137,9 +137,12 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
         column_fields
             .into_iter()
             .map(|column_field| {
-                //TODO: Make columns nullable
                 let data_type = (&column_field.data_type()).into();
-                Field::new(column_field.name().value.as_str(), data_type, false)
+                Field::new(
+                    column_field.name().value.as_str(),
+                    data_type,
+                    column_field.is_nullable(),
+                )
             })
             .collect::<Vec<_>>(),
     )
@@ -516,6 +519,7 @@ mod tests {
         let column_fields = vec![
             ColumnField::new("a".into(), ColumnType::SmallInt),
             ColumnField::new("b".into(), ColumnType::VarChar),
+            ColumnField::new_nullable("c".into(), ColumnType::BigInt),
         ];
         let schema = column_fields_to_schema(column_fields);
         assert_eq!(
@@ -523,6 +527,7 @@ mod tests {
             vec![
                 &Field::new("a", DataType::Int16, false),
                 &Field::new("b", DataType::Utf8, false),
+                &Field::new("c", DataType::Int64, true),
             ]
         );
     }

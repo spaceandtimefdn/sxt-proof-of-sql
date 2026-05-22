@@ -77,7 +77,7 @@ impl From<&ColumnField> for Field {
         Field::new(
             column_field.name().value.as_str(),
             (&column_field.data_type()).into(),
-            false,
+            column_field.is_nullable(),
         )
     }
 }
