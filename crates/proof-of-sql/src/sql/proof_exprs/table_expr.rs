@@ -49,18 +49,12 @@ mod tests {
 
     #[test]
     fn we_can_serialize_and_deserialize_a_table_expr() {
-        let expr = make_table_expr("sxt", "blocks");
-        let serialized = serde_json::to_string(&expr).expect("serialization failed");
-        let deserialized: TableExpr =
-            serde_json::from_str(&serialized).expect("deserialization failed");
-        assert_eq!(expr, deserialized);
-    }
-
-    #[test]
-    fn we_can_round_trip_table_expr_with_schema() {
-        let expr = make_table_expr("myschema", "mytable");
-        let serialized = serde_json::to_string(&expr).unwrap();
-        let deserialized: TableExpr = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(expr, deserialized);
+        for (schema, table) in [("sxt", "blocks"), ("myschema", "mytable")] {
+            let expr = make_table_expr(schema, table);
+            let serialized = serde_json::to_string(&expr).expect("serialization failed");
+            let deserialized: TableExpr =
+                serde_json::from_str(&serialized).expect("deserialization failed");
+            assert_eq!(expr, deserialized);
+        }
     }
 }
