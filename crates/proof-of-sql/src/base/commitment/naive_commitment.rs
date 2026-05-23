@@ -242,6 +242,7 @@ fn we_can_compute_commitments_from_remaining_committable_column_variants() {
     let int_column = [-13_i32, 21, 34];
     let int128_column = [-55_i128, 89, 144];
     let decimal_limbs = vec![[1_u64, 2, 3, 4], [5, 6, 7, 8]];
+    let scalar_limbs = vec![[13_u64, 21, 34, 55], [89, 144, 233, 377]];
     let timestamp_column = [1_700_000_000_i64, -1_700_000_001];
 
     let expected = vec![
@@ -252,6 +253,7 @@ fn we_can_compute_commitments_from_remaining_committable_column_variants() {
         with_offset(int_column.iter().map(Into::into)),
         with_offset(int128_column.iter().map(Into::into)),
         with_offset(decimal_limbs.iter().map(Into::into)),
+        with_offset(scalar_limbs.iter().map(Into::into)),
         with_offset(timestamp_column.iter().map(Into::into)),
     ];
 
@@ -263,6 +265,7 @@ fn we_can_compute_commitments_from_remaining_committable_column_variants() {
         CommittableColumn::Int(&int_column),
         CommittableColumn::Int128(&int128_column),
         CommittableColumn::Decimal75(Precision::new(10).unwrap(), 2, decimal_limbs),
+        CommittableColumn::Scalar(scalar_limbs),
         CommittableColumn::TimestampTZ(
             PoSQLTimeUnit::Second,
             PoSQLTimeZone::utc(),
