@@ -170,7 +170,8 @@ pub(crate) fn sum_aggregate_column_by_index_counts<'a, S: Scalar>(
         Column::VarChar(_)
         | Column::TimestampTZ(_, _, _)
         | Column::Boolean(_)
-        | Column::VarBinary(_) => {
+        | Column::VarBinary(_)
+        | Column::FixedSizeBinary(_, _) => {
             unreachable!("SUM can not be applied to non-numeric types")
         }
     }
@@ -203,8 +204,8 @@ pub(crate) fn max_aggregate_column_by_index_counts<'a, S: Scalar>(
             max_aggregate_slice_by_index_counts(alloc, col, counts, indexes)
         }
         Column::Scalar(col) => max_aggregate_slice_by_index_counts(alloc, col, counts, indexes),
-        Column::VarBinary(_) => {
-            unreachable!("MAX can not be applied to varbinary")
+        Column::VarBinary(_) | Column::FixedSizeBinary(_, _) => {
+            unreachable!("MAX can not be applied to binary data")
         }
         // The following should never be reached because the `MAX` function can't be applied to varchar.
         Column::VarChar(_) => {
@@ -240,7 +241,9 @@ pub(crate) fn min_aggregate_column_by_index_counts<'a, S: Scalar>(
             min_aggregate_slice_by_index_counts(alloc, col, counts, indexes)
         }
         Column::Scalar(col) => min_aggregate_slice_by_index_counts(alloc, col, counts, indexes),
-        Column::VarBinary(_) => unreachable!("MIN can not be applied to varbinary"),
+        Column::VarBinary(_) | Column::FixedSizeBinary(_, _) => {
+            unreachable!("MIN can not be applied to binary data")
+        }
         // The following should never be reached because the `MIN` function can't be applied to varchar.
         Column::VarChar(_) => {
             unreachable!("MIN can not be applied to varchar")

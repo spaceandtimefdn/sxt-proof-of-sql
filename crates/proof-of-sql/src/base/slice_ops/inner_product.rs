@@ -40,3 +40,12 @@ pub fn inner_product_with_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
         .map(|(lhs_bytes, &rhs)| S::from_byte_slice_via_hash(lhs_bytes) * rhs)
         .sum()
 }
+
+/// Cannot use [`inner_product_with_bytes`] for fixed-size binary columns because fixed-size
+/// bytes are embedded naturally when they fit in 31 bytes and hashed only for larger values.
+pub fn inner_product_with_fixed_size_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
+    if_rayon!(a.par_iter().with_min_len(super::MIN_RAYON_LEN), a.iter())
+        .zip(b)
+        .map(|(lhs_bytes, &rhs)| S::from_fixed_size_byte_slice(lhs_bytes) * rhs)
+        .sum()
+}

@@ -22,6 +22,7 @@ impl From<&ColumnType> for DataType {
             }
             ColumnType::VarChar => DataType::Utf8,
             ColumnType::VarBinary => DataType::LargeBinary,
+            ColumnType::FixedSizeBinary(byte_width) => DataType::FixedSizeBinary(*byte_width),
             ColumnType::Scalar => unimplemented!("Cannot convert Scalar type to arrow type"),
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 let arrow_timezone = Some(Arc::from(timezone.to_string()));
@@ -67,6 +68,7 @@ impl TryFrom<DataType> for ColumnType {
             }
             DataType::Utf8 => Ok(ColumnType::VarChar),
             DataType::LargeBinary => Ok(ColumnType::VarBinary),
+            DataType::FixedSizeBinary(byte_width) => Ok(ColumnType::FixedSizeBinary(byte_width)),
             _ => Err(format!("Unsupported arrow data type {data_type:?}")),
         }
     }
@@ -95,5 +97,14 @@ mod tests {
 
             prop_assert_eq!(actual, column_type);
         }
+    }
+
+    #[test]
+    fn we_can_roundtrip_fixed_size_binary_column_type() {
+        let column_type = ColumnType::FixedSizeBinary(32);
+        let arrow = DataType::from(&column_type);
+        let actual = ColumnType::try_from(arrow).unwrap();
+
+        assert_eq!(actual, column_type);
     }
 }

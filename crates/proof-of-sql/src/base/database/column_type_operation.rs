@@ -278,6 +278,9 @@ pub fn try_equals_types(lhs: ColumnType, rhs: ColumnType) -> ColumnOperationResu
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
             | (ColumnType::Scalar, _)
+    ) || matches!(
+        (lhs, rhs),
+        (ColumnType::FixedSizeBinary(left), ColumnType::FixedSizeBinary(right)) if left == right
     ) || (lhs.is_numeric() && rhs.is_numeric() && lhs.scale() == rhs.scale())
         || matches!(
             (lhs, rhs),
@@ -353,6 +356,9 @@ pub fn try_equals_types_with_scaling(
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
             | (ColumnType::Scalar, _)
+    ) || matches!(
+        (lhs, rhs),
+        (ColumnType::FixedSizeBinary(left), ColumnType::FixedSizeBinary(right)) if left == right
     ) || (lhs.is_numeric() && rhs.is_numeric()))
     .then_some(())
     .ok_or(ColumnOperationError::BinaryOperationInvalidColumnType {

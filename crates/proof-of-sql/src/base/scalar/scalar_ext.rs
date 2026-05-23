@@ -51,6 +51,21 @@ pub trait ScalarExt: Scalar {
         let masked_val = hashed_val & Self::CHALLENGE_MASK;
         Self::from_wrapping(masked_val)
     }
+
+    /// Converts a fixed-size byte slice to a Scalar.
+    ///
+    /// Values up to 31 bytes are embedded naturally as a little-endian unsigned integer.
+    /// Larger fixed-size values are hashed into the scalar field.
+    #[must_use]
+    fn from_fixed_size_byte_slice(bytes: &[u8]) -> Self {
+        if bytes.len() <= 31 {
+            let value =
+                U256::from_le_slice(bytes).expect("byte slices up to 31 bytes parse as U256");
+            Self::from_wrapping(value)
+        } else {
+            Self::from_byte_slice_via_hash(bytes)
+        }
+    }
 }
 
 impl<S: Scalar> ScalarExt for S {}
@@ -82,6 +97,23 @@ mod tests {
     #[test]
     fn we_can_get_zero_from_zero_bytes() {
         assert_eq!(TestScalar::from_byte_slice_via_hash(&[]), TestScalar::ZERO);
+    }
+
+    #[test]
+    fn fixed_size_bytes_up_to_31_bytes_use_natural_embedding() {
+        assert_eq!(
+            TestScalar::from_fixed_size_byte_slice(&[1, 2]),
+            TestScalar::from(513_u64)
+        );
+    }
+
+    #[test]
+    fn fixed_size_32_byte_values_are_hashed() {
+        let bytes = [7_u8; 32];
+        assert_eq!(
+            TestScalar::from_fixed_size_byte_slice(&bytes),
+            TestScalar::from_byte_slice_via_hash(&bytes)
+        );
     }
 
     #[test]
