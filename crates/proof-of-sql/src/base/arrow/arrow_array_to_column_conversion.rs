@@ -7,9 +7,10 @@ use crate::base::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, FixedSizeBinaryArray,
+        Int16Array, Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, TimeUnit as ArrowTimeUnit},
 };
@@ -305,6 +306,28 @@ impl ArrayRefExt for ArrayRef {
                     };
 
                     Ok(Column::VarBinary((vals, scals)))
+                } else {
+                    Err(ArrowArrayToColumnConversionError::UnsupportedType {
+                        datatype: self.data_type().clone(),
+                    })
+                }
+            }
+            DataType::FixedSizeBinary(byte_width) => {
+                if let Some(array) = self.as_any().downcast_ref::<FixedSizeBinaryArray>() {
+                    let vals = alloc
+                        .alloc_slice_fill_with(range.end - range.start, |i| -> &'a [u8] {
+                            array.value(range.start + i)
+                        });
+
+                    let scals = if let Some(scals) = precomputed_scals {
+                        &scals[range.start..range.end]
+                    } else {
+                        alloc.alloc_slice_fill_with(vals.len(), |i| {
+                            S::from_fixed_size_byte_slice(vals[i])
+                        })
+                    };
+
+                    Ok(Column::FixedSizeBinary(*byte_width, (vals, scals)))
                 } else {
                     Err(ArrowArrayToColumnConversionError::UnsupportedType {
                         datatype: self.data_type().clone(),
@@ -1032,6 +1055,59 @@ mod tests {
                 .to_column::<DoryScalar>(&alloc, &(0..2), None)
                 .unwrap(),
             Column::VarBinary((&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
+    fn we_can_convert_valid_fixed_size_binary_array_refs_into_valid_columns() {
+        let alloc = Bump::new();
+        let data = [b"cd".as_slice(), b"ef".as_slice()];
+        let scals: Vec<_> = data
+            .iter()
+            .copied()
+            .map(DoryScalar::from_fixed_size_byte_slice)
+            .collect();
+        let array: ArrayRef =
+            Arc::new(FixedSizeBinaryArray::try_new(2, b"cdef".to_vec().into(), None).unwrap());
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::FixedSizeBinary(2, (&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
+    fn fixed_size_binary_scalars_are_natural_for_31_byte_values_and_hashed_for_32_byte_values() {
+        let alloc = Bump::new();
+        let data_31 = [1_u8; 31];
+        let array: ArrayRef =
+            Arc::new(FixedSizeBinaryArray::try_new(31, data_31.to_vec().into(), None).unwrap());
+        let expected_scals = [DoryScalar::from_fixed_size_byte_slice(&data_31)];
+        assert_ne!(
+            expected_scals[0],
+            DoryScalar::from_byte_slice_via_hash(&data_31)
+        );
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..1), None)
+                .unwrap(),
+            Column::FixedSizeBinary(31, (&[data_31.as_slice()][..], &expected_scals[..]))
+        );
+
+        let data_32 = [1_u8; 32];
+        let array: ArrayRef =
+            Arc::new(FixedSizeBinaryArray::try_new(32, data_32.to_vec().into(), None).unwrap());
+        let expected_scals = [DoryScalar::from_byte_slice_via_hash(&data_32)];
+        assert_eq!(
+            DoryScalar::from_fixed_size_byte_slice(&data_32),
+            expected_scals[0]
+        );
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..1), None)
+                .unwrap(),
+            Column::FixedSizeBinary(32, (&[data_32.as_slice()][..], &expected_scals[..]))
         );
     }
 

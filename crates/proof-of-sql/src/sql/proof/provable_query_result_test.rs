@@ -5,7 +5,7 @@ use crate::{
         database::{Column, ColumnField, ColumnType},
         math::decimal::Precision,
         polynomial::compute_evaluation_vector,
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     // proof_primitive::inner_product::TestScalar,
 };
@@ -192,6 +192,41 @@ fn evaluation_fails_if_integer_overflow_happens() {
     assert!(matches!(
         res.evaluate(&evaluation_point, 2, &column_fields[..]),
         Err(QueryError::Overflow)
+    ));
+}
+
+#[test]
+fn evaluation_fails_if_fixed_size_binary_width_does_not_match() {
+    let raw_bytes = [b"ab".as_ref(), b"cd".as_ref()];
+    let scalars: Vec<TestScalar> = raw_bytes
+        .iter()
+        .map(|&bytes| TestScalar::from_fixed_size_byte_slice(bytes))
+        .collect();
+    let cols: [Column<TestScalar>; 1] = [Column::FixedSizeBinary(2, (&raw_bytes, &scalars))];
+    let res = ProvableQueryResult::new(2, &cols);
+    let evaluation_point = [TestScalar::from(10u64), TestScalar::from(100u64)];
+    let column_fields = vec![ColumnField::new("a".into(), ColumnType::FixedSizeBinary(3))];
+
+    assert!(matches!(
+        res.evaluate(&evaluation_point, 2, &column_fields[..]),
+        Err(QueryError::MiscellaneousDecodingError)
+    ));
+}
+
+#[test]
+fn to_owned_table_fails_if_fixed_size_binary_width_does_not_match() {
+    let raw_bytes = [b"ab".as_ref(), b"cd".as_ref()];
+    let scalars: Vec<TestScalar> = raw_bytes
+        .iter()
+        .map(|&bytes| TestScalar::from_fixed_size_byte_slice(bytes))
+        .collect();
+    let cols: [Column<TestScalar>; 1] = [Column::FixedSizeBinary(2, (&raw_bytes, &scalars))];
+    let res = ProvableQueryResult::new(2, &cols);
+    let column_fields = vec![ColumnField::new("a".into(), ColumnType::FixedSizeBinary(3))];
+
+    assert!(matches!(
+        res.to_owned_table::<TestScalar>(&column_fields[..]),
+        Err(QueryError::MiscellaneousDecodingError)
     ));
 }
 

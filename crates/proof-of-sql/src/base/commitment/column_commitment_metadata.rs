@@ -55,6 +55,7 @@ impl ColumnCommitmentMetadata {
                 ColumnType::Boolean
                 | ColumnType::VarChar
                 | ColumnType::VarBinary
+                | ColumnType::FixedSizeBinary(_)
                 | ColumnType::Scalar
                 | ColumnType::Decimal75(..),
                 ColumnBounds::NoOrder,
@@ -290,6 +291,18 @@ mod tests {
                 bounds: ColumnBounds::NoOrder
             }
         );
+
+        assert_eq!(
+            ColumnCommitmentMetadata::try_new(
+                ColumnType::FixedSizeBinary(16),
+                ColumnBounds::NoOrder
+            )
+            .unwrap(),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::FixedSizeBinary(16),
+                bounds: ColumnBounds::NoOrder
+            }
+        );
     }
 
     #[test]
@@ -429,6 +442,20 @@ mod tests {
         let varchar_metadata = ColumnCommitmentMetadata::from_column(&committable_varchar_column);
         assert_eq!(varchar_metadata.column_type(), &ColumnType::VarChar);
         assert_eq!(varchar_metadata.bounds(), &ColumnBounds::NoOrder);
+
+        let fixed_size_binary_column = OwnedColumn::<TestScalar>::FixedSizeBinary(
+            3,
+            [b"foo".to_vec(), b"bar".to_vec(), b"baz".to_vec()].to_vec(),
+        );
+        let committable_fixed_size_binary_column =
+            CommittableColumn::from(&fixed_size_binary_column);
+        let fixed_size_binary_metadata =
+            ColumnCommitmentMetadata::from_column(&committable_fixed_size_binary_column);
+        assert_eq!(
+            fixed_size_binary_metadata.column_type(),
+            &ColumnType::FixedSizeBinary(3)
+        );
+        assert_eq!(fixed_size_binary_metadata.bounds(), &ColumnBounds::NoOrder);
 
         let bigint_column = OwnedColumn::<TestScalar>::BigInt([1, 2, 3, 1, 0].to_vec());
         let committable_bigint_column = CommittableColumn::from(&bigint_column);
