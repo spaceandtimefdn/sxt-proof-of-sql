@@ -51,4 +51,37 @@ mod tests {
         let reserialized = try_standard_binary_serialization(deserialized).unwrap();
         assert_eq!(serialized, reserialized);
     }
+
+    #[test]
+    fn deserialization_reports_consumed_bytes_with_trailing_data() {
+        let obj = SerdeTestType {
+            a: "test".to_string(),
+            b: true,
+            c: -123,
+        };
+        let serialized = try_standard_binary_serialization(obj.clone()).unwrap();
+        let mut serialized_with_trailing_data = serialized.clone();
+        serialized_with_trailing_data.extend_from_slice(&[1, 2, 3]);
+
+        let (deserialized, bytes_consumed): (SerdeTestType, _) =
+            try_standard_binary_deserialization(&serialized_with_trailing_data).unwrap();
+
+        assert_eq!(obj, deserialized);
+        assert_eq!(bytes_consumed, serialized.len());
+    }
+
+    #[test]
+    fn deserialization_errors_when_payload_is_truncated() {
+        let obj = SerdeTestType {
+            a: "test".to_string(),
+            b: false,
+            c: 123,
+        };
+        let serialized = try_standard_binary_serialization(obj).unwrap();
+
+        let result: Result<(SerdeTestType, _), _> =
+            try_standard_binary_deserialization(&serialized[..serialized.len() - 1]);
+
+        assert!(result.is_err());
+    }
 }
