@@ -51,3 +51,99 @@ macro_rules! impl_serde_for_ark_serde_unchecked {
 
 pub(crate) use impl_serde_for_ark_serde_checked;
 pub(crate) use impl_serde_for_ark_serde_unchecked;
+
+#[cfg(test)]
+mod tests {
+    use crate::base::{try_standard_binary_deserialization, try_standard_binary_serialization};
+    use ark_serialize::{
+        CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid,
+        Validate, Write,
+    };
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    struct CheckedByte(u8);
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    struct UncheckedByte(u8);
+
+    macro_rules! impl_canonical_byte {
+        ($t:ty) => {
+            impl CanonicalSerialize for $t {
+                fn serialize_with_mode<W: Write>(
+                    &self,
+                    writer: W,
+                    compress: Compress,
+                ) -> Result<(), SerializationError> {
+                    self.0.serialize_with_mode(writer, compress)
+                }
+
+                fn serialized_size(&self, compress: Compress) -> usize {
+                    self.0.serialized_size(compress)
+                }
+            }
+
+            impl Valid for $t {
+                fn check(&self) -> Result<(), SerializationError> {
+                    if self.0 == u8::MAX {
+                        Err(SerializationError::InvalidData)
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+
+            impl CanonicalDeserialize for $t {
+                fn deserialize_with_mode<R: Read>(
+                    reader: R,
+                    compress: Compress,
+                    validate: Validate,
+                ) -> Result<Self, SerializationError> {
+                    let value = Self(u8::deserialize_with_mode(reader, compress, Validate::No)?);
+                    if validate == Validate::Yes {
+                        value.check()?;
+                    }
+                    Ok(value)
+                }
+            }
+        };
+    }
+
+    impl_canonical_byte!(CheckedByte);
+    impl_canonical_byte!(UncheckedByte);
+    impl_serde_for_ark_serde_checked!(CheckedByte);
+    impl_serde_for_ark_serde_unchecked!(UncheckedByte);
+
+    #[test]
+    fn checked_ark_serde_helper_roundtrips_valid_values() {
+        let value = CheckedByte(42);
+
+        let serialized = try_standard_binary_serialization(value).unwrap();
+        let (deserialized, consumed): (CheckedByte, usize) =
+            try_standard_binary_deserialization(&serialized).unwrap();
+
+        assert_eq!(deserialized, value);
+        assert_eq!(consumed, serialized.len());
+    }
+
+    #[test]
+    fn checked_ark_serde_helper_rejects_invalid_values() {
+        let serialized = try_standard_binary_serialization(CheckedByte(u8::MAX)).unwrap();
+
+        let result: Result<(CheckedByte, usize), _> =
+            try_standard_binary_deserialization(&serialized);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unchecked_ark_serde_helper_accepts_invalid_values() {
+        let value = UncheckedByte(u8::MAX);
+
+        let serialized = try_standard_binary_serialization(value).unwrap();
+        let (deserialized, consumed): (UncheckedByte, usize) =
+            try_standard_binary_deserialization(&serialized).unwrap();
+
+        assert_eq!(deserialized, value);
+        assert_eq!(consumed, serialized.len());
+    }
+}
