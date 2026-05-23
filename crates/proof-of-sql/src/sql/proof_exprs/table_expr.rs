@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn we_can_debug_print_a_table_expr() {
         let expr = make_table_expr("sxt", "blocks");
-        let _debug_str = format!("{expr:?}");
+        let _ = format!("{expr:?}");
     }
 
     #[test]
