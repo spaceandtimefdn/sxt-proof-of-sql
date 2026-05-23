@@ -354,7 +354,8 @@ mod tests {
     #[test]
     fn we_can_debug_print_a_dyn_proof_expr() {
         let expr = bigint_column();
-        let _ = format!("{expr:?}");
+        let debug_str = format!("{expr:?}");
+        assert!(debug_str.contains("Column"));
     }
 
     // serde round-trip

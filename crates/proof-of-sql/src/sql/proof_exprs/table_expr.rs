@@ -43,7 +43,8 @@ mod tests {
     #[test]
     fn we_can_debug_print_a_table_expr() {
         let expr = make_table_expr("sxt", "blocks");
-        let _ = format!("{expr:?}");
+        let debug_str = format!("{expr:?}");
+        assert!(debug_str.contains("TableExpr"));
     }
 
     #[test]
