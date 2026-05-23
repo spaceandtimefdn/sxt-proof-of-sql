@@ -142,3 +142,58 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_omits_empty_schema() {
+        let table_ref = TableRef::new("", "orders");
+
+        assert_eq!(table_ref.schema_id(), None);
+        assert_eq!(table_ref.table_id().value, "orders");
+        assert_eq!(table_ref.to_string(), "orders");
+    }
+
+    #[test]
+    fn parses_schema_qualified_table_refs() {
+        let table_ref = TableRef::try_from("sales.orders").unwrap();
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "sales");
+        assert_eq!(table_ref.table_id().value, "orders");
+        assert_eq!(table_ref.to_string(), "sales.orders");
+    }
+
+    #[test]
+    fn rejects_more_than_two_table_ref_components() {
+        let err = TableRef::try_from("catalog.sales.orders").unwrap_err();
+
+        assert!(matches!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference
+            } if table_reference == "catalog.sales.orders"
+        ));
+
+        let err = TableRef::from_strs(&["catalog", "sales", "orders"]).unwrap_err();
+
+        assert!(matches!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference
+            } if table_reference == "catalog,sales,orders"
+        ));
+    }
+
+    #[test]
+    fn serde_round_trips_display_form() {
+        let table_ref = TableRef::new("analytics", "events");
+
+        let encoded = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(encoded, "\"analytics.events\"");
+
+        let decoded: TableRef = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, table_ref);
+    }
+}
