@@ -54,7 +54,7 @@ mod slice_exec_test;
 
 mod union_exec;
 pub(crate) use union_exec::UnionExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod union_exec_test;
 
 mod sort_merge_join_exec;
