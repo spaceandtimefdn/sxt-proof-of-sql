@@ -24,21 +24,31 @@ pub fn deserialize_flat_compressed_hyperkzg_public_setup_from_reader<R: std::io:
     mut reader: R,
     validate: Validate,
 ) -> Result<HyperKZGPublicSetupOwned, SerializationError> {
-    std::iter::repeat_with(|| {
+    let mut setup = Vec::new();
+    loop {
         let mut buffer = [0; COMPRESSED_SIZE];
-        let num_bytes_read = reader.read(&mut buffer);
-        (buffer, num_bytes_read)
-    })
-    .map_while(|(bytes, num_bytes_read)| match num_bytes_read {
-        Ok(0) => None, // EOF, end iterator
-        Ok(_) => Some(G1Affine::deserialize_with_mode(
-            &bytes[..],
+        let mut bytes_read = 0;
+        while bytes_read < COMPRESSED_SIZE {
+            match reader.read(&mut buffer[bytes_read..]) {
+                Ok(0) if bytes_read == 0 => return Ok(setup),
+                Ok(0) => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        "unexpected EOF while reading compressed HyperKZG setup point",
+                    )
+                    .into());
+                }
+                Ok(num_bytes_read) => bytes_read += num_bytes_read,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e.into()),
+            }
+        }
+        setup.push(G1Affine::deserialize_with_mode(
+            &buffer[..],
             Compress::Yes,
             validate,
-        )),
-        Err(e) => Some(Err(e.into())),
-    })
-    .collect()
+        )?);
+    }
 }
 
 /// Deserialize a [`HyperKZGPublicSetupOwned`] from a byte slice.
@@ -121,6 +131,25 @@ pub fn load_small_setup_for_testing() -> (
 #[cfg(all(test, feature = "std"))]
 mod std_tests {
     use super::*;
+    use std::io::{Read, Result};
+
+    struct ShortRead<'a> {
+        bytes: &'a [u8],
+        max_bytes_per_read: usize,
+    }
+
+    impl Read for ShortRead<'_> {
+        fn read(&mut self, buffer: &mut [u8]) -> Result<usize> {
+            let bytes_to_read = self
+                .bytes
+                .len()
+                .min(buffer.len())
+                .min(self.max_bytes_per_read);
+            buffer[..bytes_to_read].copy_from_slice(&self.bytes[..bytes_to_read]);
+            self.bytes = &self.bytes[bytes_to_read..];
+            Ok(bytes_to_read)
+        }
+    }
 
     #[test]
     fn we_can_deserialize_empty_setup_from_slice() {
@@ -161,6 +190,24 @@ mod std_tests {
                 .unwrap()
                 .len(),
             4,
+        );
+    }
+
+    #[test]
+    fn we_can_deserialize_ppot_02_setup_from_reader_with_short_reads() {
+        let bytes = include_bytes!("test_ppot_0080_02.bin");
+        let short_read = ShortRead {
+            bytes,
+            max_bytes_per_read: 7,
+        };
+        assert_eq!(
+            deserialize_flat_compressed_hyperkzg_public_setup_from_reader(
+                short_read,
+                Validate::Yes
+            )
+            .unwrap(),
+            deserialize_flat_compressed_hyperkzg_public_setup_from_slice(bytes, Validate::Yes)
+                .unwrap(),
         );
     }
 }
