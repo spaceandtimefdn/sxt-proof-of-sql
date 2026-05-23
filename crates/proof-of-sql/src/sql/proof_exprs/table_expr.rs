@@ -51,9 +51,8 @@ mod tests {
     fn we_can_serialize_and_deserialize_a_table_expr() {
         for (schema, table) in [("sxt", "blocks"), ("myschema", "mytable")] {
             let expr = make_table_expr(schema, table);
-            let serialized = serde_json::to_string(&expr).expect("serialization failed");
-            let deserialized: TableExpr =
-                serde_json::from_str(&serialized).expect("deserialization failed");
+            let serialized = serde_json::to_string(&expr).unwrap();
+            let deserialized: TableExpr = serde_json::from_str(&serialized).unwrap();
             assert_eq!(expr, deserialized);
         }
     }

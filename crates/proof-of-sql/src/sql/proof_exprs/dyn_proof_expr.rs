@@ -192,17 +192,14 @@ mod tests {
     // try_new_placeholder
     #[test]
     fn we_can_create_a_placeholder_expr() {
-        let expr = DynProofExpr::try_new_placeholder(1, ColumnType::BigInt)
-            .expect("placeholder should succeed");
+        let expr = DynProofExpr::try_new_placeholder(1, ColumnType::BigInt).unwrap();
         assert_eq!(expr.data_type(), ColumnType::BigInt);
     }
 
     #[test]
     fn we_can_create_multiple_placeholder_exprs_with_different_ids() {
-        let expr1 = DynProofExpr::try_new_placeholder(1, ColumnType::Int)
-            .expect("placeholder should succeed");
-        let expr2 = DynProofExpr::try_new_placeholder(2, ColumnType::SmallInt)
-            .expect("placeholder should succeed");
+        let expr1 = DynProofExpr::try_new_placeholder(1, ColumnType::Int).unwrap();
+        let expr2 = DynProofExpr::try_new_placeholder(2, ColumnType::SmallInt).unwrap();
         assert_eq!(expr1.data_type(), ColumnType::Int);
         assert_eq!(expr2.data_type(), ColumnType::SmallInt);
     }
@@ -212,7 +209,7 @@ mod tests {
     fn we_can_create_an_and_expr_from_two_boolean_columns() {
         let lhs = bool_column();
         let rhs = bool_column();
-        let expr = DynProofExpr::try_new_and(lhs, rhs).expect("and should succeed");
+        let expr = DynProofExpr::try_new_and(lhs, rhs).unwrap();
         assert_eq!(expr.data_type(), ColumnType::Boolean);
     }
 
@@ -228,7 +225,7 @@ mod tests {
     fn we_can_create_an_or_expr_from_two_boolean_columns() {
         let lhs = bool_column();
         let rhs = bool_column();
-        let expr = DynProofExpr::try_new_or(lhs, rhs).expect("or should succeed");
+        let expr = DynProofExpr::try_new_or(lhs, rhs).unwrap();
         assert_eq!(expr.data_type(), ColumnType::Boolean);
     }
 
@@ -243,7 +240,7 @@ mod tests {
     #[test]
     fn we_can_create_a_not_expr_from_a_boolean_column() {
         let expr = bool_column();
-        let not_expr = DynProofExpr::try_new_not(expr).expect("not should succeed");
+        let not_expr = DynProofExpr::try_new_not(expr).unwrap();
         assert_eq!(not_expr.data_type(), ColumnType::Boolean);
     }
 
@@ -258,7 +255,7 @@ mod tests {
     fn we_can_create_an_equals_expr_for_bigint_columns() {
         let lhs = bigint_column();
         let rhs = bigint_column();
-        let expr = DynProofExpr::try_new_equals(lhs, rhs).expect("equals should succeed");
+        let expr = DynProofExpr::try_new_equals(lhs, rhs).unwrap();
         assert_eq!(expr.data_type(), ColumnType::Boolean);
     }
 
@@ -266,7 +263,7 @@ mod tests {
     fn we_can_create_an_equals_expr_for_boolean_columns() {
         let lhs = bool_column();
         let rhs = bool_column();
-        let expr = DynProofExpr::try_new_equals(lhs, rhs).expect("equals should succeed");
+        let expr = DynProofExpr::try_new_equals(lhs, rhs).unwrap();
         assert_eq!(expr.data_type(), ColumnType::Boolean);
     }
 
@@ -275,10 +272,8 @@ mod tests {
     fn we_can_create_an_inequality_expr_for_bigint_columns() {
         let lhs = bigint_column();
         let rhs = bigint_column();
-        let lt_expr = DynProofExpr::try_new_inequality(lhs.clone(), rhs.clone(), true)
-            .expect("inequality should succeed");
-        let gt_expr =
-            DynProofExpr::try_new_inequality(lhs, rhs, false).expect("inequality should succeed");
+        let lt_expr = DynProofExpr::try_new_inequality(lhs.clone(), rhs.clone(), true).unwrap();
+        let gt_expr = DynProofExpr::try_new_inequality(lhs, rhs, false).unwrap();
         assert_eq!(lt_expr.data_type(), ColumnType::Boolean);
         assert_eq!(gt_expr.data_type(), ColumnType::Boolean);
     }
@@ -288,7 +283,7 @@ mod tests {
     fn we_can_create_an_add_expr_for_matching_numeric_types() {
         let lhs = bigint_column();
         let rhs = bigint_column();
-        let expr = DynProofExpr::try_new_add(lhs, rhs).expect("add should succeed");
+        let expr = DynProofExpr::try_new_add(lhs, rhs).unwrap();
         assert!(expr.data_type().is_numeric());
     }
 
@@ -304,7 +299,7 @@ mod tests {
     fn we_can_create_a_subtract_expr_for_matching_numeric_types() {
         let lhs = bigint_column();
         let rhs = bigint_column();
-        let expr = DynProofExpr::try_new_subtract(lhs, rhs).expect("subtract should succeed");
+        let expr = DynProofExpr::try_new_subtract(lhs, rhs).unwrap();
         assert!(expr.data_type().is_numeric());
     }
 
@@ -313,7 +308,7 @@ mod tests {
     fn we_can_create_a_multiply_expr_for_numeric_types() {
         let lhs = smallint_column();
         let rhs = smallint_column();
-        let expr = DynProofExpr::try_new_multiply(lhs, rhs).expect("multiply should succeed");
+        let expr = DynProofExpr::try_new_multiply(lhs, rhs).unwrap();
         assert!(expr.data_type().is_numeric());
     }
 
@@ -328,8 +323,7 @@ mod tests {
     #[test]
     fn we_can_create_a_cast_expr_from_smallint_to_bigint() {
         let from = smallint_column();
-        let expr =
-            DynProofExpr::try_new_cast(from, ColumnType::BigInt).expect("cast should succeed");
+        let expr = DynProofExpr::try_new_cast(from, ColumnType::BigInt).unwrap();
         assert_eq!(expr.data_type(), ColumnType::BigInt);
     }
 
@@ -337,9 +331,8 @@ mod tests {
     #[test]
     fn we_can_create_a_scaling_cast_expr_from_smallint_to_decimal() {
         let from = smallint_column();
-        let to_type = ColumnType::Decimal75(Precision::new(10).expect("valid precision"), 3);
-        let expr =
-            DynProofExpr::try_new_scaling_cast(from, to_type).expect("scaling cast should succeed");
+        let to_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 3);
+        let expr = DynProofExpr::try_new_scaling_cast(from, to_type).unwrap();
         assert_eq!(expr.data_type(), to_type);
     }
 
@@ -362,18 +355,16 @@ mod tests {
     #[test]
     fn we_can_serialize_and_deserialize_a_column_dyn_proof_expr() {
         let expr = bigint_column();
-        let serialized = serde_json::to_string(&expr).expect("serialization failed");
-        let deserialized: DynProofExpr =
-            serde_json::from_str(&serialized).expect("deserialization failed");
+        let serialized = serde_json::to_string(&expr).unwrap();
+        let deserialized: DynProofExpr = serde_json::from_str(&serialized).unwrap();
         assert_eq!(expr, deserialized);
     }
 
     #[test]
     fn we_can_serialize_and_deserialize_a_literal_dyn_proof_expr() {
         let expr = DynProofExpr::new_literal(LiteralValue::BigInt(42));
-        let serialized = serde_json::to_string(&expr).expect("serialization failed");
-        let deserialized: DynProofExpr =
-            serde_json::from_str(&serialized).expect("deserialization failed");
+        let serialized = serde_json::to_string(&expr).unwrap();
+        let deserialized: DynProofExpr = serde_json::from_str(&serialized).unwrap();
         assert_eq!(expr, deserialized);
     }
 }
