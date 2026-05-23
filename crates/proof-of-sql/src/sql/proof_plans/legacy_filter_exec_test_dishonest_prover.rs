@@ -1,5 +1,6 @@
 use crate::{
     base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             filter_util::*, owned_table_utility::*, Column, LiteralValue, OwnedTableTestAccessor,
             Table, TableOptions, TableRef, TestAccessor,
@@ -21,7 +22,6 @@ use crate::{
     },
     utils::log,
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[derive(Debug, PartialEq)]
@@ -183,14 +183,15 @@ fn we_fail_to_verify_a_basic_filter_with_a_dishonest_prover() {
         scalar("e", [1, 2, 3, 4, 5]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = DishonestFilterExec::new(
         cols_expr_plan(&t, &["b", "c", "d", "e"], &accessor),
         tab(&t),
         equal(column(&t, "a", &accessor), const_int128(105_i128)),
     );
-    let res = VerifiableQueryResult::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(matches!(
         res.verify(&expr, &accessor, &(), &[]),
         Err(QueryError::ProofError {
