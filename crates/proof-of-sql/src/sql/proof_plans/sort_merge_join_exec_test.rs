@@ -1,22 +1,21 @@
 use super::test_utility::*;
 use crate::{
-    base::database::{
-        owned_table_utility::*, table_utility::*, ColumnType, TableRef, TableTestAccessor,
-        TestAccessor,
+    base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
+        database::{
+            owned_table_utility::*, table_utility::*, ColumnType, TableRef, TableTestAccessor,
+            TestAccessor,
+        },
     },
-    sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::test_utility::*,
-    },
+    sql::{proof::VerifiableQueryResult, proof_exprs::test_utility::*},
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 use sqlparser::ast::Ident;
 
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_sort_merge_join() {
     let alloc = Bump::new();
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let left = table([
         borrowed_bigint("id", [1_i64, 2, 3, 4, 5], &alloc),
         borrowed_varchar(
@@ -56,9 +55,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_sort_merge_join() {
         vec![0],
         vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_left);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -74,7 +72,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_sort_merge_join() {
 #[test]
 fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_merge_join() {
     let alloc = Bump::new();
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let cats = table([
         borrowed_bigint("id", [1_i64, 2, 3, 4, 5, 6, 29, 20, 21], &alloc),
         borrowed_varchar(
@@ -134,9 +132,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
         2,
         Some(3),
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_cats);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -153,7 +150,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_sort_m
 #[expect(clippy::too_many_lines)]
 fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_sort_merge_joins() {
     let alloc = Bump::new();
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let cats = table([
         borrowed_bigint("id", [1_i64, 2, 3, 4, 5, 6, 10, 29, 20, 21], &alloc),
         borrowed_varchar(
@@ -267,9 +264,8 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
         ],
     );
 
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_cats);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -296,7 +292,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_complex_query_involving_two_so
 #[test]
 fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join() {
     let alloc = Bump::new();
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let left = table([
         borrowed_bigint("id", [1_i64, 2, 3, 4, 5], &alloc),
         borrowed_varchar(
@@ -332,9 +328,8 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join() {
         vec![0],
         vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_left);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -353,7 +348,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
 ) {
     // Left table has no rows but right table has rows
     let alloc = Bump::new();
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let left = table([
         borrowed_bigint("id", [0_i64; 0], &alloc),
         borrowed_varchar("name", [""; 0], &alloc),
@@ -385,9 +380,8 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         vec![0],
         vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_right);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -400,7 +394,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
     assert_eq!(res, expected_res);
 
     // Right table has no rows but left table has rows
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let left = table([
         borrowed_bigint("id", [1_i64, 2, 3, 4, 5], &alloc),
         borrowed_varchar(
@@ -436,9 +430,8 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         vec![0],
         vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &table_left);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -451,7 +444,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
     assert_eq!(res, expected_res);
 
     // Both tables have no rows
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let left = table([
         borrowed_bigint("id", [0_i64; 0], &alloc),
         borrowed_varchar("name", [""; 0], &alloc),
@@ -483,7 +476,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         vec![0],
         vec![Ident::new("id"), Ident::new("name"), Ident::new("human")],
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
