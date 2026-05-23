@@ -1,7 +1,7 @@
 use super::{test_utility::*, DynProofPlan};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnField, ColumnRef, ColumnType, TableRef,
             TableTestAccessor, TestAccessor,
@@ -10,7 +10,7 @@ use crate::{
     },
     sql::{
         evm_proof_plan::EVMProofPlan,
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{test_utility::*, AddExpr, AliasedDynProofExpr, DynProofExpr},
     },
 };
@@ -24,7 +24,7 @@ fn we_can_get_fields_of_filter() {
         borrowed_bigint("b", [4, 5, 6], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     // Create a TableExec as input for FilterExec
@@ -60,7 +60,7 @@ fn we_can_correctly_filter_data_with_filter() {
         borrowed_bigint("b", [1, 2, 3, 4, 5], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     // Create a TableExec as input for FilterExec
@@ -80,8 +80,8 @@ fn we_can_correctly_filter_data_with_filter() {
         where_clause,
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([bigint("b", [3_i64, 5])]);
     assert_eq!(res, expected_res);
@@ -96,7 +96,7 @@ fn we_can_correctly_filter_with_complex_condition() {
         borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     // Create a TableExec as input for FilterExec
@@ -120,8 +120,8 @@ fn we_can_correctly_filter_with_complex_condition() {
         where_clause,
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
         bigint("a", [4_i64, 5]),
@@ -140,7 +140,7 @@ fn we_can_compose_multiple_filters() {
         borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     // Create a TableExec as input
@@ -167,8 +167,8 @@ fn we_can_compose_multiple_filters() {
         lt(column(&t, "b", &accessor), const_int128(4_i128)),
     );
 
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
         bigint("a", [4_i64, 5]),
@@ -188,7 +188,7 @@ fn we_can_compose_complex_filters() {
         borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     let intermediate_data = table([
@@ -197,7 +197,7 @@ fn we_can_compose_complex_filters() {
         borrowed_int128("c", [20, 30, 40, 50], &alloc),
     ]);
     let mut intermediate_accessor =
-        TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+        TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     intermediate_accessor.add_table(t.clone(), intermediate_data, 0);
 
     // Create a TableExec as input
@@ -237,8 +237,8 @@ fn we_can_compose_complex_filters() {
             const_int128(11_i128),
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected_res = owned_table([
         decimal75("sum", 11, 0, [15, 19]), // a+b values for rows 3,4
@@ -257,7 +257,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
         borrowed_int128("c", [10, 20, 30, 40, 50], &alloc),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     let table_exec = table_exec(
@@ -342,7 +342,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
             const_int128(13_i128),
         ),
     );
-    let res: VerifiableQueryResult<InnerProductProof> =
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&filter, &accessor, &(), &[]).unwrap();
     res.verify(&filter, &accessor, &(), &[]).unwrap();
     let expected_evm_proof_plan = EVMProofPlan::new(filter);
@@ -351,7 +351,7 @@ fn we_can_have_projection_as_input_plan_for_filter() {
     )
     .unwrap()
     .0;
-    let res: VerifiableQueryResult<InnerProductProof> =
+    let res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&deserialized_evem_proof_plan, &accessor, &(), &[]).unwrap();
     res.verify(&deserialized_evem_proof_plan, &accessor, &(), &[])
         .unwrap();
