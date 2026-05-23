@@ -37,6 +37,8 @@ pub(super) use column_arithmetic_operation::{AddOp, ArithmeticOp, DivOp, MulOp, 
 
 mod column_comparison_operation;
 pub(super) use column_comparison_operation::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+#[cfg(test)]
+mod column_comparison_operation_test;
 
 mod column_index_operation;
 pub(super) use column_index_operation::apply_column_to_indexes;
@@ -67,6 +69,8 @@ pub use crate::base::arrow::{
     scalar_and_i256_conversions,
 };
 pub use table_ref::TableRef;
+#[cfg(test)]
+mod table_ref_test;
 
 #[cfg(feature = "arrow")]
 pub mod arrow_schema_utility;
