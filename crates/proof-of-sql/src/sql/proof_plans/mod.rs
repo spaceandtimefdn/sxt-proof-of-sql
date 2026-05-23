@@ -4,7 +4,7 @@ pub use empty_exec::EmptyExec;
 
 mod table_exec;
 pub use table_exec::TableExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod table_exec_test;
 
 mod projection_exec;
