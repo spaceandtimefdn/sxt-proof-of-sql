@@ -309,7 +309,6 @@ mod tests {
         let lhs = smallint_column();
         let rhs = smallint_column();
         let expr = DynProofExpr::try_new_multiply(lhs, rhs).unwrap();
-        // Result type is Int (SmallInt * SmallInt -> Int)
         assert!(expr.data_type().is_numeric());
     }
 
