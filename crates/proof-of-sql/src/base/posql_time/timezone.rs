@@ -119,4 +119,29 @@ mod timezone_parsing_tests {
             PoSQLTimestampError::InvalidTimezone { timezone: _ }
         ));
     }
+    #[test]
+    fn we_can_parse_positive_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("+01:30".into());
+        let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+        assert_eq!(timezone, PoSQLTimeZone::new(5400));
+    }
+
+    #[test]
+    fn we_can_parse_utc_aliases_case_insensitive() {
+        let utc_aliases = ["z", "utc", "00:00", "+00:00", "0:00", "+0:00"];
+        for alias in utc_aliases {
+            let timezone_as_str: Option<Arc<str>> = Some(alias.into());
+            let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+            assert_eq!(timezone, PoSQLTimeZone::utc());
+        }
+    }
+
+    #[test]
+    fn we_cannot_parse_invalid_time_zone_offset_components() {
+        for invalid_offset in ["+0A:00", "+01:0A"] {
+            let timezone_as_str: Option<Arc<str>> = Some(invalid_offset.into());
+            let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+            assert_eq!(timezone_err, PoSQLTimestampError::InvalidTimezoneOffset);
+        }
+    }
 }
