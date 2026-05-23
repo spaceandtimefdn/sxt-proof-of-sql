@@ -40,7 +40,7 @@ mod and_expr_test;
 
 mod inequality_expr;
 pub(crate) use inequality_expr::InequalityExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod inequality_expr_test;
 
 mod or_expr;
