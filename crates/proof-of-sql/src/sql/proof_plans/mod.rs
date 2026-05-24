@@ -1,6 +1,8 @@
 //! This module proves provable execution plans.
 mod empty_exec;
 pub use empty_exec::EmptyExec;
+#[cfg(test)]
+mod empty_exec_test;
 
 mod table_exec;
 pub use table_exec::TableExec;
@@ -64,6 +66,8 @@ mod sort_merge_join_exec_test;
 
 mod dyn_proof_plan;
 pub use dyn_proof_plan::DynProofPlan;
+#[cfg(test)]
+mod dyn_proof_plan_test;
 
 #[cfg(test)]
 mod demo_mock_plan;
