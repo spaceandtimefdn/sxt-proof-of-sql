@@ -75,6 +75,9 @@ mod extended_dory_reduce;
 mod extended_dory_reduce_test;
 
 mod extended_dory_reduce_helper;
+#[cfg(test)]
+mod extended_dory_reduce_helper_test;
+
 mod fold_scalars;
 
 pub(crate) use extended_dory_reduce::{extended_dory_reduce_prove, extended_dory_reduce_verify};
@@ -157,6 +160,9 @@ mod transpose;
 mod dynamic_build_vmv_state;
 #[cfg(not(feature = "blitzar"))]
 mod dynamic_dory_commitment_helper_cpu;
+#[cfg(all(test, not(feature = "blitzar")))]
+mod dynamic_dory_commitment_helper_cpu_test;
+
 #[cfg(feature = "blitzar")]
 mod dynamic_dory_commitment_helper_gpu;
 mod dynamic_dory_helper;
