@@ -77,6 +77,8 @@ mod result_element_serialization;
 pub(crate) use result_element_serialization::{
     decode_and_convert, decode_multiple_elements, ProvableResultElement,
 };
+#[cfg(test)]
+mod result_element_serialization_test;
 
 mod first_round_builder;
 pub(crate) use first_round_builder::FirstRoundBuilder;

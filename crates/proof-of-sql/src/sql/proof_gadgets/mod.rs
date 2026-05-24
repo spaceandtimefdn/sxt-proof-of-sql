@@ -15,6 +15,8 @@ mod monotonic;
 #[cfg_attr(not(test), expect(dead_code))]
 mod permutation_check;
 mod shift;
+#[cfg(test)]
+mod shift_test;
 pub(crate) use membership_check::{
     final_round_evaluate_membership_check, first_round_evaluate_membership_check,
     verify_membership_check,

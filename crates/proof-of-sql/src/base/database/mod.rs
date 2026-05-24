@@ -159,6 +159,8 @@ pub(crate) mod group_by_util;
 mod group_by_util_test;
 
 pub(crate) mod union_util;
+#[cfg(test)]
+mod union_util_test;
 
 pub(crate) mod order_by_util;
 #[cfg(test)]
