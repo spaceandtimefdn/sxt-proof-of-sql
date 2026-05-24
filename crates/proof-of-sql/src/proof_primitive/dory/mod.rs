@@ -144,6 +144,8 @@ mod blitzar_metadata_table;
 mod offset_to_bytes;
 mod pack_scalars;
 mod pairings;
+#[cfg(test)]
+mod pairings_test;
 mod transpose;
 
 mod dynamic_build_vmv_state;
