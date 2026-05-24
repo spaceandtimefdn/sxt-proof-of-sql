@@ -51,3 +51,72 @@ macro_rules! impl_serde_for_ark_serde_unchecked {
 
 pub(crate) use impl_serde_for_ark_serde_checked;
 pub(crate) use impl_serde_for_ark_serde_unchecked;
+
+#[cfg(test)]
+mod tests {
+    use super::{impl_serde_for_ark_serde_checked, impl_serde_for_ark_serde_unchecked};
+    use ark_bn254::Fr;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        ark_serialize::CanonicalSerialize,
+        ark_serialize::CanonicalDeserialize,
+    )]
+    struct CheckedFr(Fr);
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        ark_serialize::CanonicalSerialize,
+        ark_serialize::CanonicalDeserialize,
+    )]
+    struct UncheckedFr(Fr);
+
+    impl_serde_for_ark_serde_checked!(CheckedFr);
+    impl_serde_for_ark_serde_unchecked!(UncheckedFr);
+
+    #[test]
+    fn checked_macro_round_trip_succeeds() {
+        let value = CheckedFr(Fr::from(42u64));
+        let encoded = serde_json::to_vec(&value).expect("serialize should succeed");
+        let decoded: CheckedFr =
+            serde_json::from_slice(&encoded).expect("deserialize should succeed");
+        assert_eq!(decoded, value);
+    }
+
+    #[test]
+    fn checked_macro_rejects_invalid_bytes() {
+        let encoded =
+            serde_json::to_vec(&vec![1u8, 2, 3, 4, 5]).expect("serialize bytes should succeed");
+        let result: Result<CheckedFr, _> = serde_json::from_slice(&encoded);
+        assert!(
+            result.is_err(),
+            "checked deserialization should reject malformed bytes"
+        );
+    }
+
+    #[test]
+    fn unchecked_macro_round_trip_succeeds() {
+        let value = UncheckedFr(Fr::from(7u64));
+        let encoded = serde_json::to_vec(&value).expect("serialize should succeed");
+        let decoded: UncheckedFr =
+            serde_json::from_slice(&encoded).expect("deserialize should succeed");
+        assert_eq!(decoded, value);
+    }
+
+    #[test]
+    fn unchecked_macro_rejects_truncated_bytes() {
+        let encoded = serde_json::to_vec(&vec![1u8, 2, 3]).expect("serialize bytes should succeed");
+        let result: Result<UncheckedFr, _> = serde_json::from_slice(&encoded);
+        assert!(
+            result.is_err(),
+            "unchecked deserialization still requires sufficient bytes"
+        );
+    }
+}
