@@ -51,7 +51,9 @@ mod table_operation_error;
 pub use table_operation_error::{TableOperationError, TableOperationResult};
 
 mod columnar_value;
-pub use columnar_value::ColumnarValue;
+pub use columnar_value::{ColumnarValue, ColumnarValueError};
+#[cfg(test)]
+mod columnar_value_error_test;
 
 mod literal_value;
 pub use literal_value::LiteralValue;
