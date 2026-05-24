@@ -130,6 +130,8 @@ pub use table_evaluation::TableEvaluation;
 mod table_evaluation_test;
 
 mod test_accessor;
+#[cfg(test)]
+mod test_accessor_test;
 pub use test_accessor::TestAccessor;
 
 mod owned_table_test_accessor;

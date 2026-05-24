@@ -8,6 +8,8 @@ mod error_test;
 /// Contains an extension trait for `merlin::Transcript`, which is used to construct a proof.
 #[cfg(any(test, feature = "blitzar"))]
 mod merlin_transcript_core;
+#[cfg(any(test, feature = "blitzar"))]
+mod merlin_transcript_core_test;
 
 mod transcript;
 pub use transcript::Transcript;

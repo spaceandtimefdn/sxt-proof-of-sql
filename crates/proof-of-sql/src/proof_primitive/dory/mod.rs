@@ -47,6 +47,8 @@ mod state_test;
 
 #[cfg(test)]
 mod dory_reduce;
+#[cfg(test)]
+mod dory_reduce_test;
 mod dory_reduce_helper;
 #[cfg(test)]
 mod dory_reduce_helper_test;
@@ -142,6 +144,8 @@ use dory_vmv_helper::{
     compute_L_R_vec, compute_T_vec_prime, compute_l_r_tensors, compute_nu, compute_v_vec,
 };
 mod build_vmv_state;
+#[cfg(test)]
+mod build_vmv_state_test;
 use build_vmv_state::{build_vmv_prover_state, build_vmv_verifier_state};
 
 mod dory_commitment_evaluation_proof;
@@ -167,6 +171,8 @@ mod pairings_test;
 mod transpose;
 
 mod dynamic_build_vmv_state;
+#[cfg(test)]
+mod dynamic_build_vmv_state_test;
 #[cfg(not(feature = "blitzar"))]
 mod dynamic_dory_commitment_helper_cpu;
 #[cfg(all(test, not(feature = "blitzar")))]

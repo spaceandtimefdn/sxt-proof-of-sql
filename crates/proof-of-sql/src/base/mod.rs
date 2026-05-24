@@ -21,6 +21,8 @@ pub use standard_serializations::binary::{
     try_standard_binary_deserialization, try_standard_binary_serialization,
 };
 pub(crate) mod ref_into;
+#[cfg(test)]
+mod ref_into_test;
 /// This module contains the `Scalar` trait as well as the main, generic, implementations of it.
 pub mod scalar;
 mod serialize;
