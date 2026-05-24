@@ -118,6 +118,8 @@ mod table_utility_test;
 
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
+#[cfg(test)]
+mod table_evaluation_test;
 
 mod test_accessor;
 pub use test_accessor::TestAccessor;
