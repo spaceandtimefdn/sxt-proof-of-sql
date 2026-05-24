@@ -96,3 +96,6 @@ pub use commitment_evaluation_proof::CommitmentEvaluationProof;
 
 #[cfg(test)]
 pub(crate) mod commitment_evaluation_proof_test;
+
+#[cfg(test)]
+mod commitment_error_test;
