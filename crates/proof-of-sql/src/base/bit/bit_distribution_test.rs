@@ -1,5 +1,6 @@
 use super::*;
 use crate::base::{
+    proof::ProofError,
     scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
     try_standard_binary_deserialization, try_standard_binary_serialization,
 };
@@ -430,4 +431,37 @@ fn we_can_serialize_round_trip() {
 
     let deserialized: BitDistribution = try_standard_binary_deserialization(&serialized).unwrap().0;
     assert_eq!(deserialized, bit_distribution);
+}
+
+#[test]
+fn verification_bit_distribution_errors_convert_to_proof_verification_errors() {
+    let proof_error: ProofError = BitDistributionError::Verification.into();
+
+    assert!(matches!(
+        proof_error,
+        ProofError::VerificationError {
+            error: "invalid bit_decomposition",
+        }
+    ));
+}
+
+#[test]
+fn no_lead_bit_errors_panic_during_proof_error_conversion() {
+    let result = std::panic::catch_unwind(|| {
+        let _: ProofError = BitDistributionError::NoLeadBit.into();
+    });
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn vary_mask_iter_reports_positions_in_ascending_limb_order() {
+    let bit_distribution = BitDistribution {
+        vary_mask: [1 << 1, 1 << 3, 1 << 5, 1 << 7],
+        leading_bit_mask: [0; 4],
+    };
+
+    let positions: Vec<_> = bit_distribution.vary_mask_iter().collect();
+
+    assert_eq!(positions, vec![1, 67, 133, 199]);
 }
