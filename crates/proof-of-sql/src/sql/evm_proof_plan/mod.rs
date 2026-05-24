@@ -5,6 +5,8 @@ mod error_test;
 mod exprs;
 pub(crate) use exprs::EVMDynProofExpr;
 mod plans;
+#[cfg(test)]
+mod plans_test;
 mod proof_plan;
 #[cfg(test)]
 mod tests;
