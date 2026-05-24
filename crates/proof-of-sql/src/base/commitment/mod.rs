@@ -103,3 +103,7 @@ mod commitment_error_test;
 mod bounds_error_test;
 #[cfg(test)]
 mod table_commitment_error_test;
+#[cfg(test)]
+mod column_commitments_mismatch_test;
+#[cfg(test)]
+mod column_commitment_metadata_error_test;

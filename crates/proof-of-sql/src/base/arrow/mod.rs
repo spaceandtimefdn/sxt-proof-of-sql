@@ -19,6 +19,8 @@ pub mod record_batch_conversion;
 
 /// Module for record batch error definitions.
 pub mod record_batch_errors;
+#[cfg(test)]
+mod record_batch_error_test;
 
 /// Module for scalar and i256 conversions.
 pub mod scalar_and_i256_conversions;
