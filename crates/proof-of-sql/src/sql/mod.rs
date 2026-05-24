@@ -1,6 +1,8 @@
 //! This module contains the main logic for Proof of SQL.
 
 mod error;
+#[cfg(test)]
+mod error_test;
 /// This module holds the [`EVMProofPlan`] struct and its implementation, which allows for EVM compatible serialization.
 pub mod evm_proof_plan;
 /// [`AnalyzeError`] temporarily exists until we switch to using Datafusion Analyzer to handle type checking.

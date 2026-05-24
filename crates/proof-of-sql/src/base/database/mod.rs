@@ -57,6 +57,8 @@ mod literal_value;
 pub use literal_value::LiteralValue;
 
 mod error;
+#[cfg(test)]
+mod error_test;
 pub use error::ParseError;
 
 mod table_ref;
