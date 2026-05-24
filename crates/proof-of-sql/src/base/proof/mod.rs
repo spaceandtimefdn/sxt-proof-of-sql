@@ -11,6 +11,8 @@ mod merlin_transcript_core;
 
 mod transcript;
 pub use transcript::Transcript;
+#[cfg(test)]
+mod transcript_test;
 
 mod transcript_core;
 #[cfg(test)]

@@ -1,6 +1,8 @@
 //! This module contains shared proof logic for multiple `ProofExpr` / `ProofPlan` implementations.
 #[cfg(test)]
 mod divide_and_modulo_expr;
+#[cfg(test)]
+mod divide_and_modulo_expr_test;
 mod filter_base;
 pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter};
 #[cfg(test)]

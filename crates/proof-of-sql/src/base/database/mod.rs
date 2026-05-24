@@ -61,10 +61,14 @@ pub use table_operation_error::{TableOperationError, TableOperationResult};
 mod columnar_value;
 pub use columnar_value::{ColumnarValue, ColumnarValueError};
 #[cfg(test)]
+mod columnar_value_test;
+#[cfg(test)]
 mod columnar_value_error_test;
 
 mod literal_value;
 pub use literal_value::LiteralValue;
+#[cfg(test)]
+mod literal_value_test;
 
 mod error;
 #[cfg(test)]
