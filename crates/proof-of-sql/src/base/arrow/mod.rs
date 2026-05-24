@@ -33,3 +33,5 @@ mod scalar_and_i256_conversions_test;
 pub mod column_arrow_conversions;
 #[cfg(test)]
 mod column_arrow_conversions_test;
+#[cfg(test)]
+mod mod_test;

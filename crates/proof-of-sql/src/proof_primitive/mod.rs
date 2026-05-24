@@ -12,3 +12,5 @@ pub mod hyperkzg;
 
 /// Module for inner product argument proofs used in commitment verification.
 pub mod inner_product;
+#[cfg(test)]
+mod mod_test;

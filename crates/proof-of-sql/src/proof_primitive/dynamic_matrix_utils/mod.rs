@@ -6,3 +6,5 @@ pub mod standard_basis_helper;
 mod matrix_structure_test;
 #[cfg(test)]
 mod standard_basis_helper_test;
+#[cfg(test)]
+mod mod_test;

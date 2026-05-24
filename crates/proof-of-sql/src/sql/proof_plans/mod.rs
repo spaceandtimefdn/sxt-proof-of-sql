@@ -73,3 +73,5 @@ mod dyn_proof_plan_test;
 mod demo_mock_plan;
 #[cfg(test)]
 mod demo_mock_plan_test;
+#[cfg(test)]
+mod mod_test;

@@ -29,3 +29,5 @@ pub use batch_inverse::*;
 
 #[cfg(test)]
 mod batch_inverse_test;
+#[cfg(test)]
+mod mod_test;

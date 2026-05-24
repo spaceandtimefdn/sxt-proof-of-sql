@@ -5,3 +5,5 @@ pub use byte_distribution::*;
 mod byte_distribution_test;
 #[cfg(test)]
 mod byte_matrix_utils_test;
+#[cfg(test)]
+mod mod_test;

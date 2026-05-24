@@ -35,3 +35,5 @@ pub(crate) mod slice_ops;
 
 mod rayon_cfg;
 pub(crate) use rayon_cfg::if_rayon;
+#[cfg(test)]
+mod mod_test;

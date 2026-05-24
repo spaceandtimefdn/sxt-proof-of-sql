@@ -22,3 +22,5 @@ mod scalar_ext_test;
 #[cfg(test)]
 pub(crate) use scalar_ext::test_scalar_constants;
 pub use scalar_ext::ScalarExt;
+#[cfg(test)]
+mod mod_test;

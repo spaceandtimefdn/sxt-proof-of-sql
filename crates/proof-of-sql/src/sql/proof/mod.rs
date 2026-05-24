@@ -95,3 +95,5 @@ mod make_sumcheck_state_test;
 mod sumcheck_term_optimizer;
 #[cfg(test)]
 mod sumcheck_term_optimizer_test;
+#[cfg(test)]
+mod mod_test;

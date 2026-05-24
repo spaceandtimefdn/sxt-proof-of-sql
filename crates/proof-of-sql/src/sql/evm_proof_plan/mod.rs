@@ -14,3 +14,5 @@ mod proof_plan_test;
 mod tests;
 
 pub use proof_plan::EVMProofPlan;
+#[cfg(test)]
+mod mod_test;

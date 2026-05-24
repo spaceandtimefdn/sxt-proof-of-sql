@@ -55,3 +55,5 @@ pub(crate) use halo2_conversions::{
 
 #[cfg(all(test, feature = "hyperkzg_proof"))]
 mod evm_tests;
+#[cfg(test)]
+mod mod_test;

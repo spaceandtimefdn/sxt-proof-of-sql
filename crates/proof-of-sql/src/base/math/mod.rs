@@ -25,3 +25,5 @@ pub(crate) mod permutation;
 mod permutation_test;
 #[cfg(test)]
 mod permutation_error_test;
+#[cfg(test)]
+mod mod_test;

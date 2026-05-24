@@ -11,3 +11,5 @@ mod timezone_test;
 mod unit;
 /// Defines the precision of the timestamp
 pub use unit::PoSQLTimeUnit;
+#[cfg(test)]
+mod mod_test;

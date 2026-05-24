@@ -11,3 +11,5 @@ pub mod inner_product_proof;
 pub mod ristretto_point;
 #[cfg(test)]
 mod ristretto_point_test;
+#[cfg(test)]
+mod mod_test;

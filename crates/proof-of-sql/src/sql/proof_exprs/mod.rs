@@ -95,3 +95,5 @@ mod scaling_cast_expr;
 pub(crate) use scaling_cast_expr::ScalingCastExpr;
 #[cfg(test)]
 mod scaling_cast_expr_test;
+#[cfg(test)]
+mod mod_test;

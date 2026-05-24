@@ -6,3 +6,5 @@ pub mod parse;
 pub mod log;
 #[cfg(test)]
 mod log_test;
+#[cfg(test)]
+mod mod_test;
