@@ -6,7 +6,7 @@ mod empty_exec_test;
 
 mod table_exec;
 pub use table_exec::TableExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod table_exec_test;
 
 mod projection_exec;
@@ -71,3 +71,5 @@ mod dyn_proof_plan_test;
 
 #[cfg(test)]
 mod demo_mock_plan;
+#[cfg(test)]
+mod demo_mock_plan_test;
