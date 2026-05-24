@@ -10,8 +10,14 @@ pub use aliased_dyn_proof_expr::AliasedDynProofExpr;
 
 mod add_expr;
 pub(crate) use add_expr::AddExpr;
+#[cfg(test)]
+mod add_expr_test;
+
 mod subtract_expr;
 pub(crate) use subtract_expr::SubtractExpr;
+#[cfg(test)]
+mod subtract_expr_test;
+
 #[cfg(all(test, feature = "blitzar"))]
 mod add_subtract_expr_test;
 
