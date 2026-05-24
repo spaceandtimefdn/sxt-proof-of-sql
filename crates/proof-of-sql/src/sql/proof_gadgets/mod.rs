@@ -1,14 +1,22 @@
 //! This module contains shared proof logic for multiple `ProofExpr` / `ProofPlan` implementations.
 #[cfg(test)]
 mod divide_and_modulo_expr;
+#[cfg(test)]
+mod divide_and_modulo_expr_test;
 mod filter_base;
 pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter};
+#[cfg(test)]
+mod filter_base_test;
 pub(crate) mod fold_log_expr;
+#[cfg(test)]
+mod fold_log_expr_test;
 mod membership_check;
 mod monotonic;
 #[cfg_attr(not(test), expect(dead_code))]
 mod permutation_check;
 mod shift;
+#[cfg(test)]
+mod shift_test;
 pub(crate) use membership_check::{
     final_round_evaluate_membership_check, first_round_evaluate_membership_check,
     verify_membership_check,
@@ -36,3 +44,5 @@ pub(crate) use monotonic::{
 };
 #[cfg(test)]
 mod monotonic_test;
+#[cfg(test)]
+mod mod_test;

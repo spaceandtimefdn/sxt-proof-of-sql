@@ -22,6 +22,8 @@ mod verification_builder_test;
 
 mod provable_result_column;
 pub(crate) use provable_result_column::ProvableResultColumn;
+#[cfg(test)]
+mod provable_result_column_test;
 
 mod provable_query_result;
 pub use provable_query_result::ProvableQueryResult;
@@ -33,10 +35,14 @@ mod sumcheck_mle_evaluations_test;
 
 mod sumcheck_random_scalars;
 pub(crate) use sumcheck_random_scalars::SumcheckRandomScalars;
+#[cfg(test)]
+mod sumcheck_random_scalars_test;
 
 mod proof_plan;
 pub use proof_plan::ProofPlan;
 pub(crate) use proof_plan::{HonestProver, ProverEvaluate, ProverHonestyMarker};
+#[cfg(test)]
+mod proof_plan_test;
 
 mod query_proof;
 pub use query_proof::QueryProof;
@@ -45,11 +51,17 @@ mod query_proof_test;
 
 mod query_result;
 pub use query_result::{QueryData, QueryError, QueryResult};
+#[cfg(test)]
+mod query_result_test;
+#[cfg(test)]
+mod query_error_test;
 
 mod sumcheck_subpolynomial;
 pub(crate) use sumcheck_subpolynomial::{
     SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType,
 };
+#[cfg(test)]
+mod sumcheck_subpolynomial_test;
 
 mod verifiable_query_result;
 pub use verifiable_query_result::VerifiableQueryResult;
@@ -65,6 +77,8 @@ mod result_element_serialization;
 pub(crate) use result_element_serialization::{
     decode_and_convert, decode_multiple_elements, ProvableResultElement,
 };
+#[cfg(test)]
+mod result_element_serialization_test;
 
 mod first_round_builder;
 pub(crate) use first_round_builder::FirstRoundBuilder;
@@ -75,5 +89,11 @@ mod first_round_builder_test;
 mod provable_query_result_test;
 
 mod make_sumcheck_state;
+#[cfg(test)]
+mod make_sumcheck_state_test;
 
 mod sumcheck_term_optimizer;
+#[cfg(test)]
+mod sumcheck_term_optimizer_test;
+#[cfg(test)]
+mod mod_test;

@@ -1,5 +1,7 @@
 mod u256;
 pub(crate) use u256::U256;
+#[cfg(test)]
+mod u256_test;
 
 mod zigzag;
 pub(crate) use zigzag::ZigZag;
@@ -16,3 +18,6 @@ mod varint_trait;
 pub use varint_trait::VarInt;
 #[cfg(test)]
 mod varint_trait_test;
+
+#[cfg(test)]
+mod mod_test;

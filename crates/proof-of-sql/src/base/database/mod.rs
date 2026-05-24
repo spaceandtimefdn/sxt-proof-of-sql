@@ -5,6 +5,8 @@ mod accessor;
 pub use accessor::{
     CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
 };
+#[cfg(test)]
+mod accessor_test;
 
 mod column;
 pub use column::Column;
@@ -14,9 +16,13 @@ pub use column_type::ColumnType;
 
 mod column_ref;
 pub use column_ref::ColumnRef;
+#[cfg(test)]
+mod column_ref_test;
 
 mod column_field;
 pub use column_field::ColumnField;
+#[cfg(test)]
+mod column_field_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
@@ -34,14 +40,20 @@ pub use column_type_operation::{
 
 mod column_arithmetic_operation;
 pub(super) use column_arithmetic_operation::{AddOp, ArithmeticOp, DivOp, MulOp, SubOp};
+#[cfg(test)]
+mod column_arithmetic_operation_test;
 
 mod column_comparison_operation;
 pub(super) use column_comparison_operation::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+#[cfg(test)]
+mod column_comparison_operation_test;
 
 mod column_index_operation;
 pub(super) use column_index_operation::apply_column_to_indexes;
 
 mod column_repetition_operation;
+#[cfg(test)]
+mod column_repetition_operation_test;
 pub(super) use column_repetition_operation::{ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp};
 
 mod column_operation_error;
@@ -51,15 +63,25 @@ mod table_operation_error;
 pub use table_operation_error::{TableOperationError, TableOperationResult};
 
 mod columnar_value;
-pub use columnar_value::ColumnarValue;
+pub use columnar_value::{ColumnarValue, ColumnarValueError};
+#[cfg(test)]
+mod columnar_value_test;
+#[cfg(test)]
+mod columnar_value_error_test;
 
 mod literal_value;
 pub use literal_value::LiteralValue;
+#[cfg(test)]
+mod literal_value_test;
 
 mod error;
+#[cfg(test)]
+mod error_test;
 pub use error::ParseError;
 
 mod table_ref;
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub use crate::base::arrow::{
     arrow_array_to_column_conversion::{ArrayRefExt, ArrowArrayToColumnConversionError},
@@ -91,6 +113,8 @@ pub use owned_table::{OwnedTable, OwnedTableError};
 #[cfg(test)]
 mod owned_table_test;
 pub mod owned_table_utility;
+#[cfg(test)]
+mod owned_table_utility_test;
 
 mod table;
 #[cfg(test)]
@@ -99,11 +123,17 @@ pub use table::{Table, TableOptions};
 #[cfg(test)]
 mod table_test;
 pub mod table_utility;
+#[cfg(test)]
+mod table_utility_test;
 
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
+#[cfg(test)]
+mod table_evaluation_test;
 
 mod test_accessor;
+#[cfg(test)]
+mod test_accessor_test;
 pub use test_accessor::TestAccessor;
 
 mod owned_table_test_accessor;
@@ -129,6 +159,8 @@ pub(crate) mod group_by_util;
 mod group_by_util_test;
 
 pub(crate) mod union_util;
+#[cfg(test)]
+mod union_util_test;
 
 pub(crate) mod order_by_util;
 #[cfg(test)]
@@ -136,3 +168,5 @@ mod order_by_util_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod join_util;
+#[cfg(test)]
+mod mod_test;
