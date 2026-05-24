@@ -46,6 +46,8 @@ mod query_proof_test;
 mod query_result;
 pub use query_result::{QueryData, QueryError, QueryResult};
 #[cfg(test)]
+mod query_result_test;
+#[cfg(test)]
 mod query_error_test;
 
 mod sumcheck_subpolynomial;

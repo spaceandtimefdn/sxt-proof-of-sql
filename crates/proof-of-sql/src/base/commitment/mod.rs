@@ -12,6 +12,8 @@ pub use committable_column::CommittableColumn;
 
 mod vec_commitment_ext;
 pub use vec_commitment_ext::{NumColumnsMismatch, VecCommitmentExt};
+#[cfg(test)]
+mod vec_commitment_ext_test;
 
 mod column_bounds;
 pub use column_bounds::{Bounds, ColumnBounds, NegativeBounds};
