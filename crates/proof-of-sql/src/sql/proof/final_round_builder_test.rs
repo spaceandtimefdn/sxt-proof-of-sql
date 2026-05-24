@@ -1,20 +1,24 @@
-use super::{FinalRoundBuilder, ProvableQueryResult};
+#[cfg(feature = "arrow")]
+use super::ProvableQueryResult;
+use super::{FinalRoundBuilder, SumcheckSubpolynomialType};
+#[cfg(feature = "arrow")]
+use crate::base::database::{Column, ColumnField, ColumnType};
 use crate::{
     base::{
-        commitment::{Commitment, CommittableColumn},
-        database::{Column, ColumnField, ColumnType},
+        bit::BitDistribution,
+        commitment::{naive_commitment::NaiveCommitment, Commitment, CommittableColumn},
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
-use alloc::{collections::VecDeque, sync::Arc};
+#[cfg(feature = "arrow")]
+use alloc::sync::Arc;
+use alloc::{boxed::Box, collections::VecDeque};
 #[cfg(feature = "arrow")]
 use arrow::{
     array::Int64Array,
     datatypes::{Field, Schema},
     record_batch::RecordBatch,
 };
-use curve25519_dalek::RistrettoPoint;
-
 #[test]
 fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
     let mle1 = [1, 2];
@@ -23,14 +27,15 @@ fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
     builder.produce_anchored_mle(&mle1);
     builder.produce_intermediate_mle(&mle2[..]);
     let offset_generators = 0_usize;
-    let commitments: Vec<RistrettoPoint> = builder.commit_intermediate_mles(offset_generators, &());
+    let commitments: Vec<NaiveCommitment> =
+        builder.commit_intermediate_mles(offset_generators, &());
     assert_eq!(
         commitments,
-        [RistrettoPoint::compute_commitments(
+        NaiveCommitment::compute_commitments(
             &[CommittableColumn::from(&mle2[..])],
             offset_generators,
             &()
-        )[0]]
+        )
     );
 }
 
@@ -42,14 +47,15 @@ fn we_can_compute_commitments_for_intermediate_mles_using_a_non_zero_offset() {
     builder.produce_anchored_mle(&mle1);
     builder.produce_intermediate_mle(&mle2[..]);
     let offset_generators = 123_usize;
-    let commitments: Vec<RistrettoPoint> = builder.commit_intermediate_mles(offset_generators, &());
+    let commitments: Vec<NaiveCommitment> =
+        builder.commit_intermediate_mles(offset_generators, &());
     assert_eq!(
         commitments,
-        [RistrettoPoint::compute_commitments(
+        NaiveCommitment::compute_commitments(
             &[CommittableColumn::from(&mle2[..])],
             offset_generators,
             &()
-        )[0]]
+        )
     );
 }
 
@@ -70,6 +76,33 @@ fn we_can_evaluate_pcs_proof_mles() {
         Curve25519Scalar::from(1200u64),
     ];
     assert_eq!(evals, expected_evals);
+}
+
+#[test]
+fn we_can_track_builder_metadata_and_sumcheck_terms() {
+    let mle = [1_i64, 2];
+    let mut builder = FinalRoundBuilder::<Curve25519Scalar>::new(3, VecDeque::new());
+    assert_eq!(builder.num_sumcheck_variables(), 3);
+    assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+    assert!(builder.pcs_proof_mles().is_empty());
+    assert!(builder.bit_distributions().is_empty());
+
+    let bit_distribution = BitDistribution::new::<Curve25519Scalar, _>(&[0_i64, 1]);
+    builder.produce_bit_distribution(bit_distribution.clone());
+    assert_eq!(builder.bit_distributions(), &[bit_distribution]);
+
+    builder.produce_anchored_mle(&mle);
+    assert_eq!(builder.pcs_proof_mles().len(), 1);
+
+    builder.produce_sumcheck_subpolynomial(
+        SumcheckSubpolynomialType::Identity,
+        vec![(Curve25519Scalar::from(7), vec![Box::new(&mle[..])])],
+    );
+    assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    assert_eq!(
+        builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+        SumcheckSubpolynomialType::Identity
+    );
 }
 
 #[cfg(feature = "arrow")]
