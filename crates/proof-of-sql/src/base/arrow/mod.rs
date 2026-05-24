@@ -2,9 +2,13 @@
 
 /// Module for handling conversion from Arrow arrays to columns.
 pub mod arrow_array_to_column_conversion;
+#[cfg(test)]
+mod arrow_array_to_column_conversion_error_test;
 
 /// Module for converting between owned and Arrow data structures.
 pub mod owned_and_arrow_conversions;
+#[cfg(test)]
+mod owned_arrow_conversion_error_test;
 
 #[cfg(test)]
 /// Tests for owned and Arrow conversions.
