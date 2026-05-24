@@ -320,3 +320,110 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec, vec::Vec};
+
+    #[test]
+    fn owned_table_helper_preserves_column_order_and_shapes() {
+        let table = owned_table::<TestScalar>([
+            uint8("u8_col", [1_u8, 2, 3]),
+            boolean("flag", [true, false, true]),
+            varchar("name", ["alpha", "beta", "gamma"]),
+        ]);
+
+        assert_eq!(table.num_columns(), 3);
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(
+            table
+                .column_names()
+                .map(|name| name.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["u8_col", "flag", "name"]
+        );
+        assert_eq!(table["u8_col"], OwnedColumn::Uint8(vec![1_u8, 2_u8, 3_u8]));
+        assert_eq!(table["flag"], OwnedColumn::Boolean(vec![true, false, true]));
+        assert_eq!(
+            table["name"],
+            OwnedColumn::VarChar(vec![
+                "alpha".to_string(),
+                "beta".to_string(),
+                "gamma".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn owned_column_helper_constructors_build_expected_variants() {
+        assert_eq!(
+            uint8::<TestScalar>("u8", [1_u8, 2]).1,
+            OwnedColumn::Uint8(vec![1, 2])
+        );
+        assert_eq!(
+            tinyint::<TestScalar>("i8", [-1_i8, 2]).1,
+            OwnedColumn::TinyInt(vec![-1, 2])
+        );
+        assert_eq!(
+            smallint::<TestScalar>("i16", [-3_i16, 4]).1,
+            OwnedColumn::SmallInt(vec![-3, 4])
+        );
+        assert_eq!(
+            int::<TestScalar>("i32", [-5_i32, 6]).1,
+            OwnedColumn::Int(vec![-5, 6])
+        );
+        assert_eq!(
+            bigint::<TestScalar>("i64", [-7_i64, 8]).1,
+            OwnedColumn::BigInt(vec![-7, 8])
+        );
+        assert_eq!(
+            int128::<TestScalar>("i128", [-9_i128, 10]).1,
+            OwnedColumn::Int128(vec![-9, 10])
+        );
+        assert_eq!(
+            scalar::<TestScalar>("scalar", [11_i64, 12]).1,
+            OwnedColumn::Scalar(vec![TestScalar::from(11), TestScalar::from(12)])
+        );
+        assert_eq!(
+            varchar::<TestScalar>("str", ["left", "right"]).1,
+            OwnedColumn::VarChar(vec!["left".to_string(), "right".to_string()])
+        );
+        assert_eq!(
+            varbinary::<TestScalar>("bytes", [[1_u8, 2, 3], [4, 5, 6]]).1,
+            OwnedColumn::VarBinary(vec![vec![1, 2, 3], vec![4, 5, 6]])
+        );
+        assert_eq!(
+            decimal75::<TestScalar>("decimal", 12, -2, [13_i64, 14]).1,
+            OwnedColumn::Decimal75(
+                Precision::new(12).unwrap(),
+                -2,
+                vec![TestScalar::from(13), TestScalar::from(14)]
+            )
+        );
+        assert_eq!(
+            timestamptz::<TestScalar>(
+                "ts",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                [1_625_072_400, 1_625_076_000],
+            )
+            .1,
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![1_625_072_400, 1_625_076_000]
+            )
+        );
+    }
+
+    #[test]
+    fn owned_table_helper_panics_on_mismatched_column_lengths() {
+        let result = std::panic::catch_unwind(|| {
+            owned_table::<TestScalar>([int("left", [1_i32, 2]), int("right", [3_i32])]);
+        });
+
+        assert!(result.is_err());
+    }
+}
