@@ -17,6 +17,8 @@ mod vec_commitment_ext_test;
 
 mod column_bounds;
 pub use column_bounds::{Bounds, ColumnBounds, NegativeBounds};
+#[cfg(test)]
+mod column_bounds_test;
 
 mod column_commitment_metadata;
 pub use column_commitment_metadata::ColumnCommitmentMetadata;
