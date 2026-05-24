@@ -20,3 +20,5 @@ mod transcript_core_test;
 
 mod keccak256_transcript;
 pub use keccak256_transcript::Keccak256Transcript;
+#[cfg(test)]
+mod keccak256_transcript_test;

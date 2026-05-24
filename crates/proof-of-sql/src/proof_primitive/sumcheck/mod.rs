@@ -15,3 +15,5 @@ mod prover_round_test;
 
 #[cfg(test)]
 mod test_cases;
+#[cfg(test)]
+mod test_cases_test;

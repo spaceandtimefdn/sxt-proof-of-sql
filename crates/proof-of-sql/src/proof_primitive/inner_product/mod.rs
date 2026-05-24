@@ -9,3 +9,5 @@ mod curve_25519_tests;
 pub mod inner_product_proof;
 /// TODO: add doc
 pub mod ristretto_point;
+#[cfg(test)]
+mod ristretto_point_test;
