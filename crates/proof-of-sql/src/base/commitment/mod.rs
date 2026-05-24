@@ -28,12 +28,16 @@ pub use column_commitment_metadata_map::{
 
 mod column_commitments;
 pub use column_commitments::{AppendColumnCommitmentsError, ColumnCommitments, DuplicateIdents};
+#[cfg(test)]
+mod column_commitments_test;
 
 mod table_commitment;
 pub use table_commitment::{
     AppendTableCommitmentError, MixedLengthColumns, NegativeRange, TableCommitment,
     TableCommitmentArithmeticError, TableCommitmentFromColumnsError,
 };
+#[cfg(test)]
+mod table_commitment_test;
 
 mod query_commitments;
 pub use query_commitments::{QueryCommitments, QueryCommitmentsExt};
