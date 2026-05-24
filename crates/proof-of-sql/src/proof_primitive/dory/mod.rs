@@ -48,6 +48,9 @@ mod state_test;
 #[cfg(test)]
 mod dory_reduce;
 mod dory_reduce_helper;
+#[cfg(test)]
+mod dory_reduce_helper_test;
+
 mod scalar_product;
 
 #[cfg(test)]
