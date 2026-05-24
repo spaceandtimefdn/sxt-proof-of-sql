@@ -22,6 +22,8 @@ mod verification_builder_test;
 
 mod provable_result_column;
 pub(crate) use provable_result_column::ProvableResultColumn;
+#[cfg(test)]
+mod provable_result_column_test;
 
 mod provable_query_result;
 pub use provable_query_result::ProvableQueryResult;
