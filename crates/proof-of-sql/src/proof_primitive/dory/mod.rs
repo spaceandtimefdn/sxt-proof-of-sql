@@ -122,6 +122,9 @@ mod dory_commitment_test;
 
 #[cfg(not(feature = "blitzar"))]
 mod dory_commitment_helper_cpu;
+#[cfg(all(test, not(feature = "blitzar")))]
+mod dory_commitment_helper_cpu_test;
+
 #[cfg(not(feature = "blitzar"))]
 use dory_commitment_helper_cpu::compute_dory_commitments;
 #[cfg(feature = "blitzar")]
