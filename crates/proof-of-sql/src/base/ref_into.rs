@@ -23,3 +23,37 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct Counter(u32);
+
+    impl From<&Counter> for u32 {
+        fn from(value: &Counter) -> Self {
+            value.0
+        }
+    }
+
+    impl From<&Counter> for String {
+        fn from(value: &Counter) -> Self {
+            value.0.to_string()
+        }
+    }
+
+    #[test]
+    fn it_uses_reference_based_into_for_custom_type() {
+        let counter = Counter(42);
+        let as_u32: u32 = counter.ref_into();
+        assert_eq!(as_u32, 42u32);
+    }
+
+    #[test]
+    fn it_can_target_multiple_output_types() {
+        let counter = Counter(11);
+        let as_string: String = counter.ref_into();
+        assert_eq!(as_string, "11");
+    }
+}
