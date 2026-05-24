@@ -7,6 +7,8 @@ mod proof_expr_test;
 
 mod aliased_dyn_proof_expr;
 pub use aliased_dyn_proof_expr::AliasedDynProofExpr;
+#[cfg(test)]
+mod aliased_dyn_proof_expr_test;
 
 mod add_expr;
 pub(crate) use add_expr::AddExpr;
@@ -23,7 +25,7 @@ mod add_subtract_expr_test;
 
 mod multiply_expr;
 pub(crate) use multiply_expr::MultiplyExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod multiply_expr_test;
 
 mod dyn_proof_expr;
@@ -33,7 +35,7 @@ mod dyn_proof_expr_test;
 
 mod literal_expr;
 pub(crate) use literal_expr::LiteralExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod literal_expr_test;
 
 mod placeholder_expr;
@@ -48,7 +50,7 @@ mod and_expr_test;
 
 mod inequality_expr;
 pub(crate) use inequality_expr::InequalityExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod inequality_expr_test;
 
 mod or_expr;
@@ -58,7 +60,7 @@ mod or_expr_test;
 
 mod not_expr;
 pub(crate) use not_expr::NotExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod not_expr_test;
 
 mod numerical_util;
@@ -79,15 +81,15 @@ pub(crate) mod test_utility;
 
 mod column_expr;
 pub use column_expr::ColumnExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod column_expr_test;
 
 mod cast_expr;
 pub(crate) use cast_expr::CastExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod cast_expr_test;
 
 mod scaling_cast_expr;
 pub(crate) use scaling_cast_expr::ScalingCastExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod scaling_cast_expr_test;
