@@ -8,6 +8,8 @@
 
 mod scalar;
 pub use scalar::BNScalar;
+#[cfg(test)]
+mod scalar_test;
 
 mod public_setup;
 #[cfg(feature = "std")]
@@ -29,6 +31,8 @@ mod nova_commitment;
 mod nova_engine;
 #[cfg(feature = "hyperkzg_proof")]
 pub use nova_engine::{nova_commitment_key_to_hyperkzg_public_setup, HyperKZGEngine};
+#[cfg(all(test, feature = "hyperkzg_proof"))]
+mod nova_engine_test;
 
 #[cfg(feature = "hyperkzg_proof")]
 mod commitment_evaluation_proof;
