@@ -25,6 +25,8 @@ mod column_commitment_metadata_map;
 pub use column_commitment_metadata_map::{
     ColumnCommitmentMetadataMap, ColumnCommitmentMetadataMapExt, ColumnCommitmentsMismatch,
 };
+#[cfg(test)]
+mod column_commitment_metadata_map_test;
 
 mod column_commitments;
 pub use column_commitments::{AppendColumnCommitmentsError, ColumnCommitments, DuplicateIdents};
