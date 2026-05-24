@@ -17,6 +17,8 @@ pub use column_ref::ColumnRef;
 
 mod column_field;
 pub use column_field::ColumnField;
+#[cfg(test)]
+mod column_field_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
@@ -68,6 +70,8 @@ mod error_test;
 pub use error::ParseError;
 
 mod table_ref;
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub use crate::base::arrow::{
     arrow_array_to_column_conversion::{ArrayRefExt, ArrowArrayToColumnConversionError},
