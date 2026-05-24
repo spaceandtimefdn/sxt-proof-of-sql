@@ -66,6 +66,20 @@ fn we_compute_the_evaluation_vector_for_an_empty_point() {
 }
 
 #[test]
+fn we_can_compute_an_empty_evaluation_vector() {
+    let mut v: Vec<TestScalar> = vec![];
+    compute_evaluation_vector(&mut v, &[TestScalar::from(3u64), TestScalar::from(4u64)]);
+    assert!(v.is_empty());
+}
+
+#[test]
+#[should_panic]
+fn compute_evaluation_vector_panics_when_output_exceeds_hypercube_size() {
+    let mut v = [TestScalar::zero(); 3];
+    compute_evaluation_vector(&mut v, &[TestScalar::from(3u64)]);
+}
+
+#[test]
 fn we_get_the_same_result_using_evaluation_vector_as_direct_evaluation() {
     let xs = [
         TestScalar::from(3u64),
