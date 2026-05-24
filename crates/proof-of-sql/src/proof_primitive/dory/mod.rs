@@ -68,6 +68,9 @@ pub(crate) use extended_state::{ExtendedProverState, ExtendedVerifierState};
 mod extended_state_test;
 
 mod extended_dory_reduce;
+#[cfg(test)]
+mod extended_dory_reduce_test;
+
 mod extended_dory_reduce_helper;
 mod fold_scalars;
 
