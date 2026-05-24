@@ -9,6 +9,8 @@ mod plans;
 mod plans_test;
 mod proof_plan;
 #[cfg(test)]
+mod proof_plan_test;
+#[cfg(test)]
 mod tests;
 
 pub use proof_plan::EVMProofPlan;

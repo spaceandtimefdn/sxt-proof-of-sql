@@ -13,3 +13,5 @@ pub mod proof_gadgets;
 pub mod proof_plans;
 mod scale;
 pub use scale::scale_cast_binary_op;
+#[cfg(test)]
+mod scale_test;
