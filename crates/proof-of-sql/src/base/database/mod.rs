@@ -52,6 +52,8 @@ mod column_index_operation;
 pub(super) use column_index_operation::apply_column_to_indexes;
 
 mod column_repetition_operation;
+#[cfg(test)]
+mod column_repetition_operation_test;
 pub(super) use column_repetition_operation::{ColumnRepeatOp, ElementwiseRepeatOp, RepetitionOp};
 
 mod column_operation_error;

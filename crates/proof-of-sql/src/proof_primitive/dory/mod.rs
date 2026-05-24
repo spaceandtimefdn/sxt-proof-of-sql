@@ -140,6 +140,8 @@ use dory_commitment_helper_gpu::compute_dory_commitments;
 mod dory_compute_commitments_test;
 
 mod dory_vmv_helper;
+#[cfg(test)]
+mod dory_vmv_helper_test;
 use dory_vmv_helper::{
     compute_L_R_vec, compute_T_vec_prime, compute_l_r_tensors, compute_nu, compute_v_vec,
 };
