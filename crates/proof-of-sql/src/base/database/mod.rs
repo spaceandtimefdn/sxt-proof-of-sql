@@ -5,6 +5,8 @@ mod accessor;
 pub use accessor::{
     CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
 };
+#[cfg(test)]
+mod accessor_test;
 
 mod column;
 pub use column::Column;
