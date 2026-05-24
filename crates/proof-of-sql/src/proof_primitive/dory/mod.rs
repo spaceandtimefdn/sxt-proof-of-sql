@@ -98,6 +98,8 @@ mod extended_dory_inner_product_test;
 
 mod public_parameters;
 pub use public_parameters::PublicParameters;
+#[cfg(test)]
+mod public_parameters_test;
 
 mod eval_vmv_re;
 pub(crate) use eval_vmv_re::{eval_vmv_re_prove, eval_vmv_re_verify};

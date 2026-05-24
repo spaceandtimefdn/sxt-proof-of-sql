@@ -7,6 +7,8 @@ mod decimal_error_test;
 mod decimal_tests;
 /// Module containing [I256] type.
 pub mod i256;
+#[cfg(test)]
+mod i256_test;
 mod log;
 pub(crate) use log::log2_up;
 mod big_decimal_ext;

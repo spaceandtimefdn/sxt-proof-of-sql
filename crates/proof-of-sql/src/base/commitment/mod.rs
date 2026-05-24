@@ -45,6 +45,8 @@ mod table_commitment_test;
 
 mod query_commitments;
 pub use query_commitments::{QueryCommitments, QueryCommitmentsExt};
+#[cfg(test)]
+mod query_commitments_test;
 
 /// Module for providing a mock commitment.
 #[cfg(test)]
