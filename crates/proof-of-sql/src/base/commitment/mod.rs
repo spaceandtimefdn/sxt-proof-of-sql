@@ -99,3 +99,7 @@ pub(crate) mod commitment_evaluation_proof_test;
 
 #[cfg(test)]
 mod commitment_error_test;
+#[cfg(test)]
+mod bounds_error_test;
+#[cfg(test)]
+mod table_commitment_error_test;
