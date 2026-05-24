@@ -169,6 +169,8 @@ mod pairings;
 #[cfg(test)]
 mod pairings_test;
 mod transpose;
+#[cfg(test)]
+mod transpose_test;
 
 mod dynamic_build_vmv_state;
 #[cfg(test)]
@@ -181,6 +183,8 @@ mod dynamic_dory_commitment_helper_cpu_test;
 #[cfg(feature = "blitzar")]
 mod dynamic_dory_commitment_helper_gpu;
 mod dynamic_dory_helper;
+#[cfg(test)]
+mod dynamic_dory_helper_test;
 #[cfg(not(feature = "blitzar"))]
 use dynamic_dory_commitment_helper_cpu::compute_dynamic_dory_commitments;
 #[cfg(feature = "blitzar")]

@@ -16,6 +16,8 @@ mod owned_and_arrow_conversions_test;
 
 /// Module for converting record batches.
 pub mod record_batch_conversion;
+#[cfg(test)]
+mod record_batch_conversion_test;
 
 /// Module for record batch error definitions.
 pub mod record_batch_errors;
@@ -29,3 +31,5 @@ mod scalar_and_i256_conversions_test;
 
 /// Module for handling conversions between columns and Arrow arrays.
 pub mod column_arrow_conversions;
+#[cfg(test)]
+mod column_arrow_conversions_test;

@@ -60,6 +60,8 @@ mod sumcheck_subpolynomial;
 pub(crate) use sumcheck_subpolynomial::{
     SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType,
 };
+#[cfg(test)]
+mod sumcheck_subpolynomial_test;
 
 mod verifiable_query_result;
 pub use verifiable_query_result::VerifiableQueryResult;

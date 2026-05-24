@@ -20,12 +20,17 @@ pub use public_setup::{
     deserialize_flat_compressed_hyperkzg_public_setup_from_slice, HyperKZGPublicSetup,
     HyperKZGPublicSetupOwned,
 };
+#[cfg(feature = "std")]
+#[cfg(test)]
+mod public_setup_test;
 
 mod commitment;
 pub use commitment::HyperKZGCommitment;
 
 #[cfg(feature = "hyperkzg_proof")]
 mod nova_commitment;
+#[cfg(feature = "hyperkzg_proof")]
+mod nova_commitment_test;
 
 #[cfg(feature = "hyperkzg_proof")]
 mod nova_engine;
@@ -41,6 +46,8 @@ pub use commitment_evaluation_proof::HyperKZGCommitmentEvaluationProof;
 
 #[cfg(feature = "hyperkzg_proof")]
 mod halo2_conversions;
+#[cfg(all(test, feature = "hyperkzg_proof"))]
+mod halo2_conversions_test;
 #[cfg(feature = "hyperkzg_proof")]
 pub(crate) use halo2_conversions::{
     convert_g1_affine_from_ark_to_halo2, convert_g1_affine_from_halo2_to_ark,
