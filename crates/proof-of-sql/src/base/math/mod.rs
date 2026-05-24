@@ -11,9 +11,13 @@ pub mod i256;
 mod i256_test;
 mod log;
 pub(crate) use log::log2_up;
+#[cfg(test)]
+mod log_test;
 mod big_decimal_ext;
 pub use big_decimal_ext::BigDecimalExt;
 /// Module providing permutation utilities for reordering data in proof computations.
 pub(crate) mod permutation;
+#[cfg(test)]
+mod permutation_test;
 #[cfg(test)]
 mod permutation_error_test;
