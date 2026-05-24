@@ -132,6 +132,8 @@ mod dory_commitment_evaluation_proof;
 pub use dory_commitment_evaluation_proof::DoryEvaluationProof;
 #[cfg(test)]
 mod dory_commitment_evaluation_proof_test;
+#[cfg(test)]
+mod dory_error_test;
 
 mod deferred_msm;
 type DeferredGT = deferred_msm::DeferredMSM<GT, F>;
