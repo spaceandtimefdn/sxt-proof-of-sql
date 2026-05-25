@@ -274,6 +274,82 @@ mod tests {
     }
 
     #[test]
+    fn test_column_repetition_op_integer_and_scalar_variants() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::Boolean(&[true, false]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_boolean().unwrap(), &[true, false, true, false]);
+
+        let column: Column<TestScalar> = Column::Uint8(&[3_u8, 5_u8]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 3);
+        assert_eq!(result.as_uint8().unwrap(), &[3, 5, 3, 5, 3, 5]);
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-2_i8, 4_i8]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_tinyint().unwrap(), &[-2, 4, -2, 4]);
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-7_i16, 8_i16]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-7, 8, -7, 8]);
+
+        let column: Column<TestScalar> = Column::BigInt(&[-11_i64, 13_i64]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_bigint().unwrap(), &[-11, 13, -11, 13]);
+
+        let column: Column<TestScalar> = Column::Int128(&[-17_i128, 19_i128]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_int128().unwrap(), &[-17, 19, -17, 19]);
+
+        let scalars = [TestScalar::from(23_i64), TestScalar::from(-29_i64)];
+        let column = Column::Scalar(&scalars);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result.as_scalar().unwrap(),
+            &[
+                TestScalar::from(23_i64),
+                TestScalar::from(-29_i64),
+                TestScalar::from(23_i64),
+                TestScalar::from(-29_i64),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_elementwise_repetition_op_integer_and_scalar_variants() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-2_i8, 4_i8]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_tinyint().unwrap(), &[-2, -2, 4, 4]);
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-7_i16, 8_i16]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-7, -7, 8, 8]);
+
+        let column: Column<TestScalar> = Column::BigInt(&[-11_i64, 13_i64]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_bigint().unwrap(), &[-11, -11, 13, 13]);
+
+        let column: Column<TestScalar> = Column::Int128(&[-17_i128, 19_i128]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result.as_int128().unwrap(), &[-17, -17, 19, 19]);
+
+        let scalars = [TestScalar::from(23_i64), TestScalar::from(-29_i64)];
+        let column = Column::Scalar(&scalars);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result.as_scalar().unwrap(),
+            &[
+                TestScalar::from(23_i64),
+                TestScalar::from(23_i64),
+                TestScalar::from(-29_i64),
+                TestScalar::from(-29_i64),
+            ]
+        );
+    }
+
+    #[test]
     fn test_column_repetition_op_decimal_and_timestamp() {
         let bump = Bump::new();
 
