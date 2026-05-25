@@ -153,7 +153,11 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -267,5 +271,97 @@ mod tests {
             .collect();
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_column_repetition_op_decimal_and_timestamp() {
+        let bump = Bump::new();
+
+        let precision = Precision::new(12).unwrap();
+        let decimals = vec![
+            TestScalar::from(1100_i64),
+            TestScalar::from(-2200_i64),
+            TestScalar::from(3300_i64),
+        ];
+        let decimal_column = Column::Decimal75(precision, -2, &decimals);
+        let repeated_decimals = ColumnRepeatOp::column_op(&decimal_column, &bump, 2);
+        assert_eq!(
+            repeated_decimals,
+            Column::Decimal75(
+                precision,
+                -2,
+                &[
+                    TestScalar::from(1100_i64),
+                    TestScalar::from(-2200_i64),
+                    TestScalar::from(3300_i64),
+                    TestScalar::from(1100_i64),
+                    TestScalar::from(-2200_i64),
+                    TestScalar::from(3300_i64),
+                ]
+            )
+        );
+
+        let timestamps = [1_700_000_001_i64, 1_700_000_002_i64];
+        let timestamp_column = Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &timestamps,
+        );
+        let repeated_timestamps =
+            ColumnRepeatOp::column_op::<TestScalar>(&timestamp_column, &bump, 3);
+        assert_eq!(
+            repeated_timestamps,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &[
+                    1_700_000_001,
+                    1_700_000_002,
+                    1_700_000_001,
+                    1_700_000_002,
+                    1_700_000_001,
+                    1_700_000_002,
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_elementwise_repetition_op_decimal_and_timestamp() {
+        let bump = Bump::new();
+
+        let precision = Precision::new(18).unwrap();
+        let decimals = vec![TestScalar::from(7_i64), TestScalar::from(-9_i64)];
+        let decimal_column = Column::Decimal75(precision, 4, &decimals);
+        let repeated_decimals = ElementwiseRepeatOp::column_op(&decimal_column, &bump, 3);
+        assert_eq!(
+            repeated_decimals,
+            Column::Decimal75(
+                precision,
+                4,
+                &[
+                    TestScalar::from(7_i64),
+                    TestScalar::from(7_i64),
+                    TestScalar::from(7_i64),
+                    TestScalar::from(-9_i64),
+                    TestScalar::from(-9_i64),
+                    TestScalar::from(-9_i64),
+                ]
+            )
+        );
+
+        let timestamps = [42_i64, 84_i64, 126_i64];
+        let timestamp_column =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &timestamps);
+        let repeated_timestamps =
+            ElementwiseRepeatOp::column_op::<TestScalar>(&timestamp_column, &bump, 2);
+        assert_eq!(
+            repeated_timestamps,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[42, 42, 84, 84, 126, 126]
+            )
+        );
     }
 }
