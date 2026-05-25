@@ -459,7 +459,12 @@ pub fn apply_sort_merge_join_indexes<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::Column,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
     use sqlparser::ast::Ident;
 
     #[test]
@@ -503,6 +508,118 @@ mod tests {
         assert_eq!(
             result.inner_table()[&d].as_int128().unwrap(),
             &[10_i128, 10, 10, 11, 11, 11, 12, 12, 12]
+        );
+    }
+
+    #[test]
+    fn cross_joins_preserve_metadata_rich_repetition_columns() {
+        let bump = Bump::new();
+        let decimal_ident: Ident = "decimal".into();
+        let varchar_ident: Ident = "varchar".into();
+        let timestamp_ident: Ident = "timestamp".into();
+        let varbinary_ident: Ident = "varbinary".into();
+
+        let precision = Precision::new(18).unwrap();
+        let decimal_scalars = [TestScalar::from(1234_i64), TestScalar::from(-5678_i64)];
+        let strings = ["alpha", "beta"];
+        let string_scalars = strings.iter().map(TestScalar::from).collect::<Vec<_>>();
+        let left = Table::<'_, TestScalar>::try_from_iter_with_options(
+            vec![
+                (
+                    decimal_ident.clone(),
+                    Column::Decimal75(precision, 4, &decimal_scalars),
+                ),
+                (
+                    varchar_ident.clone(),
+                    Column::VarChar((&strings, string_scalars.as_slice())),
+                ),
+            ],
+            TableOptions::default(),
+        )
+        .expect("Table creation should not fail");
+
+        let timestamps = [1_700_000_001_i64, 1_700_000_002_i64, 1_700_000_003_i64];
+        let bytes = vec![b"one".as_ref(), b"two".as_ref(), b"three".as_ref()];
+        let byte_scalars = bytes
+            .iter()
+            .map(|bytes| TestScalar::from_le_bytes_mod_order(bytes))
+            .collect::<Vec<_>>();
+        let right = Table::<'_, TestScalar>::try_from_iter_with_options(
+            vec![
+                (
+                    timestamp_ident.clone(),
+                    Column::TimestampTZ(
+                        PoSQLTimeUnit::Millisecond,
+                        PoSQLTimeZone::utc(),
+                        &timestamps,
+                    ),
+                ),
+                (
+                    varbinary_ident.clone(),
+                    Column::VarBinary((bytes.as_slice(), byte_scalars.as_slice())),
+                ),
+            ],
+            TableOptions::default(),
+        )
+        .expect("Table creation should not fail");
+
+        let result = cross_join(&left, &right, &bump);
+        assert_eq!(result.num_rows(), 6);
+        assert_eq!(result.num_columns(), 4);
+        assert_eq!(
+            result.inner_table()[&decimal_ident],
+            Column::Decimal75(
+                precision,
+                4,
+                &[
+                    TestScalar::from(1234_i64),
+                    TestScalar::from(-5678_i64),
+                    TestScalar::from(1234_i64),
+                    TestScalar::from(-5678_i64),
+                    TestScalar::from(1234_i64),
+                    TestScalar::from(-5678_i64),
+                ]
+            )
+        );
+        let expected_strings = ["alpha", "beta", "alpha", "beta", "alpha", "beta"];
+        let expected_string_scalars = expected_strings
+            .iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            result.inner_table()[&varchar_ident],
+            Column::VarChar((&expected_strings, expected_string_scalars.as_slice()))
+        );
+        assert_eq!(
+            result.inner_table()[&timestamp_ident],
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &[
+                    1_700_000_001,
+                    1_700_000_001,
+                    1_700_000_002,
+                    1_700_000_002,
+                    1_700_000_003,
+                    1_700_000_003,
+                ]
+            )
+        );
+        let expected_bytes = vec![
+            b"one".as_ref(),
+            b"one".as_ref(),
+            b"two".as_ref(),
+            b"two".as_ref(),
+            b"three".as_ref(),
+            b"three".as_ref(),
+        ];
+        let expected_byte_scalars = expected_bytes
+            .iter()
+            .map(|bytes| TestScalar::from_le_bytes_mod_order(bytes))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            result.inner_table()[&varbinary_ident],
+            Column::VarBinary((expected_bytes.as_slice(), expected_byte_scalars.as_slice()))
         );
     }
 
