@@ -62,4 +62,11 @@ mod tests {
             commitment2.to_transcript_bytes()
         );
     }
+
+    #[cfg(not(feature = "blitzar"))]
+    #[test]
+    #[should_panic(expected = "not implemented")]
+    fn compute_commitments_panics_without_blitzar() {
+        <RistrettoPoint as Commitment>::compute_commitments(&[], 0, &());
+    }
 }
