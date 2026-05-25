@@ -59,6 +59,7 @@ impl fmt::Display for PoSQLTimeUnit {
 mod time_unit_tests {
     use super::*;
     use crate::base::posql_time::PoSQLTimestampError;
+    use alloc::format;
 
     #[test]
     fn test_valid_precisions() {
@@ -66,6 +67,34 @@ mod time_unit_tests {
         assert_eq!(PoSQLTimeUnit::try_from("3"), Ok(PoSQLTimeUnit::Millisecond));
         assert_eq!(PoSQLTimeUnit::try_from("6"), Ok(PoSQLTimeUnit::Microsecond));
         assert_eq!(PoSQLTimeUnit::try_from("9"), Ok(PoSQLTimeUnit::Nanosecond));
+    }
+
+    #[test]
+    fn test_time_unit_precision_values() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn test_time_unit_display_includes_unit_and_precision() {
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Second),
+            "seconds (precision: 0)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Millisecond),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Microsecond),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Nanosecond),
+            "nanoseconds (precision: 9)"
+        );
     }
 
     #[test]
