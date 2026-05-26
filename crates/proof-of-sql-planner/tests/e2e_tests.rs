@@ -1,5 +1,4 @@
 //! In this file we run end-to-end tests for Proof of SQL.
-use ark_std::test_rng;
 use bumpalo::Bump;
 use datafusion::config::ConfigOptions;
 use indexmap::{indexmap, IndexMap};
@@ -19,6 +18,45 @@ use proof_of_sql::{
 };
 use proof_of_sql_planner::sql_to_proof_plans;
 use sqlparser::{dialect::GenericDialect, parser::Parser};
+use std::sync::OnceLock;
+
+struct SharedDynamicDoryTestSetup {
+    prover_setup: ProverSetup<'static>,
+    verifier_setup: VerifierSetup,
+}
+
+static DYNAMIC_DORY_TEST_SETUP: OnceLock<SharedDynamicDoryTestSetup> = OnceLock::new();
+
+fn dynamic_dory_test_setup() -> &'static SharedDynamicDoryTestSetup {
+    DYNAMIC_DORY_TEST_SETUP.get_or_init(|| {
+        let public_parameters = Box::leak(Box::new(PublicParameters::test_rand(
+            5,
+            &mut ark_std::test_rng(),
+        )));
+        SharedDynamicDoryTestSetup {
+            prover_setup: ProverSetup::from(&*public_parameters),
+            verifier_setup: VerifierSetup::from(&*public_parameters),
+        }
+    })
+}
+
+/// # Panics
+///
+/// Panics if the shared setup cache returns different setup instances.
+#[test]
+fn test_dynamic_dory_setup_is_reused() {
+    let first = dynamic_dory_test_setup();
+    let second = dynamic_dory_test_setup();
+
+    assert!(std::ptr::eq(
+        std::ptr::from_ref(&first.prover_setup),
+        std::ptr::from_ref(&second.prover_setup)
+    ));
+    assert!(std::ptr::eq(
+        std::ptr::from_ref(&first.verifier_setup),
+        std::ptr::from_ref(&second.verifier_setup)
+    ));
+}
 
 /// Get a new `TableTestAccessor` with the provided tables
 fn new_test_accessor<'a, CP: CommitmentEvaluationProof>(
@@ -63,17 +101,14 @@ fn posql_end_to_end_test<'a, CP: CommitmentEvaluationProof>(
 /// Empty SQL should return no plans
 #[test]
 fn test_empty_sql() {
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         "",
         &indexmap! {},
         &[],
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -100,17 +135,14 @@ fn test_tableless_queries() {
         owned_table([varchar("name", ["Katy"]), bigint("age", [0_i64])]),
     ];
 
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[
             LiteralValue::VarChar("Katy".to_string()),
             LiteralValue::BigInt(0),
@@ -154,17 +186,14 @@ fn test_simple_filter_queries() {
         ]),
     ];
 
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[LiteralValue::VarChar("Katy".to_string())],
     );
 }
@@ -211,17 +240,14 @@ fn test_complex_filter_queries() {
             decimal75("b", 39, 0, [100_i64, 100, 100]),
         ]),
     ];
-
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[LiteralValue::VarChar("Buddy".to_string())],
     );
 }
@@ -255,18 +281,14 @@ fn test_projection() {
             boolean("is_cute", [true; 4]),
         ]),
     ];
-
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[LiteralValue::Boolean(true)],
     );
 }
@@ -288,18 +310,14 @@ fn test_projection_scaling() {
 
     let expected_results: Vec<OwnedTable<DoryScalar>> =
         vec![owned_table([decimal75("res", 7, 2, [15, 26, 37, 48])])];
-
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -325,18 +343,14 @@ fn test_slicing_limit() {
         varchar("name", ["Laptop", "Phone"]),
         int("price", [1200, 800]),
     ])];
-
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -414,18 +428,14 @@ fn test_group_by() {
         owned_table([bigint("COUNT(cats.id)", [5_i64])]),
         owned_table([bigint("COUNT(*)", [5_i64])]),
     ];
-
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[LiteralValue::BigInt(2)],
     );
 }
@@ -466,18 +476,14 @@ fn test_coin() {
         decimal75("total_balance", 75, 0, [0]),
         bigint("num_transactions", [5_i64]),
     ])];
-
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[LiteralValue::VarChar("0x2".to_string())],
     );
 }
@@ -518,16 +524,13 @@ fn test_join() {
         owned_table([decimal75("product", 21, 0, [14, 24, 40, 50])]),
         owned_table([decimal75("sum_result", 11, 0, [11, 15, 14])]),
     ];
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -619,16 +622,13 @@ JOIN (
             ],
         ),
     ])];
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -664,16 +664,13 @@ fn test_union() {
             "Chocolate",
         ],
     )])];
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
@@ -694,16 +691,13 @@ fn test_implicit_casts() {
         boolean("compared", [true, true, false, false]),
         decimal75("product", 14, 1, [300, 800, 30, 8]),
     ])];
-    // Create public parameters for DynamicDoryEvaluationProof
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup = dynamic_dory_test_setup();
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
         &expected_results,
-        &prover_setup,
-        &verifier_setup,
+        &setup.prover_setup,
+        &setup.verifier_setup,
         &[],
     );
 }
