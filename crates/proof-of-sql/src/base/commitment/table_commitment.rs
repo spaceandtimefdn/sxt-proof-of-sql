@@ -374,20 +374,24 @@ fn num_rows_of_columns<'a>(
     Ok(num_rows)
 }
 
-#[cfg(all(test, feature = "arrow", feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(all(feature = "arrow", feature = "blitzar"))]
+    use crate::base::database::Column;
     use crate::base::{
         commitment::naive_commitment::NaiveCommitment,
-        database::{owned_table_utility::*, Column, OwnedColumn},
+        database::{owned_table_utility::*, OwnedColumn},
         map::IndexMap,
         scalar::test_scalar::TestScalar,
     };
+    #[cfg(all(feature = "arrow", feature = "blitzar"))]
     use arrow::{
         array::{Int64Array, StringArray},
         datatypes::{DataType, Field, Schema},
         record_batch::RecordBatch,
     };
+    #[cfg(all(feature = "arrow", feature = "blitzar"))]
     use std::sync::Arc;
 
     #[test]
@@ -1151,6 +1155,7 @@ mod tests {
         ));
     }
 
+    #[cfg(all(feature = "arrow", feature = "blitzar"))]
     #[test]
     fn we_can_create_and_append_table_commitments_with_record_batches() {
         let schema = Arc::new(Schema::new(vec![
