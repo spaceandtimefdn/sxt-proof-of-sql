@@ -1,6 +1,7 @@
 use super::scalar_varint::{
-    read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
-    write_scalar_varint, write_scalar_varints,
+    read_scalar_varint, read_scalar_varints, read_u256_varint, scalar_varint_size,
+    scalar_varints_size, u256_varint_size, write_scalar_varint, write_scalar_varints,
+    write_u256_varint,
 };
 use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
 use alloc::vec;
@@ -257,6 +258,38 @@ fn valid_varint_encoded_input_that_has_length_bigger_than_259_bits_will_make_the
     //  each byte can hold only 7 bits in the varint encoding)
     buf[37] = 0b0111_1111_u8;
     assert!((read_scalar_varint(&buf[..38]) as Option<(TestScalar, _)>).is_none());
+}
+
+fn write_read_and_compare_u256(value: U256) {
+    let mut buf = [0_u8; 38];
+    let bytes_written = write_u256_varint(&mut buf, value);
+    let (decoded, bytes_read) = read_u256_varint(&buf[..bytes_written]).unwrap();
+
+    assert!(decoded == value);
+    assert_eq!(bytes_read, bytes_written);
+    assert_eq!(u256_varint_size(value), bytes_written);
+}
+
+#[test]
+fn u256_values_are_correctly_encoded_and_decoded_across_word_boundaries() {
+    write_read_and_compare_u256(U256::from_words(0, 0));
+    write_read_and_compare_u256(U256::from_words(0x7f, 0));
+    write_read_and_compare_u256(U256::from_words(0x80, 0));
+    write_read_and_compare_u256(U256::from_words(1_u128 << 126, 0));
+    write_read_and_compare_u256(U256::from_words(1_u128 << 127, 0));
+    write_read_and_compare_u256(U256::from_words(0, 1));
+    write_read_and_compare_u256(U256::from_words(u128::MAX, u128::MAX));
+}
+
+#[test]
+fn read_u256_varint_handles_the_shift_126_low_high_split() {
+    let value = U256::from_words((0b11_u128 << 126) | 0x7f, 0b101_u128);
+    let mut buf = [0_u8; 38];
+    let bytes_written = write_u256_varint(&mut buf, value);
+    let (decoded, bytes_read) = read_u256_varint(&buf[..bytes_written]).unwrap();
+
+    assert!(decoded == value);
+    assert_eq!(bytes_read, bytes_written);
 }
 
 fn write_read_and_compare_encoding(expected_scals: &[TestScalar]) {
