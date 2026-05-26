@@ -184,3 +184,79 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::ColumnType;
+
+    fn test_table_ref() -> TableRef {
+        TableRef::from_names(Some("public"), "orders")
+    }
+
+    fn field(name: &str, column_type: ColumnType) -> ColumnField {
+        ColumnField::new(Ident::new(name), column_type)
+    }
+
+    fn column_ref(name: &str, column_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(test_table_ref(), Ident::new(name), column_type)
+    }
+
+    #[test]
+    fn constructors_wrap_expected_plan_variants() {
+        assert!(matches!(DynProofPlan::new_empty(), DynProofPlan::Empty(_)));
+
+        let table_ref = test_table_ref();
+        let schema = vec![
+            field("amount", ColumnType::BigInt),
+            field("paid", ColumnType::Boolean),
+        ];
+        let table_plan = DynProofPlan::new_table(table_ref.clone(), schema.clone());
+        let DynProofPlan::Table(table_exec) = &table_plan else {
+            panic!("new_table should create a table plan");
+        };
+        assert_eq!(table_exec.table_ref(), &table_ref);
+        assert_eq!(table_exec.schema(), schema.as_slice());
+
+        let slice_plan = DynProofPlan::new_slice(table_plan.clone(), 2, Some(5));
+        let DynProofPlan::Slice(slice_exec) = &slice_plan else {
+            panic!("new_slice should create a slice plan");
+        };
+        assert_eq!(slice_exec.input(), &table_plan);
+        assert_eq!(slice_exec.skip(), 2);
+        assert_eq!(slice_exec.fetch(), Some(5));
+
+        let aliased_amount = AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(column_ref("amount", ColumnType::BigInt)),
+            alias: Ident::new("amount_alias"),
+        };
+        let projection_plan =
+            DynProofPlan::new_projection(vec![aliased_amount.clone()], table_plan.clone());
+        let DynProofPlan::Projection(projection_exec) = &projection_plan else {
+            panic!("new_projection should create a projection plan");
+        };
+        assert_eq!(projection_exec.input(), &table_plan);
+        assert_eq!(projection_exec.aliased_results(), &[aliased_amount]);
+    }
+
+    #[test]
+    fn result_fields_are_convertible_to_column_references() {
+        let schema = vec![
+            field("amount", ColumnType::BigInt),
+            field("paid", ColumnType::Boolean),
+        ];
+        let references = DynProofPlan::new_table(test_table_ref(), schema)
+            .get_column_result_fields_as_references();
+
+        assert_eq!(references.len(), 2);
+        let expected_table = TableRef::from_names(None, "");
+        for (name, column_type) in [
+            ("amount", ColumnType::BigInt),
+            ("paid", ColumnType::Boolean),
+        ] {
+            let column_reference =
+                ColumnRef::new(expected_table.clone(), Ident::new(name), column_type);
+            assert!(references.contains(&column_reference));
+        }
+    }
+}
