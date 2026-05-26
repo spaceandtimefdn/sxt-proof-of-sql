@@ -1,6 +1,7 @@
 use super::scalar_varint::{
-    read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
-    write_scalar_varint, write_scalar_varints,
+    read_scalar_varint, read_scalar_varints, read_u256_varint, scalar_varint_size,
+    scalar_varints_size, u256_varint_size, write_scalar_varint, write_scalar_varints,
+    write_u256_varint,
 };
 use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
 use alloc::vec;
@@ -257,6 +258,72 @@ fn valid_varint_encoded_input_that_has_length_bigger_than_259_bits_will_make_the
     //  each byte can hold only 7 bits in the varint encoding)
     buf[37] = 0b0111_1111_u8;
     assert!((read_scalar_varint(&buf[..38]) as Option<(TestScalar, _)>).is_none());
+}
+
+fn write_read_and_compare_u256(value: U256, expected_size: usize) {
+    let mut buf = [0_u8; 38];
+    let bytes_written = write_u256_varint(&mut buf, value);
+    let (decoded, bytes_read) = read_u256_varint(&buf[..bytes_written]).unwrap();
+
+    assert_eq!(bytes_written, expected_size);
+    assert!(decoded == value);
+    assert_eq!(bytes_read, bytes_written);
+    assert_eq!(u256_varint_size(value), expected_size);
+
+    if bytes_written < buf.len() {
+        buf[bytes_written] = 0xff;
+        let (decoded, bytes_read) = read_u256_varint(&buf[..bytes_written + 1]).unwrap();
+
+        assert!(decoded == value);
+        assert_eq!(bytes_read, bytes_written);
+    }
+}
+
+#[test]
+fn u256_values_are_correctly_encoded_and_decoded_across_word_boundaries() {
+    write_read_and_compare_u256(U256::from_words(0, 0), 1);
+    write_read_and_compare_u256(U256::from_words(0x7f, 0), 1);
+    write_read_and_compare_u256(U256::from_words(0x80, 0), 2);
+    write_read_and_compare_u256(U256::from_words((1_u128 << 126) - 1, 0), 18);
+    write_read_and_compare_u256(U256::from_words(1_u128 << 126, 0), 19);
+    write_read_and_compare_u256(U256::from_words(1_u128 << 127, 0), 19);
+    write_read_and_compare_u256(U256::from_words(0, 1), 19);
+    write_read_and_compare_u256(U256::from_words(u128::MAX, u128::MAX), 37);
+}
+
+#[test]
+fn read_u256_varint_handles_the_shift_126_low_high_split() {
+    let value = U256::from_words((0b11_u128 << 126) | 0x7f, 0b101_u128);
+    let mut buf = [0_u8; 38];
+    let bytes_written = write_u256_varint(&mut buf, value);
+    let (decoded, bytes_read) = read_u256_varint(&buf[..bytes_written]).unwrap();
+
+    assert!(decoded == value);
+    assert_eq!(bytes_read, bytes_written);
+}
+
+#[test]
+fn write_u256_varint_marks_low_and_high_boundary_bytes() {
+    let mut buf = [0_u8; 38];
+
+    let low_boundary_value = U256::from_words(1_u128 << 126, 0);
+    assert!(write_u256_varint(&mut buf, low_boundary_value) == 19);
+    assert!(buf[..18].iter().all(|byte| *byte == 0x80));
+    assert!(buf[18] == 0x01);
+    assert!(read_u256_varint(&buf[..19]).unwrap() == (low_boundary_value, 19));
+
+    let high_boundary_value = U256::from_words(0, 1);
+    assert!(write_u256_varint(&mut buf, high_boundary_value) == 19);
+    assert!(buf[..18].iter().all(|byte| *byte == 0x80));
+    assert!(buf[18] == 0x04);
+    assert!(read_u256_varint(&buf[..19]).unwrap() == (high_boundary_value, 19));
+}
+
+#[test]
+fn read_u256_varint_errors_without_a_terminating_byte() {
+    let buf = [0xff_u8; 37];
+
+    assert!(read_u256_varint(&buf).is_none());
 }
 
 fn write_read_and_compare_encoding(expected_scals: &[TestScalar]) {
