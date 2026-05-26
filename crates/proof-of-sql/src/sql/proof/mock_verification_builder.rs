@@ -627,6 +627,221 @@ mod tests {
     }
 
     #[test]
+    fn missing_row_mle_evaluations_default_to_zero() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        let first_round_eval = verification_builder
+            .try_consume_first_round_mle_evaluation()
+            .unwrap();
+        let final_round_eval = verification_builder
+            .try_consume_final_round_mle_evaluation()
+            .unwrap();
+
+        assert_eq!(first_round_eval, TestScalar::ZERO);
+        assert_eq!(final_round_eval, TestScalar::ZERO);
+    }
+
+    #[test]
+    fn increment_row_index_resets_consumed_inputs() {
+        let bit_distribution = BitDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ONE]);
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                vec![bit_distribution.clone()],
+                2,
+                vec![vec![TestScalar::ONE], vec![TestScalar::TWO]],
+                vec![vec![TestScalar::TWO], vec![TestScalar::ONE]],
+                vec![TestScalar::from(7)],
+                vec![1],
+                vec![2],
+            );
+
+        assert_eq!(
+            verification_builder
+                .try_consume_first_round_mle_evaluation()
+                .unwrap(),
+            TestScalar::ONE
+        );
+        assert_eq!(
+            verification_builder
+                .try_consume_final_round_mle_evaluation()
+                .unwrap(),
+            TestScalar::TWO
+        );
+        assert_eq!(
+            verification_builder.try_consume_bit_distribution().unwrap(),
+            bit_distribution
+        );
+        assert_eq!(
+            verification_builder.try_consume_chi_evaluation().unwrap(),
+            (TestScalar::ONE, 1)
+        );
+        assert_eq!(
+            verification_builder.try_consume_rho_evaluation().unwrap(),
+            TestScalar::ZERO
+        );
+        assert_eq!(
+            verification_builder
+                .try_consume_post_result_challenge()
+                .unwrap(),
+            TestScalar::from(7)
+        );
+
+        verification_builder.increment_row_index();
+
+        assert_eq!(
+            verification_builder
+                .try_consume_first_round_mle_evaluation()
+                .unwrap(),
+            TestScalar::TWO
+        );
+        assert_eq!(
+            verification_builder
+                .try_consume_final_round_mle_evaluation()
+                .unwrap(),
+            TestScalar::ONE
+        );
+        assert_eq!(
+            verification_builder.try_consume_bit_distribution().unwrap(),
+            bit_distribution
+        );
+        assert_eq!(
+            verification_builder.try_consume_chi_evaluation().unwrap(),
+            (TestScalar::ZERO, 1)
+        );
+        assert_eq!(
+            verification_builder.try_consume_rho_evaluation().unwrap(),
+            TestScalar::ONE
+        );
+        assert_eq!(
+            verification_builder
+                .try_consume_post_result_challenge()
+                .unwrap(),
+            TestScalar::from(7)
+        );
+    }
+
+    #[test]
+    fn result_helpers_report_identity_and_zero_sum_results() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                -TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder.increment_row_index();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                -TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![vec![true, false], vec![false, true]]
+        );
+        assert_eq!(
+            verification_builder.get_zero_sum_results(),
+            vec![true, true]
+        );
+    }
+
+    #[test]
+    fn zero_sum_results_report_unbalanced_column_sum() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder.increment_row_index();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+
+        assert_eq!(verification_builder.get_zero_sum_results(), vec![false]);
+    }
+
+    #[test]
     fn we_can_try_consume_bit_distribution() {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
