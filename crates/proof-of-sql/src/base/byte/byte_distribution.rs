@@ -201,6 +201,24 @@ mod tests {
     }
 
     #[test]
+    fn we_can_get_byte_distribution_when_highest_byte_varies() {
+        let constant_low_byte = U256::from(0x44u8);
+        let column = [
+            constant_low_byte | U256::from(0x11u8).shl(8) | U256::from(0x01u8).shl(248),
+            constant_low_byte | U256::from(0x22u8).shl(8) | U256::from(0x02u8).shl(248),
+        ]
+        .map(TestScalar::from_wrapping);
+        let byte_distribution = ByteDistribution::new::<TestScalar, _>(&column);
+        assert_eq!(byte_distribution.vary_mask, (1u32 << 1) | (1u32 << 31));
+        assert_eq!(byte_distribution.constant_mask(), constant_low_byte);
+        assert_eq!(byte_distribution.varying_byte_count(), 2);
+        assert_eq!(
+            byte_distribution.varying_byte_indices().collect_vec(),
+            [8u8, 248].into_iter().collect_vec()
+        );
+    }
+
+    #[test]
     fn we_can_get_byte_distribution_from_variable_negative_column() {
         let column = [
             1_974_179_073u32,
