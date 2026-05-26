@@ -900,6 +900,35 @@ mod tests {
     }
 
     #[test]
+    fn we_can_get_sort_merge_join_indexes_for_multiple_join_columns() {
+        let left_on = vec![
+            Column::<TestScalar>::Int(&[1_i32, 1, 1, 2, 2, 3]),
+            Column::<TestScalar>::SmallInt(&[10_i16, 10, 11, 20, 21, 30]),
+        ];
+        let right_on = vec![
+            Column::<TestScalar>::Int(&[1_i32, 1, 2, 2, 2, 4]),
+            Column::<TestScalar>::SmallInt(&[10_i16, 11, 20, 20, 21, 40]),
+        ];
+
+        let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 6, 6);
+
+        assert_eq!(
+            row_indexes,
+            vec![(0, 0), (1, 0), (2, 1), (3, 2), (3, 3), (4, 4)]
+        );
+    }
+
+    #[test]
+    fn we_get_no_sort_merge_join_indexes_for_incompatible_join_columns() {
+        let left_on = vec![Column::<TestScalar>::Int(&[1_i32, 2, 3])];
+        let right_on = vec![Column::<TestScalar>::BigInt(&[1_i64, 2, 3])];
+
+        let row_indexes = get_sort_merge_join_indexes(&left_on, &right_on, 3, 3);
+
+        assert!(row_indexes.is_empty());
+    }
+
+    #[test]
     fn we_can_get_sort_merge_join_indexes_two_tables_with_empty_results() {
         let left_on = vec![Column::<TestScalar>::Int(&[3_i32, 15, 9, 14, 15, 7])];
         let right_on = vec![Column::<TestScalar>::Int(&[10_i32, 11, 6, 5, 5, 4, 8])];
