@@ -1401,4 +1401,148 @@ mod test {
             matches!(try_neg_type(ColumnType::VarChar).unwrap_err(), ColumnOperationError::UnaryOperationInvalidColumnType { operator, operand_type } if operator == "negation" && operand_type == ColumnType::VarChar)
         );
     }
+
+    #[test]
+    fn we_can_validate_equality_column_types() {
+        let seconds_tz = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0));
+        let seconds_other_tz =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(3_600));
+        let milliseconds_tz =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0));
+
+        for (lhs, rhs) in [
+            (ColumnType::VarChar, ColumnType::VarChar),
+            (ColumnType::VarBinary, ColumnType::VarBinary),
+            (ColumnType::Boolean, ColumnType::Boolean),
+            (ColumnType::TinyInt, ColumnType::BigInt),
+            (
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+                ColumnType::Decimal75(Precision::new(20).unwrap(), 2),
+            ),
+            (ColumnType::Scalar, ColumnType::VarChar),
+            (ColumnType::VarBinary, ColumnType::Scalar),
+            (seconds_tz, seconds_other_tz),
+        ] {
+            try_equals_types(lhs, rhs).unwrap();
+        }
+
+        for (lhs, rhs) in [
+            (ColumnType::VarChar, ColumnType::VarBinary),
+            (
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 1),
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            ),
+            (seconds_tz, milliseconds_tz),
+        ] {
+            assert!(matches!(
+                try_equals_types(lhs, rhs),
+                Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn we_can_validate_inequality_column_types() {
+        let seconds_tz = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0));
+        let seconds_other_tz =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(3_600));
+        let milliseconds_tz =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0));
+
+        for (lhs, rhs) in [
+            (ColumnType::Boolean, ColumnType::Boolean),
+            (
+                ColumnType::Int,
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 0),
+            ),
+            (
+                ColumnType::Decimal75(Precision::new(38).unwrap(), 2),
+                ColumnType::Decimal75(Precision::new(20).unwrap(), 2),
+            ),
+            (seconds_tz, seconds_other_tz),
+        ] {
+            try_inequality_types(lhs, rhs).unwrap();
+        }
+
+        for (lhs, rhs) in [
+            (ColumnType::VarChar, ColumnType::VarChar),
+            (ColumnType::VarBinary, ColumnType::VarBinary),
+            (
+                ColumnType::Decimal75(Precision::new(39).unwrap(), 0),
+                ColumnType::Decimal75(Precision::new(39).unwrap(), 0),
+            ),
+            (
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 1),
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            ),
+            (seconds_tz, milliseconds_tz),
+        ] {
+            assert!(matches!(
+                try_inequality_types(lhs, rhs),
+                Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn we_can_validate_scaled_comparison_column_types() {
+        let seconds_tz = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0));
+        let milliseconds_tz =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0));
+
+        for (lhs, rhs) in [
+            (ColumnType::VarChar, ColumnType::VarChar),
+            (ColumnType::VarBinary, ColumnType::VarBinary),
+            (ColumnType::Boolean, ColumnType::Boolean),
+            (
+                ColumnType::TinyInt,
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            ),
+            (seconds_tz, milliseconds_tz),
+            (ColumnType::Scalar, ColumnType::Boolean),
+        ] {
+            try_equals_types_with_scaling(lhs, rhs).unwrap();
+        }
+
+        assert!(matches!(
+            try_equals_types_with_scaling(ColumnType::VarChar, ColumnType::Boolean),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+
+        for (lhs, rhs) in [
+            (ColumnType::Boolean, ColumnType::Boolean),
+            (
+                ColumnType::TinyInt,
+                ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            ),
+            (seconds_tz, milliseconds_tz),
+        ] {
+            try_inequality_types_with_scaling(lhs, rhs).unwrap();
+        }
+
+        for (lhs, rhs) in [
+            (ColumnType::VarChar, ColumnType::VarChar),
+            (ColumnType::VarBinary, ColumnType::VarBinary),
+            (
+                ColumnType::Decimal75(Precision::new(39).unwrap(), 0),
+                ColumnType::Decimal75(Precision::new(39).unwrap(), 2),
+            ),
+        ] {
+            assert!(matches!(
+                try_inequality_types_with_scaling(lhs, rhs),
+                Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn we_can_validate_logical_column_types() {
+        assert!(can_and_or_types(ColumnType::Boolean, ColumnType::Boolean));
+        assert!(!can_and_or_types(ColumnType::Boolean, ColumnType::Scalar));
+        assert!(!can_and_or_types(ColumnType::TinyInt, ColumnType::Boolean));
+
+        assert!(can_not_type(ColumnType::Boolean));
+        assert!(!can_not_type(ColumnType::Scalar));
+        assert!(!can_not_type(ColumnType::VarChar));
+    }
 }
