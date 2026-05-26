@@ -1,9 +1,60 @@
 use super::scalar_varint::{
-    read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
-    write_scalar_varint, write_scalar_varints,
+    read_scalar_varint, read_scalar_varints, read_u256_varint, scalar_varint_size,
+    scalar_varints_size, u256_varint_size, write_scalar_varint, write_scalar_varints,
+    write_u256_varint,
 };
 use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
 use alloc::vec;
+
+fn write_read_and_compare_u256_varint(value: U256, expected_size: usize) {
+    let mut buf = [0_u8; 38];
+
+    let bytes_written = write_u256_varint(&mut buf[..], value);
+
+    assert!(bytes_written == expected_size);
+    assert!(u256_varint_size(value) == expected_size);
+    assert!(read_u256_varint(&buf[..bytes_written]).unwrap() == (value, bytes_written));
+
+    if bytes_written < buf.len() {
+        buf[bytes_written] = 0xff;
+        assert!(read_u256_varint(&buf[..bytes_written + 1]).unwrap() == (value, bytes_written));
+    }
+}
+
+#[test]
+fn u256_varints_round_trip_at_low_and_high_word_boundaries() {
+    write_read_and_compare_u256_varint(U256::from_words(0, 0), 1);
+    write_read_and_compare_u256_varint(U256::from_words(0x7f, 0), 1);
+    write_read_and_compare_u256_varint(U256::from_words(0x80, 0), 2);
+    write_read_and_compare_u256_varint(U256::from_words((1_u128 << 126) - 1, 0), 18);
+    write_read_and_compare_u256_varint(U256::from_words(1_u128 << 126, 0), 19);
+    write_read_and_compare_u256_varint(U256::from_words(0, 1), 19);
+    write_read_and_compare_u256_varint(U256::from_words(u128::MAX, u128::MAX), 37);
+}
+
+#[test]
+fn u256_varints_split_bits_across_low_and_high_words() {
+    let mut buf = [0_u8; 38];
+
+    let low_boundary_value = U256::from_words(1_u128 << 126, 0);
+    assert!(write_u256_varint(&mut buf[..], low_boundary_value) == 19);
+    assert!(buf[..18].iter().all(|byte| *byte == 0x80));
+    assert!(buf[18] == 0x01);
+    assert!(read_u256_varint(&buf[..19]).unwrap() == (low_boundary_value, 19));
+
+    let high_boundary_value = U256::from_words(0, 1);
+    assert!(write_u256_varint(&mut buf[..], high_boundary_value) == 19);
+    assert!(buf[..18].iter().all(|byte| *byte == 0x80));
+    assert!(buf[18] == 0x04);
+    assert!(read_u256_varint(&buf[..19]).unwrap() == (high_boundary_value, 19));
+}
+
+#[test]
+fn u256_varints_without_a_terminating_byte_error_out() {
+    let buf = [0xff_u8; 37];
+
+    assert!(read_u256_varint(&buf[..]).is_none());
+}
 
 #[test]
 fn small_scalars_are_encoded_as_positive_varints_and_consume_few_bytes() {
