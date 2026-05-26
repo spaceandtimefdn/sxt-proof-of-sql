@@ -141,3 +141,36 @@ impl<'a, S: Scalar + 'a> IntoIterator for &'a OptimizedSumcheckTerms<'a, S> {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{SumcheckTerm, SumcheckTermOptimizer};
+    use crate::{base::scalar::test_scalar::TestScalar, sql::proof::SumcheckSubpolynomialType};
+    use alloc::vec::Vec;
+
+    #[test]
+    fn we_can_merge_constant_terms() {
+        let empty_term: SumcheckTerm<'_, TestScalar> = Vec::new();
+        let terms = [
+            (
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::from(2),
+                &empty_term,
+            ),
+            (
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::from(3),
+                &empty_term,
+            ),
+        ];
+        let optimizer = SumcheckTermOptimizer::new(terms.into_iter(), 4);
+        let optimized_terms = optimizer.terms();
+        let terms: Vec<_> = (&optimized_terms).into_iter().collect();
+
+        assert_eq!(terms.len(), 1);
+        let (ty, coeff, multiplicands) = terms[0];
+        assert_eq!(ty, SumcheckSubpolynomialType::Identity);
+        assert_eq!(coeff, TestScalar::from(5));
+        assert!(multiplicands.is_empty());
+    }
+}
