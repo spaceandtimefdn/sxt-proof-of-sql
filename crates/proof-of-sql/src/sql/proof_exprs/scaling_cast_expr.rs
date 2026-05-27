@@ -110,3 +110,71 @@ impl ProofExpr for ScalingCastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DynProofExpr, ProofExpr, ScalingCastExpr};
+    use crate::{
+        base::{
+            database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+            map::IndexSet,
+            math::decimal::Precision,
+        },
+        sql::{proof_exprs::ColumnExpr, AnalyzeError},
+    };
+    use alloc::string::ToString;
+
+    #[test]
+    fn constructor_exposes_target_type_and_factor() {
+        let to_type = ColumnType::Decimal75(Precision::new(12).unwrap(), 2);
+        let expr = ScalingCastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::Int(3))),
+            to_type,
+        )
+        .unwrap();
+
+        assert_eq!(expr.get_from_expr().data_type(), ColumnType::Int);
+        assert_eq!(expr.to_type(), &to_type);
+        assert_eq!(expr.data_type(), to_type);
+        assert_eq!(expr.scaling_factor(), [100, 0, 0, 0]);
+    }
+
+    #[test]
+    fn rejects_non_scalable_target_type() {
+        let from_type = ColumnType::Int;
+        let to_type = ColumnType::Boolean;
+        let error = ScalingCastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::Int(3))),
+            to_type,
+        )
+        .unwrap_err();
+
+        match error {
+            AnalyzeError::DataTypeMismatch {
+                left_type,
+                right_type,
+            } => {
+                assert_eq!(left_type, from_type.to_string());
+                assert_eq!(right_type, to_type.to_string());
+            }
+            other => panic!("unexpected analyze error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn delegates_column_references() {
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "amount".into(), ColumnType::Int);
+        let expr = ScalingCastExpr::try_new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref.clone()))),
+            ColumnType::Decimal75(Precision::new(11).unwrap(), 1),
+        )
+        .unwrap();
+        let mut columns = IndexSet::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert_eq!(columns.len(), 1);
+        assert!(columns.contains(&column_ref));
+    }
+}
