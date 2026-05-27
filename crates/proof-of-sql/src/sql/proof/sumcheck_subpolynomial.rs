@@ -91,7 +91,10 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
+    use super::{
+        CompositePolynomialBuilder, SumcheckSubpolynomial, SumcheckSubpolynomialTerm,
+        SumcheckSubpolynomialType,
+    };
     use crate::base::scalar::test_scalar::TestScalar;
     use alloc::boxed::Box;
 
@@ -118,5 +121,55 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_compose_identity_subpolynomial_uses_fr_multiplicand() {
+        let fr = [TestScalar::from(1), TestScalar::from(2)];
+        let mle = vec![TestScalar::from(3), TestScalar::from(5)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(7), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::Identity, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        subpoly.compose(&mut builder, TestScalar::from(11));
+        let polynomial = builder.make_composite_polynomial();
+        let point = [TestScalar::from(13)];
+        let m0 = TestScalar::from(1) - point[0];
+        let m1 = point[0];
+        let eval_fr = fr[0] * m0 + fr[1] * m1;
+        let eval_mle = mle[0] * m0 + mle[1] * m1;
+
+        assert_eq!(
+            subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::Identity
+        );
+        assert_eq!(
+            polynomial.evaluate(&point),
+            eval_fr * TestScalar::from(77) * eval_mle
+        );
+    }
+
+    #[test]
+    fn test_compose_zero_sum_subpolynomial_uses_zerosum_multiplicand() {
+        let fr = [TestScalar::from(1), TestScalar::from(2)];
+        let mle = vec![TestScalar::from(3), TestScalar::from(5)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(7), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, terms);
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+
+        subpoly.compose(&mut builder, TestScalar::from(11));
+        let polynomial = builder.make_composite_polynomial();
+        let point = [TestScalar::from(13)];
+        let m0 = TestScalar::from(1) - point[0];
+        let m1 = point[0];
+        let eval_mle = mle[0] * m0 + mle[1] * m1;
+
+        assert_eq!(
+            subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::ZeroSum
+        );
+        assert_eq!(polynomial.evaluate(&point), TestScalar::from(77) * eval_mle);
     }
 }
