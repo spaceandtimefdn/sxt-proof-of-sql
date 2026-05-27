@@ -99,3 +99,105 @@ impl ProofExpr for NotExpr {
         self.expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::NotExpr;
+    use crate::{
+        base::{
+            database::{Column, ColumnRef, ColumnType, Table, TableRef},
+            map::{indexmap, IndexSet},
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_exprs::{ColumnExpr, DynProofExpr, ProofExpr},
+        },
+    };
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+    use std::{collections::VecDeque, vec::Vec};
+
+    #[test]
+    fn we_can_evaluate_a_not_expr_directly() {
+        let alloc = Bump::new();
+        let t: TableRef = "sxt.t".parse().unwrap();
+        let input = &[true, false, true, false];
+        let expected = &[false, true, false, true];
+        let table = Table::try_new(indexmap! {
+            "flag".into() => Column::Boolean::<TestScalar>(input),
+        })
+        .unwrap();
+        let flag = ColumnRef::new(t, Ident::from("flag"), ColumnType::Boolean);
+        let not_expr = NotExpr::try_new(Box::new(DynProofExpr::Column(ColumnExpr::new(
+            flag.clone(),
+        ))))
+        .unwrap();
+
+        assert_eq!(not_expr.data_type(), ColumnType::Boolean);
+        assert_eq!(not_expr.input().data_type(), ColumnType::Boolean);
+
+        let first_round_result = not_expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(first_round_result, Column::Boolean(expected));
+
+        let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+            FinalRoundBuilder::new(4, VecDeque::new());
+        let final_round_result = not_expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round_result, Column::Boolean(expected));
+
+        let mut columns = IndexSet::default();
+        not_expr.get_column_references(&mut columns);
+        assert_eq!(columns.len(), 1);
+        assert!(columns.contains(&flag));
+    }
+
+    #[test]
+    fn we_can_verify_a_not_expr_directly() {
+        let t: TableRef = "sxt.t".parse().unwrap();
+        let input = &[true, false, true, false];
+        let expected = &[false, true, false, true];
+        let flag = ColumnRef::new(t, Ident::from("flag"), ColumnType::Boolean);
+        let not_expr = NotExpr::try_new(Box::new(DynProofExpr::Column(ColumnExpr::new(
+            flag.clone(),
+        ))))
+        .unwrap();
+        let evaluation_points: Vec<Vec<_>> = (0..input.len())
+            .map(|i| {
+                (0..input.len())
+                    .map(|j| {
+                        if i == j {
+                            TestScalar::ONE
+                        } else {
+                            TestScalar::ZERO
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                1,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        for evaluation_point in &evaluation_points {
+            let chi_eval = (&[1, 1, 1, 1]).inner_product(evaluation_point);
+            let accessor = indexmap! {
+                flag.clone().column_id() => input.inner_product(evaluation_point),
+            };
+            let result = not_expr
+                .verifier_evaluate(&mut verification_builder, &accessor, chi_eval, &[])
+                .unwrap();
+            assert_eq!(result, expected.inner_product(evaluation_point));
+            verification_builder.increment_row_index();
+        }
+    }
+}
