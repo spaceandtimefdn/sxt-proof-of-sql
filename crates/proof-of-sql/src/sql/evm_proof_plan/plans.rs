@@ -833,6 +833,269 @@ mod tests {
     };
     use indexmap::IndexSet;
 
+    struct SimplePlanContext {
+        table_ref: TableRef,
+        ident_a: Ident,
+        ident_b: Ident,
+        column_ref_a: ColumnRef,
+        column_ref_b: ColumnRef,
+        table_refs: crate::base::map::IndexSet<TableRef>,
+        column_refs: crate::base::map::IndexSet<ColumnRef>,
+    }
+
+    fn simple_plan_context(table_name: &str) -> SimplePlanContext {
+        let table_ref: TableRef = table_name.parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let ident_b: Ident = "b".into();
+        let column_ref_a = ColumnRef::new(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let column_ref_b = ColumnRef::new(table_ref.clone(), ident_b.clone(), ColumnType::BigInt);
+
+        SimplePlanContext {
+            table_ref: table_ref.clone(),
+            ident_a,
+            ident_b,
+            column_ref_a: column_ref_a.clone(),
+            column_ref_b: column_ref_b.clone(),
+            table_refs: indexset![table_ref],
+            column_refs: indexset![column_ref_a, column_ref_b],
+        }
+    }
+
+    fn table_plan(context: &SimplePlanContext) -> DynProofPlan {
+        DynProofPlan::Table(TableExec::new(
+            context.table_ref.clone(),
+            vec![
+                ColumnField::new(context.ident_a.clone(), ColumnType::BigInt),
+                ColumnField::new(context.ident_b.clone(), ColumnType::BigInt),
+            ],
+        ))
+    }
+
+    fn column_expr(column_ref: &ColumnRef) -> DynProofExpr {
+        DynProofExpr::Column(ColumnExpr::new(column_ref.clone()))
+    }
+
+    fn equals_a_to_five(context: &SimplePlanContext) -> DynProofExpr {
+        DynProofExpr::Equals(
+            EqualsExpr::try_new(
+                Box::new(column_expr(&context.column_ref_a)),
+                Box::new(DynProofExpr::Literal(LiteralExpr::new(
+                    LiteralValue::BigInt(5),
+                ))),
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn we_can_roundtrip_empty_dyn_proof_plan_through_evm() {
+        let empty_plan = DynProofPlan::Empty(EmptyExec::new());
+        let table_refs: crate::base::map::IndexSet<TableRef> = Default::default();
+        let column_refs: crate::base::map::IndexSet<ColumnRef> = Default::default();
+        let output_column_names: crate::base::map::IndexSet<String> = Default::default();
+
+        let evm_plan =
+            EVMDynProofPlan::try_from_proof_plan(&empty_plan, &table_refs, &column_refs).unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::Empty(_)));
+
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(&table_refs, &column_refs, Some(&output_column_names))
+            .unwrap();
+        assert_eq!(roundtripped_plan, empty_plan);
+    }
+
+    #[test]
+    fn we_can_roundtrip_projection_dyn_proof_plan_through_evm() {
+        let context = simple_plan_context("namespace.table");
+        let alias = Ident::new("alias");
+        let projection_plan = DynProofPlan::Projection(ProjectionExec::new(
+            vec![AliasedDynProofExpr {
+                expr: column_expr(&context.column_ref_b),
+                alias: alias.clone(),
+            }],
+            Box::new(table_plan(&context)),
+        ));
+
+        let evm_plan = EVMDynProofPlan::try_from_proof_plan(
+            &projection_plan,
+            &context.table_refs,
+            &context.column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::Projection(_)));
+
+        let output_column_names = indexset![alias.value];
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(
+                &context.table_refs,
+                &context.column_refs,
+                Some(&output_column_names),
+            )
+            .unwrap();
+        assert!(matches!(roundtripped_plan, DynProofPlan::Projection(_)));
+        assert_eq!(
+            roundtripped_plan.get_column_result_fields(),
+            projection_plan.get_column_result_fields()
+        );
+    }
+
+    #[test]
+    fn we_can_roundtrip_legacy_filter_dyn_proof_plan_through_evm() {
+        let context = simple_plan_context("namespace.table");
+        let alias = Ident::new("alias");
+        let legacy_filter_plan = DynProofPlan::LegacyFilter(LegacyFilterExec::new(
+            vec![AliasedDynProofExpr {
+                expr: column_expr(&context.column_ref_b),
+                alias: alias.clone(),
+            }],
+            TableExpr {
+                table_ref: context.table_ref.clone(),
+            },
+            equals_a_to_five(&context),
+        ));
+
+        let evm_plan = EVMDynProofPlan::try_from_proof_plan(
+            &legacy_filter_plan,
+            &context.table_refs,
+            &context.column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::LegacyFilter(_)));
+
+        let output_column_names = indexset![alias.value];
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(
+                &context.table_refs,
+                &context.column_refs,
+                Some(&output_column_names),
+            )
+            .unwrap();
+        assert_eq!(roundtripped_plan, legacy_filter_plan);
+    }
+
+    #[test]
+    fn we_can_roundtrip_group_by_dyn_proof_plan_through_evm() {
+        let context = simple_plan_context("namespace.table");
+        let sum_alias = Ident::new("sum_b");
+        let count_alias = Ident::new("count");
+        let group_by_plan = DynProofPlan::GroupBy(
+            GroupByExec::try_new(
+                vec![ColumnExpr::new(context.column_ref_a.clone())],
+                vec![AliasedDynProofExpr {
+                    expr: column_expr(&context.column_ref_b),
+                    alias: sum_alias.clone(),
+                }],
+                count_alias.clone(),
+                TableExpr {
+                    table_ref: context.table_ref.clone(),
+                },
+                equals_a_to_five(&context),
+            )
+            .unwrap(),
+        );
+
+        let evm_plan = EVMDynProofPlan::try_from_proof_plan(
+            &group_by_plan,
+            &context.table_refs,
+            &context.column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::GroupBy(_)));
+
+        let output_column_names = indexset![
+            context.ident_a.value.clone(),
+            sum_alias.value,
+            count_alias.value
+        ];
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(
+                &context.table_refs,
+                &context.column_refs,
+                Some(&output_column_names),
+            )
+            .unwrap();
+        assert_eq!(roundtripped_plan, group_by_plan);
+    }
+
+    #[test]
+    fn we_can_roundtrip_union_dyn_proof_plan_through_evm() {
+        let top_context = simple_plan_context("namespace.top_table");
+        let bottom_context = simple_plan_context("namespace.bottom_table");
+        let union_plan = DynProofPlan::Union(
+            UnionExec::try_new(vec![table_plan(&top_context), table_plan(&bottom_context)])
+                .unwrap(),
+        );
+        let table_refs = indexset![
+            top_context.table_ref.clone(),
+            bottom_context.table_ref.clone()
+        ];
+        let column_refs = indexset![
+            top_context.column_ref_a,
+            top_context.column_ref_b,
+            bottom_context.column_ref_a,
+            bottom_context.column_ref_b
+        ];
+
+        let evm_plan =
+            EVMDynProofPlan::try_from_proof_plan(&union_plan, &table_refs, &column_refs).unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::Union(_)));
+
+        let output_column_names = indexset![top_context.ident_a.value, top_context.ident_b.value];
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(&table_refs, &column_refs, Some(&output_column_names))
+            .unwrap();
+        assert_eq!(roundtripped_plan, union_plan);
+    }
+
+    #[test]
+    fn we_can_roundtrip_aggregate_dyn_proof_plan_through_evm() {
+        let context = simple_plan_context("namespace.table");
+        let sum_alias = Ident::new("sum_b");
+        let count_alias = Ident::new("count");
+        let aggregate_plan = DynProofPlan::Aggregate(
+            AggregateExec::try_new(
+                vec![AliasedDynProofExpr {
+                    expr: column_expr(&context.column_ref_a),
+                    alias: context.ident_a.clone(),
+                }],
+                vec![AliasedDynProofExpr {
+                    expr: column_expr(&context.column_ref_b),
+                    alias: sum_alias.clone(),
+                }],
+                count_alias.clone(),
+                Box::new(table_plan(&context)),
+                equals_a_to_five(&context),
+            )
+            .unwrap(),
+        );
+
+        let evm_plan = EVMDynProofPlan::try_from_proof_plan(
+            &aggregate_plan,
+            &context.table_refs,
+            &context.column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_plan, EVMDynProofPlan::Aggregate(_)));
+
+        let output_column_names = indexset![
+            context.ident_a.value.clone(),
+            sum_alias.value,
+            count_alias.value
+        ];
+        let roundtripped_plan = evm_plan
+            .try_into_proof_plan(
+                &context.table_refs,
+                &context.column_refs,
+                Some(&output_column_names),
+            )
+            .unwrap();
+        assert!(matches!(roundtripped_plan, DynProofPlan::Aggregate(_)));
+        assert_eq!(
+            roundtripped_plan.get_column_result_fields(),
+            aggregate_plan.get_column_result_fields()
+        );
+    }
+
     #[test]
     fn we_can_put_projection_exec_in_evm() {
         let table_ref: TableRef = "namespace.table".parse().unwrap();
