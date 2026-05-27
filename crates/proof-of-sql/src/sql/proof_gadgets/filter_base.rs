@@ -150,3 +150,110 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        final_round_evaluate_filter, final_round_filter_constraints, verify_evaluate_filter,
+    };
+    use crate::{
+        base::{
+            database::Column,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            SumcheckSubpolynomialType,
+        },
+    };
+    use bumpalo::Bump;
+
+    #[test]
+    fn we_can_verify_filter_constraints_without_blitzar() {
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::ONE, TestScalar::ONE]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        verify_evaluate_filter(
+            &mut builder,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            TestScalar::ONE,
+        )
+        .unwrap();
+
+        assert_eq!(builder.get_zero_sum_results(), vec![true]);
+        assert_eq!(builder.get_identity_results(), vec![vec![true, true, true]]);
+    }
+
+    #[test]
+    fn we_can_build_final_round_filter_constraints_without_blitzar() {
+        let c_star = [TestScalar::ONE, TestScalar::ONE, TestScalar::ONE];
+        let d_star = [TestScalar::ONE, TestScalar::ONE, TestScalar::ONE];
+        let selection = [true, true, true];
+        let folded_columns = [TestScalar::ZERO, TestScalar::ZERO, TestScalar::ZERO];
+        let input_chi = [true, true, true];
+        let output_chi = [true, true, true];
+        let mut builder = FinalRoundBuilder::new(3, Default::default());
+
+        final_round_filter_constraints(
+            &mut builder,
+            &c_star,
+            &d_star,
+            &selection,
+            &folded_columns,
+            &folded_columns,
+            &input_chi,
+            &output_chi,
+        );
+
+        let subpolynomial_types = builder
+            .sumcheck_subpolynomials()
+            .iter()
+            .map(|subpolynomial| subpolynomial.subpolynomial_type())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            subpolynomial_types,
+            vec![
+                SumcheckSubpolynomialType::Identity,
+                SumcheckSubpolynomialType::Identity,
+                SumcheckSubpolynomialType::ZeroSum,
+                SumcheckSubpolynomialType::Identity,
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_build_final_round_filter_witnesses_without_blitzar() {
+        let alloc = Bump::new();
+        let input_values = [1_i64, 2, 3];
+        let output_values = [1_i64, 3];
+        let selection = [true, false, true];
+        let columns = [Column::<TestScalar>::BigInt(&input_values)];
+        let filtered_columns = [Column::<TestScalar>::BigInt(&output_values)];
+        let mut builder = FinalRoundBuilder::new(3, Default::default());
+
+        final_round_evaluate_filter(
+            &mut builder,
+            &alloc,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            &columns,
+            &selection,
+            &filtered_columns,
+            input_values.len(),
+            output_values.len(),
+        );
+
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+    }
+}
