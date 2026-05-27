@@ -101,6 +101,16 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
     ));
 }
 
+#[test]
+fn we_reject_nullable_bigint_array_ref_instead_of_silently_reading_values() {
+    let array_ref: ArrayRef = Arc::new(Int64Array::from(vec![Some(7), None, Some(9)]));
+
+    assert!(matches!(
+        OwnedColumn::<TestScalar>::try_from(array_ref),
+        Err(OwnedArrowConversionError::NullNotSupportedYet)
+    ));
+}
+
 fn we_can_convert_between_owned_table_and_record_batch_impl(
     owned_table: &OwnedTable<TestScalar>,
     record_batch: &RecordBatch,
