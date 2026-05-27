@@ -2,6 +2,7 @@
 """Additional helper coverage tests for the Yul preprocessor."""
 
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 
@@ -123,6 +124,70 @@ def test_get_function_dependencies_handles_recursive_calls():
     assert set(dependencies) == {"first", "second"}
 
 
+def test_get_function_dependencies_skips_already_processed_shared_leaf():
+    """Test shared nested dependencies are deduplicated during traversal."""
+    preprocessor = YulPreprocessor()
+    all_functions = {
+        "entry": YulFunction(
+            name="entry",
+            signature="function entry(x) -> result",
+            body="result := add(left(x), right(x))",
+            full_text="function entry(x) -> result { result := add(left(x), right(x)) }",
+        ),
+        "left": YulFunction(
+            name="left",
+            signature="function left(x) -> result",
+            body="result := shared(x)",
+            full_text="function left(x) -> result { result := shared(x) }",
+        ),
+        "right": YulFunction(
+            name="right",
+            signature="function right(x) -> result",
+            body="result := shared(x)",
+            full_text="function right(x) -> result { result := shared(x) }",
+        ),
+        "shared": YulFunction(
+            name="shared",
+            signature="function shared(x) -> result",
+            body="result := add(x, 1)",
+            full_text="function shared(x) -> result { result := add(x, 1) }",
+        ),
+    }
+
+    dependencies = preprocessor.get_function_dependencies("entry", all_functions)
+
+    assert set(dependencies) == {"entry", "left", "right", "shared"}
+
+
+def test_get_function_dependencies_ignores_duplicate_pending_entries(monkeypatch):
+    """Test pending duplicate dependency names are skipped after first processing."""
+    preprocessor = YulPreprocessor()
+    all_functions = {
+        "entry": YulFunction(
+            name="entry",
+            signature="function entry(x) -> result",
+            body="result := repeated(x)",
+            full_text="function entry(x) -> result { result := repeated(x) }",
+        ),
+        "repeated": YulFunction(
+            name="repeated",
+            signature="function repeated(x) -> result",
+            body="result := add(x, 1)",
+            full_text="function repeated(x) -> result { result := add(x, 1) }",
+        ),
+    }
+
+    monkeypatch.setattr(
+        preprocessor,
+        "find_yul_function_calls",
+        lambda body, funcs: ["repeated", "repeated"] if body else [],
+    )
+
+    dependencies = preprocessor.get_function_dependencies("entry", all_functions)
+
+    assert set(dependencies) == {"entry", "repeated"}
+
+
 def test_find_assembly_blocks_ignores_unclosed_blocks():
     """Test an unmatched assembly brace stops scanning without a partial block."""
     preprocessor = YulPreprocessor()
@@ -137,6 +202,14 @@ def test_find_assembly_blocks_ignores_unclosed_blocks():
     )
 
     assert blocks == []
+
+
+def test_extract_yul_functions_skips_malformed_function_lines():
+    """Test malformed function starts are ignored instead of crashing."""
+    preprocessor = YulPreprocessor()
+
+    assert preprocessor.extract_yul_functions("function\nlet x := 1") == {}
+    assert preprocessor.extract_yul_functions("function missingBrace(x) -> result") == {}
 
 
 def test_resolve_import_path_handles_root_relative_and_file_relative_imports(
@@ -193,6 +266,42 @@ contract Cycle {
     assert dependencies == {}
 
 
+def test_collect_external_dependencies_swallows_unresolved_external_import(
+    monkeypatch, tmp_path
+):
+    """Test unresolved external cycle dependencies are deferred safely."""
+    cycle_file = tmp_path / "cycle.presl"
+    cycle_file.write_text(
+        """
+contract Cycle {
+    function run() external {
+        assembly {
+            // import externalHelper from external.presl
+            function local() -> result {
+                result := externalHelper()
+            }
+        }
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    preprocessor = YulPreprocessor(root_dir=tmp_path)
+
+    monkeypatch.setattr(
+        preprocessor,
+        "resolve_import",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("not yet")),
+    )
+
+    dependencies = preprocessor.collect_external_dependencies_for_cycle(
+        {cycle_file},
+        [cycle_file],
+    )
+
+    assert dependencies == {}
+
+
 def test_collect_all_functions_in_cycle_detects_signature_conflicts(tmp_path):
     """Test cycle collection reports duplicate names with different signatures."""
     first_file = tmp_path / "first.presl"
@@ -232,6 +341,34 @@ contract Second {
             {first_file, second_file},
             [first_file, second_file],
         )
+
+
+def test_collect_all_functions_in_cycle_skips_missing_cycle_files(tmp_path):
+    """Test missing files in a detected cycle are ignored during collection."""
+    present_file = tmp_path / "present.presl"
+    missing_file = tmp_path / "missing.presl"
+    present_file.write_text(
+        """
+contract Present {
+    function run() external {
+        assembly {
+            function local() -> result {
+                result := 1
+            }
+        }
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    preprocessor = YulPreprocessor(root_dir=tmp_path)
+
+    functions = preprocessor.collect_all_functions_in_cycle(
+        {present_file, missing_file},
+        [present_file],
+    )
+
+    assert set(functions) == {"local"}
 
 
 def test_resolve_import_reports_missing_self_and_target_errors(tmp_path):
@@ -296,6 +433,68 @@ contract Target {
     preprocessor.cycle_groups[frozenset(target_cycle)] = {}
     with pytest.raises(ValueError, match="Function 'missing' not found in cycle"):
         preprocessor.resolve_import("missing", "target.sol", current_file, [])
+
+
+def test_process_file_returns_cached_content_when_cycle_file_already_processed(
+    tmp_path,
+):
+    """Test cycle detection reuses cached content for already processed files."""
+    cycle_file = tmp_path / "cycle.presl"
+    cycle_file.write_text("contract Cycle {}\n", encoding="utf-8")
+    preprocessor = YulPreprocessor(root_dir=tmp_path)
+    resolved = cycle_file.resolve()
+    preprocessor.processed_cache[resolved] = "cached content"
+
+    assert preprocessor.process_file(cycle_file, [resolved]) == "cached content"
+
+
+def test_process_assembly_block_rejects_duplicate_import_signature_mismatch(
+    tmp_path,
+):
+    """Test importing the same name with different signatures is rejected."""
+    first_file = tmp_path / "first.presl"
+    second_file = tmp_path / "second.presl"
+    current_file = tmp_path / "current.presl"
+    first_file.write_text(
+        """
+contract First {
+    function run() external {
+        assembly {
+            function shared(a) -> result {
+                result := a
+            }
+        }
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    second_file.write_text(
+        """
+contract Second {
+    function run() external {
+        assembly {
+            function shared(a, b) -> result {
+                result := add(a, b)
+            }
+        }
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    current_file.write_text("contract Current {}\n", encoding="utf-8")
+    preprocessor = YulPreprocessor(root_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Function signature mismatch"):
+        preprocessor.process_assembly_block(
+            """
+            // import shared from first.presl
+            // import shared from second.presl
+            """,
+            current_file,
+            [],
+        )
 
 
 def test_should_skip_file_detects_does_not_compile_marker(tmp_path):
@@ -557,3 +756,17 @@ def test_main_usage_and_directory_validation(monkeypatch, tmp_path, capsys):
     with pytest.raises(SystemExit) as valid_directory:
         yul_preprocessor.main()
     assert valid_directory.value.code == 0
+
+
+def test_module_entrypoint_runs_main_for_empty_directory(monkeypatch, tmp_path):
+    """Test executing the module as a script reaches the __main__ guard."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [str(Path(yul_preprocessor.__file__)), str(tmp_path)],
+    )
+
+    with pytest.raises(SystemExit) as script_exit:
+        runpy.run_path(yul_preprocessor.__file__, run_name="__main__")
+
+    assert script_exit.value.code == 0
