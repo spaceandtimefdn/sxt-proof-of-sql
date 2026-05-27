@@ -118,23 +118,23 @@ impl<const STRICT: bool, const ASC: bool> ProofPlan for MonotonicTestPlan<STRICT
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         base::{
+            commitment::naive_evaluation_proof::NaiveEvaluationProof,
             database::{table_utility::*, ColumnType, TableTestAccessor},
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+            scalar::test_scalar::TestScalar,
         },
-        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
         sql::proof::{QueryError, VerifiableQueryResult},
     };
-    use blitzar::proof::InnerProductProof;
 
     fn check_monotonic<const STRICT: bool, const ASC: bool>(
         table_ref: TableRef,
-        accessor: &TableTestAccessor<InnerProductProof>,
+        accessor: &TableTestAccessor<NaiveEvaluationProof>,
         column_name: &str,
         column_type: ColumnType,
         shall_error: bool,
@@ -143,7 +143,7 @@ mod tests {
             column: ColumnRef::new(table_ref, column_name.into(), column_type),
         };
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, accessor, &(), &[]).unwrap();
         let res = verifiable_res.verify(&plan, accessor, &(), &[]);
         if shall_error {
             assert!(matches!(
@@ -219,7 +219,7 @@ mod tests {
     /// non-monotonic
     fn check_monotonic_for_table<const STRICT: bool, const ASC: bool>(
         table_ref: TableRef,
-        accessor: &TableTestAccessor<InnerProductProof>,
+        accessor: &TableTestAccessor<NaiveEvaluationProof>,
         shall_error: bool,
     ) {
         let precision = Precision::new(50).unwrap();
@@ -269,12 +269,16 @@ mod tests {
 
     /// Run `check_monotonic_for_table` for all possible forms of monotonicity
     fn check_all_monotonic_for_table(
-        table: Table<Curve25519Scalar>,
+        table: Table<TestScalar>,
         expected_monotonicity: &Monotonicity,
     ) {
         let table_ref: TableRef = "sxt.table".parse().unwrap();
-        let accessor =
-            TableTestAccessor::<InnerProductProof>::new_from_table(table_ref.clone(), table, 0, ());
+        let accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            table,
+            0,
+            (),
+        );
         check_monotonic_for_table::<true, true>(
             table_ref.clone(),
             &accessor,
