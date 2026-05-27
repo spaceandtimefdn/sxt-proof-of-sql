@@ -122,6 +122,14 @@ pub fn load_small_setup_for_testing() -> (
 mod std_tests {
     use super::*;
 
+    struct FailingReader;
+
+    impl std::io::Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("forced read failure"))
+        }
+    }
+
     #[test]
     fn we_can_deserialize_empty_setup_from_slice() {
         assert_eq!(
@@ -138,6 +146,17 @@ mod std_tests {
             deserialize_flat_compressed_hyperkzg_public_setup_from_reader(empty, Validate::Yes)
                 .unwrap(),
             Vec::<G1Affine>::new(),
+        );
+    }
+
+    #[test]
+    fn we_error_when_reader_fails() {
+        assert!(
+            deserialize_flat_compressed_hyperkzg_public_setup_from_reader(
+                FailingReader,
+                Validate::Yes
+            )
+            .is_err()
         );
     }
 
