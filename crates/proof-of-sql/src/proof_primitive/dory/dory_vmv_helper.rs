@@ -201,6 +201,26 @@ mod tests {
     }
 
     #[test]
+    fn we_can_compute_v_vec_from_weighted_rows() {
+        let a = [1, 2, 3, 4, 5, 6, 7, 8].map(F::from);
+        let L_vec = [10, 20, 30].map(F::from);
+
+        let v_vec = compute_v_vec(&a, &L_vec, 2, 2);
+
+        assert_eq!(v_vec, [110, 140, 170, 200].map(F::from));
+    }
+
+    #[test]
+    fn we_can_compute_v_vec_with_partial_final_row() {
+        let a = [1, 2, 3, 4, 5, 6].map(F::from);
+        let L_vec = [10, 20].map(F::from);
+
+        let v_vec = compute_v_vec(&a, &L_vec, 2, 3);
+
+        assert_eq!(v_vec, [110, 140, 30, 40, 0, 0, 0, 0].map(F::from));
+    }
+
+    #[test]
     fn we_can_compute_l_and_r_when_num_vars_is_0() {
         let b_point = vec![];
         let sigma = 2;
