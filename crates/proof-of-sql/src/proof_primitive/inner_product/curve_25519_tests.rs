@@ -39,6 +39,17 @@ fn test_dalek_interop_m1() {
 }
 
 #[test]
+fn curve25519_scalar_multiplies_ristretto_points_from_both_sides() {
+    let point = curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+    let expected = curve25519_dalek::scalar::Scalar::from(7u64) * point;
+
+    assert_eq!(Curve25519Scalar::from(7u64) * point, expected);
+    assert_eq!(Curve25519Scalar::from(7u64) * &point, expected);
+    assert_eq!(point * Curve25519Scalar::from(7u64), expected);
+    assert_eq!((&point) * Curve25519Scalar::from(7u64), expected);
+}
+
+#[test]
 fn test_add() {
     let one = Curve25519Scalar::from(1u64);
     let two = Curve25519Scalar::from(2u64);
