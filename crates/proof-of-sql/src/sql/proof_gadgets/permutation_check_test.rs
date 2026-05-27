@@ -159,6 +159,163 @@ impl ProofPlan for PermutationCheckTestPlan {
     }
 }
 
+#[cfg(test)]
+mod no_default_tests {
+    use super::PermutationCheckTestPlan;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_bigint, table},
+                ColumnRef, ColumnType, Table, TableRef,
+            },
+            map::{indexmap, IndexMap},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            FirstRoundBuilder, ProofPlan, ProverEvaluate, SumcheckSubpolynomialType,
+        },
+    };
+    use bumpalo::Bump;
+    use std::collections::VecDeque;
+
+    fn permutation_plan() -> PermutationCheckTestPlan {
+        let source_table = TableRef::new("sxt", "source_table");
+        let candidate_table = TableRef::new("sxt", "candidate_table");
+        PermutationCheckTestPlan {
+            source_table: source_table.clone(),
+            candidate_table: candidate_table.clone(),
+            source_columns: vec![ColumnRef::new(source_table, "a".into(), ColumnType::BigInt)],
+            candidate_columns: vec![ColumnRef::new(
+                candidate_table,
+                "c".into(),
+                ColumnType::BigInt,
+            )],
+        }
+    }
+
+    fn table_map<'a>(
+        alloc: &'a Bump,
+        source_table_ref: TableRef,
+        candidate_table_ref: TableRef,
+    ) -> IndexMap<TableRef, Table<'a, TestScalar>> {
+        let source_table = table([borrowed_bigint("a", [1, 2, 3], alloc)]);
+        let candidate_table = table([borrowed_bigint("c", [2, 3, 1], alloc)]);
+        indexmap! {
+            source_table_ref => source_table,
+            candidate_table_ref => candidate_table,
+        }
+    }
+
+    #[test]
+    fn we_can_report_permutation_plan_metadata_without_blitzar() {
+        let plan = permutation_plan();
+
+        assert!(plan.get_column_result_fields().is_empty());
+        assert_eq!(plan.get_column_references().len(), 2);
+        assert!(plan
+            .get_column_references()
+            .contains(&plan.source_columns[0]));
+        assert!(plan
+            .get_column_references()
+            .contains(&plan.candidate_columns[0]));
+        assert_eq!(plan.get_table_references().len(), 2);
+        assert!(plan.get_table_references().contains(&plan.source_table));
+        assert!(plan.get_table_references().contains(&plan.candidate_table));
+    }
+
+    #[test]
+    fn we_can_evaluate_permutation_plan_first_round_without_blitzar() {
+        let alloc = Bump::new();
+        let plan = permutation_plan();
+        let table_map = table_map(
+            &alloc,
+            plan.source_table.clone(),
+            plan.candidate_table.clone(),
+        );
+        let mut builder = FirstRoundBuilder::new(0);
+
+        let result = plan
+            .first_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert_eq!(result.num_rows(), 0);
+        assert_eq!(result.num_columns(), 0);
+        assert_eq!(builder.chi_evaluation_lengths(), &[3]);
+        assert_eq!(builder.range_length(), 3);
+    }
+
+    #[test]
+    fn we_can_evaluate_permutation_plan_final_round_without_blitzar() {
+        let alloc = Bump::new();
+        let plan = permutation_plan();
+        let table_map = table_map(
+            &alloc,
+            plan.source_table.clone(),
+            plan.candidate_table.clone(),
+        );
+        let mut challenges = VecDeque::new();
+        challenges.push_back(TestScalar::from(2));
+        challenges.push_back(TestScalar::from(3));
+        let mut builder = FinalRoundBuilder::new(2, challenges);
+
+        let result = plan
+            .final_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert_eq!(result.num_rows(), 0);
+        assert_eq!(result.num_columns(), 0);
+        assert_eq!(builder.pcs_proof_mles().len(), 4);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 3);
+        let subpolynomial_types = builder
+            .sumcheck_subpolynomials()
+            .iter()
+            .map(|subpolynomial| subpolynomial.subpolynomial_type())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            subpolynomial_types,
+            vec![
+                SumcheckSubpolynomialType::ZeroSum,
+                SumcheckSubpolynomialType::Identity,
+                SumcheckSubpolynomialType::Identity,
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_verify_permutation_plan_row_without_blitzar() {
+        let plan = permutation_plan();
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![
+                TestScalar::from(0),
+                TestScalar::from(0),
+                TestScalar::from(1),
+                TestScalar::from(1),
+            ]],
+            vec![TestScalar::from(2), TestScalar::from(3)],
+            vec![3],
+            vec![],
+        );
+
+        let evaluation = plan
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                &IndexMap::default(),
+                &[],
+            )
+            .unwrap();
+
+        assert!(evaluation.column_evals().is_empty());
+        assert_eq!(evaluation.chi(), (TestScalar::from(0), 0));
+        assert_eq!(builder.get_zero_sum_results(), vec![true]);
+        assert_eq!(builder.get_identity_results(), vec![vec![true, true]]);
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
