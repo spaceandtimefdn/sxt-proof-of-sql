@@ -29,6 +29,8 @@ use rand_util::rand_F_tensors;
 use rand_util::rand_G_vecs;
 #[cfg(test)]
 pub use rand_util::test_rng;
+#[cfg(test)]
+pub use rand_util::shared_test_public_parameters;
 
 mod dory_messages;
 pub(crate) use dory_messages::DoryMessages;
