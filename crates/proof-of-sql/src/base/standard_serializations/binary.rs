@@ -28,6 +28,7 @@ pub fn try_standard_binary_deserialization<D: for<'a> Deserialize<'a>>(
 #[cfg(test)]
 mod tests {
     use super::{try_standard_binary_deserialization, try_standard_binary_serialization};
+    use bincode::error::DecodeError;
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
@@ -50,5 +51,30 @@ mod tests {
         assert_eq!(obj, deserialized);
         let reserialized = try_standard_binary_serialization(deserialized).unwrap();
         assert_eq!(serialized, reserialized);
+    }
+
+    #[test]
+    fn serialization_uses_fixed_width_big_endian_integers() {
+        let serialized = try_standard_binary_serialization(0x0102_0304_u32).unwrap();
+        assert_eq!(serialized, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn deserialization_reports_consumed_bytes_with_trailing_payload() {
+        let mut serialized = try_standard_binary_serialization(0x0102_0304_u32).unwrap();
+        serialized.extend_from_slice(&[0xaa, 0xbb]);
+
+        let (deserialized, consumed): (u32, _) =
+            try_standard_binary_deserialization(&serialized).unwrap();
+
+        assert_eq!(deserialized, 0x0102_0304);
+        assert_eq!(consumed, 4);
+        assert_eq!(&serialized[consumed..], &[0xaa, 0xbb]);
+    }
+
+    #[test]
+    fn deserialization_rejects_incomplete_fixed_width_integer() {
+        let err = try_standard_binary_deserialization::<u32>(&[1, 2, 3]).unwrap_err();
+        assert!(matches!(err, DecodeError::UnexpectedEnd { .. }));
     }
 }
