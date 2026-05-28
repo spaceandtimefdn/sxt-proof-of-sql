@@ -7,9 +7,10 @@ use crate::base::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, FixedSizeBinaryArray,
+        Int16Array, Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, TimeUnit as ArrowTimeUnit},
 };
@@ -305,6 +306,29 @@ impl ArrayRefExt for ArrayRef {
                     };
 
                     Ok(Column::VarBinary((vals, scals)))
+                } else {
+                    Err(ArrowArrayToColumnConversionError::UnsupportedType {
+                        datatype: self.data_type().clone(),
+                    })
+                }
+            }
+            DataType::FixedSizeBinary(size) if (1..=32).contains(size) => {
+                if let Some(array) = self.as_any().downcast_ref::<FixedSizeBinaryArray>() {
+                    let vals = alloc
+                        .alloc_slice_fill_with(range.end - range.start, |i| -> &'a [u8] {
+                            array.value(range.start + i)
+                        });
+
+                    let scals = if let Some(scals) = precomputed_scals {
+                        &scals[range.start..range.end]
+                    } else {
+                        alloc.alloc_slice_fill_with(vals.len(), |i| {
+                            S::from_fixed_size_byte_slice(vals[i])
+                                .expect("fixed-size binary width is supported")
+                        })
+                    };
+
+                    Ok(Column::FixedSizeBinary(*size, (vals, scals)))
                 } else {
                     Err(ArrowArrayToColumnConversionError::UnsupportedType {
                         datatype: self.data_type().clone(),
@@ -1032,6 +1056,60 @@ mod tests {
                 .to_column::<DoryScalar>(&alloc, &(0..2), None)
                 .unwrap(),
             Column::VarBinary((&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
+    fn we_can_convert_valid_fixed_size_binary_array_refs_into_valid_columns() {
+        let alloc = Bump::new();
+        let data = vec![
+            b"abcdefghijklmnopqrst".as_slice(),
+            b"bcdefghijklmnopqrstu".as_slice(),
+        ];
+        let scals: Vec<_> = data
+            .iter()
+            .copied()
+            .map(|bytes| DoryScalar::from_fixed_size_byte_slice(bytes).unwrap())
+            .collect();
+        let array: ArrayRef = Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                data.iter().copied().map(Some),
+                20,
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::FixedSizeBinary(20, (&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
+    fn we_hash_fixed_size_binary_32_byte_array_refs() {
+        let alloc = Bump::new();
+        let data = vec![[42_u8; 32], [43_u8; 32]];
+        let data_refs: Vec<_> = data.iter().map(|bytes| bytes.as_ref()).collect();
+        let scals: Vec<_> = data_refs
+            .iter()
+            .copied()
+            .map(DoryScalar::from_byte_slice_via_hash)
+            .collect();
+        let array: ArrayRef = Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                data_refs.iter().copied().map(Some),
+                32,
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::FixedSizeBinary(32, (data_refs.as_slice(), scals.as_slice()))
         );
     }
 

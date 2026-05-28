@@ -275,6 +275,10 @@ pub fn try_equals_types(lhs: ColumnType, rhs: ColumnType) -> ColumnOperationResu
         (lhs, rhs),
         (ColumnType::VarChar, ColumnType::VarChar)
             | (ColumnType::VarBinary, ColumnType::VarBinary)
+            | (
+                ColumnType::FixedSizeBinary(_),
+                ColumnType::FixedSizeBinary(_)
+            )
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
             | (ColumnType::Scalar, _)
@@ -349,6 +353,10 @@ pub fn try_equals_types_with_scaling(
         (lhs, rhs),
         (ColumnType::VarChar, ColumnType::VarChar)
             | (ColumnType::VarBinary, ColumnType::VarBinary)
+            | (
+                ColumnType::FixedSizeBinary(_),
+                ColumnType::FixedSizeBinary(_)
+            )
             | (ColumnType::TimestampTZ(_, _), ColumnType::TimestampTZ(_, _))
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
