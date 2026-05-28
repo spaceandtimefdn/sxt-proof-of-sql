@@ -44,6 +44,9 @@ pub trait ComparisonOp {
     /// Return an error if op is not implemented for string
     fn string_op(lhs: &[String], rhs: &[String]) -> ColumnOperationResult<Vec<bool>>;
 
+    /// Return an error if op is not implemented for binary data
+    fn bytes_op(lhs: &[Vec<u8>], rhs: &[Vec<u8>]) -> ColumnOperationResult<Vec<bool>>;
+
     #[expect(clippy::too_many_lines)]
     fn owned_column_element_wise_comparison<S: Scalar>(
         lhs: &OwnedColumn<S>,
@@ -265,6 +268,11 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op(lhs, rhs, Self::op))
             }
             (OwnedColumn::VarChar(lhs), OwnedColumn::VarChar(rhs)) => Self::string_op(lhs, rhs),
+            (OwnedColumn::VarBinary(lhs), OwnedColumn::VarBinary(rhs)) => Self::bytes_op(lhs, rhs),
+            (
+                OwnedColumn::FixedSizeBinary(left_size, lhs),
+                OwnedColumn::FixedSizeBinary(right_size, rhs),
+            ) if left_size == right_size => Self::bytes_op(lhs, rhs),
             _ => Err(ColumnOperationError::BinaryOperationInvalidColumnType {
                 operator: "ComparisonOp".to_string(),
                 left_type: lhs.column_type(),
@@ -311,6 +319,10 @@ impl ComparisonOp for EqualOp {
     }
 
     fn string_op(lhs: &[String], rhs: &[String]) -> ColumnOperationResult<Vec<bool>> {
+        Ok(lhs.iter().zip(rhs.iter()).map(|(l, r)| l == r).collect())
+    }
+
+    fn bytes_op(lhs: &[Vec<u8>], rhs: &[Vec<u8>]) -> ColumnOperationResult<Vec<bool>> {
         Ok(lhs.iter().zip(rhs.iter()).map(|(l, r)| l == r).collect())
     }
 }
@@ -363,6 +375,14 @@ impl ComparisonOp for GreaterThanOp {
             right_type: ColumnType::VarChar,
         })
     }
+
+    fn bytes_op(_lhs: &[Vec<u8>], _rhs: &[Vec<u8>]) -> ColumnOperationResult<Vec<bool>> {
+        Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: ">".to_string(),
+            left_type: ColumnType::VarBinary,
+            right_type: ColumnType::VarBinary,
+        })
+    }
 }
 
 pub struct LessThanOp {}
@@ -412,5 +432,53 @@ impl ComparisonOp for LessThanOp {
             left_type: ColumnType::VarChar,
             right_type: ColumnType::VarChar,
         })
+    }
+
+    fn bytes_op(_lhs: &[Vec<u8>], _rhs: &[Vec<u8>]) -> ColumnOperationResult<Vec<bool>> {
+        Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "<".to_string(),
+            left_type: ColumnType::VarBinary,
+            right_type: ColumnType::VarBinary,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_compare_fixed_size_binary_for_equality() {
+        let lhs = OwnedColumn::<TestScalar>::FixedSizeBinary(
+            20,
+            vec![
+                b"abcdefghijklmnopqrst".to_vec(),
+                b"bcdefghijklmnopqrstu".to_vec(),
+            ],
+        );
+        let rhs = OwnedColumn::<TestScalar>::FixedSizeBinary(
+            20,
+            vec![
+                b"abcdefghijklmnopqrst".to_vec(),
+                b"abcdefghijklmnopqrst".to_vec(),
+            ],
+        );
+
+        assert_eq!(
+            EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap(),
+            OwnedColumn::Boolean(vec![true, false])
+        );
+    }
+
+    #[test]
+    fn fixed_size_binary_ordering_comparisons_are_rejected() {
+        let lhs =
+            OwnedColumn::<TestScalar>::FixedSizeBinary(20, vec![b"abcdefghijklmnopqrst".to_vec()]);
+        let rhs =
+            OwnedColumn::<TestScalar>::FixedSizeBinary(20, vec![b"bcdefghijklmnopqrstu".to_vec()]);
+
+        assert!(GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+        assert!(LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
     }
 }

@@ -51,6 +51,25 @@ pub trait ScalarExt: Scalar {
         let masked_val = hashed_val & Self::CHALLENGE_MASK;
         Self::from_wrapping(masked_val)
     }
+
+    /// Converts a fixed-size byte slice to a Scalar.
+    ///
+    /// Fixed-size binary values up to 31 bytes are naturally embedded into the
+    /// scalar field. 32-byte values are hashed because they may exceed the
+    /// supported scalar range.
+    ///
+    /// Returns `None` if the input has more than 32 bytes.
+    #[must_use]
+    fn from_fixed_size_byte_slice(bytes: &[u8]) -> Option<Self> {
+        match bytes.len() {
+            0..=31 => {
+                let value = U256::from_le_slice(bytes)?;
+                Some(Self::from_wrapping(value))
+            }
+            32 => Some(Self::from_byte_slice_via_hash(bytes)),
+            _ => None,
+        }
+    }
 }
 
 impl<S: Scalar> ScalarExt for S {}
@@ -108,6 +127,34 @@ mod tests {
             scalar_from_bytes, scalar_from_ref,
             "The masked keccak v256 of 'abc' must match"
         );
+    }
+
+    #[test]
+    fn we_can_naturally_embed_fixed_size_binary_up_to_31_bytes() {
+        let bytes = [1_u8, 2, 3, 4, 5];
+        let scalar = TestScalar::from_fixed_size_byte_slice(&bytes).unwrap();
+
+        let expected_limbs = [0x0504_0302_01, 0, 0, 0];
+        let expected = TestScalar::from(expected_limbs);
+
+        assert_eq!(scalar, expected);
+    }
+
+    #[test]
+    fn fixed_size_binary_32_bytes_uses_hash_embedding() {
+        let bytes = [42_u8; 32];
+
+        assert_eq!(
+            TestScalar::from_fixed_size_byte_slice(&bytes).unwrap(),
+            TestScalar::from_byte_slice_via_hash(&bytes)
+        );
+    }
+
+    #[test]
+    fn fixed_size_binary_rejects_values_larger_than_32_bytes() {
+        let bytes = [0_u8; 33];
+
+        assert_eq!(TestScalar::from_fixed_size_byte_slice(&bytes), None);
     }
 
     #[test]

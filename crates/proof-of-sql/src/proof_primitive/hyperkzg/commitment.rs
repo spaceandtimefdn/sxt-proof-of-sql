@@ -156,7 +156,8 @@ fn compute_commitments_impl(
             CommittableColumn::Decimal75(_, _, vals)
             | CommittableColumn::Scalar(vals)
             | CommittableColumn::VarChar(vals)
-            | CommittableColumn::VarBinary(vals) => {
+            | CommittableColumn::VarBinary(vals)
+            | CommittableColumn::FixedSizeBinary(_, vals) => {
                 compute_commitment_generic_impl(setup, offset, vals)
             }
         })

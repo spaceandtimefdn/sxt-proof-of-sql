@@ -56,6 +56,10 @@ pub enum ColumnType {
     /// Mapped to [u8]
     #[serde(alias = "BINARY", alias = "BINARY")]
     VarBinary,
+    /// Mapped to fixed-width [u8]
+    #[serde(alias = "FIXED_SIZE_BINARY", alias = "fixed_size_binary")]
+    #[cfg_attr(test, proptest(skip))]
+    FixedSizeBinary(i32),
 }
 
 impl ColumnType {
@@ -187,7 +191,7 @@ impl ColumnType {
             // Scalars are not in database & are only used for typeless comparisons for testing so we return 0
             // so that they do not cause errors when used in comparisons.
             Self::Scalar => Some(0_u8),
-            Self::Boolean | Self::VarChar | Self::VarBinary => None,
+            Self::Boolean | Self::VarChar | Self::VarBinary | Self::FixedSizeBinary(_) => None,
         }
     }
     /// Returns scale of a [`ColumnType`] if it is convertible to a decimal wrapped in `Some()`. Otherwise return None.
@@ -202,7 +206,7 @@ impl ColumnType {
             | Self::BigInt
             | Self::Int128
             | Self::Scalar => Some(0),
-            Self::Boolean | Self::VarBinary | Self::VarChar => None,
+            Self::Boolean | Self::VarBinary | Self::FixedSizeBinary(_) | Self::VarChar => None,
             Self::TimestampTZ(tu, _) => match tu {
                 PoSQLTimeUnit::Second => Some(0),
                 PoSQLTimeUnit::Millisecond => Some(3),
@@ -223,9 +227,11 @@ impl ColumnType {
             Self::Int => size_of::<i32>(),
             Self::BigInt | Self::TimestampTZ(_, _) => size_of::<i64>(),
             Self::Int128 => size_of::<i128>(),
-            Self::Scalar | Self::Decimal75(_, _) | Self::VarBinary | Self::VarChar => {
-                size_of::<[u64; 4]>()
-            }
+            Self::Scalar
+            | Self::Decimal75(_, _)
+            | Self::VarBinary
+            | Self::FixedSizeBinary(_)
+            | Self::VarChar => size_of::<[u64; 4]>(),
         }
     }
 
@@ -249,6 +255,7 @@ impl ColumnType {
             Self::Decimal75(_, _)
             | Self::Scalar
             | Self::VarBinary
+            | Self::FixedSizeBinary(_)
             | Self::VarChar
             | Self::Boolean
             | Self::Uint8 => false,
@@ -289,6 +296,7 @@ impl Display for ColumnType {
             }
             ColumnType::VarChar => write!(f, "VARCHAR"),
             ColumnType::VarBinary => write!(f, "BINARY"),
+            ColumnType::FixedSizeBinary(size) => write!(f, "FIXED_SIZE_BINARY({size})"),
             ColumnType::Scalar => write!(f, "SCALAR"),
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 write!(f, "TIMESTAMP(TIMEUNIT: {timeunit}, TIMEZONE: {timezone})")
