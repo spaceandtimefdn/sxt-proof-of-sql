@@ -327,3 +327,158 @@ impl<S: Scalar> TryFrom<RecordBatch> for OwnedTable<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    #[test]
+    fn owned_boolean_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 3);
+        let bool_arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(bool_arr.value(0), true);
+        assert_eq!(bool_arr.value(1), false);
+        assert_eq!(bool_arr.value(2), true);
+    }
+
+    #[test]
+    fn owned_bigint_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 3);
+        let int_arr = arr.as_any().downcast_ref::<Int64Array>().unwrap();
+        assert_eq!(int_arr.value(0), 1);
+        assert_eq!(int_arr.value(1), 2);
+        assert_eq!(int_arr.value(2), 3);
+    }
+
+    #[test]
+    fn owned_int_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::Int(vec![10, 20]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let int_arr = arr.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(int_arr.value(0), 10);
+        assert_eq!(int_arr.value(1), 20);
+    }
+
+    #[test]
+    fn owned_tinyint_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let int_arr = arr.as_any().downcast_ref::<Int8Array>().unwrap();
+        assert_eq!(int_arr.value(0), -1);
+        assert_eq!(int_arr.value(1), 2);
+    }
+
+    #[test]
+    fn owned_smallint_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::SmallInt(vec![100, 200]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let int_arr = arr.as_any().downcast_ref::<Int16Array>().unwrap();
+        assert_eq!(int_arr.value(0), 100);
+        assert_eq!(int_arr.value(1), 200);
+    }
+
+    #[test]
+    fn owned_uint8_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::Uint8(vec![1, 255]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let int_arr = arr.as_any().downcast_ref::<UInt8Array>().unwrap();
+        assert_eq!(int_arr.value(0), 1);
+        assert_eq!(int_arr.value(1), 255);
+    }
+
+    #[test]
+    fn owned_varchar_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::VarChar(vec!["hello".into(), "world".into()]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let str_arr = arr.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(str_arr.value(0), "hello");
+        assert_eq!(str_arr.value(1), "world");
+    }
+
+    #[test]
+    fn owned_int128_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::Int128(vec![100, 200]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 2);
+        let dec_arr = arr.as_any().downcast_ref::<Decimal128Array>().unwrap();
+        assert_eq!(dec_arr.value(0), 100);
+        assert_eq!(dec_arr.value(1), 200);
+        assert_eq!(dec_arr.precision(), 38);
+        assert_eq!(dec_arr.scale(), 0);
+    }
+
+    #[test]
+    fn array_ref_boolean_to_owned_column() {
+        let arr: ArrayRef = Arc::new(BooleanArray::from(vec![true, false]));
+        let col: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(
+            col,
+            OwnedColumn::<TestScalar>::Boolean(vec![true, false])
+        );
+    }
+
+    #[test]
+    fn array_ref_int64_to_owned_column() {
+        let arr: ArrayRef = Arc::new(Int64Array::from(vec![42, 100]));
+        let col: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(col, OwnedColumn::<TestScalar>::BigInt(vec![42, 100]));
+    }
+
+    #[test]
+    fn array_ref_string_to_owned_column() {
+        let arr: ArrayRef = Arc::new(StringArray::from(vec!["foo", "bar"]));
+        let col: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(
+            col,
+            OwnedColumn::<TestScalar>::VarChar(vec!["foo".into(), "bar".into()])
+        );
+    }
+
+    #[test]
+    fn array_ref_empty_to_owned_column() {
+        let arr: ArrayRef = Arc::new(Int64Array::from(vec![] as Vec<i64>));
+        let col: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(col, OwnedColumn::<TestScalar>::BigInt(vec![]));
+    }
+
+    #[test]
+    fn bigint_roundtrip() {
+        let original = OwnedColumn::<TestScalar>::BigInt(vec![1, -2, 3]);
+        let arr: ArrayRef = original.into();
+        let recovered: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(recovered, OwnedColumn::<TestScalar>::BigInt(vec![1, -2, 3]));
+    }
+
+    #[test]
+    fn boolean_roundtrip() {
+        let original = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
+        let arr: ArrayRef = original.into();
+        let recovered: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(
+            recovered,
+            OwnedColumn::<TestScalar>::Boolean(vec![true, false, true])
+        );
+    }
+
+    #[test]
+    fn varchar_roundtrip() {
+        let original = OwnedColumn::<TestScalar>::VarChar(vec!["hello".into(), "world".into()]);
+        let arr: ArrayRef = original.into();
+        let recovered: OwnedColumn<TestScalar> = (&arr).try_into().unwrap();
+        assert_eq!(
+            recovered,
+            OwnedColumn::<TestScalar>::VarChar(vec!["hello".into(), "world".into()])
+        );
+    }
+}

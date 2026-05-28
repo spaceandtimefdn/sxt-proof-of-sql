@@ -371,3 +371,143 @@ where
             .min_by(super::super::scalar::ScalarExt::signed_cmp)
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use bumpalo::Bump;
+
+    #[test]
+    fn sum_aggregate_basic() {
+        let alloc = Bump::new();
+        let slice = [10_i64, 20, 30, 40, 50];
+        let indexes = [0, 1, 2, 3, 4];
+        let counts = [2, 3];
+        let result: &[TestScalar] =
+            sum_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], TestScalar::from(30)); // 10 + 20
+        assert_eq!(result[1], TestScalar::from(120)); // 30 + 40 + 50
+    }
+
+    #[test]
+    fn sum_aggregate_single_group() {
+        let alloc = Bump::new();
+        let slice = [5_i64, 10, 15];
+        let indexes = [0, 1, 2];
+        let counts = [3];
+        let result: &[TestScalar] =
+            sum_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], TestScalar::from(30));
+    }
+
+    #[test]
+    fn sum_aggregate_repeated_indexes() {
+        let alloc = Bump::new();
+        let slice = [10_i64, 20];
+        let indexes = [0, 0, 1, 1];
+        let counts = [2, 2];
+        let result: &[TestScalar] =
+            sum_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result[0], TestScalar::from(20)); // 10 + 10
+        assert_eq!(result[1], TestScalar::from(40)); // 20 + 20
+    }
+
+    #[test]
+    fn sum_aggregate_with_i32() {
+        let alloc = Bump::new();
+        let slice = [1_i32, 2, 3, 4];
+        let indexes = [0, 1, 2, 3];
+        let counts = [2, 2];
+        let result: &[TestScalar] =
+            sum_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result[0], TestScalar::from(3));
+        assert_eq!(result[1], TestScalar::from(7));
+    }
+
+    #[test]
+    fn max_aggregate_basic() {
+        let alloc = Bump::new();
+        let slice = [10_i64, 50, 30, 20, 40];
+        let indexes = [0, 1, 2, 3, 4];
+        let counts = [2, 3];
+        let result: &[Option<TestScalar>] =
+            max_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], Some(TestScalar::from(50))); // max(10, 50)
+        assert_eq!(result[1], Some(TestScalar::from(40))); // max(30, 20, 40)
+    }
+
+    #[test]
+    fn min_aggregate_basic() {
+        let alloc = Bump::new();
+        let slice = [10_i64, 50, 30, 20, 40];
+        let indexes = [0, 1, 2, 3, 4];
+        let counts = [2, 3];
+        let result: &[Option<TestScalar>] =
+            min_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], Some(TestScalar::from(10))); // min(10, 50)
+        assert_eq!(result[1], Some(TestScalar::from(20))); // min(30, 20, 40)
+    }
+
+    #[test]
+    fn max_aggregate_negative_values() {
+        let alloc = Bump::new();
+        let slice = [-5_i64, -10, -1];
+        let indexes = [0, 1, 2];
+        let counts = [2, 1];
+        let result: &[Option<TestScalar>] =
+            max_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result[0], Some(TestScalar::from(-5))); // max(-5, -10)
+        assert_eq!(result[1], Some(TestScalar::from(-1)));
+    }
+
+    #[test]
+    fn min_aggregate_negative_values() {
+        let alloc = Bump::new();
+        let slice = [-5_i64, -10, -1];
+        let indexes = [0, 1, 2];
+        let counts = [2, 1];
+        let result: &[Option<TestScalar>] =
+            min_aggregate_slice_by_index_counts(&alloc, &slice, &counts, &indexes);
+        assert_eq!(result[0], Some(TestScalar::from(-10))); // min(-5, -10)
+        assert_eq!(result[1], Some(TestScalar::from(-1)));
+    }
+
+    #[test]
+    fn sum_aggregate_column_bigint() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[1, 2, 3, 4]);
+        let indexes = [0, 1, 2, 3];
+        let counts = [2, 2];
+        let result = sum_aggregate_column_by_index_counts(&alloc, &column, &counts, &indexes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], TestScalar::from(3));
+        assert_eq!(result[1], TestScalar::from(7));
+    }
+
+    #[test]
+    fn max_aggregate_column_bigint() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[5, 1, 3, 4]);
+        let indexes = [0, 1, 2, 3];
+        let counts = [2, 2];
+        let result = max_aggregate_column_by_index_counts(&alloc, &column, &counts, &indexes);
+        assert_eq!(result[0], Some(TestScalar::from(5)));
+        assert_eq!(result[1], Some(TestScalar::from(4)));
+    }
+
+    #[test]
+    fn min_aggregate_column_bigint() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[5, 1, 3, 4]);
+        let indexes = [0, 1, 2, 3];
+        let counts = [2, 2];
+        let result = min_aggregate_column_by_index_counts(&alloc, &column, &counts, &indexes);
+        assert_eq!(result[0], Some(TestScalar::from(1)));
+        assert_eq!(result[1], Some(TestScalar::from(3)));
+    }
+}

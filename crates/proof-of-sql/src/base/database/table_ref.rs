@@ -142,3 +142,155 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn new_with_schema_and_table() {
+        let tr = TableRef::new("myschema", "mytable");
+        assert_eq!(tr.schema_id().unwrap().value, "myschema");
+        assert_eq!(tr.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn new_with_empty_schema() {
+        let tr = TableRef::new("", "mytable");
+        assert!(tr.schema_id().is_none());
+        assert_eq!(tr.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn from_names_some_schema() {
+        let tr = TableRef::from_names(Some("schema1"), "table1");
+        assert_eq!(tr.schema_id().unwrap().value, "schema1");
+        assert_eq!(tr.table_id().value, "table1");
+    }
+
+    #[test]
+    fn from_names_none_schema() {
+        let tr = TableRef::from_names(None, "table1");
+        assert!(tr.schema_id().is_none());
+        assert_eq!(tr.table_id().value, "table1");
+    }
+
+    #[test]
+    fn from_idents_with_schema() {
+        let schema = Ident::new("s");
+        let table = Ident::new("t");
+        let tr = TableRef::from_idents(Some(schema.clone()), table.clone());
+        assert_eq!(tr.schema_id().unwrap().value, "s");
+        assert_eq!(tr.table_id().value, "t");
+    }
+
+    #[test]
+    fn from_idents_without_schema() {
+        let table = Ident::new("t");
+        let tr = TableRef::from_idents(None, table);
+        assert!(tr.schema_id().is_none());
+        assert_eq!(tr.table_id().value, "t");
+    }
+
+    #[test]
+    fn from_strs_single_component() {
+        let tr = TableRef::from_strs(&["mytable"]).unwrap();
+        assert!(tr.schema_id().is_none());
+        assert_eq!(tr.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn from_strs_two_components() {
+        let tr = TableRef::from_strs(&["myschema", "mytable"]).unwrap();
+        assert_eq!(tr.schema_id().unwrap().value, "myschema");
+        assert_eq!(tr.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn from_strs_three_components_errors() {
+        let result = TableRef::from_strs(&["a", "b", "c"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_from_dot_separated() {
+        let tr: TableRef = "schema1.table1".try_into().unwrap();
+        assert_eq!(tr.schema_id().unwrap().value, "schema1");
+        assert_eq!(tr.table_id().value, "table1");
+    }
+
+    #[test]
+    fn try_from_single_name() {
+        let tr: TableRef = "justtable".try_into().unwrap();
+        assert!(tr.schema_id().is_none());
+        assert_eq!(tr.table_id().value, "justtable");
+    }
+
+    #[test]
+    fn try_from_too_many_dots_errors() {
+        let result: Result<TableRef, _> = "a.b.c".try_into();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_str_works() {
+        let tr: TableRef = "schema.table".parse().unwrap();
+        assert_eq!(tr.to_string(), "schema.table");
+    }
+
+    #[test]
+    fn display_with_schema() {
+        let tr = TableRef::new("s", "t");
+        assert_eq!(tr.to_string(), "s.t");
+    }
+
+    #[test]
+    fn display_without_schema() {
+        let tr = TableRef::new("", "t");
+        assert_eq!(tr.to_string(), "t");
+    }
+
+    #[test]
+    fn serialize_deserialize_roundtrip() {
+        let tr = TableRef::new("schema", "table");
+        let json = serde_json::to_string(&tr).unwrap();
+        let deserialized: TableRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(tr, deserialized);
+    }
+
+    #[test]
+    fn serialize_without_schema() {
+        let tr = TableRef::new("", "table");
+        let json = serde_json::to_string(&tr).unwrap();
+        assert_eq!(json, r#""table""#);
+    }
+
+    #[test]
+    fn equivalent_ref() {
+        let tr1 = TableRef::new("s", "t");
+        let tr2 = TableRef::new("s", "t");
+        assert!(Equivalent::equivalent(&&tr1, &tr2));
+    }
+
+    #[test]
+    fn not_equivalent_different_schema() {
+        let tr1 = TableRef::new("s1", "t");
+        let tr2 = TableRef::new("s2", "t");
+        assert!(!Equivalent::equivalent(&&tr1, &tr2));
+    }
+
+    #[test]
+    fn clone_and_eq() {
+        let tr1 = TableRef::new("s", "t");
+        let tr2 = tr1.clone();
+        assert_eq!(tr1, tr2);
+    }
+
+    #[test]
+    fn debug_format() {
+        let tr = TableRef::new("s", "t");
+        let debug = format!("{:?}", tr);
+        assert!(debug.contains("TableRef"));
+    }
+}
