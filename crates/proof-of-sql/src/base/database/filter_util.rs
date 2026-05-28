@@ -84,3 +84,139 @@ pub fn filter_column_by_index<'a, S: Scalar>(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn filter_bigint_by_selection() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[10, 20, 30, 40, 50]);
+        let selection = [true, false, true, false, true];
+        let (filtered, len) = filter_columns(&alloc, &[column], &selection);
+        assert_eq!(len, 3);
+        match filtered[0] {
+            Column::BigInt(col) => assert_eq!(col, &[10, 30, 50]),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+
+    #[test]
+    fn filter_boolean_by_selection() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::Boolean(&[true, false, true, false]);
+        let selection = [true, true, false, false];
+        let (filtered, len) = filter_columns(&alloc, &[column], &selection);
+        assert_eq!(len, 2);
+        match filtered[0] {
+            Column::Boolean(col) => assert_eq!(col, &[true, false]),
+            _ => panic!("Expected Boolean"),
+        }
+    }
+
+    #[test]
+    fn filter_multiple_columns() {
+        let alloc = Bump::new();
+        let col1 = Column::<TestScalar>::BigInt(&[1, 2, 3]);
+        let col2 = Column::<TestScalar>::Boolean(&[true, false, true]);
+        let selection = [false, true, true];
+        let (filtered, len) = filter_columns(&alloc, &[col1, col2], &selection);
+        assert_eq!(len, 2);
+        match filtered[0] {
+            Column::BigInt(col) => assert_eq!(col, &[2, 3]),
+            _ => panic!("Expected BigInt"),
+        }
+        match filtered[1] {
+            Column::Boolean(col) => assert_eq!(col, &[false, true]),
+            _ => panic!("Expected Boolean"),
+        }
+    }
+
+    #[test]
+    fn filter_all_selected() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[1, 2, 3]);
+        let selection = [true, true, true];
+        let (filtered, len) = filter_columns(&alloc, &[column], &selection);
+        assert_eq!(len, 3);
+        match filtered[0] {
+            Column::BigInt(col) => assert_eq!(col, &[1, 2, 3]),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+
+    #[test]
+    fn filter_none_selected() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[1, 2, 3]);
+        let selection = [false, false, false];
+        let (filtered, len) = filter_columns(&alloc, &[column], &selection);
+        assert_eq!(len, 0);
+        match filtered[0] {
+            Column::BigInt(col) => assert!(col.is_empty()),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_bigint() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[10, 20, 30, 40]);
+        let indexes = [0, 2, 3];
+        let result = filter_column_by_index(&alloc, &column, &indexes);
+        match result {
+            Column::BigInt(col) => assert_eq!(col, &[10, 30, 40]),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_int() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::Int(&[1, 2, 3]);
+        let indexes = [1];
+        let result = filter_column_by_index(&alloc, &column, &indexes);
+        match result {
+            Column::Int(col) => assert_eq!(col, &[2]),
+            _ => panic!("Expected Int"),
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_boolean() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::Boolean(&[true, false, true]);
+        let indexes = [0, 2];
+        let result = filter_column_by_index(&alloc, &column, &indexes);
+        match result {
+            Column::Boolean(col) => assert_eq!(col, &[true, true]),
+            _ => panic!("Expected Boolean"),
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_repeated() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[10, 20, 30]);
+        let indexes = [1, 1, 1];
+        let result = filter_column_by_index(&alloc, &column, &indexes);
+        match result {
+            Column::BigInt(col) => assert_eq!(col, &[20, 20, 20]),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_empty() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::BigInt(&[10, 20]);
+        let indexes: &[usize] = &[];
+        let result = filter_column_by_index(&alloc, &column, indexes);
+        match result {
+            Column::BigInt(col) => assert!(col.is_empty()),
+            _ => panic!("Expected BigInt"),
+        }
+    }
+}
