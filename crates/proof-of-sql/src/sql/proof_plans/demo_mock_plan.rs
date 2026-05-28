@@ -80,31 +80,29 @@ impl ProverEvaluate for DemoMockPlan {
 mod tests {
     use super::DemoMockPlan;
     use crate::{
+        base::commitment::naive_evaluation_proof::NaiveEvaluationProof,
         base::database::{
             owned_table_utility::{bigint, owned_table},
             ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
         },
         sql::proof::VerifiableQueryResult,
     };
-    #[cfg(feature = "blitzar")]
-    use blitzar::proof::InnerProductProof;
 
     #[test]
-    #[cfg(feature = "blitzar")]
     fn we_can_create_and_prove_a_demo_mock_plan() {
         let table_ref = "namespace.table_name".parse::<TableRef>().unwrap();
         let table = owned_table([bigint("column_name", [0, 1, 2, 3])]);
         let column_ref =
             ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
         let plan = DemoMockPlan { column: column_ref };
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             table_ref,
             table.clone(),
             0_usize,
             (),
         );
         let verifiable_res =
-            VerifiableQueryResult::<InnerProductProof>::new(&plan, &accessor, &(), &[]).unwrap();
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&plan, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&plan, &accessor, &(), &[])
             .expect("verification should suceeed")

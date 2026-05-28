@@ -472,6 +472,137 @@ mod test {
     use crate::base::scalar::test_scalar::TestScalar;
 
     #[test]
+    fn we_can_compare_decimal_columns_with_equal_and_reverse_extreme_scales() {
+        let same_scale_lhs = [2_i16, -3, 5]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let same_scale_rhs = [2_i16, 4, -5]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let same_scale_type = ColumnType::Decimal75(Precision::new(12).unwrap(), 2);
+
+        assert_eq!(
+            eq_decimal_columns(
+                &same_scale_lhs,
+                &same_scale_rhs,
+                same_scale_type,
+                same_scale_type
+            ),
+            vec![true, false, false]
+        );
+        assert_eq!(
+            le_decimal_columns(
+                &same_scale_lhs,
+                &same_scale_rhs,
+                same_scale_type,
+                same_scale_type
+            ),
+            vec![true, true, false]
+        );
+        assert_eq!(
+            ge_decimal_columns(
+                &same_scale_lhs,
+                &same_scale_rhs,
+                same_scale_type,
+                same_scale_type
+            ),
+            vec![true, false, true]
+        );
+
+        let fine_scale_lhs = [0_i16, 1, -1, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let coarse_scale_rhs = [0_i64, 0, 0, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let fine_scale_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 26);
+        let coarse_scale_type = ColumnType::Decimal75(Precision::new(40).unwrap(), -50);
+
+        assert_eq!(
+            eq_decimal_columns(
+                &fine_scale_lhs,
+                &coarse_scale_rhs,
+                fine_scale_type,
+                coarse_scale_type
+            ),
+            vec![true, false, false, false]
+        );
+        assert_eq!(
+            le_decimal_columns(
+                &fine_scale_lhs,
+                &coarse_scale_rhs,
+                fine_scale_type,
+                coarse_scale_type
+            ),
+            vec![true, false, true, true]
+        );
+        assert_eq!(
+            ge_decimal_columns(
+                &fine_scale_lhs,
+                &coarse_scale_rhs,
+                fine_scale_type,
+                coarse_scale_type
+            ),
+            vec![true, true, false, false]
+        );
+    }
+
+    #[test]
+    fn we_can_cover_reverse_upscale_decimal_arithmetic_and_division_errors() {
+        let lhs = [1_i16, 2]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [3_i64, 4]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let left_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 3);
+        let right_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+
+        assert_eq!(
+            try_add_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap(),
+            (
+                Precision::new(12).unwrap(),
+                3,
+                vec![TestScalar::from(31), TestScalar::from(42)]
+            )
+        );
+        assert_eq!(
+            try_subtract_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap(),
+            (
+                Precision::new(12).unwrap(),
+                3,
+                vec![TestScalar::from(-29), TestScalar::from(-38)]
+            )
+        );
+
+        let divide_by_zero: ColumnOperationResult<(Precision, i8, Vec<TestScalar>)> =
+            try_divide_decimal_columns(&[1_i64], &[0_i64], ColumnType::BigInt, ColumnType::BigInt);
+        assert!(matches!(
+            divide_by_zero,
+            Err(ColumnOperationError::DivisionByZero)
+        ));
+
+        let left_column_type = ColumnType::Decimal75(Precision::new(75).unwrap(), 10);
+        let right_column_type = ColumnType::Decimal75(Precision::new(2).unwrap(), -50);
+        assert_eq!(
+            try_divide_decimal_columns::<TestScalar, _, _>(
+                &[TestScalar::from(123_456_i64)],
+                &[TestScalar::from(2_i64)],
+                left_column_type,
+                right_column_type
+            )
+            .unwrap(),
+            (Precision::new(28).unwrap(), 13, vec![TestScalar::from(0)])
+        );
+    }
+
+    #[test]
     fn we_can_eq_decimal_columns() {
         // lhs is integer and rhs is decimal with nonnegative scale
         let lhs = [1_i8, -2, 3];

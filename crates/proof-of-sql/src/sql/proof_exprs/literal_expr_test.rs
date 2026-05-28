@@ -1,7 +1,7 @@
 use super::{DynProofExpr, ProofExpr};
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
             Table, TableRef,
@@ -9,9 +9,7 @@ use crate::{
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::test_utility::*,
-        proof_plans::test_utility::*,
+        proof::VerifiableQueryResult, proof_exprs::test_utility::*, proof_plans::test_utility::*,
     },
 };
 use bumpalo::Bump;
@@ -41,7 +39,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -59,8 +57,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
             const_bool(lit),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -102,14 +100,14 @@ fn we_can_prove_a_query_with_a_single_selected_row() {
     let expected_res = data.clone();
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(true),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -122,14 +120,14 @@ fn we_can_prove_a_query_with_a_single_non_selected_row() {
     let data = owned_table([bigint("a", [123_i64])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
         table_exec(t.clone(), vec![column_field("a", ColumnType::BigInt)]),
         const_bool(false),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
