@@ -414,3 +414,57 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+    use crate::base::{
+        database::{ColumnOperationError, ColumnType, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn equal_op_compares_varchar_columns() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(vec![
+            "alpha".to_string(),
+            "beta".to_string(),
+            "gamma".to_string(),
+        ]);
+        let rhs = OwnedColumn::<TestScalar>::VarChar(vec![
+            "alpha".to_string(),
+            "delta".to_string(),
+            "gamma".to_string(),
+        ]);
+
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn ordering_ops_reject_varchar_columns() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(vec!["alpha".to_string()]);
+        let rhs = OwnedColumn::<TestScalar>::VarChar(vec!["beta".to_string()]);
+
+        let greater_than_result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(matches!(
+            greater_than_result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }) if operator == ">"
+        ));
+
+        let less_than_result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(matches!(
+            less_than_result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }) if operator == "<"
+        ));
+    }
+}
