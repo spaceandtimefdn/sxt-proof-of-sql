@@ -136,7 +136,7 @@ mod tests {
         },
         proof_primitive::dory::{
             test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
-            PublicParameters,
+            PublicParameters, shared_test_public_parameters,
         },
     };
 
@@ -319,8 +319,8 @@ mod tests {
     #[expect(clippy::similar_names)]
     #[test]
     fn we_can_get_query_commitments_from_accessor() {
-        let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let public_parameters = shared_test_public_parameters(4);
+        let prover_setup = ProverSetup::from(public_parameters);
         let setup = DoryProverPublicSetup::new(&prover_setup, 3);
 
         let column_a_id: Ident = "column_a".into();

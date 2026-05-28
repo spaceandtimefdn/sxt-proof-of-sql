@@ -1,24 +1,21 @@
 use super::{
-    blitzar_metadata_table::create_blitzar_metadata_tables, ExtendedVerifierState, G1Affine,
+    ExtendedVerifierState, G1Affine,
     ProverSetup, F,
 };
-use crate::{
-    base::{commitment::CommittableColumn, slice_ops::slice_cast},
-    proof_primitive::{
+use crate::proof_primitive::{
         dory::DoryScalar,
         dynamic_matrix_utils::{
             matrix_structure::row_and_column_from_index,
             standard_basis_helper::fold_dynamic_standard_basis_tensors,
         },
-    },
-};
+    };
 use alloc::{vec, vec::Vec};
 use ark_ff::{AdditiveGroup, Field};
 #[cfg(feature = "blitzar")]
 use blitzar::compute::ElementP2;
 #[cfg(feature = "blitzar")]
 use bytemuck::TransparentWrapper;
-use itertools::{Itertools, __std_iter::repeat};
+use itertools::Itertools;
 
 /// Compute the evaluations of the columns of the matrix M that is derived from `a`.
 ///
@@ -127,7 +124,7 @@ pub(super) fn fold_dynamic_tensors(state: &ExtendedVerifierState) -> (F, F) {
 mod tests {
     use super::*;
     use crate::proof_primitive::{
-        dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters, VerifierState},
+        dory::{deferred_msm::DeferredMSM, shared_test_public_parameters, VerifierState},
         dynamic_matrix_utils::standard_basis_helper::{compute_dynamic_vecs, tests::naive_fold},
     };
 
@@ -213,8 +210,8 @@ mod tests {
 
     #[test]
     fn we_can_compute_dynamic_T_vec_prime() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let public_parameters = shared_test_public_parameters(5);
+        let prover_setup = ProverSetup::from(public_parameters);
 
         let a: Vec<F> = (100..109).map(Into::into).collect();
         let nu = 3;
