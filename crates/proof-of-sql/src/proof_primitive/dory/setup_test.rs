@@ -1,12 +1,12 @@
-use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+use super::{test_rng, ProverSetup, shared_test_public_parameters, VerifierSetup};
 use ark_ec::pairing::Pairing;
 use std::{fs, path::Path};
 
 #[test]
 fn we_can_create_and_manually_check_a_small_prover_setup() {
-    let mut rng = test_rng();
-    let pp = PublicParameters::test_rand(2, &mut rng);
-    let setup = ProverSetup::from(&pp);
+    let rng = test_rng();
+    let pp = shared_test_public_parameters(2);
+    let setup = ProverSetup::from(pp);
     assert_eq!(setup.max_nu, 2);
     assert_eq!(setup.Gamma_1.len(), 3);
     assert_eq!(setup.Gamma_2.len(), 3);
@@ -23,9 +23,9 @@ fn we_can_create_and_manually_check_a_small_prover_setup() {
 
 #[test]
 fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
-    let mut rng = test_rng();
-    let pp = PublicParameters::test_rand(2, &mut rng);
-    let v_setup = VerifierSetup::from(&pp);
+    let rng = test_rng();
+    let pp = shared_test_public_parameters(2);
+    let v_setup = VerifierSetup::from(pp);
 
     v_setup.save_to_file(Path::new("setup.bin")).unwrap();
     let setup = VerifierSetup::load_from_file(Path::new("setup.bin"));
@@ -94,10 +94,10 @@ fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
 
 #[test]
 fn we_can_create_prover_setups_with_various_sizes() {
-    let mut rng = test_rng();
+    let rng = test_rng();
     for nu in 0..5 {
-        let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = ProverSetup::from(&pp);
+        let pp = shared_test_public_parameters(nu);
+        let setup = ProverSetup::from(pp);
         assert_eq!(setup.Gamma_1.len(), nu + 1);
         assert_eq!(setup.Gamma_2.len(), nu + 1);
         for k in 0..=nu {
@@ -113,10 +113,10 @@ fn we_can_create_prover_setups_with_various_sizes() {
 
 #[test]
 fn we_can_create_verifier_setups_with_various_sizes() {
-    let mut rng = test_rng();
+    let rng = test_rng();
     for nu in 0..5 {
-        let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
+        let pp = shared_test_public_parameters(nu);
+        let setup = VerifierSetup::from(pp);
         assert_eq!(setup.Delta_1L.len(), nu + 1);
         assert_eq!(setup.Delta_1R.len(), nu + 1);
         assert_eq!(setup.Delta_2L.len(), nu + 1);
@@ -150,10 +150,10 @@ fn we_can_create_verifier_setups_with_various_sizes() {
 // nu size 5 = 15410 bytes
 #[test]
 fn we_can_serialize_and_deserialize_verifier_setups() {
-    let mut rng = test_rng();
+    let rng = test_rng();
     for nu in 0..5 {
-        let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
+        let pp = shared_test_public_parameters(nu);
+        let setup = VerifierSetup::from(pp);
         let serialized = postcard::to_allocvec(&setup).unwrap();
         let deserialized: VerifierSetup = postcard::from_bytes(&serialized).unwrap();
         assert_eq!(setup, deserialized);
