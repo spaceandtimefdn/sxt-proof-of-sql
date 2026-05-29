@@ -27,6 +27,8 @@ use proof_of_sql::{
 };
 use rand::Rng;
 
+const APPEND_ROWS_BENCH_MAX_NU: usize = 6;
+
 /// Bench dory performance when appending rows to a table. This includes the computation of
 /// commitments. Chose the number of columns to randomly generate across supported `PoSQL`
 /// data types, and choose the number of rows to append at a time.
@@ -44,7 +46,7 @@ use rand::Rng;
 ///
 /// Will panic if the row appending operation fails due to invalid data or if the local commitment has reached an invalid state.
 fn bench_append_rows(c: &mut Criterion, cols: usize, rows: usize) {
-    let public_parameters = PublicParameters::test_rand(10, &mut test_rng());
+    let public_parameters = PublicParameters::test_rand(APPEND_ROWS_BENCH_MAX_NU, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
     let dory_prover_setup = DoryProverPublicSetup::new(&prover_setup, 3);
     c.bench_function("append_rows_to_table_commitment", |b| {
