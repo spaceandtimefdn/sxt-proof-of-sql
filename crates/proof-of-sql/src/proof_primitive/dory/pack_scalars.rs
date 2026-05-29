@@ -473,6 +473,75 @@ mod tests {
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_std::UniformRand;
+
+    #[test]
+    fn we_can_modify_commits_for_unsigned_and_multi_subcommit_signed_columns() {
+        let mut rng = ark_std::test_rng();
+        let committable_columns = [
+            CommittableColumn::Uint8(&[1, 2]),
+            CommittableColumn::SmallInt(&[3, 4, 5, 6, 7]),
+        ];
+        let offset = 0;
+        let num_columns = 2;
+        let bit_table = [8, 16, 16, 16, 8, 8, 8, 8];
+
+        let signed_sub_commits: Vec<G1Affine> = (0..4).map(|_| G1Affine::rand(&mut rng)).collect();
+        let offset_sub_commits: Vec<G1Affine> = (0..4).map(|_| G1Affine::rand(&mut rng)).collect();
+        let mut sub_commits = signed_sub_commits.clone();
+        sub_commits.extend(offset_sub_commits.clone());
+
+        let modified = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_columns,
+        );
+
+        let min = min_as_f(committable_columns[1].column_type());
+        let expected: Vec<G1Affine> = vec![
+            signed_sub_commits[0],
+            (signed_sub_commits[1] + offset_sub_commits[0].mul(min)).into(),
+            (signed_sub_commits[2] + offset_sub_commits[1].mul(min)).into(),
+            (signed_sub_commits[3] + offset_sub_commits[3].mul(min)).into(),
+        ];
+        assert_eq!(modified, expected);
+    }
+
+    #[test]
+    fn we_can_modify_commits_for_one_and_two_signed_subcommits() {
+        let mut rng = ark_std::test_rng();
+        let committable_columns = [
+            CommittableColumn::SmallInt(&[1]),
+            CommittableColumn::Int(&[2, 3, 4, 5]),
+        ];
+        let offset = 0;
+        let num_columns = 2;
+        let bit_table = [16, 32, 32, 8, 8, 8, 8];
+
+        let signed_sub_commits: Vec<G1Affine> = (0..3).map(|_| G1Affine::rand(&mut rng)).collect();
+        let offset_sub_commits: Vec<G1Affine> = (0..4).map(|_| G1Affine::rand(&mut rng)).collect();
+        let mut sub_commits = signed_sub_commits.clone();
+        sub_commits.extend(offset_sub_commits.clone());
+
+        let modified = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_columns,
+        );
+
+        let small_int_min = min_as_f(committable_columns[0].column_type());
+        let int_min = min_as_f(committable_columns[1].column_type());
+        let expected: Vec<G1Affine> = vec![
+            (signed_sub_commits[0] + offset_sub_commits[2].mul(small_int_min)).into(),
+            (signed_sub_commits[1] + offset_sub_commits[0].mul(int_min)).into(),
+            (signed_sub_commits[2] + offset_sub_commits[3].mul(int_min)).into(),
+        ];
+        assert_eq!(modified, expected);
+    }
 
     #[test]
     fn we_can_get_a_bit_table() {
