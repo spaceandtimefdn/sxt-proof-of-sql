@@ -23,3 +23,26 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    struct LocalValue(u64);
+
+    impl From<&LocalValue> for u64 {
+        fn from(value: &LocalValue) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn we_can_convert_from_a_reference_without_consuming_the_value() {
+        let value = LocalValue(42);
+
+        let converted: u64 = value.ref_into();
+
+        assert_eq!(converted, 42);
+        assert_eq!(value.0, 42);
+    }
+}
