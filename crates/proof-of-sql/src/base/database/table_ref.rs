@@ -142,3 +142,101 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::error::ParseError;
+    use alloc::string::ToString;
+    use indexmap::Equivalent;
+
+    #[test]
+    fn new_omits_empty_schema_and_keeps_table_id() {
+        let table_ref = TableRef::new("", "orders");
+
+        assert_eq!(table_ref.schema_id(), None);
+        assert_eq!(table_ref.table_id().value, "orders");
+        assert_eq!(table_ref.to_string(), "orders");
+    }
+
+    #[test]
+    fn constructors_keep_schema_and_table_idents() {
+        let from_names = TableRef::from_names(Some("analytics"), "orders");
+        let from_idents = TableRef::from_idents(
+            Some(Ident::new("analytics".to_string())),
+            Ident::new("orders".to_string()),
+        );
+
+        assert_eq!(from_names, from_idents);
+        assert_eq!(from_names.schema_id().unwrap().value, "analytics");
+        assert_eq!(from_names.table_id().value, "orders");
+        assert_eq!(from_names.to_string(), "analytics.orders");
+    }
+
+    #[test]
+    fn from_strs_accepts_one_or_two_components() {
+        assert_eq!(
+            TableRef::from_strs(&["orders"]).unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["analytics", "orders"]).unwrap(),
+            TableRef::from_names(Some("analytics"), "orders")
+        );
+    }
+
+    #[test]
+    fn from_strs_rejects_invalid_component_counts() {
+        assert_eq!(
+            TableRef::from_strs(&["too", "many", "parts"]),
+            Err(ParseError::InvalidTableReference {
+                table_reference: "too,many,parts".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn try_from_rejects_too_many_dot_separated_components() {
+        assert_eq!(
+            TableRef::try_from("too.many.parts"),
+            Err(ParseError::InvalidTableReference {
+                table_reference: "too.many.parts".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn from_str_delegates_to_try_from() {
+        assert_eq!(
+            "analytics.orders".parse::<TableRef>().unwrap(),
+            TableRef::from_names(Some("analytics"), "orders")
+        );
+        assert_eq!(
+            "orders".parse::<TableRef>().unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+    }
+
+    #[test]
+    fn borrowed_table_refs_are_equivalent_to_matching_keys() {
+        let key = TableRef::new("analytics", "orders");
+        let same = TableRef::new("analytics", "orders");
+        let different = TableRef::new("public", "orders");
+
+        assert!((&same).equivalent(&key));
+        assert!(!(&different).equivalent(&key));
+    }
+
+    #[test]
+    fn serde_roundtrips_through_display_format() {
+        let table_ref = TableRef::new("analytics", "orders");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, r#""analytics.orders""#);
+        assert_eq!(
+            serde_json::from_str::<TableRef>(&serialized).unwrap(),
+            table_ref
+        );
+        assert!(serde_json::from_str::<TableRef>(r#""too.many.parts""#).is_err());
+    }
+}

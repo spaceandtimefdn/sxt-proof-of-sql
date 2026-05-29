@@ -35,3 +35,22 @@ impl<S: Scalar> TableEvaluation<S> {
         self.chi
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn new_stores_column_evals_and_chi() {
+        let column_evals = Vec::from([TestScalar::from(2), TestScalar::from(3)]);
+        let chi = (TestScalar::from(5), 7);
+
+        let evaluation = TableEvaluation::new(column_evals.clone(), chi);
+
+        assert_eq!(evaluation.column_evals(), column_evals);
+        assert_eq!(evaluation.chi_eval(), chi.0);
+        assert_eq!(evaluation.chi(), chi);
+    }
+}
