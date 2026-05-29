@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -117,4 +118,45 @@ fn we_can_filter_columns_with_varbinary() {
             Column::BigInt(&[10, 30, 40]),
         ]
     );
+}
+
+#[test]
+fn we_can_filter_primitive_and_timestamp_columns() {
+    let selection = vec![false, true, true, false];
+    let columns = vec![
+        Column::<TestScalar>::Boolean(&[true, false, true, false]),
+        Column::Uint8(&[1, 2, 3, 4]),
+        Column::TinyInt(&[-1, -2, 3, 4]),
+        Column::SmallInt(&[-10, 20, -30, 40]),
+        Column::Int(&[100, -200, 300, -400]),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[10, 20, 30, 40],
+        ),
+    ];
+    let alloc = Bump::new();
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+    assert_eq!(len, 2);
+    assert_eq!(
+        result,
+        vec![
+            Column::Boolean(&[false, true]),
+            Column::Uint8(&[2, 3]),
+            Column::TinyInt(&[-2, 3]),
+            Column::SmallInt(&[20, -30]),
+            Column::Int(&[-200, 300]),
+            Column::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), &[20, 30]),
+        ]
+    );
+}
+
+#[test]
+fn we_can_filter_column_by_index_out_of_order() {
+    let alloc = Bump::new();
+    let column = Column::<TestScalar>::Int(&[10, 20, 30, 40]);
+
+    let result = filter_column_by_index(&alloc, &column, &[3, 1, 1]);
+
+    assert_eq!(result, Column::Int(&[40, 20, 20]));
 }
