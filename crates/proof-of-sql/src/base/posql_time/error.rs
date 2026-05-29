@@ -38,3 +38,53 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invalid_timezone_display_includes_timezone() {
+        let error = PoSQLTimestampError::InvalidTimezone {
+            timezone: "Etc/NotAZone".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "invalid timezone string: Etc/NotAZone");
+    }
+
+    #[test]
+    fn test_invalid_timezone_offset_display() {
+        let error = PoSQLTimestampError::InvalidTimezoneOffset;
+
+        assert_eq!(error.to_string(), "invalid timezone offset");
+    }
+
+    #[test]
+    fn test_invalid_time_unit_display() {
+        let error = PoSQLTimestampError::InvalidTimeUnit {
+            error: "weeks".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "Invalid time unit");
+    }
+
+    #[test]
+    fn test_unsupported_precision_display_includes_error() {
+        let error = PoSQLTimestampError::UnsupportedPrecision {
+            error: "12".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "Unsupported precision for timestamp: 12");
+    }
+
+    #[test]
+    fn test_timestamp_error_converts_to_string() {
+        let error = PoSQLTimestampError::UnsupportedPrecision {
+            error: "4".to_string(),
+        };
+
+        let message = String::from(error);
+
+        assert_eq!(message, "Unsupported precision for timestamp: 4");
+    }
+}
