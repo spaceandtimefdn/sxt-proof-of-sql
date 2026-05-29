@@ -259,3 +259,245 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
         self.mle_evaluations.rho_256_evaluation
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{map::indexmap, proof::ProofSizeMismatch, scalar::test_scalar::TestScalar};
+    use alloc::{collections::VecDeque, vec};
+
+    fn scalar(value: u64) -> TestScalar {
+        TestScalar::from(value)
+    }
+
+    #[test]
+    fn we_can_consume_chi_and_rho_evaluations_by_requested_length() {
+        let first_round_evals = [scalar(11), scalar(12)];
+        let final_round_evals = [scalar(21), scalar(22), scalar(23)];
+        let bit_distributions = [BitDistribution::new::<TestScalar, _>(&[1_i64, -2, 3])];
+        let subpolynomial_multipliers = [scalar(3), scalar(5)];
+        let mle_evaluations = SumcheckMleEvaluations {
+            chi_evaluations: indexmap! {
+                2 => scalar(102),
+                4 => scalar(104),
+            },
+            rho_evaluations: indexmap! {
+                3 => scalar(203),
+                5 => scalar(205),
+            },
+            singleton_chi_evaluation: scalar(1),
+            random_evaluation: scalar(7),
+            first_round_pcs_proof_evaluations: &first_round_evals,
+            final_round_pcs_proof_evaluations: &final_round_evals,
+            rho_256_evaluation: Some(scalar(256)),
+        };
+        let mut builder = VerificationBuilderImpl::new(
+            mle_evaluations,
+            &bit_distributions,
+            &subpolynomial_multipliers,
+            VecDeque::from([scalar(31), scalar(32)]),
+            vec![2, 4],
+            vec![3, 5],
+            3,
+        );
+
+        assert_eq!(
+            builder.try_consume_chi_evaluation().unwrap(),
+            (scalar(102), 2)
+        );
+        assert_eq!(
+            builder.try_consume_chi_evaluation().unwrap(),
+            (scalar(104), 4)
+        );
+        assert!(matches!(
+            builder.try_consume_chi_evaluation(),
+            Err(ProofSizeMismatch::TooFewChiLengths)
+        ));
+
+        assert_eq!(builder.try_consume_rho_evaluation().unwrap(), scalar(203));
+        assert_eq!(builder.try_consume_rho_evaluation().unwrap(), scalar(205));
+        assert!(matches!(
+            builder.try_consume_rho_evaluation(),
+            Err(ProofSizeMismatch::TooFewRhoLengths)
+        ));
+
+        assert_eq!(
+            builder.try_consume_first_round_mle_evaluations(2).unwrap(),
+            first_round_evals
+        );
+
+        assert_eq!(
+            builder.try_consume_final_round_mle_evaluations(2).unwrap(),
+            &final_round_evals[..2]
+        );
+        assert_eq!(
+            builder.try_consume_final_round_mle_evaluation().unwrap(),
+            scalar(23)
+        );
+
+        assert_eq!(
+            builder.try_consume_bit_distribution().unwrap(),
+            bit_distributions[0]
+        );
+        assert!(matches!(
+            builder.try_consume_bit_distribution(),
+            Err(ProofSizeMismatch::TooFewBitDistributions)
+        ));
+
+        builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                scalar(2),
+                2,
+            )
+            .unwrap();
+        builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                scalar(4),
+                3,
+            )
+            .unwrap();
+
+        assert_eq!(
+            builder.try_consume_post_result_challenge().unwrap(),
+            scalar(31)
+        );
+        assert_eq!(
+            builder.try_consume_post_result_challenge().unwrap(),
+            scalar(32)
+        );
+        assert!(matches!(
+            builder.try_consume_post_result_challenge(),
+            Err(ProofSizeMismatch::PostResultCountMismatch)
+        ));
+        assert_eq!(builder.singleton_chi_evaluation(), scalar(1));
+        assert_eq!(builder.rho_256_evaluation(), Some(scalar(256)));
+
+        let expected = scalar(3) * scalar(2) * scalar(7) + scalar(5) * scalar(4);
+        assert_eq!(builder.sumcheck_evaluation(), expected);
+    }
+
+    #[test]
+    fn we_get_errors_for_missing_evaluation_lengths_and_subpolynomial_capacity() {
+        let first_round_evals = [scalar(11)];
+        let final_round_evals = [scalar(21)];
+        let mle_evaluations = SumcheckMleEvaluations {
+            first_round_pcs_proof_evaluations: &first_round_evals,
+            final_round_pcs_proof_evaluations: &final_round_evals,
+            ..Default::default()
+        };
+        let mut builder = VerificationBuilderImpl::new(
+            mle_evaluations,
+            &[],
+            &[],
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            0,
+        );
+        assert_eq!(
+            builder.try_consume_first_round_mle_evaluation().unwrap(),
+            scalar(11)
+        );
+        assert!(matches!(
+            builder.try_consume_first_round_mle_evaluation(),
+            Err(ProofSizeMismatch::TooFewMLEEvaluations)
+        ));
+        assert_eq!(
+            builder.try_consume_final_round_mle_evaluation().unwrap(),
+            scalar(21)
+        );
+        assert!(matches!(
+            builder.try_consume_final_round_mle_evaluation(),
+            Err(ProofSizeMismatch::TooFewMLEEvaluations)
+        ));
+        assert!(matches!(
+            builder.try_consume_bit_distribution(),
+            Err(ProofSizeMismatch::TooFewBitDistributions)
+        ));
+
+        let mle_evaluations = SumcheckMleEvaluations {
+            chi_evaluations: indexmap! {
+                4 => scalar(44),
+            },
+            rho_evaluations: indexmap! {
+                8 => scalar(88),
+            },
+            random_evaluation: scalar(9),
+            ..Default::default()
+        };
+        let missing_length_multipliers = [scalar(2)];
+        let mut builder = VerificationBuilderImpl::new(
+            mle_evaluations,
+            &[],
+            &missing_length_multipliers,
+            VecDeque::new(),
+            vec![2],
+            vec![3],
+            1,
+        );
+
+        assert!(matches!(
+            builder.try_consume_chi_evaluation(),
+            Err(ProofSizeMismatch::ChiLengthNotFound)
+        ));
+        assert!(matches!(
+            builder.try_consume_rho_evaluation(),
+            Err(ProofSizeMismatch::RhoLengthNotFound)
+        ));
+        assert!(matches!(
+            builder.try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                scalar(1),
+                1,
+            ),
+            Err(ProofSizeMismatch::SumcheckProofTooSmall)
+        ));
+
+        let constraint_multipliers = [scalar(2)];
+        let mut builder = VerificationBuilderImpl::new(
+            SumcheckMleEvaluations::default(),
+            &[],
+            &constraint_multipliers,
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            1,
+        );
+        builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                scalar(3),
+                1,
+            )
+            .unwrap();
+        assert!(matches!(
+            builder.try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                scalar(5),
+                1,
+            ),
+            Err(ProofSizeMismatch::ConstraintCountMismatch)
+        ));
+
+        let zero_sum_degree_multipliers = [scalar(2)];
+        let mut builder = VerificationBuilderImpl::new(
+            SumcheckMleEvaluations::default(),
+            &[],
+            &zero_sum_degree_multipliers,
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            0,
+        );
+        assert!(matches!(
+            builder.try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                scalar(1),
+                1,
+            ),
+            Err(ProofSizeMismatch::SumcheckProofTooSmall)
+        ));
+    }
+}
