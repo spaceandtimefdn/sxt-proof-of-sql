@@ -65,7 +65,11 @@ impl<'a, S: Scalar> ColumnarValue<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
+    };
     use core::convert::Into;
 
     #[test]
@@ -97,6 +101,87 @@ mod tests {
         let columnar_value = ColumnarValue::Column(Column::<TestScalar>::SmallInt(&[]));
         let column = columnar_value.into_column(0, &bump).unwrap();
         assert_eq!(column, Column::SmallInt(&[]));
+    }
+
+    #[test]
+    fn we_can_transform_literal_columnar_values_into_typed_columns() {
+        let bump = Bump::new();
+
+        let cases = [
+            (
+                LiteralValue::Uint8(7),
+                Column::<TestScalar>::Uint8(&[7, 7, 7]),
+            ),
+            (LiteralValue::SmallInt(-8), Column::SmallInt(&[-8, -8, -8])),
+            (LiteralValue::Int(9), Column::Int(&[9, 9, 9])),
+            (LiteralValue::BigInt(-10), Column::BigInt(&[-10, -10, -10])),
+            (
+                LiteralValue::Int128(11),
+                Column::Int128(&[11_i128, 11_i128, 11_i128]),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), 12),
+                Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[12, 12, 12]),
+            ),
+        ];
+
+        for (literal, expected) in cases {
+            let columnar_value = ColumnarValue::Literal(literal);
+            let column = columnar_value.into_column(3, &bump).unwrap();
+            assert_eq!(column, expected);
+        }
+    }
+
+    #[test]
+    fn we_can_transform_scalar_backed_literals_into_columns() {
+        let bump = Bump::new();
+
+        let scalar: TestScalar = [1_u64, 2, 3, 4].into();
+        let columnar_value = ColumnarValue::Literal(LiteralValue::Scalar([1_u64, 2, 3, 4]));
+        let column = columnar_value.into_column(2, &bump).unwrap();
+        assert_eq!(column, Column::Scalar(&[scalar, scalar]));
+
+        let decimal_scalar = TestScalar::from(7010_i32);
+        let columnar_value = ColumnarValue::Literal(LiteralValue::Decimal75(
+            Precision::new(9).unwrap(),
+            2,
+            7010.into(),
+        ));
+        let column = columnar_value.into_column(2, &bump).unwrap();
+        assert_eq!(
+            column,
+            Column::Decimal75(
+                Precision::new(9).unwrap(),
+                2,
+                &[decimal_scalar, decimal_scalar]
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_transform_variable_length_literals_into_columns() {
+        let bump = Bump::new();
+
+        let text = "alpha".to_string();
+        let text_scalar = TestScalar::from(&text);
+        let columnar_value = ColumnarValue::Literal(LiteralValue::VarChar(text));
+        let column = columnar_value.into_column(2, &bump).unwrap();
+        assert_eq!(
+            column,
+            Column::VarChar((&["alpha", "alpha"], &[text_scalar, text_scalar]))
+        );
+
+        let bytes = vec![1_u8, 2, 3, 4];
+        let bytes_scalar = TestScalar::from_byte_slice_via_hash(&bytes);
+        let columnar_value = ColumnarValue::Literal(LiteralValue::VarBinary(bytes));
+        let column = columnar_value.into_column(2, &bump).unwrap();
+        assert_eq!(
+            column,
+            Column::VarBinary((
+                &[&[1_u8, 2, 3, 4][..], &[1_u8, 2, 3, 4][..]],
+                &[bytes_scalar, bytes_scalar]
+            ))
+        );
     }
 
     #[test]
