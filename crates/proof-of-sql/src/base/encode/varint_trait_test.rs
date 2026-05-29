@@ -238,6 +238,13 @@ fn we_can_encode_and_decode_small_u64_values() {
 }
 
 #[test]
+fn we_can_encode_and_decode_bool_values() {
+    test_encode_decode(false, [0]);
+    test_encode_decode(true, [1]);
+    assert_eq!(bool::decode_var(&[2]), None);
+}
+
+#[test]
 fn we_can_encode_and_decode_large_u64_values() {
     test_encode_decode(
         u64::MAX,
