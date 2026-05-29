@@ -25,6 +25,8 @@ pub(crate) use provable_result_column::ProvableResultColumn;
 
 mod provable_query_result;
 pub use provable_query_result::ProvableQueryResult;
+#[cfg(test)]
+mod provable_query_result_core_test;
 
 mod sumcheck_mle_evaluations;
 pub(crate) use sumcheck_mle_evaluations::SumcheckMleEvaluations;
