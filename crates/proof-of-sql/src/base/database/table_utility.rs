@@ -363,3 +363,19 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_create_borrowed_uint8_columns() {
+        let alloc = Bump::new();
+
+        let (name, column) = borrowed_uint8::<TestScalar>("byte_col", [1_u8, 2, 3], &alloc);
+
+        assert_eq!(name, Ident::new("byte_col"));
+        assert_eq!(column, Column::Uint8(&[1, 2, 3]));
+    }
+}
