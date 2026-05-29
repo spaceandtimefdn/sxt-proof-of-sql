@@ -499,4 +499,15 @@ mod tests {
             commitment2.to_transcript_bytes()
         );
     }
+
+    #[test]
+    fn we_can_roundtrip_dory_commitment_through_postcard() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let commitment = DoryCommitment(GT::rand(&mut rng));
+
+        let encoded = postcard::to_allocvec(&commitment).unwrap();
+        let decoded: DoryCommitment = postcard::from_bytes(&encoded).unwrap();
+
+        assert_eq!(decoded, commitment);
+    }
 }
