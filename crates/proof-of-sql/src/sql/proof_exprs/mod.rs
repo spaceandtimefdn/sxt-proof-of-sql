@@ -14,6 +14,8 @@ mod subtract_expr;
 pub(crate) use subtract_expr::SubtractExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod add_subtract_expr_test;
+#[cfg(test)]
+mod subtract_expr_eval_test;
 
 mod multiply_expr;
 pub(crate) use multiply_expr::MultiplyExpr;
