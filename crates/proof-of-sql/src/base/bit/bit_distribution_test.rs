@@ -1,5 +1,6 @@
 use super::*;
 use crate::base::{
+    proof::ProofError,
     scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
     try_standard_binary_deserialization, try_standard_binary_serialization,
 };
@@ -430,4 +431,20 @@ fn we_can_serialize_round_trip() {
 
     let deserialized: BitDistribution = try_standard_binary_deserialization(&serialized).unwrap().0;
     assert_eq!(deserialized, bit_distribution);
+}
+
+#[test]
+fn we_can_convert_bit_distribution_verification_error_to_proof_error() {
+    let proof_error = ProofError::from(BitDistributionError::Verification);
+
+    assert_eq!(
+        proof_error.to_string(),
+        "Verification error: invalid bit_decomposition"
+    );
+}
+
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn we_panic_when_converting_missing_lead_bit_error_to_proof_error() {
+    let _ = ProofError::from(BitDistributionError::NoLeadBit);
 }
