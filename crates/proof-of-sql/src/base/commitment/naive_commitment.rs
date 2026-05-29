@@ -203,6 +203,53 @@ fn we_can_compute_commitments_from_committable_columns_with_offset() {
 }
 
 #[test]
+fn we_can_compute_commitments_from_remaining_committable_column_variants() {
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
+
+    let booleans = [false, true];
+    let uint8s = [1_u8, 2];
+    let tiny_ints = [-1_i8, 2];
+    let small_ints = [-3_i16, 4];
+    let ints = [-5_i32, 6];
+    let int128s = [-7_i128, 8];
+    let decimal_limbs = vec![[9_u64, 0, 0, 0], [10, 0, 0, 0]];
+    let timestamps = [11_i64, 12];
+
+    let committable_columns = [
+        CommittableColumn::Boolean(&booleans),
+        CommittableColumn::Uint8(&uint8s),
+        CommittableColumn::TinyInt(&tiny_ints),
+        CommittableColumn::SmallInt(&small_ints),
+        CommittableColumn::Int(&ints),
+        CommittableColumn::Int128(&int128s),
+        CommittableColumn::Decimal75(Precision::new(2).unwrap(), 0, decimal_limbs.clone()),
+        CommittableColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &timestamps),
+    ];
+
+    let commitments = NaiveCommitment::compute_commitments(&committable_columns, 0, &());
+    let expected: [Vec<TestScalar>; 8] = [
+        booleans.iter().map(core::convert::Into::into).collect(),
+        uint8s.iter().map(core::convert::Into::into).collect(),
+        tiny_ints.iter().map(core::convert::Into::into).collect(),
+        small_ints.iter().map(core::convert::Into::into).collect(),
+        ints.iter().map(core::convert::Into::into).collect(),
+        int128s.iter().map(core::convert::Into::into).collect(),
+        decimal_limbs
+            .iter()
+            .map(core::convert::Into::into)
+            .collect(),
+        timestamps.iter().map(core::convert::Into::into).collect(),
+    ];
+
+    for (commitment, expected_scalars) in commitments.iter().zip(expected) {
+        assert_eq!(commitment.0, expected_scalars);
+    }
+}
+
+#[test]
 fn we_can_compute_commitments_from_committable_varbinary_column() {
     let varbinary_data = vec![[1u64, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
     let varbinary_scalars: Vec<TestScalar> = varbinary_data.iter().map(Into::into).collect();
