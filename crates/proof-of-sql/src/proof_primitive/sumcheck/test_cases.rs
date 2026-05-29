@@ -91,3 +91,30 @@ pub fn sumcheck_test_cases<S: Scalar>(
             SumcheckTestCase::rand(num_vars, max_multiplicands, products, rng)
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::sumcheck_test_cases;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use ark_std::rand::{rngs::StdRng, SeedableRng};
+
+    #[test]
+    fn sumcheck_test_cases_cover_expected_case_matrix() {
+        let mut rng = StdRng::from_seed([0u8; 32]);
+        let test_cases = sumcheck_test_cases::<TestScalar>(&mut rng).collect::<Vec<_>>();
+
+        assert_eq!(test_cases.len(), 224);
+
+        let mut cases_by_num_vars = [0usize; 9];
+        for test_case in test_cases {
+            assert!((1..=8).contains(&test_case.num_vars));
+            cases_by_num_vars[test_case.num_vars] += 1;
+            assert_eq!(
+                test_case.polynomial.hypercube_sum(1 << test_case.num_vars),
+                test_case.sum
+            );
+        }
+
+        assert!(cases_by_num_vars[1..].iter().all(|&count| count == 28));
+    }
+}
