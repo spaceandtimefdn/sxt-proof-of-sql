@@ -3,6 +3,23 @@ use ark_std::UniformRand;
 use merlin::Transcript;
 
 #[test]
+fn we_can_roundtrip_dory_messages_through_postcard() {
+    let mut rng = test_rng();
+    let mut messages = DoryMessages::default();
+    let mut transcript = Transcript::new(b"serde_test");
+
+    messages.prover_send_F_message(&mut transcript, F::rand(&mut rng));
+    messages.prover_send_G1_message(&mut transcript, G1Affine::rand(&mut rng));
+    messages.prover_send_G2_message(&mut transcript, G2Affine::rand(&mut rng));
+    messages.prover_send_GT_message(&mut transcript, GT::rand(&mut rng));
+
+    let encoded = postcard::to_allocvec(&messages).unwrap();
+    let decoded: DoryMessages = postcard::from_bytes(&encoded).unwrap();
+
+    assert_eq!(decoded, messages);
+}
+
+#[test]
 fn we_can_send_and_receive_the_correct_messages_in_the_same_order() {
     let mut rng = test_rng();
     let mut messages = DoryMessages::default();
