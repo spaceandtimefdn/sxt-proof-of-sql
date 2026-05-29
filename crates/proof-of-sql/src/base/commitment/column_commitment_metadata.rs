@@ -74,6 +74,14 @@ impl ColumnCommitmentMetadata {
     #[must_use]
     pub fn from_column_type_with_max_bounds(column_type: ColumnType) -> Self {
         let bounds = match column_type {
+            ColumnType::Uint8 => ColumnBounds::Uint8(super::Bounds::Bounded(
+                BoundsInner::try_new(u8::MIN, u8::MAX)
+                    .expect("u8::MIN and u8::MAX are valid bounds for Uint8"),
+            )),
+            ColumnType::TinyInt => ColumnBounds::TinyInt(super::Bounds::Bounded(
+                BoundsInner::try_new(i8::MIN, i8::MAX)
+                    .expect("i8::MIN and i8::MAX are valid bounds for TinyInt"),
+            )),
             ColumnType::SmallInt => ColumnBounds::SmallInt(super::Bounds::Bounded(
                 BoundsInner::try_new(i16::MIN, i16::MAX)
                     .expect("i16::MIN and i16::MAX are valid bounds for SmallInt"),
@@ -287,6 +295,100 @@ mod tests {
             ColumnCommitmentMetadata::try_new(ColumnType::VarChar, ColumnBounds::NoOrder).unwrap(),
             ColumnCommitmentMetadata {
                 column_type: ColumnType::VarChar,
+                bounds: ColumnBounds::NoOrder
+            }
+        );
+    }
+
+    #[test]
+    fn we_can_construct_metadata_from_column_type_with_max_bounds() {
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Uint8),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Uint8,
+                bounds: ColumnBounds::Uint8(Bounds::bounded(u8::MIN, u8::MAX).unwrap())
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::TinyInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::TinyInt,
+                bounds: ColumnBounds::TinyInt(Bounds::bounded(i8::MIN, i8::MAX).unwrap())
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::SmallInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::SmallInt,
+                bounds: ColumnBounds::SmallInt(Bounds::bounded(i16::MIN, i16::MAX).unwrap())
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Int,
+                bounds: ColumnBounds::Int(Bounds::bounded(i32::MIN, i32::MAX).unwrap())
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::BigInt),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::BigInt,
+                bounds: ColumnBounds::BigInt(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int128),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Int128,
+                bounds: ColumnBounds::Int128(Bounds::bounded(i128::MIN, i128::MAX).unwrap())
+            }
+        );
+
+        let timestamp_type = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc());
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(timestamp_type),
+            ColumnCommitmentMetadata {
+                column_type: timestamp_type,
+                bounds: ColumnBounds::TimestampTZ(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+            }
+        );
+
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Boolean),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Boolean,
+                bounds: ColumnBounds::NoOrder
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::VarChar),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::VarChar,
+                bounds: ColumnBounds::NoOrder
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::VarBinary),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::VarBinary,
+                bounds: ColumnBounds::NoOrder
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Scalar),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Scalar,
+                bounds: ColumnBounds::NoOrder
+            }
+        );
+        assert_eq!(
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Decimal75(
+                Precision::new(10).unwrap(),
+                2
+            )),
+            ColumnCommitmentMetadata {
+                column_type: ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
                 bounds: ColumnBounds::NoOrder
             }
         );
