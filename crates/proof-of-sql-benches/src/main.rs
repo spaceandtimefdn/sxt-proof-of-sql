@@ -357,12 +357,12 @@ fn load_dory_setup<'a>(
             blitzar::compute::MsmHandle::new_from_file(blitzar_handle_path.to_str().unwrap());
         let prover_setup =
             ProverSetup::from_public_parameters_and_blitzar_handle(public_parameters, handle);
-        let verifier_setup = VerifierSetup::from(public_parameters);
+        let verifier_setup = VerifierSetup::test_from(public_parameters);
 
         (prover_setup, verifier_setup)
     } else {
         let prover_setup = ProverSetup::from(public_parameters);
-        let verifier_setup = VerifierSetup::from(public_parameters);
+        let verifier_setup = VerifierSetup::test_from(public_parameters);
         (prover_setup, verifier_setup)
     };
 

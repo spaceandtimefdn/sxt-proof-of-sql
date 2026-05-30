@@ -81,7 +81,7 @@ fn main() {
     let mut rng = StdRng::from_seed(DORY_SEED);
     let public_parameters = PublicParameters::rand(DORY_SETUP_MAX_NU, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     let filename = "crates/proof-of-sql-planner/examples/stocks/stocks.csv";
     let schema = get_posql_compatible_schema(&SchemaRef::new(

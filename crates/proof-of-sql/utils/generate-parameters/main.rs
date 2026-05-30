@@ -192,7 +192,7 @@ fn generate_verifier_setup(public_parameters: &PublicParameters, nu: usize, targ
     let start_time = Instant::now();
 
     // Heavy operation
-    let setup = VerifierSetup::from(public_parameters);
+    let setup = VerifierSetup::test_from(public_parameters);
 
     spinner.finish_with_message("Verifier setup complete.");
     let duration = start_time.elapsed();
