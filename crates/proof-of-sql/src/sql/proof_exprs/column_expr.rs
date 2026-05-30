@@ -116,3 +116,109 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{database::TableRef, math::decimal::Precision, scalar::test_scalar::TestScalar},
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::{collections::VecDeque, vec::Vec};
+
+    fn column_ref(name: &str, column_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(
+            TableRef::new("sxt", "blocks"),
+            Ident::new(name),
+            column_type,
+        )
+    }
+
+    #[test]
+    fn column_expr_exposes_its_reference_and_field_metadata() {
+        let reference = column_ref("block_number", ColumnType::BigInt);
+        let expr = ColumnExpr::new(reference.clone());
+
+        assert_eq!(expr.get_column_reference(), reference);
+        assert_eq!(expr.column_ref(), &reference);
+        assert_eq!(expr.column_id(), Ident::new("block_number"));
+        assert_eq!(
+            expr.get_column_field(),
+            ColumnField::new("block_number".into(), ColumnType::BigInt)
+        );
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn column_expr_evaluates_by_fetching_the_referenced_table_column() {
+        let expr = ColumnExpr::new(column_ref("flag", ColumnType::Boolean));
+        let table: Table<TestScalar> =
+            Table::try_from_iter([(Ident::new("flag"), Column::Boolean(&[true, false]))]).unwrap();
+        let alloc = Bump::new();
+
+        assert_eq!(expr.fetch_column(&table), Column::Boolean(&[true, false]));
+        assert_eq!(
+            expr.first_round_evaluate(&alloc, &table, &[]).unwrap(),
+            Column::Boolean(&[true, false])
+        );
+
+        let mut builder = FinalRoundBuilder::new(0, VecDeque::new());
+        assert_eq!(
+            expr.final_round_evaluate(&mut builder, &alloc, &table, &[])
+                .unwrap(),
+            Column::Boolean(&[true, false])
+        );
+    }
+
+    #[test]
+    fn column_expr_verifier_reads_the_column_evaluation_or_errors() {
+        let expr = ColumnExpr::new(column_ref("score", ColumnType::Int));
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let mut accessor = IndexMap::default();
+        accessor.insert(Ident::new("score"), TestScalar::from(99_u8));
+
+        assert_eq!(
+            expr.verifier_evaluate(&mut builder, &accessor, TestScalar::from(1_u8), &[])
+                .unwrap(),
+            TestScalar::from(99_u8)
+        );
+
+        let error = expr
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                TestScalar::from(1_u8),
+                &[],
+            )
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            ProofError::VerificationError {
+                error: "Column Not Found"
+            }
+        ));
+    }
+
+    #[test]
+    fn column_expr_reports_its_column_reference() {
+        let reference = column_ref(
+            "amount",
+            ColumnType::Decimal75(Precision::new(9).unwrap(), 2),
+        );
+        let expr = ColumnExpr::new(reference.clone());
+        let mut columns = IndexSet::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert!(columns.contains(&reference));
+        assert_eq!(columns.len(), 1);
+    }
+}
