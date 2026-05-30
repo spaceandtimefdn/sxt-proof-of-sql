@@ -142,3 +142,63 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn creates_table_refs_from_names_and_idents() {
+        let table = TableRef::new("", "events");
+        assert_eq!(table.schema_id(), None);
+        assert_eq!(table.table_id(), &Ident::new("events"));
+
+        let table = TableRef::from_idents(Some(Ident::new("analytics")), Ident::new("events"));
+        assert_eq!(table.schema_id(), Some(&Ident::new("analytics")));
+        assert_eq!(table.table_id(), &Ident::new("events"));
+    }
+
+    #[test]
+    fn parses_table_refs_from_components() {
+        assert_eq!(
+            TableRef::from_strs(&["events"]).unwrap(),
+            TableRef::from_names(None, "events")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["analytics", "events"]).unwrap(),
+            TableRef::from_names(Some("analytics"), "events")
+        );
+        assert!(matches!(
+            TableRef::from_strs::<&str>(&[]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+        assert!(matches!(
+            TableRef::from_strs(&["catalog", "analytics", "events"]),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn parses_and_formats_table_refs() {
+        let table: TableRef = "events".parse().unwrap();
+        assert_eq!(table.to_string(), "events");
+
+        let qualified = TableRef::try_from("analytics.events").unwrap();
+        assert_eq!(qualified.to_string(), "analytics.events");
+        assert!((&qualified).equivalent(&qualified));
+
+        assert!(matches!(
+            TableRef::try_from("catalog.analytics.events"),
+            Err(ParseError::InvalidTableReference { .. })
+        ));
+    }
+
+    #[test]
+    fn serializes_table_refs_as_strings() {
+        let table = TableRef::from_names(Some("analytics"), "events");
+        let json = serde_json::to_string(&table).unwrap();
+        assert_eq!(json, "\"analytics.events\"");
+        assert_eq!(serde_json::from_str::<TableRef>(&json).unwrap(), table);
+        assert!(serde_json::from_str::<TableRef>("\"a.b.c\"").is_err());
+    }
+}
