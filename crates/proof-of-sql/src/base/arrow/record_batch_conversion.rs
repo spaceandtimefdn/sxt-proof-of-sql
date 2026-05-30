@@ -99,6 +99,46 @@ impl<C: Commitment> TableCommitment<C> {
     }
 }
 
+#[cfg(test)]
+mod batch_to_columns_tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use arrow::{
+        array::{Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn converts_record_batch_fields_and_values_to_columns() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("name", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["one", "two"])),
+            ],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+        let expected_scalars = ["one".into(), "two".into()];
+
+        assert_eq!(columns[0], ("id".into(), Column::BigInt(&[1, 2])));
+        assert_eq!(
+            columns[1],
+            (
+                "name".into(),
+                Column::VarChar((&["one", "two"], &expected_scalars))
+            )
+        );
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
