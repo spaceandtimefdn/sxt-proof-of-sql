@@ -289,4 +289,47 @@ mod tests {
         assert_eq!(prover_state.num_vars, 3);
         assert_eq!(prover_state.max_multiplicands, 4);
     }
+
+    #[test]
+    fn zerosum_only_terms_do_not_add_entrywise_multipliers() {
+        let mle1 = &[1, 2];
+        let mle2 = &[10, 20];
+
+        let subpolynomials = vec![SumcheckSubpolynomial::new(
+            SumcheckSubpolynomialType::ZeroSum,
+            vec![
+                (TestScalar::from(2), vec![Box::new(mle1)]),
+                (TestScalar::from(3), vec![Box::new(mle2)]),
+            ],
+        )];
+
+        let scalars = vec![TestScalar::from(5), TestScalar::from(99)];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 2, 1);
+
+        let prover_state = make_sumcheck_prover_state(&subpolynomials, 1, &random_scalars);
+
+        assert_eq!(
+            prover_state.list_of_products,
+            vec![(TestScalar::from(1), vec![0])]
+        );
+        assert_eq!(
+            prover_state.flattened_ml_extensions,
+            vec![vec![TestScalar::from(160), TestScalar::from(320)]]
+        );
+        assert_eq!(prover_state.num_vars, 1);
+        assert_eq!(prover_state.max_multiplicands, 1);
+    }
+
+    #[test]
+    fn empty_subpolynomials_create_empty_prover_state() {
+        let scalars = vec![TestScalar::from(7)];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 0, 1);
+
+        let prover_state = make_sumcheck_prover_state(&[], 1, &random_scalars);
+
+        assert!(prover_state.list_of_products.is_empty());
+        assert!(prover_state.flattened_ml_extensions.is_empty());
+        assert_eq!(prover_state.num_vars, 1);
+        assert_eq!(prover_state.max_multiplicands, 0);
+    }
 }
