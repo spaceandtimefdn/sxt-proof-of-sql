@@ -2,6 +2,8 @@
 mod proof_expr;
 pub(crate) use proof_expr::DecimalProofExpr;
 pub use proof_expr::ProofExpr;
+#[cfg(test)]
+mod proof_expr_decimal_trait_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod proof_expr_test;
 
