@@ -156,7 +156,7 @@ fn main() {
     let mut rng = <ark_std::rand::rngs::StdRng as ark_std::rand::SeedableRng>::from_seed([0u8; 32]);
     let public_parameters = PublicParameters::rand(5, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     match args.command {
         Commands::Create {
             table,

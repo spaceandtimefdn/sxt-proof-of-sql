@@ -1,0 +1,45 @@
+name: Bounty Spam Sentinel
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  filter-spam:
+    runs-on: ubuntu-latest
+    if: github.event.comment.user.login != 'algora-pbc[bot]'
+    steps:
+      - name: Detect Impersonation Pattern
+        id: detect
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          BLACKLISTED_WALLET="0xdaE5d307339074A24F579dB48e7c639359D94904"
+          
+          if [[ "$COMMENT_BODY" == *"$BLACKLISTED_WALLET"* ]] || [[ "$COMMENT_BODY" == *"Code Review"* && "$COMMENT_BODY" == *"Bounty"* ]]; then
+            echo "SPAM_DETECTED=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Take Action on Spam
+        if: steps.detect.outputs.SPAM_DETECTED == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentId = context.payload.comment.id;
+            const author = context.payload.comment.user.login;
+            
+            console.log(`🚨 SPAM DETECTED from ${author}. Minimizing comment...`);
+            
+            // 1. Minimize/Hide the comment (requires appropriate token permissions)
+            // GitHub doesn't have a direct 'delete' via script easily, but minimizing is safer for evidence.
+            // Note: Minimizing requires specific GraphQL API usually, or just delete.
+            
+            try {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+              });
+              console.log(`✅ Successfully deleted impersonation comment.`);
+            } catch (error) {
+              console.error(`❌ Failed to delete: ${error.message}`);
+            }

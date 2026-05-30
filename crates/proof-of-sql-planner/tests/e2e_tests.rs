@@ -66,7 +66,7 @@ fn test_empty_sql() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         "",
@@ -103,7 +103,7 @@ fn test_tableless_queries() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -157,7 +157,7 @@ fn test_simple_filter_queries() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -214,7 +214,7 @@ fn test_complex_filter_queries() {
 
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -259,7 +259,7 @@ fn test_projection() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -292,7 +292,7 @@ fn test_projection_scaling() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -329,7 +329,7 @@ fn test_slicing_limit() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -418,7 +418,7 @@ fn test_group_by() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -470,7 +470,7 @@ fn test_coin() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
 
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
@@ -521,7 +521,7 @@ fn test_join() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
@@ -622,7 +622,7 @@ JOIN (
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
@@ -667,7 +667,7 @@ fn test_union() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,
@@ -697,7 +697,7 @@ fn test_implicit_casts() {
     // Create public parameters for DynamicDoryEvaluationProof
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     posql_end_to_end_test::<DynamicDoryEvaluationProof>(
         sql,
         &tables,

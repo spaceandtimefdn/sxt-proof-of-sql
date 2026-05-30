@@ -25,7 +25,7 @@ fn we_can_create_and_manually_check_a_small_prover_setup() {
 fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
     let mut rng = test_rng();
     let pp = PublicParameters::test_rand(2, &mut rng);
-    let v_setup = VerifierSetup::from(&pp);
+    let v_setup = VerifierSetup::test_from(&pp);
 
     v_setup.save_to_file(Path::new("setup.bin")).unwrap();
     let setup = VerifierSetup::load_from_file(Path::new("setup.bin"));
@@ -116,7 +116,7 @@ fn we_can_create_verifier_setups_with_various_sizes() {
     let mut rng = test_rng();
     for nu in 0..5 {
         let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
+        let setup = VerifierSetup::test_from(&pp);
         assert_eq!(setup.Delta_1L.len(), nu + 1);
         assert_eq!(setup.Delta_1R.len(), nu + 1);
         assert_eq!(setup.Delta_2L.len(), nu + 1);
@@ -153,7 +153,7 @@ fn we_can_serialize_and_deserialize_verifier_setups() {
     let mut rng = test_rng();
     for nu in 0..5 {
         let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
+        let setup = VerifierSetup::test_from(&pp);
         let serialized = postcard::to_allocvec(&setup).unwrap();
         let deserialized: VerifierSetup = postcard::from_bytes(&serialized).unwrap();
         assert_eq!(setup, deserialized);

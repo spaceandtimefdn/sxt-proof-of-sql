@@ -47,7 +47,7 @@ fn main() {
     let mut rng = StdRng::from_seed([0u8; 32]);
     let public_parameters = PublicParameters::rand(5, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::test_from(&public_parameters);
     let mut accessor =
         OwnedTableTestAccessor::<DynamicDoryEvaluationProof>::new_empty_with_setup(&prover_setup);
     accessor.add_table(

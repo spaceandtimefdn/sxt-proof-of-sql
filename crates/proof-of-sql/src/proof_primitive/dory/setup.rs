@@ -318,3 +318,30 @@ impl From<&PublicParameters> for VerifierSetup {
         )
     }
 }
+impl VerifierSetup {
+    #[cfg(feature = "std")]
+    /// Create a VerifierSetup for testing purposes and cache it by `max_nu`
+    pub fn test_from(pp: &PublicParameters) -> Self {
+        use std::collections::HashMap;
+        use std::sync::{Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<HashMap<usize, VerifierSetup>>> = OnceLock::new();
+
+        let max_nu = pp.max_nu;
+        let mut cache = CACHE
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+            .unwrap();
+        if let Some(setup) = cache.get(&max_nu) {
+            return setup.clone();
+        }
+        let setup = Self::from(pp);
+        cache.insert(max_nu, setup.clone());
+        setup
+    }
+
+    #[cfg(not(feature = "std"))]
+    /// Create a VerifierSetup for testing purposes and cache it by `max_nu`
+    pub fn test_from(pp: &PublicParameters) -> Self {
+        Self::from(pp)
+    }
+}
