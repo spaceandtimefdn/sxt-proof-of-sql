@@ -161,3 +161,34 @@ fn we_can_interpolate_evaluations_to_reverse_coefficients_with_degree_3_degenera
         vec![S::from(0), S::from(0), S::from(2), S::from(1)]
     );
 }
+
+#[test]
+fn we_can_reconstruct_sparse_degree_five_reverse_coefficients() {
+    let coefficients = vec![
+        S::from(3),
+        S::from(0),
+        S::from(-2),
+        S::from(0),
+        S::from(5),
+        S::from(-7),
+    ];
+    let evaluations = (0..coefficients.len())
+        .map(|i| {
+            let x = S::from(i32::try_from(i).unwrap());
+            coefficients
+                .iter()
+                .fold(S::from(0), |acc, &coefficient| acc * x + coefficient)
+        })
+        .collect::<Vec<_>>();
+
+    let reconstructed = interpolate_evaluations_to_reverse_coefficients(&evaluations);
+
+    assert_eq!(reconstructed, coefficients);
+    for (i, expected) in evaluations.iter().enumerate() {
+        let x = S::from(i32::try_from(i).unwrap());
+        let actual = reconstructed
+            .iter()
+            .fold(S::from(0), |acc, &coefficient| acc * x + coefficient);
+        assert_eq!(actual, *expected);
+    }
+}
