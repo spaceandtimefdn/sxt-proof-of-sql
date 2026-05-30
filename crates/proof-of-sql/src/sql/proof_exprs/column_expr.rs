@@ -41,7 +41,7 @@ impl ColumnExpr {
     /// Wrap the column output name and its type within the [`ColumnField`]
     #[must_use]
     pub fn get_column_field(&self) -> ColumnField {
-        ColumnField::new(self.column_ref.column_id(), *self.column_ref.column_type())
+        self.column_ref.column_field()
     }
 
     /// Get the column identifier

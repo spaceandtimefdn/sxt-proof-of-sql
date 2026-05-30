@@ -44,6 +44,19 @@ impl TableExec {
     pub fn schema(&self) -> &[ColumnField] {
         &self.schema
     }
+
+    fn physical_schema(&self) -> Vec<ColumnField> {
+        let mut fields = Vec::new();
+        for field in ColumnField::value_and_presence_fields(self.schema.clone()) {
+            if fields
+                .iter()
+                .all(|existing: &ColumnField| existing.name() != field.name())
+            {
+                fields.push(field);
+            }
+        }
+        fields
+    }
 }
 
 impl ProofPlan for TableExec {
@@ -56,7 +69,7 @@ impl ProofPlan for TableExec {
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
         let column_evals = self
-            .schema
+            .physical_schema()
             .iter()
             .map(|field| {
                 *accessor
@@ -76,10 +89,14 @@ impl ProofPlan for TableExec {
         self.schema.clone()
     }
 
+    fn get_column_result_fields_with_presence(&self) -> Vec<ColumnField> {
+        self.physical_schema()
+    }
+
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
-        self.schema
+        self.physical_schema()
             .iter()
-            .map(|field| ColumnRef::new(self.table_ref.clone(), field.name(), field.data_type()))
+            .map(|field| ColumnRef::from_field(self.table_ref.clone(), field))
             .collect()
     }
 

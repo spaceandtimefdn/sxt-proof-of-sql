@@ -4,7 +4,7 @@ use crate::{
         owned_table_utility::*, table_utility::*, ColumnField, ColumnType, TableRef,
         TableTestAccessor,
     },
-    sql::proof::{exercise_verification, VerifiableQueryResult},
+    sql::proof::{exercise_verification, ProofPlan, VerifiableQueryResult},
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
@@ -31,6 +31,26 @@ fn we_can_create_and_prove_an_empty_table_exec() {
         .table;
     let expected = owned_table([bigint("a", [0_i64; 0])]);
     assert_eq!(res, expected);
+}
+
+#[test]
+fn table_exec_physical_schema_adds_nullable_presence_once() {
+    let table_ref = TableRef::new("namespace", "table_name");
+    let plan = table_exec(
+        table_ref,
+        vec![
+            ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+            ColumnField::new("__posql_presence_amount".into(), ColumnType::Boolean),
+        ],
+    );
+
+    assert_eq!(
+        plan.get_column_result_fields_with_presence(),
+        vec![
+            ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+            ColumnField::new("__posql_presence_amount".into(), ColumnType::Boolean),
+        ]
+    );
 }
 
 #[test]

@@ -1,13 +1,14 @@
 use super::{
-    aggregate_function_to_proof_expr, expr_to_proof_expr, get_column_idents_from_expr,
+    aggregate_function_to_proof_expr, expr_to_proof_expr_with_fields,
+    filter_expr_to_proof_expr_with_fields, get_column_idents_from_expr,
     table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
 };
 use alloc::vec::Vec;
 use datafusion::{
     common::{DFSchema, JoinConstraint, JoinType},
     logical_expr::{
-        Aggregate, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias, TableScan,
-        Union,
+        Aggregate, BinaryExpr, Expr, Filter, Join, Limit, LogicalPlan, Projection, SubqueryAlias,
+        TableScan, Union,
     },
     sql::{sqlparser::ast::Ident, TableReference},
 };
@@ -28,10 +29,45 @@ use proof_of_sql::{
 /// the output schema should be a subset of the input schema
 /// and that no aliasing should take place.
 /// However that shouldn't be taken for granted.
-fn get_aliased_dyn_proof_exprs(
+trait PlannerSchemaField {
+    fn schema_ident(&self) -> Ident;
+    fn is_nullable(&self) -> bool;
+    fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef;
+}
+
+impl PlannerSchemaField for ColumnField {
+    fn schema_ident(&self) -> Ident {
+        self.name()
+    }
+
+    fn is_nullable(&self) -> bool {
+        ColumnField::is_nullable(self)
+    }
+
+    fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef {
+        ColumnRef::from_field(table_ref, self)
+    }
+}
+
+#[cfg(test)]
+impl PlannerSchemaField for (Ident, ColumnType) {
+    fn schema_ident(&self) -> Ident {
+        self.0.clone()
+    }
+
+    fn is_nullable(&self) -> bool {
+        false
+    }
+
+    fn to_column_ref(&self, table_ref: TableRef) -> ColumnRef {
+        ColumnRef::new(table_ref, self.0.clone(), self.1)
+    }
+}
+
+fn get_aliased_dyn_proof_exprs<F: PlannerSchemaField>(
     table_ref: &TableRef,
     projection: &[usize],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &[F],
     output_schema: &DFSchema,
 ) -> PlannerResult<Vec<AliasedDynProofExpr>> {
     projection
@@ -41,14 +77,10 @@ fn get_aliased_dyn_proof_exprs(
             |(output_index, input_index)| -> PlannerResult<AliasedDynProofExpr> {
                 // Get output column name / alias
                 let alias: Ident = output_schema.field(output_index).name().as_str().into();
-                let (input_column_name, data_type) = input_schema
+                let input_field = input_schema
                     .get(*input_index)
                     .ok_or(PlannerError::ColumnNotFound)?;
-                let expr = DynProofExpr::new_column(ColumnRef::new(
-                    table_ref.clone(),
-                    input_column_name.clone(),
-                    *data_type,
-                ));
+                let expr = DynProofExpr::new_column(input_field.to_column_ref(table_ref.clone()));
                 Ok(AliasedDynProofExpr { expr, alias })
             },
         )
@@ -56,15 +88,75 @@ fn get_aliased_dyn_proof_exprs(
 }
 
 /// Get column identifiers needed in a `TableScan` given its projection and filters
-fn table_scan_get_required_columns(
+fn insert_nullable_filter_presence_columns<F: PlannerSchemaField>(
+    filter: &Expr,
+    input_schema: &[F],
+    required_columns: &mut IndexSet<Ident>,
+) {
+    match filter {
+        Expr::Column(col) => {
+            let column_id: Ident = col.name.as_str().into();
+            if input_schema
+                .iter()
+                .any(|field| field.schema_ident() == column_id && field.is_nullable())
+            {
+                required_columns.insert(ColumnRef::presence_column_id(&column_id));
+            }
+        }
+        Expr::Not(inner) => {
+            insert_nullable_filter_presence_columns(inner, input_schema, required_columns);
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            insert_nullable_filter_presence_columns(left, input_schema, required_columns);
+            insert_nullable_filter_presence_columns(right, input_schema, required_columns);
+        }
+        Expr::Alias(alias) => {
+            insert_nullable_filter_presence_columns(&alias.expr, input_schema, required_columns);
+        }
+        Expr::Cast(cast) => {
+            insert_nullable_filter_presence_columns(&cast.expr, input_schema, required_columns);
+        }
+        Expr::IsNull(inner) | Expr::IsNotNull(inner) => {
+            insert_nullable_filter_presence_columns(inner, input_schema, required_columns);
+        }
+        _ => {}
+    }
+}
+
+fn table_scan_get_required_columns<F: PlannerSchemaField>(
     projection: &[usize],
     filters: &[Expr],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &[F],
 ) -> IndexSet<Ident> {
-    projection
+    let mut required_columns = projection
         .iter()
-        .filter_map(|&i| input_schema.get(i).map(|(ident, _)| ident.clone()))
+        .filter_map(|&i| input_schema.get(i).map(PlannerSchemaField::schema_ident))
         .chain(filters.iter().flat_map(get_column_idents_from_expr))
+        .collect::<IndexSet<_>>();
+
+    for filter in filters {
+        insert_nullable_filter_presence_columns(filter, input_schema, &mut required_columns);
+    }
+
+    required_columns
+}
+
+fn table_scan_input_fields_for_required_columns(
+    input_schema: &[ColumnField],
+    required_columns: &IndexSet<Ident>,
+) -> Vec<ColumnField> {
+    input_schema
+        .iter()
+        .flat_map(|field| {
+            let value_field = required_columns
+                .contains(&field.name())
+                .then(|| field.clone());
+            let presence_field_id = ColumnRef::presence_column_id(&field.name());
+            let presence_field = (field.is_nullable()
+                && required_columns.contains(&presence_field_id))
+            .then(|| ColumnField::new(presence_field_id, ColumnType::Boolean));
+            value_field.into_iter().chain(presence_field)
+        })
         .collect()
 }
 
@@ -79,15 +171,15 @@ fn table_scan_to_proof_plan(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_column_fields(&table_ref);
     // Filter for only the fields we use
     let input_column_fields = projection
         .iter()
         .map(|i| {
-            let (ident, column_type) = input_schema
+            input_schema
                 .get(*i)
-                .expect("Projection index out of bounds");
-            ColumnField::new(ident.clone(), *column_type)
+                .expect("Projection index out of bounds")
+                .clone()
         })
         .collect::<Vec<_>>();
     Ok(DynProofPlan::new_table(table_ref, input_column_fields))
@@ -106,20 +198,17 @@ fn table_scan_to_filter(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_column_fields(&table_ref);
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
     let required_columns = table_scan_get_required_columns(projection, filters, &input_schema);
-    let input_column_fields = input_schema
-        .iter()
-        .filter(|(ident, _)| required_columns.contains(ident))
-        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
-        .collect::<Vec<_>>();
+    let input_column_fields =
+        table_scan_input_fields_for_required_columns(&input_schema, &required_columns);
     let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
     let filter_proof_exprs = filters
         .iter()
-        .map(|f| expr_to_proof_expr(f, &input_schema))
+        .map(|f| filter_expr_to_proof_expr_with_fields(f, &input_schema))
         .reduce(|a, b| Ok(DynProofExpr::try_new_and(a?, b?)?))
         .expect("At least one filter expression is required")?;
     Ok(DynProofPlan::new_filter(
@@ -137,16 +226,12 @@ fn projection_to_proof_plan(
     schemas: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields().to_vec();
     let aliased_exprs = expr
         .iter()
         .zip(output_schema.fields().iter())
         .map(|(e, field)| -> PlannerResult<AliasedDynProofExpr> {
-            let proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            let proof_expr = expr_to_proof_expr_with_fields(e, &input_schema)?;
             let alias = field.name().as_str().into();
             Ok(AliasedDynProofExpr {
                 expr: proof_expr,
@@ -172,11 +257,7 @@ fn aggregate_to_proof_plan(
     alias_map: &IndexMap<String, String>,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields().to_vec();
     let dummy_table_ref = TableRef::from_names(None, "");
     // We keep an extra alias just in case there is no count in the aggregate expr list
     let mut inner_aliases = 0..=(group_expr.len() + aggr_expr.len());
@@ -185,7 +266,7 @@ fn aggregate_to_proof_plan(
         .zip(&mut inner_aliases)
         .map(|(e, aggregate_alias)| -> PlannerResult<_> {
             let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
-            let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            let aggregate_proof_expr = expr_to_proof_expr_with_fields(e, &input_schema)?;
             let name_string = e.clone().unalias().display_name()?;
             let alias = alias_map.get(&name_string).ok_or_else(|| {
                 PlannerError::UnsupportedLogicalPlan {
@@ -434,22 +515,18 @@ pub fn logical_plan_to_proof_plan(
             input, predicate, ..
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            let input_schema = input_plan
-                .get_column_result_fields()
-                .iter()
-                .map(|field| (field.name(), field.data_type()))
-                .collect::<Vec<_>>();
-            let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
+            let input_schema = input_plan.get_column_result_fields().to_vec();
+            let filter_proof_expr =
+                filter_expr_to_proof_expr_with_fields(predicate, &input_schema)?;
             let aliased_exprs = input_plan
                 .get_column_result_fields()
                 .iter()
                 .map(|field| -> PlannerResult<AliasedDynProofExpr> {
                     let alias = field.name();
                     Ok(AliasedDynProofExpr {
-                        expr: DynProofExpr::new_column(ColumnRef::new(
+                        expr: DynProofExpr::new_column(ColumnRef::from_field(
                             TableRef::from_names(None, "__filter_input__"), // Dummy table ref
-                            alias.clone(),
-                            field.data_type(),
+                            field,
                         )),
                         alias,
                     })
@@ -535,6 +612,35 @@ mod tests {
             table_ref => schema
         };
         SchemaAccessorImpl::new(schema_accessor)
+    }
+
+    #[derive(Clone)]
+    struct NullableSchemas;
+
+    impl SchemaAccessor for NullableSchemas {
+        fn lookup_column(&self, _table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType> {
+            match column_id.value.as_str() {
+                "id" | "amount" => Some(ColumnType::BigInt),
+                "flag" => Some(ColumnType::Boolean),
+                _ => None,
+            }
+        }
+
+        fn lookup_schema(&self, _table_ref: &TableRef) -> Vec<(Ident, ColumnType)> {
+            vec![
+                ("id".into(), ColumnType::BigInt),
+                ("amount".into(), ColumnType::BigInt),
+                ("flag".into(), ColumnType::Boolean),
+            ]
+        }
+
+        fn lookup_column_fields(&self, _table_ref: &TableRef) -> Vec<ColumnField> {
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+            ]
+        }
     }
 
     #[expect(non_snake_case)]
@@ -755,6 +861,345 @@ mod tests {
             get_aliased_dyn_proof_exprs(&table_ref, &[0, 1, 2, 3], &input_schema, &output_schema)
                 .unwrap();
         let expected = vec![ALIASED_A(), ALIASED_B(), ALIASED_C(), ALIASED_D()];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_preserve_nullable_projection_column_refs() {
+        let table_ref = TABLE_REF_TABLE();
+        let input_schema = vec![ColumnField::new_nullable("a".into(), ColumnType::BigInt)];
+        let output_schema = df_schema("table", vec![("a", DataType::Int64)]);
+
+        let result =
+            get_aliased_dyn_proof_exprs(&table_ref, &[0], &input_schema, &output_schema).unwrap();
+
+        assert_eq!(
+            result,
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new_nullable(
+                    TABLE_REF_TABLE(),
+                    "a".into(),
+                    ColumnType::BigInt
+                )),
+                alias: "a".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn table_scan_filter_includes_generated_presence_columns_for_is_null() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[Expr::IsNull(Box::new(df_column("table", "amount")))],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "id".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::new_is_null(amount_ref),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_generated_presence_columns_for_nullable_boolean_predicate() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let flag_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "flag".into(), ColumnType::Boolean);
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[df_column("table", "flag")],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "id".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"flag".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_is_true(flag_ref).unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nullable_not_boolean() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let flag_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "flag".into(), ColumnType::Boolean);
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[Expr::Not(Box::new(df_column("table", "flag")))],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(ColumnRef::new(
+                    TABLE_REF_TABLE(),
+                    "id".into(),
+                    ColumnType::BigInt,
+                )),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"flag".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_is_false(flag_ref).unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nested_nullable_boolean_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let flag_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "flag".into(), ColumnType::Boolean);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = Expr::BinaryExpr(BinaryExpr {
+            left: Box::new(df_column("table", "flag")),
+            right: Box::new(
+                df_column("table", "id").eq(Expr::Literal(ScalarValue::Int64(Some(4)))),
+            ),
+            op: Operator::Or,
+        });
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("flag".into(), ColumnType::Boolean),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"flag".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_or(
+                DynProofExpr::try_new_is_true(flag_ref).unwrap(),
+                DynProofExpr::try_new_equals(
+                    DynProofExpr::new_column(id_ref),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(4)),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nullable_comparison_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = df_column("table", "amount").gt(Expr::Literal(ScalarValue::Int64(Some(15))));
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_inequality(
+                    DynProofExpr::new_column(amount_ref.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                    false,
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_negated_nullable_comparison_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = Expr::Not(Box::new(
+            df_column("table", "amount").lt(Expr::Literal(ScalarValue::Int64(Some(15)))),
+        ));
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_not(
+                    DynProofExpr::try_new_inequality(
+                        DynProofExpr::new_column(amount_ref.clone()),
+                        DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                        true,
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn table_scan_filter_includes_presence_for_nullable_expression_is_null_filter() {
+        let projected_schema = df_schema("table", vec![("id", DataType::Int64)]);
+        let amount_ref =
+            ColumnRef::new_nullable(TABLE_REF_TABLE(), "amount".into(), ColumnType::BigInt);
+        let id_ref = ColumnRef::new(TABLE_REF_TABLE(), "id".into(), ColumnType::BigInt);
+        let filter = Expr::IsNull(Box::new(
+            df_column("table", "amount").add(Expr::Literal(ScalarValue::Int64(Some(5)))),
+        ));
+
+        let result = table_scan_to_filter(
+            &TableReference::from("table"),
+            &NullableSchemas,
+            &[0],
+            &projected_schema,
+            &[filter],
+        )
+        .unwrap();
+
+        let expected = DynProofPlan::new_filter(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(id_ref.clone()),
+                alias: "id".into(),
+            }],
+            DynProofPlan::new_table(
+                TABLE_REF_TABLE(),
+                vec![
+                    ColumnField::new("id".into(), ColumnType::BigInt),
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new(
+                        ColumnRef::presence_column_id(&"amount".into()),
+                        ColumnType::Boolean,
+                    ),
+                ],
+            ),
+            DynProofExpr::try_new_not(DynProofExpr::new_is_not_null(amount_ref)).unwrap(),
+        );
+
         assert_eq!(result, expected);
     }
 

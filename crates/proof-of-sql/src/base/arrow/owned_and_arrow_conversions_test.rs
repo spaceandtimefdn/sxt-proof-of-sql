@@ -1,13 +1,15 @@
 use super::owned_and_arrow_conversions::OwnedArrowConversionError;
 use crate::base::{
-    database::{owned_table_utility::*, OwnedColumn, OwnedTable},
+    database::{
+        owned_table_utility::*, NullableOwnedColumn, NullableOwnedTable, OwnedColumn, OwnedTable,
+    },
     map::IndexMap,
     scalar::test_scalar::TestScalar,
 };
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
         StringArray,
     },
     datatypes::{DataType, Field, Schema},
@@ -99,6 +101,92 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
         OwnedColumn::<TestScalar>::try_from(array_ref),
         Err(OwnedArrowConversionError::UnsupportedType { .. })
     ));
+}
+
+#[test]
+fn nullable_owned_column_converts_arrow_nulls_to_presence() {
+    let array_ref: ArrayRef = Arc::new(Int64Array::from(vec![Some(10), None, Some(30)]));
+
+    let nullable_column = NullableOwnedColumn::<TestScalar>::try_from(array_ref).unwrap();
+
+    assert_eq!(
+        nullable_column.values(),
+        &OwnedColumn::<TestScalar>::BigInt(vec![10, 0, 30])
+    );
+    assert_eq!(nullable_column.presence(), Some(&[true, false, true][..]));
+
+    let roundtrip_array = ArrayRef::from(nullable_column);
+    let roundtrip_values = roundtrip_array
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .iter()
+        .collect::<Vec<_>>();
+    assert_eq!(roundtrip_values, vec![Some(10), None, Some(30)]);
+}
+
+#[test]
+fn nullable_owned_column_keeps_nonnullable_arrow_columns_compact() {
+    let array_ref: ArrayRef = Arc::new(Int64Array::from(vec![10, 20]));
+
+    let nullable_column = NullableOwnedColumn::<TestScalar>::try_from(array_ref).unwrap();
+
+    assert_eq!(
+        nullable_column.values(),
+        &OwnedColumn::<TestScalar>::BigInt(vec![10, 20])
+    );
+    assert_eq!(nullable_column.presence(), None);
+    assert!(!nullable_column.is_nullable());
+}
+
+#[test]
+fn nullable_owned_table_converts_to_nullable_record_batch() {
+    let nullable_table = NullableOwnedTable::try_new(IndexMap::from_iter([(
+        "amount".into(),
+        NullableOwnedColumn::<TestScalar>::try_new(
+            OwnedColumn::BigInt(vec![10, 0, 30]),
+            Some(vec![true, false, true]),
+        )
+        .unwrap(),
+    )]))
+    .unwrap();
+
+    let record_batch = RecordBatch::try_from(nullable_table).unwrap();
+
+    assert!(record_batch.schema().field(0).is_nullable());
+    assert_eq!(record_batch.column(0).null_count(), 1);
+    let values = record_batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .iter()
+        .collect::<Vec<_>>();
+    assert_eq!(values, vec![Some(10), None, Some(30)]);
+}
+
+#[test]
+fn nullable_owned_table_preserves_arrow_nullable_schema_without_null_rows() {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "amount",
+        DataType::Int64,
+        true,
+    )]));
+    let record_batch =
+        RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![10, 20]))]).unwrap();
+
+    let nullable_table = NullableOwnedTable::<TestScalar>::try_from(record_batch).unwrap();
+    let amount = nullable_table.column_by_index(0).unwrap();
+
+    assert_eq!(
+        amount.values(),
+        &OwnedColumn::<TestScalar>::BigInt(vec![10, 20])
+    );
+    assert_eq!(amount.presence(), Some(&[true, true][..]));
+
+    let roundtrip_batch = RecordBatch::try_from(nullable_table).unwrap();
+    assert!(roundtrip_batch.schema().field(0).is_nullable());
+    assert_eq!(roundtrip_batch.column(0).null_count(), 0);
 }
 
 fn we_can_convert_between_owned_table_and_record_batch_impl(

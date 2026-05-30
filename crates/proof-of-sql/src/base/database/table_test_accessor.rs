@@ -1,6 +1,6 @@
 use super::{
-    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, Table,
-    TableRef, TestAccessor,
+    Column, ColumnType, CommitmentAccessor, DataAccessor, MetadataAccessor, NullableColumn,
+    NullableDataAccessor, SchemaAccessor, Table, TableRef, TestAccessor,
 };
 use crate::base::{
     commitment::{CommitmentEvaluationProof, VecCommitmentExt},
@@ -84,6 +84,16 @@ impl<'a, CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for TableTestAc
             .inner_table()
             .get(column_id)
             .unwrap()
+    }
+}
+
+impl<CP: CommitmentEvaluationProof> NullableDataAccessor<CP::Scalar> for TableTestAccessor<'_, CP> {
+    fn get_nullable_column(
+        &self,
+        table_ref: &TableRef,
+        column_id: &Ident,
+    ) -> NullableColumn<'_, CP::Scalar> {
+        NullableColumn::new_nonnullable(self.get_column(table_ref, column_id))
     }
 }
 

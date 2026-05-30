@@ -64,6 +64,13 @@ impl FilterExec {
     pub fn where_clause(&self) -> &DynProofExpr {
         &self.where_clause
     }
+
+    fn physical_aliased_results(&self) -> Vec<AliasedDynProofExpr> {
+        self.aliased_results
+            .iter()
+            .flat_map(AliasedDynProofExpr::physical_result_exprs)
+            .collect()
+    }
 }
 
 impl ProofPlan for FilterExec {
@@ -83,7 +90,7 @@ impl ProofPlan for FilterExec {
         let input_chi_eval = input_eval.chi();
 
         // Build new accessors
-        let input_schema = self.input.get_column_result_fields();
+        let input_schema = self.input.get_column_result_fields_with_presence();
         let accessor = input_schema
             .iter()
             .map(ColumnField::name)
@@ -95,8 +102,9 @@ impl ProofPlan for FilterExec {
             self.where_clause
                 .verifier_evaluate(builder, &accessor, input_chi_eval.0, params)?;
         // 2. columns
+        let physical_results = self.physical_aliased_results();
         let columns_evals = Vec::from_iter(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|aliased_expr| {
                     aliased_expr.expr.verifier_evaluate(
@@ -110,8 +118,8 @@ impl ProofPlan for FilterExec {
         );
         // 3. filtered_columns
         let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
+            builder.try_consume_first_round_mle_evaluations(physical_results.len())?;
+        assert!(filtered_columns_evals.len() == physical_results.len());
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
@@ -135,13 +143,14 @@ impl ProofPlan for FilterExec {
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.aliased_results
             .iter()
-            .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
-            })
+            .map(AliasedDynProofExpr::result_field)
             .collect()
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
+        // Filter results and predicates can reference intermediate columns produced by child
+        // plans. Source commitments should come from the input plan, whose physical result schema
+        // already includes generated nullable presence columns when needed.
         self.input.get_column_references()
     }
 
@@ -175,8 +184,8 @@ impl ProverEvaluate for FilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
+        let physical_results = self.physical_aliased_results();
+        let columns: Vec<_> = physical_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
@@ -192,7 +201,7 @@ impl ProverEvaluate for FilterExec {
             builder.produce_intermediate_mle(column);
         });
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
@@ -232,8 +241,8 @@ impl ProverEvaluate for FilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
+        let physical_results = self.physical_aliased_results();
+        let columns: Vec<_> = physical_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
@@ -256,7 +265,7 @@ impl ProverEvaluate for FilterExec {
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
@@ -267,5 +276,165 @@ impl ProverEvaluate for FilterExec {
         log::log_memory_usage("End");
 
         Ok(res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::*, ColumnField, ColumnRef, ColumnType, LiteralValue},
+            math::decimal::Precision,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        },
+    };
+
+    #[test]
+    fn filter_result_schema_preserves_nullable_propagating_fields() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let fee_ref = ColumnRef::new(table_ref.clone(), "fee".into(), ColumnType::BigInt);
+        let total = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref.clone()),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+        let plan = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(amount_ref),
+                    alias: "amount".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: total,
+                    alias: "total".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_table(
+                table_ref,
+                vec![
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new("fee".into(), ColumnType::BigInt),
+                ],
+            )),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        let column_fields = plan.get_column_result_fields();
+
+        assert_eq!(
+            column_fields,
+            vec![
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new_nullable(
+                    "total".into(),
+                    ColumnType::Decimal75(Precision::new(20).unwrap(), 0)
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn filter_physical_result_schema_adds_presence_fields_for_nullable_results() {
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let fee_ref = ColumnRef::new(table_ref.clone(), "fee".into(), ColumnType::BigInt);
+        let total = DynProofExpr::try_new_add(
+            DynProofExpr::new_column(amount_ref.clone()),
+            DynProofExpr::new_column(fee_ref),
+        )
+        .unwrap();
+        let plan = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_column(amount_ref),
+                    alias: "amount".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: total,
+                    alias: "total".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_table(
+                table_ref,
+                vec![
+                    ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                    ColumnField::new("fee".into(), ColumnType::BigInt),
+                ],
+            )),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        let column_fields = plan.get_column_result_fields_with_presence();
+
+        assert_eq!(
+            column_fields,
+            vec![
+                ColumnField::new_nullable("amount".into(), ColumnType::BigInt),
+                ColumnField::new("__posql_presence_amount".into(), ColumnType::Boolean),
+                ColumnField::new_nullable(
+                    "total".into(),
+                    ColumnType::Decimal75(Precision::new(20).unwrap(), 0)
+                ),
+                ColumnField::new("__posql_presence_total".into(), ColumnType::Boolean),
+            ]
+        );
+    }
+
+    #[test]
+    fn filter_first_round_evaluates_physical_nullable_results() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "amount".into(), ColumnType::BigInt);
+        let plan = FilterExec::new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_column(amount_ref),
+                alias: "amount".into(),
+            }],
+            Box::new(DynProofPlan::new_table(
+                table_ref.clone(),
+                vec![ColumnField::new_nullable(
+                    "amount".into(),
+                    ColumnType::BigInt,
+                )],
+            )),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+        let table_map = IndexMap::from_iter([(
+            table_ref,
+            table([
+                borrowed_bigint("amount", [10_i64, 0, 30], &alloc),
+                borrowed_boolean("__posql_presence_amount", [true, false, true], &alloc),
+            ]),
+        )]);
+        let mut builder = FirstRoundBuilder::new(3);
+
+        let result: Table<TestScalar> = plan
+            .first_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert_eq!(
+            result.inner_table().keys().cloned().collect::<Vec<_>>(),
+            vec!["amount".into(), "__posql_presence_amount".into()]
+        );
+        assert_eq!(
+            *result.inner_table().get(&Ident::new("amount")).unwrap(),
+            Column::BigInt(&[10_i64, 0, 30])
+        );
+        assert_eq!(
+            *result
+                .inner_table()
+                .get(&Ident::new("__posql_presence_amount"))
+                .unwrap(),
+            Column::Boolean(&[true, false, true])
+        );
     }
 }

@@ -25,6 +25,11 @@ pub trait ProofPlan: Debug + Send + Sync + ProverEvaluate {
     /// Return all the result column fields
     fn get_column_result_fields(&self) -> Vec<ColumnField>;
 
+    /// Return the physical result fields, expanding nullable logical results with presence fields.
+    fn get_column_result_fields_with_presence(&self) -> Vec<ColumnField> {
+        ColumnField::value_and_presence_fields(self.get_column_result_fields())
+    }
+
     /// Return all the columns referenced in the Query
     fn get_column_references(&self) -> IndexSet<ColumnRef>;
 

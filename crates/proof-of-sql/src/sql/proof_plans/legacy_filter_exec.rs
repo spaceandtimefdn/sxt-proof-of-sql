@@ -69,6 +69,13 @@ impl<H: ProverHonestyMarker> OstensibleLegacyFilterExec<H> {
     pub fn where_clause(&self) -> &DynProofExpr {
         &self.where_clause
     }
+
+    fn physical_aliased_results(&self) -> Vec<AliasedDynProofExpr> {
+        self.aliased_results
+            .iter()
+            .flat_map(AliasedDynProofExpr::physical_result_exprs)
+            .collect()
+    }
 }
 
 impl<H: ProverHonestyMarker> ProofPlan for OstensibleLegacyFilterExec<H>
@@ -97,8 +104,9 @@ where
             self.where_clause
                 .verifier_evaluate(builder, &accessor, input_chi_eval.0, params)?;
         // 2. columns
+        let physical_results = self.physical_aliased_results();
         let columns_evals = Vec::from_iter(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|aliased_expr| {
                     aliased_expr.expr.verifier_evaluate(
@@ -112,8 +120,8 @@ where
         );
         // 3. filtered_columns
         let filtered_columns_evals =
-            builder.try_consume_first_round_mle_evaluations(self.aliased_results.len())?;
-        assert!(filtered_columns_evals.len() == self.aliased_results.len());
+            builder.try_consume_first_round_mle_evaluations(physical_results.len())?;
+        assert!(filtered_columns_evals.len() == physical_results.len());
 
         let output_chi_eval = builder.try_consume_chi_evaluation()?;
 
@@ -137,16 +145,14 @@ where
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
         self.aliased_results
             .iter()
-            .map(|aliased_expr| {
-                ColumnField::new(aliased_expr.alias.clone(), aliased_expr.expr.data_type())
-            })
+            .map(AliasedDynProofExpr::result_field)
             .collect()
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
         let mut columns = IndexSet::default();
 
-        for aliased_expr in &self.aliased_results {
+        for aliased_expr in self.physical_aliased_results() {
             aliased_expr.expr.get_column_references(&mut columns);
         }
 
@@ -191,8 +197,8 @@ impl ProverEvaluate for LegacyFilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
+        let physical_results = self.physical_aliased_results();
+        let columns: Vec<_> = physical_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr.expr.first_round_evaluate(alloc, table, params)
@@ -206,7 +212,7 @@ impl ProverEvaluate for LegacyFilterExec {
             builder.produce_intermediate_mle(column);
         });
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),
@@ -250,8 +256,8 @@ impl ProverEvaluate for LegacyFilterExec {
         let output_length = selection.iter().filter(|b| **b).count();
 
         // 2. columns
-        let columns: Vec<_> = self
-            .aliased_results
+        let physical_results = self.physical_aliased_results();
+        let columns: Vec<_> = physical_results
             .iter()
             .map(|aliased_expr| -> PlaceholderResult<Column<'a, S>> {
                 aliased_expr
@@ -274,7 +280,7 @@ impl ProverEvaluate for LegacyFilterExec {
             result_len,
         );
         let res = Table::<'a, S>::try_from_iter_with_options(
-            self.aliased_results
+            physical_results
                 .iter()
                 .map(|expr| expr.alias.clone())
                 .zip(filtered_columns),

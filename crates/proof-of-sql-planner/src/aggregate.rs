@@ -1,5 +1,5 @@
 use super::{PlannerError, PlannerResult};
-use crate::expr_to_proof_expr;
+use crate::expr_to_proof_expr_with_fields;
 use datafusion::{
     logical_expr::{
         expr::{AggregateFunction, AggregateFunctionDefinition},
@@ -8,10 +8,9 @@ use datafusion::{
     physical_plan,
 };
 use proof_of_sql::{
-    base::database::{ColumnType, LiteralValue},
+    base::database::{ColumnField, LiteralValue},
     sql::proof_exprs::DynProofExpr,
 };
-use sqlparser::ast::Ident;
 
 /// An aggregate function we support
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,7 +26,7 @@ pub enum AggregateFunc {
 /// TODO: Some moderate changes are necessary once we upgrade `DataFusion` to 46.0.0
 pub(crate) fn aggregate_function_to_proof_expr(
     function: &AggregateFunction,
-    schema: &[(Ident, ColumnType)],
+    schema: &[ColumnField],
 ) -> PlannerResult<(AggregateFunc, DynProofExpr)> {
     match function {
         AggregateFunction {
@@ -45,12 +44,14 @@ pub(crate) fn aggregate_function_to_proof_expr(
                     let proof_expr = DynProofExpr::new_literal(LiteralValue::BigInt(1));
                     Ok((AggregateFunc::Count, proof_expr))
                 }
-                (physical_plan::aggregates::AggregateFunction::Sum, _) => {
-                    Ok((AggregateFunc::Sum, expr_to_proof_expr(arg, schema)?))
-                }
-                (physical_plan::aggregates::AggregateFunction::Count, _) => {
-                    Ok((AggregateFunc::Count, expr_to_proof_expr(arg, schema)?))
-                }
+                (physical_plan::aggregates::AggregateFunction::Sum, _) => Ok((
+                    AggregateFunc::Sum,
+                    expr_to_proof_expr_with_fields(arg, schema)?,
+                )),
+                (physical_plan::aggregates::AggregateFunction::Count, _) => Ok((
+                    AggregateFunc::Count,
+                    expr_to_proof_expr_with_fields(arg, schema)?,
+                )),
                 _ => Err(PlannerError::UnsupportedAggregateOperation { op: op.clone() }),
             }
         }
@@ -64,13 +65,13 @@ pub(crate) fn aggregate_function_to_proof_expr(
 mod tests {
     use super::*;
     use crate::df_util::*;
-    use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
+    use proof_of_sql::base::database::{ColumnField, ColumnRef, ColumnType, TableRef};
 
     // AggregateFunction to DynProofExpr
     #[test]
     fn we_can_convert_an_aggregate_function_to_proof_expr() {
         let expr = df_column("table", "a");
-        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let schema = vec![ColumnField::new("a".into(), ColumnType::BigInt)];
         for (function, operator) in &[
             (
                 physical_plan::aggregates::AggregateFunction::Sum,
@@ -108,7 +109,7 @@ mod tests {
         use proof_of_sql::base::database::LiteralValue;
 
         let wildcard_expr = Expr::Wildcard { qualifier: None };
-        let schema: Vec<(Ident, ColumnType)> = vec![("a".into(), ColumnType::BigInt)];
+        let schema = vec![ColumnField::new("a".into(), ColumnType::BigInt)];
         let function = AggregateFunction::new(
             physical_plan::aggregates::AggregateFunction::Count,
             vec![wildcard_expr],
@@ -129,7 +130,7 @@ mod tests {
     #[test]
     fn we_cannot_convert_an_aggregate_function_to_pair_if_unsupported() {
         let expr = df_column("table", "a");
-        let schema = vec![("a".into(), ColumnType::BigInt)];
+        let schema = vec![ColumnField::new("a".into(), ColumnType::BigInt)];
         let function = AggregateFunction::new(
             physical_plan::aggregates::AggregateFunction::RegrIntercept,
             vec![expr.clone()],
@@ -147,7 +148,7 @@ mod tests {
     #[test]
     fn we_cannot_convert_an_aggregate_function_to_pair_if_too_many_or_no_exprs() {
         let expr = df_column("table", "a");
-        let schema = vec![("a".into(), ColumnType::BigInt)];
+        let schema = vec![ColumnField::new("a".into(), ColumnType::BigInt)];
         // Too many exprs
         let function = AggregateFunction::new(
             physical_plan::aggregates::AggregateFunction::Sum,
@@ -183,7 +184,7 @@ mod tests {
 
         // Distinct
         let expr = df_column("table", "a");
-        let schema = vec![("a".into(), ColumnType::BigInt)];
+        let schema = vec![ColumnField::new("a".into(), ColumnType::BigInt)];
         let function = AggregateFunction::new(
             physical_plan::aggregates::AggregateFunction::Count,
             vec![expr.clone()],

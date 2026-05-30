@@ -1,6 +1,6 @@
 use super::{
-    column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    PlannerError, PlannerResult,
+    column_to_column_ref_from_fields, placeholder_to_placeholder_expr,
+    scalar_value_to_literal_value, PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
     expr::{Alias, Cast, Placeholder},
@@ -8,7 +8,7 @@ use datafusion::logical_expr::{
 };
 use indexmap::IndexSet;
 use proof_of_sql::{
-    base::database::ColumnType,
+    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue},
     sql::{proof_exprs::DynProofExpr, scale_cast_binary_op},
 };
 use sqlparser::ast::Ident;
@@ -26,6 +26,14 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents.extend(get_column_idents_from_expr(right));
             left_idents
         }
+        Expr::IsNull(inner) | Expr::IsNotNull(inner) => match &**inner {
+            Expr::Column(col) => {
+                let mut set = IndexSet::new();
+                set.insert(ColumnRef::presence_column_id(&col.name.as_str().into()));
+                set
+            }
+            _ => get_column_idents_from_expr(inner),
+        },
         Expr::Not(inner) => get_column_idents_from_expr(inner),
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
@@ -39,6 +47,55 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
     }
 }
 
+fn is_filter_comparison_operator(op: Operator) -> bool {
+    matches!(
+        op,
+        Operator::Eq
+            | Operator::NotEq
+            | Operator::Lt
+            | Operator::Gt
+            | Operator::LtEq
+            | Operator::GtEq
+    )
+}
+
+fn nullable_column_refs_in_expr(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<IndexSet<ColumnRef>> {
+    match expr {
+        Expr::Column(col) => {
+            let column_ref = column_to_column_ref_from_fields(col, schema)?;
+            Ok(if column_ref.is_nullable() {
+                IndexSet::from_iter([column_ref])
+            } else {
+                IndexSet::new()
+            })
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, .. }) => {
+            let mut left_refs = nullable_column_refs_in_expr(left, schema)?;
+            left_refs.extend(nullable_column_refs_in_expr(right, schema)?);
+            Ok(left_refs)
+        }
+        Expr::Not(inner)
+        | Expr::Alias(Alias { expr: inner, .. })
+        | Expr::Cast(Cast { expr: inner, .. }) => nullable_column_refs_in_expr(inner, schema),
+        Expr::IsNull(_) | Expr::IsNotNull(_) => Ok(IndexSet::new()),
+        _ => Ok(IndexSet::new()),
+    }
+}
+
+fn and_nullable_presence_guards(
+    mut proof_expr: DynProofExpr,
+    column_refs: IndexSet<ColumnRef>,
+) -> PlannerResult<DynProofExpr> {
+    for column_ref in column_refs {
+        proof_expr =
+            DynProofExpr::try_new_and(proof_expr, DynProofExpr::new_is_not_null(column_ref))?;
+    }
+    Ok(proof_expr)
+}
+
 /// Convert a [`BinaryExpr`] to [`DynProofExpr`]
 #[expect(
     clippy::missing_panics_doc,
@@ -48,10 +105,10 @@ fn binary_expr_to_proof_expr(
     left: &Expr,
     right: &Expr,
     op: Operator,
-    schema: &[(Ident, ColumnType)],
+    schema: &[ColumnField],
 ) -> PlannerResult<DynProofExpr> {
-    let left_proof_expr = expr_to_proof_expr(left, schema)?;
-    let right_proof_expr = expr_to_proof_expr(right, schema)?;
+    let left_proof_expr = expr_to_proof_expr_with_fields(left, schema)?;
+    let right_proof_expr = expr_to_proof_expr_with_fields(right, schema)?;
 
     let (left_proof_expr, right_proof_expr) = match op {
         Operator::Eq
@@ -127,9 +184,26 @@ pub fn expr_to_proof_expr(
     expr: &Expr,
     schema: &[(Ident, ColumnType)],
 ) -> PlannerResult<DynProofExpr> {
+    let column_fields = schema
+        .iter()
+        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .collect::<Vec<_>>();
+    expr_to_proof_expr_with_fields(expr, &column_fields)
+}
+
+/// Convert a [`datafusion::expr::Expr`] to [`DynProofExpr`] while preserving column nullability.
+///
+/// # Panics
+/// The function should not panic if Proof of SQL is working correctly
+pub(crate) fn expr_to_proof_expr_with_fields(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<DynProofExpr> {
     match expr {
-        Expr::Alias(Alias { expr, .. }) => expr_to_proof_expr(expr, schema),
-        Expr::Column(col) => Ok(DynProofExpr::new_column(column_to_column_ref(col, schema)?)),
+        Expr::Alias(Alias { expr, .. }) => expr_to_proof_expr_with_fields(expr, schema),
+        Expr::Column(col) => Ok(DynProofExpr::new_column(column_to_column_ref_from_fields(
+            col, schema,
+        )?)),
         Expr::Placeholder(placeholder) => placeholder_to_placeholder_expr(placeholder),
         Expr::BinaryExpr(BinaryExpr { left, right, op }) => {
             binary_expr_to_proof_expr(left, right, *op, schema)
@@ -138,9 +212,31 @@ pub fn expr_to_proof_expr(
             val.clone(),
         )?)),
         Expr::Not(expr) => {
-            let proof_expr = expr_to_proof_expr(expr, schema)?;
+            let proof_expr = expr_to_proof_expr_with_fields(expr, schema)?;
             Ok(DynProofExpr::try_new_not(proof_expr)?)
         }
+        Expr::IsNull(expr) => match &**expr {
+            Expr::Column(col) => Ok(DynProofExpr::new_is_null(column_to_column_ref_from_fields(
+                col, schema,
+            )?)),
+            _ => Ok(expr_to_proof_expr_with_fields(expr, schema)?
+                .nullable_result_presence_expr()
+                .map_or_else(
+                    || DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                    |presence_expr| {
+                        DynProofExpr::try_new_not(presence_expr)
+                            .expect("Presence expressions have boolean type")
+                    },
+                )),
+        },
+        Expr::IsNotNull(expr) => match &**expr {
+            Expr::Column(col) => Ok(DynProofExpr::new_is_not_null(
+                column_to_column_ref_from_fields(col, schema)?,
+            )),
+            _ => Ok(expr_to_proof_expr_with_fields(expr, schema)?
+                .nullable_result_presence_expr()
+                .unwrap_or_else(|| DynProofExpr::new_literal(LiteralValue::Boolean(true)))),
+        },
         Expr::Cast(cast) => {
             match &*cast.expr {
                 // handle cases such as `$1::int`
@@ -150,7 +246,7 @@ pub fn expr_to_proof_expr(
                     placeholder_to_placeholder_expr(&typed_placeholder)
                 }
                 _ => {
-                    let from_expr = expr_to_proof_expr(&cast.expr, schema)?;
+                    let from_expr = expr_to_proof_expr_with_fields(&cast.expr, schema)?;
                     let to_type = cast.data_type.clone().try_into().map_err(|_| {
                         PlannerError::UnsupportedDataType {
                             data_type: cast.data_type.clone(),
@@ -171,6 +267,51 @@ pub fn expr_to_proof_expr(
     }
 }
 
+/// Convert a filter predicate to a [`DynProofExpr`] while applying SQL `IS TRUE`
+/// semantics to direct nullable boolean columns.
+pub(crate) fn filter_expr_to_proof_expr_with_fields(
+    expr: &Expr,
+    schema: &[ColumnField],
+) -> PlannerResult<DynProofExpr> {
+    match expr {
+        Expr::Alias(Alias { expr, .. }) => filter_expr_to_proof_expr_with_fields(expr, schema),
+        Expr::Column(col) => Ok(DynProofExpr::try_new_is_true(
+            column_to_column_ref_from_fields(col, schema)?,
+        )?),
+        Expr::BinaryExpr(BinaryExpr { left, right, op }) if *op == Operator::And => {
+            Ok(DynProofExpr::try_new_and(
+                filter_expr_to_proof_expr_with_fields(left, schema)?,
+                filter_expr_to_proof_expr_with_fields(right, schema)?,
+            )?)
+        }
+        Expr::BinaryExpr(BinaryExpr { left, right, op }) if *op == Operator::Or => {
+            Ok(DynProofExpr::try_new_or(
+                filter_expr_to_proof_expr_with_fields(left, schema)?,
+                filter_expr_to_proof_expr_with_fields(right, schema)?,
+            )?)
+        }
+        Expr::BinaryExpr(BinaryExpr { op, .. }) if is_filter_comparison_operator(*op) => {
+            and_nullable_presence_guards(
+                expr_to_proof_expr_with_fields(expr, schema)?,
+                nullable_column_refs_in_expr(expr, schema)?,
+            )
+        }
+        Expr::Not(inner) => match &**inner {
+            Expr::Column(col) => Ok(DynProofExpr::try_new_is_false(
+                column_to_column_ref_from_fields(col, schema)?,
+            )?),
+            Expr::BinaryExpr(BinaryExpr { op, .. }) if is_filter_comparison_operator(*op) => {
+                and_nullable_presence_guards(
+                    DynProofExpr::try_new_not(expr_to_proof_expr_with_fields(inner, schema)?)?,
+                    nullable_column_refs_in_expr(inner, schema)?,
+                )
+            }
+            _ => expr_to_proof_expr_with_fields(expr, schema),
+        },
+        _ => expr_to_proof_expr_with_fields(expr, schema),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,7 +324,7 @@ mod tests {
         logical_expr::{expr::Placeholder, Cast},
     };
     use proof_of_sql::base::{
-        database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
         math::decimal::Precision,
     };
 
@@ -272,6 +413,234 @@ mod tests {
         let expr = df_column("namespace.table_name", "column");
         let schema = vec![("column".into(), ColumnType::Int)];
         assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), COLUMN_INT());
+    }
+
+    #[test]
+    fn we_can_convert_nullable_boolean_filter_column_to_is_true_proof_expr() {
+        let expr = df_column("namespace.table_name", "is_paid");
+        let schema = vec![ColumnField::new_nullable(
+            "is_paid".into(),
+            ColumnType::Boolean,
+        )];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_true(column_ref).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_boolean_filter_not_column_to_is_false_proof_expr() {
+        let expr = Expr::Not(Box::new(df_column("namespace.table_name", "is_paid")));
+        let schema = vec![ColumnField::new_nullable(
+            "is_paid".into(),
+            ColumnType::Boolean,
+        )];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "is_paid".into(),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_is_false(column_ref).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nested_nullable_boolean_filter_columns_to_truth_proof_exprs() {
+        let expr = Expr::BinaryExpr(BinaryExpr {
+            left: Box::new(df_column("namespace.table_name", "is_paid")),
+            right: Box::new(
+                df_column("namespace.table_name", "id")
+                    .eq(Expr::Literal(ScalarValue::Int64(Some(4)))),
+            ),
+            op: Operator::Or,
+        });
+        let schema = vec![
+            ColumnField::new_nullable("is_paid".into(), ColumnType::Boolean),
+            ColumnField::new("id".into(), ColumnType::BigInt),
+        ];
+        let table_ref = TableRef::from_names(Some("namespace"), "table_name");
+        let is_paid_ref =
+            ColumnRef::new_nullable(table_ref.clone(), "is_paid".into(), ColumnType::Boolean);
+        let id_ref = ColumnRef::new(table_ref, "id".into(), ColumnType::BigInt);
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_or(
+                DynProofExpr::try_new_is_true(is_paid_ref).unwrap(),
+                DynProofExpr::try_new_equals(
+                    DynProofExpr::new_column(id_ref),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(4)),
+                )
+                .unwrap(),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_comparison_filter_to_presence_guarded_proof_expr() {
+        let expr = df_column("namespace.table_name", "amount")
+            .gt(Expr::Literal(ScalarValue::Int64(Some(15))));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_inequality(
+                    DynProofExpr::new_column(amount_ref.clone()),
+                    DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                    false,
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_negated_nullable_comparison_filter_to_presence_guarded_proof_expr() {
+        let expr = Expr::Not(Box::new(
+            df_column("namespace.table_name", "amount")
+                .lt(Expr::Literal(ScalarValue::Int64(Some(15)))),
+        ));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            filter_expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_and(
+                DynProofExpr::try_new_not(
+                    DynProofExpr::try_new_inequality(
+                        DynProofExpr::new_column(amount_ref.clone()),
+                        DynProofExpr::new_literal(LiteralValue::BigInt(15)),
+                        true,
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+                DynProofExpr::new_is_not_null(amount_ref),
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_arithmetic_is_null_expr_to_presence_proof_expr() {
+        let expr = Expr::IsNull(Box::new(
+            df_column("namespace.table_name", "amount")
+                .add(Expr::Literal(ScalarValue::Int64(Some(5)))),
+        ));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_not(DynProofExpr::new_is_not_null(amount_ref)).unwrap()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_comparison_is_not_null_expr_to_presence_proof_expr() {
+        let expr = Expr::IsNotNull(Box::new(
+            df_column("namespace.table_name", "amount")
+                .lt(Expr::Literal(ScalarValue::Int64(Some(15)))),
+        ));
+        let schema = vec![ColumnField::new_nullable(
+            "amount".into(),
+            ColumnType::BigInt,
+        )];
+        let amount_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "amount".into(),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::new_is_not_null(amount_ref)
+        );
+    }
+
+    #[test]
+    fn we_can_convert_is_null_for_nullable_logical_exprs() {
+        let logical_expr = Expr::BinaryExpr(BinaryExpr {
+            left: Box::new(df_column("namespace.table_name", "is_paid")),
+            right: Box::new(Expr::Literal(ScalarValue::Boolean(Some(false)))),
+            op: Operator::Or,
+        });
+        let schema = vec![ColumnField::new_nullable(
+            "is_paid".into(),
+            ColumnType::Boolean,
+        )];
+
+        assert!(expr_to_proof_expr_with_fields(
+            &Expr::IsNull(Box::new(logical_expr.clone())),
+            &schema
+        )
+        .is_ok());
+        assert!(
+            expr_to_proof_expr_with_fields(&Expr::IsNotNull(Box::new(logical_expr)), &schema)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn we_can_convert_nullable_column_is_null_expr_to_proof_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("namespace.table_name", "column")));
+        let schema = vec![ColumnField::new_nullable("column".into(), ColumnType::Int)];
+        let column_ref = ColumnRef::new_nullable(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column".into(),
+            ColumnType::Int,
+        );
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::new_is_null(column_ref)
+        );
+    }
+
+    #[test]
+    fn we_can_convert_non_nullable_column_is_not_null_expr_to_constant_true() {
+        let expr = Expr::IsNotNull(Box::new(df_column("namespace.table_name", "column")));
+        let schema = vec![ColumnField::new("column".into(), ColumnType::Int)];
+
+        assert_eq!(
+            expr_to_proof_expr_with_fields(&expr, &schema).unwrap(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true))
+        );
     }
 
     // BinaryExpr
@@ -797,6 +1166,16 @@ mod tests {
         let expr = Expr::Not(Box::new(df_column("table", "bool_col")));
         let result = get_column_idents_from_expr(&expr);
         let expected: IndexSet<Ident> = ["bool_col".into()].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_is_null_expr() {
+        let expr = Expr::IsNull(Box::new(df_column("table", "nullable_col")));
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = [ColumnRef::presence_column_id(&"nullable_col".into())]
+            .into_iter()
+            .collect();
         assert_eq!(result, expected);
     }
 

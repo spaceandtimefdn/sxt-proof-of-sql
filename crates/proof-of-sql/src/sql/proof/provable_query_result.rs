@@ -1,6 +1,8 @@
 use super::{decode_and_convert, decode_multiple_elements, ProvableResultColumn, QueryError};
 use crate::base::{
-    database::{Column, ColumnField, ColumnType, OwnedColumn, OwnedTable, Table},
+    database::{
+        Column, ColumnField, ColumnType, NullableOwnedTable, OwnedColumn, OwnedTable, Table,
+    },
     polynomial::compute_evaluation_vector,
     scalar::{Scalar, ScalarExt},
 };
@@ -236,6 +238,21 @@ impl ProvableQueryResult {
         assert_eq!(owned_table.num_columns(), self.num_columns());
 
         Ok(owned_table)
+    }
+
+    /// Convert a physical value-plus-presence result into a nullable owned table.
+    pub fn to_nullable_owned_table<S: Scalar>(
+        &self,
+        column_result_fields: &[ColumnField],
+    ) -> Result<NullableOwnedTable<S>, QueryError> {
+        let physical_fields =
+            ColumnField::value_and_presence_fields(column_result_fields.iter().cloned());
+        let values_and_presence_table = self.to_owned_table(&physical_fields)?;
+        NullableOwnedTable::try_from_values_and_presence_table_with_fields(
+            values_and_presence_table,
+            column_result_fields.iter().cloned(),
+        )
+        .map_err(Into::into)
     }
 }
 

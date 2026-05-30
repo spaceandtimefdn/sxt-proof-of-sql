@@ -3,7 +3,8 @@
 //! between Arrow and `OwnedTable`.
 mod accessor;
 pub use accessor::{
-    CommitmentAccessor, DataAccessor, MetadataAccessor, SchemaAccessor, SchemaAccessorImpl,
+    CommitmentAccessor, DataAccessor, MetadataAccessor, NullableDataAccessor, SchemaAccessor,
+    SchemaAccessorImpl,
 };
 
 mod column;
@@ -74,6 +75,18 @@ pub mod arrow_schema_utility;
 mod owned_column;
 pub use owned_column::OwnedColumn;
 
+mod nullable_column;
+pub use nullable_column::NullableColumn;
+
+mod nullable_owned_column;
+pub use nullable_owned_column::NullableOwnedColumn;
+
+mod nullable_table;
+pub use nullable_table::NullableTable;
+
+mod nullable_owned_table;
+pub use nullable_owned_table::NullableOwnedTable;
+
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};
@@ -93,7 +106,6 @@ mod owned_table_test;
 pub mod owned_table_utility;
 
 mod table;
-#[cfg(test)]
 pub(crate) use table::TableError;
 pub use table::{Table, TableOptions};
 #[cfg(test)]
@@ -110,6 +122,9 @@ mod owned_table_test_accessor;
 pub use owned_table_test_accessor::OwnedTableTestAccessor;
 #[cfg(all(test, feature = "blitzar"))]
 mod owned_table_test_accessor_test;
+
+mod nullable_owned_table_test_accessor;
+pub use nullable_owned_table_test_accessor::NullableOwnedTableTestAccessor;
 
 mod table_test_accessor;
 pub use table_test_accessor::TableTestAccessor;
