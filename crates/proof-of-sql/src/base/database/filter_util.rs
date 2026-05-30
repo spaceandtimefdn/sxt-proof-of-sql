@@ -84,3 +84,151 @@ pub fn filter_column_by_index<'a, S: Scalar>(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
+    };
+
+    #[test]
+    fn filter_columns_selects_rows_from_each_column() {
+        let alloc = Bump::new();
+        let bools = [true, false, true, false];
+        let ints = [10_i32, 20, 30, 40];
+        let text = ["a", "b", "c", "d"];
+        let text_scalars = [
+            TestScalar::from(text[0]),
+            TestScalar::from(text[1]),
+            TestScalar::from(text[2]),
+            TestScalar::from(text[3]),
+        ];
+        let columns = [
+            Column::Boolean(&bools),
+            Column::Int(&ints),
+            Column::VarChar((&text, &text_scalars)),
+        ];
+
+        let (filtered, result_length) =
+            filter_columns(&alloc, &columns, &[false, true, false, true]);
+
+        assert_eq!(result_length, 2);
+        assert_eq!(filtered[0], Column::Boolean(&[false, false]));
+        assert_eq!(filtered[1], Column::Int(&[20, 40]));
+        assert_eq!(
+            filtered[2],
+            Column::VarChar((&["b", "d"], &[TestScalar::from("b"), TestScalar::from("d")]))
+        );
+    }
+
+    #[test]
+    fn filter_column_by_index_handles_numeric_and_time_columns() {
+        let alloc = Bump::new();
+        let indexes = [2, 0];
+
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(&alloc, &Column::Uint8(&[1, 2, 3]), &indexes),
+            Column::Uint8(&[3, 1])
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(&alloc, &Column::TinyInt(&[-1, 2, -3]), &indexes),
+            Column::TinyInt(&[-3, -1])
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(
+                &alloc,
+                &Column::SmallInt(&[-10, 20, -30]),
+                &indexes
+            ),
+            Column::SmallInt(&[-30, -10])
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(
+                &alloc,
+                &Column::BigInt(&[-100, 200, -300]),
+                &indexes
+            ),
+            Column::BigInt(&[-300, -100])
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(
+                &alloc,
+                &Column::Int128(&[-1000, 2000, -3000]),
+                &indexes
+            ),
+            Column::Int128(&[-3000, -1000])
+        );
+
+        let scalars = [
+            TestScalar::from(11_u8),
+            TestScalar::from(22_u8),
+            TestScalar::from(33_u8),
+        ];
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(&alloc, &Column::Scalar(&scalars), &indexes),
+            Column::Scalar(&[TestScalar::from(33_u8), TestScalar::from(11_u8)])
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(
+                &alloc,
+                &Column::Decimal75(Precision::new(9).unwrap(), 2, &scalars),
+                &indexes
+            ),
+            Column::Decimal75(
+                Precision::new(9).unwrap(),
+                2,
+                &[TestScalar::from(33_u8), TestScalar::from(11_u8)]
+            )
+        );
+        assert_eq!(
+            filter_column_by_index::<TestScalar>(
+                &alloc,
+                &Column::TimestampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    PoSQLTimeZone::utc(),
+                    &[100_i64, 200, 300],
+                ),
+                &indexes
+            ),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &[300, 100]
+            )
+        );
+    }
+
+    #[test]
+    fn filter_column_by_index_keeps_varbinary_values_and_scalars_together() {
+        let alloc = Bump::new();
+        let first = [1_u8, 2];
+        let second = [3_u8];
+        let third = [5_u8, 8, 13];
+        let bytes: [&[u8]; 3] = [&first, &second, &third];
+        let scalars = [
+            TestScalar::from_byte_slice_via_hash(&first),
+            TestScalar::from_byte_slice_via_hash(&second),
+            TestScalar::from_byte_slice_via_hash(&third),
+        ];
+
+        let result = filter_column_by_index::<TestScalar>(
+            &alloc,
+            &Column::VarBinary((&bytes, &scalars)),
+            &[2, 0],
+        );
+
+        assert_eq!(
+            result,
+            Column::VarBinary((
+                &[third.as_slice(), first.as_slice()],
+                &[
+                    TestScalar::from_byte_slice_via_hash(&third),
+                    TestScalar::from_byte_slice_via_hash(&first),
+                ]
+            ))
+        );
+    }
+}
