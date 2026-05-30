@@ -35,3 +35,63 @@ pub fn get_posql_compatible_schema(schema: &SchemaRef) -> SchemaRef {
 
     Arc::new(Schema::new(new_fields))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_float_fields_to_posql_decimal() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("float16_col", DataType::Float16, false),
+            Field::new("float32_col", DataType::Float32, true),
+            Field::new("float64_col", DataType::Float64, false),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        for field in converted.fields() {
+            assert_eq!(field.data_type(), &DataType::Decimal256(20, 10));
+        }
+        assert!(!converted.field(0).is_nullable());
+        assert!(converted.field(1).is_nullable());
+        assert!(!converted.field(2).is_nullable());
+    }
+
+    #[test]
+    fn preserves_non_float_fields_and_order() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("name", DataType::Utf8, true),
+            Field::new("amount", DataType::Decimal128(12, 2), false),
+            Field::new("flag", DataType::Boolean, true),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(converted.fields().len(), 4);
+        assert_eq!(converted.field(0), schema.field(0));
+        assert_eq!(converted.field(1), schema.field(1));
+        assert_eq!(converted.field(2), schema.field(2));
+        assert_eq!(converted.field(3), schema.field(3));
+    }
+
+    #[test]
+    fn handles_mixed_schema_without_mutating_original() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("count", DataType::UInt32, false),
+            Field::new("ratio", DataType::Float64, true),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(schema.field(1).data_type(), &DataType::Float64);
+        assert_eq!(converted.field(0), schema.field(0));
+        assert_eq!(converted.field(1).name(), "ratio");
+        assert_eq!(
+            converted.field(1).data_type(),
+            &DataType::Decimal256(20, 10)
+        );
+        assert!(converted.field(1).is_nullable());
+    }
+}
