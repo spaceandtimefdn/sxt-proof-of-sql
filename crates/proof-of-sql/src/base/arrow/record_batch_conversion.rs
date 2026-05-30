@@ -139,7 +139,7 @@ mod batch_to_columns_tests {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::base::{
