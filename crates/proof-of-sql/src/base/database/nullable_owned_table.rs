@@ -18,6 +18,7 @@ impl<S: Scalar> NullableOwnedTable<S> {
     pub fn try_new(
         table: IndexMap<Ident, NullableOwnedColumn<S>>,
     ) -> Result<Self, OwnedTableError> {
+        Self::reject_generated_column_name_collisions(&table)?;
         if table.is_empty() {
             return Ok(Self { table });
         }
@@ -27,6 +28,22 @@ impl<S: Scalar> NullableOwnedTable<S> {
         } else {
             Ok(Self { table })
         }
+    }
+
+    fn reject_generated_column_name_collisions(
+        table: &IndexMap<Ident, NullableOwnedColumn<S>>,
+    ) -> Result<(), OwnedTableError> {
+        for (name, column) in table {
+            if column.is_nullable() {
+                let presence_column_name = Self::presence_column_name(name);
+                if table.contains_key(&presence_column_name) {
+                    return Err(OwnedTableError::GeneratedColumnNameCollision {
+                        column: presence_column_name,
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Creates a new [`NullableOwnedTable`] from an iterator.
@@ -242,6 +259,26 @@ mod tests {
         });
 
         assert_eq!(result, Err(OwnedTableError::ColumnLengthMismatch));
+    }
+
+    #[test]
+    fn nullable_owned_table_rejects_generated_presence_name_collisions() {
+        let result = NullableOwnedTable::try_new(indexmap! {
+            "amount".into() => NullableOwnedColumn::<TestScalar>::try_new(
+                OwnedColumn::BigInt(vec![10, 20]),
+                Some(vec![true, false])
+            ).unwrap(),
+            "__posql_presence_amount".into() => NullableOwnedColumn::new_nonnullable(
+                OwnedColumn::Boolean(vec![false, false])
+            ),
+        });
+
+        assert_eq!(
+            result,
+            Err(OwnedTableError::GeneratedColumnNameCollision {
+                column: "__posql_presence_amount".into()
+            })
+        );
     }
 
     #[test]

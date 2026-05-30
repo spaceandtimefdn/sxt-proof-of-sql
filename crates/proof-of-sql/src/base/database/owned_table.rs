@@ -15,6 +15,12 @@ pub enum OwnedTableError {
     /// The columns have different lengths.
     #[snafu(display("Columns have different lengths"))]
     ColumnLengthMismatch,
+    /// A user-provided column collides with an internally generated column name.
+    #[snafu(display("Column name {column} collides with an internally generated column"))]
+    GeneratedColumnNameCollision {
+        /// Column name that is reserved by generated physical columns.
+        column: Ident,
+    },
 }
 
 /// Errors that can occur when coercing a table.
