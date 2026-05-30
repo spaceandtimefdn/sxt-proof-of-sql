@@ -154,6 +154,32 @@ mod batch_to_columns_tests {
     }
 
     #[test]
+    fn rejects_mismatched_column_types_when_appending_commitment() {
+        let initial = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::Int64,
+                false,
+            )])),
+            vec![Arc::new(Int64Array::from(vec![1]))],
+        )
+        .unwrap();
+        let appended = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::Utf8,
+                false,
+            )])),
+            vec![Arc::new(StringArray::from(vec!["one"]))],
+        )
+        .unwrap();
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch(&initial, &()).unwrap();
+
+        assert!(commitment.try_append_record_batch(&appended, &()).is_err());
+    }
+
+    #[test]
     #[should_panic(expected = "RecordBatches cannot have duplicate identifiers")]
     fn rejects_duplicate_identifiers_when_creating_commitment() {
         let batch = duplicate_identifier_batch();
