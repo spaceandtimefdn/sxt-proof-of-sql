@@ -35,12 +35,12 @@ fn we_can_prove_and_verify_an_extended_dory_inner_product() {
 #[test]
 fn we_can_prove_and_verify_an_extended_dory_inner_product_for_multiple_nu_values() {
     let mut rng = test_rng();
-    let max_nu = 5;
+    let max_nu = 4;
     let pp = PublicParameters::test_rand(max_nu, &mut rng);
     let prover_setup = (&pp).into();
     let verifier_setup = (&pp).into();
 
-    for nu in 0..max_nu {
+    for nu in 0..=max_nu {
         let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
         let (v1, v2) = rand_G_vecs(nu, &mut rng);
         let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
