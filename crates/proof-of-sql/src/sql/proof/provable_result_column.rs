@@ -69,3 +69,48 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sql::proof::decode_multiple_elements;
+    use alloc::vec;
+
+    #[test]
+    fn slice_column_reports_and_writes_encoded_bytes() {
+        let column = [121_i64, -345_i64, 666_i64];
+        let column_slice = &column[..];
+        let expected_len = column
+            .iter()
+            .map(ProvableResultElement::required_bytes)
+            .sum();
+        let mut out = vec![0_u8; expected_len];
+
+        assert_eq!(column_slice.num_bytes(column.len() as u64), expected_len);
+        assert_eq!(
+            column_slice.write(&mut out, column.len() as u64),
+            expected_len
+        );
+
+        let (decoded, bytes_read) = decode_multiple_elements::<i64>(&out, column.len()).unwrap();
+        assert_eq!(decoded, column);
+        assert_eq!(bytes_read, expected_len);
+    }
+
+    #[test]
+    fn array_column_delegates_to_slice_serialization() {
+        let column = ["alpha", "", "omega"];
+        let expected_len = column
+            .iter()
+            .map(ProvableResultElement::required_bytes)
+            .sum();
+        let mut out = vec![0_u8; expected_len];
+
+        assert_eq!(column.num_bytes(column.len() as u64), expected_len);
+        assert_eq!(column.write(&mut out, column.len() as u64), expected_len);
+
+        let (decoded, bytes_read) = decode_multiple_elements::<&str>(&out, column.len()).unwrap();
+        assert_eq!(decoded, column);
+        assert_eq!(bytes_read, expected_len);
+    }
+}
