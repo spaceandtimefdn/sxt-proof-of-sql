@@ -17,6 +17,8 @@ pub use column_ref::ColumnRef;
 
 mod column_field;
 pub use column_field::ColumnField;
+#[cfg(test)]
+mod column_field_test;
 
 #[cfg_attr(not(test), expect(dead_code))]
 pub(crate) mod slice_operation;
