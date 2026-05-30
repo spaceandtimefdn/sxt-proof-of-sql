@@ -102,9 +102,11 @@ impl<C: Commitment> TableCommitment<C> {
 #[cfg(test)]
 mod batch_to_columns_tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        commitment::naive_commitment::NaiveCommitment, scalar::test_scalar::TestScalar,
+    };
     use arrow::{
-        array::{Int64Array, StringArray},
+        array::{Float64Array, Int64Array, StringArray},
         datatypes::{DataType, Field, Schema},
     };
     use std::sync::Arc;
@@ -136,6 +138,65 @@ mod batch_to_columns_tests {
                 Column::VarChar((&["one", "two"], &expected_scalars))
             )
         );
+    }
+
+    #[test]
+    fn rejects_unsupported_arrow_column_types() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Float64,
+            false,
+        )]));
+        let batch =
+            RecordBatch::try_new(schema, vec![Arc::new(Float64Array::from(vec![1.0]))]).unwrap();
+
+        assert!(batch_to_columns::<TestScalar>(&batch, &Bump::new()).is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "RecordBatches cannot have duplicate identifiers")]
+    fn rejects_duplicate_identifiers_when_creating_commitment() {
+        let batch = duplicate_identifier_batch();
+
+        TableCommitment::<NaiveCommitment>::try_from_record_batch(&batch, &()).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "RecordBatches cannot have duplicate identifiers")]
+    fn rejects_duplicate_identifiers_when_appending_commitment() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("b", DataType::Int64, false),
+        ]));
+        let initial = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1])),
+                Arc::new(Int64Array::from(vec![2])),
+            ],
+        )
+        .unwrap();
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch(&initial, &()).unwrap();
+
+        commitment
+            .try_append_record_batch(&duplicate_identifier_batch(), &())
+            .unwrap();
+    }
+
+    fn duplicate_identifier_batch() -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("a", DataType::Int64, false),
+        ]));
+        RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1])),
+                Arc::new(Int64Array::from(vec![2])),
+            ],
+        )
+        .unwrap()
     }
 }
 
