@@ -168,3 +168,55 @@ impl<'a, S: Scalar> core::ops::Index<&str> for Table<'a, S> {
         self.table.get(&Ident::new(index)).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Column, Table, TableOptions};
+    use crate::base::{database::ColumnType, map::IndexMap, scalar::test_scalar::TestScalar};
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn table_iterators_and_index_preserve_ordered_columns() {
+        let ids = [10_i64, 20_i64];
+        let flags = [true, false];
+        let table = Table::<TestScalar>::try_from_iter([
+            (Ident::new("id"), Column::BigInt(&ids)),
+            (Ident::new("flag"), Column::Boolean(&flags)),
+        ])
+        .unwrap();
+
+        assert!(!table.is_empty());
+        assert_eq!(
+            table
+                .column_names()
+                .map(|name| name.value.as_str())
+                .collect::<Vec<_>>(),
+            ["id", "flag"]
+        );
+        assert_eq!(
+            table.columns().map(Column::column_type).collect::<Vec<_>>(),
+            [ColumnType::BigInt, ColumnType::Boolean]
+        );
+        assert_eq!(table["id"], Column::BigInt(&ids));
+        assert_eq!(table["flag"], Column::Boolean(&flags));
+
+        let alloc = Bump::new();
+        let table_with_rho = table.add_rho_column(&alloc);
+        assert_eq!(table_with_rho["rho"], Column::Int128(&[0_i128, 1_i128]));
+    }
+
+    #[test]
+    fn empty_table_with_row_count_reports_empty_iterators() {
+        let table = Table::<TestScalar>::try_new_with_options(
+            IndexMap::default(),
+            TableOptions::new(Some(3)),
+        )
+        .unwrap();
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table.column_names().count(), 0);
+        assert_eq!(table.columns().count(), 0);
+    }
+}
