@@ -108,3 +108,93 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::DecimalError;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_get_clear_display_messages_for_column_operation_errors() {
+        let cases = [
+            (
+                ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 },
+                "Columns have different lengths: 2 != 3",
+            ),
+            (
+                ColumnOperationError::BinaryOperationInvalidColumnType {
+                    operator: "add".to_string(),
+                    left_type: ColumnType::Int,
+                    right_type: ColumnType::VarChar,
+                },
+                "\"add\"(lhs: Int, rhs: VarChar) is not supported",
+            ),
+            (
+                ColumnOperationError::UnaryOperationInvalidColumnType {
+                    operator: "not".to_string(),
+                    operand_type: ColumnType::Int,
+                },
+                "\"not\"(operand: Int) is not supported",
+            ),
+            (
+                ColumnOperationError::IntegerOverflow {
+                    error: "too large".to_string(),
+                },
+                "Overflow in integer operation: too large",
+            ),
+            (ColumnOperationError::DivisionByZero, "Division by zero"),
+            (
+                ColumnOperationError::DecimalConversionError {
+                    source: DecimalError::InvalidScale {
+                        scale: "-1".to_string(),
+                    },
+                },
+                "Decimal scale is not valid: -1",
+            ),
+            (
+                ColumnOperationError::UnionDifferentTypes {
+                    correct_type: ColumnType::Int,
+                    actual_type: ColumnType::VarChar,
+                },
+                "Cannot union columns of different types: Int and VarChar",
+            ),
+            (
+                ColumnOperationError::IndexOutOfBounds { index: 4, len: 2 },
+                "Index out of bounds: 4 >= 2",
+            ),
+            (
+                ColumnOperationError::SignedCastingError {
+                    left_type: ColumnType::TinyInt,
+                    right_type: ColumnType::Uint8,
+                },
+                "Cannot fit TINYINT into UINT8 without losing data",
+            ),
+            (
+                ColumnOperationError::CastingError {
+                    left_type: ColumnType::BigInt,
+                    right_type: ColumnType::SmallInt,
+                },
+                "Cannot fit BIGINT into SMALLINT without losing data",
+            ),
+            (
+                ColumnOperationError::ScaleCastingError {
+                    left_type: ColumnType::Int128,
+                    right_type: ColumnType::Int,
+                },
+                "Cannot fit DECIMAL into INT without losing data",
+            ),
+        ];
+
+        for (error, expected_message) in cases {
+            assert_eq!(error.to_string(), expected_message);
+        }
+    }
+
+    #[test]
+    fn column_operation_result_alias_preserves_error_type() {
+        let result: ColumnOperationResult<()> = Err(ColumnOperationError::DivisionByZero);
+
+        assert_eq!(result.unwrap_err(), ColumnOperationError::DivisionByZero);
+    }
+}
