@@ -363,3 +363,31 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn creates_integer_and_decimal_columns() {
+        let alloc = Bump::new();
+        let table = table::<TestScalar>([
+            borrowed_uint8("uint8", [1_u8, 2], &alloc),
+            borrowed_tinyint("tinyint", [-1_i8, 2], &alloc),
+            borrowed_smallint("smallint", [-10_i16, 20], &alloc),
+            borrowed_int("int", [-100_i32, 200], &alloc),
+            borrowed_decimal75("decimal", 10, 2, [1000_i64, 2000], &alloc),
+        ]);
+
+        assert_eq!(table.num_rows(), 2);
+        assert!(matches!(table.column(0), Some(Column::Uint8([1, 2]))));
+        assert!(matches!(table.column(1), Some(Column::TinyInt([-1, 2]))));
+        assert!(matches!(table.column(2), Some(Column::SmallInt([-10, 20]))));
+        assert!(matches!(table.column(3), Some(Column::Int([-100, 200]))));
+        assert!(matches!(
+            table.column(4),
+            Some(Column::Decimal75(_, 2, data)) if data == &[1000_i64.into(), 2000_i64.into()]
+        ));
+    }
+}
