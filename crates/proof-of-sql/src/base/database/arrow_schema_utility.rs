@@ -35,3 +35,38 @@ pub fn get_posql_compatible_schema(schema: &SchemaRef) -> SchemaRef {
 
     Arc::new(Schema::new(new_fields))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_float_fields_to_decimal_fields() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("half", DataType::Float16, false),
+            Field::new("single", DataType::Float32, true),
+            Field::new("double", DataType::Float64, false),
+        ]));
+
+        let converted = get_posql_compatible_schema(&schema);
+
+        assert_eq!(
+            converted,
+            Arc::new(Schema::new(vec![
+                Field::new("half", DataType::Decimal256(20, 10), false),
+                Field::new("single", DataType::Decimal256(20, 10), true),
+                Field::new("double", DataType::Decimal256(20, 10), false),
+            ]))
+        );
+    }
+
+    #[test]
+    fn preserves_non_float_fields() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+
+        assert_eq!(get_posql_compatible_schema(&schema), schema);
+    }
+}
