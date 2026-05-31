@@ -317,7 +317,7 @@ fn we_build_up_a_sumcheck_polynomial_evaluation_from_subpolynomial_evaluations()
 #[test]
 fn we_can_consume_post_result_challenges_in_verification_builder() {
     let mut builder = VerificationBuilderImpl::new(
-        SumcheckMleEvaluations::default(),
+        SumcheckMleEvaluations::<Curve25519Scalar>::default(),
         &[][..],
         &[][..],
         [
@@ -342,4 +342,39 @@ fn we_can_consume_post_result_challenges_in_verification_builder() {
         Curve25519Scalar::from(789),
         builder.try_consume_post_result_challenge().unwrap()
     );
+}
+
+#[test]
+fn we_error_when_post_result_challenges_are_exhausted() {
+    let mut builder = VerificationBuilderImpl::new(
+        SumcheckMleEvaluations::<Curve25519Scalar>::default(),
+        &[][..],
+        &[][..],
+        VecDeque::new(),
+        Vec::new(),
+        Vec::new(),
+        0,
+    );
+
+    assert!(matches!(
+        builder.try_consume_post_result_challenge(),
+        Err(ProofSizeMismatch::PostResultCountMismatch)
+    ));
+}
+
+#[test]
+#[should_panic(expected = "assertion failed: self.completed()")]
+fn sumcheck_evaluation_requires_the_builder_to_be_completed() {
+    let bit_distributions = [BitDistribution::new::<Curve25519Scalar, _>(&[1u64])];
+    let builder = VerificationBuilderImpl::new(
+        SumcheckMleEvaluations::<Curve25519Scalar>::default(),
+        &bit_distributions,
+        &[][..],
+        VecDeque::new(),
+        Vec::new(),
+        Vec::new(),
+        0,
+    );
+
+    let _ = builder.sumcheck_evaluation();
 }
