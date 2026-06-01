@@ -31,6 +31,18 @@ fn we_can_make_negative_bit_mask() {
 }
 
 #[test]
+fn we_can_make_boundary_bit_masks() {
+    let msb_mask = U256::ONE.shl(255);
+
+    assert_eq!(make_bit_mask(TestScalar::ZERO), msb_mask);
+    assert_eq!(
+        make_bit_mask(TestScalar::MAX_SIGNED),
+        msb_mask + TestScalar::MAX_SIGNED_U256
+    );
+    assert_eq!(make_bit_mask(-TestScalar::ONE), msb_mask - U256::ONE);
+}
+
+#[test]
 fn we_can_verify_positive_bit_mask_is_positive_representation() {
     // ARRANGE
     let positive_scalar = TestScalar::TWO;
