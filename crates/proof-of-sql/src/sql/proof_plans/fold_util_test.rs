@@ -106,6 +106,45 @@ fn we_can_fold_empty_columns() {
 }
 
 #[test]
+fn folding_no_columns_leaves_result_unchanged() {
+    let alloc = Bump::new();
+    let result = alloc.alloc_slice_copy(&[
+        Curve25519Scalar::from(7),
+        Curve25519Scalar::from(8),
+        Curve25519Scalar::from(9),
+    ]);
+    let columns: Vec<Column<'_, Curve25519Scalar>> = vec![];
+
+    fold_columns(result, 33.into(), 10.into(), &columns);
+
+    assert_eq!(
+        result,
+        vec![
+            Curve25519Scalar::from(7),
+            Curve25519Scalar::from(8),
+            Curve25519Scalar::from(9),
+        ]
+    );
+}
+
+#[test]
+fn folding_columns_with_zero_beta_uses_only_the_last_column() {
+    let columns = vec![
+        Column::BigInt::<Curve25519Scalar>(&[1, 2]),
+        Column::Int128(&[3, 4]),
+    ];
+    let alloc = Bump::new();
+    let result = alloc.alloc_slice_fill_copy(2, Curve25519Scalar::from(7));
+
+    fold_columns(result, 5.into(), Zero::zero(), &columns);
+
+    assert_eq!(
+        result,
+        vec![Curve25519Scalar::from(22), Curve25519Scalar::from(27)]
+    );
+}
+
+#[test]
 fn we_can_fold_vals() {
     assert_eq!(fold_vals(Curve25519Scalar::from(10), &[]), Zero::zero());
     assert_eq!(
@@ -120,5 +159,20 @@ fn we_can_fold_vals() {
             ]
         ),
         (12345).into()
+    );
+}
+
+#[test]
+fn folding_vals_with_zero_beta_returns_the_last_value() {
+    assert_eq!(
+        fold_vals(
+            Zero::zero(),
+            &[
+                Curve25519Scalar::from(1),
+                Curve25519Scalar::from(2),
+                Curve25519Scalar::from(3),
+            ],
+        ),
+        Curve25519Scalar::from(3)
     );
 }
