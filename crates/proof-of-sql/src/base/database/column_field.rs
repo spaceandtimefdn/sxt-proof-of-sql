@@ -31,3 +31,28 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::Precision;
+
+    #[test]
+    fn we_can_create_column_field_and_read_its_parts() {
+        let column_type = ColumnType::Decimal75(Precision::new(75).unwrap(), -2);
+        let field = ColumnField::new(Ident::new("amount"), column_type);
+
+        assert_eq!(field.name(), Ident::new("amount"));
+        assert_eq!(field.data_type(), column_type);
+    }
+
+    #[test]
+    fn column_field_serializes_as_name_and_data_type() {
+        let field = ColumnField::new(Ident::new("flag"), ColumnType::Boolean);
+
+        let serialized = serde_json::to_string(&field).unwrap();
+        let deserialized: ColumnField = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, field);
+    }
+}
