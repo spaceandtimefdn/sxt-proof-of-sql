@@ -39,6 +39,44 @@ mod setup;
 pub use setup::{ProverSetup, VerifierSetup};
 #[cfg(test)]
 mod setup_test;
+#[cfg(test)]
+mod test_setup {
+    use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+    use std::sync::OnceLock;
+
+    pub(crate) struct SharedDoryTestSetup {
+        pub public_parameters: &'static PublicParameters,
+        pub prover_setup: ProverSetup<'static>,
+        pub verifier_setup: VerifierSetup,
+    }
+
+    static DORY_TEST_SETUP_NU_2: OnceLock<SharedDoryTestSetup> = OnceLock::new();
+    static DORY_TEST_SETUP_NU_4: OnceLock<SharedDoryTestSetup> = OnceLock::new();
+    static DORY_TEST_SETUP_NU_5: OnceLock<SharedDoryTestSetup> = OnceLock::new();
+    static DORY_TEST_SETUP_NU_6: OnceLock<SharedDoryTestSetup> = OnceLock::new();
+
+    fn build_setup(nu: usize) -> SharedDoryTestSetup {
+        let public_parameters =
+            Box::leak(Box::new(PublicParameters::test_rand(nu, &mut test_rng())));
+        SharedDoryTestSetup {
+            public_parameters,
+            prover_setup: ProverSetup::from(&*public_parameters),
+            verifier_setup: VerifierSetup::from(&*public_parameters),
+        }
+    }
+
+    pub(crate) fn shared_dory_test_setup(nu: usize) -> &'static SharedDoryTestSetup {
+        match nu {
+            2 => DORY_TEST_SETUP_NU_2.get_or_init(|| build_setup(2)),
+            4 => DORY_TEST_SETUP_NU_4.get_or_init(|| build_setup(4)),
+            5 => DORY_TEST_SETUP_NU_5.get_or_init(|| build_setup(5)),
+            6 => DORY_TEST_SETUP_NU_6.get_or_init(|| build_setup(6)),
+            _ => panic!("unsupported shared dory test setup size: {nu}"),
+        }
+    }
+}
+#[cfg(test)]
+pub(super) use test_setup::shared_dory_test_setup;
 
 mod state;
 pub(crate) use state::{ProverState, VerifierState};
