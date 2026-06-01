@@ -138,7 +138,7 @@ mod batch_to_columns_tests {
     }
 
     #[test]
-    fn batch_to_columns_rejects_nullable_arrays() {
+    fn batch_to_columns_rejects_arrays_with_nulls() {
         let schema = Arc::new(Schema::new(vec![Field::new(
             "flag",
             DataType::Boolean,
