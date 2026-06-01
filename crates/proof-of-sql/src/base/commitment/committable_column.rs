@@ -1122,3 +1122,86 @@ mod tests {
         assert_eq!(commitment_buffer[0], commitment_buffer[1]);
     }
 }
+
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_get_type_and_length_without_blitzar() {
+        let columns = [
+            (
+                CommittableColumn::Boolean(&[true, false]),
+                ColumnType::Boolean,
+            ),
+            (CommittableColumn::Uint8(&[1, 2]), ColumnType::Uint8),
+            (CommittableColumn::TinyInt(&[-1, 2]), ColumnType::TinyInt),
+            (
+                CommittableColumn::SmallInt(&[-10, 20]),
+                ColumnType::SmallInt,
+            ),
+            (CommittableColumn::Int(&[-100, 200]), ColumnType::Int),
+            (
+                CommittableColumn::BigInt(&[-1000, 2000]),
+                ColumnType::BigInt,
+            ),
+            (
+                CommittableColumn::Int128(&[-10000, 20000]),
+                ColumnType::Int128,
+            ),
+        ];
+
+        for (column, column_type) in columns {
+            assert_eq!(column.len(), 2);
+            assert!(!column.is_empty());
+            assert_eq!(column.column_type(), column_type);
+        }
+
+        let empty_column = CommittableColumn::Scalar(Vec::new());
+        assert_eq!(empty_column.len(), 0);
+        assert!(empty_column.is_empty());
+        assert_eq!(empty_column.column_type(), ColumnType::Scalar);
+    }
+
+    #[test]
+    fn we_can_convert_from_columns_without_blitzar() {
+        let int_values = [1, 2, 3];
+        let int_column = Column::<TestScalar>::Int(&int_values);
+        assert_eq!(
+            CommittableColumn::from(&int_column),
+            CommittableColumn::Int(&int_values)
+        );
+
+        let scalars = [TestScalar::from(5), TestScalar::from(8)];
+        let scalar_column = Column::Scalar(&scalars);
+        assert_eq!(
+            CommittableColumn::from(&scalar_column),
+            CommittableColumn::Scalar(scalars.map(<[u64; 4]>::from).into())
+        );
+    }
+
+    #[test]
+    fn we_can_convert_from_owned_columns_without_blitzar() {
+        let timestamps = vec![1_625_072_400, 1_625_076_000];
+        let timestamp_column = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            timestamps.clone(),
+        );
+        assert_eq!(
+            CommittableColumn::from(&timestamp_column),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                timestamps.as_slice()
+            )
+        );
+
+        let bytes = vec![b"foo".to_vec(), b"bar".to_vec()];
+        let varbinary_column = OwnedColumn::<TestScalar>::VarBinary(bytes.clone());
+        let committable_column = CommittableColumn::from(&varbinary_column);
+        assert_eq!(committable_column.column_type(), ColumnType::VarBinary);
+        assert_eq!(committable_column.len(), bytes.len());
+    }
+}
