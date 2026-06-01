@@ -39,3 +39,32 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_retrieve_column_reference_parts() {
+        let table_ref = TableRef::new("sxt", "trades");
+        let column_id = Ident::new("amount");
+        let column_type = ColumnType::BigInt;
+
+        let column_ref = ColumnRef::new(table_ref.clone(), column_id.clone(), column_type);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), column_id);
+        assert_eq!(column_ref.column_type(), &column_type);
+    }
+
+    #[test]
+    fn we_can_clone_column_references() {
+        let column_ref = ColumnRef::new(
+            TableRef::new("sxt", "trades"),
+            Ident::new("price"),
+            ColumnType::BigInt,
+        );
+
+        assert_eq!(column_ref.clone(), column_ref);
+    }
+}
