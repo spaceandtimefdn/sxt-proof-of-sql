@@ -213,3 +213,101 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        final_round_evaluate_equals_zero, first_round_evaluate_equals_zero,
+        verifier_evaluate_equals_zero,
+    };
+    use crate::{
+        base::scalar::test_scalar::TestScalar,
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            SumcheckSubpolynomialType,
+        },
+    };
+    use alloc::collections::VecDeque;
+    use bumpalo::Bump;
+
+    #[test]
+    fn first_round_equals_zero_marks_exact_zero_entries() {
+        let alloc = Bump::new();
+        let lhs = [
+            TestScalar::from(0),
+            TestScalar::from(5),
+            TestScalar::from(0),
+            TestScalar::from(9),
+        ];
+
+        let selection = first_round_evaluate_equals_zero(lhs.len(), &alloc, &lhs);
+
+        assert_eq!(selection, &[true, false, true, false]);
+    }
+
+    #[test]
+    fn final_round_equals_zero_produces_selection_and_constraints() {
+        let alloc = Bump::new();
+        let lhs = alloc.alloc_slice_copy(&[
+            TestScalar::from(0),
+            TestScalar::from(5),
+            TestScalar::from(7),
+            TestScalar::from(0),
+        ]);
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let selection =
+            final_round_evaluate_equals_zero(lhs.len(), &mut builder, &alloc, lhs as &[_]);
+
+        assert_eq!(selection, &[true, false, false, true]);
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 2);
+        assert!(builder
+            .sumcheck_subpolynomials()
+            .iter()
+            .all(|subpoly| subpoly.subpolynomial_type() == SumcheckSubpolynomialType::Identity));
+    }
+
+    #[test]
+    fn verifier_equals_zero_uses_final_round_mles_and_records_identity_checks() {
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(3), TestScalar::from(2)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let selection_eval =
+            verifier_evaluate_equals_zero(&mut builder, TestScalar::from(1), TestScalar::from(5))
+                .unwrap();
+
+        assert_eq!(selection_eval, TestScalar::from(2));
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![TestScalar::from(2), TestScalar::from(0)]]
+        );
+    }
+
+    #[test]
+    fn verifier_equals_zero_errors_when_final_round_mles_are_missing() {
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(3)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        assert!(verifier_evaluate_equals_zero(
+            &mut builder,
+            TestScalar::from(1),
+            TestScalar::from(5)
+        )
+        .is_err());
+    }
+}
