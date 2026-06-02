@@ -30,3 +30,13 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_skip_memory_logging_when_trace_is_disabled() {
+        log_memory_usage("trace-disabled");
+    }
+}
