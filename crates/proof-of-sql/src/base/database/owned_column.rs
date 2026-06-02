@@ -907,4 +907,386 @@ mod test {
 
         assert_eq!(product, expected);
     }
+
+    #[test]
+    fn len_returns_correct_count_for_all_column_types() {
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Boolean(vec![true, false]).len(),
+            2
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]).len(),
+            3
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::TinyInt(vec![1, 2]).len(),
+            2
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::SmallInt(vec![1]).len(),
+            1
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int(vec![1, 2, 3, 4]).len(),
+            4
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]).len(),
+            3
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int128(vec![1]).len(),
+            1
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(1)]).len(),
+            1
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Decimal75(
+                Precision::new(10).unwrap(),
+                0,
+                vec![TestScalar::from(1), TestScalar::from(2)]
+            )
+            .len(),
+            2
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![1, 2, 3]
+            )
+            .len(),
+            3
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::VarChar(vec!["a".into(), "b".into()]).len(),
+            2
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::VarBinary(vec![b"a".to_vec(), b"b".to_vec()]).len(),
+            2
+        );
+    }
+
+    #[test]
+    fn is_empty_returns_correct_value() {
+        assert!(OwnedColumn::<TestScalar>::Boolean(vec![]).is_empty());
+        assert!(!OwnedColumn::<TestScalar>::Boolean(vec![true]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::Uint8(vec![]).is_empty());
+        assert!(!OwnedColumn::<TestScalar>::Uint8(vec![1]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::TinyInt(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::SmallInt(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::Int(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::BigInt(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::Int128(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::Scalar(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::VarChar(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::VarBinary(vec![]).is_empty());
+        assert!(OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![]
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn column_type_returns_correct_type() {
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Boolean(vec![true]).column_type(),
+            ColumnType::Boolean
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Uint8(vec![1]).column_type(),
+            ColumnType::Uint8
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::TinyInt(vec![1]).column_type(),
+            ColumnType::TinyInt
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::SmallInt(vec![1]).column_type(),
+            ColumnType::SmallInt
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int(vec![1]).column_type(),
+            ColumnType::Int
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::BigInt(vec![1]).column_type(),
+            ColumnType::BigInt
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int128(vec![1]).column_type(),
+            ColumnType::Int128
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(1)]).column_type(),
+            ColumnType::Scalar
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::VarChar(vec!["a".into()]).column_type(),
+            ColumnType::VarChar
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::VarBinary(vec![b"a".to_vec()]).column_type(),
+            ColumnType::VarBinary
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(10).unwrap(), 2, vec![])
+                .column_type(),
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2)
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                vec![]
+            )
+            .column_type(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc())
+        );
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_uint8() {
+        let scalars = [0, 1, 255]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Uint8).unwrap();
+        assert_eq!(owned_col, OwnedColumn::Uint8(vec![0, 1, 255]));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_tinyint() {
+        let scalars = [0, 1, -1]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(&scalars, ColumnType::TinyInt).unwrap();
+        assert_eq!(owned_col, OwnedColumn::TinyInt(vec![0, 1, -1]));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_smallint() {
+        let scalars = [0, 100, -100]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(&scalars, ColumnType::SmallInt).unwrap();
+        assert_eq!(owned_col, OwnedColumn::SmallInt(vec![0, 100, -100]));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_int() {
+        let scalars = [0, 1000, -1000]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(&scalars, ColumnType::Int).unwrap();
+        assert_eq!(owned_col, OwnedColumn::Int(vec![0, 1000, -1000]));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_bigint() {
+        let scalars = [0_i64, i64::MAX, i64::MIN]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(&scalars, ColumnType::BigInt).unwrap();
+        assert_eq!(owned_col, OwnedColumn::BigInt(vec![0, i64::MAX, i64::MIN]));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_timestamptz() {
+        let scalars = [0_i64, 1000, 2000]
+            .iter()
+            .map(|&v| TestScalar::from(v))
+            .collect::<Vec<_>>();
+        let owned_col = OwnedColumn::try_from_scalars(
+            &scalars,
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        )
+        .unwrap();
+        assert_eq!(
+            owned_col,
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![0, 1000, 2000]
+            )
+        );
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_scalar_type() {
+        let scalars = vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+        ];
+        let owned_col =
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::Scalar).unwrap();
+        assert_eq!(owned_col, OwnedColumn::Scalar(scalars));
+    }
+
+    #[test]
+    fn try_from_scalars_works_for_empty_slice() {
+        let scalars: Vec<TestScalar> = vec![];
+        let owned_col =
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::Int128).unwrap();
+        assert_eq!(owned_col, OwnedColumn::Int128(vec![]));
+    }
+
+    #[test]
+    fn try_from_scalars_fails_for_varbinary() {
+        let scalars = vec![TestScalar::from(1)];
+        let res = OwnedColumn::try_from_scalars(&scalars, ColumnType::VarBinary);
+        assert!(matches!(res, Err(OwnedColumnError::TypeCastError { .. })));
+    }
+
+    #[test]
+    fn try_from_scalars_overflow_for_uint8() {
+        let scalars = [TestScalar::from(256_u32)];
+        let res = OwnedColumn::try_from_scalars(&scalars, ColumnType::Uint8);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+    }
+
+    #[test]
+    fn try_from_scalars_overflow_for_smallint() {
+        let scalars = [TestScalar::from(i32::MAX)];
+        let res = OwnedColumn::try_from_scalars(&scalars, ColumnType::SmallInt);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+    }
+
+    #[test]
+    fn try_from_scalars_overflow_for_int() {
+        let scalars = [TestScalar::from(i64::MAX)];
+        let res = OwnedColumn::try_from_scalars(&scalars, ColumnType::Int);
+        assert!(matches!(
+            res,
+            Err(OwnedColumnError::ScalarConversionError { .. })
+        ));
+    }
+
+    #[test]
+    fn slice_works_for_multiple_types() {
+        // Boolean
+        let col = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true, false]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::Boolean(vec![false, true]));
+
+        // TinyInt
+        let col = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3, 4]);
+        assert_eq!(col.slice(0, 2), OwnedColumn::TinyInt(vec![1, 2]));
+
+        // SmallInt
+        let col = OwnedColumn::<TestScalar>::SmallInt(vec![10, 20, 30]);
+        assert_eq!(col.slice(1, 3), OwnedColumn::SmallInt(vec![20, 30]));
+
+        // Int
+        let col = OwnedColumn::<TestScalar>::Int(vec![100, 200, 300]);
+        assert_eq!(col.slice(0, 1), OwnedColumn::Int(vec![100]));
+
+        // BigInt
+        let col = OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]);
+        assert_eq!(col.slice(0, 3), OwnedColumn::BigInt(vec![1, 2, 3]));
+
+        // Scalar
+        let col = OwnedColumn::<TestScalar>::Scalar(vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ]);
+        assert_eq!(
+            col.slice(1, 2),
+            OwnedColumn::Scalar(vec![TestScalar::from(2)])
+        );
+
+        // TimestampTZ
+        let col = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![100, 200, 300],
+        );
+        assert_eq!(
+            col.slice(1, 3),
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![200, 300]
+            )
+        );
+    }
+
+    #[test]
+    fn try_permute_works_for_multiple_types() {
+        let perm = Permutation::try_new(vec![2, 0, 1]).unwrap();
+
+        // Boolean
+        let col = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::Boolean(vec![true, true, false])
+        );
+
+        // Uint8
+        let col = OwnedColumn::<TestScalar>::Uint8(vec![10, 20, 30]);
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::Uint8(vec![30, 10, 20])
+        );
+
+        // SmallInt
+        let col = OwnedColumn::<TestScalar>::SmallInt(vec![100, 200, 300]);
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::SmallInt(vec![300, 100, 200])
+        );
+
+        // BigInt
+        let col = OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]);
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::BigInt(vec![3, 1, 2])
+        );
+
+        // Scalar
+        let col = OwnedColumn::<TestScalar>::Scalar(vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+        ]);
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::Scalar(vec![
+                TestScalar::from(30),
+                TestScalar::from(10),
+                TestScalar::from(20)
+            ])
+        );
+
+        // TimestampTZ
+        let col = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            vec![100, 200, 300],
+        );
+        assert_eq!(
+            col.try_permute(&perm).unwrap(),
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                vec![300, 100, 200]
+            )
+        );
+    }
 }
