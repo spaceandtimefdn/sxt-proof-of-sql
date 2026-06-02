@@ -723,4 +723,22 @@ pub(crate) mod tests {
             }
         }
     }
+
+    #[test]
+    fn we_can_compute_dynamic_vecs_that_match_evaluation_vec_with_zero_coordinates() {
+        let point = [
+            DoryScalar::from(0),
+            DoryScalar::from(2),
+            DoryScalar::from(0),
+            DoryScalar::from(3),
+            DoryScalar::from(5),
+        ];
+        let (lo_vec, hi_vec) = compute_dynamic_vecs(&point);
+        let mut eval_vec = vec![DoryScalar::ZERO; 1 << point.len()];
+        compute_evaluation_vector(&mut eval_vec, &point);
+        for (i, val) in eval_vec.into_iter().enumerate() {
+            let (row, column) = row_and_column_from_index(i);
+            assert_eq!(hi_vec[row] * lo_vec[column], val);
+        }
+    }
 }
