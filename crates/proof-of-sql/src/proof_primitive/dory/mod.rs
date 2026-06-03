@@ -35,6 +35,11 @@ pub(crate) use dory_messages::DoryMessages;
 #[cfg(test)]
 mod dory_messages_test;
 
+#[cfg(test)]
+mod test_setup_cache;
+#[cfg(test)]
+pub(crate) use test_setup_cache::cached_dory_test_setup;
+
 mod setup;
 pub use setup::{ProverSetup, VerifierSetup};
 #[cfg(test)]
