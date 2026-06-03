@@ -71,3 +71,19 @@ fn test_slice_cast_mut_random() {
     slice_cast_mut(&a, &mut b);
     assert_eq!(b, slice_cast(&a));
 }
+
+#[test]
+fn test_slice_cast_mut_with_leaves_extra_result_entries_unchanged() {
+    let a: Vec<u32> = vec![1, 2];
+    let mut b: Vec<u64> = vec![10, 20, 30, 40];
+    slice_cast_mut_with(&a, &mut b, |&x| u64::from(x));
+    assert_eq!(b, vec![1, 2, 30, 40]);
+}
+
+#[test]
+fn test_slice_cast_mut_with_empty_input_leaves_result_unchanged() {
+    let a: Vec<u32> = Vec::new();
+    let mut b: Vec<u64> = vec![10, 20];
+    slice_cast_mut_with(&a, &mut b, |&x| u64::from(x));
+    assert_eq!(b, vec![10, 20]);
+}

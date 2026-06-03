@@ -116,3 +116,47 @@ fn we_can_pseudo_invert_arrays_with_nonzero_count_smaller_than_min_chunking_size
         }
     }
 }
+
+#[test]
+fn we_can_batch_invert_and_scale_nonzero_values() {
+    let input = [
+        TestScalar::from(2_u32),
+        (-3_i32).into(),
+        TestScalar::from(5_u32),
+    ];
+    let coeff = TestScalar::from(7_u32);
+    let mut res = input.to_vec();
+    slice_ops::batch_inversion_and_mul(&mut res[..], coeff);
+
+    for (input_val, res_val) in input.iter().zip(res) {
+        assert_eq!(input_val.inv().unwrap() * coeff, res_val);
+    }
+}
+
+#[test]
+fn we_can_batch_invert_and_scale_while_preserving_zeros() {
+    let input = [
+        TestScalar::from(0_u32),
+        TestScalar::from(2_u32),
+        TestScalar::from(0_u32),
+        (-5_i32).into(),
+    ];
+    let coeff = TestScalar::from(11_u32);
+    let mut res = input.to_vec();
+    slice_ops::batch_inversion_and_mul(&mut res[..], coeff);
+
+    for (input_val, res_val) in input.iter().zip(res) {
+        if *input_val == TestScalar::zero() {
+            assert_eq!(TestScalar::zero(), res_val);
+        } else {
+            assert_eq!(input_val.inv().unwrap() * coeff, res_val);
+        }
+    }
+}
+
+#[test]
+fn we_can_batch_invert_and_scale_all_zero_values() {
+    let mut res = vec![TestScalar::zero(); 4];
+    slice_ops::batch_inversion_and_mul(&mut res[..], TestScalar::from(13_u32));
+    assert_eq!(res, vec![TestScalar::zero(); 4]);
+}

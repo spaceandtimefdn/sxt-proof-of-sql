@@ -162,3 +162,17 @@ fn test_inner_product_testscalar_uneven() {
     ];
     assert_eq!(TestScalar::from(8u64), inner_product(&a, &b));
 }
+
+#[test]
+fn test_inner_product_ref_cast() {
+    let a = [1, 2, 3, 4].map(TestScalar::from).to_vec();
+    let b = [2, 3, 4, 5].map(TestScalar::from).to_vec();
+    assert_eq!(TestScalar::from(40), inner_product_ref_cast(&a, &b));
+}
+
+#[test]
+fn test_inner_product_ref_cast_different_lengths() {
+    let a = [1, 2, 3, 4].map(TestScalar::from).to_vec();
+    let b = [2, 3].map(TestScalar::from).to_vec();
+    assert_eq!(TestScalar::from(8), inner_product_ref_cast(&a, &b));
+}
