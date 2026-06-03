@@ -33,10 +33,41 @@ pub fn compute_varying_byte_matrix<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use crate::base::{
+        bit::bit_mask_utils::make_bit_mask,
         byte::{byte_matrix_utils::compute_varying_byte_matrix, ByteDistribution},
         scalar::{test_scalar::TestScalar, Scalar},
     };
+    use bnum::types::U256;
     use bumpalo::Bump;
+
+    #[test]
+    fn we_can_compute_varying_byte_matrix_for_empty_scalars() {
+        let alloc = Bump::new();
+        let scalars: Vec<TestScalar> = Vec::new();
+        let expected_byte_distribution = ByteDistribution::new::<TestScalar, TestScalar>(&scalars);
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert!(varying_columns.is_empty());
+        assert_eq!(byte_distribution, expected_byte_distribution);
+        assert_eq!(byte_distribution.constant_mask(), U256::ZERO);
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
+
+    #[test]
+    fn we_can_compute_varying_byte_matrix_for_constant_scalars() {
+        let alloc = Bump::new();
+        let value = -TestScalar::from(257u64);
+        let scalars = vec![value; 4];
+        let expected_byte_distribution = ByteDistribution::new::<TestScalar, TestScalar>(&scalars);
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert!(varying_columns.is_empty());
+        assert_eq!(byte_distribution, expected_byte_distribution);
+        assert_eq!(byte_distribution.constant_mask(), make_bit_mask(value));
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
 
     #[test]
     fn we_can_compute_varying_byte_matrix_for_small_scalars() {
