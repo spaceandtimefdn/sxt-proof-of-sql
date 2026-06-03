@@ -89,4 +89,43 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, IntermediateDecimalError::ConversionFailure));
     }
+
+    #[test]
+    fn we_can_convert_decimal_with_exact_precision_and_scale() {
+        let big_decimal: BigDecimal = "123.45".parse::<BigDecimal>().unwrap();
+        let result = big_decimal
+            .try_into_bigint_with_precision_and_scale(5, 2)
+            .unwrap();
+        let expected: BigInt = "12345".parse().unwrap();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_convert_decimal_by_padding_target_scale() {
+        let big_decimal: BigDecimal = "123.4".parse::<BigDecimal>().unwrap();
+        let result = big_decimal
+            .try_into_bigint_with_precision_and_scale(5, 2)
+            .unwrap();
+        let expected: BigInt = "12340".parse().unwrap();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_convert_integer_with_negative_target_scale() {
+        let big_decimal: BigDecimal = "1200".parse::<BigDecimal>().unwrap();
+        let result = big_decimal
+            .try_into_bigint_with_precision_and_scale(2, -2)
+            .unwrap();
+        let expected: BigInt = "12".parse().unwrap();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_reject_scaled_decimal_when_precision_is_too_small() {
+        let big_decimal: BigDecimal = "123.4".parse::<BigDecimal>().unwrap();
+        let err = big_decimal
+            .try_into_bigint_with_precision_and_scale(4, 2)
+            .unwrap_err();
+        assert!(matches!(err, IntermediateDecimalError::LossyCast));
+    }
 }
