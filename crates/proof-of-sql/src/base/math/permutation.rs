@@ -29,7 +29,7 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
@@ -103,6 +103,18 @@ mod test {
     }
 
     #[test]
+    fn test_unchecked_new_from_cmp() {
+        let permutation = Permutation::unchecked_new_from_cmp(4, |lhs, rhs| rhs.cmp(lhs));
+        assert_eq!(permutation.size(), 4);
+        assert_eq!(
+            permutation
+                .try_apply(&["zero", "one", "two", "three"])
+                .unwrap(),
+            vec!["three", "two", "one", "zero"]
+        );
+    }
+
+    #[test]
     fn test_invalid_permutation() {
         assert!(matches!(
             Permutation::try_new(vec![1, 0, 0]),
@@ -115,14 +127,34 @@ mod test {
     }
 
     #[test]
+    fn test_invalid_permutation_display() {
+        let duplicate_error = Permutation::try_new(vec![1, 0, 0]).unwrap_err();
+        assert_eq!(
+            duplicate_error.to_string(),
+            "Permutation is invalid Permutation can not have duplicate elements: [1, 0, 0]"
+        );
+
+        let out_of_bounds_error = Permutation::try_new(vec![1, 0, 3]).unwrap_err();
+        assert_eq!(
+            out_of_bounds_error.to_string(),
+            "Permutation is invalid Permutation can not have elements out of bounds: [1, 0, 3]"
+        );
+    }
+
+    #[test]
     fn test_permutation_size_mismatch() {
         let permutation = Permutation::try_new(vec![1, 0, 2]).unwrap();
+        let error = permutation.try_apply(&["Space", "Time"]).unwrap_err();
         assert_eq!(
-            permutation.try_apply(&["Space", "Time"]),
-            Err(PermutationError::PermutationSizeMismatch {
+            error,
+            PermutationError::PermutationSizeMismatch {
                 permutation_size: 3,
                 slice_length: 2
-            })
+            }
+        );
+        assert_eq!(
+            error.to_string(),
+            "Application of a permutation to a slice with a different length 3 != 2"
         );
     }
 }
