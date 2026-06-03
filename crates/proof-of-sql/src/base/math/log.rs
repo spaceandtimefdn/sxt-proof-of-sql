@@ -71,6 +71,52 @@ mod tests {
         assert_eq!(log2_up(4u32), 2);
     }
 
+    #[test]
+    fn test_is_pow2_for_unsigned_widths() {
+        assert!(is_pow2(1u8));
+        assert!(is_pow2(128u8));
+        assert!(is_pow2(1u16 << 15));
+        assert!(is_pow2(1u64 << 63));
+        assert!(!is_pow2(3u8));
+        assert!(!is_pow2(u16::MAX));
+        assert!(!is_pow2(u64::MAX));
+    }
+
+    #[test]
+    fn test_log2_for_unsigned_width_boundaries() {
+        assert_eq!(log2_down(u8::MAX), 7);
+        assert_eq!(log2_up(u8::MAX), 8);
+        assert_eq!(log2_down(1u16 << 15), 15);
+        assert_eq!(log2_up(1u16 << 15), 15);
+        assert_eq!(log2_down(u64::MAX), 63);
+        assert_eq!(log2_up(u64::MAX), 64);
+        assert_eq!(log2_down(u128::MAX), 127);
+        assert_eq!(log2_up(u128::MAX), 128);
+    }
+
+    #[test]
+    fn test_is_pow2_bytes() {
+        assert!(is_pow2_bytes(&[0, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[1, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[128, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 1, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 0, 128, 0]));
+        assert!(!is_pow2_bytes(&[3, 0, 0, 0]));
+        assert!(!is_pow2_bytes(&[1, 1, 0, 0]));
+        assert!(!is_pow2_bytes(&[0, 255, 0, 0]));
+    }
+
+    #[test]
+    fn test_log2_down_bytes_floor() {
+        assert_eq!(log2_down_bytes(&[0, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[1, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[128, 0, 0, 0]), 7);
+        assert_eq!(log2_down_bytes(&[0, 1, 0, 0]), 8);
+        assert_eq!(log2_down_bytes(&[255, 255, 0, 0]), 15);
+        assert_eq!(log2_down_bytes(&[0, 0, 16, 0]), 20);
+        assert_eq!(log2_down_bytes(&[0, 0, 0, 128]), 31);
+    }
+
     #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     #[test]
     fn test_log2_bytes_ceil() {
