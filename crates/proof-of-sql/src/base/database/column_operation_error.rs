@@ -108,3 +108,68 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_display_column_operation_errors() {
+        assert_eq!(
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }.to_string(),
+            "Columns have different lengths: 2 != 3"
+        );
+        assert_eq!(
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: "add".to_string(),
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "\"add\"(lhs: BigInt, rhs: VarChar) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::UnaryOperationInvalidColumnType {
+                operator: "negation".to_string(),
+                operand_type: ColumnType::Boolean,
+            }
+            .to_string(),
+            "\"negation\"(operand: Boolean) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: "checked add failed".to_string()
+            }
+            .to_string(),
+            "Overflow in integer operation: checked add failed"
+        );
+        assert_eq!(
+            ColumnOperationError::DivisionByZero.to_string(),
+            "Division by zero"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 4, len: 4 }.to_string(),
+            "Index out of bounds: 4 >= 4"
+        );
+    }
+
+    #[test]
+    fn we_can_display_column_casting_errors() {
+        for error in [
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            },
+            ColumnOperationError::CastingError {
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::SmallInt,
+            },
+            ColumnOperationError::ScaleCastingError {
+                left_type: ColumnType::Int,
+                right_type: ColumnType::TinyInt,
+            },
+        ] {
+            assert!(error.to_string().contains("without losing data"));
+        }
+    }
+}

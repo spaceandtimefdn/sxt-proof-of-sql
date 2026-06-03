@@ -65,3 +65,56 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_display_table_operation_errors() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+        assert_eq!(
+            TableOperationError::JoinWithDifferentNumberOfColumns {
+                left_num_columns: 1,
+                right_num_columns: 2,
+            }
+            .to_string(),
+            "Cannot join tables with different numbers of columns: 1 and 2"
+        );
+        assert_eq!(
+            TableOperationError::JoinIncompatibleTypes {
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Cannot join tables on columns with incompatible types: BigInt and VarChar"
+        );
+        assert_eq!(
+            TableOperationError::ColumnDoesNotExist {
+                column_ident: Ident::new("missing")
+            }
+            .to_string(),
+            "Column Ident { value: \"missing\", quote_style: None } does not exist in table"
+        );
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+        assert_eq!(
+            TableOperationError::ColumnIndexOutOfBounds { column_index: 7 }.to_string(),
+            "Column index out of bounds: 7"
+        );
+    }
+
+    #[test]
+    fn we_can_display_transparent_column_operation_errors() {
+        let error = TableOperationError::ColumnOperationError {
+            source: ColumnOperationError::DivisionByZero,
+        };
+
+        assert_eq!(error.to_string(), "Division by zero");
+    }
+}
