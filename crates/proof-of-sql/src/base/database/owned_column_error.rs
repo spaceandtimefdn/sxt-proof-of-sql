@@ -40,3 +40,47 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn owned_column_errors_display_context() {
+        assert_eq!(
+            OwnedColumnError::TypeCastError {
+                from_type: ColumnType::VarChar,
+                to_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Can not perform type casting from VarChar to Int"
+        );
+        assert_eq!(
+            OwnedColumnError::ScalarConversionError {
+                error: "bad scalar".to_string(),
+            }
+            .to_string(),
+            "Error in converting scalars to a given column type: bad scalar"
+        );
+        assert_eq!(
+            OwnedColumnError::Unsupported {
+                error: "operation".to_string(),
+            }
+            .to_string(),
+            "Unsupported operation: operation"
+        );
+    }
+
+    #[test]
+    fn column_coercion_errors_display_reason() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}
