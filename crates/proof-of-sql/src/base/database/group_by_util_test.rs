@@ -183,12 +183,12 @@ fn we_can_aggregate_columns() {
     )
     .expect("Aggregation should succeed");
     let scals_res = [
-        TestScalar::from("Cat"),
-        TestScalar::from("Dog"),
-        TestScalar::from("Cat"),
-        TestScalar::from("Dog"),
-        TestScalar::from("Cat"),
-        TestScalar::from("Dog"),
+        TestScalar::from_str_via_hash("Cat"),
+        TestScalar::from_str_via_hash("Dog"),
+        TestScalar::from_str_via_hash("Cat"),
+        TestScalar::from_str_via_hash("Dog"),
+        TestScalar::from_str_via_hash("Cat"),
+        TestScalar::from_str_via_hash("Dog"),
     ];
     let expected_group_by_result = &[
         Column::BigInt(&[1, 1, 2, 2, 3, 3]),

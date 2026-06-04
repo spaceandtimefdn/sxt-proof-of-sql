@@ -331,7 +331,7 @@ mod tests {
             -1,
             [-1, 1, 2]
                 .map(<TestScalar>::from)
-                .map(<[u64; 4]>::from)
+                .map(|s| s.to_limbs())
                 .into(),
         );
 
@@ -480,8 +480,7 @@ mod tests {
         let bigint_committable_column = CommittableColumn::VarChar(
             ["12", "34", "56"]
                 .map(Into::<String>::into)
-                .map(Into::<TestScalar>::into)
-                .map(Into::<[u64; 4]>::into)
+                .map(|s| TestScalar::from_str_via_hash(&s).to_limbs())
                 .into(),
         );
         assert_eq!(bigint_committable_column.len(), 3);
@@ -500,7 +499,7 @@ mod tests {
         let bigint_committable_column = CommittableColumn::Scalar(
             [12, 34, 56]
                 .map(<TestScalar>::from)
-                .map(<[u64; 4]>::from)
+                .map(|s| s.to_limbs())
                 .into(),
         );
         assert_eq!(bigint_committable_column.len(), 3);
@@ -632,7 +631,7 @@ mod tests {
 
         let expected_decimals = binding
             .iter()
-            .map(|&scalar| scalar.into())
+            .map(|&scalar| scalar.to_limbs())
             .collect::<Vec<[u64; 4]>>();
 
         assert_eq!(
@@ -668,7 +667,7 @@ mod tests {
             CommittableColumn::from(&Column::VarChar((&varchar_data, &scalars)));
         assert_eq!(
             from_borrowed_column,
-            CommittableColumn::VarChar(scalars.map(<[u64; 4]>::from).into())
+            CommittableColumn::VarChar(scalars.map(|s| s.to_limbs()).into())
         );
     }
 
@@ -682,7 +681,7 @@ mod tests {
         let from_borrowed_column = CommittableColumn::from(&Column::Scalar(&scalars));
         assert_eq!(
             from_borrowed_column,
-            CommittableColumn::Scalar(scalars.map(<[u64; 4]>::from).into())
+            CommittableColumn::Scalar(scalars.map(|s| s.to_limbs()).into())
         );
     }
 
@@ -807,7 +806,11 @@ mod tests {
         let from_owned_column = CommittableColumn::from(&owned_column);
         assert_eq!(
             from_owned_column,
-            CommittableColumn::VarChar(strings.map(TestScalar::from).map(<[u64; 4]>::from).into())
+            CommittableColumn::VarChar(
+                strings
+                    .map(|s| TestScalar::from_str_via_hash(&s).to_limbs())
+                    .into()
+            )
         );
     }
 
@@ -823,7 +826,7 @@ mod tests {
         let from_owned_column = CommittableColumn::from(&owned_column);
         assert_eq!(
             from_owned_column,
-            CommittableColumn::Scalar(scalars.map(<[u64; 4]>::from).into())
+            CommittableColumn::Scalar(scalars.map(|s| s.to_limbs()).into())
         );
     }
 
@@ -976,7 +979,7 @@ mod tests {
             TestScalar::from(34),
             TestScalar::from(56),
         ]
-        .map(<[u64; 4]>::from);
+        .map(|s| s.to_limbs());
         let committable_column =
             CommittableColumn::Decimal75(Precision::new(1).unwrap(), 0, (values).to_vec());
 
@@ -1032,7 +1035,7 @@ mod tests {
         let committable_column = CommittableColumn::from(&owned_column);
 
         let sequence_actual = Sequence::from(&committable_column);
-        let scalars = values.map(TestScalar::from).map(<[u64; 4]>::from);
+        let scalars = values.map(|s| TestScalar::from_str_via_hash(&s).to_limbs());
         let sequence_expected = Sequence::from(scalars.as_slice());
         let mut commitment_buffer = [CompressedRistretto::default(); 2];
         compute_curve25519_commitments(
@@ -1058,7 +1061,7 @@ mod tests {
         let committable_column = CommittableColumn::from(&owned_column);
 
         let sequence_actual = Sequence::from(&committable_column);
-        let scalars = values.map(TestScalar::from).map(<[u64; 4]>::from);
+        let scalars = values.map(|s| s.to_limbs());
         let sequence_expected = Sequence::from(scalars.as_slice());
         let mut commitment_buffer = [CompressedRistretto::default(); 2];
         compute_curve25519_commitments(

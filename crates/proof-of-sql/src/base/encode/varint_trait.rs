@@ -10,16 +10,12 @@
 // There were significant code changes to simplify the code
 // ---------------------------------------------------------------------------------------------------------------
 use super::{
-    scalar_varint::{
-        read_scalar_varint, read_u256_varint, scalar_varint_size, u256_varint_size,
-        write_scalar_varint, write_u256_varint,
-    },
-    U256,
+    scalar_varint::{read_u256_varint, u256_varint_size, write_u256_varint},
+    ZigZag, U256,
 };
-use crate::base::scalar::MontScalar;
+use crate::base::scalar::Scalar;
 #[cfg(test)]
 use alloc::{vec, vec::Vec};
-use ark_ff::MontConfig;
 
 /// Most-significant byte, == 0x80
 pub const MSB: u8 = 0b1000_0000;
@@ -282,14 +278,18 @@ impl VarInt for i128 {
     }
 }
 
-impl<T: MontConfig<4>> VarInt for MontScalar<T> {
+impl<S: Scalar> VarInt for S {
     fn required_space(self) -> usize {
-        scalar_varint_size(&self)
+        let zig_x: U256 = self.zigzag();
+        u256_varint_size(zig_x)
     }
     fn decode_var(src: &[u8]) -> Option<(Self, usize)> {
-        read_scalar_varint(src)
+        let (val, s) = read_u256_varint(src)?;
+        let scal: Self = val.zigzag();
+        Some((scal, s))
     }
     fn encode_var(self, dst: &mut [u8]) -> usize {
-        write_scalar_varint(dst, &self)
+        let zig_x: U256 = self.zigzag();
+        write_u256_varint(dst, zig_x)
     }
 }
