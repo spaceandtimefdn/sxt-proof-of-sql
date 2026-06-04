@@ -445,7 +445,8 @@ pub fn bit_table_and_scalars_for_packed_msm(
             }
             CommittableColumn::Decimal75(_, _, column)
             | CommittableColumn::Scalar(column)
-            | CommittableColumn::VarChar(column) => {
+            | CommittableColumn::VarChar(column)
+            | CommittableColumn::FixedSizeBinary(column) => {
                 pack_bit(
                     column,
                     &mut packed_scalars,
@@ -456,8 +457,7 @@ pub fn bit_table_and_scalars_for_packed_msm(
                     num_matrix_commitment_columns,
                 );
             }
-            CommittableColumn::RangeCheckWord(column)
-            | CommittableColumn::FixedSizeBinary(_, column) => {
+            CommittableColumn::RangeCheckWord(column) => {
                 pack_bit(
                     column,
                     &mut packed_scalars,

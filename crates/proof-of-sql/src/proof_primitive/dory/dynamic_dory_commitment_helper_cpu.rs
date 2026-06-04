@@ -52,7 +52,9 @@ fn compute_dory_commitment(
         CommittableColumn::Int(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::BigInt(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
-        CommittableColumn::VarChar(column) | CommittableColumn::Decimal75(_, _, column) => {
+        CommittableColumn::VarChar(column)
+        | CommittableColumn::Decimal75(_, _, column)
+        | CommittableColumn::FixedSizeBinary(column) => {
             compute_dory_commitment_impl(column, offset, setup)
         }
         CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
@@ -61,10 +63,6 @@ fn compute_dory_commitment(
         }
         CommittableColumn::RangeCheckWord(column) => {
             compute_dory_commitment_impl(column, offset, setup)
-        }
-        CommittableColumn::FixedSizeBinary(byte_width, column) => {
-            let scalars: Vec<_> = column.chunks_exact(*byte_width as usize).collect_vec();
-            compute_dory_commitment_impl(&scalars, offset, setup)
         }
     }
 }

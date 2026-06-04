@@ -46,9 +46,8 @@ pub enum CommittableColumn<'a> {
     /// Borrowed byte column, mapped to `u8`. This is not a `PoSQL`
     /// type, we need this to commit to words in the range check.
     RangeCheckWord(&'a [u8]),
-    /// Borrowed `FixedSizeBinary` column, mapped to a slice of bytes.
-    /// - The i32 specifies the number of bytes per value.
-    FixedSizeBinary(i32, &'a [u8]),
+    /// Column of limbs for committing to fixed size binary elements.
+    FixedSizeBinary(Vec<[u64; 4]>),
 }
 
 impl<'a> CommittableColumn<'a> {
@@ -64,13 +63,10 @@ impl<'a> CommittableColumn<'a> {
             CommittableColumn::Int128(col) => col.len(),
             CommittableColumn::Decimal75(_, _, col)
             | CommittableColumn::Scalar(col)
-            | CommittableColumn::VarChar(col) => col.len(),
+            | CommittableColumn::VarChar(col)
+            | CommittableColumn::FixedSizeBinary(col) => col.len(),
             CommittableColumn::Boolean(col) => col.len(),
             CommittableColumn::RangeCheckWord(col) => col.len(),
-            CommittableColumn::FixedSizeBinary(byte_width, col) => {
-                assert!(*byte_width > 0, "Byte width must be greater than zero");
-                col.len() / *byte_width as usize
-            }
         }
     }
 
@@ -172,7 +168,14 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
                 CommittableColumn::TimestampTZ(*tu, *tz, times as &[_])
             }
             OwnedColumn::FixedSizeBinary(byte_width, bytes) => {
-                CommittableColumn::FixedSizeBinary(*byte_width, bytes)
+                let chunks = bytes.chunks_exact(*byte_width as usize);
+                let limbs = chunks
+                    .map(|chunk| {
+                        let scalar = S::from(chunk);
+                        *RefInto::<[u64; 4]>::ref_into(&scalar)
+                    })
+                    .collect();
+                CommittableColumn::FixedSizeBinary(limbs)
             }
         }
     }
@@ -232,12 +235,11 @@ impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
             CommittableColumn::Int128(ints) => Sequence::from(*ints),
             CommittableColumn::Decimal75(_, _, limbs)
             | CommittableColumn::Scalar(limbs)
-            | CommittableColumn::VarChar(limbs) => Sequence::from(limbs),
+            | CommittableColumn::VarChar(limbs)
+            | CommittableColumn::FixedSizeBinary(limbs) => Sequence::from(limbs),
             CommittableColumn::Boolean(bools) => Sequence::from(*bools),
             CommittableColumn::TimestampTZ(_, _, times) => Sequence::from(*times),
             CommittableColumn::RangeCheckWord(words) => Sequence::from(*words),
-            // FIXME: Is this the correct way to convert a FixedSizeBinary column to a Sequence?
-            CommittableColumn::FixedSizeBinary(_, bytes) => Sequence::from(*bytes),
         }
     }
 }
@@ -818,7 +820,7 @@ mod tests {
         let from_owned_column = CommittableColumn::from(&owned_column);
         assert_eq!(
             from_owned_column,
-            CommittableColumn::FixedSizeBinary(byte_width, &[])
+            CommittableColumn::FixedSizeBinary(Vec::new())
         );
 
         // Non-empty case
@@ -831,9 +833,16 @@ mod tests {
         let owned_column =
             OwnedColumn::<Curve25519Scalar>::FixedSizeBinary(byte_width, concatenated_data.clone());
         let from_owned_column = CommittableColumn::from(&owned_column);
+        let expected_limbs: Vec<[u64; 4]> = fixed_size_binary_data
+            .iter()
+            .map(|chunk| {
+                let scalar = Curve25519Scalar::from(chunk.as_slice());
+                *RefInto::<[u64; 4]>::ref_into(&scalar)
+            })
+            .collect();
         assert_eq!(
             from_owned_column,
-            CommittableColumn::FixedSizeBinary(byte_width, &concatenated_data)
+            CommittableColumn::FixedSizeBinary(expected_limbs)
         );
     }
 
@@ -1074,7 +1083,7 @@ mod tests {
         let byte_width = 16;
 
         // Empty case
-        let committable_column = CommittableColumn::FixedSizeBinary(byte_width, &[]);
+        let committable_column = CommittableColumn::FixedSizeBinary(Vec::new());
         let sequence = Sequence::from(&committable_column);
         let mut commitment_buffer = [CompressedRistretto::default()];
         compute_curve25519_commitments(&mut commitment_buffer, &[sequence], 0);
@@ -1087,10 +1096,17 @@ mod tests {
             vec![2u8; byte_width as usize],
         ];
         let concatenated_data: Vec<u8> = fixed_size_binary_data.concat();
-        let committable_column = CommittableColumn::FixedSizeBinary(byte_width, &concatenated_data);
+        let limbs: Vec<[u64; 4]> = fixed_size_binary_data
+            .iter()
+            .map(|chunk| {
+                let scalar = Curve25519Scalar::from(chunk.as_slice());
+                *RefInto::<[u64; 4]>::ref_into(&scalar)
+            })
+            .collect();
+        let committable_column = CommittableColumn::FixedSizeBinary(limbs.clone());
 
         let sequence_actual = Sequence::from(&committable_column);
-        let sequence_expected = Sequence::from(concatenated_data.as_slice());
+        let sequence_expected = Sequence::from(limbs.as_slice());
         let mut commitment_buffer = [CompressedRistretto::default(); 2];
         compute_curve25519_commitments(
             &mut commitment_buffer,

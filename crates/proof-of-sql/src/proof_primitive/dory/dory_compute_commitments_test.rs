@@ -1,5 +1,10 @@
 use crate::{
-    base::{commitment::CommittableColumn, math::decimal::Precision},
+    base::{
+        commitment::CommittableColumn,
+        math::decimal::Precision,
+        scalar::Curve25519Scalar,
+        ref_into::RefInto,
+    },
     proof_primitive::dory::{
         compute_dory_commitments, DoryProverPublicSetup, ProverSetup, PublicParameters, F, GT,
     },
@@ -58,9 +63,17 @@ fn we_can_compute_a_dory_commitment_with_fixed_size_binary_values() {
     let prover_setup = ProverSetup::from(&public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
 
+    let limbs: Vec<[u64; 4]> = column
+        .chunks_exact(byte_width as usize)
+        .map(|chunk| {
+            let scalar = Curve25519Scalar::from(chunk);
+            *RefInto::<[u64; 4]>::ref_into(&scalar)
+        })
+        .collect();
+
     // Compute the Dory commitments
     let res = compute_dory_commitments(
-        &[CommittableColumn::FixedSizeBinary(byte_width, &column)],
+        &[CommittableColumn::FixedSizeBinary(limbs)],
         0,
         &setup,
     );
@@ -70,9 +83,9 @@ fn we_can_compute_a_dory_commitment_with_fixed_size_binary_values() {
     let Gamma_2 = public_parameters.Gamma_2;
 
     // Calculate the expected result
-    let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0x0102_0304)
-        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(0x0506_0708)
-        + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(0x090A_0B0C);
+    let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0x0403_0201)
+        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(0x0807_0605)
+        + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(0x0C0B_0A09);
 
     // Assert that the computed result matches the expected result
     assert_eq!(res[0].0, expected);
