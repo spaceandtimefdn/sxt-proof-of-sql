@@ -62,7 +62,10 @@ mod tests {
 
         assert_eq!(
             random_scalars.compute_entrywise_multipliers(),
-            vec![TestScalar::ONE - TestScalar::from(3u64), TestScalar::from(3u64)]
+            vec![
+                TestScalar::ONE - TestScalar::from(3u64),
+                TestScalar::from(3u64)
+            ]
         );
     }
 }
