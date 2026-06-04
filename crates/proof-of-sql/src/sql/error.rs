@@ -71,3 +71,29 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_convert_analyze_error_to_string() {
+        let message: String = AnalyzeError::NotEnoughInputPlans.into();
+
+        assert_eq!(message, "Not enough input plans");
+    }
+
+    #[test]
+    fn we_can_convert_intermediate_decimal_error_to_analyze_error() {
+        let error: AnalyzeError = IntermediateDecimalError::OutOfRange.into();
+
+        assert_eq!(
+            error,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::OutOfRange
+                }
+            }
+        );
+    }
+}
