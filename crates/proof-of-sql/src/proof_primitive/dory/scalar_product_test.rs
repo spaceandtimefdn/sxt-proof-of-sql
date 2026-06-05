@@ -1,8 +1,9 @@
 use super::{
-    rand_G_vecs, scalar_product_prove, scalar_product_verify, test_rng, DoryMessages,
-    ProverState, PublicParameters, VerifierSetup, VerifierState,
+    rand_G_vecs, scalar_product_prove, scalar_product_verify, test_rng, DoryMessages, ProverState,
+    PublicParameters, VerifierSetup, VerifierState,
 };
 use merlin::Transcript;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 fn scalar_product_fixture() -> (DoryMessages, VerifierState, VerifierSetup) {
     let mut rng = test_rng();
@@ -77,4 +78,34 @@ fn scalar_product_verify_rejects_unexpected_message_counts() {
         let (_, _, extra_setup) = scalar_product_fixture();
         messages.GT_messages.push(extra_setup.H_T);
     });
+}
+
+#[test]
+fn scalar_product_rejects_non_terminal_nu_state() {
+    let mut rng = test_rng();
+    let nu = 1;
+    let pp = PublicParameters::test_rand(nu, &mut rng);
+    let prover_setup = (&pp).into();
+    let verifier_setup = (&pp).into();
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let prover_state = ProverState::new(v1, v2, nu);
+    let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+    let mut messages = DoryMessages::default();
+    let mut transcript = Transcript::new(b"scalar_product_test");
+    let prove_result = catch_unwind(AssertUnwindSafe(|| {
+        scalar_product_prove(&mut messages, &mut transcript, &prover_state);
+    }));
+    assert!(prove_result.is_err());
+
+    let mut verify_transcript = Transcript::new(b"scalar_product_test");
+    let verify_result = catch_unwind(AssertUnwindSafe(|| {
+        scalar_product_verify(
+            &mut messages,
+            &mut verify_transcript,
+            verifier_state,
+            &verifier_setup,
+        );
+    }));
+    assert!(verify_result.is_err());
 }
