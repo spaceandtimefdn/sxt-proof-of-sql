@@ -705,7 +705,15 @@ mod tests {
         }
 
         assert!(ColumnType::TinyInt.is_signed());
-        assert!(ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()).is_signed());
+        for time_unit in [
+            PoSQLTimeUnit::Second,
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeUnit::Microsecond,
+            PoSQLTimeUnit::Nanosecond,
+        ] {
+            assert!(ColumnType::TimestampTZ(time_unit, PoSQLTimeZone::utc()).is_signed());
+            assert!(ColumnType::TimestampTZ(time_unit, PoSQLTimeZone::new(1)).is_signed());
+        }
         assert!(!ColumnType::Uint8.is_signed());
     }
 

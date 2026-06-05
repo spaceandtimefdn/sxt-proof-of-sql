@@ -189,6 +189,7 @@ mod tests {
             .to_string(),
             "Cannot fit VARCHAR into INT without losing data"
         );
+        assert_eq!(ColumnType::Int128.to_string(), "DECIMAL");
         assert_eq!(
             ColumnOperationError::ScaleCastingError {
                 left_type: ColumnType::Int128,
