@@ -177,7 +177,10 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             OwnedColumn::Scalar(col) => Column::Scalar(col.as_slice()),
             OwnedColumn::VarChar(col) => {
-                let scalars = col.iter().map(|s| S::from_str_via_hash(s)).collect::<Vec<_>>();
+                let scalars = col
+                    .iter()
+                    .map(|s| S::from_str_via_hash(s))
+                    .collect::<Vec<_>>();
                 let strs = col
                     .iter()
                     .map(|s| s.as_str() as &'a str)
@@ -460,7 +463,10 @@ mod tests {
             "Spațiu și Timp",
             "Spazju u Ħin",
         ];
-        let scalars = strs.iter().map(TestScalar::from).collect::<Vec<_>>();
+        let scalars = strs
+            .iter()
+            .map(|s| TestScalar::from_str_via_hash(s))
+            .collect::<Vec<_>>();
         let owned_col = OwnedColumn::VarChar(
             strs.iter()
                 .map(ToString::to_string)

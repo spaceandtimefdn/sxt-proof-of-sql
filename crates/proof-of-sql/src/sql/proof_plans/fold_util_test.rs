@@ -1,6 +1,6 @@
 use super::{fold_columns, fold_vals};
 use crate::{
-    base::{database::Column, math::decimal::Precision},
+    base::{database::Column, math::decimal::Precision, scalar::Scalar},
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
 use bumpalo::Bump;
