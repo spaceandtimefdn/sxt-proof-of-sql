@@ -30,3 +30,19 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tracing::dispatcher::{with_default, Dispatch};
+
+    #[test]
+    fn we_can_log_memory_usage_when_trace_is_enabled() {
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(Level::TRACE)
+            .finish();
+        let dispatch = Dispatch::new(subscriber);
+
+        with_default(&dispatch, || log_memory_usage("test"));
+    }
+}

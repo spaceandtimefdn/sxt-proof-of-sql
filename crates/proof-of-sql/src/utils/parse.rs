@@ -92,4 +92,26 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn we_ignore_non_create_table_statements_when_finding_bigdecimals() {
+        let sql = "
+            SELECT CAST(1 AS DECIMAL(78, 0));
+
+            CREATE TABLE IF NOT EXISTS ETHEREUM.BLOCKS(
+                BLOCK_NUMBER BIGINT NOT NULL,
+                REWARD DECIMAL(78, 0),
+                BASE_FEE_PER_GAS DECIMAL(38, 0),
+                PRIMARY KEY(BLOCK_NUMBER)
+            );
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.BLOCKS").unwrap(),
+            &[("REWARD".to_string(), 78, 0)]
+        );
+    }
 }
