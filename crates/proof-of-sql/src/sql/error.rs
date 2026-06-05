@@ -81,6 +81,15 @@ mod tests {
         let message: String = AnalyzeError::NotEnoughInputPlans.into();
 
         assert_eq!(message, "Not enough input plans");
+
+        let nested_message: String = AnalyzeError::DecimalConversionError {
+            source: DecimalError::IntermediateDecimalConversionError {
+                source: IntermediateDecimalError::LossyCast,
+            },
+        }
+        .into();
+
+        assert_eq!(nested_message, "Fractional part of decimal is non-zero");
     }
 
     #[test]
