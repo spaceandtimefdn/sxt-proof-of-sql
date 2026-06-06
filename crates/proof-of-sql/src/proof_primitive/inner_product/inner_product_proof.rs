@@ -88,9 +88,15 @@ impl CommitmentEvaluationProof for InnerProductProof {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::commitment::commitment_evaluation_proof_test::{
-        test_commitment_evaluation_proof_with_length_1, test_random_commitment_evaluation_proof,
-        test_simple_commitment_evaluation_proof,
+    use crate::base::{
+        commitment::{
+            commitment_evaluation_proof_test::{
+                test_commitment_evaluation_proof_with_length_1,
+                test_random_commitment_evaluation_proof, test_simple_commitment_evaluation_proof,
+            },
+            VecCommitmentExt,
+        },
+        database::Column,
     };
 
     #[test]
@@ -101,6 +107,78 @@ mod tests {
     #[test]
     fn test_random_ipa_with_length_1() {
         test_commitment_evaluation_proof_with_length_1::<InnerProductProof>(&(), &());
+    }
+
+    #[test]
+    fn we_can_verify_a_batched_ipa_with_multiple_commitments() {
+        let b_point = [MontScalar::from(3u64), MontScalar::from(7u64)];
+        let column_1 = [
+            MontScalar::from(2u64),
+            MontScalar::from(5u64),
+            MontScalar::from(8u64),
+            MontScalar::from(11u64),
+        ];
+        let column_2 = [
+            MontScalar::from(13u64),
+            MontScalar::from(17u64),
+            MontScalar::from(19u64),
+            MontScalar::from(23u64),
+        ];
+        let batching_factors = [MontScalar::from(29u64), MontScalar::from(31u64)];
+
+        let mut folded_column = vec![MontScalar::default(); column_1.len()];
+        for ((folded, &left), &right) in folded_column.iter_mut().zip(&column_1).zip(&column_2) {
+            *folded = left * batching_factors[0] + right * batching_factors[1];
+        }
+
+        let mut transcript = merlin::Transcript::new(b"evaluation_proof");
+        let proof = InnerProductProof::new(&mut transcript, &folded_column, &b_point, 0, &());
+
+        let commits = Vec::from_columns_with_offset(
+            [Column::Scalar(&column_1), Column::Scalar(&column_2)],
+            0,
+            &(),
+        );
+
+        let mut evaluation_vector = vec![MontScalar::default(); column_1.len()];
+        crate::base::polynomial::compute_evaluation_vector(&mut evaluation_vector, &b_point);
+        let evaluations = [column_1, column_2].map(|column| {
+            column
+                .iter()
+                .zip(&evaluation_vector)
+                .map(|(&a, &b)| a * b)
+                .sum()
+        });
+
+        let mut transcript = merlin::Transcript::new(b"evaluation_proof");
+        assert!(proof
+            .verify_batched_proof(
+                &mut transcript,
+                &commits,
+                &batching_factors,
+                &evaluations,
+                &b_point,
+                0,
+                column_1.len(),
+                &(),
+            )
+            .is_ok());
+
+        let mut bad_evaluations = evaluations;
+        bad_evaluations[1] += MontScalar::ONE;
+        let mut transcript = merlin::Transcript::new(b"evaluation_proof");
+        assert!(proof
+            .verify_batched_proof(
+                &mut transcript,
+                &commits,
+                &batching_factors,
+                &bad_evaluations,
+                &b_point,
+                0,
+                column_1.len(),
+                &(),
+            )
+            .is_err());
     }
 
     #[test]
