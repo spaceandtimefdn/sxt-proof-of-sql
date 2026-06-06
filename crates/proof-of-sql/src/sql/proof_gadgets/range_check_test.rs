@@ -181,7 +181,7 @@ impl ProofPlan for RangeCheckTestPlan {
 mod no_blitzar_tests {
     use super::*;
     use crate::base::{
-        database::table_utility::*,
+        database::{table_utility::*, Column},
         map::indexset,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
@@ -310,7 +310,7 @@ mod no_blitzar_tests {
     fn range_check_plan_rejects_unsupported_column_types_without_blitzar() {
         let alloc = Bump::new();
         let table_ref = TableRef::new("sxt", "range_table");
-        let column = borrowed_boolean("flag", [false, true], &alloc);
+        let column = borrowed_boolean::<TestScalar>("flag", [false, true], &alloc);
         let column_id = column.0.clone();
         let table = table([column]);
         let mut table_map = IndexMap::default();
