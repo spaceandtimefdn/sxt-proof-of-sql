@@ -71,3 +71,71 @@ pub trait CommitmentEvaluationProof {
         setup: &Self::VerifierPublicSetup<'_>,
     ) -> Result<(), Self::Error>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        commitment::naive_commitment::NaiveCommitment,
+        proof::Keccak256Transcript,
+        scalar::{test_scalar::TestScalar, Scalar},
+    };
+
+    struct DelegatingProof;
+
+    impl CommitmentEvaluationProof for DelegatingProof {
+        type Scalar = TestScalar;
+        type Commitment = NaiveCommitment;
+        type Error = &'static str;
+        type ProverPublicSetup<'a> = ();
+        type VerifierPublicSetup<'a> = ();
+
+        fn new(
+            _transcript: &mut impl Transcript,
+            _a: &[Self::Scalar],
+            _b_point: &[Self::Scalar],
+            _generators_offset: u64,
+            _setup: &Self::ProverPublicSetup<'_>,
+        ) -> Self {
+            Self
+        }
+
+        fn verify_batched_proof(
+            &self,
+            _transcript: &mut impl Transcript,
+            commit_batch: &[Self::Commitment],
+            batching_factors: &[Self::Scalar],
+            evaluations: &[Self::Scalar],
+            b_point: &[Self::Scalar],
+            generators_offset: u64,
+            table_length: usize,
+            _setup: &Self::VerifierPublicSetup<'_>,
+        ) -> Result<(), Self::Error> {
+            assert_eq!(commit_batch, [NaiveCommitment(vec![TestScalar::from(7)])]);
+            assert_eq!(batching_factors, [TestScalar::ONE]);
+            assert_eq!(evaluations, [TestScalar::from(11)]);
+            assert_eq!(b_point, [TestScalar::from(13), TestScalar::from(17)]);
+            assert_eq!(generators_offset, 19);
+            assert_eq!(table_length, 23);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn verify_proof_delegates_to_batched_verification() {
+        let proof = DelegatingProof;
+        let mut transcript = Keccak256Transcript::new();
+
+        let result = proof.verify_proof(
+            &mut transcript,
+            &NaiveCommitment(vec![TestScalar::from(7)]),
+            &TestScalar::from(11),
+            &[TestScalar::from(13), TestScalar::from(17)],
+            19,
+            23,
+            &(),
+        );
+
+        assert!(result.is_ok());
+    }
+}
