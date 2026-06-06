@@ -29,3 +29,46 @@ pub enum AppendRecordBatchTableCommitmentError {
         source: RecordBatchToColumnsError,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow::datatypes::DataType;
+
+    #[test]
+    fn we_can_display_record_batch_to_columns_source_errors() {
+        let error = RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+            source: ArrowArrayToColumnConversionError::UnsupportedType {
+                datatype: DataType::Float64,
+            },
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "unsupported type: attempted conversion from ArrayRef of type Float64 to OwnedColumn"
+        );
+    }
+
+    #[test]
+    fn we_can_display_append_record_batch_commitment_mismatch_errors() {
+        let error = AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+            source: ColumnCommitmentsMismatch::NumColumns,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "commitments with different column counts cannot operate with each other"
+        );
+    }
+
+    #[test]
+    fn we_can_display_append_record_batch_column_conversion_errors() {
+        let error = AppendRecordBatchTableCommitmentError::ArrowBatchToColumnError {
+            source: RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                source: ArrowArrayToColumnConversionError::ArrayContainsNulls,
+            },
+        };
+
+        assert_eq!(error.to_string(), "arrow array must not contain nulls");
+    }
+}
