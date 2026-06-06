@@ -90,6 +90,83 @@ where
     column_commitments: ColumnCommitments<C>,
 }
 
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+
+    #[test]
+    fn we_can_display_table_commitment_construction_errors() {
+        assert_eq!(
+            NegativeRange.to_string(),
+            "cannot create a TableCommitment with a negative range"
+        );
+        assert_eq!(
+            MixedLengthColumns.to_string(),
+            "cannot create a TableCommitment from columns of mixed length"
+        );
+    }
+
+    #[test]
+    fn we_can_display_table_commitment_from_columns_source_errors() {
+        let mixed_length_error = TableCommitmentFromColumnsError::MixedLengthColumns {
+            source: MixedLengthColumns,
+        };
+
+        assert_eq!(
+            mixed_length_error.to_string(),
+            "cannot create a TableCommitment from columns of mixed length"
+        );
+    }
+
+    #[test]
+    fn we_can_display_append_table_commitment_source_errors() {
+        let mixed_length_error = AppendTableCommitmentError::MixedLengthColumns {
+            source: MixedLengthColumns,
+        };
+        let append_columns_error = AppendTableCommitmentError::AppendColumnCommitments {
+            source: AppendColumnCommitmentsError::Mismatch {
+                source: ColumnCommitmentsMismatch::NumColumns,
+            },
+        };
+
+        assert_eq!(
+            mixed_length_error.to_string(),
+            "cannot create a TableCommitment from columns of mixed length"
+        );
+        assert_eq!(
+            append_columns_error.to_string(),
+            "commitments with different column counts cannot operate with each other"
+        );
+    }
+
+    #[test]
+    fn we_can_display_table_commitment_arithmetic_errors() {
+        let column_mismatch_error = TableCommitmentArithmeticError::ColumnMismatch {
+            source: ColumnCommitmentsMismatch::Ident {
+                id_a: "left".into(),
+                id_b: "right".into(),
+            },
+        };
+        let negative_range_error = TableCommitmentArithmeticError::NegativeRange {
+            source: NegativeRange,
+        };
+        let noncontiguous_error = TableCommitmentArithmeticError::NonContiguous;
+
+        assert_eq!(
+            column_mismatch_error.to_string(),
+            "column with ident left cannot operate with column with ident right"
+        );
+        assert_eq!(
+            negative_range_error.to_string(),
+            "cannot create a TableCommitment with a negative range"
+        );
+        assert_eq!(
+            noncontiguous_error.to_string(),
+            "cannot perform table commitment arithmetic for noncontiguous table commitments"
+        );
+    }
+}
+
 impl<C: Commitment> TableCommitment<C> {
     /// Create a new [`TableCommitment`] for a table from a commitment accessor.
     #[expect(
