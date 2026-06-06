@@ -104,14 +104,25 @@ mod tests {
                 BASE_FEE_PER_GAS DECIMAL(38, 0),
                 PRIMARY KEY(BLOCK_NUMBER)
             );
+
+            CREATE TABLE IF NOT EXISTS ETHEREUM.RECEIPTS(
+                TRANSACTION_HASH VARCHAR NOT NULL,
+                EFFECTIVE_GAS_PRICE DECIMAL(39, 2),
+                GAS_USED DECIMAL(38, 0),
+                PRIMARY KEY(TRANSACTION_HASH)
+            );
         ";
 
         let bigdecimals = find_bigdecimals(sql);
 
-        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(bigdecimals.len(), 2);
         assert_eq!(
             bigdecimals.get("ETHEREUM.BLOCKS").unwrap(),
             &[("REWARD".to_string(), 78, 0)]
+        );
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.RECEIPTS").unwrap(),
+            &[("EFFECTIVE_GAS_PRICE".to_string(), 39, 2)]
         );
     }
 }
