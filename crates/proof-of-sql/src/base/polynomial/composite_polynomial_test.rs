@@ -30,7 +30,9 @@ impl Subscriber for ProductTraceSubscriber {
         if event.metadata().level() == &tracing::Level::INFO {
             let mut visitor = MessageVisitor::default();
             event.record(&mut visitor);
-            self.events.lock().unwrap().push(visitor.message);
+            if visitor.message.starts_with("Product #") {
+                self.events.lock().unwrap().push(visitor.message);
+            }
         }
     }
 
@@ -135,6 +137,12 @@ fn test_composite_polynomial_annotate_trace_logs_each_product() {
 
     let events = events.lock().unwrap();
     assert_eq!(events.len(), 2);
-    assert!(events[0].contains("Product #0"));
-    assert!(events[1].contains("Product #1"));
+    assert_eq!(
+        events[0],
+        format!("Product #0: {:#} * [0, 1]", TestScalar::from(7u32))
+    );
+    assert_eq!(
+        events[1],
+        format!("Product #1: {:#} * [2]", TestScalar::from(11u32))
+    );
 }
