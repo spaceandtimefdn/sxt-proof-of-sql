@@ -192,6 +192,24 @@ fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_0_va
         TestScalar::from(0u32)
     );
 }
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn compute_truncated_lagrange_basis_inner_product_panics_when_points_have_different_lengths() {
+    let a = vec![TestScalar::from(2u8)];
+    let b = vec![TestScalar::from(3u8), TestScalar::from(5u8)];
+    compute_truncated_lagrange_basis_inner_product(1, &a, &b);
+}
+
+#[test]
+#[should_panic(expected = "assertion failed: part_length <= 1")]
+fn compute_truncated_lagrange_basis_inner_product_panics_when_length_exceeds_zero_variable_domain()
+{
+    let a: Vec<TestScalar> = vec![];
+    let b: Vec<TestScalar> = vec![];
+    compute_truncated_lagrange_basis_inner_product(2, &a, &b);
+}
+
 #[test]
 fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_1_variables() {
     let a = vec![TestScalar::from(2u8)];
