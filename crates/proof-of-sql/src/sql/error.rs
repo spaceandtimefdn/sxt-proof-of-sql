@@ -71,3 +71,113 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invalid_data_type_error() {
+        let error = AnalyzeError::InvalidDataType {
+            expr_type: ColumnType::BigInt,
+        };
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("BigInt"));
+        assert!(error_msg.contains("not valid"));
+    }
+
+    #[test]
+    fn test_data_type_mismatch_error() {
+        let error = AnalyzeError::DataTypeMismatch {
+            left_type: "Integer".to_string(),
+            right_type: "String".to_string(),
+        };
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("Integer"));
+        assert!(error_msg.contains("String"));
+    }
+
+    #[test]
+    fn test_different_column_length_error() {
+        let error = AnalyzeError::DifferentColumnLength {
+            len_a: 10,
+            len_b: 5,
+        };
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("10"));
+        assert!(error_msg.contains("5"));
+    }
+
+    #[test]
+    fn test_not_enough_input_plans_error() {
+        let error = AnalyzeError::NotEnoughInputPlans;
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("Not enough input plans"));
+    }
+
+    #[test]
+    fn test_error_to_string_conversion() {
+        let error = AnalyzeError::DataTypeMismatch {
+            left_type: "Int".to_string(),
+            right_type: "Float".to_string(),
+        };
+        let s: String = error.into();
+        assert!(s.contains("Int"));
+        assert!(s.contains("Float"));
+    }
+
+    #[test]
+    fn test_from_intermediate_decimal_error() {
+        let intermediate_error = IntermediateDecimalError::LossyCast {
+            from: "1.5",
+            to: "Integer",
+        };
+        let analyze_error: AnalyzeError = intermediate_error.into();
+        match analyze_error {
+            AnalyzeError::DecimalConversionError { source } => match source {
+                DecimalError::IntermediateDecimalConversionError { .. } => {}
+                _ => panic!("Expected IntermediateDecimalConversionError"),
+            },
+            _ => panic!("Expected DecimalConversionError"),
+        }
+    }
+
+    #[test]
+    fn test_analyze_result_ok() {
+        let result: AnalyzeResult<i32> = Ok(42);
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[test]
+    fn test_analyze_result_err() {
+        let result: AnalyzeResult<i32> = Err(AnalyzeError::NotEnoughInputPlans);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_equality() {
+        let error1 = AnalyzeError::NotEnoughInputPlans;
+        let error2 = AnalyzeError::NotEnoughInputPlans;
+        assert_eq!(error1, error2);
+
+        let error3 = AnalyzeError::DifferentColumnLength {
+            len_a: 5,
+            len_b: 10,
+        };
+        let error4 = AnalyzeError::DifferentColumnLength {
+            len_a: 5,
+            len_b: 10,
+        };
+        assert_eq!(error3, error4);
+    }
+
+    #[test]
+    fn test_error_inequality() {
+        let error1 = AnalyzeError::NotEnoughInputPlans;
+        let error2 = AnalyzeError::DifferentColumnLength {
+            len_a: 5,
+            len_b: 10,
+        };
+        assert_ne!(error1, error2);
+    }
+}
