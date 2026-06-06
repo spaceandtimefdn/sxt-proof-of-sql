@@ -1,6 +1,56 @@
 use super::CompositePolynomial;
 use crate::base::scalar::test_scalar::TestScalar;
 use alloc::rc::Rc;
+use std::sync::{Arc, Mutex};
+use tracing::{
+    field::{Field, Visit},
+    span::{Attributes, Id, Record},
+    Event, Metadata, Subscriber,
+};
+
+#[derive(Default)]
+struct ProductTraceSubscriber {
+    events: Arc<Mutex<Vec<String>>>,
+}
+
+impl Subscriber for ProductTraceSubscriber {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        metadata.target() == "proof_of_sql::base::polynomial::composite_polynomial"
+    }
+
+    fn new_span(&self, _: &Attributes<'_>) -> Id {
+        Id::from_u64(1)
+    }
+
+    fn record(&self, _: &Id, _: &Record<'_>) {}
+
+    fn record_follows_from(&self, _: &Id, _: &Id) {}
+
+    fn event(&self, event: &Event<'_>) {
+        if event.metadata().level() == &tracing::Level::INFO {
+            let mut visitor = MessageVisitor::default();
+            event.record(&mut visitor);
+            self.events.lock().unwrap().push(visitor.message);
+        }
+    }
+
+    fn enter(&self, _: &Id) {}
+
+    fn exit(&self, _: &Id) {}
+}
+
+#[derive(Default)]
+struct MessageVisitor {
+    message: String,
+}
+
+impl Visit for MessageVisitor {
+    fn record_debug(&mut self, field: &Field, value: &dyn core::fmt::Debug) {
+        if field.name() == "message" {
+            self.message = format!("{value:?}");
+        }
+    }
+}
 
 #[test]
 fn test_composite_polynomial_evaluation() {
@@ -68,4 +118,23 @@ fn test_composite_polynomial_hypercube_sum() {
         sum,
         TestScalar::from(3 * ((-7) * 2 + 2 * (-8) + (-6) * 4 + 17 * 1) + 2 * (1 + 3 + (-5) + (-9)))
     );
+}
+
+#[test]
+fn test_composite_polynomial_annotate_trace_logs_each_product() {
+    let a = Rc::new(vec![TestScalar::from(1u32), TestScalar::from(2u32)]);
+    let b = Rc::new(vec![TestScalar::from(3u32), TestScalar::from(4u32)]);
+    let c = Rc::new(vec![TestScalar::from(5u32), TestScalar::from(6u32)]);
+    let mut prod = CompositePolynomial::new(1);
+    prod.add_product([a, b], TestScalar::from(7u32));
+    prod.add_product([c], TestScalar::from(11u32));
+
+    let subscriber = ProductTraceSubscriber::default();
+    let events = Arc::clone(&subscriber.events);
+    tracing::subscriber::with_default(subscriber, || prod.annotate_trace());
+
+    let events = events.lock().unwrap();
+    assert_eq!(events.len(), 2);
+    assert!(events[0].contains("Product #0"));
+    assert!(events[1].contains("Product #1"));
 }
