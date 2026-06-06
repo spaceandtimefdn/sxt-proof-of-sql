@@ -5,8 +5,7 @@ use super::range_check::{
 use crate::{
     base::{
         database::{
-            ColumnField, ColumnRef, ColumnType, LiteralValue, OwnedTable, Table, TableEvaluation,
-            TableRef,
+            ColumnField, ColumnRef, ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
@@ -178,12 +177,161 @@ impl ProofPlan for RangeCheckTestPlan {
     }
 }
 
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::*;
+    use crate::base::{
+        database::table_utility::*,
+        map::indexset,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, Scalar},
+    };
+    use alloc::{collections::VecDeque, vec};
+
+    fn run_range_check_plan_for_column<'a>(
+        alloc: &'a Bump,
+        column: (Ident, Column<'a, TestScalar>),
+        column_type: ColumnType,
+    ) {
+        let table_ref = TableRef::new("sxt", "range_table");
+        let column_id = column.0.clone();
+        let table = table([column]);
+        let mut table_map = IndexMap::default();
+        table_map.insert(table_ref.clone(), table.clone());
+        let plan = RangeCheckTestPlan {
+            column: ColumnRef::new(table_ref, column_id, column_type),
+        };
+
+        let mut first_round_builder = FirstRoundBuilder::new(1);
+        let first_round_table = plan
+            .first_round_evaluate(&mut first_round_builder, alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(first_round_table, table);
+        assert_eq!(first_round_builder.range_length(), 256);
+        assert_eq!(first_round_builder.chi_evaluation_lengths(), &[256]);
+        assert_eq!(first_round_builder.pcs_proof_mles().len(), 31);
+
+        let mut post_result_challenges = VecDeque::new();
+        post_result_challenges.push_back(TestScalar::from(7u64));
+        let mut final_round_builder = FinalRoundBuilder::new(8, post_result_challenges);
+        let final_round_table = plan
+            .final_round_evaluate(&mut final_round_builder, alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(final_round_table, table);
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 33);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 33);
+    }
+
+    #[test]
+    fn we_can_exercise_range_check_plan_without_blitzar_for_supported_column_types() {
+        let alloc = Bump::new();
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_uint8("uint8", [0_u8, 1, u8::MAX], &alloc),
+            ColumnType::Uint8,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_tinyint("tinyint", [0_i8, 1, i8::MAX], &alloc),
+            ColumnType::TinyInt,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_smallint("smallint", [0_i16, 1, i16::MAX], &alloc),
+            ColumnType::SmallInt,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_int("int", [0_i32, 1, i32::MAX], &alloc),
+            ColumnType::Int,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_bigint("bigint", [0_i64, 1, i64::MAX], &alloc),
+            ColumnType::BigInt,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_int128("int128", [0_i128, 1, i128::MAX], &alloc),
+            ColumnType::Int128,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_scalar(
+                "scalar",
+                [TestScalar::ZERO, TestScalar::ONE, TestScalar::from(2u64)],
+                &alloc,
+            ),
+            ColumnType::Scalar,
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_decimal75(
+                "decimal75",
+                74,
+                0,
+                [TestScalar::ZERO, TestScalar::ONE, TestScalar::from(2u64)],
+                &alloc,
+            ),
+            ColumnType::Decimal75(Precision::new(74).unwrap(), 0),
+        );
+        run_range_check_plan_for_column(
+            &alloc,
+            borrowed_timestamptz(
+                "time",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                [0_i64, 1, i64::MAX],
+                &alloc,
+            ),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        );
+    }
+
+    #[test]
+    fn range_check_plan_reports_metadata_without_blitzar() {
+        let table_ref = TableRef::new("sxt", "range_table");
+        let column = ColumnRef::new(table_ref.clone(), "value".into(), ColumnType::BigInt);
+        let plan = RangeCheckTestPlan {
+            column: column.clone(),
+        };
+
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![ColumnField::new("value".into(), ColumnType::BigInt)]
+        );
+        assert_eq!(plan.get_column_references(), indexset! {column});
+        assert_eq!(plan.get_table_references(), indexset! {table_ref});
+    }
+
+    #[test]
+    #[should_panic(expected = "Unsupported column type in handle_column_with_match")]
+    fn range_check_plan_rejects_unsupported_column_types_without_blitzar() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "range_table");
+        let column = borrowed_boolean("flag", [false, true], &alloc);
+        let column_id = column.0.clone();
+        let table = table([column]);
+        let mut table_map = IndexMap::default();
+        table_map.insert(table_ref.clone(), table);
+        let plan = RangeCheckTestPlan {
+            column: ColumnRef::new(table_ref, column_id, ColumnType::Boolean),
+        };
+        let mut first_round_builder = FirstRoundBuilder::new(1);
+
+        let _ = plan.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[]);
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
     use crate::{
         base::{
-            database::{owned_table_utility::*, ColumnRef, ColumnType, OwnedTableTestAccessor},
+            database::{
+                owned_table_utility::*, ColumnRef, ColumnType, OwnedTable, OwnedTableTestAccessor,
+            },
             math::decimal::Precision,
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         },
