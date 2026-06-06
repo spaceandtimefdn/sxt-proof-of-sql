@@ -86,6 +86,27 @@ fn test_create_verify_proof() {
     assert!(subclaim.is_err());
 }
 
+#[test]
+fn malformed_sumcheck_proof_size_is_rejected() {
+    let proof = SumcheckProof {
+        coefficients: vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ],
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+
+    let result = proof.verify_without_evaluation(&mut transcript, 2, &TestScalar::from(10));
+
+    assert!(matches!(
+        result,
+        Err(crate::base::proof::ProofError::VerificationError {
+            error: "invalid proof size"
+        })
+    ));
+}
+
 fn random_product(
     nv: usize,
     num_multiplicands: usize,
