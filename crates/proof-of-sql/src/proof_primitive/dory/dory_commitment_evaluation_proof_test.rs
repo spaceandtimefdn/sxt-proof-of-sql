@@ -1,6 +1,8 @@
 use super::{
     test_rng, DoryEvaluationProof, DoryProverPublicSetup, DoryScalar, DoryVerifierPublicSetup,
     ProverSetup, PublicParameters, VerifierSetup,
+    PROVER_SETUP_4, PROVER_SETUP_6, PUBLIC_PARAMETERS_4, PUBLIC_PARAMETERS_6,
+    VERIFIER_SETUP_4, VERIFIER_SETUP_6,
 };
 use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof};
 use ark_std::UniformRand;
@@ -8,72 +10,74 @@ use merlin::Transcript;
 
 #[test]
 fn test_simple_ipa() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 4),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 4),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_4, 4),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 4),
     );
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 3),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 3),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_4, 3),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 2),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 2),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_6, 2),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_6, 2),
     );
 }
 
 #[test]
 fn test_random_ipa_with_length_1() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 4),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 4),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_4, 4),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 4),
     );
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 3),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 3),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_4, 3),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 2),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 2),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_6, 2),
+        &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_6, 2),
     );
 }
 
 #[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let setup_setup = [(4, 4), (4, 3), (6, 2)];
-    for setup_p in setup_setup {
-        let public_parameters = PublicParameters::test_rand(setup_p.0, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let verifier_setup = VerifierSetup::from(&public_parameters);
-        for length in lengths {
-            test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
-                length,
-                0,
-                &DoryProverPublicSetup::new(&prover_setup, setup_p.1),
-                &DoryVerifierPublicSetup::new(&verifier_setup, setup_p.1),
-            );
-        }
+
+    // Test with nu=4, offset=4
+    for length in lengths {
+        test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
+            length,
+            0,
+            &DoryProverPublicSetup::new(&PROVER_SETUP_4, 4),
+            &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 4),
+        );
+    }
+
+    // Test with nu=4, offset=3
+    for length in lengths {
+        test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
+            length,
+            0,
+            &DoryProverPublicSetup::new(&PROVER_SETUP_4, 3),
+            &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_4, 3),
+        );
+    }
+
+    // Test with nu=6, offset=2
+    for length in lengths {
+        test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
+            length,
+            0,
+            &DoryProverPublicSetup::new(&PROVER_SETUP_6, 2),
+            &DoryVerifierPublicSetup::new(&VERIFIER_SETUP_6, 2),
+        );
     }
 }
 
 #[test]
 fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let mut rng = test_rng();
-    let public_parameters = PublicParameters::test_rand(4, &mut rng);
-    let prover_setup = ProverSetup::from(&public_parameters);
     let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
         .take(30)
         .collect::<Vec<_>>();
@@ -86,7 +90,7 @@ fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
         &a,
         &b_point,
         0,
-        &DoryProverPublicSetup::new(&prover_setup, 3),
+        &DoryProverPublicSetup::new(&PROVER_SETUP_4, 3),
     );
     let encoded = postcard::to_allocvec(&proof).unwrap();
     let decoded: DoryEvaluationProof = postcard::from_bytes(&encoded).unwrap();
