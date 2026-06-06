@@ -141,3 +141,77 @@ impl<'a, S: Scalar + 'a> IntoIterator for &'a OptimizedSumcheckTerms<'a, S> {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn constants_and_multiple_linear_terms_merge_by_type() {
+        let linear_a = vec![TestScalar::from(5), TestScalar::from(7)];
+        let linear_b = vec![TestScalar::from(11), TestScalar::from(13)];
+        let constant_term = vec![];
+        let linear_term_a: SumcheckTerm<'_, TestScalar> = vec![Box::new(&linear_a)];
+        let linear_term_b: SumcheckTerm<'_, TestScalar> = vec![Box::new(&linear_b)];
+
+        let terms = vec![
+            (
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::from(2),
+                &constant_term,
+            ),
+            (
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::from(3),
+                &linear_term_a,
+            ),
+            (
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::from(4),
+                &linear_term_b,
+            ),
+        ];
+        let optimizer = SumcheckTermOptimizer::new(terms.into_iter(), 2);
+        let optimized = optimizer.terms();
+        let optimized_terms: Vec<_> = (&optimized).into_iter().collect();
+
+        assert_eq!(optimized_terms.len(), 1);
+        let (ty, coeff, multiplicands) = optimized_terms[0];
+        assert_eq!(ty, SumcheckSubpolynomialType::ZeroSum);
+        assert_eq!(coeff, TestScalar::ONE);
+        assert_eq!(multiplicands.len(), 1);
+        assert_eq!(
+            multiplicands[0].to_sumcheck_term(1),
+            vec![
+                TestScalar::from(2 + 3 * 5 + 4 * 11),
+                TestScalar::from(2 + 3 * 7 + 4 * 13),
+            ]
+        );
+    }
+
+    #[test]
+    fn single_linear_term_without_constant_is_preserved() {
+        let linear = vec![TestScalar::from(5), TestScalar::from(7)];
+        let linear_term: SumcheckTerm<'_, TestScalar> = vec![Box::new(&linear)];
+        let terms = vec![(
+            SumcheckSubpolynomialType::Identity,
+            TestScalar::from(3),
+            &linear_term,
+        )];
+
+        let optimizer = SumcheckTermOptimizer::new(terms.into_iter(), 2);
+        let optimized = optimizer.terms();
+        let optimized_terms: Vec<_> = (&optimized).into_iter().collect();
+
+        assert_eq!(optimized_terms.len(), 1);
+        let (ty, coeff, multiplicands) = optimized_terms[0];
+        assert_eq!(ty, SumcheckSubpolynomialType::Identity);
+        assert_eq!(coeff, TestScalar::from(3));
+        assert_eq!(multiplicands.len(), 1);
+        assert_eq!(
+            multiplicands[0].to_sumcheck_term(1),
+            vec![TestScalar::from(5), TestScalar::from(7)]
+        );
+    }
+}
