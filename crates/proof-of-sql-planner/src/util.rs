@@ -71,6 +71,9 @@ pub(crate) fn scalar_value_to_literal_value(value: ScalarValue) -> PlannerResult
         ScalarValue::Binary(Some(v)) | ScalarValue::LargeBinary(Some(v)) => {
             Ok(LiteralValue::VarBinary(v))
         }
+        ScalarValue::FixedSizeBinary(size, Some(v)) if (0..=32).contains(&size) => {
+            Ok(LiteralValue::FixedSizeBinary(size, v))
+        }
         ScalarValue::TimestampSecond(Some(v), None) => Ok(LiteralValue::TimeStampTZ(
             PoSQLTimeUnit::Second,
             PoSQLTimeZone::utc(),
@@ -320,6 +323,13 @@ mod tests {
         assert_eq!(
             scalar_value_to_literal_value(value).unwrap(),
             LiteralValue::VarBinary(vec![72, 97, 108, 108, 101, 108, 117, 106, 97, 104])
+        );
+
+        // FixedSizeBinary
+        let value = ScalarValue::FixedSizeBinary(2, Some(vec![1, 2]));
+        assert_eq!(
+            scalar_value_to_literal_value(value).unwrap(),
+            LiteralValue::FixedSizeBinary(2, vec![1, 2])
         );
 
         // TimestampSecond

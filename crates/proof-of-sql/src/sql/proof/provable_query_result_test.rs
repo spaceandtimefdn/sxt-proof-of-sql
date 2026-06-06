@@ -5,13 +5,16 @@ use crate::{
         database::{Column, ColumnField, ColumnType},
         math::decimal::Precision,
         polynomial::compute_evaluation_vector,
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     // proof_primitive::inner_product::TestScalar,
 };
 use alloc::sync::Arc;
 use arrow::{
-    array::{Decimal128Array, Decimal256Array, Int64Array, LargeBinaryArray, StringArray},
+    array::{
+        Decimal128Array, Decimal256Array, FixedSizeBinaryArray, Int64Array, LargeBinaryArray,
+        StringArray,
+    },
     datatypes::{i256, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -49,6 +52,30 @@ fn we_can_evaluate_result_columns_as_mles() {
     let expected_evals = [
         TestScalar::from(10u64) * evaluation_vec[0] - TestScalar::from(12u64) * evaluation_vec[1]
     ];
+    assert_eq!(evals, expected_evals);
+}
+
+#[test]
+fn we_can_evaluate_fixed_size_binary_result_columns_as_mles() {
+    let raw_bytes = [b"ab".as_ref(), b"cd".as_ref()];
+    let scalars: Vec<TestScalar> = raw_bytes
+        .iter()
+        .map(|b| TestScalar::from_fixed_size_binary(b))
+        .collect();
+    let cols: [Column<TestScalar>; 1] = [Column::FixedSizeBinary(
+        2,
+        (raw_bytes.as_slice(), scalars.as_slice()),
+    )];
+    let res = ProvableQueryResult::new(2, &cols);
+    let evaluation_point = [TestScalar::from(10u64), TestScalar::from(100u64)];
+    let mut evaluation_vec = [TestScalar::ZERO; 2];
+    compute_evaluation_vector(&mut evaluation_vec, &evaluation_point);
+
+    let column_fields = vec![ColumnField::new("a".into(), ColumnType::FixedSizeBinary(2))];
+    let evals = res
+        .evaluate(&evaluation_point, 2, &column_fields[..])
+        .unwrap();
+    let expected_evals = [scalars[0] * evaluation_vec[0] + scalars[1] * evaluation_vec[1]];
     assert_eq!(evals, expected_evals);
 }
 
@@ -361,6 +388,43 @@ fn we_can_convert_a_provable_result_to_a_final_result_with_varbinary() {
             b"foo".as_slice(),
             b"bar".as_slice(),
         ]))],
+    )
+    .unwrap();
+
+    assert_eq!(record_batch, expected);
+}
+
+#[test]
+fn we_can_convert_a_provable_result_to_a_final_result_with_fixed_size_binary() {
+    let raw_bytes = [b"foo".as_ref(), b"bar".as_ref()];
+    let scalars: Vec<TestScalar> = raw_bytes
+        .iter()
+        .map(|b| TestScalar::from_fixed_size_binary(b))
+        .collect();
+    let col = Column::FixedSizeBinary(3, (raw_bytes.as_slice(), scalars.as_slice()));
+    let res = ProvableQueryResult::new(2, &[col]);
+    let column_fields = vec![ColumnField::new(
+        "fsb_col".into(),
+        ColumnType::FixedSizeBinary(3),
+    )];
+
+    let record_batch =
+        RecordBatch::try_from(res.to_owned_table::<TestScalar>(&column_fields).unwrap()).unwrap();
+
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "fsb_col",
+        arrow::datatypes::DataType::FixedSizeBinary(3),
+        false,
+    )]));
+    let expected = RecordBatch::try_new(
+        schema,
+        vec![Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                raw_bytes.iter().map(|bytes| Some(*bytes)),
+                3,
+            )
+            .unwrap(),
+        )],
     )
     .unwrap();
 

@@ -22,6 +22,7 @@ impl From<&ColumnType> for DataType {
             }
             ColumnType::VarChar => DataType::Utf8,
             ColumnType::VarBinary => DataType::LargeBinary,
+            ColumnType::FixedSizeBinary(size) => DataType::FixedSizeBinary(*size),
             ColumnType::Scalar => unimplemented!("Cannot convert Scalar type to arrow type"),
             ColumnType::TimestampTZ(timeunit, timezone) => {
                 let arrow_timezone = Some(Arc::from(timezone.to_string()));
@@ -67,6 +68,9 @@ impl TryFrom<DataType> for ColumnType {
             }
             DataType::Utf8 => Ok(ColumnType::VarChar),
             DataType::LargeBinary => Ok(ColumnType::VarBinary),
+            DataType::FixedSizeBinary(size) if (0..=32).contains(&size) => {
+                Ok(ColumnType::FixedSizeBinary(size))
+            }
             _ => Err(format!("Unsupported arrow data type {data_type:?}")),
         }
     }

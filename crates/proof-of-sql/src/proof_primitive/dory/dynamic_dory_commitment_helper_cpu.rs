@@ -83,6 +83,7 @@ fn compute_dory_commitment(
         CommittableColumn::Int128(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::VarChar(column)
         | CommittableColumn::VarBinary(column)
+        | CommittableColumn::FixedSizeBinary(_, column)
         | CommittableColumn::Decimal75(_, _, column) => {
             compute_dory_commitment_impl(column, offset, setup)
         }

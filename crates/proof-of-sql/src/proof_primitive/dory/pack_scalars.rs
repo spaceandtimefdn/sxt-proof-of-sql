@@ -448,7 +448,8 @@ pub fn bit_table_and_scalars_for_packed_msm(
             CommittableColumn::Decimal75(_, _, column)
             | CommittableColumn::Scalar(column)
             | CommittableColumn::VarChar(column)
-            | CommittableColumn::VarBinary(column) => {
+            | CommittableColumn::VarBinary(column)
+            | CommittableColumn::FixedSizeBinary(_, column) => {
                 pack_bit(
                     column,
                     &mut packed_scalars,

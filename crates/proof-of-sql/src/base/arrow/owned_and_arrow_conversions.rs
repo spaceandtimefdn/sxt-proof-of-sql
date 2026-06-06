@@ -23,9 +23,10 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, FixedSizeBinaryArray, Int16Array,
+        Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, Schema, SchemaRef, TimeUnit as ArrowTimeUnit},
     error::ArrowError,
@@ -99,6 +100,13 @@ impl<S: Scalar> From<OwnedColumn<S>> for ArrayRef {
             OwnedColumn::VarBinary(col) => Arc::new(LargeBinaryArray::from_iter_values(
                 col.iter().map(Vec::as_slice),
             )),
+            OwnedColumn::FixedSizeBinary(size, col) => Arc::new(
+                FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                    col.iter().map(|bytes| Some(bytes.as_slice())),
+                    size,
+                )
+                .expect("all values must match the fixed binary size"),
+            ),
             OwnedColumn::TimestampTZ(time_unit, _, col) => match time_unit {
                 PoSQLTimeUnit::Second => Arc::new(TimestampSecondArray::from(col)),
                 PoSQLTimeUnit::Millisecond => Arc::new(TimestampMillisecondArray::from(col)),
@@ -239,6 +247,18 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                     .map(|s| s.map(<[u8]>::to_vec).unwrap())
                     .collect(),
             )),
+            DataType::FixedSizeBinary(size) if (0..=32).contains(size) => {
+                Ok(Self::FixedSizeBinary(
+                    *size,
+                    value
+                        .as_any()
+                        .downcast_ref::<FixedSizeBinaryArray>()
+                        .unwrap()
+                        .iter()
+                        .map(|s| s.map(<[u8]>::to_vec).unwrap())
+                        .collect(),
+                ))
+            }
             DataType::Timestamp(time_unit, timezone) => match time_unit {
                 ArrowTimeUnit::Second => {
                     let array = value

@@ -94,7 +94,8 @@ mod tests {
                 CommittableColumn::Decimal75(_, _, vals)
                 | CommittableColumn::Scalar(vals)
                 | CommittableColumn::VarChar(vals)
-                | CommittableColumn::VarBinary(vals) => {
+                | CommittableColumn::VarBinary(vals)
+                | CommittableColumn::FixedSizeBinary(_, vals) => {
                     expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
                 }
             }

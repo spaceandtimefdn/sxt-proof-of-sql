@@ -50,6 +50,8 @@ pub enum LiteralValue {
     /// Binary data literals
     ///  - the backing store is a Vec<u8> for variable length binary data
     VarBinary(Vec<u8>),
+    /// Fixed-size binary data literals
+    FixedSizeBinary(i32, Vec<u8>),
 }
 
 impl LiteralValue {
@@ -65,6 +67,7 @@ impl LiteralValue {
             Self::BigInt(_) => ColumnType::BigInt,
             Self::VarChar(_) => ColumnType::VarChar,
             Self::VarBinary(_) => ColumnType::VarBinary,
+            Self::FixedSizeBinary(size, _) => ColumnType::FixedSizeBinary(*size),
             Self::Int128(_) => ColumnType::Int128,
             Self::Scalar(_) => ColumnType::Scalar,
             Self::Decimal75(precision, scale, _) => ColumnType::Decimal75(*precision, *scale),
@@ -83,6 +86,7 @@ impl LiteralValue {
             Self::BigInt(i) => i.into(),
             Self::VarChar(str) => str.into(),
             Self::VarBinary(bytes) => S::from_byte_slice_via_hash(bytes),
+            Self::FixedSizeBinary(_, bytes) => S::from_fixed_size_binary(bytes),
             Self::Decimal75(_, _, i) => i.into_scalar(),
             Self::Int128(i) => i.into(),
             Self::Scalar(limbs) => (*limbs).into(),
@@ -116,6 +120,7 @@ mod tests {
             LiteralValue::TimeStampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc(), 10),
             LiteralValue::Scalar([1; 4]),
             LiteralValue::VarBinary(vec![1]),
+            LiteralValue::FixedSizeBinary(1, vec![1]),
         ];
         for literal_value in literal_values {
             let column_type = literal_value.column_type();

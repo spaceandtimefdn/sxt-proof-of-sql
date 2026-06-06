@@ -278,6 +278,10 @@ pub fn try_equals_types(lhs: ColumnType, rhs: ColumnType) -> ColumnOperationResu
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
             | (ColumnType::Scalar, _)
+    ) || matches!(
+        (lhs, rhs),
+        (ColumnType::FixedSizeBinary(left_size), ColumnType::FixedSizeBinary(right_size))
+            if left_size == right_size
     ) || (lhs.is_numeric() && rhs.is_numeric() && lhs.scale() == rhs.scale())
         || matches!(
             (lhs, rhs),
@@ -353,6 +357,10 @@ pub fn try_equals_types_with_scaling(
             | (ColumnType::Boolean, ColumnType::Boolean)
             | (_, ColumnType::Scalar)
             | (ColumnType::Scalar, _)
+    ) || matches!(
+        (lhs, rhs),
+        (ColumnType::FixedSizeBinary(left_size), ColumnType::FixedSizeBinary(right_size))
+            if left_size == right_size
     ) || (lhs.is_numeric() && rhs.is_numeric()))
     .then_some(())
     .ok_or(ColumnOperationError::BinaryOperationInvalidColumnType {
@@ -1107,6 +1115,28 @@ mod test {
             Err(ColumnOperationError::DecimalConversionError {
                 source: DecimalError::InvalidScale { .. }
             })
+        ));
+    }
+
+    #[test]
+    fn we_can_compare_matching_fixed_size_binary_types_for_equality() {
+        assert!(try_equals_types(
+            ColumnType::FixedSizeBinary(2),
+            ColumnType::FixedSizeBinary(2)
+        )
+        .is_ok());
+        assert!(try_equals_types_with_scaling(
+            ColumnType::FixedSizeBinary(2),
+            ColumnType::FixedSizeBinary(2)
+        )
+        .is_ok());
+
+        assert!(matches!(
+            try_equals_types(
+                ColumnType::FixedSizeBinary(2),
+                ColumnType::FixedSizeBinary(3)
+            ),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
     }
 
