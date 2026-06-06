@@ -31,3 +31,29 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_field_accessors_return_expected_owned_metadata() {
+        let column_field = ColumnField::new(Ident::new("customer_id"), ColumnType::Int);
+
+        let mut returned_name = column_field.name();
+        returned_name.value = "mutated".into();
+
+        assert_eq!(column_field.name(), Ident::new("customer_id"));
+        assert_eq!(column_field.data_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn column_field_round_trips_through_json() {
+        let column_field = ColumnField::new(Ident::new("region"), ColumnType::VarChar);
+
+        let serialized = serde_json::to_string(&column_field).unwrap();
+        let deserialized: ColumnField = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, column_field);
+    }
+}
