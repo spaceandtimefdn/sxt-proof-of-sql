@@ -179,7 +179,41 @@ impl SchemaAccessor for SchemaAccessorImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::map::indexmap;
+    use crate::base::{
+        database::ColumnField,
+        map::{indexmap, indexset},
+        scalar::test_scalar::TestScalar,
+    };
+
+    struct SampleDataAccessor {
+        table_ref: TableRef,
+        bigint_values: Vec<i64>,
+        bool_values: Vec<bool>,
+        offset: usize,
+    }
+
+    impl MetadataAccessor for SampleDataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.bigint_values.len()
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.offset
+        }
+    }
+
+    impl DataAccessor<TestScalar> for SampleDataAccessor {
+        fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(table_ref, &self.table_ref);
+            match column_id.value.as_str() {
+                "bigint_col" => Column::BigInt(&self.bigint_values),
+                "bool_col" => Column::Boolean(&self.bool_values),
+                _ => panic!("unexpected column id {column_id}"),
+            }
+        }
+    }
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -251,5 +285,50 @@ mod tests {
         let accessor = sample_schema_accessor();
         let not_a_table = TableRef::new("schema", "not_a_table");
         accessor.lookup_schema(&not_a_table);
+    }
+
+    #[test]
+    fn test_data_accessor_get_table_returns_requested_columns_in_order() {
+        let table_ref = TableRef::new("schema", "facts");
+        let accessor = SampleDataAccessor {
+            table_ref: table_ref.clone(),
+            bigint_values: vec![100, 200, 300],
+            bool_values: vec![true, false, true],
+            offset: 7,
+        };
+        let column_ids = indexset! {"bool_col".into(), "bigint_col".into()};
+
+        let table = accessor.get_table(&table_ref, &column_ids);
+
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table.num_columns(), 2);
+        assert_eq!(table["bool_col"], Column::Boolean(&[true, false, true]));
+        assert_eq!(table["bigint_col"], Column::BigInt(&[100, 200, 300]));
+        assert_eq!(
+            table.schema(),
+            vec![
+                ColumnField::new("bool_col".into(), ColumnType::Boolean),
+                ColumnField::new("bigint_col".into(), ColumnType::BigInt),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_data_accessor_get_table_with_no_columns_preserves_row_count() {
+        let table_ref = TableRef::new("schema", "facts");
+        let accessor = SampleDataAccessor {
+            table_ref: table_ref.clone(),
+            bigint_values: vec![100, 200, 300, 400],
+            bool_values: vec![true, false, true, false],
+            offset: 11,
+        };
+        let column_ids = IndexSet::default();
+
+        let table = accessor.get_table(&table_ref, &column_ids);
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), 4);
+        assert_eq!(accessor.get_offset(&table_ref), 11);
     }
 }
