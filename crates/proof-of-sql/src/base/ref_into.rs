@@ -23,3 +23,38 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+    use alloc::{vec, vec::Vec};
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct WrappedU32(u32);
+
+    impl From<&WrappedU32> for u32 {
+        fn from(value: &WrappedU32) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn ref_into_uses_reference_conversion_without_consuming_source() {
+        let wrapped = WrappedU32(42);
+
+        let converted = RefInto::<u32>::ref_into(&wrapped);
+
+        assert_eq!(converted, 42);
+        assert_eq!(wrapped, WrappedU32(42));
+    }
+
+    #[test]
+    fn ref_into_can_be_used_with_iterator_adapters() {
+        let wrapped = [WrappedU32(1), WrappedU32(2), WrappedU32(3)];
+
+        let converted: Vec<_> = wrapped.iter().map(RefInto::<u32>::ref_into).collect();
+
+        assert_eq!(converted, vec![1, 2, 3]);
+        assert_eq!(wrapped[0], WrappedU32(1));
+    }
+}

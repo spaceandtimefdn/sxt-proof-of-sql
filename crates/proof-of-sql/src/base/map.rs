@@ -18,3 +18,45 @@ macro_rules! indexset {
 #[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
+
+#[cfg(test)]
+mod tests {
+    use super::{indexmap, indexset, IndexMap, IndexSet};
+    use alloc::{vec, vec::Vec};
+
+    #[test]
+    fn indexmap_macro_preserves_insertion_order_and_overwrites_duplicates() {
+        let map = indexmap! {
+            "first" => 1,
+            "second" => 2,
+            "first" => 3,
+        };
+
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get("first"), Some(&3));
+        assert_eq!(
+            map.keys().copied().collect::<Vec<_>>(),
+            vec!["first", "second"]
+        );
+    }
+
+    #[test]
+    fn indexset_macro_preserves_insertion_order_and_deduplicates_values() {
+        let set = indexset!["alpha", "beta", "alpha"];
+
+        assert_eq!(set.len(), 2);
+        assert_eq!(
+            set.iter().copied().collect::<Vec<_>>(),
+            vec!["alpha", "beta"]
+        );
+    }
+
+    #[test]
+    fn map_aliases_use_the_same_default_hasher_as_the_macros() {
+        let map: IndexMap<&str, u8> = indexmap! {"one" => 1};
+        let set: IndexSet<&str> = indexset!["one"];
+
+        assert_eq!(map.get("one"), Some(&1));
+        assert!(set.contains("one"));
+    }
+}
