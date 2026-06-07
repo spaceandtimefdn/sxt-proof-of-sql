@@ -5,19 +5,22 @@ use crate::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
-        map::indexmap,
+        map::{indexmap, IndexMap},
+        proof::ProofError,
+        scalar::test_scalar::TestScalar,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
-            exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
-            VerifiableQueryResult,
+            exercise_verification, mock_verification_builder::MockVerificationBuilder, ProofPlan,
+            FirstRoundBuilder, ProvableQueryResult, ProverEvaluate, VerifiableQueryResult,
         },
         proof_exprs::test_utility::*,
     },
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+use sqlparser::ast::Ident;
 
 #[test]
 #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: NotEnoughInputPlans")]
@@ -339,4 +342,44 @@ fn we_can_get_result_from_union_using_first_round_evaluate() {
     ]);
 
     assert_eq!(res, expected);
+}
+
+#[test]
+fn we_get_error_when_verifier_runs_out_of_mle_evaluations_in_union_exec() {
+    let table_a: TableRef = "sxt.a".parse().unwrap();
+    let table_b: TableRef = "sxt.b".parse().unwrap();
+    let plan = union_exec(vec![
+        table_exec(table_a.clone(), vec![column_field("x", ColumnType::BigInt)]),
+        table_exec(table_b.clone(), vec![column_field("x", ColumnType::BigInt)]),
+    ]);
+
+    let mut cols_a: IndexMap<Ident, TestScalar> = IndexMap::default();
+    cols_a.insert(Ident::new("x"), TestScalar::ONE);
+    let mut cols_b: IndexMap<Ident, TestScalar> = IndexMap::default();
+    cols_b.insert(Ident::new("x"), TestScalar::ONE);
+    let mut accessor: IndexMap<TableRef, IndexMap<Ident, TestScalar>> = IndexMap::default();
+    accessor.insert(table_a.clone(), cols_a);
+    accessor.insert(table_b.clone(), cols_b);
+
+    let mut chi_eval_map: IndexMap<TableRef, (TestScalar, usize)> = IndexMap::default();
+    chi_eval_map.insert(table_a, (TestScalar::ONE, 1));
+    chi_eval_map.insert(table_b, (TestScalar::ONE, 1));
+
+    // Provide no first_round_mles so try_consume_first_round_mle_evaluations fails at line 85.
+    // final_round_mles has 2 entries (one per input's fold_log gadget evaluation).
+    // max_multiplicands=3 allows Identity subpolynomials with degree=2 to pass.
+    let mut builder = MockVerificationBuilder::<TestScalar>::new(
+        vec![],
+        3,
+        vec![],
+        vec![vec![TestScalar::ONE], vec![TestScalar::ONE]],
+        vec![TestScalar::ONE, TestScalar::ONE],
+        vec![],
+        vec![],
+    );
+
+    let err = plan
+        .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+        .unwrap_err();
+    assert!(matches!(err, ProofError::ProofSizeMismatch { .. }));
 }
