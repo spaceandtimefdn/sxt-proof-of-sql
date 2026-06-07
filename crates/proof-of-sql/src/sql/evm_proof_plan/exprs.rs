@@ -1651,4 +1651,409 @@ mod tests {
         assert_eq!(evm_literal_exprs_bytes,
             "000000000000000a000000000100000002020000000300030000000400000004000000050000000000000005000000070000000000000001360000000a0000000000000000000000000000000000000000000000000000000000000007000000080a0000000000000000000000000000000000000000000000000000000000000000080000000b000000000000000109000000090000000100000000000000000000000a".to_string());
     }
+
+    // EVMEqualsExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_equals_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let expr = EqualsExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_column(col_b.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMEqualsExpr::try_from_proof_expr(&expr, &indexset! { col_a }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMEqualsExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_equals_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_varchar = ColumnRef::new(table_ref.clone(), "s".into(), ColumnType::VarChar);
+        let col_bigint = ColumnRef::new(table_ref.clone(), "n".into(), ColumnType::BigInt);
+        let evm_equals = EVMEqualsExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_equals
+            .try_into_proof_expr(&indexset! { col_varchar, col_bigint })
+            .is_err());
+    }
+
+    // EVMInequalityExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_inequality_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let expr = InequalityExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(5))),
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            EVMInequalityExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMInequalityExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_inequality_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let expr = InequalityExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_column(col_b.clone())),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            EVMInequalityExpr::try_from_proof_expr(&expr, &indexset! { col_a }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMInequalityExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_inequality_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_bool = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Boolean);
+        let col_int = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let evm_ineq = EVMInequalityExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+            true,
+        );
+        assert!(evm_ineq
+            .try_into_proof_expr(&indexset! { col_bool, col_int })
+            .is_err());
+    }
+
+    // EVMAddExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_add_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let expr = AddExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMAddExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMAddExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_add_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let expr = AddExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_column(col_b.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMAddExpr::try_from_proof_expr(&expr, &indexset! { col_a }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMAddExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_add_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Boolean);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::Boolean);
+        let evm_add = EVMAddExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_add
+            .try_into_proof_expr(&indexset! { col_a, col_b })
+            .is_err());
+    }
+
+    // EVMSubtractExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_subtract_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let expr = SubtractExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMSubtractExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMSubtractExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_subtract_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let expr = SubtractExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_column(col_b.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMSubtractExpr::try_from_proof_expr(&expr, &indexset! { col_a }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMSubtractExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_subtract_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Boolean);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::Boolean);
+        let evm_sub = EVMSubtractExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_sub
+            .try_into_proof_expr(&indexset! { col_a, col_b })
+            .is_err());
+    }
+
+    // EVMMultiplyExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_multiply_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let expr = MultiplyExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(2))),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMMultiplyExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMMultiplyExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_multiply_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let expr = MultiplyExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            Box::new(DynProofExpr::new_column(col_b.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMMultiplyExpr::try_from_proof_expr(&expr, &indexset! { col_a }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMMultiplyExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_multiply_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Boolean);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::Boolean);
+        let evm_mul = EVMMultiplyExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_mul
+            .try_into_proof_expr(&indexset! { col_a, col_b })
+            .is_err());
+    }
+
+    // EVMAndExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_and_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_x = ColumnRef::new(table_ref.clone(), "x".into(), ColumnType::Boolean);
+        let col_y = ColumnRef::new(table_ref.clone(), "y".into(), ColumnType::Boolean);
+        let expr = AndExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_x.clone())),
+            Box::new(DynProofExpr::new_column(col_y.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMAndExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMAndExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_and_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_x = ColumnRef::new(table_ref.clone(), "x".into(), ColumnType::Boolean);
+        let col_y = ColumnRef::new(table_ref.clone(), "y".into(), ColumnType::Boolean);
+        let expr = AndExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_x.clone())),
+            Box::new(DynProofExpr::new_column(col_y.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMAndExpr::try_from_proof_expr(&expr, &indexset! { col_x }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMAndExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_and_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let evm_and = EVMAndExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_and
+            .try_into_proof_expr(&indexset! { col_a, col_b })
+            .is_err());
+    }
+
+    // EVMOrExpr — lhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_or_expr_in_evm_if_lhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_x = ColumnRef::new(table_ref.clone(), "x".into(), ColumnType::Boolean);
+        let col_y = ColumnRef::new(table_ref.clone(), "y".into(), ColumnType::Boolean);
+        let expr = OrExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_x.clone())),
+            Box::new(DynProofExpr::new_column(col_y.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMOrExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMOrExpr — rhs column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_or_expr_in_evm_if_rhs_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_x = ColumnRef::new(table_ref.clone(), "x".into(), ColumnType::Boolean);
+        let col_y = ColumnRef::new(table_ref.clone(), "y".into(), ColumnType::Boolean);
+        let expr = OrExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_x.clone())),
+            Box::new(DynProofExpr::new_column(col_y.clone())),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMOrExpr::try_from_proof_expr(&expr, &indexset! { col_x }),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMOrExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_or_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let col_b = ColumnRef::new(table_ref.clone(), "b".into(), ColumnType::BigInt);
+        let evm_or = EVMOrExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 1 }),
+        );
+        assert!(evm_or
+            .try_into_proof_expr(&indexset! { col_a, col_b })
+            .is_err());
+    }
+
+    // EVMNotExpr — column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_not_expr_in_evm_if_inner_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_flag = ColumnRef::new(table_ref.clone(), "flag".into(), ColumnType::Boolean);
+        let expr =
+            NotExpr::try_new(Box::new(DynProofExpr::new_column(col_flag.clone()))).unwrap();
+        assert_eq!(
+            EVMNotExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMNotExpr — incompatible type causes try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_not_expr_from_evm_if_type_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let evm_not =
+            EVMNotExpr::new(EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }));
+        assert!(evm_not.try_into_proof_expr(&indexset! { col_a }).is_err());
+    }
+
+    // EVMCastExpr — column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_cast_expr_in_evm_if_inner_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Int);
+        let expr =
+            CastExpr::try_new(Box::new(DynProofExpr::new_column(col_a.clone())), ColumnType::BigInt)
+                .unwrap();
+        assert_eq!(
+            EVMCastExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMCastExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_cast_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+        let evm_cast = EVMCastExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            ColumnType::Boolean,
+        );
+        assert!(evm_cast.try_into_proof_expr(&indexset! { col_a }).is_err());
+    }
+
+    // EVMScalingCastExpr — column not found in try_from_proof_expr
+    #[test]
+    fn we_cannot_build_scaling_cast_expr_in_evm_if_inner_column_not_found() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Int);
+        let expr = ScalingCastExpr::try_new(
+            Box::new(DynProofExpr::new_column(col_a.clone())),
+            ColumnType::Decimal75(Precision::new(15).unwrap(), 2),
+        )
+        .unwrap();
+        assert_eq!(
+            EVMScalingCastExpr::try_from_proof_expr(&expr, &indexset! {}),
+            Err(EVMProofPlanError::ColumnNotFound)
+        );
+    }
+
+    // EVMScalingCastExpr — incompatible types cause try_new to fail in try_into_proof_expr
+    #[test]
+    fn we_cannot_convert_scaling_cast_expr_from_evm_if_types_incompatible() {
+        let table_ref = TableRef::try_from("namespace.table").unwrap();
+        let col_a = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::Boolean);
+        let evm_scaling = EVMScalingCastExpr::new(
+            EVMDynProofExpr::Column(EVMColumnExpr { column_number: 0 }),
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            [0, 0, 0, 100],
+        );
+        assert!(evm_scaling
+            .try_into_proof_expr(&indexset! { col_a })
+            .is_err());
+    }
 }
