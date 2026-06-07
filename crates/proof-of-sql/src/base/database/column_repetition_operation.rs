@@ -153,7 +153,10 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -267,5 +270,25 @@ mod tests {
             .collect();
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_repetition_op_timestamptz_preserves_metadata() {
+        let bump = Bump::new();
+        let time_unit = PoSQLTimeUnit::Nanosecond;
+        let timezone = PoSQLTimeZone::new(-18_000);
+        let column: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[10, 20, 30]);
+
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, timezone, &[10, 20, 30, 10, 20, 30])
+        );
+
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, timezone, &[10, 10, 20, 20, 30, 30])
+        );
     }
 }
