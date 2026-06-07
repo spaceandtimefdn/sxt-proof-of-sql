@@ -109,3 +109,51 @@ impl<T: MontConfig<4>> ZigZag<MontScalar<T>> for U256 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    #[test]
+    fn we_can_zigzag_encode_positive_scalars_as_even_u256_values() {
+        for (scalar, expected_low) in [
+            (TestScalar::from(0_i64), 0_u128),
+            (TestScalar::from(1_i64), 2),
+            (TestScalar::from(42_i64), 84),
+        ] {
+            let encoded = scalar.zigzag();
+            assert!(encoded == U256::from_words(expected_low, 0));
+        }
+    }
+
+    #[test]
+    fn we_can_zigzag_encode_negative_scalars_as_odd_u256_values() {
+        for (scalar, expected_low) in [
+            (TestScalar::from(-1_i64), 1_u128),
+            (TestScalar::from(-2_i64), 3),
+            (TestScalar::from(-42_i64), 83),
+        ] {
+            let encoded = scalar.zigzag();
+            assert!(encoded == U256::from_words(expected_low, 0));
+        }
+    }
+
+    #[test]
+    fn we_can_roundtrip_zigzag_scalars_through_u256() {
+        let values = vec![
+            TestScalar::from(-123_i64),
+            TestScalar::from(-1_i64),
+            TestScalar::from(0_i64),
+            TestScalar::from(1_i64),
+            TestScalar::from(123_i64),
+        ];
+
+        for value in values {
+            let encoded: U256 = value.zigzag();
+            let decoded: TestScalar = encoded.zigzag();
+            assert_eq!(decoded, value);
+        }
+    }
+}
