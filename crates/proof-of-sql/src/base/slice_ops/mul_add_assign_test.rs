@@ -54,3 +54,23 @@ fn test_mul_add_assign_testscalar_uneven() {
     let c = [1 + 10 * 2, 2 + 10 * 3, 3].map(TestScalar::from).to_vec();
     assert_eq!(a, c);
 }
+
+#[test]
+fn test_mul_add_assign_with_empty_values_to_add_leaves_result_unchanged() {
+    let mut a = [1, 2, 3].map(TestScalar::from).to_vec();
+    let b: Vec<TestScalar> = Vec::new();
+
+    mul_add_assign(&mut a, TestScalar::from(10u64), &b);
+
+    assert_eq!(a, [1, 2, 3].map(TestScalar::from).to_vec());
+}
+
+#[test]
+fn test_mul_add_assign_with_empty_result_and_empty_values_to_add() {
+    let mut a: Vec<TestScalar> = Vec::new();
+    let b: Vec<TestScalar> = Vec::new();
+
+    mul_add_assign(&mut a, TestScalar::from(10u64), &b);
+
+    assert!(a.is_empty());
+}
