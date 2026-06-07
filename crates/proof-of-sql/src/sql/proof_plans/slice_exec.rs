@@ -247,3 +247,65 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SliceExec;
+    use crate::{
+        base::{database::TableRef, map::indexmap, scalar::test_scalar::TestScalar},
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, ProofPlan},
+            proof_plans::DynProofPlan,
+        },
+    };
+
+    fn table_ref() -> TableRef {
+        "sxt.t".parse().unwrap()
+    }
+
+    fn make_slice(skip: usize, fetch: Option<usize>) -> SliceExec {
+        SliceExec::new(
+            Box::new(DynProofPlan::new_table(table_ref(), vec![])),
+            skip,
+            fetch,
+        )
+    }
+
+    fn make_builder(chi_lengths: Vec<usize>) -> MockVerificationBuilder<TestScalar> {
+        MockVerificationBuilder::new(vec![], 0, vec![], vec![], vec![], chi_lengths, vec![])
+    }
+
+    #[test]
+    fn we_get_error_when_output_length_mismatches_max_minus_offset() {
+        // chi queue: output_length=0, offset=0, max=2 → 0 != 2-0 → error
+        let exec = make_slice(1, None);
+        let mut builder = make_builder(vec![0, 0, 2]);
+        let chi_eval_map = indexmap! { table_ref() => (TestScalar::ONE, 1_usize) };
+        let accessor = indexmap! { table_ref() => indexmap!{} };
+        let result = exec.verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn we_get_error_when_offset_mismatches_skip_min_input_length() {
+        // chi queue: output_length=1, offset=0, max=1 → skip=2, 2.min(1)=1 != 0 → error
+        let exec = make_slice(2, None);
+        let mut builder = make_builder(vec![1, 0, 1]);
+        let chi_eval_map = indexmap! { table_ref() => (TestScalar::ONE, 1_usize) };
+        let accessor = indexmap! { table_ref() => indexmap!{} };
+        let result = exec.verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn we_get_error_when_max_mismatches_expected_fetch_value() {
+        // chi queue: output_length=2, offset=0, max=2 → fetch=Some(2), skip=0
+        // expected_max = (2+0).min(1) = 1, but max = 2 → 2 != 1 → error
+        let exec = make_slice(0, Some(2));
+        let mut builder = make_builder(vec![2, 0, 2]);
+        let chi_eval_map = indexmap! { table_ref() => (TestScalar::ONE, 1_usize) };
+        let accessor = indexmap! { table_ref() => indexmap!{} };
+        let result = exec.verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[]);
+        assert!(result.is_err());
+    }
+}

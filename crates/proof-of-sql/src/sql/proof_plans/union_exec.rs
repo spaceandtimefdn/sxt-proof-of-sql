@@ -204,3 +204,44 @@ impl ProverEvaluate for UnionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::UnionExec;
+    use crate::{
+        base::{map::IndexMap, scalar::test_scalar::TestScalar},
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, ProofPlan},
+            proof_plans::DynProofPlan,
+        },
+    };
+
+    fn make_exec() -> UnionExec {
+        let p1 = DynProofPlan::new_table("sxt.t1".parse().unwrap(), vec![]);
+        let p2 = DynProofPlan::new_table("sxt.t2".parse().unwrap(), vec![]);
+        UnionExec::try_new(vec![p1, p2]).unwrap()
+    }
+
+    #[test]
+    fn we_get_error_on_first_missing_post_result_challenge() {
+        let exec = make_exec();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![], vec![], vec![],
+        );
+        let result =
+            exec.verifier_evaluate(&mut builder, &IndexMap::default(), &IndexMap::default(), &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn we_get_error_on_second_missing_post_result_challenge() {
+        let exec = make_exec();
+        // Provide only one challenge so first succeeds but second fails
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![TestScalar::ONE], vec![], vec![],
+        );
+        let result =
+            exec.verifier_evaluate(&mut builder, &IndexMap::default(), &IndexMap::default(), &[]);
+        assert!(result.is_err());
+    }
+}
