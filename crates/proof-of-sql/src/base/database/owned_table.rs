@@ -379,4 +379,13 @@ mod tests {
             })
         ));
     }
+
+    #[test]
+    fn test_try_new_with_mismatched_column_lengths() {
+        let result = OwnedTable::<TestScalar>::try_from_iter([
+            bigint("a", [1i64, 2, 3]),
+            bigint("b", [1i64, 2]),
+        ]);
+        assert!(result.is_err());
+    }
 }
