@@ -496,3 +496,127 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
     ]);
     assert_eq!(res, expected_res);
 }
+
+#[test]
+#[should_panic(expected = "Join column index out of bounds")]
+fn we_panic_when_left_join_column_index_is_out_of_bounds() {
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    sort_merge_join(
+        table_exec(table_left, vec![column_field("id", ColumnType::BigInt)]),
+        table_exec(table_right, vec![column_field("id", ColumnType::BigInt)]),
+        vec![1], // index 1 >= 1 column
+        vec![0],
+        vec![Ident::new("id")],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join column index out of bounds")]
+fn we_panic_when_right_join_column_index_is_out_of_bounds() {
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    sort_merge_join(
+        table_exec(table_left, vec![column_field("id", ColumnType::BigInt)]),
+        table_exec(table_right, vec![column_field("id", ColumnType::BigInt)]),
+        vec![0],
+        vec![1], // index 1 >= 1 column
+        vec![Ident::new("id")],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join columns should have the same number of columns")]
+fn we_panic_when_join_column_counts_mismatch() {
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(
+            table_right,
+            vec![
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::BigInt),
+            ],
+        ),
+        vec![0, 1], // 2 left join columns
+        vec![0],    // 1 right join column
+        vec![Ident::new("a"), Ident::new("b"), Ident::new("c")],
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "The amount of result idents should be the same as the expected number of columns"
+)]
+fn we_panic_when_result_idents_count_is_wrong() {
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    sort_merge_join(
+        table_exec(
+            table_left,
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(table_right, vec![column_field("c", ColumnType::BigInt)]),
+        vec![0],
+        vec![0],
+        vec![Ident::new("a")], // expected 2+1-1=2, got 1
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join on multiple columns not supported yet")]
+fn we_panic_when_join_has_multiple_columns() {
+    let alloc = Bump::new();
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let left = table([
+        borrowed_bigint("id1", [1_i64, 2], &alloc),
+        borrowed_bigint("id2", [10_i64, 20], &alloc),
+        borrowed_varchar("name", ["Alice", "Bob"], &alloc),
+    ]);
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let right = table([
+        borrowed_bigint("id1", [1_i64, 2], &alloc),
+        borrowed_bigint("id2", [10_i64, 20], &alloc),
+        borrowed_varchar("val", ["X", "Y"], &alloc),
+    ]);
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    accessor.add_table(table_left.clone(), left, 0);
+    accessor.add_table(table_right.clone(), right, 0);
+    let ast = sort_merge_join(
+        table_exec(
+            table_left.clone(),
+            vec![
+                column_field("id1", ColumnType::BigInt),
+                column_field("id2", ColumnType::BigInt),
+                column_field("name", ColumnType::VarChar),
+            ],
+        ),
+        table_exec(
+            table_right.clone(),
+            vec![
+                column_field("id1", ColumnType::BigInt),
+                column_field("id2", ColumnType::BigInt),
+                column_field("val", ColumnType::VarChar),
+            ],
+        ),
+        vec![0, 1],
+        vec![0, 1],
+        vec![
+            Ident::new("id1"),
+            Ident::new("id2"),
+            Ident::new("name"),
+            Ident::new("val"),
+        ],
+    );
+    VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+}
