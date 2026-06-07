@@ -136,6 +136,7 @@ pub(crate) fn verify_membership_check<S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::verify_membership_check;
+    use crate::base::proof::ProofError;
     use crate::base::scalar::test_scalar::TestScalar;
     use crate::sql::proof::mock_verification_builder::MockVerificationBuilder;
 
@@ -144,8 +145,7 @@ mod tests {
         let mut builder = MockVerificationBuilder::<TestScalar>::new(
             vec![], 0, vec![], vec![], vec![], vec![], vec![],
         );
-        // 1 source column, 0 candidate columns → length mismatch → VerificationError
-        let result = verify_membership_check(
+        let err = verify_membership_check(
             &mut builder,
             TestScalar::ONE,
             TestScalar::ONE,
@@ -153,7 +153,13 @@ mod tests {
             TestScalar::ONE,
             &[TestScalar::ONE],
             &[],
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            }
+        ));
     }
 }

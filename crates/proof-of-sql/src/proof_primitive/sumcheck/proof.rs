@@ -117,6 +117,7 @@ impl<S: Scalar> SumcheckProof<S> {
 #[cfg(test)]
 mod tests {
     use super::SumcheckProof;
+    use crate::base::proof::ProofError;
     use crate::base::scalar::test_scalar::TestScalar;
     use merlin::Transcript;
 
@@ -126,19 +127,31 @@ mod tests {
             coefficients: vec![TestScalar::from(1u64), TestScalar::from(2u64)],
         };
         let mut transcript = Transcript::new(b"test");
-        // 2 coefficients is not a multiple of 3 → "invalid proof size"
-        let result = proof.verify_without_evaluation(&mut transcript, 3, &TestScalar::ZERO);
-        assert!(result.is_err());
+        let err = proof
+            .verify_without_evaluation(&mut transcript, 3, &TestScalar::ZERO)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid proof size"
+            }
+        ));
     }
 
     #[test]
     fn we_get_error_when_round_evaluation_does_not_match_claimed_sum() {
-        // 2 coefficients, 1 variable: round sum = 0+0 = 0, claimed_sum = 1 → mismatch
         let proof = SumcheckProof::<TestScalar> {
             coefficients: vec![TestScalar::ZERO, TestScalar::ZERO],
         };
         let mut transcript = Transcript::new(b"test");
-        let result = proof.verify_without_evaluation(&mut transcript, 1, &TestScalar::ONE);
-        assert!(result.is_err());
+        let err = proof
+            .verify_without_evaluation(&mut transcript, 1, &TestScalar::ONE)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "round evaluation does not match claimed sum"
+            }
+        ));
     }
 }
