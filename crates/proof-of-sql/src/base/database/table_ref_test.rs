@@ -80,7 +80,7 @@ fn we_get_error_from_strs_with_three_or_more_components() {
     let result = TableRef::from_strs(&["a", "b", "c"]);
     assert!(matches!(
         result,
-        Err(ParseError::InvalidTableReference { .. })
+        Err(ParseError::InvalidTableReference { table_reference }) if table_reference == "a,b,c"
     ));
 }
 
@@ -106,6 +106,24 @@ fn we_get_error_parsing_three_part_dotted_str() {
     assert!(matches!(
         result,
         Err(ParseError::InvalidTableReference { table_reference }) if table_reference == "a.b.c"
+    ));
+}
+
+#[test]
+fn we_get_error_parsing_schema_dot_empty_table_from_str() {
+    let result = TableRef::try_from("schema.");
+    assert!(matches!(
+        result,
+        Err(ParseError::InvalidTableReference { table_reference }) if table_reference == "schema."
+    ));
+}
+
+#[test]
+fn we_get_error_parsing_empty_schema_dot_table_from_str() {
+    let result = TableRef::try_from(".table");
+    assert!(matches!(
+        result,
+        Err(ParseError::InvalidTableReference { table_reference }) if table_reference == ".table"
     ));
 }
 
