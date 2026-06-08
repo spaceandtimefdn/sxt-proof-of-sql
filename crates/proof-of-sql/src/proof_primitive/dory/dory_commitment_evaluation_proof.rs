@@ -131,3 +131,32 @@ impl CommitmentEvaluationProof for DoryEvaluationProof {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{test_rng, ProverSetup, PublicParameters};
+    use super::*;
+    use crate::base::commitment::CommitmentEvaluationProof;
+    use crate::base::scalar::Scalar;
+    use alloc::vec;
+    use merlin::Transcript;
+
+    #[test]
+    fn invalid_generators_offset_creates_default_dory_evaluation_proof() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(2, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let public_setup = DoryProverPublicSetup::new(&prover_setup, 1);
+        let mut transcript = Transcript::new(b"dory_invalid_generators_offset");
+
+        let proof = DoryEvaluationProof::new(
+            &mut transcript,
+            &vec![DoryScalar::ZERO],
+            &vec![DoryScalar::ZERO],
+            1,
+            &public_setup,
+        );
+
+        assert_eq!(proof, DoryMessages::default());
+    }
+}
