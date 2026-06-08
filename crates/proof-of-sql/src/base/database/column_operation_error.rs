@@ -108,3 +108,90 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnOperationError;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn we_display_column_length_mismatch_errors() {
+        let error = ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 };
+
+        assert_eq!(error.to_string(), "Columns have different lengths: 2 != 3");
+    }
+
+    #[test]
+    fn we_display_invalid_binary_column_type_errors() {
+        let error = ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "add".into(),
+            left_type: ColumnType::VarChar,
+            right_type: ColumnType::BigInt,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            r#""add"(lhs: VarChar, rhs: BigInt) is not supported"#
+        );
+    }
+
+    #[test]
+    fn we_display_invalid_unary_column_type_errors() {
+        let error = ColumnOperationError::UnaryOperationInvalidColumnType {
+            operator: "negation".into(),
+            operand_type: ColumnType::VarBinary,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            r#""negation"(operand: VarBinary) is not supported"#
+        );
+    }
+
+    #[test]
+    fn we_display_column_operation_runtime_errors() {
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: "i64 addition overflow".into()
+            }
+            .to_string(),
+            "Overflow in integer operation: i64 addition overflow"
+        );
+        assert_eq!(
+            ColumnOperationError::DivisionByZero.to_string(),
+            "Division by zero"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 5, len: 4 }.to_string(),
+            "Index out of bounds: 5 >= 4"
+        );
+    }
+
+    #[test]
+    fn we_display_column_casting_errors() {
+        assert_eq!(
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+            .to_string(),
+            "Cannot fit TINYINT into UINT8 without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::CastingError {
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot fit BIGINT into INT without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::ScaleCastingError {
+                left_type: ColumnType::Int128,
+                right_type: ColumnType::Scalar,
+            }
+            .to_string(),
+            "Cannot fit DECIMAL into SCALAR without losing data"
+        );
+    }
+}
