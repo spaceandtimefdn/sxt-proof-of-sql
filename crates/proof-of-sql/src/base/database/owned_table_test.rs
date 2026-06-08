@@ -101,6 +101,39 @@ fn we_can_create_an_owned_table_with_data() {
     );
     assert_eq!(owned_table.into_inner(), table);
 }
+
+#[test]
+fn we_can_inspect_owned_table_metadata_and_columns_by_index() {
+    let owned_table = owned_table::<TestScalar>([
+        bigint("bigint", [10, 20]),
+        varchar("varchar", ["left", "right"]),
+        boolean("boolean", [true, false]),
+    ]);
+
+    assert_eq!(owned_table.num_columns(), 3);
+    assert_eq!(owned_table.num_rows(), 2);
+    assert!(!owned_table.is_empty());
+    assert_eq!(
+        owned_table
+            .column_names()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["bigint", "varchar", "boolean"]
+    );
+    assert_eq!(
+        owned_table.column_by_index(0),
+        Some(&OwnedColumn::BigInt(vec![10, 20]))
+    );
+    assert_eq!(
+        owned_table.column_by_index(1),
+        Some(&OwnedColumn::VarChar(vec![
+            "left".to_string(),
+            "right".to_string()
+        ]))
+    );
+    assert_eq!(owned_table.column_by_index(3), None);
+}
+
 #[test]
 fn we_get_inequality_between_tables_with_differing_column_order() {
     let owned_table_a: OwnedTable<TestScalar> = owned_table([
