@@ -103,6 +103,18 @@ fn scalar_slices_consumes_the_correct_amount_of_bytes() {
 }
 
 #[test]
+fn empty_scalar_slices_are_encoded_and_decoded_without_consuming_bytes() {
+    let mut buf = [255_u8; 4];
+    let input: [TestScalar; 0] = [];
+    let mut output = [TestScalar::from(123_u64); 0];
+
+    assert_eq!(scalar_varints_size(&input), 0);
+    assert_eq!(write_scalar_varints(&mut buf, &input), 0);
+    assert_eq!(buf, [255_u8; 4]);
+    assert_eq!(read_scalar_varints(&mut output, &[]), Some(()));
+}
+
+#[test]
 fn small_scalars_are_correctly_encoded_and_decoded_as_positive_varints() {
     let mut buf = [0_u8; 38];
 
