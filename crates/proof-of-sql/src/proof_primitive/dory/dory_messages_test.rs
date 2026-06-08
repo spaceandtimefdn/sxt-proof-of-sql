@@ -1,6 +1,19 @@
 use super::{test_rng, DoryMessages, G1Affine, G2Affine, F, GT};
+use ark_ff::One;
 use ark_std::UniformRand;
 use merlin::Transcript;
+use num_traits::Zero;
+
+#[test]
+fn verifier_f_message_returns_a_nonzero_challenge_and_inverse() {
+    let mut messages = DoryMessages::default();
+    let mut transcript = Transcript::new(b"test");
+
+    let (message, message_inv) = messages.verifier_F_message(&mut transcript);
+
+    assert!(!message.is_zero());
+    assert_eq!(message * message_inv, F::one());
+}
 
 #[test]
 fn we_can_send_and_receive_the_correct_messages_in_the_same_order() {
