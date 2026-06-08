@@ -1,0 +1,60 @@
+name: Tests with Setup Caching
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  DORY_TEST_CACHE_DIR: ${{ github.workspace }}/.dory-test-cache
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests"
+          cache-on-failure: true
+
+      - name: Cache Dory test setups
+        uses: actions/cache@v4
+        with:
+          path: .dory-test-cache
+          key: dory-setup-cache-v1-${{ runner.os }}
+          restore-keys: |
+            dory-setup-cache-v1-${{ runner.os }}
+
+      - name: Build tests
+        run: cargo nextest run --all-features --no-run
+
+      - name: Run tests (partition ${{ matrix.partition }}/4)
+        run: |
+          cargo nextest run \
+            --all-features \
+            --profile ci \
+            --partition count:${{ matrix.partition }}/4
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.partition }}
+          path: target/nextest/ci/junit.xml

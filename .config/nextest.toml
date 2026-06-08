@@ -1,0 +1,52 @@
+# Nextest configuration for improved test performance
+# See: https://nexte.st/book/configuration.html
+
+[store]
+dir = "target/nextest"
+
+[profile.default]
+# Use more retries for flaky tests
+retries = 0
+# Increase timeout for expensive Dory tests
+slow-timeout = { period = "120s", terminate-after = 3 }
+# Allow more test threads - Dory tests are CPU-bound
+test-threads = "num-cpus"
+# Fail fast on first failure in CI
+fail-fast = true
+
+[profile.default.junit]
+path = "junit.xml"
+
+[profile.ci]
+# CI-specific settings
+retries = 1
+slow-timeout = { period = "180s", terminate-after = 2 }
+fail-fast = true
+test-threads = "num-cpus"
+
+# Group expensive Dory tests to avoid overwhelming CI memory
+[[profile.default.overrides]]
+filter = "test(proof_primitive::dory::dory_commitment_evaluation_proof_test)"
+test-group = "dory-expensive"
+threads-required = 2
+
+[[profile.default.overrides]]
+filter = "test(proof_primitive::dory::dynamic_dory_commitment_evaluation_proof_test)"
+test-group = "dory-expensive"
+threads-required = 2
+
+[[profile.default.overrides]]
+filter = "test(proof_primitive::dory::setup_test)"
+test-group = "dory-expensive"
+threads-required = 1
+
+# Limit concurrent expensive tests to prevent OOM
+[profile.default.test-groups.dory-expensive]
+max-threads = 4
+
+# Local development profile - faster feedback
+[profile.local]
+retries = 0
+slow-timeout = { period = "60s", terminate-after = 2 }
+fail-fast = true
+test-threads = "num-cpus"

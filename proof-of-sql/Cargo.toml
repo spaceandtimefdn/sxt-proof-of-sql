@@ -1,0 +1,36 @@
+[package]
+name = "proof-of-sql"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+once_cell = "1.19"
+
+[dev-dependencies]
+
+[features]
+default = []
+
+[lib]
+name = "proof_of_sql"
+path = "lib.rs"
+
+[[test]]
+name = "dory_commitment_evaluation_proof_test"
+path = "proof_primitive/dory/dory_commitment_evaluation_proof_test.rs"
+
+[[test]]
+name = "dynamic_dory_commitment_evaluation_proof_test"
+path = "proof_primitive/dory/dynamic_dory_commitment_evaluation_proof_test.rs"
+
+[[test]]
+name = "setup_test"
+path = "proof_primitive/dory/setup_test.rs"
+
+[[test]]
+name = "inequality_expr_test"
+path = "sql/proof_exprs/inequality_expr_test.rs"
+
+[[test]]
+name = "sort_merge_join_exec_test"
+path = "sql/proof_plans/sort_merge_join_exec_test.rs"

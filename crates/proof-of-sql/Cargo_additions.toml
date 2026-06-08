@@ -1,0 +1,6 @@
+# Add these to [dev-dependencies] in crates/proof-of-sql/Cargo.toml:
+#
+# once_cell = "1"
+# rand_chacha = "0.3"
+#
+# These are likely already present but listed here for completeness.

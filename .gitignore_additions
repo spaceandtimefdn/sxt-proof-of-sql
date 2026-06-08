@@ -1,0 +1,3 @@
+# Dory test setup cache (generated files)
+.test-setup-cache/
+crates/proof-of-sql/.test-setup-cache/
