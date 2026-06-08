@@ -133,3 +133,49 @@ impl ExtendedVerifierState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{rand_F_tensors, rand_G_vecs, test_rng, ProverSetup, PublicParameters};
+    use super::*;
+    use ark_ec::pairing::Pairing;
+
+    #[test]
+    fn we_can_build_extended_verifier_state_from_tensor_commitments() {
+        let mut rng = test_rng();
+        let max_nu = 4;
+        let nu = 3;
+        let pp = PublicParameters::test_rand(max_nu, &mut rng);
+        let prover_setup: ProverSetup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+
+        let C: DeferredGT = Pairing::multi_pairing(&v1, &v2).into();
+        let D_1: DeferredGT = Pairing::multi_pairing(&v1, prover_setup.Gamma_2[nu]).into();
+        let D_2: DeferredGT = Pairing::multi_pairing(prover_setup.Gamma_1[nu], &v2).into();
+        let E_1 = DeferredG1::from(v1[0]);
+        let E_2 = DeferredG2::from(v2[0]);
+
+        let verifier_state = ExtendedVerifierState::new_tensor(
+            E_1.clone(),
+            E_2.clone(),
+            s1_tensor.clone(),
+            s2_tensor.clone(),
+            C.clone(),
+            D_1.clone(),
+            D_2.clone(),
+            nu,
+        );
+
+        assert_eq!(verifier_state.E_1, E_1);
+        assert_eq!(verifier_state.E_2, E_2);
+        assert_eq!(verifier_state.s1_tensor, s1_tensor);
+        assert_eq!(verifier_state.s2_tensor, s2_tensor);
+        assert_eq!(verifier_state.base_state.C, C);
+        assert_eq!(verifier_state.base_state.D_1, D_1);
+        assert_eq!(verifier_state.base_state.D_2, D_2);
+        assert_eq!(verifier_state.base_state.nu, nu);
+        assert_eq!(verifier_state.alphas, vec![F::default(); nu]);
+        assert_eq!(verifier_state.alpha_invs, vec![F::default(); nu]);
+    }
+}
