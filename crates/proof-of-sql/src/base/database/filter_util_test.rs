@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -116,5 +117,64 @@ fn we_can_filter_columns_with_varbinary() {
             Column::VarBinary((filtered_bytes.as_slice(), filtered_scalars.as_slice())),
             Column::BigInt(&[10, 30, 40]),
         ]
+    );
+}
+
+#[test]
+fn we_can_filter_primitive_columns_by_index() {
+    let alloc = Bump::new();
+    let indexes = &[3, 0, 2];
+
+    assert_eq!(
+        filter_column_by_index(
+            &alloc,
+            &Column::<TestScalar>::Boolean(&[true, false, true, false]),
+            indexes
+        ),
+        Column::Boolean(&[false, true, true])
+    );
+    assert_eq!(
+        filter_column_by_index(&alloc, &Column::<TestScalar>::Uint8(&[1, 2, 3, 4]), indexes),
+        Column::Uint8(&[4, 1, 3])
+    );
+    assert_eq!(
+        filter_column_by_index(
+            &alloc,
+            &Column::<TestScalar>::TinyInt(&[-1, -2, -3, -4]),
+            indexes
+        ),
+        Column::TinyInt(&[-4, -1, -3])
+    );
+    assert_eq!(
+        filter_column_by_index(
+            &alloc,
+            &Column::<TestScalar>::SmallInt(&[10, 20, 30, 40]),
+            indexes
+        ),
+        Column::SmallInt(&[40, 10, 30])
+    );
+    assert_eq!(
+        filter_column_by_index(
+            &alloc,
+            &Column::<TestScalar>::Int(&[100, 200, 300, 400]),
+            indexes
+        ),
+        Column::Int(&[400, 100, 300])
+    );
+    assert_eq!(
+        filter_column_by_index(
+            &alloc,
+            &Column::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[1000, 2000, 3000, 4000],
+            ),
+            indexes
+        ),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[4000, 1000, 3000]
+        )
     );
 }
