@@ -85,6 +85,22 @@ enum CommitmentScheme {
     HyperKZG,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DoryBenchmarkSet {
+    Dory,
+    DynamicDory,
+    Both,
+}
+
+fn dory_benchmark_set(scheme: &CommitmentScheme) -> Option<DoryBenchmarkSet> {
+    match scheme {
+        CommitmentScheme::All => Some(DoryBenchmarkSet::Both),
+        CommitmentScheme::Dory => Some(DoryBenchmarkSet::Dory),
+        CommitmentScheme::DynamicDory => Some(DoryBenchmarkSet::DynamicDory),
+        CommitmentScheme::InnerProductProof | CommitmentScheme::HyperKZG => None,
+    }
+}
+
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
 /// Supported queries.
 enum Query {
@@ -140,6 +156,18 @@ impl Query {
             Query::LimitOffset => "Limit Offset",
             Query::Not => "Not",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_scheme_uses_one_dory_setup_for_static_and_dynamic() {
+        let set = dory_benchmark_set(&CommitmentScheme::All).unwrap();
+
+        assert_eq!(set, DoryBenchmarkSet::Both);
     }
 }
 
@@ -375,14 +403,14 @@ fn load_dory_setup<'a>(
 /// * `cli` - A reference to the command line interface arguments.
 /// * `queries` - A slice of query entries to benchmark.
 #[tracing::instrument(name = "Dory", level = "debug", skip_all)]
-fn bench_dory(cli: &Cli, queries: &[QueryEntry]) {
-    let span = span!(Level::DEBUG, "setup", sigma = cli.nu_sigma).entered();
-    let public_parameters = load_dory_public_parameters(cli);
-    let (prover_setup, verifier_setup) = load_dory_setup(&public_parameters, cli);
-
-    let prover_public_setup = DoryProverPublicSetup::new(&prover_setup, cli.nu_sigma);
-    let verifier_public_setup = DoryVerifierPublicSetup::new(&verifier_setup, cli.nu_sigma);
-    span.exit();
+fn bench_dory_with_setup<'a>(
+    cli: &Cli,
+    queries: &[QueryEntry],
+    prover_setup: &'a ProverSetup<'a>,
+    verifier_setup: &'a VerifierSetup,
+) {
+    let prover_public_setup = DoryProverPublicSetup::new(prover_setup, cli.nu_sigma);
+    let verifier_public_setup = DoryVerifierPublicSetup::new(verifier_setup, cli.nu_sigma);
 
     bench_by_schema::<DoryEvaluationProof>(
         "Dory",
@@ -399,19 +427,40 @@ fn bench_dory(cli: &Cli, queries: &[QueryEntry]) {
 /// * `cli` - A reference to the command line interface arguments.
 /// * `queries` - A slice of query entries to benchmark.
 #[tracing::instrument(name = "Dynamic Dory", level = "debug", skip_all)]
-fn bench_dynamic_dory(cli: &Cli, queries: &[QueryEntry]) {
-    let span = span!(Level::DEBUG, "setup", nu = cli.nu_sigma).entered();
-    let public_parameters = load_dory_public_parameters(cli);
-    let (prover_setup, verifier_setup) = load_dory_setup(&public_parameters, cli);
-    span.exit();
-
+fn bench_dynamic_dory_with_setup<'a>(
+    cli: &Cli,
+    queries: &[QueryEntry],
+    prover_setup: &'a ProverSetup<'a>,
+    verifier_setup: &'a VerifierSetup,
+) {
     bench_by_schema::<DynamicDoryEvaluationProof>(
         "Dynamic Dory",
         cli,
         queries,
-        &prover_setup,
-        &verifier_setup,
+        prover_setup,
+        verifier_setup,
     );
+}
+
+#[tracing::instrument(name = "Dory Schemes", level = "debug", skip_all)]
+fn bench_dory_schemes(cli: &Cli, queries: &[QueryEntry], set: DoryBenchmarkSet) {
+    let span = span!(Level::DEBUG, "setup", nu_sigma = cli.nu_sigma).entered();
+    let public_parameters = load_dory_public_parameters(cli);
+    let (prover_setup, verifier_setup) = load_dory_setup(&public_parameters, cli);
+    span.exit();
+
+    match set {
+        DoryBenchmarkSet::Dory => {
+            bench_dory_with_setup(cli, queries, &prover_setup, &verifier_setup);
+        }
+        DoryBenchmarkSet::DynamicDory => {
+            bench_dynamic_dory_with_setup(cli, queries, &prover_setup, &verifier_setup);
+        }
+        DoryBenchmarkSet::Both => {
+            bench_dory_with_setup(cli, queries, &prover_setup, &verifier_setup);
+            bench_dynamic_dory_with_setup(cli, queries, &prover_setup, &verifier_setup);
+        }
+    }
 }
 
 /// Benchmarks the `HyperKZG` scheme.
@@ -494,18 +543,29 @@ fn main() {
     match cli.scheme {
         CommitmentScheme::All => {
             bench_inner_product_proof(&cli, &queries);
-            bench_dory(&cli, &queries);
-            bench_dynamic_dory(&cli, &queries);
+            bench_dory_schemes(
+                &cli,
+                &queries,
+                dory_benchmark_set(&cli.scheme).expect("all includes Dory schemes"),
+            );
             bench_hyperkzg(&cli, &queries);
         }
         CommitmentScheme::InnerProductProof => {
             bench_inner_product_proof(&cli, &queries);
         }
         CommitmentScheme::Dory => {
-            bench_dory(&cli, &queries);
+            bench_dory_schemes(
+                &cli,
+                &queries,
+                dory_benchmark_set(&cli.scheme).expect("Dory includes Dory scheme"),
+            );
         }
         CommitmentScheme::DynamicDory => {
-            bench_dynamic_dory(&cli, &queries);
+            bench_dory_schemes(
+                &cli,
+                &queries,
+                dory_benchmark_set(&cli.scheme).expect("Dynamic Dory includes Dory scheme"),
+            );
         }
         CommitmentScheme::HyperKZG => {
             bench_hyperkzg(&cli, &queries);

@@ -20,6 +20,11 @@ use std::{
     io::{stdout, Write},
     time::Instant,
 };
+
+// The example table has four fixed rows. max_nu = 2 supports up to 8 rows under
+// the Dory setup capacity formula 2^(2 * max_nu - 1).
+const DORY_SETUP_MAX_NU: usize = 2;
+
 /// # Panics
 ///
 /// Will panic if flushing the output fails, which can happen due to issues with the underlying output stream.
@@ -45,7 +50,7 @@ fn main() {
     let timer = start_timer("Loading data");
     // Use a fixed seed for deterministic results
     let mut rng = StdRng::from_seed([0u8; 32]);
-    let public_parameters = PublicParameters::rand(5, &mut rng);
+    let public_parameters = PublicParameters::rand(DORY_SETUP_MAX_NU, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     let mut accessor =
