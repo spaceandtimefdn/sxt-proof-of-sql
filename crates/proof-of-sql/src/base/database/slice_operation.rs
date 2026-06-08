@@ -632,6 +632,13 @@ mod test {
     }
 
     #[test]
+    fn reverse_op_preserves_non_commutative_operand_order() {
+        let reversed_subtract = reverse_op(|l: &i32, r: &i32| l - r);
+
+        assert_eq!(reversed_subtract(&3, &10), 7);
+    }
+
+    #[test]
     fn we_can_repeat_a_slice() {
         // We can repeat a slice
         let slice = [1_i16, 2, 3];
