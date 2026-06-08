@@ -141,6 +141,22 @@ mod tests {
     }
 
     #[test]
+    fn empty_wrapped_transcripts_are_still_bound_to_the_outer_transcript() {
+        let mut untouched_transcript: Keccak256Transcript = Transcript::new();
+        let mut transcript1: Keccak256Transcript = Transcript::new();
+        let mut transcript2: Keccak256Transcript = Transcript::new();
+
+        transcript1.wrap_transcript(|_transcript: &mut merlin::Transcript| ());
+        transcript2.wrap_transcript(|_transcript: &mut merlin::Transcript| ());
+
+        assert_eq!(transcript1.challenge_as_le(), transcript2.challenge_as_le());
+        assert_ne!(
+            transcript1.challenge_as_le(),
+            untouched_transcript.challenge_as_le()
+        );
+    }
+
+    #[test]
     fn we_can_extend_transcript_with_extend_as_be_from_refs() {
         let mut transcript1: Keccak256Transcript = Transcript::new();
         let mut transcript2: Keccak256Transcript = Transcript::new();
