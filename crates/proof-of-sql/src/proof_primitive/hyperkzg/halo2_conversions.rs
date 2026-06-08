@@ -91,7 +91,7 @@ impl From<super::BNScalar> for halo2curves::bn256::Fr {
 mod tests {
     use super::super::{BNScalar, HyperKZGCommitment};
     use crate::base::scalar::MontScalar;
-    use ark_ec::{AdditiveGroup, AffineRepr};
+    use ark_ec::{AdditiveGroup, AffineRepr, CurveGroup};
     use ark_ff::Field as _;
     use ark_std::UniformRand;
     use ff::Field as _;
@@ -127,6 +127,35 @@ mod tests {
         let point = halo2curves::bn256::Fr::ONE;
         assert_eq!(halo2curves::bn256::Fr::from(scalar), point);
         assert_eq!(scalar, BNScalar::from(point));
+    }
+
+    #[test]
+    fn borrowed_commitment_conversion_matches_owned_conversion() {
+        let ark_point = ark_bn254::G1Affine::generator() * ark_bn254::Fr::from(42_u64);
+        let commitment = HyperKZGCommitment::from(&ark_point.into_affine());
+
+        let borrowed_point = halo2curves::bn256::G1Affine::from(&commitment);
+        let owned_point = halo2curves::bn256::G1Affine::from(commitment);
+
+        assert_eq!(borrowed_point, owned_point);
+        assert_eq!(
+            HyperKZGCommitment::from(borrowed_point),
+            HyperKZGCommitment::from(owned_point)
+        );
+    }
+
+    #[test]
+    fn borrowed_scalar_conversion_matches_owned_conversion() {
+        let scalar: BNScalar = MontScalar(ark_bn254::Fr::from(42_u64));
+
+        let borrowed_scalar = halo2curves::bn256::Fr::from(&scalar);
+        let owned_scalar = halo2curves::bn256::Fr::from(scalar);
+
+        assert_eq!(borrowed_scalar, owned_scalar);
+        assert_eq!(
+            BNScalar::from(borrowed_scalar),
+            BNScalar::from(owned_scalar)
+        );
     }
 
     #[test]
