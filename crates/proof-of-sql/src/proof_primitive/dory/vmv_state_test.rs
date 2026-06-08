@@ -127,3 +127,24 @@ fn we_can_create_vmv_states_from_random_vmv_and_get_correct_sizes() {
         assert_eq!(verifier_state.r_tensor, vmv.r_tensor);
     }
 }
+
+#[test]
+fn we_can_create_vmv_states_at_the_setup_max_nu_boundary() {
+    let mut rng = test_rng();
+    let max_nu = 3;
+    let pp = PublicParameters::test_rand(max_nu, &mut rng);
+    let prover_setup = (&pp).into();
+    let vmv = VMV::rand(max_nu, &mut rng);
+
+    let prover_state = vmv.calculate_prover_state(&prover_setup);
+    let verifier_state = vmv.calculate_verifier_state(&prover_setup);
+
+    assert_eq!(prover_state.nu, max_nu);
+    assert_eq!(prover_state.L_vec.len(), 1 << max_nu);
+    assert_eq!(prover_state.R_vec.len(), 1 << max_nu);
+    assert_eq!(prover_state.T_vec_prime.len(), 1 << max_nu);
+    assert_eq!(prover_state.v_vec.len(), 1 << max_nu);
+    assert_eq!(verifier_state.nu, max_nu);
+    assert_eq!(verifier_state.l_tensor, vmv.l_tensor);
+    assert_eq!(verifier_state.r_tensor, vmv.r_tensor);
+}
