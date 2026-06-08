@@ -117,3 +117,28 @@ impl ProofExpr for AddExpr {
 }
 
 impl DecimalProofExpr for AddExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::AddExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        base::math::decimal::Precision,
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    #[test]
+    fn add_expr_constructor_preserves_operands_and_result_type() {
+        let lhs = DynProofExpr::new_literal(LiteralValue::Int(7));
+        let rhs = DynProofExpr::new_literal(LiteralValue::SmallInt(2));
+
+        let expr = AddExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap();
+
+        assert_eq!(expr.lhs(), &lhs);
+        assert_eq!(expr.rhs(), &rhs);
+        assert_eq!(
+            expr.data_type(),
+            ColumnType::Decimal75(Precision::new(11).unwrap(), 0)
+        );
+    }
+}
