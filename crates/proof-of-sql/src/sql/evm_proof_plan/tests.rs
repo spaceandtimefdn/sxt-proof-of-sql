@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use alloc::boxed::Box;
-use core::iter;
+use core::{iter, mem::size_of};
 use sqlparser::ast::Ident;
 use std::sync::LazyLock;
 
