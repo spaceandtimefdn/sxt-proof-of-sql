@@ -59,6 +59,49 @@ impl VMVProverState {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num_traits::One;
+
+    #[test]
+    fn we_can_create_vmv_from_tensors_and_expand_evaluation_vectors() {
+        let l_tensor = vec![F::from(2), F::from(3)];
+        let r_tensor = vec![F::from(5), F::from(7)];
+        let matrix = vec![
+            vec![F::from(11), F::from(12), F::from(13), F::from(14)],
+            vec![F::from(21), F::from(22), F::from(23), F::from(24)],
+            vec![F::from(31), F::from(32), F::from(33), F::from(34)],
+            vec![F::from(41), F::from(42), F::from(43), F::from(44)],
+        ];
+
+        let vmv = VMV::new_tensor(matrix.clone(), l_tensor.clone(), r_tensor.clone(), 2);
+
+        assert_eq!(vmv.M, matrix);
+        assert_eq!(vmv.l_tensor, l_tensor);
+        assert_eq!(vmv.r_tensor, r_tensor);
+        assert_eq!(
+            vmv.L,
+            vec![
+                (F::one() - F::from(3)) * (F::one() - F::from(2)),
+                (F::one() - F::from(3)) * F::from(2),
+                F::from(3) * (F::one() - F::from(2)),
+                F::from(3) * F::from(2),
+            ]
+        );
+        assert_eq!(
+            vmv.R,
+            vec![
+                (F::one() - F::from(7)) * (F::one() - F::from(5)),
+                (F::one() - F::from(7)) * F::from(5),
+                F::from(7) * (F::one() - F::from(5)),
+                F::from(7) * F::from(5),
+            ]
+        );
+        assert_eq!(vmv.nu, 2);
+    }
+}
+
 /// A struct that holds the matrix and vectors for a vector-matrix-vector product. This is used for testing purposes.
 #[cfg(test)]
 #[expect(clippy::upper_case_acronyms)]
