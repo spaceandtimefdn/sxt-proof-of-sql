@@ -225,6 +225,11 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
 
 #[cfg(test)]
 mod tests {
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
+
     use super::*;
 
     #[test]
@@ -235,5 +240,58 @@ mod tests {
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
         );
+    }
+
+    #[test]
+    fn we_can_compute_commitments_from_primitive_time_and_limb_columns_with_offset() {
+        let boolean_column = [true, false];
+        let uint8_column = [2_u8, 3];
+        let tinyint_column = [-4_i8, 5];
+        let smallint_column = [-6_i16, 7];
+        let int_column = [-8_i32, 9];
+        let int128_column = [-10_i128, 11];
+        let decimal_column = vec![[12_u64, 0, 0, 0], [13, 0, 0, 0]];
+        let scalar_column = vec![[14_u64, 0, 0, 0], [15, 0, 0, 0]];
+        let timestamp_column = [16_i64, 17];
+        let columns = [
+            CommittableColumn::Boolean(&boolean_column),
+            CommittableColumn::Uint8(&uint8_column),
+            CommittableColumn::TinyInt(&tinyint_column),
+            CommittableColumn::SmallInt(&smallint_column),
+            CommittableColumn::Int(&int_column),
+            CommittableColumn::Int128(&int128_column),
+            CommittableColumn::Decimal75(Precision::new(2).unwrap(), 0, decimal_column.clone()),
+            CommittableColumn::Scalar(scalar_column.clone()),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &timestamp_column,
+            ),
+        ];
+        let commitments = NaiveCommitment::compute_commitments(&columns, 1, &());
+        let expected = [
+            vec![TestScalar::ZERO, true.into(), false.into()],
+            vec![TestScalar::ZERO, 2_u8.into(), 3_u8.into()],
+            vec![TestScalar::ZERO, (-4_i8).into(), 5_i8.into()],
+            vec![TestScalar::ZERO, (-6_i16).into(), 7_i16.into()],
+            vec![TestScalar::ZERO, (-8_i32).into(), 9_i32.into()],
+            vec![TestScalar::ZERO, (-10_i128).into(), 11_i128.into()],
+            vec![
+                TestScalar::ZERO,
+                decimal_column[0].into(),
+                decimal_column[1].into(),
+            ],
+            vec![
+                TestScalar::ZERO,
+                scalar_column[0].into(),
+                scalar_column[1].into(),
+            ],
+            vec![TestScalar::ZERO, 16_i64.into(), 17_i64.into()],
+        ];
+
+        assert_eq!(commitments.len(), expected.len());
+        for (commitment, expected_scalars) in commitments.iter().zip(expected) {
+            assert_eq!(commitment.0, expected_scalars);
+        }
     }
 }
