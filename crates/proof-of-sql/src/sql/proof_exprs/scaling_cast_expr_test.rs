@@ -4,21 +4,25 @@ use crate::{
             owned_table_utility::{
                 bigint, decimal75, int, int128, owned_table, smallint, timestamptz, tinyint, uint8,
             },
-            ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef,
+            ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef,
         },
+        map::{indexmap, indexset},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
     },
     sql::{
+        proof::mock_verification_builder::MockVerificationBuilder,
         proof::{exercise_verification, VerifiableQueryResult},
         proof_exprs::{
             test_utility::{aliased_plan, column, scaling_cast},
-            LiteralExpr,
+            ColumnExpr, DynProofExpr, LiteralExpr, ProofExpr, ScalingCastExpr,
         },
         proof_plans::test_utility::{column_field, filter, table_exec},
     },
 };
 use blitzar::proof::InnerProductProof;
+use sqlparser::ast::Ident;
 
 #[test]
 fn we_can_prove_a_simple_scale_cast_expr_from_int_to_decimal() {
@@ -207,4 +211,42 @@ fn we_can_prove_a_simple_scale_cast_expr_from_timestamp_to_timestamp() {
         [1000],
     )]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_scaling_cast_expr_directly() {
+    let t = TableRef::new("sxt", "t");
+    let a = ColumnRef::new(t, Ident::from("a"), ColumnType::BigInt);
+    let to_type = ColumnType::Decimal75(Precision::new(6).unwrap(), 2);
+    let cast_expr = ScalingCastExpr::try_new(
+        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
+        to_type,
+    )
+    .unwrap();
+
+    assert_eq!(cast_expr.to_type(), &to_type);
+    assert_eq!(cast_expr.scaling_factor(), [100, 0, 0, 0]);
+    assert_eq!(cast_expr.get_from_expr().data_type(), ColumnType::BigInt);
+
+    let mut column_refs = Default::default();
+    cast_expr.get_column_references(&mut column_refs);
+    assert_eq!(column_refs, indexset! { a.clone() });
+
+    let mut verification_builder = MockVerificationBuilder::new(
+        Vec::new(),
+        0,
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    let accessor = indexmap! {
+        a.column_id() => TestScalar::from(7),
+    };
+    let res = cast_expr
+        .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+        .unwrap();
+
+    assert_eq!(res, TestScalar::from(700));
 }
