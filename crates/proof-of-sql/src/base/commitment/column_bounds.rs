@@ -519,6 +519,14 @@ mod tests {
         let varchar_column_bounds = ColumnBounds::from_column(&committable_varchar_column);
         assert_eq!(varchar_column_bounds, ColumnBounds::NoOrder);
 
+        let uint8_column = OwnedColumn::<TestScalar>::Uint8([1, 2, 3, 1, 0].to_vec());
+        let committable_uint8_column = CommittableColumn::from(&uint8_column);
+        let uint8_column_bounds = ColumnBounds::from_column(&committable_uint8_column);
+        assert_eq!(
+            uint8_column_bounds,
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 0, max: 3 }))
+        );
+
         let tinyint_column = OwnedColumn::<TestScalar>::TinyInt([1, 2, 3, 1, 0].to_vec());
         let committable_tinyint_column = CommittableColumn::from(&tinyint_column);
         let tinyint_column_bounds = ColumnBounds::from_column(&committable_tinyint_column);
@@ -589,6 +597,13 @@ mod tests {
     fn we_can_union_column_bounds_with_matching_variant() {
         let no_order = ColumnBounds::NoOrder;
         assert_eq!(no_order.try_union(no_order).unwrap(), no_order);
+
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
+        assert_eq!(
+            uint8_a.try_union(uint8_b).unwrap(),
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 6 }))
+        );
 
         let tinyint_a = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
         let tinyint_b = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 4, max: 6 }));
@@ -677,6 +692,10 @@ mod tests {
     fn we_can_difference_column_bounds_with_matching_variant() {
         let no_order = ColumnBounds::NoOrder;
         assert_eq!(no_order.try_difference(no_order).unwrap(), no_order);
+
+        let uint8_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let uint8_b = ColumnBounds::Uint8(Bounds::Empty);
+        assert_eq!(uint8_a.try_difference(uint8_b).unwrap(), uint8_a);
 
         let tinyint_a = ColumnBounds::TinyInt(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
         let tinyint_b = ColumnBounds::TinyInt(Bounds::Empty);
