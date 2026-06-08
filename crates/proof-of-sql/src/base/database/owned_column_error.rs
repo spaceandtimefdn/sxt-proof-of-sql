@@ -40,3 +40,59 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnCoercionError, OwnedColumnError};
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_display_owned_column_type_cast_errors() {
+        let error = OwnedColumnError::TypeCastError {
+            from_type: ColumnType::VarChar,
+            to_type: ColumnType::BigInt,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Can not perform type casting from VarChar to BigInt"
+        );
+    }
+
+    #[test]
+    fn we_display_owned_column_scalar_conversion_errors() {
+        let error = OwnedColumnError::ScalarConversionError {
+            error: "value exceeds scalar modulus".into(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Error in converting scalars to a given column type: value exceeds scalar modulus"
+        );
+    }
+
+    #[test]
+    fn we_display_owned_column_unsupported_errors() {
+        let error = OwnedColumnError::Unsupported {
+            error: "column variant has no scalar view".into(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Unsupported operation: column variant has no scalar view"
+        );
+    }
+
+    #[test]
+    fn we_display_column_coercion_errors() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}
