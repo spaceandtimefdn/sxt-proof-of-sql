@@ -10,20 +10,27 @@ use crate::{
                 tinyint, uint8,
             },
             table_utility::{borrowed_smallint, table},
-            ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef, TableTestAccessor,
+            ColumnRef, ColumnType, LiteralValue, OwnedTableTestAccessor, TableRef,
+            TableTestAccessor,
         },
+        map::{indexmap, IndexSet},
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::{CastExpr, DynProofExpr},
+        proof::{
+            exercise_verification, mock_verification_builder::MockVerificationBuilder,
+            VerifiableQueryResult,
+        },
+        proof_exprs::{CastExpr, ColumnExpr, DynProofExpr, ProofExpr},
         proof_plans::test_utility::{column_field, filter, table_exec},
         AnalyzeError,
     },
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+use sqlparser::ast::Ident;
 
 #[test]
 fn we_can_prove_a_simple_cast_expr() {
@@ -196,6 +203,40 @@ fn we_get_error_if_we_cast_uncastable_type() {
         DynProofExpr::try_new_cast(column(&t, "a", &accessor), ColumnType::BigInt),
         Err(AnalyzeError::DataTypeMismatch { .. })
     ));
+}
+
+#[test]
+fn we_can_inspect_cast_expr_and_verify_delegated_value() {
+    let t = TableRef::new("sxt", "t");
+    let column_ref = ColumnRef::new(t, Ident::from("a"), ColumnType::Boolean);
+    let input_expr = DynProofExpr::Column(ColumnExpr::new(column_ref.clone()));
+    let cast_expr = CastExpr::try_new(Box::new(input_expr.clone()), ColumnType::TinyInt).unwrap();
+
+    assert_eq!(cast_expr.get_from_expr(), &input_expr);
+    assert_eq!(cast_expr.to_type(), &ColumnType::TinyInt);
+    assert_eq!(cast_expr.data_type(), ColumnType::TinyInt);
+
+    let mut columns = IndexSet::default();
+    cast_expr.get_column_references(&mut columns);
+    assert_eq!(columns.len(), 1);
+    assert!(columns.contains(&column_ref));
+
+    let mut verifier = MockVerificationBuilder::<TestScalar>::new(
+        Vec::new(),
+        1,
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    let accessor = indexmap! {
+        column_ref.column_id() => TestScalar::ONE,
+    };
+    let res = cast_expr
+        .verifier_evaluate(&mut verifier, &accessor, TestScalar::ONE, &[])
+        .unwrap();
+    assert_eq!(res, TestScalar::ONE);
 }
 
 #[test]
