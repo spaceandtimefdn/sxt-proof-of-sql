@@ -132,12 +132,14 @@ mod tests {
     #[test]
     fn borrowed_commitment_conversion_matches_owned_conversion() {
         let ark_point = ark_bn254::G1Affine::generator() * ark_bn254::Fr::from(42_u64);
-        let commitment = HyperKZGCommitment::from(&ark_point.into_affine());
+        let ark_point = ark_point.into_affine();
+        let commitment = HyperKZGCommitment::from(&ark_point);
 
         let borrowed_point = halo2curves::bn256::G1Affine::from(&commitment);
         let owned_point = halo2curves::bn256::G1Affine::from(commitment);
 
         assert_eq!(borrowed_point, owned_point);
+        assert_eq!(HyperKZGCommitment::from(borrowed_point), commitment);
         assert_eq!(
             HyperKZGCommitment::from(borrowed_point),
             HyperKZGCommitment::from(owned_point)
@@ -152,6 +154,7 @@ mod tests {
         let owned_scalar = halo2curves::bn256::Fr::from(scalar);
 
         assert_eq!(borrowed_scalar, owned_scalar);
+        assert_eq!(BNScalar::from(borrowed_scalar), scalar);
         assert_eq!(
             BNScalar::from(borrowed_scalar),
             BNScalar::from(owned_scalar)
