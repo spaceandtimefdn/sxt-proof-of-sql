@@ -90,3 +90,45 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{PlaceholderError, ProofError};
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn we_display_invalid_placeholder_index_details() {
+        let error = PlaceholderError::InvalidPlaceholderIndex {
+            index: 3,
+            num_params: 2,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid placeholder index: 3, number of params: 2"
+        );
+    }
+
+    #[test]
+    fn we_display_invalid_placeholder_type_details() {
+        let error = PlaceholderError::InvalidPlaceholderType {
+            index: 1,
+            expected: ColumnType::Int,
+            actual: ColumnType::BigInt,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid placeholder type: 1, expected: INT, actual: BIGINT"
+        );
+    }
+
+    #[test]
+    fn proof_error_transparently_displays_placeholder_errors() {
+        let error = ProofError::PlaceholderError {
+            source: PlaceholderError::ZeroPlaceholderId,
+        };
+
+        assert_eq!(error.to_string(), "Placeholder id must be greater than 0");
+    }
+}
