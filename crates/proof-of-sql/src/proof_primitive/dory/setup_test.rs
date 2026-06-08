@@ -1,5 +1,6 @@
 use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
 use ark_ec::pairing::Pairing;
+use std::io::ErrorKind;
 use std::{fs, path::Path};
 
 #[test]
@@ -90,6 +91,16 @@ fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
     assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
 
     fs::remove_file(Path::new("setup.bin")).unwrap();
+}
+
+#[test]
+fn we_get_an_error_when_loading_a_missing_verifier_setup_file() {
+    let path = Path::new("missing_verifier_setup_for_test.bin");
+    let _ = fs::remove_file(path);
+
+    let error = VerifierSetup::load_from_file(path).unwrap_err();
+
+    assert_eq!(error.kind(), ErrorKind::NotFound);
 }
 
 #[test]
