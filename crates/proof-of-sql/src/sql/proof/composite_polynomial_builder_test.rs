@@ -1,5 +1,8 @@
 use super::CompositePolynomialBuilder;
-use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+use crate::{
+    base::{polynomial::compute_evaluation_vector, scalar::Scalar},
+    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+};
 use num_traits::One;
 
 #[test]
@@ -115,5 +118,51 @@ fn we_can_handle_empty_terms_with_other_terms() {
     let eval4 = Curve25519Scalar::from(mle4[0]) * m0 + Curve25519Scalar::from(mle4[1]) * m1;
     let eval_fr = fr[0] * m0 + fr[1] * m1;
     let expected = eval_fr * (eval1 * eval2 + Curve25519Scalar::from(17)) - eval3 * eval4;
+    assert_eq!(p.evaluate(&pt), expected);
+}
+
+#[test]
+fn we_can_handle_padded_terms_and_single_term_zerosum_products() {
+    let fr = [
+        Curve25519Scalar::from(1u64),
+        Curve25519Scalar::from(2u64),
+        Curve25519Scalar::from(3u64),
+    ];
+    let mle1 = [4, 5, 6];
+    let mle2 = [7, 8, 9];
+    let fr_multiplier = Curve25519Scalar::from(2u64);
+    let zerosum_multiplier = Curve25519Scalar::from(3u64);
+    let mut builder = CompositePolynomialBuilder::new(2, &fr);
+    builder.produce_fr_multiplicand(&fr_multiplier, &[Box::new(&mle1)]);
+    builder.produce_zerosum_multiplicand(&zerosum_multiplier, &[Box::new(&mle2)]);
+
+    let p = builder.make_composite_polynomial();
+
+    assert_eq!(p.products.len(), 2);
+    assert_eq!(p.flattened_ml_extensions.len(), 3);
+    let pt = [
+        Curve25519Scalar::from(9_268_764_u64),
+        Curve25519Scalar::from(21_533_u64),
+    ];
+    let mut evaluation_vec = vec![Curve25519Scalar::ZERO; 1 << pt.len()];
+    compute_evaluation_vector(&mut evaluation_vec, &pt);
+
+    let eval_fr = fr
+        .iter()
+        .zip(evaluation_vec.iter())
+        .map(|(x, eval)| *x * *eval)
+        .sum::<Curve25519Scalar>();
+    let eval1 = mle1
+        .iter()
+        .zip(evaluation_vec.iter())
+        .map(|(x, eval)| Curve25519Scalar::from(*x) * *eval)
+        .sum::<Curve25519Scalar>();
+    let eval2 = mle2
+        .iter()
+        .zip(evaluation_vec.iter())
+        .map(|(x, eval)| Curve25519Scalar::from(*x) * *eval)
+        .sum::<Curve25519Scalar>();
+    let expected = eval_fr * fr_multiplier * eval1 + zerosum_multiplier * eval2;
+
     assert_eq!(p.evaluate(&pt), expected);
 }
