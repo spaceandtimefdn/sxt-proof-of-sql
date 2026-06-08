@@ -380,6 +380,31 @@ fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_
 }
 
 #[test]
+fn we_can_compute_dynamic_dory_commitments_for_uint8_and_varbinary_with_an_offset() {
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let setup = ProverSetup::from(&public_parameters);
+    let res = compute_dynamic_dory_commitments(
+        &[
+            CommittableColumn::Uint8(&[0, u8::MAX]),
+            CommittableColumn::VarBinary(vec![[3, 0, 0, 0], [4, 0, 0, 0]]),
+        ],
+        1,
+        &setup,
+    );
+
+    assert_eq!(res.len(), 2);
+    let Gamma_1 = public_parameters.Gamma_1;
+    let Gamma_2 = public_parameters.Gamma_2;
+    let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(0)
+        + Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(u8::MAX);
+    assert_eq!(res[0].0, expected);
+
+    let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(3)
+        + Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(4);
+    assert_eq!(res[1].0, expected);
+}
+
+#[test]
 fn we_can_compute_a_dynamic_dory_commitment_with_mixed_committable_columns_with_signed_values() {
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let setup = ProverSetup::from(&public_parameters);
