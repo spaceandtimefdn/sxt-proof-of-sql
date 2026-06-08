@@ -39,3 +39,31 @@ pub fn dory_inner_product_verify(
     }
     scalar_product_verify(messages, transcript, state, setup)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters};
+    use merlin::Transcript;
+
+    #[test]
+    fn we_reject_dory_inner_product_verification_when_messages_are_empty() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let verifier_state = VerifierState::new(
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            1,
+        );
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"dory_inner_product_test");
+
+        assert!(!dory_inner_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+    }
+}
