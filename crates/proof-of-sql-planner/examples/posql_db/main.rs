@@ -27,6 +27,7 @@ use proof_of_sql::{
     sql::proof::VerifiableQueryResult,
 };
 use proof_of_sql_planner::{get_table_refs_from_statement, sql_to_proof_plans};
+use rand::{rngs::StdRng, SeedableRng};
 use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser as SqlParser};
 use std::{
     fs,
@@ -35,6 +36,8 @@ use std::{
     sync::Arc,
     time::Instant,
 };
+
+const DORY_SETUP_MAX_NU: usize = 5;
 
 /// Command line interface demonstrating an implementation of a simple csv-backed database with Proof of SQL capabilities.
 #[derive(Parser, Debug)]
@@ -134,6 +137,11 @@ fn end_timer(instant: Instant) {
     println!(" {:?}", instant.elapsed());
 }
 
+fn dory_public_parameters() -> PublicParameters {
+    let mut rng = StdRng::from_seed([0u8; 32]);
+    PublicParameters::rand(DORY_SETUP_MAX_NU, &mut rng)
+}
+
 /// # Panics
 ///
 /// This function can panic under the following circumstances:
@@ -153,16 +161,14 @@ fn end_timer(instant: Instant) {
 fn main() {
     let args = CliArgs::parse();
 
-    let mut rng = <ark_std::rand::rngs::StdRng as ark_std::rand::SeedableRng>::from_seed([0u8; 32]);
-    let public_parameters = PublicParameters::rand(5, &mut rng);
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
     match args.command {
         Commands::Create {
             table,
             columns,
             data_types,
         } => {
+            let public_parameters = dory_public_parameters();
+            let prover_setup = ProverSetup::from(&public_parameters);
             let commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
             let csv_accessor = CsvDataAccessor::new(PathBuf::from(args.path));
@@ -189,6 +195,8 @@ fn main() {
             table: table_name,
             file: file_path,
         } => {
+            let public_parameters = dory_public_parameters();
+            let prover_setup = ProverSetup::from(&public_parameters);
             let mut commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
             let csv_accessor = CsvDataAccessor::new(PathBuf::from(args.path));
@@ -218,6 +226,8 @@ fn main() {
                 .expect("Failed to write commit");
         }
         Commands::Prove { query, file } => {
+            let public_parameters = dory_public_parameters();
+            let prover_setup = ProverSetup::from(&public_parameters);
             let mut commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
             let mut csv_accessor = CsvDataAccessor::new(PathBuf::from(args.path.clone()));
@@ -263,6 +273,8 @@ fn main() {
             .expect("Failed to write proof");
         }
         Commands::Verify { query, file } => {
+            let public_parameters = dory_public_parameters();
+            let verifier_setup = VerifierSetup::from(&public_parameters);
             let mut commit_accessor =
                 CommitAccessor::<DynamicDoryCommitment>::new(PathBuf::from(args.path.clone()));
 
