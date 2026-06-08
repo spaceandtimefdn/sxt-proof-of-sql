@@ -323,3 +323,29 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AddOp, ArithmeticOp};
+    use crate::base::{
+        database::{ColumnOperationError, ColumnType, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn arithmetic_rejects_boolean_columns_with_invalid_type_error() {
+        let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true, false]);
+        let rhs = OwnedColumn::<TestScalar>::Boolean(vec![false, true]);
+
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                left_type: ColumnType::Boolean,
+                right_type: ColumnType::Boolean,
+                ..
+            })
+        ));
+    }
+}
