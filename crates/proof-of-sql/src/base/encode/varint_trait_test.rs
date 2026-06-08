@@ -19,6 +19,13 @@ use rand::Rng;
 // -----------------------------------------------------------------------------------------------------
 
 #[test]
+fn scalar_types_use_blanket_varint_impl() {
+    fn assert_blanket_impl<S: Scalar + VarInt>() {}
+
+    assert_blanket_impl::<TestScalar>();
+}
+
+#[test]
 fn test_required_space() {
     assert_eq!(0_u32.required_space(), 1);
     assert_eq!(1_u32.required_space(), 1);
