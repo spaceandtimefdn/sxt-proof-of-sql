@@ -2,16 +2,21 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTable,
+            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType, OwnedTable,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
+        map::indexmap,
         math::decimal::Precision,
-        scalar::Scalar,
+        polynomial::MultilinearExtension,
+        scalar::{test_scalar::TestScalar, Scalar},
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::{test_utility::*, DynProofExpr, EqualsExpr, ProofExpr},
+        proof::{
+            exercise_verification, mock_verification_builder::run_verify_for_each_row,
+            FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
+        },
+        proof_exprs::{test_utility::*, ColumnExpr, DynProofExpr, EqualsExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
     },
@@ -23,6 +28,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+use sqlparser::ast::Ident;
+use std::collections::VecDeque;
 
 #[test]
 fn we_can_prove_an_equality_query_with_no_rows() {
@@ -557,6 +564,63 @@ fn we_can_compute_the_correct_output_of_an_equals_expr_using_first_round_evaluat
         .unwrap();
     let expected_res = Column::Boolean(&[true, false, true, false]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_simple_equals_proof() {
+    let alloc = Bump::new();
+    let t: TableRef = "sxt.t".parse().unwrap();
+    let lhs = &[3_i64, -2, 0, 5];
+    let rhs = &[3_i64, 4, 0, -5];
+    let table = Table::try_new(indexmap! {
+        "a".into() => Column::BigInt::<TestScalar>(lhs),
+        "b".into() => Column::BigInt::<TestScalar>(rhs),
+    })
+    .unwrap();
+    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::BigInt);
+    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::BigInt);
+    let equals_expr = EqualsExpr::try_new(
+        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+    )
+    .unwrap();
+
+    let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(4);
+    let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+        FinalRoundBuilder::new(4, VecDeque::new());
+
+    equals_expr
+        .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+        .unwrap();
+
+    let verification_builder = run_verify_for_each_row(
+        4,
+        &first_round_builder,
+        &final_round_builder,
+        Vec::new(),
+        3,
+        |verification_builder, chi_eval, evaluation_point| {
+            let lhs_eval = lhs.inner_product(evaluation_point);
+            let rhs_eval = rhs.inner_product(evaluation_point);
+            let accessor = indexmap! {
+                a.clone().column_id() => lhs_eval,
+                b.clone().column_id() => rhs_eval,
+            };
+            let res = equals_expr
+                .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
+                .unwrap();
+            let expected = if lhs_eval == rhs_eval {
+                TestScalar::ONE
+            } else {
+                TestScalar::ZERO
+            };
+            assert_eq!(res, expected);
+        },
+    );
+    assert_eq!(
+        verification_builder.get_identity_results(),
+        vec![vec![true, true]; 4]
+    );
 }
 
 #[test]
