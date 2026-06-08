@@ -1,7 +1,34 @@
 #[cfg(test)]
 mod precision_tests {
-    use crate::base::math::decimal::Precision;
+    use crate::base::math::decimal::{DecimalError, Precision};
     use serde_json;
+
+    #[test]
+    fn we_can_construct_valid_precision() {
+        let precision = Precision::new(1).unwrap();
+
+        assert_eq!(precision.value(), 1);
+    }
+
+    #[test]
+    fn we_cannot_construct_zero_precision() {
+        assert_eq!(
+            Precision::new(0),
+            Err(DecimalError::InvalidPrecision {
+                error: "0".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn we_cannot_construct_precision_from_oversized_u64() {
+        assert_eq!(
+            Precision::try_from(u64::MAX),
+            Err(DecimalError::InvalidPrecision {
+                error: u64::MAX.to_string()
+            })
+        );
+    }
 
     #[test]
     fn we_can_deserialize_valid_precision() {
