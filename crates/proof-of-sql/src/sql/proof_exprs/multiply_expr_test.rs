@@ -2,15 +2,23 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, ColumnType, OwnedTableTestAccessor, TableRef,
-            TableTestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
+            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
+        map::indexmap,
         math::decimal::Precision,
+        polynomial::MultilinearExtension,
+        scalar::test_scalar::TestScalar,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::{multiply_expr::MultiplyExpr, test_utility::*, DynProofExpr, ProofExpr},
+        proof::{
+            exercise_verification, mock_verification_builder::run_verify_for_each_row,
+            FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
+        },
+        proof_exprs::{
+            multiply_expr::MultiplyExpr, test_utility::*, ColumnExpr, DynProofExpr, ProofExpr,
+        },
         proof_plans::{test_utility::*, DynProofPlan},
         AnalyzeError,
     },
@@ -22,6 +30,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+use sqlparser::ast::Ident;
+use std::collections::VecDeque;
 
 // select a * 2 as a, c, b * 4.5 as b, d * 3  + 4.7 as d, e from sxt.t where d * 3.9 = 8.19
 #[test]
@@ -287,6 +297,58 @@ fn we_can_compute_the_correct_output_of_a_multiply_expr_using_first_round_evalua
         .unwrap();
     let expected_res = borrowed_decimal75("f", 18, 1, [0_i64, 5, 75, 25], &alloc).1;
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_simple_multiply_proof() {
+    let alloc = Bump::new();
+    let t: TableRef = "sxt.t".parse().unwrap();
+    let lhs = &[2_i64, -3, 0, 5];
+    let rhs = &[4_i64, 2, -7, 0];
+    let table = Table::try_new(indexmap! {
+        "a".into() => Column::BigInt::<TestScalar>(lhs),
+        "b".into() => Column::BigInt::<TestScalar>(rhs),
+    })
+    .unwrap();
+    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::BigInt);
+    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::BigInt);
+    let multiply_expr = MultiplyExpr::try_new(
+        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+    )
+    .unwrap();
+
+    let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(4);
+    let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+        FinalRoundBuilder::new(4, VecDeque::new());
+
+    multiply_expr
+        .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+        .unwrap();
+
+    let verification_builder = run_verify_for_each_row(
+        4,
+        &first_round_builder,
+        &final_round_builder,
+        Vec::new(),
+        3,
+        |verification_builder, _chi_eval, evaluation_point| {
+            let lhs_eval = lhs.inner_product(evaluation_point);
+            let rhs_eval = rhs.inner_product(evaluation_point);
+            let accessor = indexmap! {
+                a.clone().column_id() => lhs_eval,
+                b.clone().column_id() => rhs_eval,
+            };
+            let res = multiply_expr
+                .verifier_evaluate(verification_builder, &accessor, TestScalar::ONE, &[])
+                .unwrap();
+            assert_eq!(res, lhs_eval * rhs_eval);
+        },
+    );
+    assert_eq!(
+        verification_builder.get_identity_results(),
+        vec![vec![true]; 4]
+    );
 }
 
 #[test]
