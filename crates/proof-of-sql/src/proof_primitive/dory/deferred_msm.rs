@@ -140,4 +140,36 @@ mod test {
 
         assert_eq!(result, expected_result);
     }
+
+    #[test]
+    fn we_can_compute_deferred_group_elements_from_zipped_inputs() {
+        let rng = &mut ark_std::test_rng();
+        let bases = [
+            G1Affine::rand(rng),
+            G1Affine::rand(rng),
+            G1Affine::rand(rng),
+        ];
+        let scalars = [Fr::rand(rng), Fr::rand(rng), Fr::rand(rng)];
+
+        let result = DeferredMSM::<G1Affine, Fr>::new(bases, scalars);
+        let expected_result = bases[0] * scalars[0] + bases[1] * scalars[1] + bases[2] * scalars[2];
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn we_can_add_two_deferred_group_element_batches() {
+        let rng = &mut ark_std::test_rng();
+        let left_base = G1Affine::rand(rng);
+        let left_scalar = Fr::rand(rng);
+        let right_base = G1Affine::rand(rng);
+        let right_scalar = Fr::rand(rng);
+
+        let left = DeferredMSM::<G1Affine, Fr>::new([left_base], [left_scalar]);
+        let right = DeferredMSM::<G1Affine, Fr>::new([right_base], [right_scalar]);
+        let result = left + right;
+        let expected_result = left_base * left_scalar + right_base * right_scalar;
+
+        assert_eq!(result, expected_result);
+    }
 }
