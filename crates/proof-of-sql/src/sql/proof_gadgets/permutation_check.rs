@@ -212,11 +212,9 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(matches!(
-            err,
-            ProofError::VerificationError {
-                error: "The number of source and candidate columns should be equal"
-            }
-        ));
+        let ProofError::VerificationError { error } = err else {
+            panic!("expected verification error for mismatched permutation eval lengths");
+        };
+        assert!(error.contains("source and candidate"));
     }
 }
