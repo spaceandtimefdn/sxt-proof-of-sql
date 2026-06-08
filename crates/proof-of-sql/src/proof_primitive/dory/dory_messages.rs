@@ -124,3 +124,34 @@ impl DoryMessages {
         (message, message_inv)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{test_rng, GT};
+    use super::*;
+    use ark_std::UniformRand;
+    use merlin::Transcript;
+
+    #[test]
+    fn gt_messages_are_received_in_the_order_the_prover_sent_them() {
+        let mut rng = test_rng();
+        let first = GT::rand(&mut rng);
+        let second = GT::rand(&mut rng);
+        let mut messages = DoryMessages::default();
+        let mut prover_transcript = Transcript::new(b"dory_gt_message_order");
+
+        messages.prover_send_GT_message(&mut prover_transcript, first);
+        messages.prover_send_GT_message(&mut prover_transcript, second);
+
+        let mut verifier_transcript = Transcript::new(b"dory_gt_message_order");
+        assert_eq!(
+            messages.prover_receive_GT_message(&mut verifier_transcript),
+            first
+        );
+        assert_eq!(
+            messages.prover_receive_GT_message(&mut verifier_transcript),
+            second
+        );
+        assert!(messages.GT_messages.is_empty());
+    }
+}
