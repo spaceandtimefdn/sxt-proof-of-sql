@@ -1,6 +1,6 @@
 use super::{
-    rand_F_tensors, rand_G_vecs, test_rng, ExtendedProverState, G1Projective, G2Projective,
-    PublicParameters,
+    rand_F_tensors, rand_G_vecs, test_rng, DeferredG1, DeferredG2, DeferredGT, ExtendedProverState,
+    ExtendedVerifierState, G1Projective, G2Projective, PublicParameters, F,
 };
 use crate::base::polynomial::compute_evaluation_vector;
 use ark_ec::{pairing::Pairing, VariableBaseMSM};
@@ -45,4 +45,39 @@ pub fn we_can_create_an_extended_verifier_state_from_an_extended_prover_state() 
         assert_eq!(extended_verifier_state.s1_tensor, s1_tensor);
         assert_eq!(extended_verifier_state.s2_tensor, s2_tensor);
     }
+}
+
+#[test]
+pub fn we_can_create_an_extended_verifier_state_from_tensor_commitments() {
+    let mut rng = test_rng();
+    let nu = 3;
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    let E_1: DeferredG1 = v1[0].into();
+    let E_2: DeferredG2 = v2[0].into();
+    let C: DeferredGT = Pairing::pairing(v1[1], v2[1]).into();
+    let D_1: DeferredGT = Pairing::pairing(v1[2], v2[2]).into();
+    let D_2: DeferredGT = Pairing::pairing(v1[3], v2[3]).into();
+
+    let extended_verifier_state = ExtendedVerifierState::new_tensor(
+        E_1.clone(),
+        E_2.clone(),
+        s1_tensor.clone(),
+        s2_tensor.clone(),
+        C.clone(),
+        D_1.clone(),
+        D_2.clone(),
+        nu,
+    );
+
+    assert_eq!(extended_verifier_state.base_state.C, C);
+    assert_eq!(extended_verifier_state.base_state.D_1, D_1);
+    assert_eq!(extended_verifier_state.base_state.D_2, D_2);
+    assert_eq!(extended_verifier_state.base_state.nu, nu);
+    assert_eq!(extended_verifier_state.E_1, E_1);
+    assert_eq!(extended_verifier_state.E_2, E_2);
+    assert_eq!(extended_verifier_state.s1_tensor, s1_tensor);
+    assert_eq!(extended_verifier_state.s2_tensor, s2_tensor);
+    assert_eq!(extended_verifier_state.alphas, vec![F::default(); nu]);
+    assert_eq!(extended_verifier_state.alpha_invs, vec![F::default(); nu]);
 }
