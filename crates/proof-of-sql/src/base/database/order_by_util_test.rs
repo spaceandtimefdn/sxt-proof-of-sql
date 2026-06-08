@@ -136,6 +136,41 @@ fn we_cannot_compare_single_row_of_tables_if_type_mismatch() {
 }
 
 #[test]
+fn we_can_compare_single_row_of_tables_for_varbinary_columns() {
+    let left_bytes = [b"foo".as_ref(), b"bar".as_ref(), b"baz".as_ref()];
+    let right_bytes = [b"bar".as_ref(), b"foo".as_ref(), b"baz".as_ref()];
+    let left_scalars: Vec<TestScalar> = left_bytes
+        .iter()
+        .map(|b| TestScalar::from_le_bytes_mod_order(b))
+        .collect();
+    let right_scalars: Vec<TestScalar> = right_bytes
+        .iter()
+        .map(|b| TestScalar::from_le_bytes_mod_order(b))
+        .collect();
+    let left = &[Column::VarBinary((
+        left_bytes.as_slice(),
+        left_scalars.as_slice(),
+    ))];
+    let right = &[Column::VarBinary((
+        right_bytes.as_slice(),
+        right_scalars.as_slice(),
+    ))];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 2, 2).unwrap(),
+        Ordering::Equal
+    );
+}
+
+#[test]
 fn we_can_compare_indexes_by_columns_for_scalar_columns() {
     let slice_a = &[55, 44, 66, 66, 66, 77, 66, 66, 66, 66];
     let slice_b = &[22, 44, 11, 44, 33, 22, 22, 11, 22, 22];
