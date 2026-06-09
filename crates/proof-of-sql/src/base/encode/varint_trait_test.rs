@@ -1,4 +1,4 @@
-use super::VarInt;
+use super::{U256, VarInt};
 use crate::base::scalar::{test_scalar::TestScalar, Scalar};
 use alloc::{vec, vec::Vec};
 use core::{
@@ -23,6 +23,26 @@ fn scalar_types_use_blanket_varint_impl() {
     fn assert_blanket_impl<S: Scalar + VarInt>() {}
 
     assert_blanket_impl::<TestScalar>();
+}
+
+#[test]
+fn u256_limb_roundtrips_preserve_little_endian_order() {
+    let limbs = [
+        0x0011_2233_4455_6677,
+        0x8899_aabb_ccdd_eeff,
+        0x1020_3040_5060_7080,
+        0x90a0_b0c0_d0e0_f001,
+    ];
+
+    assert_eq!(U256::from_limbs(limbs).to_limbs(), limbs);
+
+    let value = U256::from_words(
+        0x8899_aabb_ccdd_eeff_0011_2233_4455_6677,
+        0x90a0_b0c0_d0e0_f001_1020_3040_5060_7080,
+    );
+
+    assert_eq!(value.to_limbs(), limbs);
+    assert_eq!(U256::from_limbs(value.to_limbs()).to_limbs(), limbs);
 }
 
 #[test]

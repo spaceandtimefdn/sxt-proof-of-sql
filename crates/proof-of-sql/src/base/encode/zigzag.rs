@@ -9,7 +9,7 @@ pub trait ZigZag<T> {
     fn zigzag(&self) -> T;
 }
 
-/// Zigzag conversion from a dalek Scalar to a [`ZigZag`] u256 integer
+/// Zigzag conversion from a [`Scalar`] to a [`ZigZag`] u256 integer
 ///
 /// For this conversion, we compute:
 ///
@@ -25,8 +25,8 @@ pub trait ZigZag<T> {
 /// which represents a negative [`ZigZag`] encoding (-y).
 impl<S: Scalar> ZigZag<U256> for S {
     fn zigzag(&self) -> U256 {
-        // since self is a dalek scalar, we never have the last bit 255 set
-        // therefore, we should never expect overflow when multiplying by 2
+        // Scalars are represented by normalized limbs with enough headroom
+        // for this ZigZag doubling step, so this shift should not overflow.
         let mut x = U256::from_limbs(self.ref_into());
         let mut y = U256::from_limbs((-*self).ref_into()); // x + y = 0 ==> y = -x
 
@@ -60,7 +60,7 @@ impl<S: Scalar> ZigZag<U256> for S {
     }
 }
 
-/// Zigzag conversion from an u256 integer to a dalek Scalar.
+/// Zigzag conversion from an u256 integer to a [`Scalar`].
 ///
 /// For this conversion, we first verify if `self` is an odd or even number.
 /// In case `self` is odd, the encoded number represents a negative
@@ -71,7 +71,7 @@ impl<S: Scalar> ZigZag<U256> for S {
 /// In both cases, we divide the `self` value by 2 in order
 /// to remove the [`ZigZag`] encoding (`y = self / 2` or `x = self / 2`).
 ///
-/// Finally, we return either `-1 * dalek::Scalar(y)` or `dalek::Scalar(x)`,
+/// Finally, we return either `-1 * S(y)` or `S(x)`,
 /// which in both cases represents the `x` scalar.
 impl<S: Scalar> ZigZag<S> for U256 {
     fn zigzag(&self) -> S {
