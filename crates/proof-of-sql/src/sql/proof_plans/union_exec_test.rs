@@ -365,14 +365,15 @@ fn we_get_error_when_verifier_runs_out_of_mle_evaluations_in_union_exec() {
     chi_eval_map.insert(table_a, (TestScalar::ONE, 1));
     chi_eval_map.insert(table_b, (TestScalar::ONE, 1));
 
-    // Provide no first_round_mles so try_consume_first_round_mle_evaluations fails at line 85.
-    // final_round_mles has 2 entries (one per input's fold_log gadget evaluation).
-    // max_multiplicands=3 allows Identity subpolynomials with degree=2 to pass.
+    // Each input's fold_log gadget consumes one final_round_mle at indices [0][0] and [0][1]
+    // (evaluation_row_index stays 0 throughout). first_round_mles has an empty inner vec so
+    // try_consume_first_round_mle_evaluations finds the row but no element → ProofSizeMismatch.
+    // max_multiplicands=3 allows Identity subpolynomials (degree=2) from fold_log to pass.
     let mut builder = MockVerificationBuilder::<TestScalar>::new(
         vec![],
         3,
-        vec![],
-        vec![vec![TestScalar::ONE], vec![TestScalar::ONE]],
+        vec![vec![]],
+        vec![vec![TestScalar::ONE, TestScalar::ONE]],
         vec![TestScalar::ONE, TestScalar::ONE],
         vec![],
         vec![],
