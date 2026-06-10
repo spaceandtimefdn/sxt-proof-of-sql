@@ -132,10 +132,7 @@ pub fn write_scalar_varints<S: Scalar>(buf: &mut [u8], scals: &[S]) -> usize {
 /// error:
 /// - in case it's not possible to read all specified scalars from `input_buf`
 #[cfg(test)]
-pub fn read_scalar_varints<S: Scalar>(
-    scals_buf: &mut [S],
-    input_buf: &[u8],
-) -> Option<()> {
+pub fn read_scalar_varints<S: Scalar>(scals_buf: &mut [S], input_buf: &[u8]) -> Option<()> {
     let mut buf = input_buf;
 
     for scal_buf in scals_buf.iter_mut() {
