@@ -29,6 +29,8 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
+    // Tests exercise this constructor directly, so the dead-code expectation only
+    // applies to non-test builds.
     #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
