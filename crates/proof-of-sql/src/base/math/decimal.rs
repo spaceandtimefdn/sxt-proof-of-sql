@@ -168,6 +168,30 @@ pub fn try_convert_intermediate_decimal_to_scalar<S: Scalar>(
 }
 
 #[cfg(test)]
+mod conversion_tests {
+    use super::{DecimalError, Precision};
+    use alloc::string::{String, ToString};
+
+    #[test]
+    fn we_can_convert_decimal_error_into_string() {
+        // `String::from` delegates to the error's `Display` impl.
+        let make = || DecimalError::InvalidPrecision {
+            error: String::from("100"),
+        };
+        assert_eq!(String::from(make()), make().to_string());
+    }
+
+    #[test]
+    fn we_can_try_precision_from_u64() {
+        assert_eq!(Precision::try_from(10_u64).unwrap().value(), 10);
+        // 100 fits in a u8 but exceeds the max supported precision (75).
+        assert!(Precision::try_from(100_u64).is_err());
+        // Values that do not fit in a u8 are rejected.
+        assert!(Precision::try_from(u64::MAX).is_err());
+    }
+}
+
+#[cfg(test)]
 mod scale_adjust_test {
 
     use super::*;
