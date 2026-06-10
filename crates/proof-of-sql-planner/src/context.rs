@@ -181,6 +181,16 @@ mod tests {
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
         assert_eq!(context_provider.get_window_meta(""), None);
+        // The provider exposes datafusion's default config options.
+        assert_eq!(
+            context_provider
+                .options()
+                .sql_parser
+                .enable_ident_normalization,
+            ConfigOptions::default()
+                .sql_parser
+                .enable_ident_normalization
+        );
 
         // Non-empty
         let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
