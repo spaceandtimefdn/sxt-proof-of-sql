@@ -2,6 +2,7 @@ use crate::base::{
     encode::U256,
     scalar::{Scalar, ScalarExt},
 };
+use bnum::types::U256 as BnumU256;
 
 /// A trait for enabling zig-zag encoding
 ///
@@ -10,6 +11,24 @@ use crate::base::{
 pub trait ZigZag<T> {
     /// Encodes this ZigZag-enabled type into the type specified by implementation
     fn zigzag(&self) -> T;
+}
+
+fn bnum_to_varint_u256(value: BnumU256) -> U256 {
+    let limbs: [u64; 4] = value.into();
+    U256::from_words(
+        u128::from(limbs[0]) | (u128::from(limbs[1]) << 64),
+        u128::from(limbs[2]) | (u128::from(limbs[3]) << 64),
+    )
+}
+
+#[expect(clippy::cast_possible_truncation)]
+fn varint_to_bnum_u256(value: U256) -> BnumU256 {
+    BnumU256::from([
+        value.low as u64,
+        (value.low >> 64) as u64,
+        value.high as u64,
+        (value.high >> 64) as u64,
+    ])
 }
 
 /// Zigzag conversion from a dalek Scalar to a [`ZigZag`] u256 integer
@@ -30,8 +49,8 @@ impl<S: Scalar> ZigZag<U256> for S {
     fn zigzag(&self) -> U256 {
         // since self is a dalek scalar, we never have the last bit 255 set
         // therefore, we should never expect overflow when multiplying by 2
-        let mut x = (*self).into_u256_wrapping();
-        let mut y = (-*self).into_u256_wrapping(); // x + y = 0 ==> y = -x
+        let mut x = bnum_to_varint_u256((*self).into_u256_wrapping());
+        let mut y = bnum_to_varint_u256((-*self).into_u256_wrapping()); // x + y = 0 ==> y = -x
 
         // we return the smallest ZigZag number between x and y
         // in case x is bigger than y, we return -y (encoded in the ZigZag format)
@@ -100,11 +119,11 @@ impl<S: Scalar> ZigZag<S> for U256 {
             // even though the encoding represented a -y,
             // zig_val actually represents a `y` (we simply divided self by 2).
             // Also, since x + y = 0, we need to compute -(zig_val.into()) to return x
-            let scal = S::from_wrapping(zig_val);
+            let scal = S::from_wrapping(varint_to_bnum_u256(zig_val));
 
             -scal
         } else {
-            let scal = S::from_wrapping(zig_val);
+            let scal = S::from_wrapping(varint_to_bnum_u256(zig_val));
 
             // return x
             scal
