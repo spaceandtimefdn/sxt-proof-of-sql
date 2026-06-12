@@ -35,3 +35,49 @@ pub(crate) enum EVMProofPlanError {
 
 /// Result type for EVM proof plan operations.
 pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlanError;
+
+    #[test]
+    fn evm_proof_plan_errors_render_stable_messages() {
+        let cases = [
+            (EVMProofPlanError::NotSupported, "plan not yet supported"),
+            (EVMProofPlanError::ColumnNotFound, "column not found"),
+            (EVMProofPlanError::TableNotFound, "table not found"),
+            (
+                EVMProofPlanError::InvalidTableName,
+                "table name can not be parsed into TableRef",
+            ),
+            (
+                EVMProofPlanError::InvalidOutputColumnName,
+                "invalid or missing output column name",
+            ),
+            (
+                EVMProofPlanError::InconsistentGroupByColumnCounts,
+                "column counts in group by plans are inconsistent",
+            ),
+            (
+                EVMProofPlanError::IncorrectScalingFactor,
+                "incorrect scaling factor",
+            ),
+        ];
+
+        for (error, expected_message) in cases {
+            assert_eq!(error.to_string(), expected_message);
+        }
+    }
+
+    #[test]
+    fn evm_proof_plan_errors_compare_by_variant() {
+        assert_eq!(
+            EVMProofPlanError::ColumnNotFound,
+            EVMProofPlanError::ColumnNotFound
+        );
+        assert_ne!(
+            EVMProofPlanError::ColumnNotFound,
+            EVMProofPlanError::TableNotFound
+        );
+    }
+}
