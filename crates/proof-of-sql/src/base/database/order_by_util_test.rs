@@ -1,6 +1,8 @@
 use crate::{
     base::{
         database::{order_by_util::*, Column, ColumnType, TableOperationError},
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -187,4 +189,80 @@ fn we_can_compare_indexes_by_columns_for_varbinary_columns() {
     assert_eq!(compare_indexes_by_columns(columns, 2, 3), Ordering::Equal); // "baz" vs "baz"
     assert_eq!(compare_indexes_by_columns(columns, 3, 4), Ordering::Greater); // "baz" vs "bar"
     assert_eq!(compare_indexes_by_columns(columns, 1, 4), Ordering::Equal); // "bar" vs "bar"
+}
+
+#[test]
+fn we_can_compare_indexes_for_every_primitive_numeric_and_timestamp_type() {
+    let decimal_values: [TestScalar; 3] = [(-1).into(), 1.into(), 1.into()];
+    let columns = [
+        Column::Boolean(&[false, true, true]),
+        Column::Uint8(&[1, 2, 2]),
+        Column::TinyInt(&[-2, -1, -1]),
+        Column::SmallInt(&[-20, 10, 10]),
+        Column::Int(&[-200, 100, 100]),
+        Column::Decimal75(Precision::new(3).unwrap(), 1, &decimal_values),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[1_000, 2_000, 2_000],
+        ),
+    ];
+
+    for column in columns {
+        assert_eq!(compare_indexes_by_columns(&[column], 0, 1), Ordering::Less);
+        assert_eq!(compare_indexes_by_columns(&[column], 1, 2), Ordering::Equal);
+        assert_eq!(
+            compare_indexes_by_columns(&[column], 2, 0),
+            Ordering::Greater
+        );
+    }
+}
+
+#[test]
+fn we_can_compare_single_rows_for_every_supported_primitive_type() {
+    let left_decimal: [TestScalar; 1] = [(-1).into()];
+    let right_decimal: [TestScalar; 1] = [1.into()];
+    let left_scalar: [TestScalar; 1] = [1.into()];
+    let right_scalar: [TestScalar; 1] = [2.into()];
+    let left_varchar_scalar: [TestScalar; 1] = ["alpha".into()];
+    let right_varchar_scalar: [TestScalar; 1] = ["beta".into()];
+    let left = [
+        Column::Boolean(&[false]),
+        Column::Uint8(&[1]),
+        Column::TinyInt(&[-2]),
+        Column::SmallInt(&[-20]),
+        Column::Int(&[-200]),
+        Column::Int128(&[-2_000]),
+        Column::Decimal75(Precision::new(3).unwrap(), 1, &left_decimal),
+        Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[1_000]),
+        Column::Scalar(&left_scalar),
+        Column::VarChar((&["alpha"], &left_varchar_scalar)),
+    ];
+    let right = [
+        Column::Boolean(&[true]),
+        Column::Uint8(&[2]),
+        Column::TinyInt(&[-1]),
+        Column::SmallInt(&[10]),
+        Column::Int(&[100]),
+        Column::Int128(&[1_000]),
+        Column::Decimal75(Precision::new(3).unwrap(), 1, &right_decimal),
+        Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[2_000]),
+        Column::Scalar(&right_scalar),
+        Column::VarChar((&["beta"], &right_varchar_scalar)),
+    ];
+
+    for (left_column, right_column) in left.into_iter().zip(right) {
+        assert_eq!(
+            compare_single_row_of_tables(&[left_column], &[right_column], 0, 0).unwrap(),
+            Ordering::Less
+        );
+        assert_eq!(
+            compare_single_row_of_tables(&[right_column], &[left_column], 0, 0).unwrap(),
+            Ordering::Greater
+        );
+        assert_eq!(
+            compare_single_row_of_tables(&[left_column], &[left_column], 0, 0).unwrap(),
+            Ordering::Equal
+        );
+    }
 }
