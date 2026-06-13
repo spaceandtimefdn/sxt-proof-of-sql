@@ -288,14 +288,41 @@ jobs:
           version: v1.0.0
       - name: Install dependencies
         run: solidity/scripts/install_deps.sh
-      - name: Run tests without via-ir or optimization
-        run: solidity/scripts/pre_forge.sh test
-      - name: Run tests with via-ir but without optimization
-        run: solidity/scripts/pre_forge.sh test --via-ir
-      - name: Run tests with optimization but without via-ir
-        run: solidity/scripts/pre_forge.sh test --optimize
-      - name: Run tests with via-ir and optimization
-        run: solidity/scripts/pre_forge.sh test --via-ir --optimize
+      - name: Run Foundry test modes
+        run: |
+          set -euo pipefail
+          cd solidity
+
+          find . -type f -name '*.post.sol' -delete
+          python3 preprocessor/yul_preprocessor.py .
+
+          pids=()
+          run_mode() {
+            local label="$1"
+            local out_dir="$2"
+            local cache_dir="$3"
+            shift 3
+
+            echo "Running Foundry tests: ${label}"
+            forge test --threads 2 --out "${out_dir}" --cache-path "${cache_dir}" "$@"
+          }
+
+          run_mode "without via-ir or optimization" out-test-default cache-test-default &
+          pids+=($!)
+          run_mode "with via-ir but without optimization" out-test-via-ir cache-test-via-ir --via-ir &
+          pids+=($!)
+          run_mode "with optimization but without via-ir" out-test-optimize cache-test-optimize --optimize &
+          pids+=($!)
+          run_mode "with via-ir and optimization" out-test-via-ir-optimize cache-test-via-ir-optimize --via-ir --optimize &
+          pids+=($!)
+
+          failed=0
+          for pid in "${pids[@]}"; do
+            if ! wait "${pid}"; then
+              failed=1
+            fi
+          done
+          exit "${failed}"
       - name: Remove preprocessor test files (for they are already tested in the check-yul-preprocessor job)
         run: rm -rf solidity/preprocessor/test_files
       - name: Install lcov
@@ -313,14 +340,25 @@ jobs:
       - name: Install Slither
         run: pip install slither-analyzer
 
-      - name: Run slither on verifier
-        run: slither solidity/src/verifier/Verifier.post.sol --config-file solidity/slither.config.json
+      - name: Run Slither checks
+        run: |
+          set -euo pipefail
 
-      - name: Run slither on errors
-        run: slither solidity/src/base/Errors.sol --config-file solidity/slither.config.json
+          pids=()
+          slither solidity/src/verifier/Verifier.post.sol --config-file solidity/slither.config.json &
+          pids+=($!)
+          slither solidity/src/base/Errors.sol --config-file solidity/slither.config.json &
+          pids+=($!)
+          slither solidity/src/base/Constants.sol --config-file solidity/slither.config.json &
+          pids+=($!)
 
-      - name: Run slither on constants
-        run: slither solidity/src/base/Constants.sol --config-file solidity/slither.config.json
+          failed=0
+          for pid in "${pids[@]}"; do
+            if ! wait "${pid}"; then
+              failed=1
+            fi
+          done
+          exit "${failed}"
 
 
   rustevmtests:
