@@ -47,14 +47,50 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
 #[cfg(test)]
 mod tests {
-    use super::statement_with_uppercase_identifiers;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use super::{statement_with_uppercase_identifiers, uppercase_identifier};
+    use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
+
+    #[test]
+    fn we_can_uppercase_identifier_values() {
+        let ident = Ident::new("mixed_case_column");
+
+        assert_eq!(uppercase_identifier(ident).value, "MIXED_CASE_COLUMN");
+    }
+
+    #[test]
+    fn uppercase_identifier_preserves_quote_style() {
+        let ident = Ident::with_quote('"', "CaseSensitive");
+        let uppercased = uppercase_identifier(ident);
+
+        assert_eq!(uppercased.value, "CASESENSITIVE");
+        assert_eq!(uppercased.quote_style, Some('"'));
+    }
 
     #[test]
     fn we_can_capitalize_statement_idents() {
         let statement = Parser::parse_sql(&GenericDialect{}, "SELECT a.thissum from (SELECT Sum(uppercase_Value) as thissum, COUNT(puppies) as coUNT fRoM NonSEnSE) as a").unwrap()[0].clone();
         let statement = statement_with_uppercase_identifiers(statement);
         let expected_statement = Parser::parse_sql(&GenericDialect{}, "SELECT A.THISSUM from (SELECT Sum(UPPERCASE_VALUE) as thissum, COUNT(PUPPIES) as coUNT fRoM NONSENSE) as a").unwrap()[0].clone();
+        assert_eq!(statement, expected_statement);
+    }
+
+    #[test]
+    fn we_can_capitalize_compound_identifiers_and_join_tables() {
+        let statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT schema_one.table_one.value_col FROM schema_one.table_one JOIN schema_two.table_two ON table_one.id = table_two.id",
+        )
+        .unwrap()[0]
+            .clone();
+
+        let statement = statement_with_uppercase_identifiers(statement);
+
+        let expected_statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT SCHEMA_ONE.TABLE_ONE.VALUE_COL FROM SCHEMA_ONE.TABLE_ONE JOIN SCHEMA_TWO.TABLE_TWO ON TABLE_ONE.ID = TABLE_TWO.ID",
+        )
+        .unwrap()[0]
+            .clone();
         assert_eq!(statement, expected_statement);
     }
 }
