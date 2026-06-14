@@ -197,6 +197,26 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 
 
+## Running Tests and Contributing
+
+To ensure a smooth development experience, the test suite supports efficient local runs.
+
+### Running Tests
+
+Run all tests with: 
+
+For faster local development, consider Dory setup caching (see below).
+
+### Proposed Improvement: Test Performance Caching (Issue #557)
+
+Generating Dory , , and  on every run is costly. The following caching approach is proposed to address [#557](https://github.com/spaceandtimefdn/sxt-proof-of-sql/issues/557):
+
+1. **First run:** generate setups and save them to a cache path (e.g., ).
+2. **Subsequent runs:** load pre-computed setups from disk instead of regenerating.
+3. **Regenerate:** delete cached files and re-run (e.g., after Dory library changes).
+
+This would significantly reduce CI runtime and local iteration time. Contributions implementing this caching are welcome -- see issue #557 for context.
+
 ## License
 
 Proof of SQL is licensed under the Decentralized Open Software License 1.0. Please see the [LICENSE](https://github.com/spaceandtimelabs/sxt-proof-of-sql/blob/main/LICENSE) file for details.
