@@ -417,6 +417,72 @@ fn we_reject_distributions_that_are_outside_of_maximum_range() {
 }
 
 #[test]
+fn valid_bit_distributions_do_not_overlap_below_the_sign_bit() {
+    let valid_cases = [
+        BitDistribution {
+            vary_mask: [0, 0, 0, 1 << 63],
+            leading_bit_mask: [0, 0, 0, 1 << 63],
+        },
+        BitDistribution {
+            vary_mask: [0b10, 0, 0, 0],
+            leading_bit_mask: [0b01, 0, 0, 0],
+        },
+        BitDistribution {
+            vary_mask: [0, 0, 0, 1 << 8],
+            leading_bit_mask: [0, 0, 1 << 8, 0],
+        },
+    ];
+
+    for dist in valid_cases {
+        assert!(
+            dist.is_valid(),
+            "expected {:?} to be accepted as a valid bit distribution",
+            dist
+        );
+    }
+}
+
+#[test]
+fn invalid_bit_distributions_overlap_below_the_sign_bit() {
+    let invalid_cases = [
+        BitDistribution {
+            vary_mask: [0b10, 0, 0, 0],
+            leading_bit_mask: [0b10, 0, 0, 0],
+        },
+        BitDistribution {
+            vary_mask: [0, 0, 0, 1 << 8],
+            leading_bit_mask: [0, 0, 0, 1 << 8],
+        },
+    ];
+
+    for dist in invalid_cases {
+        assert!(
+            !dist.is_valid(),
+            "expected {:?} to be rejected as an invalid bit distribution",
+            dist
+        );
+    }
+}
+
+#[test]
+fn lower_bits_do_not_affect_the_acceptable_range_check() {
+    let dist = BitDistribution {
+        vary_mask: [0; 4],
+        leading_bit_mask: [u64::MAX, u64::MAX, 0, 0],
+    };
+    assert!(dist.is_within_acceptable_range());
+}
+
+#[test]
+fn missing_a_required_high_inverse_bit_puts_the_distribution_out_of_range() {
+    let dist = BitDistribution {
+        vary_mask: [0; 4],
+        leading_bit_mask: [0, 0, 0, 1 << 8],
+    };
+    assert!(!dist.is_within_acceptable_range());
+}
+
+#[test]
 fn we_can_serialize_round_trip() {
     let bit_distribution = BitDistribution {
         vary_mask: [0, 0, 0, 1 << 63],
