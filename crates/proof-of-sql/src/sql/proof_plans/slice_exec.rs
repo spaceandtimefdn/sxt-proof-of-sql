@@ -247,3 +247,92 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── get_slice_select ─────────────────────────────────────────────────────
+
+    #[test]
+    fn slice_select_skip_only() {
+        // skip=2, no fetch → skip first 2, take rest
+        let sel = get_slice_select(5, 2, None);
+        assert_eq!(sel, vec![false, false, true, true, true]);
+    }
+
+    #[test]
+    fn slice_select_fetch_only() {
+        // skip=0, fetch=3 → take first 3
+        let sel = get_slice_select(5, 0, Some(3));
+        assert_eq!(sel, vec![true, true, true, false, false]);
+    }
+
+    #[test]
+    fn slice_select_skip_and_fetch() {
+        // skip=1, fetch=2 → skip 1, take 2
+        let sel = get_slice_select(5, 1, Some(2));
+        assert_eq!(sel, vec![false, true, true, false, false]);
+    }
+
+    #[test]
+    fn slice_select_zero_rows() {
+        let sel = get_slice_select(0, 1, Some(3));
+        assert_eq!(sel, vec![]);
+    }
+
+    #[test]
+    fn slice_select_skip_beyond_len() {
+        let sel = get_slice_select(3, 10, Some(5));
+        assert_eq!(sel, vec![false, false, false]);
+    }
+
+    #[test]
+    fn slice_select_fetch_zero() {
+        let sel = get_slice_select(5, 0, Some(0));
+        assert_eq!(sel, vec![false, false, false, false, false]);
+    }
+
+    #[test]
+    fn slice_select_no_skip_no_fetch_returns_all_true() {
+        let sel = get_slice_select(4, 0, None);
+        assert!(sel.iter().all(|&b| b));
+        assert_eq!(sel.len(), 4);
+    }
+
+    // ── SliceExec accessors ──────────────────────────────────────────────────
+
+    #[test]
+    fn slice_exec_accessors() {
+        use crate::sql::proof_plans::DynProofPlan;
+        let input = DynProofPlan::new_empty();
+        let exec = SliceExec::new(Box::new(input), 3, Some(7));
+        assert_eq!(exec.skip(), 3);
+        assert_eq!(exec.fetch(), Some(7));
+    }
+
+    #[test]
+    fn slice_exec_no_fetch_accessor() {
+        use crate::sql::proof_plans::DynProofPlan;
+        let input = DynProofPlan::new_empty();
+        let exec = SliceExec::new(Box::new(input), 0, None);
+        assert_eq!(exec.skip(), 0);
+        assert_eq!(exec.fetch(), None);
+    }
+
+    #[test]
+    fn slice_exec_roundtrip_equality() {
+        use crate::sql::proof_plans::DynProofPlan;
+        let a = SliceExec::new(Box::new(DynProofPlan::new_empty()), 1, Some(5));
+        let b = SliceExec::new(Box::new(DynProofPlan::new_empty()), 1, Some(5));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn slice_exec_different_skip_not_equal() {
+        use crate::sql::proof_plans::DynProofPlan;
+        let a = SliceExec::new(Box::new(DynProofPlan::new_empty()), 1, Some(5));
+        let b = SliceExec::new(Box::new(DynProofPlan::new_empty()), 2, Some(5));
+        assert_ne!(a, b);
+    }
+}
