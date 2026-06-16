@@ -195,27 +195,15 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Local Development and Test Runs
+## Optimizing Test Runs
 
-Running the full test suite can be time-consuming due to the cryptographic setup procedures, particularly the generation of `PublicParameters`, `ProverSetup`, and `VerifierSetup` for Dory proofs. To significantly reduce local development and CI runtimes, these expensive setup artifacts are now cached.
+Ensuring a fast and efficient development cycle is crucial. We've made significant efforts to reduce test suite execution times, particularly for local development and CI pipelines.
 
-### Dory Setup Caching
+To achieve faster test runs, especially when dealing with computationally intensive setup phases like `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` (Dory setups), we now leverage caching mechanisms. This significantly reduces the overhead of repeated setup computations.
 
-The Dory setup parameters are automatically cached to disk after their initial generation. Subsequent test runs will load these parameters from the cache, drastically speeding up test execution.
+For optimal local testing, consider using `cargo nextest` with appropriate flags. While `cargo nextest run --all-features` will run all tests, for iterative development, you might want to focus on specific test suites or modules.
 
-- **Cache Location**: Cached setup parameters are stored in a temporary directory, typically within `target/sxt-proof-of-sql-cache/`. This directory is automatically managed and does not need to be committed to the repository.
-- **Invalidation**: The cache is automatically invalidated if the underlying cryptographic parameters or code dependencies change, ensuring tests always run with the correct setups.
-- **Manual Cache Clearing**: If you encounter unexpected issues or wish to force a full regeneration of setup parameters, you can manually clear the cache by deleting the `target/sxt-proof-of-sql-cache/` directory.
-
-### Recommended Test Execution
-
-For the fastest local test execution, we recommend using `cargo nextest`:
-
-```bash
-cargo nextest run --all-features
-```
-
-This command leverages `nextest`'s parallel execution capabilities, further reducing the overall test suite runtime in conjunction with the Dory setup caching.
+We are continuously working to improve CI runtimes and local development experience. If you encounter slow tests or have suggestions for further optimizations, please open an issue!
 
 ## License
 
