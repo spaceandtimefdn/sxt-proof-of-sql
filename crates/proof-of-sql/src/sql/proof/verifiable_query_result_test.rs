@@ -1,5 +1,6 @@
 use super::{
-    FinalRoundBuilder, ProofPlan, ProverEvaluate, VerifiableQueryResult, VerificationBuilder,
+    FinalRoundBuilder, ProofPlan, ProverEvaluate, QueryError, VerifiableQueryResult,
+    VerificationBuilder,
 };
 use crate::{
     base::{
@@ -98,6 +99,7 @@ impl ProofPlan for EmptyTestQueryExpr {
 pub(super) struct ScalarResultTestQueryExpr {
     pub(super) length: usize,
     pub(super) columns: usize,
+    pub(super) value: i64,
 }
 impl ProverEvaluate for ScalarResultTestQueryExpr {
     fn first_round_evaluate<'a, S: Scalar>(
@@ -107,11 +109,11 @@ impl ProverEvaluate for ScalarResultTestQueryExpr {
         _table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let zeros = vec![S::ZERO; self.length];
+        let values = vec![S::from(self.value); self.length];
         builder.produce_chi_evaluation_length(self.length);
         Ok(table_with_row_count(
             (1..=self.columns)
-                .map(|i| borrowed_scalar(format!("a{i}").as_str(), zeros.clone(), alloc)),
+                .map(|i| borrowed_scalar(format!("a{i}").as_str(), values.clone(), alloc)),
             self.length,
         ))
     }
@@ -123,14 +125,14 @@ impl ProverEvaluate for ScalarResultTestQueryExpr {
         _table_map: &IndexMap<TableRef, Table<'a, S>>,
         _params: &[LiteralValue],
     ) -> PlaceholderResult<Table<'a, S>> {
-        let zeros = vec![S::ZERO; self.length];
-        let res: &[_] = alloc.alloc_slice_copy(&zeros);
+        let values = vec![S::from(self.value); self.length];
+        let res: &[_] = alloc.alloc_slice_copy(&values);
         let _ = std::iter::repeat_with(|| builder.produce_intermediate_mle(res))
             .take(self.columns)
             .collect::<Vec<_>>();
         Ok(table_with_row_count(
             (1..=self.columns)
-                .map(|i| borrowed_scalar(format!("a{i}").as_str(), zeros.clone(), alloc)),
+                .map(|i| borrowed_scalar(format!("a{i}").as_str(), values.clone(), alloc)),
             self.length,
         ))
     }
@@ -145,10 +147,10 @@ impl ProofPlan for ScalarResultTestQueryExpr {
     ) -> Result<TableEvaluation<S>, ProofError> {
         assert_eq!(
             builder.try_consume_final_round_mle_evaluations(self.columns)?,
-            vec![S::ZERO; self.columns]
+            vec![S::from(self.value); self.columns]
         );
         Ok(TableEvaluation::new(
-            vec![S::ZERO; self.columns],
+            vec![S::from(self.value); self.columns],
             builder.try_consume_chi_evaluation()?,
         ))
     }
@@ -195,6 +197,7 @@ fn verify_coerces_scalar_result_columns_to_declared_numeric_fields() {
     let expr = ScalarResultTestQueryExpr {
         length: 2,
         columns: 1,
+        value: 0,
     };
     let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
@@ -213,4 +216,27 @@ fn verify_coerces_scalar_result_columns_to_declared_numeric_fields() {
 
     let expected_res = owned_table([tinyint("a1", [0_i8, 0])]);
     assert_eq!(table, expected_res);
+}
+
+#[test]
+fn verify_rejects_scalar_result_columns_outside_declared_numeric_range() {
+    let expr = ScalarResultTestQueryExpr {
+        length: 2,
+        columns: 1,
+        value: i64::from(i8::MAX) + 1,
+    };
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        TableRef::new("sxt", "test"),
+        owned_table([bigint("a1", [0_i64, 0])]),
+        0,
+        (),
+    );
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    assert_eq!(res.result["a1"].column_type(), ColumnType::Scalar);
+
+    assert!(matches!(
+        res.verify(&expr, &accessor, &(), &[]),
+        Err(QueryError::Overflow)
+    ));
 }
