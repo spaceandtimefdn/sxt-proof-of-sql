@@ -323,3 +323,169 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::{ColumnOperationError, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+
+    type S = TestScalar;
+
+    // ── AddOp ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn add_bigint_columns_succeeds() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::<S>::BigInt(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_returns_error_on_different_lengths() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![1, 2]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![10, 20, 30]);
+        let err = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }
+        ));
+    }
+
+    #[test]
+    fn add_returns_error_on_varchar_column() {
+        let lhs = OwnedColumn::<S>::VarChar(vec!["a".to_string(), "b".to_string()]);
+        let rhs = OwnedColumn::<S>::VarChar(vec!["c".to_string(), "d".to_string()]);
+        let err = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::BinaryOperationInvalidColumnType { .. }
+        ));
+    }
+
+    #[test]
+    fn add_int128_overflow_returns_error() {
+        let lhs = OwnedColumn::<S>::Int128(vec![i128::MAX]);
+        let rhs = OwnedColumn::<S>::Int128(vec![1]);
+        let err = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(err, ColumnOperationError::IntegerOverflow { .. }));
+    }
+
+    // ── SubOp ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn sub_bigint_columns_succeeds() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![10, 20, 30]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::<S>::BigInt(vec![9, 18, 27]));
+    }
+
+    #[test]
+    fn sub_returns_error_on_different_lengths() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![10, 20]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![1, 2, 3]);
+        let err = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }
+        ));
+    }
+
+    #[test]
+    fn sub_int_underflow_returns_error() {
+        let lhs = OwnedColumn::<S>::Int128(vec![i128::MIN]);
+        let rhs = OwnedColumn::<S>::Int128(vec![1]);
+        let err = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(err, ColumnOperationError::IntegerOverflow { .. }));
+    }
+
+    // ── MulOp ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mul_bigint_columns_succeeds() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![2, 3, 4]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::<S>::BigInt(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn mul_returns_error_on_different_lengths() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![2, 3]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![5, 6, 7]);
+        let err = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }
+        ));
+    }
+
+    #[test]
+    fn mul_int_overflow_returns_error() {
+        let lhs = OwnedColumn::<S>::Int128(vec![i128::MAX]);
+        let rhs = OwnedColumn::<S>::Int128(vec![2]);
+        let err = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(err, ColumnOperationError::IntegerOverflow { .. }));
+    }
+
+    // ── DivOp ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn div_bigint_columns_succeeds() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![10, 20, 30]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![2, 4, 5]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::<S>::BigInt(vec![5, 5, 6]));
+    }
+
+    #[test]
+    fn div_returns_error_on_different_lengths() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![10, 20]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![2, 4, 5]);
+        let err = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }
+        ));
+    }
+
+    #[test]
+    fn div_by_zero_returns_error() {
+        let lhs = OwnedColumn::<S>::BigInt(vec![10]);
+        let rhs = OwnedColumn::<S>::BigInt(vec![0]);
+        let err = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(err, ColumnOperationError::DivisionByZero));
+    }
+
+    #[test]
+    fn div_returns_error_on_varchar_column() {
+        let lhs = OwnedColumn::<S>::VarChar(vec!["x".to_string()]);
+        let rhs = OwnedColumn::<S>::VarChar(vec!["y".to_string()]);
+        let err = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::BinaryOperationInvalidColumnType { .. }
+        ));
+    }
+
+    // ── SignedCastingError (Uint8 OP TinyInt) ─────────────────────────────────
+
+    #[test]
+    fn add_uint8_tinyint_returns_signed_casting_error() {
+        let lhs = OwnedColumn::<S>::Uint8(vec![1u8, 2u8]);
+        let rhs = OwnedColumn::<S>::TinyInt(vec![1i8, 2i8]);
+        let err = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap_err();
+        assert!(matches!(
+            err,
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt,
+                ..
+            }
+        ));
+    }
+}
