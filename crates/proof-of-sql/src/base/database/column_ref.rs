@@ -39,3 +39,57 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::ColumnType;
+
+    fn make_column_ref() -> ColumnRef {
+        let table_ref: TableRef = "schema.table".parse().unwrap();
+        let column_id = Ident::new("col1");
+        ColumnRef::new(table_ref, column_id, ColumnType::BigInt)
+    }
+
+    #[test]
+    fn test_new_and_accessors() {
+        let table_ref: TableRef = "schema.table".parse().unwrap();
+        let column_id = Ident::new("col1");
+        let cr = ColumnRef::new(table_ref.clone(), column_id.clone(), ColumnType::BigInt);
+        assert_eq!(cr.table_ref(), table_ref);
+        assert_eq!(cr.column_id(), column_id);
+        assert_eq!(*cr.column_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn test_equality() {
+        let a = make_column_ref();
+        let b = make_column_ref();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_inequality_different_type() {
+        let table_ref: TableRef = "schema.table".parse().unwrap();
+        let col = Ident::new("col1");
+        let a = ColumnRef::new(table_ref.clone(), col.clone(), ColumnType::BigInt);
+        let b = ColumnRef::new(table_ref, col, ColumnType::Boolean);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_clone() {
+        let original = make_column_ref();
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_hash_consistency() {
+        use std::collections::HashSet;
+        let cr = make_column_ref();
+        let mut set = HashSet::new();
+        set.insert(cr.clone());
+        assert!(set.contains(&cr));
+    }
+}
