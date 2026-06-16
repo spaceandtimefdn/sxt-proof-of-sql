@@ -147,3 +147,67 @@ impl ProofExpr for AndExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(true),
+        )))
+    }
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(0),
+        )))
+    }
+
+    #[test]
+    fn try_new_boolean_boolean_succeeds() {
+        assert!(AndExpr::try_new(bool_literal(), bool_literal()).is_ok());
+    }
+
+    #[test]
+    fn try_new_bool_bigint_fails() {
+        let result = AndExpr::try_new(bool_literal(), bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn try_new_bigint_bigint_fails() {
+        let result = AndExpr::try_new(bigint_literal(), bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn lhs_rhs_are_boolean() {
+        let expr = AndExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::Boolean);
+        assert_eq!(expr.rhs().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = AndExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equal_exprs_compare_equal() {
+        let a = AndExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        let b = AndExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = AndExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}

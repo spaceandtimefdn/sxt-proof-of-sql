@@ -99,3 +99,60 @@ impl ProofExpr for NotExpr {
         self.expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(false),
+        )))
+    }
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(1),
+        )))
+    }
+
+    #[test]
+    fn try_new_boolean_succeeds() {
+        assert!(NotExpr::try_new(bool_literal()).is_ok());
+    }
+
+    #[test]
+    fn try_new_non_boolean_fails() {
+        let result = NotExpr::try_new(bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::InvalidDataType { .. })));
+    }
+
+    #[test]
+    fn input_accessor_returns_boolean() {
+        let expr = NotExpr::try_new(bool_literal()).unwrap();
+        assert_eq!(expr.input().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = NotExpr::try_new(bool_literal()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equal_exprs_compare_equal() {
+        let a = NotExpr::try_new(bool_literal()).unwrap();
+        let b = NotExpr::try_new(bool_literal()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = NotExpr::try_new(bool_literal()).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
