@@ -195,15 +195,22 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Runs
+## Optimizing Test Performance
 
-Ensuring a fast and efficient development cycle is crucial. We've made significant efforts to reduce test suite execution times, particularly for local development and CI pipelines.
+Running the full test suite can be time-consuming due to the computationally intensive generation of Dory setup parameters, specifically `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. To significantly reduce test execution times, especially during local development and CI, we recommend leveraging a caching mechanism for these setups.
 
-To achieve faster test runs, especially when dealing with computationally intensive setup phases like `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` (Dory setups), we now leverage caching mechanisms. This significantly reduces the overhead of repeated setup computations.
+### Caching Dory Setups
 
-For optimal local testing, consider using `cargo nextest` with appropriate flags. While `cargo nextest run --all-features` will run all tests, for iterative development, you might want to focus on specific test suites or modules.
+The project supports caching Dory setup artifacts to avoid redundant computations. When enabled, the system will first attempt to load pre-generated setups from a specified directory. If not found, it will generate them and save them to that location for future use.
 
-We are continuously working to improve CI runtimes and local development experience. If you encounter slow tests or have suggestions for further optimizations, please open an issue!
+To enable caching, set the `DORY_SETUP_CACHE_DIR` environment variable to your desired cache directory before running tests:
+
+```bash
+export DORY_SETUP_CACHE_DIR="/tmp/sxt_dory_cache" # Or any other suitable path
+cargo nextest run --all-features
+```
+
+This approach dramatically speeds up subsequent test runs by reusing the cached setups. For CI environments, this directory can be configured as a persistent cache volume.
 
 ## License
 
