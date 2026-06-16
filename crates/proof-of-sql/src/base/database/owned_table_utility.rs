@@ -320,3 +320,112 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::OwnedColumn,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    type S = TestScalar;
+
+    // ── owned_table constructor ───────────────────────────────────────────────
+
+    #[test]
+    fn owned_table_empty_has_zero_columns() {
+        let t = owned_table::<S>([]);
+        assert_eq!(t.num_columns(), 0);
+    }
+
+    #[test]
+    fn owned_table_with_multiple_columns() {
+        let t = owned_table::<S>([
+            bigint("a", [1i64, 2, 3]),
+            boolean("b", [true, false, true]),
+            varchar("c", ["x", "y", "z"]),
+        ]);
+        assert_eq!(t.num_columns(), 3);
+    }
+
+    // ── column constructors ───────────────────────────────────────────────────
+
+    #[test]
+    fn uint8_column_constructor() {
+        let (ident, col) = uint8::<S>("col", [0u8, 1, 255]);
+        assert_eq!(ident, "col".into());
+        assert_eq!(col, OwnedColumn::Uint8(vec![0, 1, 255]));
+    }
+
+    #[test]
+    fn tinyint_column_constructor() {
+        let (ident, col) = tinyint::<S>("col", [-1i8, 0, 127]);
+        assert_eq!(ident, "col".into());
+        assert_eq!(col, OwnedColumn::TinyInt(vec![-1, 0, 127]));
+    }
+
+    #[test]
+    fn smallint_column_constructor() {
+        let (ident, col) = smallint::<S>("col", [100i16, -200]);
+        assert_eq!(ident, "col".into());
+        assert_eq!(col, OwnedColumn::SmallInt(vec![100, -200]));
+    }
+
+    #[test]
+    fn int_column_constructor() {
+        let (ident, col) = int::<S>("col", [1i32, 2, 3]);
+        assert_eq!(ident, "col".into());
+        assert_eq!(col, OwnedColumn::Int(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn bigint_column_constructor() {
+        let (ident, col) = bigint::<S>("col", [10i64, 20, 30]);
+        assert_eq!(ident, "col".into());
+        assert_eq!(col, OwnedColumn::BigInt(vec![10, 20, 30]));
+    }
+
+    #[test]
+    fn boolean_column_constructor() {
+        let (ident, col) = boolean::<S>("flag", [true, false]);
+        assert_eq!(ident, "flag".into());
+        assert_eq!(col, OwnedColumn::Boolean(vec![true, false]));
+    }
+
+    #[test]
+    fn int128_column_constructor() {
+        let (ident, col) = int128::<S>("big", [i128::MAX, 0, i128::MIN]);
+        assert_eq!(ident, "big".into());
+        assert_eq!(col, OwnedColumn::Int128(vec![i128::MAX, 0, i128::MIN]));
+    }
+
+    #[test]
+    fn varchar_column_constructor() {
+        let (ident, col) = varchar::<S>("name", ["alice", "bob"]);
+        assert_eq!(ident, "name".into());
+        assert_eq!(
+            col,
+            OwnedColumn::VarChar(vec!["alice".to_string(), "bob".to_string()])
+        );
+    }
+
+    #[test]
+    fn decimal75_column_constructor() {
+        let (ident, col) = decimal75::<S>("amount", 10, 2, [1i32, 2, 3]);
+        assert_eq!(ident, "amount".into());
+        assert!(matches!(col, OwnedColumn::Decimal75(_, 2, _)));
+    }
+
+    #[test]
+    fn timestamptz_column_constructor() {
+        let tz = PoSQLTimeZone::utc();
+        let (ident, col) = timestamptz::<S>("ts", PoSQLTimeUnit::Second, tz, [1000i64, 2000]);
+        assert_eq!(ident, "ts".into());
+        assert_eq!(
+            col,
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, tz, vec![1000, 2000])
+        );
+    }
+}
