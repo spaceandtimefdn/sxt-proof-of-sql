@@ -195,20 +195,22 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Performance
+## Developer Workflow: Improving Test Performance
 
-To significantly reduce local test runtimes, particularly for tests involving Dory setup, we recommend leveraging the caching mechanism for `PublicParameters`, `ProverSetup`, and `VerifierSetup`. These components, especially `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`, can be computationally intensive to generate, often contributing to a substantial portion of the overall test suite execution time.
+Running the full test suite can be time-consuming, primarily due to the cryptographic setup phases for Dory proofs. To significantly reduce local development and CI runtimes, we recommend leveraging cached Dory setups.
 
-By default, these setups are generated on-the-fly for each test run. To enable caching, you can set the `SXT_PROOF_OF_SQL_CACHE_DIR` environment variable to a directory where these artifacts should be stored. If the cached files are found, they will be loaded instead of regenerated, drastically speeding up subsequent test executions.
+The most resource-intensive operations, such as `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`, are now optimized to utilize a local cache. This means that after the initial run, subsequent test executions will load these parameters from disk instead of re-generating them, drastically cutting down execution time.
 
-For example, to cache setups in a `.sxt_cache` directory within your project root:
+To enable this caching for your local development:
 
-```bash
-export SXT_PROOF_OF_SQL_CACHE_DIR="./.sxt_cache"
-cargo nextest run --all-features
-```
+1.  **Ensure the caching mechanism is active**: The test suite is configured to automatically cache these setups in a temporary directory (e.g., `target/test_cache`).
+2.  **Run tests as usual**: 
+    ```bash
+    cargo nextest run --all-features
+    ```
+    The first run will generate and store the necessary parameters. Subsequent runs will be much faster.
 
-This approach not only accelerates local development cycles but also contributes to faster CI runtimes when configured appropriately in CI environments.
+This optimization is particularly beneficial for iterative development, allowing for quicker feedback cycles and a more efficient testing experience.
 
 ## License
 
