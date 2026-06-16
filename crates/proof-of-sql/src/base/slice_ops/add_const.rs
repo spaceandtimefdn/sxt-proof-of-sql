@@ -17,3 +17,43 @@ where
         *res_i += to_add.into();
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_const_basic() {
+        let mut result = vec![1i64, 2, 3];
+        add_const(&mut result, 10i64);
+        assert_eq!(result, vec![11, 12, 13]);
+    }
+
+    #[test]
+    fn test_add_const_zero() {
+        let mut result = vec![5i64, 6, 7];
+        add_const(&mut result, 0i64);
+        assert_eq!(result, vec![5, 6, 7]);
+    }
+
+    #[test]
+    fn test_add_const_empty_slice() {
+        let mut result: Vec<i64> = vec![];
+        add_const(&mut result, 42i64); // no-op on empty
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_add_const_negative() {
+        let mut result = vec![10i64, 20, 30];
+        add_const(&mut result, -5i64);
+        assert_eq!(result, vec![5, 15, 25]);
+    }
+
+    #[test]
+    fn test_add_const_single_element() {
+        let mut result = vec![100u64];
+        add_const(&mut result, 1u64);
+        assert_eq!(result, vec![101u64]);
+    }
+}
