@@ -53,7 +53,7 @@ pub(crate) use sumcheck_subpolynomial::{
 
 mod verifiable_query_result;
 pub use verifiable_query_result::VerifiableQueryResult;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod verifiable_query_result_test;
 
 #[cfg(all(test, feature = "blitzar"))]
