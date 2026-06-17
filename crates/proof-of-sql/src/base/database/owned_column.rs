@@ -464,6 +464,7 @@ mod test {
     use super::*;
     use crate::base::{
         math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::{test_scalar::TestScalar, ScalarExt},
     };
     use alloc::vec;
@@ -473,6 +474,229 @@ mod test {
     fn we_can_slice_a_column() {
         let col: OwnedColumn<TestScalar> = OwnedColumn::Int128(vec![1, 2, 3, 4, 5]);
         assert_eq!(col.slice(1, 4), OwnedColumn::Int128(vec![2, 3, 4]));
+    }
+
+    #[test]
+    fn we_can_get_owned_column_metadata_for_each_variant() {
+        let precision = Precision::new(12).unwrap();
+        let timezone = PoSQLTimeZone::new(19800);
+        let non_empty_columns = [
+            (
+                OwnedColumn::<TestScalar>::Boolean(vec![true, false]),
+                ColumnType::Boolean,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Uint8(vec![1, 2]),
+                ColumnType::Uint8,
+            ),
+            (
+                OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2]),
+                ColumnType::TinyInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::SmallInt(vec![-11, 22]),
+                ColumnType::SmallInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int(vec![-111, 222]),
+                ColumnType::Int,
+            ),
+            (
+                OwnedColumn::<TestScalar>::BigInt(vec![-1111, 2222]),
+                ColumnType::BigInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int128(vec![-11111, 22222]),
+                ColumnType::Int128,
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarChar(vec!["alpha".to_string(), "beta".to_string()]),
+                ColumnType::VarChar,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Decimal75(
+                    precision,
+                    -2,
+                    vec![TestScalar::from(7), TestScalar::from(8)],
+                ),
+                ColumnType::Decimal75(precision, -2),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    timezone,
+                    vec![1_700_000_000_000, 1_700_000_000_001],
+                ),
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(9), TestScalar::from(10)]),
+                ColumnType::Scalar,
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarBinary(vec![b"left".to_vec(), b"right".to_vec()]),
+                ColumnType::VarBinary,
+            ),
+        ];
+
+        for (column, column_type) in non_empty_columns {
+            assert_eq!(column.len(), 2);
+            assert!(!column.is_empty());
+            assert_eq!(column.column_type(), column_type);
+        }
+
+        let empty_columns = [
+            OwnedColumn::<TestScalar>::Boolean(vec![]),
+            OwnedColumn::<TestScalar>::Uint8(vec![]),
+            OwnedColumn::<TestScalar>::TinyInt(vec![]),
+            OwnedColumn::<TestScalar>::SmallInt(vec![]),
+            OwnedColumn::<TestScalar>::Int(vec![]),
+            OwnedColumn::<TestScalar>::BigInt(vec![]),
+            OwnedColumn::<TestScalar>::Int128(vec![]),
+            OwnedColumn::<TestScalar>::VarChar(vec![]),
+            OwnedColumn::<TestScalar>::Decimal75(precision, -2, vec![]),
+            OwnedColumn::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, vec![]),
+            OwnedColumn::<TestScalar>::Scalar(vec![]),
+            OwnedColumn::<TestScalar>::VarBinary(vec![]),
+        ];
+
+        for column in empty_columns {
+            assert_eq!(column.len(), 0);
+            assert!(column.is_empty());
+        }
+    }
+
+    #[test]
+    fn we_can_slice_and_permute_each_owned_column_variant() {
+        let precision = Precision::new(18).unwrap();
+        let timezone = PoSQLTimeZone::new(-18_000);
+        let permutation = Permutation::try_new(vec![2, 0, 1]).unwrap();
+        let cases = [
+            (
+                OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]),
+                OwnedColumn::<TestScalar>::Boolean(vec![false, true]),
+                OwnedColumn::<TestScalar>::Boolean(vec![true, true, false]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]),
+                OwnedColumn::<TestScalar>::Uint8(vec![2, 3]),
+                OwnedColumn::<TestScalar>::Uint8(vec![3, 1, 2]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2, -3]),
+                OwnedColumn::<TestScalar>::TinyInt(vec![2, -3]),
+                OwnedColumn::<TestScalar>::TinyInt(vec![-3, -1, 2]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::SmallInt(vec![-11, 22, -33]),
+                OwnedColumn::<TestScalar>::SmallInt(vec![22, -33]),
+                OwnedColumn::<TestScalar>::SmallInt(vec![-33, -11, 22]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int(vec![-111, 222, -333]),
+                OwnedColumn::<TestScalar>::Int(vec![222, -333]),
+                OwnedColumn::<TestScalar>::Int(vec![-333, -111, 222]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::BigInt(vec![-1111, 2222, -3333]),
+                OwnedColumn::<TestScalar>::BigInt(vec![2222, -3333]),
+                OwnedColumn::<TestScalar>::BigInt(vec![-3333, -1111, 2222]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int128(vec![-11111, 22222, -33333]),
+                OwnedColumn::<TestScalar>::Int128(vec![22222, -33333]),
+                OwnedColumn::<TestScalar>::Int128(vec![-33333, -11111, 22222]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarChar(vec![
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "gamma".to_string(),
+                ]),
+                OwnedColumn::<TestScalar>::VarChar(vec!["beta".to_string(), "gamma".to_string()]),
+                OwnedColumn::<TestScalar>::VarChar(vec![
+                    "gamma".to_string(),
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                ]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Decimal75(
+                    precision,
+                    3,
+                    vec![
+                        TestScalar::from(1),
+                        TestScalar::from(2),
+                        TestScalar::from(3),
+                    ],
+                ),
+                OwnedColumn::<TestScalar>::Decimal75(
+                    precision,
+                    3,
+                    vec![TestScalar::from(2), TestScalar::from(3)],
+                ),
+                OwnedColumn::<TestScalar>::Decimal75(
+                    precision,
+                    3,
+                    vec![
+                        TestScalar::from(3),
+                        TestScalar::from(1),
+                        TestScalar::from(2),
+                    ],
+                ),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    timezone,
+                    vec![100, 200, 300],
+                ),
+                OwnedColumn::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    timezone,
+                    vec![200, 300],
+                ),
+                OwnedColumn::<TestScalar>::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    timezone,
+                    vec![300, 100, 200],
+                ),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Scalar(vec![
+                    TestScalar::from(4),
+                    TestScalar::from(5),
+                    TestScalar::from(6),
+                ]),
+                OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(5), TestScalar::from(6)]),
+                OwnedColumn::<TestScalar>::Scalar(vec![
+                    TestScalar::from(6),
+                    TestScalar::from(4),
+                    TestScalar::from(5),
+                ]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarBinary(vec![
+                    b"first".to_vec(),
+                    b"second".to_vec(),
+                    b"third".to_vec(),
+                ]),
+                OwnedColumn::<TestScalar>::VarBinary(vec![b"second".to_vec(), b"third".to_vec()]),
+                OwnedColumn::<TestScalar>::VarBinary(vec![
+                    b"third".to_vec(),
+                    b"first".to_vec(),
+                    b"second".to_vec(),
+                ]),
+            ),
+        ];
+
+        for (column, expected_slice, expected_permutation) in cases {
+            assert_eq!(column.slice(1, 3), expected_slice);
+            assert_eq!(
+                column.try_permute(&permutation).unwrap(),
+                expected_permutation
+            );
+        }
     }
 
     #[test]
