@@ -20,16 +20,15 @@
           inherit system overlays;
           config.allowUnfree = true;
         };
+        cpuBuildInputs = with pkgs; [
+          (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+          # additional .cargo config dependencies
+          clang
+          lld
+        ];
       in {
         devShells = rec {
           default = cpu;
-
-          cpuBuildInputs = with pkgs; [
-            (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
-            # additional .cargo config dependencies
-            clang
-            lld
-          ];
 
           cpu = with pkgs;
             (mkShell.override {stdenv = gcc13Stdenv;}) {
