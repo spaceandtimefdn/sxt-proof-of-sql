@@ -195,19 +195,25 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimized Test Execution
+## Optimizing Test Performance
 
-To significantly reduce local development and CI test runtimes, this repository now leverages a caching mechanism for expensive Dory setup operations, specifically for `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. These operations, which previously accounted for a substantial portion of the overall test suite duration, are now cached to disk after their initial generation.
+Running the full test suite can be time-consuming, primarily due to the generation of Dory setup parameters (`PublicParameters`, `ProverSetup`, `VerifierSetup`). To significantly reduce test execution times, especially during local development and CI, a caching mechanism has been introduced for these expensive setup operations.
 
-When running tests, the system will first check for existing cached setup files. If found, these pre-computed setups are loaded, bypassing the time-consuming generation process. If not found, they are generated once and saved for subsequent test runs.
+### How to Use Test Caching
 
-To benefit from this optimization, simply run your tests as usual:
+To enable test caching, set the `SXT_PROOF_OF_SQL_CACHE_DIR` environment variable to a directory where the cached setup files should be stored. If the files are not found in this directory, they will be generated and saved for future use.
+
+**Example:**
 
 ```bash
+export SXT_PROOF_OF_SQL_CACHE_DIR="./.test_cache"
+mkdir -p $SXT_PROOF_OF_SQL_CACHE_DIR
 cargo nextest run --all-features
 ```
 
-The cache files are stored in a temporary directory (e.g., `target/test_cache`) and are automatically managed. You can clear the cache manually by deleting this directory if needed, for example, after significant changes to the Dory setup logic or when troubleshooting. This improvement drastically cuts down the feedback loop for developers and accelerates CI pipelines without compromising test coverage or integrity.
+On subsequent runs, if the cached files exist, the tests will load them directly, drastically speeding up execution. It is recommended to add `.test_cache/` to your `.gitignore` if you choose to store the cache locally, or to use a shared cache directory in CI environments.
+
+This optimization helps achieve faster feedback loops during development and reduces overall CI runtimes without compromising test coverage or strength.
 
 ## License
 
