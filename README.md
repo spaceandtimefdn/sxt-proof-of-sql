@@ -195,22 +195,21 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Performance
+## Developer Guide: Improving Test Performance
 
-Running the full test suite can be time-consuming due to the computationally intensive generation of Dory setup parameters, specifically `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. To significantly reduce test execution times, especially during local development and CI, we recommend leveraging a caching mechanism for these setups.
+Running the full test suite can be time-consuming due to the cryptographic setup generation (Dory setups), particularly `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. To significantly reduce test execution times, especially during local development and CI, a caching mechanism for these expensive setups has been introduced.
 
-### Caching Dory Setups
+When the `SXT_PROOF_OF_SQL_CACHE_DIR` environment variable is set to a valid directory path, the test suite will attempt to load pre-computed Dory setups from this location. If a setup is not found, it will be generated once and saved to the specified cache directory for future use. This dramatically speeds up subsequent test runs.
 
-The project supports caching Dory setup artifacts to avoid redundant computations. When enabled, the system will first attempt to load pre-generated setups from a specified directory. If not found, it will generate them and save them to that location for future use.
-
-To enable caching, set the `DORY_SETUP_CACHE_DIR` environment variable to your desired cache directory before running tests:
+To leverage this, simply set the environment variable before running tests:
 
 ```bash
-export DORY_SETUP_CACHE_DIR="/tmp/sxt_dory_cache" # Or any other suitable path
+export SXT_PROOF_OF_SQL_CACHE_DIR="./.sxt-cache"
+mkdir -p ./.sxt-cache # Ensure the directory exists
 cargo nextest run --all-features
 ```
 
-This approach dramatically speeds up subsequent test runs by reusing the cached setups. For CI environments, this directory can be configured as a persistent cache volume.
+The first run with caching enabled will still generate and save the setups, but subsequent runs will benefit from the cached versions. For CI environments, this cache directory can be persisted between runs to optimize overall CI runtime.
 
 ## License
 
