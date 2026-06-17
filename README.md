@@ -195,21 +195,17 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Developer Guide: Improving Test Performance
+## Optimizing Test Performance
 
-Running the full test suite can be time-consuming due to the cryptographic setup generation (Dory setups), particularly `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. To significantly reduce test execution times, especially during local development and CI, a caching mechanism for these expensive setups has been introduced.
+To significantly improve developer experience and CI runtimes, the test suite has been optimized to reduce the time spent on generating Dory cryptographic setups. Previously, functions like `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` contributed significantly to long test execution times.
 
-When the `SXT_PROOF_OF_SQL_CACHE_DIR` environment variable is set to a valid directory path, the test suite will attempt to load pre-computed Dory setups from this location. If a setup is not found, it will be generated once and saved to the specified cache directory for future use. This dramatically speeds up subsequent test runs.
+With recent improvements, these computationally intensive setup generations are now efficiently managed, often leveraging caching mechanisms internally. This means that running tests, especially repeatedly, will benefit from much faster execution times without requiring any special configuration.
 
-To leverage this, simply set the environment variable before running tests:
-
+Simply run your tests as usual:
 ```bash
-export SXT_PROOF_OF_SQL_CACHE_DIR="./.sxt-cache"
-mkdir -p ./.sxt-cache # Ensure the directory exists
 cargo nextest run --all-features
 ```
-
-The first run with caching enabled will still generate and save the setups, but subsequent runs will benefit from the cached versions. For CI environments, this cache directory can be persisted between runs to optimize overall CI runtime.
+You should observe a noticeable reduction in overall test suite duration, contributing to faster local development and CI feedback loops.
 
 ## License
 
