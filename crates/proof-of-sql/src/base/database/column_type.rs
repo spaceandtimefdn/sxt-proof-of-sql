@@ -645,6 +645,140 @@ mod tests {
     }
 
     #[test]
+    fn numeric_and_integer_classification_is_explicit() {
+        let decimal = ColumnType::Decimal75(Precision::new(12).unwrap(), 2);
+        let timestamp = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc());
+
+        for column_type in [
+            ColumnType::Uint8,
+            ColumnType::TinyInt,
+            ColumnType::SmallInt,
+            ColumnType::Int,
+            ColumnType::BigInt,
+            ColumnType::Int128,
+        ] {
+            assert!(column_type.is_numeric());
+            assert!(column_type.is_integer());
+        }
+
+        for column_type in [decimal, ColumnType::Scalar] {
+            assert!(column_type.is_numeric());
+            assert!(!column_type.is_integer());
+        }
+
+        for column_type in [
+            ColumnType::Boolean,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+            timestamp,
+        ] {
+            assert!(!column_type.is_numeric());
+            assert!(!column_type.is_integer());
+        }
+    }
+
+    #[test]
+    fn integer_widening_matches_signed_and_unsigned_rules() {
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::Uint8),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Int.max_integer_type(&ColumnType::BigInt),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::Int128),
+            Some(ColumnType::Int128)
+        );
+
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::SmallInt),
+            None
+        );
+
+        assert_eq!(ColumnType::Boolean.max_integer_type(&ColumnType::Int), None);
+        assert_eq!(
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 0)
+                .max_integer_type(&ColumnType::Int),
+            None
+        );
+    }
+
+    #[test]
+    fn precision_and_scale_cover_decimal_and_timestamp_types() {
+        assert_eq!(ColumnType::Uint8.precision_value(), Some(3));
+        assert_eq!(ColumnType::TinyInt.precision_value(), Some(3));
+        assert_eq!(ColumnType::SmallInt.precision_value(), Some(5));
+        assert_eq!(ColumnType::Int.precision_value(), Some(10));
+        assert_eq!(ColumnType::BigInt.precision_value(), Some(19));
+        assert_eq!(ColumnType::Int128.precision_value(), Some(39));
+        assert_eq!(ColumnType::Scalar.precision_value(), Some(0));
+
+        let decimal = ColumnType::Decimal75(Precision::new(37).unwrap(), -4);
+        assert_eq!(decimal.precision_value(), Some(37));
+        assert_eq!(decimal.scale(), Some(-4));
+
+        for (unit, expected_scale) in [
+            (PoSQLTimeUnit::Second, 0),
+            (PoSQLTimeUnit::Millisecond, 3),
+            (PoSQLTimeUnit::Microsecond, 6),
+            (PoSQLTimeUnit::Nanosecond, 9),
+        ] {
+            let timestamp = ColumnType::TimestampTZ(unit, PoSQLTimeZone::new(3_600));
+            assert_eq!(timestamp.precision_value(), Some(19));
+            assert_eq!(timestamp.scale(), Some(expected_scale));
+        }
+
+        for column_type in [
+            ColumnType::Boolean,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+        ] {
+            assert_eq!(column_type.precision_value(), None);
+            assert_eq!(column_type.scale(), None);
+        }
+    }
+
+    #[test]
+    fn byte_size_bit_size_and_signedness_match_storage_type() {
+        let timestamp = ColumnType::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc());
+        let decimal = ColumnType::Decimal75(Precision::new(75).unwrap(), 0);
+
+        for (column_type, expected_byte_size, expected_signed) in [
+            (ColumnType::Boolean, core::mem::size_of::<bool>(), false),
+            (ColumnType::Uint8, core::mem::size_of::<u8>(), false),
+            (ColumnType::TinyInt, core::mem::size_of::<i8>(), true),
+            (ColumnType::SmallInt, core::mem::size_of::<i16>(), true),
+            (ColumnType::Int, core::mem::size_of::<i32>(), true),
+            (ColumnType::BigInt, core::mem::size_of::<i64>(), true),
+            (timestamp, core::mem::size_of::<i64>(), true),
+            (ColumnType::Int128, core::mem::size_of::<i128>(), true),
+            (ColumnType::Scalar, core::mem::size_of::<[u64; 4]>(), false),
+            (decimal, core::mem::size_of::<[u64; 4]>(), false),
+            (ColumnType::VarChar, core::mem::size_of::<[u64; 4]>(), false),
+            (
+                ColumnType::VarBinary,
+                core::mem::size_of::<[u64; 4]>(),
+                false,
+            ),
+        ] {
+            assert_eq!(column_type.byte_size(), expected_byte_size);
+            let expected_bit_size = u32::try_from(expected_byte_size * 8).unwrap();
+            assert_eq!(column_type.bit_size(), expected_bit_size);
+            assert_eq!(column_type.is_signed(), expected_signed);
+        }
+    }
+
+    #[test]
     fn we_can_get_sqrt_negative_min() {
         for column_type in [
             ColumnType::TinyInt,
