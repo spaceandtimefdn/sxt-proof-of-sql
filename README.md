@@ -195,9 +195,19 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Faster Local Testing
+## Optimized Test Execution
 
-To significantly enhance the developer experience and reduce local test suite execution times, we have implemented a caching mechanism for computationally intensive Dory setups. Operations such as `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`, which previously accounted for a substantial portion of the overall test runtime, are now generated and stored only once. This optimization ensures that subsequent test runs can reuse these pre-computed setups, drastically improving iteration speed without compromising the thoroughness or integrity of our test coverage. This change directly addresses the performance goals outlined in issue #557.
+To significantly reduce local development and CI test runtimes, this repository now leverages a caching mechanism for expensive Dory setup operations, specifically for `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. These operations, which previously accounted for a substantial portion of the overall test suite duration, are now cached to disk after their initial generation.
+
+When running tests, the system will first check for existing cached setup files. If found, these pre-computed setups are loaded, bypassing the time-consuming generation process. If not found, they are generated once and saved for subsequent test runs.
+
+To benefit from this optimization, simply run your tests as usual:
+
+```bash
+cargo nextest run --all-features
+```
+
+The cache files are stored in a temporary directory (e.g., `target/test_cache`) and are automatically managed. You can clear the cache manually by deleting this directory if needed, for example, after significant changes to the Dory setup logic or when troubleshooting. This improvement drastically cuts down the feedback loop for developers and accelerates CI pipelines without compromising test coverage or integrity.
 
 ## License
 
