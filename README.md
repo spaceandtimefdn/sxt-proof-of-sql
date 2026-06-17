@@ -195,17 +195,9 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Performance
+## Faster Local Testing
 
-To significantly improve developer experience and CI runtimes, the test suite has been optimized to reduce the time spent on generating Dory cryptographic setups. Previously, functions like `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` contributed significantly to long test execution times.
-
-With recent improvements, these computationally intensive setup generations are now efficiently managed, often leveraging caching mechanisms internally. This means that running tests, especially repeatedly, will benefit from much faster execution times without requiring any special configuration.
-
-Simply run your tests as usual:
-```bash
-cargo nextest run --all-features
-```
-You should observe a noticeable reduction in overall test suite duration, contributing to faster local development and CI feedback loops.
+To significantly enhance the developer experience and reduce local test suite execution times, we have implemented a caching mechanism for computationally intensive Dory setups. Operations such as `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`, which previously accounted for a substantial portion of the overall test runtime, are now generated and stored only once. This optimization ensures that subsequent test runs can reuse these pre-computed setups, drastically improving iteration speed without compromising the thoroughness or integrity of our test coverage. This change directly addresses the performance goals outlined in issue #557.
 
 ## License
 
