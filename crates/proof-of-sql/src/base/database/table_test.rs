@@ -1,6 +1,7 @@
 use crate::base::{
     database::{table_utility::*, Column, Table, TableError, TableOptions},
     map::{indexmap, IndexMap},
+    math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
@@ -190,6 +191,48 @@ fn we_can_create_a_table_with_data() {
     let boolean_data =
         alloc.alloc_slice_copy(&[true, false, true, false, true, false, true, false, true]);
     expected_table.insert(Ident::new("boolean"), Column::Boolean(boolean_data));
+
+    assert_eq!(borrowed_table.into_inner(), expected_table);
+}
+
+#[test]
+fn we_can_create_a_table_with_all_numeric_utility_columns() {
+    let alloc = Bump::new();
+
+    let borrowed_table = table::<TestScalar>([
+        borrowed_uint8("uint8", [0_u8, u8::MAX], &alloc),
+        borrowed_tinyint("tinyint", [i8::MIN, i8::MAX], &alloc),
+        borrowed_smallint("smallint", [i16::MIN, i16::MAX], &alloc),
+        borrowed_int("int", [i32::MIN, i32::MAX], &alloc),
+        borrowed_decimal75(
+            "decimal75",
+            12,
+            -2,
+            [TestScalar::from(12_i64), TestScalar::from(-34_i64)],
+            &alloc,
+        ),
+    ]);
+
+    let mut expected_table = IndexMap::default();
+
+    let uint8_data = alloc.alloc_slice_copy(&[0_u8, u8::MAX]);
+    expected_table.insert(Ident::new("uint8"), Column::Uint8(uint8_data));
+
+    let tinyint_data = alloc.alloc_slice_copy(&[i8::MIN, i8::MAX]);
+    expected_table.insert(Ident::new("tinyint"), Column::TinyInt(tinyint_data));
+
+    let smallint_data = alloc.alloc_slice_copy(&[i16::MIN, i16::MAX]);
+    expected_table.insert(Ident::new("smallint"), Column::SmallInt(smallint_data));
+
+    let int_data = alloc.alloc_slice_copy(&[i32::MIN, i32::MAX]);
+    expected_table.insert(Ident::new("int"), Column::Int(int_data));
+
+    let decimal_data =
+        alloc.alloc_slice_copy(&[TestScalar::from(12_i64), TestScalar::from(-34_i64)]);
+    expected_table.insert(
+        Ident::new("decimal75"),
+        Column::Decimal75(Precision::new(12).unwrap(), -2, decimal_data),
+    );
 
     assert_eq!(borrowed_table.into_inner(), expected_table);
 }
