@@ -95,8 +95,9 @@ impl LiteralValue {
 mod tests {
     use crate::base::{
         database::LiteralValue,
-        math::decimal::Precision,
+        math::{decimal::Precision, i256::I256},
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -124,6 +125,56 @@ mod tests {
             let serialized_literal_value =
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
+        }
+    }
+
+    #[test]
+    fn literal_values_convert_to_expected_scalars() {
+        let decimal_value = I256::from(-12_345_i128);
+        let scalar_limbs = [11, 12, 13, 14];
+        let binary_value = vec![1, 2, 3, 4, 5];
+
+        let cases = vec![
+            (LiteralValue::Boolean(false), TestScalar::from(false)),
+            (LiteralValue::Boolean(true), TestScalar::from(true)),
+            (LiteralValue::Uint8(2), TestScalar::from(2_u8)),
+            (LiteralValue::TinyInt(-3), TestScalar::from(-3_i8)),
+            (LiteralValue::SmallInt(-4), TestScalar::from(-4_i16)),
+            (LiteralValue::Int(-5), TestScalar::from(-5_i32)),
+            (LiteralValue::BigInt(-6), TestScalar::from(-6_i64)),
+            (LiteralValue::Int128(-7), TestScalar::from(-7_i128)),
+            (
+                LiteralValue::VarChar("pii@example.com".to_string()),
+                TestScalar::from("pii@example.com"),
+            ),
+            (
+                LiteralValue::VarBinary(vec![]),
+                TestScalar::from_byte_slice_via_hash(&[]),
+            ),
+            (
+                LiteralValue::VarBinary(binary_value.clone()),
+                TestScalar::from_byte_slice_via_hash(&binary_value),
+            ),
+            (
+                LiteralValue::Decimal75(Precision::new(20).unwrap(), 4, decimal_value),
+                decimal_value.into_scalar(),
+            ),
+            (
+                LiteralValue::TimeStampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc(), -42),
+                TestScalar::from(-42_i64),
+            ),
+            (
+                LiteralValue::Scalar(scalar_limbs),
+                TestScalar::from(scalar_limbs),
+            ),
+        ];
+
+        for (literal_value, expected_scalar) in cases {
+            assert_eq!(
+                literal_value.to_scalar::<TestScalar>(),
+                expected_scalar,
+                "{literal_value:?} should use the same scalar conversion as column evaluation"
+            );
         }
     }
 }
