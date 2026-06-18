@@ -158,7 +158,7 @@ mod tests {
     use crate::{
         base::{
             bit::BitDistribution,
-            proof::ProofError,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
         },
         sql::{
@@ -371,6 +371,83 @@ mod tests {
         ));
         // Should fail because the highest value is too big to be held by an i251
         let err = verifier_evaluate_sign(&mut builder, expr_eval, chi_eval, Some(251)).unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid bit_decomposition"
+            }
+        ));
+    }
+
+    #[test]
+    fn we_error_when_verifier_has_no_bit_distribution() {
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let err = verifier_evaluate_sign(&mut builder, TestScalar::ZERO, TestScalar::ONE, None)
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewBitDistributions
+            }
+        ));
+    }
+
+    #[test]
+    fn we_error_when_verifier_has_too_few_final_round_evaluations() {
+        let dist =
+            BitDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ZERO, TestScalar::ONE]);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            vec![Vec::new()],
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let err = verifier_evaluate_sign(&mut builder, TestScalar::ZERO, TestScalar::ONE, None)
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
+    }
+
+    #[test]
+    fn we_error_when_num_bits_allowed_exceeds_scalar_capacity() {
+        let dist = BitDistribution::new::<TestScalar, TestScalar>(&[TestScalar::ZERO]);
+        let mut builder = MockVerificationBuilder::new(
+            vec![dist],
+            3,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![],
+            Vec::new(),
+        );
+
+        let err = verifier_evaluate_sign(
+            &mut builder,
+            TestScalar::ZERO,
+            TestScalar::ONE,
+            Some(TestScalar::MAX_BITS + 1),
+        )
+        .unwrap_err();
+
         assert!(matches!(
             err,
             ProofError::VerificationError {
