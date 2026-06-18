@@ -414,3 +414,156 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec};
+
+    fn bools(result: ColumnOperationResult<OwnedColumn<TestScalar>>) -> Vec<bool> {
+        match result.unwrap() {
+            OwnedColumn::Boolean(values) => values,
+            other => panic!("expected boolean column, got {other:?}"),
+        }
+    }
+
+    fn decimal_column(precision: u8, scale: i8, values: &[i64]) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(
+            Precision::new(precision).unwrap(),
+            scale,
+            values.iter().copied().map(TestScalar::from).collect(),
+        )
+    }
+
+    #[test]
+    fn comparisons_upcast_integer_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 200, 3]);
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![1, 100, 4]);
+
+        assert_eq!(bools(lhs.element_wise_eq(&rhs)), vec![true, false, false]);
+        assert_eq!(bools(lhs.element_wise_lt(&rhs)), vec![false, false, true]);
+        assert_eq!(bools(lhs.element_wise_gt(&rhs)), vec![false, true, false]);
+
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![1, -2, 300]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![2, -2, 100]);
+
+        assert_eq!(bools(lhs.element_wise_eq(&rhs)), vec![false, true, false]);
+        assert_eq!(bools(lhs.element_wise_lt(&rhs)), vec![true, false, false]);
+        assert_eq!(bools(lhs.element_wise_gt(&rhs)), vec![false, false, true]);
+    }
+
+    #[test]
+    fn comparisons_handle_decimal_and_integer_operand_orders() {
+        let decimal = decimal_column(5, 1, &[10, -20, 35]);
+        let integer = OwnedColumn::<TestScalar>::Int(vec![1, -3, 4]);
+
+        assert_eq!(
+            bools(decimal.element_wise_eq(&integer)),
+            vec![true, false, false]
+        );
+        assert_eq!(
+            bools(decimal.element_wise_lt(&integer)),
+            vec![false, false, true]
+        );
+        assert_eq!(
+            bools(decimal.element_wise_gt(&integer)),
+            vec![false, true, false]
+        );
+
+        assert_eq!(
+            bools(integer.element_wise_eq(&decimal)),
+            vec![true, false, false]
+        );
+        assert_eq!(
+            bools(integer.element_wise_lt(&decimal)),
+            vec![false, true, false]
+        );
+        assert_eq!(
+            bools(integer.element_wise_gt(&decimal)),
+            vec![false, false, true]
+        );
+    }
+
+    #[test]
+    fn comparisons_reject_signed_unsigned_casting() {
+        let unsigned = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let signed = OwnedColumn::<TestScalar>::TinyInt(vec![1, -2, 3]);
+
+        assert!(matches!(
+            unsigned.element_wise_eq(&signed),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt,
+            })
+        ));
+        assert!(matches!(
+            signed.element_wise_eq(&unsigned),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            })
+        ));
+    }
+
+    #[test]
+    fn string_ordering_comparisons_report_the_ordering_operator() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(
+            ["alpha", "beta", "gamma"]
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        );
+        let rhs = OwnedColumn::<TestScalar>::VarChar(
+            ["alpha", "zeta", "delta"]
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        );
+
+        assert_eq!(bools(lhs.element_wise_eq(&rhs)), vec![true, false, false]);
+        assert!(matches!(
+            lhs.element_wise_lt(&rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }) if operator == "<"
+        ));
+        assert!(matches!(
+            lhs.element_wise_gt(&rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::VarChar,
+            }) if operator == ">"
+        ));
+    }
+
+    #[test]
+    fn comparisons_reject_unsupported_column_families() {
+        let lhs = OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(1), TestScalar::from(2)]);
+        let rhs = OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::from(1), TestScalar::from(3)]);
+
+        assert!(matches!(
+            lhs.element_wise_eq(&rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::Scalar,
+                right_type: ColumnType::Scalar,
+            }) if operator == "ComparisonOp"
+        ));
+
+        let lhs = OwnedColumn::<TestScalar>::VarBinary(vec![vec![1], vec![2]]);
+        let rhs = OwnedColumn::<TestScalar>::VarBinary(vec![vec![1], vec![3]]);
+
+        assert!(matches!(
+            lhs.element_wise_gt(&rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type: ColumnType::VarBinary,
+                right_type: ColumnType::VarBinary,
+            }) if operator == "ComparisonOp"
+        ));
+    }
+}
