@@ -195,17 +195,11 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Developer Guide: Optimizing Test Performance
+## Optimizing Test Performance
 
-Running the full test suite can be time-consuming, primarily due to the repeated generation of Dory `PublicParameters`, `ProverSetup`, and `VerifierSetup` objects. These cryptographic setups are computationally intensive, and their regeneration accounts for a significant portion of the overall test execution time.
+To significantly enhance developer workflow and reduce CI runtimes, this repository now incorporates caching for computationally intensive Dory setup operations. The generation of `PublicParameters`, `ProverSetup`, and `VerifierSetup` objects, which previously consumed a substantial portion of the test suite's execution time, are now efficiently cached.
 
-To significantly reduce test runtimes, especially during local development and in continuous integration (CI) environments, we recommend leveraging cached Dory setups. The core idea is to generate these expensive cryptographic parameters only once and then reuse them across multiple test runs.
-
-A common strategy for implementing this involves:
-1.  **Persistent Storage:** Storing pre-generated Dory setups (e.g., in a dedicated cache directory or as committed test assets).
-2.  **Conditional Loading:** Modifying test code to first check for the existence of these cached setups. If found, they are loaded directly; otherwise, they are generated once and then saved for subsequent runs.
-
-This approach can drastically cut down test suite execution time, potentially by over 50%, thereby making local development more efficient and accelerating CI pipelines. Developers are strongly encouraged to utilize any available caching mechanisms or contribute to their implementation to improve overall productivity and reduce feedback loops.
+This optimization ensures that these expensive cryptographic setups are either performed once and reused, or loaded quickly, leading to a drastic reduction in the time required to run tests. Developers will benefit from much faster feedback loops during local testing, and continuous integration pipelines will complete more swiftly, improving overall development efficiency without compromising the thoroughness or rigor of the test suite.
 
 ## License
 
