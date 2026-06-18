@@ -195,13 +195,19 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Developer Guide: Improving Test Performance
+## Developer Guide: Running Tests
 
-Running the full test suite can be time-consuming, often taking up to 15 minutes on local machines. To significantly reduce this time and enhance the developer experience, a caching mechanism has been introduced for expensive Dory setup operations.
+To ensure a fast and efficient development workflow, the test suite for Proof of SQL has been optimized for performance. Previously, running all tests could take a significant amount of time. This has been addressed by pre-generating and caching computationally intensive Dory setup parameters, specifically for `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`.
 
-Specifically, the initial generation of `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` accounts for a substantial portion of the overall test runtime. By caching these setups, subsequent test runs can reuse pre-computed parameters, drastically cutting down execution time without compromising test coverage or integrity.
+These pre-generated parameters are utilized by default, drastically reducing test execution times without compromising test coverage or rigor.
 
-To leverage this performance improvement, ensure your development environment is configured to utilize the cached Dory setups. Consult the project's contribution guidelines or relevant documentation for specific instructions on enabling and managing the cache. This optimization is particularly beneficial for iterative local development and CI/CD pipelines.
+To run the full test suite, use `cargo nextest`:
+
+```bash
+cargo nextest run --all-features
+```
+
+For more detailed performance analysis or to run tests with specific configurations, refer to the `crates/proof-of-sql-benches` directory.
 
 ## License
 
