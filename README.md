@@ -195,15 +195,17 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Performance
+## Developer Guide: Optimizing Test Performance
 
-Running the full test suite can be time-consuming due to the cryptographic setup procedures, particularly for Dory's `PublicParameters`, `ProverSetup`, and `VerifierSetup`. To significantly reduce local development and CI runtimes, these expensive setup operations are now optimized.
+Running the full test suite can be time-consuming, primarily due to the repeated generation of Dory `PublicParameters`, `ProverSetup`, and `VerifierSetup` objects. These cryptographic setups are computationally intensive, and their regeneration accounts for a significant portion of the overall test execution time.
 
-For local development, test setups are automatically cached to disk. Subsequent test runs will load these pre-computed parameters, drastically speeding up execution. This caching mechanism ensures that the first run might still take time, but subsequent runs will be much faster.
+To significantly reduce test runtimes, especially during local development and in continuous integration (CI) environments, we recommend leveraging cached Dory setups. The core idea is to generate these expensive cryptographic parameters only once and then reuse them across multiple test runs.
 
-For CI environments, pre-generated Dory setup parameters are committed to the repository (e.g., `crates/proof-of-sql-planner/test_assets/ppot_0080_10.bin` and similar files if applicable). This allows CI pipelines to leverage these committed assets directly, avoiding redundant computations and ensuring consistent, fast test execution across all environments.
+A common strategy for implementing this involves:
+1.  **Persistent Storage:** Storing pre-generated Dory setups (e.g., in a dedicated cache directory or as committed test assets).
+2.  **Conditional Loading:** Modifying test code to first check for the existence of these cached setups. If found, they are loaded directly; otherwise, they are generated once and then saved for subsequent runs.
 
-To benefit from these optimizations, simply run `cargo test` or `cargo nextest run` as usual. The system will automatically manage the caching or loading of pre-computed setups.
+This approach can drastically cut down test suite execution time, potentially by over 50%, thereby making local development more efficient and accelerating CI pipelines. Developers are strongly encouraged to utilize any available caching mechanisms or contribute to their implementation to improve overall productivity and reduce feedback loops.
 
 ## License
 
