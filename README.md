@@ -197,23 +197,13 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 ## Optimizing Test Performance
 
-Running the full test suite can be time-consuming, primarily due to the generation of Dory setup parameters (`PublicParameters`, `ProverSetup`, `VerifierSetup`). To significantly reduce test execution times, especially during local development and CI, a caching mechanism has been introduced for these expensive setup operations.
+Running the full test suite can be time-consuming due to the cryptographic setup procedures, particularly for Dory's `PublicParameters`, `ProverSetup`, and `VerifierSetup`. To significantly reduce local development and CI runtimes, these expensive setup operations are now optimized.
 
-### How to Use Test Caching
+For local development, test setups are automatically cached to disk. Subsequent test runs will load these pre-computed parameters, drastically speeding up execution. This caching mechanism ensures that the first run might still take time, but subsequent runs will be much faster.
 
-To enable test caching, set the `SXT_PROOF_OF_SQL_CACHE_DIR` environment variable to a directory where the cached setup files should be stored. If the files are not found in this directory, they will be generated and saved for future use.
+For CI environments, pre-generated Dory setup parameters are committed to the repository (e.g., `crates/proof-of-sql-planner/test_assets/ppot_0080_10.bin` and similar files if applicable). This allows CI pipelines to leverage these committed assets directly, avoiding redundant computations and ensuring consistent, fast test execution across all environments.
 
-**Example:**
-
-```bash
-export SXT_PROOF_OF_SQL_CACHE_DIR="./.test_cache"
-mkdir -p $SXT_PROOF_OF_SQL_CACHE_DIR
-cargo nextest run --all-features
-```
-
-On subsequent runs, if the cached files exist, the tests will load them directly, drastically speeding up execution. It is recommended to add `.test_cache/` to your `.gitignore` if you choose to store the cache locally, or to use a shared cache directory in CI environments.
-
-This optimization helps achieve faster feedback loops during development and reduces overall CI runtimes without compromising test coverage or strength.
+To benefit from these optimizations, simply run `cargo test` or `cargo nextest run` as usual. The system will automatically manage the caching or loading of pre-computed setups.
 
 ## License
 
