@@ -1,6 +1,7 @@
 use super::scalar_varint::{
-    read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
-    write_scalar_varint, write_scalar_varints,
+    read_scalar_varint, read_scalar_varints, read_u256_varint, scalar_varint_size,
+    scalar_varints_size, u256_varint_size, write_scalar_varint, write_scalar_varints,
+    write_u256_varint,
 };
 use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
 use alloc::vec;
@@ -332,4 +333,202 @@ fn scalar_slices_are_correctly_encoded_and_decoded() {
         TestScalar::from(0_u64),
         TestScalar::from(u128::MAX),
     ]);
+}
+
+// ==============================
+// 新增测试：覆盖未测试的代码路径
+// ==============================
+
+/// 测试 read_u256_varint 对空 buffer 返回 None
+#[test]
+fn read_u256_varint_returns_none_for_empty_buffer() {
+    let buf: [u8; 0] = [];
+    assert!(read_u256_varint(&buf).is_none());
+}
+
+/// 测试 read_u256_varint 对只有延续位（MSB=1）的单字节返回 None
+#[test]
+fn read_u256_varint_returns_none_for_single_byte_with_msb_set() {
+    let buf = [0x80_u8];
+    assert!(read_u256_varint(&buf).is_none());
+}
+
+/// 测试 write_u256_varint 和 read_u256_varint 的直接往返
+#[test]
+fn write_and_read_u256_varint_round_trip() {
+    let mut buf = [0_u8; 40];
+
+    // 零值
+    let written = write_u256_varint(&mut buf, U256::from_words(0, 0));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(0, 0));
+    assert_eq!(read, written);
+
+    // 小值
+    let written = write_u256_varint(&mut buf, U256::from_words(127, 0));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(127, 0));
+    assert_eq!(read, written);
+
+    // 跨越一字节边界
+    let written = write_u256_varint(&mut buf, U256::from_words(128, 0));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(128, 0));
+    assert_eq!(read, written);
+
+    // u128 范围内的值
+    let written = write_u256_varint(&mut buf, U256::from_words(u128::MAX, 0));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(u128::MAX, 0));
+    assert_eq!(read, written);
+
+    // high 非零的值
+    let written = write_u256_varint(&mut buf, U256::from_words(0, 1));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(0, 1));
+    assert_eq!(read, written);
+
+    // 最大 U256 值
+    let written = write_u256_varint(&mut buf, U256::from_words(u128::MAX, u128::MAX));
+    let (val, read) = read_u256_varint(&buf[..written]).unwrap();
+    assert_eq!(val, U256::from_words(u128::MAX, u128::MAX));
+    assert_eq!(read, written);
+}
+
+/// 测试 read_u256_varint 的 Ordering::Equal 分支（shift_amount == 126）
+/// 当读取第 19 个字节时（shift_amount = 18*7 = 126），进入 Equal 分支
+#[test]
+fn read_u256_varint_ordering_equal_branch() {
+    // 构造一个需要恰好 19 字节的 varint 编码
+    // 前 18 字节都有 MSB=1（延续位），第 19 字节 MSB=0（终止位）
+    // shift_amount 从 0 开始，每读一个字节加 7
+    // 第 19 个字节时 shift_amount = 18 * 7 = 126，触发 Ordering::Equal
+    let mut buf = [0_u8; 19];
+    for i in 0..18 {
+        buf[i] = 0x81; // MSB=1 + 低7位=1
+    }
+    buf[18] = 0x01; // MSB=0 + 低7位=1
+
+    let result = read_u256_varint(&buf);
+    assert!(result.is_some());
+    let (val, bytes_read) = result.unwrap();
+    assert_eq!(bytes_read, 19);
+    // 验证解码出的值：低7位为1，移位126次
+    // Equal分支：val.low |= (next_byte & 0b0000_0011) << 126
+    //            val.high |= (next_byte & 0b0111_1100) >> 2
+    assert_ne!(val.low, 0);
+    assert_ne!(val.high, 0);
+}
+
+/// 测试 read_u256_varint 的 Ordering::Greater 分支（shift_amount > 126）
+/// 当读取第 20+ 字节时，shift_amount > 126，进入 Greater 分支
+#[test]
+fn read_u256_varint_ordering_greater_branch() {
+    // 构造一个需要 20 字节的 varint 编码
+    // 前 19 字节都有 MSB=1，第 20 字节 MSB=0
+    // 第 20 个字节时 shift_amount = 19 * 7 = 133 > 126，触发 Ordering::Greater
+    let mut buf = [0_u8; 20];
+    for i in 0..19 {
+        buf[i] = 0x80; // MSB=1 + 低7位=0（仅延续位）
+    }
+    buf[19] = 0x01; // MSB=0 + 低7位=1
+
+    let result = read_u256_varint(&buf);
+    assert!(result.is_some());
+    let (val, bytes_read) = result.unwrap();
+    assert_eq!(bytes_read, 20);
+    // Greater分支：val.high |= (next_byte & 0b0111_1111) << (shift_amount - 128)
+    assert_ne!(val.high, 0);
+}
+
+/// 测试 u256_varint_size 当 high != 0 时的分支
+#[test]
+fn u256_varint_size_with_nonzero_high() {
+    // high != 0 时走 256 - high.leading_zeros() 分支
+    let val = U256::from_words(0, 1);
+    let size = u256_varint_size(val);
+    // high = 1, leading_zeros = 127, zigzag_size = 256 - 127 = 129
+    // div_ceil(7) = 19
+    assert_eq!(size, 19);
+
+    let val = U256::from_words(0, u128::MAX);
+    let size = u256_varint_size(val);
+    // high = u128::MAX, leading_zeros = 0, zigzag_size = 256
+    // div_ceil(7) = 37
+    assert_eq!(size, 37);
+}
+
+/// 测试 u256_varint_size 当 high == 0 时的分支
+#[test]
+fn u256_varint_size_with_zero_high() {
+    // high == 0 时走 128 - low.leading_zeros() 分支
+    let val = U256::from_words(0, 0);
+    let size = u256_varint_size(val);
+    // low = 0, leading_zeros = 128, zigzag_size = 0, max(1, 0) = 1
+    assert_eq!(size, 1);
+
+    let val = U256::from_words(127, 0);
+    let size = u256_varint_size(val);
+    // low = 127, leading_zeros = 121, zigzag_size = 7, div_ceil(7) = 1
+    assert_eq!(size, 1);
+
+    let val = U256::from_words(128, 0);
+    let size = u256_varint_size(val);
+    // low = 128, leading_zeros = 120, zigzag_size = 8, div_ceil(7) = 2
+    assert_eq!(size, 2);
+}
+
+/// 测试 write_u256_varint 对零值的编码
+#[test]
+fn write_u256_varint_encodes_zero_as_single_byte() {
+    let mut buf = [0_u8; 1];
+    let written = write_u256_varint(&mut buf, U256::from_words(0, 0));
+    assert_eq!(written, 1);
+    assert_eq!(buf[0], 0);
+}
+
+/// 测试 read_u256_varint 对超过 256 位限制的编码返回 None
+#[test]
+fn read_u256_varint_returns_none_when_shift_amount_exceeds_256() {
+    // 构造一个超过 37 字节（259位）的未终止 varint
+    // shift_amount > 256 时返回 None
+    let mut buf = [0xFF_u8; 38];
+    // 最后一个字节也设为 MSB=1，使得 shift_amount 超过 256
+    buf[37] = 0xFF;
+    assert!(read_u256_varint(&buf).is_none());
+}
+
+/// 测试 read_scalar_varint 对空 buffer 返回 None
+#[test]
+fn read_scalar_varint_returns_none_for_empty_buffer() {
+    let buf: [u8; 0] = [];
+    assert!(read_scalar_varint::<TestScalar>(&buf).is_none());
+}
+
+/// 测试 write_u256_varint 和 u256_varint_size 的一致性
+#[test]
+fn write_u256_varint_size_matches_u256_varint_size() {
+    let mut buf = [0_u8; 40];
+
+    let test_values = [
+        U256::from_words(0, 0),
+        U256::from_words(1, 0),
+        U256::from_words(127, 0),
+        U256::from_words(128, 0),
+        U256::from_words(u64::MAX as u128, 0),
+        U256::from_words(u128::MAX, 0),
+        U256::from_words(0, 1),
+        U256::from_words(1, 1),
+        U256::from_words(u128::MAX, u128::MAX),
+    ];
+
+    for val in test_values {
+        let expected_size = u256_varint_size(val);
+        let actual_size = write_u256_varint(&mut buf, val);
+        assert_eq!(
+            actual_size, expected_size,
+            "size mismatch for U256({:?})",
+            val
+        );
+    }
 }

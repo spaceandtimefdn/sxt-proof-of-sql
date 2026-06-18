@@ -1,6 +1,9 @@
 mod u256;
 pub(crate) use u256::U256;
 
+#[cfg(test)]
+mod u256_test;
+
 mod zigzag;
 pub(crate) use zigzag::ZigZag;
 

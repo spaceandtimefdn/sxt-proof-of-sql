@@ -444,3 +444,228 @@ fn we_can_encode_and_decode_u64_and_u128_the_same() {
 // ----------------------
 // End VarInt trait tests
 // ----------------------
+
+// ==============================
+// 新增测试：覆盖未测试的代码路径
+// ==============================
+
+/// 测试 bool::decode_var 对非法值（n 不是 0 或 1）返回 None
+#[test]
+fn bool_decode_var_returns_none_for_invalid_values() {
+    // n = 2 应该返回 None
+    let encoded = 2_u64.encode_var_vec();
+    assert!(bool::decode_var(&encoded).is_none());
+
+    // n = 100 应该返回 None
+    let encoded = 100_u64.encode_var_vec();
+    assert!(bool::decode_var(&encoded).is_none());
+
+    // n = u64::MAX 应该返回 None
+    let encoded = u64::MAX.encode_var_vec();
+    assert!(bool::decode_var(&encoded).is_none());
+}
+
+/// 测试 bool::decode_var 对合法值（0 和 1）返回正确结果
+#[test]
+fn bool_decode_var_returns_correct_value_for_valid_inputs() {
+    let encoded = 0_u64.encode_var_vec();
+    assert_eq!(bool::decode_var(&encoded), Some((false, 1)));
+
+    let encoded = 1_u64.encode_var_vec();
+    assert_eq!(bool::decode_var(&encoded), Some((true, 1)));
+}
+
+/// 测试 bool::encode_var 编码
+#[test]
+fn bool_encode_var_works_correctly() {
+    let mut buf = [0_u8; 1];
+    let written = false.encode_var(&mut buf);
+    assert_eq!(written, 1);
+    assert_eq!(buf[0], 0);
+
+    let mut buf = [0_u8; 1];
+    let written = true.encode_var(&mut buf);
+    assert_eq!(written, 1);
+    assert_eq!(buf[0], 1);
+}
+
+/// 测试 bool::required_space
+#[test]
+fn bool_required_space_is_always_one() {
+    assert_eq!(false.required_space(), 1);
+    assert_eq!(true.required_space(), 1);
+}
+
+/// 测试 u128::decode_var 对 high != 0 的 U256 返回 None
+#[test]
+fn u128_decode_var_returns_none_when_high_is_nonzero() {
+    // 编码一个 high != 0 的 U256 值
+    let val = U256::from_words(0, 1);
+    let mut buf = [0_u8; 20];
+    let written = val.encode_var(&mut buf);
+    // u128::decode_var 应该返回 None，因为 high != 0
+    assert!(u128::decode_var(&buf[..written]).is_none());
+
+    // 编码一个更大的值
+    let val = U256::from_words(u128::MAX, u128::MAX);
+    let mut buf = [0_u8; 40];
+    let written = val.encode_var(&mut buf);
+    assert!(u128::decode_var(&buf[..written]).is_none());
+}
+
+/// 测试 u128::decode_var 对合法值（high == 0）返回正确结果
+#[test]
+fn u128_decode_var_returns_correct_value_when_high_is_zero() {
+    for val in [0_u128, 1, 127, 128, 255, 256, u64::MAX as u128, u128::MAX] {
+        let mut buf = [0_u8; 20];
+        let written = val.encode_var(&mut buf);
+        let (decoded, read) = u128::decode_var(&buf[..written]).unwrap();
+        assert_eq!(decoded, val);
+        assert_eq!(read, written);
+    }
+}
+
+/// 测试 U256 VarInt 实现的 encode_var / decode_var
+#[test]
+fn u256_varint_encode_decode_round_trip() {
+    let test_values = [
+        U256::from_words(0, 0),
+        U256::from_words(1, 0),
+        U256::from_words(127, 0),
+        U256::from_words(128, 0),
+        U256::from_words(u128::MAX, 0),
+        U256::from_words(0, 1),
+        U256::from_words(1, 1),
+        U256::from_words(u128::MAX, u128::MAX),
+    ];
+
+    for val in test_values {
+        let mut buf = [0_u8; 40];
+        let written = val.encode_var(&mut buf);
+        let (decoded, read) = U256::decode_var(&buf[..written]).unwrap();
+        assert_eq!(decoded, val);
+        assert_eq!(read, written);
+    }
+}
+
+/// 测试 U256::required_space
+#[test]
+fn u256_required_space_matches_encode_var_output() {
+    let test_values = [
+        U256::from_words(0, 0),
+        U256::from_words(1, 0),
+        U256::from_words(128, 0),
+        U256::from_words(u128::MAX, 0),
+        U256::from_words(0, 1),
+        U256::from_words(u128::MAX, u128::MAX),
+    ];
+
+    for val in test_values {
+        let mut buf = [0_u8; 40];
+        let written = val.encode_var(&mut buf);
+        assert_eq!(val.required_space(), written);
+    }
+}
+
+/// 测试 u8 的 VarInt 实现
+#[test]
+fn we_can_encode_and_decode_small_u8_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u8>();
+}
+
+#[test]
+fn we_can_encode_and_decode_large_u8_values() {
+    test_encode_decode(u8::MAX, [0xFF, 0x01]);
+    // u8 溢出：编码一个大于 u8::MAX 的值，u8::decode_var 应返回 None
+    let encoded = (u8::MAX as u64 + 1).encode_var_vec();
+    assert!(u8::decode_var(&encoded).is_none());
+}
+
+/// 测试 u16 的 VarInt 实现
+#[test]
+fn we_can_encode_and_decode_small_u16_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u16>();
+}
+
+#[test]
+fn we_can_encode_and_decode_large_u16_values() {
+    test_encode_decode(u16::MAX, [0xFF, 0xFF, 0x03]);
+    // u16 溢出
+    let encoded = (u16::MAX as u64 + 1).encode_var_vec();
+    assert!(u16::decode_var(&encoded).is_none());
+}
+
+/// 测试 i8 的 VarInt 实现
+#[test]
+fn we_can_encode_and_decode_small_i8_values() {
+    test_small_signed_values_encode_and_decode_properly::<i8>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_large_i8_values() {
+    test_encode_decode(i8::MAX, [0xFE, 0x01]);
+    test_encode_decode(i8::MIN, [0xFF, 0x01]);
+    // i8 溢出
+    let encoded = ((i8::MAX as i64) + 1).encode_var_vec();
+    assert!(i8::decode_var(&encoded).is_none());
+    let encoded = ((i8::MIN as i64) - 1).encode_var_vec();
+    assert!(i8::decode_var(&encoded).is_none());
+}
+
+/// 测试 i16 的 VarInt 实现（扩展边界条件）
+#[test]
+fn we_can_encode_and_decode_large_i16_values() {
+    test_encode_decode(i16::MAX, [0xFE, 0xFF, 0x03]);
+    test_encode_decode(i16::MIN, [0xFF, 0xFF, 0x03]);
+    // i16 溢出
+    let encoded = ((i16::MAX as i64) + 1).encode_var_vec();
+    assert!(i16::decode_var(&encoded).is_none());
+    let encoded = ((i16::MIN as i64) - 1).encode_var_vec();
+    assert!(i16::decode_var(&encoded).is_none());
+}
+
+/// 测试 isize 的 VarInt 实现
+#[test]
+fn we_can_encode_and_decode_small_isize_values() {
+    test_small_signed_values_encode_and_decode_properly::<isize>(1);
+}
+
+/// 测试 u64::decode_var 对空 buffer 返回 None
+#[test]
+fn u64_decode_var_returns_none_for_empty_buffer() {
+    let buf: [u8; 0] = [];
+    assert!(u64::decode_var(&buf).is_none());
+}
+
+/// 测试 u64::decode_var 对只有 MSB=1 的单字节返回 None
+#[test]
+fn u64_decode_var_returns_none_for_single_byte_with_msb_set() {
+    let buf = [0x80_u8];
+    assert!(u64::decode_var(&buf).is_none());
+}
+
+/// 测试 i128 的 encode/decode 与 i64 的对齐性
+#[test]
+fn we_can_encode_and_decode_i64_and_i128_the_same_for_small_values() {
+    for val in [-100_i64, -1, 0, 1, 100] {
+        let mut buf_small = vec![0u8; 10];
+        let mut buf_large = vec![0u8; 10];
+        let written_small = val.encode_var(&mut buf_small);
+        let written_large = (val as i128).encode_var(&mut buf_large);
+        assert_eq!(written_small, written_large);
+        assert_eq!(&buf_small[..written_small], &buf_large[..written_large]);
+    }
+}
+
+/// 测试 u128 的 encode/decode 与 u64 的对齐性
+#[test]
+fn we_can_encode_and_decode_u64_and_u128_the_same_for_small_values() {
+    for val in [0_u64, 1, 127, 128, 255, u64::MAX] {
+        let mut buf_small = vec![0u8; 10];
+        let mut buf_large = vec![0u8; 10];
+        let written_small = val.encode_var(&mut buf_small);
+        let written_large = (val as u128).encode_var(&mut buf_large);
+        assert_eq!(written_small, written_large);
+        assert_eq!(&buf_small[..written_small], &buf_large[..written_large]);
+    }
+}
