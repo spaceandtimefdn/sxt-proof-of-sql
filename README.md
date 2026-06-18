@@ -195,11 +195,13 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Optimizing Test Performance
+## Developer Guide: Improving Test Performance
 
-To significantly enhance developer workflow and reduce CI runtimes, this repository now incorporates caching for computationally intensive Dory setup operations. The generation of `PublicParameters`, `ProverSetup`, and `VerifierSetup` objects, which previously consumed a substantial portion of the test suite's execution time, are now efficiently cached.
+Running the full test suite can be time-consuming, often taking up to 15 minutes on local machines. To significantly reduce this time and enhance the developer experience, a caching mechanism has been introduced for expensive Dory setup operations.
 
-This optimization ensures that these expensive cryptographic setups are either performed once and reused, or loaded quickly, leading to a drastic reduction in the time required to run tests. Developers will benefit from much faster feedback loops during local testing, and continuous integration pipelines will complete more swiftly, improving overall development efficiency without compromising the thoroughness or rigor of the test suite.
+Specifically, the initial generation of `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from` accounts for a substantial portion of the overall test runtime. By caching these setups, subsequent test runs can reuse pre-computed parameters, drastically cutting down execution time without compromising test coverage or integrity.
+
+To leverage this performance improvement, ensure your development environment is configured to utilize the cached Dory setups. Consult the project's contribution guidelines or relevant documentation for specific instructions on enabling and managing the cache. This optimization is particularly beneficial for iterative local development and CI/CD pipelines.
 
 ## License
 
