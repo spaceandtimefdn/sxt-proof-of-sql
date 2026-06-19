@@ -58,12 +58,14 @@ fn test_random_ipa_with_various_lengths() {
         let public_parameters = PublicParameters::test_rand(setup_p.0, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);
         let verifier_setup = VerifierSetup::from(&public_parameters);
+        let prover_public_setup = DoryProverPublicSetup::new(&prover_setup, setup_p.1);
+        let verifier_public_setup = DoryVerifierPublicSetup::new(&verifier_setup, setup_p.1);
         for length in lengths {
             test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
                 length,
                 0,
-                &DoryProverPublicSetup::new(&prover_setup, setup_p.1),
-                &DoryVerifierPublicSetup::new(&verifier_setup, setup_p.1),
+                &prover_public_setup,
+                &verifier_public_setup,
             );
         }
     }
