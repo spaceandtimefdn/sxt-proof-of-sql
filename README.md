@@ -195,19 +195,17 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Developer Guide: Running Tests
+## Accelerating Local Test Runs
 
-To ensure a fast and efficient development workflow, the test suite for Proof of SQL has been optimized for performance. Previously, running all tests could take a significant amount of time. This has been addressed by pre-generating and caching computationally intensive Dory setup parameters, specifically for `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`.
+Running the full test suite can be time-consuming due to the computationally intensive setup of Dory parameters (e.g., `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`). To significantly reduce local development iteration times, we provide a mechanism to utilize pre-generated and cached Dory setups for tests.
 
-These pre-generated parameters are utilized by default, drastically reducing test execution times without compromising test coverage or rigor.
-
-To run the full test suite, use `cargo nextest`:
+To enable faster test execution, set the `SXT_PROOF_OF_SQL_USE_CACHED_DORY_SETUPS` environment variable to `true` before running your tests. This will instruct the test suite to load pre-computed Dory parameters from the `crates/proof-of-sql-planner/test_assets/` directory instead of generating them on the fly.
 
 ```bash
-cargo nextest run --all-features
+SXT_PROOF_OF_SQL_USE_CACHED_DORY_SETUPS=true cargo nextest run --all-features
 ```
 
-For more detailed performance analysis or to run tests with specific configurations, refer to the `crates/proof-of-sql-benches` directory.
+This optimization is particularly beneficial for repeated test runs during development, drastically cutting down the setup overhead. For CI environments or when precise timing of setup is critical, omit this environment variable to ensure parameters are generated fresh.
 
 ## License
 
