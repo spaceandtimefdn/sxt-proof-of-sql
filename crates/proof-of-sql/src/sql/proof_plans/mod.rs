@@ -14,6 +14,8 @@ mod projection_exec_test;
 
 #[cfg(test)]
 pub(crate) mod test_utility;
+#[cfg(test)]
+mod test_utility_test;
 
 mod legacy_filter_exec;
 pub(crate) use legacy_filter_exec::LegacyFilterExec;
