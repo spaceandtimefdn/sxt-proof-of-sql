@@ -65,6 +65,8 @@ mod equals_expr_test;
 
 mod table_expr;
 pub use table_expr::TableExpr;
+#[cfg(all(test, feature = "blitzar"))]
+mod table_expr_test;
 
 #[cfg(test)]
 pub(crate) mod test_utility;
