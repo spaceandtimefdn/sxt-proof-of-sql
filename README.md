@@ -195,17 +195,21 @@ The second interaction involves query requests, where the Verifier seeks data an
 
 <p align="center"><img src="https://raw.githubusercontent.com/spaceandtimelabs/sxt-proof-of-sql/main/docs/QueryRequestDiagram.png" alt="Query Request Diagram" width="50%"/></p>
 
-## Accelerating Local Test Runs
+## Developer Guide: Improving Test Performance
 
-Running the full test suite can be time-consuming due to the computationally intensive setup of Dory parameters (e.g., `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`). To significantly reduce local development iteration times, we provide a mechanism to utilize pre-generated and cached Dory setups for tests.
+Running the full test suite for Proof of SQL can be time-consuming, primarily due to the computationally intensive setup phases for Dory proofs, specifically `PublicParameters::test_rand`, `ProverSetup::from`, and `VerifierSetup::from`. To significantly reduce local development and CI runtimes, a caching mechanism has been introduced for these Dory setups.
 
-To enable faster test execution, set the `SXT_PROOF_OF_SQL_USE_CACHED_DORY_SETUPS` environment variable to `true` before running your tests. This will instruct the test suite to load pre-computed Dory parameters from the `crates/proof-of-sql-planner/test_assets/` directory instead of generating them on the fly.
+### Dory Setup Caching
 
-```bash
-SXT_PROOF_OF_SQL_USE_CACHED_DORY_SETUPS=true cargo nextest run --all-features
-```
+The Dory setup artifacts are now cached to disk after their initial generation. This means subsequent test runs will load these pre-computed setups instead of regenerating them, drastically cutting down test execution time.
 
-This optimization is particularly beneficial for repeated test runs during development, drastically cutting down the setup overhead. For CI environments or when precise timing of setup is critical, omit this environment variable to ensure parameters are generated fresh.
+By default, this caching is enabled for `cargo test` runs. The cached files are stored in a temporary directory (e.g., `target/debug/dory_cache/`) and are automatically managed.
+
+To ensure you benefit from the caching:
+- **Local Development**: Simply run `cargo test` as usual. The first run will generate the caches, and subsequent runs will use them. If you need to force a regeneration (e.g., after significant changes to Dory setup logic), you can clear the cache directory manually or use a specific environment variable (if implemented, e.g., `SXT_PROOF_OF_SQL_CLEAR_CACHE=1 cargo test`).
+- **Continuous Integration (CI)**: CI workflows are configured to leverage build cache mechanisms (e.g., GitHub Actions caching `target/` directory) to persist these Dory setup files across workflow runs, ensuring that only the first CI run after a cache invalidation incurs the full setup cost.
+
+This improvement aims to make the development cycle faster and more efficient for all contributors.
 
 ## License
 
