@@ -168,3 +168,74 @@ impl<'a, CP: CommitmentEvaluationProof> TableTestAccessor<'a, CP> {
         res
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+        },
+        database::table_utility::{borrowed_bigint, borrowed_varchar, table},
+        scalar::test_scalar::TestScalar,
+    };
+    use bumpalo::Bump;
+
+    #[test]
+    fn table_test_accessor_exposes_data_metadata_schema_and_commitments() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("sxt", "orders");
+        let amount_id: Ident = "amount".into();
+        let customer_id: Ident = "customer".into();
+        let table = table::<TestScalar>([
+            borrowed_bigint(amount_id.clone(), [10_i64, 20, -5], &alloc),
+            borrowed_varchar(customer_id.clone(), ["alice", "bob", "carol"], &alloc),
+        ]);
+
+        let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            table,
+            2,
+            (),
+        );
+
+        assert_eq!(
+            accessor.get_column_names(&table_ref),
+            vec![amount_id.value.as_str(), customer_id.value.as_str()]
+        );
+        assert_eq!(accessor.get_length(&table_ref), 3);
+        assert_eq!(accessor.get_offset(&table_ref), 2);
+        assert_eq!(
+            accessor.lookup_column(&table_ref, &amount_id),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(accessor.lookup_column(&table_ref, &"missing".into()), None);
+        assert_eq!(
+            accessor.lookup_schema(&table_ref),
+            vec![
+                (amount_id.clone(), ColumnType::BigInt),
+                (customer_id, ColumnType::VarChar),
+            ]
+        );
+        assert!(matches!(
+            accessor.get_column(&table_ref, &amount_id),
+            Column::BigInt([10, 20, -5])
+        ));
+        assert_eq!(
+            accessor.get_commitment(&table_ref, &amount_id),
+            NaiveCommitment(vec![
+                0_i64.into(),
+                0_i64.into(),
+                10_i64.into(),
+                20_i64.into(),
+                (-5_i64).into(),
+            ])
+        );
+
+        accessor.update_offset(&table_ref, 4);
+        assert_eq!(accessor.get_offset(&table_ref), 4);
+        let cloned = accessor.clone();
+        assert_eq!(cloned.get_offset(&table_ref), 4);
+        assert_eq!(cloned.get_length(&table_ref), 3);
+    }
+}
