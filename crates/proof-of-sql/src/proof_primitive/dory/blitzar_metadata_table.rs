@@ -300,6 +300,7 @@ mod tests {
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::AffineRepr;
 
     fn assert_blitzar_metadata(
         committable_columns: &[CommittableColumn],
@@ -323,6 +324,68 @@ mod tests {
             scalars, expected_scalars,
             "Scalars mismatch for offset {offset}"
         );
+    }
+
+    #[test]
+    fn we_can_get_minimum_offsets_for_supported_column_types() {
+        assert_eq!(min_as_f(ColumnType::TinyInt), MontFp!("-128"));
+        assert_eq!(min_as_f(ColumnType::SmallInt), MontFp!("-32768"));
+        assert_eq!(min_as_f(ColumnType::Int), MontFp!("-2147483648"));
+        assert_eq!(
+            min_as_f(ColumnType::BigInt),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Int128),
+            MontFp!("-170141183460469231731687303715884105728")
+        );
+
+        for column_type in [
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+            ColumnType::Uint8,
+            ColumnType::Scalar,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+            ColumnType::Boolean,
+        ] {
+            assert_eq!(min_as_f(column_type), MontFp!("0"));
+        }
+    }
+
+    #[test]
+    fn we_can_offset_signed_commits_without_changing_unsigned_commits() {
+        let signed_values = [-1_i8, 2_i8];
+        let unsigned_values = [3_u8, 4_u8];
+        let committable_columns = [
+            CommittableColumn::TinyInt(&signed_values),
+            CommittableColumn::Uint8(&unsigned_values),
+        ];
+        let generator = G1Affine::generator();
+        let first_signed = generator.mul(MontFp!("2")).into_affine();
+        let first_unsigned = generator.mul(MontFp!("3")).into_affine();
+        let second_signed = generator.mul(MontFp!("5")).into_affine();
+        let second_unsigned = generator.mul(MontFp!("7")).into_affine();
+        let all_sub_commits = vec![first_signed, first_unsigned, second_signed, second_unsigned];
+
+        assert_eq!(
+            signed_commits(&all_sub_commits, &committable_columns),
+            vec![
+                (first_signed + second_signed.mul(min_as_f(ColumnType::TinyInt))).into_affine(),
+                first_unsigned,
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_handle_empty_committable_columns_in_signed_commits() {
+        assert!(signed_commits(&vec![], &[]).is_empty());
     }
 
     #[test]
