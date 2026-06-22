@@ -30,3 +30,13 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_log_memory_usage_does_not_panic() {
+        log_memory_usage("test");
+    }
+}
