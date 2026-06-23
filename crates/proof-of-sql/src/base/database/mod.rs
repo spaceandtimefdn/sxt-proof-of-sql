@@ -70,6 +70,8 @@ pub use table_ref::TableRef;
 
 #[cfg(feature = "arrow")]
 pub mod arrow_schema_utility;
+#[cfg(all(test, feature = "arrow"))]
+mod arrow_schema_utility_test;
 
 mod owned_column;
 pub use owned_column::OwnedColumn;
@@ -102,6 +104,8 @@ pub mod table_utility;
 
 mod table_evaluation;
 pub use table_evaluation::TableEvaluation;
+#[cfg(test)]
+mod table_evaluation_test;
 
 mod test_accessor;
 pub use test_accessor::TestAccessor;
