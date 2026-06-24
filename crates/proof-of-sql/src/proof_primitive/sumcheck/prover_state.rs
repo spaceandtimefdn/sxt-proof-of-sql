@@ -62,3 +62,80 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProverState;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    #[test]
+    fn new_sets_list_of_products() {
+        let products = vec![(TestScalar::from(1u64), vec![0usize, 1])];
+        let exts = vec![vec![TestScalar::from(1u64)], vec![TestScalar::from(2u64)]];
+        let state = ProverState::new(products.clone(), exts, 2, 2);
+        assert_eq!(state.list_of_products.len(), 1);
+    }
+
+    #[test]
+    fn new_sets_flattened_ml_extensions() {
+        let exts = vec![
+            vec![TestScalar::from(1u64), TestScalar::from(2u64)],
+            vec![TestScalar::from(3u64), TestScalar::from(4u64)],
+        ];
+        let state = ProverState::<TestScalar>::new(vec![], exts.clone(), 1, 0);
+        assert_eq!(state.flattened_ml_extensions.len(), 2);
+        assert_eq!(state.flattened_ml_extensions[0][0], TestScalar::from(1u64));
+    }
+
+    #[test]
+    fn new_sets_num_vars() {
+        let state = ProverState::<TestScalar>::new(vec![], vec![], 5, 0);
+        assert_eq!(state.num_vars, 5);
+    }
+
+    #[test]
+    fn new_sets_max_multiplicands() {
+        let state = ProverState::<TestScalar>::new(vec![], vec![], 1, 3);
+        assert_eq!(state.max_multiplicands, 3);
+    }
+
+    #[test]
+    fn new_initializes_round_to_zero() {
+        let state = ProverState::<TestScalar>::new(vec![], vec![], 2, 1);
+        assert_eq!(state.round, 0);
+    }
+
+    #[test]
+    fn new_empty_products_and_extensions() {
+        let state = ProverState::<TestScalar>::new(vec![], vec![], 0, 0);
+        assert!(state.list_of_products.is_empty());
+        assert!(state.flattened_ml_extensions.is_empty());
+    }
+
+    #[test]
+    fn new_preserves_coefficient_in_products() {
+        let coeff = TestScalar::from(42u64);
+        let products = vec![(coeff, vec![0usize])];
+        let exts = vec![vec![TestScalar::from(1u64)]];
+        let state = ProverState::new(products, exts, 1, 1);
+        assert_eq!(state.list_of_products[0].0, coeff);
+    }
+
+    #[test]
+    fn new_preserves_indices_in_products() {
+        let products = vec![(TestScalar::from(1u64), vec![0usize, 2, 4])];
+        let state = ProverState::new(products, vec![], 3, 3);
+        assert_eq!(state.list_of_products[0].1, vec![0, 2, 4]);
+    }
+
+    #[test]
+    fn new_multiple_products() {
+        let products = vec![
+            (TestScalar::from(1u64), vec![0usize]),
+            (TestScalar::from(2u64), vec![1usize]),
+        ];
+        let state = ProverState::new(products, vec![], 1, 1);
+        assert_eq!(state.list_of_products.len(), 2);
+    }
+}
