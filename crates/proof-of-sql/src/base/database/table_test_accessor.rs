@@ -168,3 +168,8 @@ impl<'a, CP: CommitmentEvaluationProof> TableTestAccessor<'a, CP> {
         res
     }
 }
+
+#[cfg(test)]
+mod tests {
+    include!("table_test_accessor_test.rs");
+}

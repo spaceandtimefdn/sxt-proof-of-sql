@@ -57,9 +57,14 @@ fn we_can_access_the_columns_of_a_table() {
     }
 
     let data2 = table([
+        borrowed_uint8("u8", [7, 8, 9, 10], &alloc),
+        borrowed_tinyint("i8", [-1_i8, 2, -3, 4], &alloc),
+        borrowed_smallint("i16", [-10_i16, 20, -30, 40], &alloc),
+        borrowed_int("i32", [-100, 200, -300, 400], &alloc),
         borrowed_bigint("a", [1, 2, 3, 4], &alloc),
         borrowed_bigint("b", [4, 5, 6, 5], &alloc),
         borrowed_int128("c128", [1, 2, 3, 4], &alloc),
+        borrowed_decimal75("decimal", 10, 2, [100, 200, 300, 400], &alloc),
         borrowed_varchar("varchar", ["a", "bc", "d", "e"], &alloc),
         borrowed_scalar("scalar", [1, 2, 3, 4], &alloc),
         borrowed_boolean("boolean", [true, false, true, false], &alloc),
@@ -83,8 +88,40 @@ fn we_can_access_the_columns_of_a_table() {
         _ => panic!("Invalid column type"),
     }
 
+    match accessor.get_column(&table_ref_2, &"u8".into()) {
+        Column::Uint8(col) => assert_eq!(col.to_vec(), vec![7, 8, 9, 10]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"i8".into()) {
+        Column::TinyInt(col) => assert_eq!(col.to_vec(), vec![-1, 2, -3, 4]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"i16".into()) {
+        Column::SmallInt(col) => assert_eq!(col.to_vec(), vec![-10, 20, -30, 40]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"i32".into()) {
+        Column::Int(col) => assert_eq!(col.to_vec(), vec![-100, 200, -300, 400]),
+        _ => panic!("Invalid column type"),
+    }
+
     match accessor.get_column(&table_ref_2, &"c128".into()) {
         Column::Int128(col) => assert_eq!(col.to_vec(), vec![1, 2, 3, 4]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"decimal".into()) {
+        Column::Decimal75(precision, scale, col) => {
+            assert_eq!(precision.value(), 10);
+            assert_eq!(scale, 2);
+            assert_eq!(
+                col.to_vec(),
+                vec![100.into(), 200.into(), 300.into(), 400.into()]
+            );
+        }
         _ => panic!("Invalid column type"),
     }
 

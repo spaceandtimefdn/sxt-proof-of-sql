@@ -212,3 +212,8 @@ impl<'a, CP: CommitmentEvaluationProof> OwnedTableTestAccessor<'a, CP> {
         res
     }
 }
+
+#[cfg(test)]
+mod tests {
+    include!("owned_table_test_accessor_test.rs");
+}
