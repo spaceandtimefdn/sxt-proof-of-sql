@@ -414,3 +414,173 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+    use alloc::{string::ToString, vec};
+
+    // EqualOp::op tests
+    #[test]
+    fn equal_op_i64_equal_values_returns_true() {
+        assert!(EqualOp::op::<i64>(&5, &5));
+    }
+
+    #[test]
+    fn equal_op_i64_different_values_returns_false() {
+        assert!(!EqualOp::op::<i64>(&5, &6));
+    }
+
+    #[test]
+    fn equal_op_i32_equal_values_returns_true() {
+        assert!(EqualOp::op::<i32>(&0, &0));
+    }
+
+    #[test]
+    fn equal_op_i32_different_values_returns_false() {
+        assert!(!EqualOp::op::<i32>(&1, &2));
+    }
+
+    #[test]
+    fn equal_op_bool_equal_values_returns_true() {
+        assert!(EqualOp::op::<bool>(&true, &true));
+        assert!(EqualOp::op::<bool>(&false, &false));
+    }
+
+    #[test]
+    fn equal_op_bool_different_values_returns_false() {
+        assert!(!EqualOp::op::<bool>(&true, &false));
+    }
+
+    #[test]
+    fn equal_op_i64_negative_equal_values_returns_true() {
+        assert!(EqualOp::op::<i64>(&-5, &-5));
+    }
+
+    #[test]
+    fn equal_op_i64_min_equal_to_itself() {
+        assert!(EqualOp::op::<i64>(&i64::MIN, &i64::MIN));
+    }
+
+    // GreaterThanOp::op tests
+    #[test]
+    fn greater_than_op_i64_greater_value_returns_true() {
+        assert!(GreaterThanOp::op::<i64>(&5, &3));
+    }
+
+    #[test]
+    fn greater_than_op_i64_lesser_value_returns_false() {
+        assert!(!GreaterThanOp::op::<i64>(&3, &5));
+    }
+
+    #[test]
+    fn greater_than_op_i64_equal_values_returns_false() {
+        assert!(!GreaterThanOp::op::<i64>(&5, &5));
+    }
+
+    #[test]
+    fn greater_than_op_i32_positive() {
+        assert!(GreaterThanOp::op::<i32>(&10, &0));
+    }
+
+    #[test]
+    fn greater_than_op_i64_negative_both() {
+        assert!(GreaterThanOp::op::<i64>(&-1, &-5));
+    }
+
+    #[test]
+    fn greater_than_op_positive_over_negative() {
+        assert!(GreaterThanOp::op::<i64>(&1, &-1));
+    }
+
+    // LessThanOp::op tests
+    #[test]
+    fn less_than_op_i64_lesser_value_returns_true() {
+        assert!(LessThanOp::op::<i64>(&3, &5));
+    }
+
+    #[test]
+    fn less_than_op_i64_greater_value_returns_false() {
+        assert!(!LessThanOp::op::<i64>(&5, &3));
+    }
+
+    #[test]
+    fn less_than_op_i64_equal_values_returns_false() {
+        assert!(!LessThanOp::op::<i64>(&5, &5));
+    }
+
+    #[test]
+    fn less_than_op_negative_less_than_zero() {
+        assert!(LessThanOp::op::<i64>(&-5, &0));
+    }
+
+    #[test]
+    fn less_than_op_i32_zero_less_than_positive() {
+        assert!(LessThanOp::op::<i32>(&0, &1));
+    }
+
+    #[test]
+    fn less_than_op_negative_both() {
+        assert!(LessThanOp::op::<i64>(&-5, &-1));
+    }
+
+    // EqualOp::string_op tests
+    #[test]
+    fn equal_op_string_op_equal_strings_returns_true() {
+        let result = EqualOp::string_op(&["hello".to_string()], &["hello".to_string()]);
+        assert_eq!(result.unwrap(), vec![true]);
+    }
+
+    #[test]
+    fn equal_op_string_op_different_strings_returns_false() {
+        let result = EqualOp::string_op(&["hello".to_string()], &["world".to_string()]);
+        assert_eq!(result.unwrap(), vec![false]);
+    }
+
+    #[test]
+    fn equal_op_string_op_empty_slices_returns_empty() {
+        let result = EqualOp::string_op(&[], &[]);
+        assert_eq!(result.unwrap(), vec![]);
+    }
+
+    #[test]
+    fn equal_op_string_op_multiple_elements() {
+        let lhs = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let rhs = vec!["a".to_string(), "x".to_string(), "c".to_string()];
+        let result = EqualOp::string_op(&lhs, &rhs).unwrap();
+        assert_eq!(result, vec![true, false, true]);
+    }
+
+    // GreaterThanOp::string_op returns error
+    #[test]
+    fn greater_than_op_string_op_returns_error() {
+        let result = GreaterThanOp::string_op(&["a".to_string()], &["b".to_string()]);
+        assert!(result.is_err());
+    }
+
+    // LessThanOp::string_op returns error
+    #[test]
+    fn less_than_op_string_op_returns_error() {
+        let result = LessThanOp::string_op(&["a".to_string()], &["b".to_string()]);
+        assert!(result.is_err());
+    }
+
+    // owned_column_element_wise_comparison with different lengths
+    #[test]
+    fn comparison_on_different_length_columns_returns_error() {
+        use crate::base::{database::OwnedColumn, scalar::test_scalar::TestScalar};
+        let lhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    // BigInt column element-wise equality
+    #[test]
+    fn equal_op_bigint_columns_element_wise() {
+        use crate::base::{database::OwnedColumn, scalar::test_scalar::TestScalar};
+        let lhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 5, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::<TestScalar>::Boolean(alloc::vec![true, false, true]));
+    }
+}
