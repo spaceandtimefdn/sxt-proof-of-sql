@@ -323,3 +323,131 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AddOp, ArithmeticOp, DivOp, MulOp, SubOp};
+
+    // AddOp::op tests
+    #[test]
+    fn add_op_i64_basic_addition() {
+        assert_eq!(AddOp::op::<i64>(&5, &3).unwrap(), 8);
+    }
+
+    #[test]
+    fn add_op_i64_overflow_returns_error() {
+        assert!(AddOp::op::<i64>(&i64::MAX, &1).is_err());
+    }
+
+    #[test]
+    fn add_op_i32_basic_addition() {
+        assert_eq!(AddOp::op::<i32>(&10, &20).unwrap(), 30);
+    }
+
+    #[test]
+    fn add_op_i64_negative_values() {
+        assert_eq!(AddOp::op::<i64>(&-5, &3).unwrap(), -2);
+    }
+
+    #[test]
+    fn add_op_i64_both_negative() {
+        assert_eq!(AddOp::op::<i64>(&-5, &-3).unwrap(), -8);
+    }
+
+    #[test]
+    fn add_op_i64_identity_zero() {
+        assert_eq!(AddOp::op::<i64>(&42, &0).unwrap(), 42);
+    }
+
+    // SubOp::op tests
+    #[test]
+    fn sub_op_i64_basic_subtraction() {
+        assert_eq!(SubOp::op::<i64>(&10, &3).unwrap(), 7);
+    }
+
+    #[test]
+    fn sub_op_i64_underflow_returns_error() {
+        assert!(SubOp::op::<i64>(&i64::MIN, &1).is_err());
+    }
+
+    #[test]
+    fn sub_op_i32_basic_subtraction() {
+        assert_eq!(SubOp::op::<i32>(&20, &5).unwrap(), 15);
+    }
+
+    #[test]
+    fn sub_op_i64_same_values_is_zero() {
+        assert_eq!(SubOp::op::<i64>(&7, &7).unwrap(), 0);
+    }
+
+    #[test]
+    fn sub_op_i64_negative_result() {
+        assert_eq!(SubOp::op::<i64>(&3, &5).unwrap(), -2);
+    }
+
+    // MulOp::op tests
+    #[test]
+    fn mul_op_i64_basic_multiplication() {
+        assert_eq!(MulOp::op::<i64>(&5, &3).unwrap(), 15);
+    }
+
+    #[test]
+    fn mul_op_i64_overflow_returns_error() {
+        assert!(MulOp::op::<i64>(&i64::MAX, &2).is_err());
+    }
+
+    #[test]
+    fn mul_op_i64_by_zero_returns_zero() {
+        assert_eq!(MulOp::op::<i64>(&100, &0).unwrap(), 0);
+    }
+
+    #[test]
+    fn mul_op_i64_negative_positive() {
+        assert_eq!(MulOp::op::<i64>(&-3, &4).unwrap(), -12);
+    }
+
+    #[test]
+    fn mul_op_i64_negative_negative() {
+        assert_eq!(MulOp::op::<i64>(&-3, &-4).unwrap(), 12);
+    }
+
+    #[test]
+    fn mul_op_i32_basic() {
+        assert_eq!(MulOp::op::<i32>(&7, &8).unwrap(), 56);
+    }
+
+    // DivOp::op tests
+    #[test]
+    fn div_op_i64_basic_division() {
+        assert_eq!(DivOp::op::<i64>(&10, &2).unwrap(), 5);
+    }
+
+    #[test]
+    fn div_op_i64_division_by_zero_returns_error() {
+        assert!(DivOp::op::<i64>(&10, &0).is_err());
+    }
+
+    #[test]
+    fn div_op_i64_truncates_towards_zero() {
+        assert_eq!(DivOp::op::<i64>(&7, &2).unwrap(), 3);
+    }
+
+    #[test]
+    fn div_op_i32_basic() {
+        assert_eq!(DivOp::op::<i32>(&100, &5).unwrap(), 20);
+    }
+
+    #[test]
+    fn div_op_i64_negative_dividend() {
+        assert_eq!(DivOp::op::<i64>(&-10, &2).unwrap(), -5);
+    }
+
+    // owned_column_element_wise_arithmetic with different lengths
+    #[test]
+    fn arithmetic_on_different_length_columns_returns_error() {
+        use crate::base::{database::OwnedColumn, scalar::test_scalar::TestScalar};
+        let lhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2]);
+        assert!(AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+}
