@@ -105,3 +105,81 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::Operator;
+
+    #[test]
+    fn column_not_found_displays_correct_message() {
+        let err = PlannerError::ColumnNotFound;
+        assert_eq!(err.to_string(), "Column not found");
+    }
+
+    #[test]
+    fn table_not_found_displays_table_name() {
+        let err = PlannerError::TableNotFound {
+            table_name: "myschema.mytable".to_string(),
+        };
+        assert_eq!(err.to_string(), "Table not found: myschema.mytable");
+    }
+
+    #[test]
+    fn table_not_found_with_empty_table_name() {
+        let err = PlannerError::TableNotFound {
+            table_name: String::new(),
+        };
+        assert_eq!(err.to_string(), "Table not found: ");
+    }
+
+    #[test]
+    fn invalid_placeholder_id_displays_id() {
+        let err = PlannerError::InvalidPlaceholderId {
+            id: "$0".to_string(),
+        };
+        assert!(err.to_string().contains("$0"));
+        assert!(err.to_string().contains("invalid"));
+    }
+
+    #[test]
+    fn unsupported_data_type_displays_type() {
+        let err = PlannerError::UnsupportedDataType {
+            data_type: DataType::LargeUtf8,
+        };
+        assert!(err.to_string().contains("Unsupported datatype"));
+        assert!(err.to_string().contains("LargeUtf8"));
+    }
+
+    #[test]
+    fn unsupported_binary_operator_displays_operator() {
+        let err = PlannerError::UnsupportedBinaryOperator {
+            op: Operator::RegexMatch,
+        };
+        assert!(err.to_string().contains("not supported"));
+    }
+
+    #[test]
+    fn unresolved_logical_plan_displays_correct_message() {
+        let err = PlannerError::UnresolvedLogicalPlan;
+        assert_eq!(err.to_string(), "LogicalPlan is not resolved");
+    }
+
+    #[test]
+    fn catalog_not_supported_displays_correct_message() {
+        let err = PlannerError::CatalogNotSupported;
+        assert_eq!(err.to_string(), "Catalog is not supported");
+    }
+
+    #[test]
+    fn planner_errors_implement_debug() {
+        let err = PlannerError::ColumnNotFound;
+        let debug_str = format!("{err:?}");
+        assert!(debug_str.contains("ColumnNotFound"));
+
+        let err2 = PlannerError::UnresolvedLogicalPlan;
+        let debug_str2 = format!("{err2:?}");
+        assert!(debug_str2.contains("UnresolvedLogicalPlan"));
+    }
+}
