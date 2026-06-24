@@ -174,3 +174,131 @@ where
         rho
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{compute_rho_eval, compute_truncated_lagrange_basis_inner_product, compute_truncated_lagrange_basis_sum};
+
+    #[test]
+    fn lagrange_sum_full_length_returns_one() {
+        // For length == 2^nu the sum is always 1
+        let sum = compute_truncated_lagrange_basis_sum(4, &[0.5f64, 0.5]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_one_with_empty_point_is_one() {
+        let sum = compute_truncated_lagrange_basis_sum(1, &[] as &[f64]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_zero_is_zero() {
+        let sum = compute_truncated_lagrange_basis_sum(0, &[0.5f64]);
+        assert!((sum - 0.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_two_half_point_is_one() {
+        // Full 2^1 = 2 elements, both contribute
+        let sum = compute_truncated_lagrange_basis_sum(2, &[0.5f64]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_one_with_point_zero_is_one() {
+        // At point 0: basis[0] = 1-0 = 1, so sum of first 1 = 1
+        let sum = compute_truncated_lagrange_basis_sum(1, &[0.0f64]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_one_with_point_one_is_zero() {
+        // At point 1: basis[0] = 1-1 = 0, so sum of first 1 = 0
+        let sum = compute_truncated_lagrange_basis_sum(1, &[1.0f64]);
+        assert!((sum - 0.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_length_exceeding_full_returns_one() {
+        // length >= 2^nu should return 1
+        let sum = compute_truncated_lagrange_basis_sum(8, &[0.3f64, 0.7]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_sum_three_point_full_is_one() {
+        let sum = compute_truncated_lagrange_basis_sum(8, &[0.1f64, 0.5, 0.9]);
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn lagrange_inner_product_zero_length_is_zero() {
+        let ip = compute_truncated_lagrange_basis_inner_product(0, &[0.5f64], &[0.5f64]);
+        assert!((ip - 0.0).abs() < 1e-10, "ip = {ip}");
+    }
+
+    #[test]
+    fn lagrange_inner_product_full_length_equal_points_is_one() {
+        // With a == b and full length, inner product = sum A[i]^2 = 1 (for evaluation vector)
+        // Actually, for unit point [1,0,..], evaluaton vector is indicator, so A[i]*B[i] = A[i]
+        // but for equal points with full length: inner product = sum of products of basis evals
+        // For a = b, sum A[i]^2. At [0.5, 0.5], each A[i] = 0.25, and 4 * 0.25^2 = 0.25
+        let ip = compute_truncated_lagrange_basis_inner_product(4, &[0.5f64, 0.5], &[0.5f64, 0.5]);
+        // sum = 4 * (0.25)^2 = 4 * 0.0625 = 0.25
+        assert!((ip - 0.25).abs() < 1e-10, "ip = {ip}");
+    }
+
+    #[test]
+    fn lagrange_inner_product_full_length_orthogonal_points() {
+        // At point a=[1], basis A = [0, 1]; at point b=[0], basis B = [1, 0]
+        // inner product = 0*1 + 1*0 = 0
+        let ip = compute_truncated_lagrange_basis_inner_product(2, &[1.0f64], &[0.0f64]);
+        assert!((ip - 0.0).abs() < 1e-10, "ip = {ip}");
+    }
+
+    #[test]
+    fn lagrange_inner_product_full_length_same_indicator_is_product() {
+        // At point a=b=[1,0], basis A = B = [0, 1, 0, 0] (indicator of index 1)
+        // inner product = 0^2 + 1^2 + 0^2 + 0^2 = 1
+        let ip = compute_truncated_lagrange_basis_inner_product(4, &[1.0f64, 0.0], &[1.0f64, 0.0]);
+        assert!((ip - 1.0).abs() < 1e-10, "ip = {ip}");
+    }
+
+    #[test]
+    fn lagrange_inner_product_empty_points_length_one() {
+        // With empty points, nu=0, full length is 1
+        // A = [1], B = [1], inner product of length 1 = 1
+        let ip = compute_truncated_lagrange_basis_inner_product(1, &[] as &[f64], &[] as &[f64]);
+        assert!((ip - 1.0).abs() < 1e-10, "ip = {ip}");
+    }
+
+    #[test]
+    fn rho_eval_length_one_with_point_zero() {
+        // length = 1, point = [0]: rho = sum_{i=0}^{0} i * A[i] = 0 * 1 = 0
+        let rho = compute_rho_eval(1, &[0.0f64]);
+        assert!((rho - 0.0).abs() < 1e-10, "rho = {rho}");
+    }
+
+    #[test]
+    fn rho_eval_full_length_with_standard_point() {
+        // length = 2^nu case
+        // For length=2, point=[0.5]: rho = sum_{i=0}^{1} i * A[i] = 0*(0.5) + 1*(0.5) = 0.5
+        let rho = compute_rho_eval(2, &[0.5f64]);
+        assert!((rho - 0.5).abs() < 1e-10, "rho = {rho}");
+    }
+
+    #[test]
+    fn rho_eval_length_two_full_with_point_one() {
+        // length=2, point=[1.0]: A=[0,1], rho = 0*0 + 1*1 = 1
+        let rho = compute_rho_eval(2, &[1.0f64]);
+        assert!((rho - 1.0).abs() < 1e-10, "rho = {rho}");
+    }
+
+    #[test]
+    fn rho_eval_length_two_full_with_point_zero() {
+        // length=2, point=[0.0]: A=[1,0], rho = 0*1 + 1*0 = 0
+        let rho = compute_rho_eval(2, &[0.0f64]);
+        assert!((rho - 0.0).abs() < 1e-10, "rho = {rho}");
+    }
+}
