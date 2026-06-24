@@ -116,3 +116,92 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnExpr;
+    use crate::base::database::{ColumnRef, ColumnType, TableRef};
+    use crate::sql::proof_exprs::ProofExpr;
+    use sqlparser::ast::Ident;
+
+    fn make_col_ref(col: &str, col_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(
+            TableRef::new(Ident::new("myschema"), Ident::new("mytable")),
+            Ident::new(col),
+            col_type,
+        )
+    }
+
+    #[test]
+    fn new_column_expr_stores_column_ref() {
+        let col_ref = make_col_ref("age", ColumnType::BigInt);
+        let expr = ColumnExpr::new(col_ref.clone());
+        assert_eq!(expr.get_column_reference(), col_ref);
+    }
+
+    #[test]
+    fn column_ref_getter_returns_reference() {
+        let col_ref = make_col_ref("name", ColumnType::Boolean);
+        let expr = ColumnExpr::new(col_ref.clone());
+        assert_eq!(expr.column_ref(), &col_ref);
+    }
+
+    #[test]
+    fn data_type_matches_column_type_bigint() {
+        let expr = ColumnExpr::new(make_col_ref("val", ColumnType::BigInt));
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn data_type_matches_column_type_boolean() {
+        let expr = ColumnExpr::new(make_col_ref("flag", ColumnType::Boolean));
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn data_type_matches_column_type_int128() {
+        let expr = ColumnExpr::new(make_col_ref("big", ColumnType::Int128));
+        assert_eq!(expr.data_type(), ColumnType::Int128);
+    }
+
+    #[test]
+    fn column_id_returns_column_identifier() {
+        let expr = ColumnExpr::new(make_col_ref("mycolumn", ColumnType::BigInt));
+        assert_eq!(expr.column_id(), Ident::new("mycolumn"));
+    }
+
+    #[test]
+    fn get_column_field_has_correct_name_and_type() {
+        let expr = ColumnExpr::new(make_col_ref("score", ColumnType::Int));
+        let field = expr.get_column_field();
+        assert_eq!(field.name(), Ident::new("score"));
+        assert_eq!(field.data_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn two_equal_column_exprs_are_eq() {
+        let expr_a = ColumnExpr::new(make_col_ref("x", ColumnType::BigInt));
+        let expr_b = ColumnExpr::new(make_col_ref("x", ColumnType::BigInt));
+        assert_eq!(expr_a, expr_b);
+    }
+
+    #[test]
+    fn two_different_column_exprs_are_not_eq() {
+        let expr_a = ColumnExpr::new(make_col_ref("x", ColumnType::BigInt));
+        let expr_b = ColumnExpr::new(make_col_ref("y", ColumnType::BigInt));
+        assert_ne!(expr_a, expr_b);
+    }
+
+    #[test]
+    fn column_expr_clone_equals_original() {
+        let expr = ColumnExpr::new(make_col_ref("foo", ColumnType::Boolean));
+        assert_eq!(expr.clone(), expr);
+    }
+
+    #[test]
+    fn column_expr_debug_output_contains_struct_name() {
+        let expr = ColumnExpr::new(make_col_ref("bar", ColumnType::BigInt));
+        let debug = format!("{:?}", expr);
+        assert!(debug.contains("ColumnExpr"));
+    }
+}
