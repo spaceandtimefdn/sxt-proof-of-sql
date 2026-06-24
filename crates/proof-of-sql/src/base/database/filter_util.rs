@@ -84,3 +84,111 @@ pub fn filter_column_by_index<'a, S: Scalar>(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::Column;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use bumpalo::Bump;
+
+    #[test]
+    fn filter_columns_with_empty_selection_returns_empty() {
+        let alloc = Bump::new();
+        let data = [1i64, 2, 3];
+        let cols = [Column::<TestScalar>::BigInt(&data)];
+        let selection = [false, false, false];
+        let (result, count) = filter_columns(&alloc, &cols, &selection);
+        assert_eq!(count, 0);
+        assert_eq!(result.len(), 1);
+        if let Column::BigInt(r) = &result[0] { assert_eq!(r.len(), 0); }
+    }
+
+    #[test]
+    fn filter_columns_with_all_selected_returns_all() {
+        let alloc = Bump::new();
+        let data = [10i64, 20, 30];
+        let cols = [Column::<TestScalar>::BigInt(&data)];
+        let selection = [true, true, true];
+        let (result, count) = filter_columns(&alloc, &cols, &selection);
+        assert_eq!(count, 3);
+        if let Column::BigInt(r) = &result[0] { assert_eq!(*r, [10, 20, 30]); }
+    }
+
+    #[test]
+    fn filter_columns_selects_specific_rows() {
+        let alloc = Bump::new();
+        let data = [1i64, 2, 3, 4, 5];
+        let cols = [Column::<TestScalar>::BigInt(&data)];
+        let selection = [true, false, true, false, true];
+        let (result, count) = filter_columns(&alloc, &cols, &selection);
+        assert_eq!(count, 3);
+        if let Column::BigInt(r) = &result[0] { assert_eq!(*r, [1, 3, 5]); }
+    }
+
+    #[test]
+    fn filter_columns_multiple_columns() {
+        let alloc = Bump::new();
+        let bools = [true, false, true];
+        let ints = [10i64, 20, 30];
+        let cols = [
+            Column::<TestScalar>::Boolean(&bools),
+            Column::<TestScalar>::BigInt(&ints),
+        ];
+        let selection = [true, false, true];
+        let (result, count) = filter_columns(&alloc, &cols, &selection);
+        assert_eq!(count, 2);
+        assert_eq!(result.len(), 2);
+        if let Column::Boolean(r) = &result[0] { assert_eq!(*r, [true, true]); }
+        if let Column::BigInt(r) = &result[1] { assert_eq!(*r, [10, 30]); }
+    }
+
+    #[test]
+    fn filter_column_by_index_bool() {
+        let alloc = Bump::new();
+        let data = [false, true, false, true];
+        let col = Column::<TestScalar>::Boolean(&data);
+        let indexes = [1usize, 3];
+        let result = filter_column_by_index(&alloc, &col, &indexes);
+        if let Column::Boolean(r) = result { assert_eq!(*r, [true, true]); }
+    }
+
+    #[test]
+    fn filter_column_by_index_bigint() {
+        let alloc = Bump::new();
+        let data = [100i64, 200, 300, 400];
+        let col = Column::<TestScalar>::BigInt(&data);
+        let indexes = [0usize, 2, 3];
+        let result = filter_column_by_index(&alloc, &col, &indexes);
+        if let Column::BigInt(r) = result { assert_eq!(*r, [100, 300, 400]); }
+    }
+
+    #[test]
+    fn filter_column_by_index_empty_indexes() {
+        let alloc = Bump::new();
+        let data = [1i64, 2, 3];
+        let col = Column::<TestScalar>::BigInt(&data);
+        let result = filter_column_by_index(&alloc, &col, &[]);
+        if let Column::BigInt(r) = result { assert_eq!(r.len(), 0); }
+    }
+
+    #[test]
+    fn filter_column_by_index_uint8() {
+        let alloc = Bump::new();
+        let data = [5u8, 10, 15, 20];
+        let col = Column::<TestScalar>::Uint8(&data);
+        let indexes = [1usize, 3];
+        let result = filter_column_by_index(&alloc, &col, &indexes);
+        if let Column::Uint8(r) = result { assert_eq!(*r, [10, 20]); }
+    }
+
+    #[test]
+    fn filter_column_by_index_int128() {
+        let alloc = Bump::new();
+        let data = [1i128, -2, 3];
+        let col = Column::<TestScalar>::Int128(&data);
+        let indexes = [0usize, 2];
+        let result = filter_column_by_index(&alloc, &col, &indexes);
+        if let Column::Int128(r) = result { assert_eq!(*r, [1, 3]); }
+    }
+}
