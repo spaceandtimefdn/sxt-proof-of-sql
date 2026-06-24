@@ -104,3 +104,63 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EmptyExec;
+    use crate::{
+        base::map::{IndexMap, IndexSet},
+        sql::proof::ProofPlan,
+    };
+
+    #[test]
+    fn new_creates_valid_empty_exec() {
+        let exec = EmptyExec::new();
+        let _ = exec;
+    }
+
+    #[test]
+    fn default_equals_new() {
+        assert_eq!(EmptyExec::default(), EmptyExec::new());
+    }
+
+    #[test]
+    fn empty_exec_implements_partial_eq() {
+        let a = EmptyExec::new();
+        let b = EmptyExec::new();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn empty_exec_implements_clone() {
+        let a = EmptyExec::new();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn get_column_result_fields_returns_empty_vec() {
+        let exec = EmptyExec::new();
+        assert!(exec.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn get_column_references_returns_empty_set() {
+        let exec = EmptyExec::new();
+        assert!(exec.get_column_references().is_empty());
+    }
+
+    #[test]
+    fn get_table_references_returns_empty_set() {
+        let exec = EmptyExec::new();
+        assert!(exec.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn empty_exec_debug_contains_struct_name() {
+        let exec = EmptyExec::new();
+        let debug = alloc::format!("{:?}", exec);
+        assert!(debug.contains("EmptyExec"));
+    }
+}
+
