@@ -65,3 +65,70 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::TableOperationError;
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn union_not_enough_tables_displays_correctly() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+    }
+
+    #[test]
+    fn join_with_different_number_of_columns_displays_counts() {
+        let err = TableOperationError::JoinWithDifferentNumberOfColumns {
+            left_num_columns: 3,
+            right_num_columns: 5,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("3"));
+        assert!(msg.contains("5"));
+        assert!(msg.contains("Cannot join tables with different numbers of columns"));
+    }
+
+    #[test]
+    fn join_incompatible_types_displays_both_types() {
+        let err = TableOperationError::JoinIncompatibleTypes {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("BigInt"));
+        assert!(msg.contains("Boolean"));
+        assert!(msg.contains("Cannot join tables on columns with incompatible types"));
+    }
+
+    #[test]
+    fn duplicate_column_displays_correctly() {
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+    }
+
+    #[test]
+    fn column_index_out_of_bounds_displays_index() {
+        let err = TableOperationError::ColumnIndexOutOfBounds { column_index: 7 };
+        let msg = err.to_string();
+        assert!(msg.contains("7"));
+        assert!(msg.contains("Column index out of bounds"));
+    }
+
+    #[test]
+    fn table_operation_errors_implement_partial_eq() {
+        assert_eq!(TableOperationError::DuplicateColumn, TableOperationError::DuplicateColumn);
+        assert_eq!(TableOperationError::UnionNotEnoughTables, TableOperationError::UnionNotEnoughTables);
+    }
+
+    #[test]
+    fn table_operation_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", TableOperationError::DuplicateColumn);
+        assert!(debug.contains("DuplicateColumn"));
+    }
+}
