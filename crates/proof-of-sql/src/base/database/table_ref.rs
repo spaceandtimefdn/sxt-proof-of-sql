@@ -142,3 +142,114 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableRef;
+    use alloc::string::ToString;
+    use core::str::FromStr;
+
+    #[test]
+    fn new_with_schema_and_table_sets_both_names() {
+        let t = TableRef::new("myschema", "mytable");
+        assert_eq!(t.schema_id().unwrap().value, "myschema");
+        assert_eq!(t.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn new_with_empty_schema_gives_no_schema() {
+        let t = TableRef::new("", "standalone");
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "standalone");
+    }
+
+    #[test]
+    fn from_names_with_some_schema() {
+        let t = TableRef::from_names(Some("ns"), "t");
+        assert_eq!(t.schema_id().unwrap().value, "ns");
+        assert_eq!(t.table_id().value, "t");
+    }
+
+    #[test]
+    fn from_names_with_none_schema() {
+        let t = TableRef::from_names(None, "only_table");
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "only_table");
+    }
+
+    #[test]
+    fn display_with_schema_uses_dot_notation() {
+        let t = TableRef::new("myschema", "mytable");
+        assert_eq!(t.to_string(), "myschema.mytable");
+    }
+
+    #[test]
+    fn display_without_schema_shows_table_only() {
+        let t = TableRef::new("", "standalone");
+        assert_eq!(t.to_string(), "standalone");
+    }
+
+    #[test]
+    fn try_from_dot_separated_string_parses_schema_and_table() {
+        let t = TableRef::try_from("schema.table").unwrap();
+        assert_eq!(t.schema_id().unwrap().value, "schema");
+        assert_eq!(t.table_id().value, "table");
+    }
+
+    #[test]
+    fn try_from_single_name_gives_no_schema() {
+        let t = TableRef::try_from("mytable").unwrap();
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn try_from_three_parts_is_error() {
+        assert!(TableRef::try_from("a.b.c").is_err());
+    }
+
+    #[test]
+    fn from_strs_one_component_gives_table_only() {
+        let t = TableRef::from_strs(&["table"]).unwrap();
+        assert_eq!(t.to_string(), "table");
+        assert!(t.schema_id().is_none());
+    }
+
+    #[test]
+    fn from_strs_two_components_gives_schema_and_table() {
+        let t = TableRef::from_strs(&["schema", "table"]).unwrap();
+        assert_eq!(t.to_string(), "schema.table");
+    }
+
+    #[test]
+    fn from_strs_three_components_is_error() {
+        assert!(TableRef::from_strs(&["a", "b", "c"]).is_err());
+    }
+
+    #[test]
+    fn equal_table_refs_compare_equal() {
+        let a = TableRef::new("s", "t");
+        let b = TableRef::new("s", "t");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_schema_refs_compare_unequal() {
+        let a = TableRef::new("s1", "t");
+        let b = TableRef::new("s2", "t");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn clone_creates_equal_instance() {
+        let a = TableRef::new("schema", "table");
+        assert_eq!(a.clone(), a);
+    }
+
+    #[test]
+    fn from_str_roundtrip_preserves_display() {
+        let original = "myschema.mytable";
+        let t = TableRef::from_str(original).unwrap();
+        assert_eq!(t.to_string(), original);
+    }
+}
