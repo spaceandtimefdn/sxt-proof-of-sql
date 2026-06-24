@@ -67,3 +67,97 @@ where
 
     log::log_memory_usage("End");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_evaluation_vector;
+
+    #[test]
+    fn empty_v_with_empty_point_remains_empty() {
+        let mut v: alloc::vec::Vec<f64> = alloc::vec![];
+        compute_evaluation_vector(&mut v, &[]);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn single_element_v_with_empty_point_becomes_one() {
+        let mut v = alloc::vec![0.0f64];
+        compute_evaluation_vector(&mut v, &[]);
+        assert_eq!(v, alloc::vec![1.0]);
+    }
+
+    #[test]
+    fn two_element_v_with_point_zero_gives_one_zero() {
+        let mut v = alloc::vec![0.0f64; 2];
+        compute_evaluation_vector(&mut v, &[0.0]);
+        assert_eq!(v, alloc::vec![1.0, 0.0]);
+    }
+
+    #[test]
+    fn two_element_v_with_point_one_gives_zero_one() {
+        let mut v = alloc::vec![0.0f64; 2];
+        compute_evaluation_vector(&mut v, &[1.0]);
+        assert_eq!(v, alloc::vec![0.0, 1.0]);
+    }
+
+    #[test]
+    fn four_element_v_with_point_zero_zero_gives_one_then_zeros() {
+        let mut v = alloc::vec![0.0f64; 4];
+        compute_evaluation_vector(&mut v, &[0.0, 0.0]);
+        assert_eq!(v, alloc::vec![1.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn four_element_v_with_point_one_one_gives_zeros_then_one() {
+        let mut v = alloc::vec![0.0f64; 4];
+        compute_evaluation_vector(&mut v, &[1.0, 1.0]);
+        assert_eq!(v, alloc::vec![0.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn four_element_v_with_half_half_gives_quarter_each() {
+        let mut v = alloc::vec![0.0f64; 4];
+        compute_evaluation_vector(&mut v, &[0.5, 0.5]);
+        for x in &v {
+            assert!((*x - 0.25).abs() < 1e-10, "expected 0.25 got {x}");
+        }
+    }
+
+    #[test]
+    fn evaluation_vector_sums_to_one() {
+        let mut v = alloc::vec![0.0f64; 8];
+        compute_evaluation_vector(&mut v, &[0.3, 0.7, 0.5]);
+        let sum: f64 = v.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-10, "sum = {sum}");
+    }
+
+    #[test]
+    fn single_element_v_with_nonempty_point_fills_with_one() {
+        let mut v = alloc::vec![0.0f64; 1];
+        compute_evaluation_vector(&mut v, &[0.3]);
+        assert_eq!(v, alloc::vec![1.0]);
+    }
+
+    #[test]
+    fn two_element_v_with_point_half_gives_half_half() {
+        let mut v = alloc::vec![0.0f64; 2];
+        compute_evaluation_vector(&mut v, &[0.5]);
+        assert!((v[0] - 0.5).abs() < 1e-10);
+        assert!((v[1] - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn four_element_v_with_point_one_zero_gives_zero_one_zero_zero() {
+        let mut v = alloc::vec![0.0f64; 4];
+        compute_evaluation_vector(&mut v, &[1.0, 0.0]);
+        assert_eq!(v, alloc::vec![0.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn four_element_v_with_point_zero_one_gives_zero_zero_one_zero() {
+        let mut v = alloc::vec![0.0f64; 4];
+        compute_evaluation_vector(&mut v, &[0.0, 1.0]);
+        assert_eq!(v, alloc::vec![0.0, 0.0, 1.0, 0.0]);
+    }
+}
+
