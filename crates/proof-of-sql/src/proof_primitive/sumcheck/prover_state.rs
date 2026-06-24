@@ -62,3 +62,69 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProverState;
+    use crate::base::{polynomial::CompositePolynomial, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn new_sets_round_to_zero() {
+        let state: ProverState<TestScalar> = ProverState::new(vec![], vec![], 3, 2);
+        assert_eq!(state.round, 0);
+    }
+
+    #[test]
+    fn new_stores_num_vars() {
+        let state: ProverState<TestScalar> = ProverState::new(vec![], vec![], 5, 0);
+        assert_eq!(state.num_vars, 5);
+    }
+
+    #[test]
+    fn new_stores_max_multiplicands() {
+        let state: ProverState<TestScalar> = ProverState::new(vec![], vec![], 2, 4);
+        assert_eq!(state.max_multiplicands, 4);
+    }
+
+    #[test]
+    fn new_stores_list_of_products() {
+        let products = vec![(TestScalar::from(3u64), vec![0usize, 1])];
+        let state: ProverState<TestScalar> = ProverState::new(products, vec![], 2, 2);
+        assert_eq!(state.list_of_products.len(), 1);
+    }
+
+    #[test]
+    fn new_stores_flattened_ml_extensions() {
+        let exts = vec![vec![TestScalar::from(1u64), TestScalar::from(2u64)]];
+        let state: ProverState<TestScalar> = ProverState::new(vec![], exts, 1, 0);
+        assert_eq!(state.flattened_ml_extensions.len(), 1);
+        assert_eq!(state.flattened_ml_extensions[0].len(), 2);
+    }
+
+    #[test]
+    fn create_from_empty_composite_polynomial() {
+        let poly = CompositePolynomial::<TestScalar>::new(3);
+        let state = ProverState::create(&poly);
+        assert_eq!(state.num_vars, 3);
+        assert_eq!(state.round, 0);
+        assert_eq!(state.max_multiplicands, 0);
+        assert!(state.list_of_products.is_empty());
+    }
+
+    #[test]
+    fn debug_output_contains_num_vars() {
+        let state: ProverState<TestScalar> = ProverState::new(vec![], vec![], 7, 0);
+        let debug = alloc::format!("{state:?}");
+        assert!(debug.contains("num_vars"));
+    }
+
+    #[test]
+    fn empty_prover_state_has_all_zero_fields() {
+        let state: ProverState<TestScalar> = ProverState::new(vec![], vec![], 0, 0);
+        assert!(state.list_of_products.is_empty());
+        assert!(state.flattened_ml_extensions.is_empty());
+        assert_eq!(state.num_vars, 0);
+        assert_eq!(state.max_multiplicands, 0);
+        assert_eq!(state.round, 0);
+    }
+}
