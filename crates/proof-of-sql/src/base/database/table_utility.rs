@@ -363,3 +363,271 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+    use bumpalo::Bump;
+
+    #[test]
+    fn borrowed_uint8_creates_correct_ident() {
+        let alloc = Bump::new();
+        let (ident, _) = borrowed_uint8::<TestScalar>("col_a", [1u8, 2, 3], &alloc);
+        assert_eq!(ident.value, "col_a");
+    }
+
+    #[test]
+    fn borrowed_uint8_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_uint8::<TestScalar>("a", [10u8, 20, 30], &alloc);
+        assert_eq!(col, Column::Uint8(&[10u8, 20, 30]));
+    }
+
+    #[test]
+    fn borrowed_uint8_empty_data() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_uint8::<TestScalar>("a", [] as [u8; 0], &alloc);
+        assert_eq!(col, Column::Uint8(&[]));
+    }
+
+    #[test]
+    fn borrowed_tinyint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_tinyint::<TestScalar>("a", [-1i8, 0, 1], &alloc);
+        assert_eq!(col, Column::TinyInt(&[-1i8, 0, 1]));
+    }
+
+    #[test]
+    fn borrowed_tinyint_boundary_values() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_tinyint::<TestScalar>("a", [i8::MIN, i8::MAX], &alloc);
+        assert_eq!(col, Column::TinyInt(&[i8::MIN, i8::MAX]));
+    }
+
+    #[test]
+    fn borrowed_smallint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_smallint::<TestScalar>("a", [100i16, 200, 300], &alloc);
+        assert_eq!(col, Column::SmallInt(&[100i16, 200, 300]));
+    }
+
+    #[test]
+    fn borrowed_smallint_negative_values() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_smallint::<TestScalar>("a", [-1i16, 0, 1], &alloc);
+        assert_eq!(col, Column::SmallInt(&[-1i16, 0, 1]));
+    }
+
+    #[test]
+    fn borrowed_int_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_int::<TestScalar>("a", [1i32, 2, 3], &alloc);
+        assert_eq!(col, Column::Int(&[1i32, 2, 3]));
+    }
+
+    #[test]
+    fn borrowed_int_negative_values() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_int::<TestScalar>("a", [-10i32, 0, 10], &alloc);
+        assert_eq!(col, Column::Int(&[-10i32, 0, 10]));
+    }
+
+    #[test]
+    fn borrowed_bigint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_bigint::<TestScalar>("a", [1i64, 2, 3], &alloc);
+        assert_eq!(col, Column::BigInt(&[1i64, 2, 3]));
+    }
+
+    #[test]
+    fn borrowed_bigint_with_zero_and_negatives() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_bigint::<TestScalar>("a", [-100i64, 0, 100], &alloc);
+        assert_eq!(col, Column::BigInt(&[-100i64, 0, 100]));
+    }
+
+    #[test]
+    fn borrowed_bigint_single_element() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_bigint::<TestScalar>("a", [42i64], &alloc);
+        assert_eq!(col, Column::BigInt(&[42i64]));
+    }
+
+    #[test]
+    fn borrowed_boolean_mixed_values() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_boolean::<TestScalar>("a", [true, false, true], &alloc);
+        assert_eq!(col, Column::Boolean(&[true, false, true]));
+    }
+
+    #[test]
+    fn borrowed_boolean_all_false() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_boolean::<TestScalar>("a", [false, false], &alloc);
+        assert_eq!(col, Column::Boolean(&[false, false]));
+    }
+
+    #[test]
+    fn borrowed_int128_creates_correct_column() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_int128::<TestScalar>("a", [1i128, 2, 3], &alloc);
+        assert_eq!(col, Column::Int128(&[1i128, 2, 3]));
+    }
+
+    #[test]
+    fn borrowed_int128_large_value() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_int128::<TestScalar>("a", [i128::MAX], &alloc);
+        assert_eq!(col, Column::Int128(&[i128::MAX]));
+    }
+
+    #[test]
+    fn borrowed_scalar_creates_column_with_correct_length() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_scalar::<TestScalar>("a", [1u64, 2, 3], &alloc);
+        assert!(matches!(col, Column::Scalar(_)));
+        assert_eq!(col.len(), 3);
+    }
+
+    #[test]
+    fn borrowed_varchar_creates_correct_column_length() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_varchar::<TestScalar>("a", ["hello", "world"], &alloc);
+        assert!(matches!(col, Column::VarChar(_)));
+        assert_eq!(col.len(), 2);
+    }
+
+    #[test]
+    fn borrowed_varchar_correct_ident() {
+        let alloc = Bump::new();
+        let (ident, _) = borrowed_varchar::<TestScalar>("my_col", ["a", "b"], &alloc);
+        assert_eq!(ident.value, "my_col");
+    }
+
+    #[test]
+    fn borrowed_varchar_empty_data() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_varchar::<TestScalar>("a", [] as [&str; 0], &alloc);
+        assert_eq!(col.len(), 0);
+    }
+
+    #[test]
+    fn borrowed_varchar_string_content_correct() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_varchar::<TestScalar>("a", ["foo", "bar", "baz"], &alloc);
+        if let Column::VarChar((strs, _)) = col {
+            assert_eq!(strs[0], "foo");
+            assert_eq!(strs[1], "bar");
+            assert_eq!(strs[2], "baz");
+        } else {
+            panic!("expected VarChar");
+        }
+    }
+
+    #[test]
+    fn borrowed_decimal75_creates_correct_precision_and_scale() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_decimal75::<TestScalar>("a", 12, 1, [1u64, 2, 3], &alloc);
+        let precision = Precision::new(12).unwrap();
+        assert!(matches!(col, Column::Decimal75(p, 1, _) if p == precision));
+        assert_eq!(col.len(), 3);
+    }
+
+    #[test]
+    fn borrowed_decimal75_with_zero_scale() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_decimal75::<TestScalar>("a", 5, 0, [42u64], &alloc);
+        let precision = Precision::new(5).unwrap();
+        assert!(matches!(col, Column::Decimal75(p, 0, _) if p == precision));
+    }
+
+    #[test]
+    fn borrowed_timestamptz_creates_correct_column() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_timestamptz::<TestScalar>(
+            "ts",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            alloc::vec![1000i64, 2000, 3000],
+            &alloc,
+        );
+        assert_eq!(ident.value, "ts");
+        assert_eq!(col, Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[1000i64, 2000, 3000]));
+    }
+
+    #[test]
+    fn borrowed_timestamptz_millisecond_unit() {
+        let alloc = Bump::new();
+        let (_, col) = borrowed_timestamptz::<TestScalar>(
+            "t",
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            alloc::vec![0i64],
+            &alloc,
+        );
+        assert!(matches!(col, Column::TimestampTZ(PoSQLTimeUnit::Millisecond, _, _)));
+    }
+
+    #[test]
+    fn table_creates_single_column_table() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([borrowed_bigint("a", [1i64, 2, 3], &alloc)]);
+        assert_eq!(t.num_columns(), 1);
+        assert_eq!(t.num_rows(), 3);
+    }
+
+    #[test]
+    fn table_creates_multi_column_table() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([
+            borrowed_bigint("a", [1i64, 2], &alloc),
+            borrowed_boolean("b", [true, false], &alloc),
+        ]);
+        assert_eq!(t.num_columns(), 2);
+        assert_eq!(t.num_rows(), 2);
+    }
+
+    #[test]
+    fn table_empty_iterator() {
+        let t = table::<TestScalar>([]);
+        assert_eq!(t.num_columns(), 0);
+    }
+
+    #[test]
+    fn table_with_row_count_creates_empty_table() {
+        let t = table_with_row_count::<TestScalar>([], 5);
+        assert_eq!(t.num_columns(), 0);
+        assert_eq!(t.num_rows(), 5);
+    }
+
+    #[test]
+    fn table_with_row_count_matches_column_length() {
+        let alloc = Bump::new();
+        let t = table_with_row_count::<TestScalar>(
+            [borrowed_bigint("a", [1i64, 2, 3], &alloc)],
+            3,
+        );
+        assert_eq!(t.num_columns(), 1);
+        assert_eq!(t.num_rows(), 3);
+    }
+
+    #[test]
+    fn table_all_numeric_types() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([
+            borrowed_uint8("u", [1u8], &alloc),
+            borrowed_tinyint("t", [2i8], &alloc),
+            borrowed_smallint("s", [3i16], &alloc),
+            borrowed_int("i", [4i32], &alloc),
+            borrowed_bigint("b", [5i64], &alloc),
+            borrowed_int128("l", [6i128], &alloc),
+        ]);
+        assert_eq!(t.num_columns(), 6);
+        assert_eq!(t.num_rows(), 1);
+    }
+}
