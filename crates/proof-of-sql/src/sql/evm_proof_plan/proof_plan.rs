@@ -191,3 +191,48 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlan;
+    use crate::sql::proof_plans::DynProofPlan;
+
+    fn empty_plan() -> DynProofPlan {
+        DynProofPlan::new_empty()
+    }
+
+    #[test]
+    fn new_wraps_provided_plan() {
+        let evm = EVMProofPlan::new(empty_plan());
+        // inner() should return the wrapped plan
+        assert_eq!(*evm.inner(), empty_plan());
+    }
+
+    #[test]
+    fn inner_returns_reference_to_wrapped_plan() {
+        let evm = EVMProofPlan::new(empty_plan());
+        assert_eq!(*evm.inner(), empty_plan());
+    }
+
+    #[test]
+    fn into_inner_recovers_original_plan() {
+        let plan = empty_plan();
+        let evm = EVMProofPlan::new(plan.clone());
+        assert_eq!(evm.into_inner(), plan);
+    }
+
+    #[test]
+    fn debug_output_contains_plan_info() {
+        let evm = EVMProofPlan::new(empty_plan());
+        let debug = alloc::format!("{:?}", evm);
+        assert!(!debug.is_empty());
+    }
+
+    #[test]
+    fn table_plan_wraps_correctly() {
+        use crate::base::database::TableRef;
+        let plan = DynProofPlan::new_table(TableRef::new("", "t"), alloc::vec![]);
+        let evm = EVMProofPlan::new(plan.clone());
+        assert_eq!(*evm.inner(), plan);
+    }
+}
