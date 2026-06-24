@@ -65,3 +65,76 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::TableOperationError;
+    use crate::base::database::ColumnType;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn union_not_enough_tables_displays_correctly() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+    }
+
+    #[test]
+    fn join_with_different_column_counts_displays_counts() {
+        let err = TableOperationError::JoinWithDifferentNumberOfColumns {
+            left_num_columns: 3,
+            right_num_columns: 5,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("3"));
+        assert!(msg.contains("5"));
+        assert!(msg.contains("Cannot join tables with different numbers of columns"));
+    }
+
+    #[test]
+    fn join_incompatible_types_displays_types() {
+        let err = TableOperationError::JoinIncompatibleTypes {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("BigInt"));
+        assert!(msg.contains("Boolean"));
+    }
+
+    #[test]
+    fn column_does_not_exist_displays_column_name() {
+        let err = TableOperationError::ColumnDoesNotExist {
+            column_ident: Ident::new("my_col"),
+        };
+        assert!(err.to_string().contains("my_col"));
+        assert!(err.to_string().contains("does not exist in table"));
+    }
+
+    #[test]
+    fn duplicate_column_displays_correctly() {
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+    }
+
+    #[test]
+    fn column_index_out_of_bounds_displays_index() {
+        let err = TableOperationError::ColumnIndexOutOfBounds { column_index: 42 };
+        assert_eq!(err.to_string(), "Column index out of bounds: 42");
+    }
+
+    #[test]
+    fn table_operation_errors_implement_partial_eq() {
+        assert_eq!(TableOperationError::UnionNotEnoughTables, TableOperationError::UnionNotEnoughTables);
+        assert_ne!(TableOperationError::UnionNotEnoughTables, TableOperationError::DuplicateColumn);
+    }
+
+    #[test]
+    fn table_operation_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", TableOperationError::UnionNotEnoughTables);
+        assert!(debug.contains("UnionNotEnoughTables"));
+    }
+}
