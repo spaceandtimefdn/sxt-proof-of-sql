@@ -92,3 +92,70 @@ impl ProofExpr for LiteralExpr {
 
     fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LiteralExpr;
+    use crate::base::database::{ColumnType, LiteralValue};
+
+    #[test]
+    fn new_boolean_literal_has_correct_value() {
+        let expr = LiteralExpr::new(LiteralValue::Boolean(true));
+        assert_eq!(expr.value(), &LiteralValue::Boolean(true));
+    }
+
+    #[test]
+    fn new_bigint_literal_has_correct_value() {
+        let expr = LiteralExpr::new(LiteralValue::BigInt(42));
+        assert_eq!(expr.value(), &LiteralValue::BigInt(42));
+    }
+
+    #[test]
+    fn boolean_literal_data_type_is_boolean() {
+        use crate::sql::proof_exprs::ProofExpr;
+        let expr = LiteralExpr::new(LiteralValue::Boolean(false));
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn bigint_literal_data_type_is_bigint() {
+        use crate::sql::proof_exprs::ProofExpr;
+        let expr = LiteralExpr::new(LiteralValue::BigInt(0));
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn int128_literal_data_type_is_int128() {
+        use crate::sql::proof_exprs::ProofExpr;
+        let expr = LiteralExpr::new(LiteralValue::Int128(i128::MAX));
+        assert_eq!(expr.data_type(), ColumnType::Int128);
+    }
+
+    #[test]
+    fn two_equal_literals_are_eq() {
+        let a = LiteralExpr::new(LiteralValue::Boolean(true));
+        let b = LiteralExpr::new(LiteralValue::Boolean(true));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn two_different_literals_are_not_eq() {
+        let a = LiteralExpr::new(LiteralValue::Boolean(true));
+        let b = LiteralExpr::new(LiteralValue::Boolean(false));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn literal_expr_clone_is_equal() {
+        let expr = LiteralExpr::new(LiteralValue::BigInt(99));
+        let cloned = expr.clone();
+        assert_eq!(expr, cloned);
+    }
+
+    #[test]
+    fn literal_expr_debug_contains_value() {
+        let expr = LiteralExpr::new(LiteralValue::BigInt(7));
+        let debug = format!("{:?}", expr);
+        assert!(debug.contains("LiteralExpr"));
+    }
+}
