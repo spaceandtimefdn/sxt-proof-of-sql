@@ -184,3 +184,68 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::base::database::TableRef;
+
+    fn empty_plan() -> DynProofPlan {
+        DynProofPlan::new_empty()
+    }
+
+    #[test]
+    fn new_empty_creates_empty_variant() {
+        assert!(matches!(DynProofPlan::new_empty(), DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn new_table_creates_table_variant() {
+        let plan = DynProofPlan::new_table(TableRef::new("", "t"), alloc::vec![]);
+        assert!(matches!(plan, DynProofPlan::Table(_)));
+    }
+
+    #[test]
+    fn new_slice_creates_slice_variant() {
+        assert!(matches!(
+            DynProofPlan::new_slice(empty_plan(), 0, None),
+            DynProofPlan::Slice(_)
+        ));
+    }
+
+    #[test]
+    fn new_slice_with_skip_and_fetch_creates_slice_variant() {
+        assert!(matches!(
+            DynProofPlan::new_slice(empty_plan(), 3, Some(5)),
+            DynProofPlan::Slice(_)
+        ));
+    }
+
+    #[test]
+    fn try_new_union_with_one_input_is_error() {
+        assert!(DynProofPlan::try_new_union(alloc::vec![empty_plan()]).is_err());
+    }
+
+    #[test]
+    fn try_new_union_with_no_inputs_is_error() {
+        assert!(DynProofPlan::try_new_union(alloc::vec![]).is_err());
+    }
+
+    #[test]
+    fn clone_creates_equal_plan() {
+        let plan = empty_plan();
+        assert_eq!(plan.clone(), plan);
+    }
+
+    #[test]
+    fn two_empty_plans_are_equal() {
+        assert_eq!(DynProofPlan::new_empty(), DynProofPlan::new_empty());
+    }
+
+    #[test]
+    fn debug_output_of_empty_plan_contains_empty() {
+        let plan = empty_plan();
+        let debug = alloc::format!("{:?}", plan);
+        assert!(debug.contains("Empty"));
+    }
+}
