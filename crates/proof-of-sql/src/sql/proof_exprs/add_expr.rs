@@ -117,3 +117,62 @@ impl ProofExpr for AddExpr {
 }
 
 impl DecimalProofExpr for AddExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::AddExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(10))
+    }
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(false))
+    }
+
+    #[test]
+    fn try_new_bigint_plus_bigint_succeeds() {
+        let add = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr()));
+        assert!(add.is_ok());
+    }
+
+    #[test]
+    fn data_type_of_bigint_plus_bigint_is_decimal75() {
+        let add = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert!(matches!(add.data_type(), ColumnType::Decimal75(..)));
+    }
+
+    #[test]
+    fn lhs_returns_correct_type() {
+        let add = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(add.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn rhs_returns_correct_type() {
+        let add = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(add.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn boolean_plus_bigint_is_error() {
+        assert!(AddExpr::try_new(Box::new(bool_expr()), Box::new(bigint_expr())).is_err());
+    }
+
+    #[test]
+    fn clone_creates_equal_instance() {
+        let add = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(add.clone(), add);
+    }
+
+    #[test]
+    fn equal_add_exprs_compare_equal() {
+        let a = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        let b = AddExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(a, b);
+    }
+}
