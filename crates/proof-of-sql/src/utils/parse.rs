@@ -92,4 +92,52 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn find_bigdecimals_ignores_decimal_columns_at_or_below_i128_precision() {
+        let sql = "CREATE TABLE metrics(
+            exact_fit DECIMAL(38, 0),
+            too_large DECIMAL(39, 4),
+            plain_int INT
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("metrics").unwrap(),
+            &[("too_large".to_string(), 39, 4)]
+        );
+    }
+
+    #[test]
+    fn find_bigdecimals_ignores_non_create_table_statements() {
+        let sql = "
+            SELECT CAST(1 AS DECIMAL(78, 0));
+            CREATE VIEW high_precision_view AS SELECT CAST(1 AS DECIMAL(78, 0));
+            CREATE TABLE stored_values(value DECIMAL(78, 2));
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("stored_values").unwrap(),
+            &[("value".to_string(), 78, 2)]
+        );
+    }
+
+    #[test]
+    fn find_bigdecimals_preserves_qualified_table_names() {
+        let sql = "CREATE TABLE analytics.events(
+            id BIGINT,
+            amount DECIMAL(76, 5)
+        );";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("analytics.events").unwrap(),
+            &[("amount".to_string(), 76, 5)]
+        );
+    }
 }
