@@ -69,3 +69,60 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{QueryData, QueryError, QueryResult};
+    use crate::base::{
+        database::{ColumnCoercionError, OwnedTable, TableCoercionError},
+        map::IndexMap,
+        proof::ProofError,
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn we_convert_table_coercion_errors_to_query_errors() {
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCoercionError {
+                source: ColumnCoercionError::Overflow
+            }),
+            QueryError::Overflow
+        ));
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCoercionError {
+                source: ColumnCoercionError::InvalidTypeCoercion
+            }),
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion
+            }
+        ));
+        assert!(matches!(
+            QueryError::from(TableCoercionError::NameMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch
+            }
+        ));
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCountMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch
+            }
+        ));
+    }
+
+    #[test]
+    fn query_result_can_hold_query_data() {
+        let table = OwnedTable::<TestScalar>::try_new(IndexMap::default()).unwrap();
+        let verification_hash = [7; 32];
+        let result: QueryResult<TestScalar> = Ok(QueryData {
+            table,
+            verification_hash,
+        });
+
+        let query_data = result.unwrap();
+
+        assert!(query_data.table.is_empty());
+        assert_eq!(query_data.table.num_rows(), 0);
+        assert_eq!(query_data.verification_hash, verification_hash);
+    }
+}
