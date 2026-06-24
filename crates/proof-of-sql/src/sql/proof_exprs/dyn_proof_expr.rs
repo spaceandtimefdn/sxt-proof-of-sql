@@ -122,3 +122,100 @@ impl DynProofExpr {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(42))
+    }
+
+    #[test]
+    fn new_literal_boolean_has_boolean_type() {
+        assert_eq!(bool_expr().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn new_literal_bigint_has_bigint_type() {
+        assert_eq!(bigint_expr().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn try_new_placeholder_valid_index_succeeds() {
+        let expr = DynProofExpr::try_new_placeholder(1, ColumnType::Boolean).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn try_new_placeholder_zero_index_is_error() {
+        assert!(DynProofExpr::try_new_placeholder(0, ColumnType::Boolean).is_err());
+    }
+
+    #[test]
+    fn try_new_not_of_boolean_has_boolean_type() {
+        let expr = DynProofExpr::try_new_not(bool_expr()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn try_new_not_of_bigint_is_error() {
+        assert!(DynProofExpr::try_new_not(bigint_expr()).is_err());
+    }
+
+    #[test]
+    fn try_new_and_of_two_booleans_succeeds() {
+        let expr = DynProofExpr::try_new_and(bool_expr(), bool_expr()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn try_new_or_of_two_booleans_succeeds() {
+        let expr = DynProofExpr::try_new_or(bool_expr(), bool_expr()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn try_new_add_of_two_bigints_gives_decimal_type() {
+        let expr = DynProofExpr::try_new_add(bigint_expr(), bigint_expr()).unwrap();
+        assert!(matches!(expr.data_type(), ColumnType::Decimal75(..)));
+    }
+
+    #[test]
+    fn try_new_add_boolean_and_bigint_is_error() {
+        assert!(DynProofExpr::try_new_add(bool_expr(), bigint_expr()).is_err());
+    }
+
+    #[test]
+    fn try_new_subtract_of_two_bigints_succeeds() {
+        assert!(DynProofExpr::try_new_subtract(bigint_expr(), bigint_expr()).is_ok());
+    }
+
+    #[test]
+    fn try_new_multiply_of_two_bigints_succeeds() {
+        assert!(DynProofExpr::try_new_multiply(bigint_expr(), bigint_expr()).is_ok());
+    }
+
+    #[test]
+    fn clone_creates_equal_expression() {
+        let expr = bool_expr();
+        assert_eq!(expr.clone(), expr);
+    }
+
+    #[test]
+    fn equal_literals_compare_equal() {
+        assert_eq!(bool_expr(), bool_expr());
+    }
+
+    #[test]
+    fn different_literal_types_compare_unequal() {
+        assert_ne!(bool_expr(), bigint_expr());
+    }
+}
