@@ -92,4 +92,29 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn test_find_bigdecimals_ignores_non_tables_and_small_decimals() {
+        let sql = "
+            CREATE VIEW ETHEREUM.BLOCK_REWARDS AS SELECT 1 AS reward;
+
+            CREATE TABLE ETHEREUM.TOKEN_TRANSFERS(
+                TRANSFER_ID BIGINT NOT NULL,
+                PRECISE_AMOUNT DECIMAL(39, 18),
+                STANDARD_AMOUNT DECIMAL(38, 18),
+                INTEGER_AMOUNT DECIMAL(18),
+                UNBOUNDED_AMOUNT DECIMAL,
+                SYMBOL VARCHAR
+            );
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.TOKEN_TRANSFERS").unwrap(),
+            &[("PRECISE_AMOUNT".to_string(), 39, 18)]
+        );
+        assert!(!bigdecimals.contains_key("ETHEREUM.BLOCK_REWARDS"));
+    }
 }
