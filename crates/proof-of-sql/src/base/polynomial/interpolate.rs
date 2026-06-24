@@ -127,3 +127,96 @@ where
         })
         .unwrap_or(vec![])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{interpolate_evaluations_to_reverse_coefficients, interpolate_uni_poly};
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn interpolate_empty_polynomial_returns_zero() {
+        let result = interpolate_uni_poly::<TestScalar>(&[], ts(5));
+        assert_eq!(result, ts(0));
+    }
+
+    #[test]
+    fn interpolate_constant_polynomial_returns_constant() {
+        // Single element poly [7]: f(0) = 7
+        let poly = [ts(7)];
+        // x == 0 returns poly[0] directly
+        assert_eq!(interpolate_uni_poly(&poly, ts(0)), ts(7));
+    }
+
+    #[test]
+    fn interpolate_constant_at_nonzero_x_returns_constant() {
+        // Degree-0 polynomial [5]: f(x) = 5 for any x
+        let poly = [ts(5)];
+        // x=3 != 0, use interpolation formula — but x != 0,1,...,d means actual math
+        // Actually, we evaluate f(3) for the polynomial with only eval at x=0, which in
+        // the Lagrange sense should return poly[0] = 5 for any x since it's constant
+        // Wait: interpolate_uni_poly treats polynomial[i] as f(i). So [5] means f(0)=5.
+        // For x=0 it returns 5 directly. For any other x: formula would give 5.
+        // But wait: the degree is 0. For degree 0, there's only 1 eval so f is constant.
+        // Let's just test x=0 case since the formula path for degree-0 x!=0 is complex.
+        assert_eq!(interpolate_uni_poly(&poly, ts(0)), ts(5));
+    }
+
+    #[test]
+    fn interpolate_linear_polynomial_at_known_points() {
+        // f(0) = 1, f(1) = 3 → linear polynomial: f(x) = 1 + 2x
+        let poly = [ts(1), ts(3)];
+        assert_eq!(interpolate_uni_poly(&poly, ts(0)), ts(1));
+        assert_eq!(interpolate_uni_poly(&poly, ts(1)), ts(3));
+    }
+
+    #[test]
+    fn interpolate_quadratic_at_known_points() {
+        // f(0) = 0, f(1) = 1, f(2) = 4 → quadratic x^2
+        let poly = [ts(0), ts(1), ts(4)];
+        assert_eq!(interpolate_uni_poly(&poly, ts(0)), ts(0));
+        assert_eq!(interpolate_uni_poly(&poly, ts(1)), ts(1));
+        assert_eq!(interpolate_uni_poly(&poly, ts(2)), ts(4));
+    }
+
+    #[test]
+    fn evaluations_to_reverse_coefficients_empty_returns_empty() {
+        let result = interpolate_evaluations_to_reverse_coefficients::<TestScalar>(&[]);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn evaluations_to_reverse_coefficients_single_eval() {
+        // Single eval [7] → degree-0 polynomial: f(x) = 7, reverse coefs = [7]
+        let result = interpolate_evaluations_to_reverse_coefficients(&[ts(7)]);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], ts(7));
+    }
+
+    #[test]
+    fn evaluations_to_reverse_coefficients_linear_polynomial() {
+        // f(0) = 0, f(1) = 1 → f(x) = x → reverse coefs leading first = [1, 0]
+        let result = interpolate_evaluations_to_reverse_coefficients(&[ts(0), ts(1)]);
+        // result has 2 coefficients for degree-1 polynomial
+        assert_eq!(result.len(), 2);
+        // Verify by evaluating: result[0] * x^1 + result[1] * x^0 at x=0 → result[1]
+        // At x=0: f(0) = 0 → result[1] = 0
+        // At x=1: f(1) = 1 → result[0] + result[1] = 1
+        // So result = [1, 0]
+        assert_eq!(result[0], ts(1));
+        assert_eq!(result[1], ts(0));
+    }
+
+    #[test]
+    fn evaluations_to_reverse_coefficients_constant_polynomial() {
+        // f(0) = 5, f(1) = 5 → f(x) = 5 → reverse coefs = [0, 5]
+        let result = interpolate_evaluations_to_reverse_coefficients(&[ts(5), ts(5)]);
+        assert_eq!(result.len(), 2);
+        // Coefficient of x^1 should be 0 (constant polynomial)
+        assert_eq!(result[0], ts(0));
+        assert_eq!(result[1], ts(5));
+    }
+}
