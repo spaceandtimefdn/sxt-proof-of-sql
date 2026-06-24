@@ -99,3 +99,133 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
 
     Ok(Ordering::Equal)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::Column;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use core::cmp::Ordering;
+
+    #[test]
+    fn compare_indexes_empty_columns_returns_equal() {
+        let cols: Vec<Column<TestScalar>> = vec![];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 0), Ordering::Equal);
+    }
+
+    #[test]
+    fn compare_indexes_bool_column_less() {
+        let data = [false, true];
+        let cols = [Column::<TestScalar>::Boolean(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Less);
+    }
+
+    #[test]
+    fn compare_indexes_bool_column_greater() {
+        let data = [true, false];
+        let cols = [Column::<TestScalar>::Boolean(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Greater);
+    }
+
+    #[test]
+    fn compare_indexes_bool_column_equal() {
+        let data = [false, false];
+        let cols = [Column::<TestScalar>::Boolean(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Equal);
+    }
+
+    #[test]
+    fn compare_indexes_uint8_column_ordering() {
+        let data = [10u8, 20, 10];
+        let cols = [Column::<TestScalar>::Uint8(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Less);
+        assert_eq!(compare_indexes_by_columns(&cols, 1, 0), Ordering::Greater);
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 2), Ordering::Equal);
+    }
+
+    #[test]
+    fn compare_indexes_bigint_column_ordering() {
+        let data = [100i64, 200, 100];
+        let cols = [Column::<TestScalar>::BigInt(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Less);
+        assert_eq!(compare_indexes_by_columns(&cols, 1, 2), Ordering::Greater);
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 2), Ordering::Equal);
+    }
+
+    #[test]
+    fn compare_indexes_int128_ordering() {
+        let data = [-1i128, 0, 1];
+        let cols = [Column::<TestScalar>::Int128(&data)];
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Less);
+        assert_eq!(compare_indexes_by_columns(&cols, 2, 0), Ordering::Greater);
+    }
+
+    #[test]
+    fn compare_indexes_lexicographic_second_column_decides() {
+        let col1 = [1i64, 1, 2];
+        let col2 = [2i64, 3, 1];
+        let cols = [Column::<TestScalar>::BigInt(&col1), Column::<TestScalar>::BigInt(&col2)];
+        // (1,2) vs (1,3) → second column decides → Less
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 1), Ordering::Less);
+        // (1,2) vs (1,2) → Equal
+        assert_eq!(compare_indexes_by_columns(&cols, 0, 0), Ordering::Equal);
+        // (2,1) vs (1,3) → first column decides → Greater
+        assert_eq!(compare_indexes_by_columns(&cols, 2, 1), Ordering::Greater);
+    }
+
+    #[test]
+    fn compare_single_row_bigint_less() {
+        let left_data = [5i64];
+        let right_data = [10i64];
+        let left = [Column::<TestScalar>::BigInt(&left_data)];
+        let right = [Column::<TestScalar>::BigInt(&right_data)];
+        assert_eq!(
+            compare_single_row_of_tables(&left, &right, 0, 0).unwrap(),
+            Ordering::Less
+        );
+    }
+
+    #[test]
+    fn compare_single_row_bigint_greater() {
+        let left_data = [10i64];
+        let right_data = [5i64];
+        let left = [Column::<TestScalar>::BigInt(&left_data)];
+        let right = [Column::<TestScalar>::BigInt(&right_data)];
+        assert_eq!(
+            compare_single_row_of_tables(&left, &right, 0, 0).unwrap(),
+            Ordering::Greater
+        );
+    }
+
+    #[test]
+    fn compare_single_row_equal_values() {
+        let data = [42i64];
+        let left = [Column::<TestScalar>::BigInt(&data)];
+        let right = [Column::<TestScalar>::BigInt(&data)];
+        assert_eq!(
+            compare_single_row_of_tables(&left, &right, 0, 0).unwrap(),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn compare_single_row_incompatible_types_returns_error() {
+        let bool_data = [true];
+        let int_data = [1i64];
+        let left = [Column::<TestScalar>::Boolean(&bool_data)];
+        let right = [Column::<TestScalar>::BigInt(&int_data)];
+        assert!(compare_single_row_of_tables(&left, &right, 0, 0).is_err());
+    }
+
+    #[test]
+    fn compare_single_row_bool_columns() {
+        let left_data = [false];
+        let right_data = [true];
+        let left = [Column::<TestScalar>::Boolean(&left_data)];
+        let right = [Column::<TestScalar>::Boolean(&right_data)];
+        assert_eq!(
+            compare_single_row_of_tables(&left, &right, 0, 0).unwrap(),
+            Ordering::Less
+        );
+    }
+}
