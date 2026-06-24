@@ -118,3 +118,54 @@ impl ProofExpr for SubtractExpr {
 }
 
 impl DecimalProofExpr for SubtractExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::SubtractExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(5))
+    }
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn try_new_bigint_minus_bigint_succeeds() {
+        assert!(SubtractExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).is_ok());
+    }
+
+    #[test]
+    fn data_type_of_bigint_minus_bigint_is_decimal75() {
+        let sub = SubtractExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert!(matches!(sub.data_type(), ColumnType::Decimal75(..)));
+    }
+
+    #[test]
+    fn lhs_returns_correct_type() {
+        let sub = SubtractExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(sub.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn rhs_returns_correct_type() {
+        let sub = SubtractExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(sub.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn boolean_minus_bigint_is_error() {
+        assert!(SubtractExpr::try_new(Box::new(bool_expr()), Box::new(bigint_expr())).is_err());
+    }
+
+    #[test]
+    fn clone_creates_equal_instance() {
+        let sub = SubtractExpr::try_new(Box::new(bigint_expr()), Box::new(bigint_expr())).unwrap();
+        assert_eq!(sub.clone(), sub);
+    }
+}
