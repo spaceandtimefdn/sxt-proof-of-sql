@@ -70,7 +70,7 @@ fn serial_batch_inversion_and_mul<F>(v: &mut [F], coeff: F)
 where
     F: One + Zero + MulAssign + Inv<Output = Option<F>> + Mul<Output = F> + Copy,
 {
-    // Montgomery’s Trick and Fast Implementation of Masked AES
+    // Montgomery's Trick and Fast Implementation of Masked AES
     // Genelle, Prouff and Quisquater
     // Section 3.2
     // but with an optimization to multiply every element in the returned vector by
@@ -104,5 +104,86 @@ where
         let new_tmp = tmp * *f;
         *f = tmp * s;
         tmp = new_tmp;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{batch_inversion, batch_inversion_and_mul};
+    use crate::base::scalar::test_scalar::TestScalar;
+    use num_traits::{Inv, One, Zero};
+
+    #[test]
+    fn batch_inversion_empty_slice_is_noop() {
+        let mut v: alloc::vec::Vec<TestScalar> = alloc::vec![];
+        batch_inversion(&mut v);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn batch_inversion_single_nonzero_gives_inverse() {
+        let a = TestScalar::from(5u64);
+        let mut v = alloc::vec![a];
+        batch_inversion(&mut v);
+        assert_eq!(a * v[0], TestScalar::one());
+    }
+
+    #[test]
+    fn batch_inversion_two_elements_gives_inverses() {
+        let a = TestScalar::from(3u64);
+        let b = TestScalar::from(7u64);
+        let mut v = alloc::vec![a, b];
+        batch_inversion(&mut v);
+        assert_eq!(a * v[0], TestScalar::one());
+        assert_eq!(b * v[1], TestScalar::one());
+    }
+
+    #[test]
+    fn batch_inversion_skips_zero_elements() {
+        let zero = TestScalar::zero();
+        let a = TestScalar::from(4u64);
+        let mut v = alloc::vec![zero, a];
+        batch_inversion(&mut v);
+        assert_eq!(v[0], zero);
+        assert_eq!(a * v[1], TestScalar::one());
+    }
+
+    #[test]
+    fn batch_inversion_five_elements_all_correct() {
+        let originals: alloc::vec::Vec<TestScalar> = (1u64..=5).map(TestScalar::from).collect();
+        let mut v = originals.clone();
+        batch_inversion(&mut v);
+        for (orig, inv) in originals.iter().zip(v.iter()) {
+            assert_eq!(*orig * *inv, TestScalar::one());
+        }
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_coeff_one_equals_batch_inversion() {
+        let a = TestScalar::from(11u64);
+        let b = TestScalar::from(13u64);
+        let mut v1 = alloc::vec![a, b];
+        let mut v2 = alloc::vec![a, b];
+        batch_inversion(&mut v1);
+        batch_inversion_and_mul(&mut v2, TestScalar::one());
+        assert_eq!(v1, v2);
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_scales_result_by_coeff() {
+        let a = TestScalar::from(2u64);
+        let coeff = TestScalar::from(3u64);
+        let mut v = alloc::vec![a];
+        batch_inversion_and_mul(&mut v, coeff);
+        let expected = coeff * a.inv().unwrap();
+        assert_eq!(v[0], expected);
+    }
+
+    #[test]
+    fn batch_inversion_single_zero_stays_zero() {
+        let zero = TestScalar::zero();
+        let mut v = alloc::vec![zero];
+        batch_inversion(&mut v);
+        assert_eq!(v[0], zero);
     }
 }
