@@ -108,3 +108,94 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnOperationError;
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn different_column_length_displays_both_lengths() {
+        let err = ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 5 };
+        assert_eq!(err.to_string(), "Columns have different lengths: 3 != 5");
+    }
+
+    #[test]
+    fn binary_operation_invalid_type_displays_operator_and_types() {
+        let err = ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "Add".to_string(),
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("Add"));
+        assert!(msg.contains("BigInt"));
+        assert!(msg.contains("Boolean"));
+        assert!(msg.contains("not supported"));
+    }
+
+    #[test]
+    fn unary_operation_invalid_type_displays_operator_and_operand() {
+        let err = ColumnOperationError::UnaryOperationInvalidColumnType {
+            operator: "Not".to_string(),
+            operand_type: ColumnType::BigInt,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("Not"));
+        assert!(msg.contains("BigInt"));
+    }
+
+    #[test]
+    fn integer_overflow_displays_error_message() {
+        let err = ColumnOperationError::IntegerOverflow { error: "value too large".to_string() };
+        assert_eq!(err.to_string(), "Overflow in integer operation: value too large");
+    }
+
+    #[test]
+    fn division_by_zero_displays_correctly() {
+        assert_eq!(ColumnOperationError::DivisionByZero.to_string(), "Division by zero");
+    }
+
+    #[test]
+    fn union_different_types_displays_both_types() {
+        let err = ColumnOperationError::UnionDifferentTypes {
+            correct_type: ColumnType::BigInt,
+            actual_type: ColumnType::Boolean,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("BigInt"));
+        assert!(msg.contains("Boolean"));
+        assert!(msg.contains("Cannot union columns of different types"));
+    }
+
+    #[test]
+    fn index_out_of_bounds_displays_index_and_len() {
+        let err = ColumnOperationError::IndexOutOfBounds { index: 10, len: 5 };
+        assert_eq!(err.to_string(), "Index out of bounds: 10 >= 5");
+    }
+
+    #[test]
+    fn signed_casting_error_displays_types() {
+        let err = ColumnOperationError::SignedCastingError {
+            left_type: ColumnType::Int,
+            right_type: ColumnType::TinyInt,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("Cannot fit"));
+        assert!(msg.contains("without losing data"));
+    }
+
+    #[test]
+    fn column_operation_errors_implement_partial_eq() {
+        assert_eq!(ColumnOperationError::DivisionByZero, ColumnOperationError::DivisionByZero);
+        assert_ne!(ColumnOperationError::DivisionByZero,
+            ColumnOperationError::DifferentColumnLength { len_a: 1, len_b: 2 });
+    }
+
+    #[test]
+    fn column_operation_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", ColumnOperationError::DivisionByZero);
+        assert!(debug.contains("DivisionByZero"));
+    }
+}
