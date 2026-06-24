@@ -69,3 +69,49 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::QueryError;
+    use alloc::string::ToString;
+
+    #[test]
+    fn overflow_displays_overflow_error() {
+        assert_eq!(QueryError::Overflow.to_string(), "Overflow error");
+    }
+
+    #[test]
+    fn invalid_string_displays_string_decode_error() {
+        assert_eq!(QueryError::InvalidString.to_string(), "String decode error");
+    }
+
+    #[test]
+    fn miscellaneous_decoding_error_displays_correctly() {
+        assert_eq!(
+            QueryError::MiscellaneousDecodingError.to_string(),
+            "Miscellaneous decoding error"
+        );
+    }
+
+    #[test]
+    fn miscellaneous_evaluation_error_displays_correctly() {
+        assert_eq!(
+            QueryError::MiscellaneousEvaluationError.to_string(),
+            "Miscellaneous evaluation error"
+        );
+    }
+
+    #[test]
+    fn invalid_column_count_displays_correctly() {
+        assert_eq!(
+            QueryError::InvalidColumnCount.to_string(),
+            "Invalid number of columns"
+        );
+    }
+
+    #[test]
+    fn debug_output_contains_variant_name() {
+        let debug = alloc::format!("{:?}", QueryError::Overflow);
+        assert!(debug.contains("Overflow"));
+    }
+}
