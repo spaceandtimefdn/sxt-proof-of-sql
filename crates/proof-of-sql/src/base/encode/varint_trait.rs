@@ -293,3 +293,255 @@ impl<T: MontConfig<4>> VarInt for MontScalar<T> {
         write_scalar_varint(dst, &self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::VarInt;
+    use alloc::{vec, vec::Vec};
+
+    #[test]
+    fn u64_zero_requires_one_byte() {
+        assert_eq!(0u64.required_space(), 1);
+    }
+
+    #[test]
+    fn u64_127_requires_one_byte() {
+        assert_eq!(127u64.required_space(), 1);
+    }
+
+    #[test]
+    fn u64_128_requires_two_bytes() {
+        assert_eq!(128u64.required_space(), 2);
+    }
+
+    #[test]
+    fn u64_max_requires_ten_bytes() {
+        assert_eq!(u64::MAX.required_space(), 10);
+    }
+
+    #[test]
+    fn u64_zero_encode_decode_roundtrip() {
+        let encoded = 0u64.encode_var_vec();
+        let (decoded, bytes_read) = u64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, 0u64);
+        assert_eq!(bytes_read, 1);
+    }
+
+    #[test]
+    fn u64_small_value_roundtrip() {
+        let val = 42u64;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u64_max_roundtrip() {
+        let val = u64::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, bytes) = u64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+        assert_eq!(bytes, encoded.len());
+    }
+
+    #[test]
+    fn u64_256_requires_two_bytes() {
+        assert_eq!(256u64.required_space(), 2);
+    }
+
+    #[test]
+    fn u64_decode_returns_none_on_empty_slice() {
+        assert_eq!(u64::decode_var(&[]), None);
+    }
+
+    #[test]
+    fn i64_zero_roundtrip() {
+        let val = 0i64;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i64_positive_roundtrip() {
+        let val = 100i64;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i64_negative_one_roundtrip() {
+        let val = -1i64;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i64_negative_large_roundtrip() {
+        let val = -1000000i64;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i64_min_roundtrip() {
+        let val = i64::MIN;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i64_max_roundtrip() {
+        let val = i64::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i64::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u32_roundtrip() {
+        let val = u32::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u32::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u32_overflow_returns_none() {
+        // Encode a value that overflows u32
+        let large: u64 = u64::from(u32::MAX) + 1;
+        let encoded = large.encode_var_vec();
+        assert_eq!(u32::decode_var(&encoded), None);
+    }
+
+    #[test]
+    fn u16_roundtrip() {
+        let val = u16::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u16::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u8_roundtrip() {
+        let val = 255u8;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u8::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i32_negative_roundtrip() {
+        let val = -42i32;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i32::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i32_min_roundtrip() {
+        let val = i32::MIN;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i32::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i16_roundtrip() {
+        let val = i16::MIN;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i16::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i8_roundtrip() {
+        let val = -127i8;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i8::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn bool_true_roundtrip() {
+        let encoded = true.encode_var_vec();
+        let (decoded, _) = bool::decode_var(&encoded).unwrap();
+        assert!(decoded);
+    }
+
+    #[test]
+    fn bool_false_roundtrip() {
+        let encoded = false.encode_var_vec();
+        let (decoded, _) = bool::decode_var(&encoded).unwrap();
+        assert!(!decoded);
+    }
+
+    #[test]
+    fn u128_zero_roundtrip() {
+        let val = 0u128;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u128::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u128_max_roundtrip() {
+        let val = u128::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = u128::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i128_negative_roundtrip() {
+        let val = -1i128;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i128::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i128_min_roundtrip() {
+        let val = i128::MIN;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i128::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn i128_max_roundtrip() {
+        let val = i128::MAX;
+        let encoded = val.encode_var_vec();
+        let (decoded, _) = i128::decode_var(&encoded).unwrap();
+        assert_eq!(decoded, val);
+    }
+
+    #[test]
+    fn u64_encode_length_matches_required_space() {
+        for val in [0u64, 1, 127, 128, 255, 256, 65535, 65536, u64::MAX] {
+            assert_eq!(val.encode_var_vec().len(), val.required_space());
+        }
+    }
+
+    #[test]
+    fn consecutive_u64_values_can_be_decoded_sequentially() {
+        let mut buf = vec![0u8; 20];
+        let n1 = 42u64.encode_var(&mut buf);
+        let n2 = 1000u64.encode_var(&mut buf[n1..]);
+        let (v1, s1) = u64::decode_var(&buf).unwrap();
+        let (v2, _) = u64::decode_var(&buf[s1..]).unwrap();
+        assert_eq!(v1, 42);
+        assert_eq!(v2, 1000);
+        assert_eq!(s1, n1);
+        let _ = n2; // suppress unused warning
+    }
+
+    #[test]
+    fn i64_required_space_negative_one_equals_positive_one() {
+        assert_eq!((-1i64).required_space(), 1i64.required_space());
+    }
+}
