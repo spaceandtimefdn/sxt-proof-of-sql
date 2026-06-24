@@ -40,3 +40,58 @@ pub fn inner_product_with_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
         .map(|(lhs_bytes, &rhs)| S::from_byte_slice_via_hash(lhs_bytes) * rhs)
         .sum()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::inner_product;
+
+    #[test]
+    fn inner_product_empty_slices_returns_zero() {
+        let result = inner_product::<i64, i64>(&[], &[]);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn inner_product_single_element() {
+        let result = inner_product::<i64, i64>(&[5], &[3]);
+        assert_eq!(result, 15);
+    }
+
+    #[test]
+    fn inner_product_two_elements() {
+        let result = inner_product::<i64, i64>(&[1, 2], &[3, 4]);
+        assert_eq!(result, 11); // 1*3 + 2*4 = 3 + 8 = 11
+    }
+
+    #[test]
+    fn inner_product_three_elements() {
+        let result = inner_product::<i64, i64>(&[1, 2, 3], &[4, 5, 6]);
+        assert_eq!(result, 32); // 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
+    }
+
+    #[test]
+    fn inner_product_first_slice_longer_ignores_extra() {
+        let result = inner_product::<i64, i64>(&[1, 2, 100], &[3, 4]);
+        assert_eq!(result, 11); // 1*3 + 2*4 = 11; 100 is ignored
+    }
+
+    #[test]
+    fn inner_product_with_zeros() {
+        let result = inner_product::<i64, i64>(&[0, 0, 0], &[1, 2, 3]);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn inner_product_with_negative_values() {
+        let result = inner_product::<i64, i64>(&[-1, 2], &[3, -4]);
+        assert_eq!(result, -11); // -1*3 + 2*(-4) = -3 - 8 = -11
+    }
+
+    #[test]
+    fn inner_product_identity_like_operation() {
+        let a = vec![1i64, 2, 3, 4, 5];
+        let b = vec![1i64; 5];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, 15); // sum of a
+    }
+}
