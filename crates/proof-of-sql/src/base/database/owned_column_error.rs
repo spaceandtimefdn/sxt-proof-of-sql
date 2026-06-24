@@ -40,3 +40,65 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnCoercionError, OwnedColumnError};
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn type_cast_error_displays_both_types() {
+        let err = OwnedColumnError::TypeCastError {
+            from_type: ColumnType::BigInt,
+            to_type: ColumnType::Boolean,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("BigInt"));
+        assert!(msg.contains("Boolean"));
+        assert!(msg.contains("Can not perform type casting"));
+    }
+
+    #[test]
+    fn scalar_conversion_error_displays_message() {
+        let err = OwnedColumnError::ScalarConversionError { error: "bad value".to_string() };
+        assert!(err.to_string().contains("bad value"));
+    }
+
+    #[test]
+    fn unsupported_displays_message() {
+        let err = OwnedColumnError::Unsupported { error: "op not allowed".to_string() };
+        assert!(err.to_string().contains("op not allowed"));
+        assert!(err.to_string().contains("Unsupported operation"));
+    }
+
+    #[test]
+    fn owned_column_errors_implement_partial_eq() {
+        assert_eq!(
+            OwnedColumnError::Unsupported { error: "x".to_string() },
+            OwnedColumnError::Unsupported { error: "x".to_string() }
+        );
+    }
+
+    #[test]
+    fn owned_column_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", OwnedColumnError::Unsupported { error: "x".to_string() });
+        assert!(debug.contains("Unsupported"));
+    }
+
+    #[test]
+    fn column_coercion_overflow_displays_correctly() {
+        assert_eq!(ColumnCoercionError::Overflow.to_string(), "Overflow when coercing a column");
+    }
+
+    #[test]
+    fn column_coercion_invalid_type_displays_correctly() {
+        assert_eq!(ColumnCoercionError::InvalidTypeCoercion.to_string(), "Invalid type coercion");
+    }
+
+    #[test]
+    fn column_coercion_errors_implement_partial_eq() {
+        assert_eq!(ColumnCoercionError::Overflow, ColumnCoercionError::Overflow);
+        assert_ne!(ColumnCoercionError::Overflow, ColumnCoercionError::InvalidTypeCoercion);
+    }
+}
