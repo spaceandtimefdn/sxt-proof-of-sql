@@ -83,3 +83,64 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FoldLogExpr;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn new_stores_alpha_and_beta() {
+        let expr: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(2u64),
+            TestScalar::from(3u64),
+        );
+        assert_eq!(expr.alpha, TestScalar::from(2u64));
+        assert_eq!(expr.beta, TestScalar::from(3u64));
+    }
+
+    #[test]
+    fn clone_creates_equal_instance() {
+        let expr: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(5u64),
+            TestScalar::from(7u64),
+        );
+        assert_eq!(expr.clone(), expr);
+    }
+
+    #[test]
+    fn two_fold_log_exprs_with_same_params_are_equal() {
+        let a: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+        );
+        let b: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+        );
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn two_fold_log_exprs_with_different_beta_are_not_equal() {
+        let a: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+        );
+        let b: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(1u64),
+            TestScalar::from(9u64),
+        );
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn debug_output_contains_struct_name() {
+        let expr: FoldLogExpr<TestScalar> = FoldLogExpr::new(
+            TestScalar::from(0u64),
+            TestScalar::from(0u64),
+        );
+        let debug = format!("{:?}", expr);
+        assert!(debug.contains("FoldLogExpr"));
+    }
+}
