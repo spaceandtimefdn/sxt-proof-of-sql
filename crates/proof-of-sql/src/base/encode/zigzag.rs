@@ -109,3 +109,75 @@ impl<T: MontConfig<4>> ZigZag<MontScalar<T>> for U256 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ZigZag;
+    use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn zero_scalar_encodes_to_zero_u256() {
+        let encoded: U256 = TestScalar::from(0).zigzag();
+        assert_eq!(encoded, U256::from_words(0, 0));
+    }
+
+    #[test]
+    fn positive_one_encodes_to_even_u256() {
+        // 1 → 2 (positive zigzag: 2*x)
+        let encoded: U256 = TestScalar::from(1).zigzag();
+        assert_eq!(encoded, U256::from_words(2, 0));
+    }
+
+    #[test]
+    fn positive_two_encodes_to_four() {
+        // 2 → 4
+        let encoded: U256 = TestScalar::from(2).zigzag();
+        assert_eq!(encoded, U256::from_words(4, 0));
+    }
+
+    #[test]
+    fn negative_one_encodes_to_odd_u256() {
+        // -1 → 1 (negative zigzag: 2*y+1 where y=|-1|=1; 2*1-1=1)
+        let encoded: U256 = (-TestScalar::from(1)).zigzag();
+        assert_eq!(encoded, U256::from_words(1, 0));
+    }
+
+    #[test]
+    fn negative_two_encodes_to_three() {
+        // -2 → 3
+        let encoded: U256 = (-TestScalar::from(2)).zigzag();
+        assert_eq!(encoded, U256::from_words(3, 0));
+    }
+
+    #[test]
+    fn positive_roundtrip_via_u256() {
+        let original = TestScalar::from(42);
+        let encoded: U256 = original.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn negative_roundtrip_via_u256() {
+        let original = -TestScalar::from(17);
+        let encoded: U256 = original.zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn even_encoded_u256_decodes_to_positive_scalar() {
+        // even u256 → positive scalar: 4 → 2
+        let encoded = U256::from_words(4, 0);
+        let decoded: TestScalar = encoded.zigzag();
+        assert_eq!(decoded, TestScalar::from(2));
+    }
+
+    #[test]
+    fn odd_encoded_u256_decodes_to_negative_scalar() {
+        // odd u256 → negative scalar: 1 → -1
+        let encoded = U256::from_words(1, 0);
+        let decoded: TestScalar = encoded.zigzag();
+        assert_eq!(decoded, -TestScalar::from(1));
+    }
+}
