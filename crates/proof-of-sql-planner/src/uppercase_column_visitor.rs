@@ -47,8 +47,8 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
 #[cfg(test)]
 mod tests {
-    use super::statement_with_uppercase_identifiers;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use super::{statement_with_uppercase_identifiers, uppercase_identifier};
+    use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
 
     #[test]
     fn we_can_capitalize_statement_idents() {
@@ -56,5 +56,68 @@ mod tests {
         let statement = statement_with_uppercase_identifiers(statement);
         let expected_statement = Parser::parse_sql(&GenericDialect{}, "SELECT A.THISSUM from (SELECT Sum(UPPERCASE_VALUE) as thissum, COUNT(PUPPIES) as coUNT fRoM NONSENSE) as a").unwrap()[0].clone();
         assert_eq!(statement, expected_statement);
+    }
+
+    #[test]
+    fn uppercase_identifier_converts_lowercase_to_upper() {
+        let ident = Ident::new("hello");
+        let result = uppercase_identifier(ident);
+        assert_eq!(result.value, "HELLO");
+    }
+
+    #[test]
+    fn uppercase_identifier_leaves_already_uppercase_unchanged() {
+        let ident = Ident::new("WORLD");
+        let result = uppercase_identifier(ident);
+        assert_eq!(result.value, "WORLD");
+    }
+
+    #[test]
+    fn uppercase_identifier_handles_mixed_case() {
+        let ident = Ident::new("myColumn");
+        let result = uppercase_identifier(ident);
+        assert_eq!(result.value, "MYCOLUMN");
+    }
+
+    #[test]
+    fn statement_with_uppercase_identifiers_uppercases_table_names() {
+        let statement =
+            Parser::parse_sql(&GenericDialect {}, "SELECT id FROM employees")
+                .unwrap()[0]
+                .clone();
+        let result = statement_with_uppercase_identifiers(statement);
+        let expected =
+            Parser::parse_sql(&GenericDialect {}, "SELECT ID FROM EMPLOYEES")
+                .unwrap()[0]
+                .clone();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn statement_with_uppercase_identifiers_handles_schema_qualified_table() {
+        let statement =
+            Parser::parse_sql(&GenericDialect {}, "SELECT col FROM schema_name.table_name")
+                .unwrap()[0]
+                .clone();
+        let result = statement_with_uppercase_identifiers(statement);
+        let expected =
+            Parser::parse_sql(&GenericDialect {}, "SELECT COL FROM SCHEMA_NAME.TABLE_NAME")
+                .unwrap()[0]
+                .clone();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn statement_with_uppercase_identifiers_handles_where_clause() {
+        let statement =
+            Parser::parse_sql(&GenericDialect {}, "SELECT id FROM users WHERE active = true")
+                .unwrap()[0]
+                .clone();
+        let result = statement_with_uppercase_identifiers(statement);
+        let expected =
+            Parser::parse_sql(&GenericDialect {}, "SELECT ID FROM USERS WHERE ACTIVE = true")
+                .unwrap()[0]
+                .clone();
+        assert_eq!(result, expected);
     }
 }
