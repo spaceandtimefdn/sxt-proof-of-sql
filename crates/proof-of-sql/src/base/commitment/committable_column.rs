@@ -1122,3 +1122,530 @@ mod tests {
         assert_eq!(commitment_buffer[0], commitment_buffer[1]);
     }
 }
+
+#[cfg(test)]
+mod tests_without_blitzar {
+    use super::CommittableColumn;
+    use crate::base::{
+        database::{Column, ColumnType, OwnedColumn},
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    // --- len() and is_empty() for every variant ---
+
+    #[test]
+    fn boolean_len_empty() {
+        let col = CommittableColumn::Boolean(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn boolean_len_nonempty() {
+        let col = CommittableColumn::Boolean(&[true, false, true]);
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn uint8_len_empty() {
+        let col = CommittableColumn::Uint8(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn uint8_len_nonempty() {
+        let col = CommittableColumn::Uint8(&[1u8, 2, 3]);
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn tinyint_len_empty() {
+        let col = CommittableColumn::TinyInt(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn tinyint_len_nonempty() {
+        let col = CommittableColumn::TinyInt(&[1i8, -2, 3]);
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn smallint_len_empty() {
+        let col = CommittableColumn::SmallInt(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn smallint_len_nonempty() {
+        let col = CommittableColumn::SmallInt(&[1i16, 2, 3, 4]);
+        assert_eq!(col.len(), 4);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn int_len_empty() {
+        let col = CommittableColumn::Int(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn int_len_nonempty() {
+        let col = CommittableColumn::Int(&[1i32, 2]);
+        assert_eq!(col.len(), 2);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn bigint_len_empty() {
+        let col = CommittableColumn::BigInt(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn bigint_len_nonempty() {
+        let col = CommittableColumn::BigInt(&[10i64, 20, 30]);
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn int128_len_empty() {
+        let col = CommittableColumn::Int128(&[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn int128_len_nonempty() {
+        let col = CommittableColumn::Int128(&[1i128, 2, 3, 4, 5]);
+        assert_eq!(col.len(), 5);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn decimal75_len_empty() {
+        let col = CommittableColumn::Decimal75(Precision::new(10).unwrap(), 2, alloc::vec![]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn decimal75_len_nonempty() {
+        let limbs = alloc::vec![[0u64; 4], [1u64, 0, 0, 0]];
+        let col = CommittableColumn::Decimal75(Precision::new(10).unwrap(), 2, limbs);
+        assert_eq!(col.len(), 2);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn scalar_len_empty() {
+        let col = CommittableColumn::Scalar(alloc::vec![]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn scalar_len_nonempty() {
+        let limbs = alloc::vec![[1u64; 4], [2u64; 4], [3u64; 4]];
+        let col = CommittableColumn::Scalar(limbs);
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn varchar_len_empty() {
+        let col = CommittableColumn::VarChar(alloc::vec![]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn varchar_len_nonempty() {
+        let limbs = alloc::vec![[0u64; 4]; 4];
+        let col = CommittableColumn::VarChar(limbs);
+        assert_eq!(col.len(), 4);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn varbinary_len_empty() {
+        let col = CommittableColumn::VarBinary(alloc::vec![]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn varbinary_len_nonempty() {
+        let limbs = alloc::vec![[9u64; 4], [8u64; 4]];
+        let col = CommittableColumn::VarBinary(limbs);
+        assert_eq!(col.len(), 2);
+        assert!(!col.is_empty());
+    }
+
+    #[test]
+    fn timestamptz_len_empty() {
+        let col = CommittableColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[]);
+        assert_eq!(col.len(), 0);
+        assert!(col.is_empty());
+    }
+
+    #[test]
+    fn timestamptz_len_nonempty() {
+        let col = CommittableColumn::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[100i64, 200, 300],
+        );
+        assert_eq!(col.len(), 3);
+        assert!(!col.is_empty());
+    }
+
+    // --- column_type() for every variant ---
+
+    #[test]
+    fn boolean_column_type() {
+        let col = CommittableColumn::Boolean(&[true]);
+        assert_eq!(col.column_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn uint8_column_type() {
+        let col = CommittableColumn::Uint8(&[1u8]);
+        assert_eq!(col.column_type(), ColumnType::Uint8);
+    }
+
+    #[test]
+    fn tinyint_column_type() {
+        let col = CommittableColumn::TinyInt(&[1i8]);
+        assert_eq!(col.column_type(), ColumnType::TinyInt);
+    }
+
+    #[test]
+    fn smallint_column_type() {
+        let col = CommittableColumn::SmallInt(&[1i16]);
+        assert_eq!(col.column_type(), ColumnType::SmallInt);
+    }
+
+    #[test]
+    fn int_column_type() {
+        let col = CommittableColumn::Int(&[1i32]);
+        assert_eq!(col.column_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn bigint_column_type() {
+        let col = CommittableColumn::BigInt(&[1i64]);
+        assert_eq!(col.column_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn int128_column_type() {
+        let col = CommittableColumn::Int128(&[1i128]);
+        assert_eq!(col.column_type(), ColumnType::Int128);
+    }
+
+    #[test]
+    fn decimal75_column_type() {
+        let prec = Precision::new(20).unwrap();
+        let col = CommittableColumn::Decimal75(prec, 5, alloc::vec![]);
+        assert_eq!(col.column_type(), ColumnType::Decimal75(prec, 5));
+    }
+
+    #[test]
+    fn scalar_column_type() {
+        let col = CommittableColumn::Scalar(alloc::vec![]);
+        assert_eq!(col.column_type(), ColumnType::Scalar);
+    }
+
+    #[test]
+    fn varchar_column_type() {
+        let col = CommittableColumn::VarChar(alloc::vec![]);
+        assert_eq!(col.column_type(), ColumnType::VarChar);
+    }
+
+    #[test]
+    fn varbinary_column_type() {
+        let col = CommittableColumn::VarBinary(alloc::vec![]);
+        assert_eq!(col.column_type(), ColumnType::VarBinary);
+    }
+
+    #[test]
+    fn timestamptz_column_type() {
+        let col = CommittableColumn::TimestampTZ(
+            PoSQLTimeUnit::Nanosecond,
+            PoSQLTimeZone::utc(),
+            &[],
+        );
+        assert_eq!(
+            col.column_type(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc())
+        );
+    }
+
+    // --- From<&[T]> slice impls ---
+
+    #[test]
+    fn from_u8_slice_creates_uint8() {
+        let data = [1u8, 2, 3];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::Uint8(&data));
+    }
+
+    #[test]
+    fn from_i8_slice_creates_tinyint() {
+        let data = [1i8, -2, 3];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::TinyInt(&data));
+    }
+
+    #[test]
+    fn from_i16_slice_creates_smallint() {
+        let data = [100i16, -200, 300];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::SmallInt(&data));
+    }
+
+    #[test]
+    fn from_i32_slice_creates_int() {
+        let data = [1i32, 2, 3];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::Int(&data));
+    }
+
+    #[test]
+    fn from_i64_slice_creates_bigint() {
+        let data = [1i64, 2, 3];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::BigInt(&data));
+    }
+
+    #[test]
+    fn from_i128_slice_creates_int128() {
+        let data = [1i128, 2, 3];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::Int128(&data));
+    }
+
+    #[test]
+    fn from_bool_slice_creates_boolean() {
+        let data = [true, false, true];
+        let col = CommittableColumn::from(data.as_slice());
+        assert_eq!(col, CommittableColumn::Boolean(&data));
+    }
+
+    // --- From<&Column<S>> ---
+
+    #[test]
+    fn from_column_boolean_creates_boolean() {
+        let data = [true, false];
+        let col = CommittableColumn::from(&Column::<TestScalar>::Boolean(&data));
+        assert_eq!(col, CommittableColumn::Boolean(&data));
+    }
+
+    #[test]
+    fn from_column_uint8_creates_uint8() {
+        let data = [1u8, 2, 3];
+        let col = CommittableColumn::from(&Column::<TestScalar>::Uint8(&data));
+        assert_eq!(col, CommittableColumn::Uint8(&data));
+    }
+
+    #[test]
+    fn from_column_tinyint_creates_tinyint() {
+        let data = [1i8, -2];
+        let col = CommittableColumn::from(&Column::<TestScalar>::TinyInt(&data));
+        assert_eq!(col, CommittableColumn::TinyInt(&data));
+    }
+
+    #[test]
+    fn from_column_smallint_creates_smallint() {
+        let data = [100i16, 200];
+        let col = CommittableColumn::from(&Column::<TestScalar>::SmallInt(&data));
+        assert_eq!(col, CommittableColumn::SmallInt(&data));
+    }
+
+    #[test]
+    fn from_column_int_creates_int() {
+        let data = [10i32, 20, 30];
+        let col = CommittableColumn::from(&Column::<TestScalar>::Int(&data));
+        assert_eq!(col, CommittableColumn::Int(&data));
+    }
+
+    #[test]
+    fn from_column_bigint_creates_bigint() {
+        let data = [100i64, 200, 300];
+        let col = CommittableColumn::from(&Column::<TestScalar>::BigInt(&data));
+        assert_eq!(col, CommittableColumn::BigInt(&data));
+    }
+
+    #[test]
+    fn from_column_int128_creates_int128() {
+        let data = [1i128, -2];
+        let col = CommittableColumn::from(&Column::<TestScalar>::Int128(&data));
+        assert_eq!(col, CommittableColumn::Int128(&data));
+    }
+
+    #[test]
+    fn from_column_timestamptz_creates_timestamptz() {
+        let data = [1000i64, 2000];
+        let col = CommittableColumn::from(&Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &data,
+        ));
+        assert_eq!(
+            col,
+            CommittableColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &data)
+        );
+    }
+
+    #[test]
+    fn from_column_scalar_creates_scalar() {
+        let scalars = [TestScalar::from(1u64), TestScalar::from(2u64)];
+        let col = CommittableColumn::from(&Column::Scalar(&scalars));
+        assert_eq!(col.len(), 2);
+        assert_eq!(col.column_type(), ColumnType::Scalar);
+    }
+
+    #[test]
+    fn from_column_varchar_creates_varchar() {
+        let strs = ["hello", "world"];
+        let scalars = strs.map(TestScalar::from);
+        let col = CommittableColumn::from(&Column::VarChar((&strs, &scalars)));
+        assert_eq!(col.len(), 2);
+        assert_eq!(col.column_type(), ColumnType::VarChar);
+    }
+
+    #[test]
+    fn from_column_decimal75_creates_decimal75() {
+        let prec = Precision::new(10).unwrap();
+        let scalars = [TestScalar::from(1u64), TestScalar::from(2u64)];
+        let col = CommittableColumn::from(&Column::Decimal75(prec, 3, &scalars));
+        assert_eq!(col.len(), 2);
+        assert_eq!(col.column_type(), ColumnType::Decimal75(prec, 3));
+    }
+
+    // --- From<Column<S>> (by value) ---
+
+    #[test]
+    fn from_owned_column_value_bigint() {
+        let data = [10i64, 20];
+        let col = CommittableColumn::from(Column::<TestScalar>::BigInt(&data));
+        assert_eq!(col, CommittableColumn::BigInt(&data));
+    }
+
+    // --- From<&OwnedColumn<S>> ---
+
+    #[test]
+    fn from_owned_column_boolean() {
+        let owned = OwnedColumn::<TestScalar>::Boolean(alloc::vec![true, false]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::Boolean(&[true, false]));
+    }
+
+    #[test]
+    fn from_owned_column_uint8() {
+        let owned = OwnedColumn::<TestScalar>::Uint8(alloc::vec![1u8, 2, 3]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::Uint8(&[1u8, 2, 3]));
+    }
+
+    #[test]
+    fn from_owned_column_bigint() {
+        let owned = OwnedColumn::<TestScalar>::BigInt(alloc::vec![100i64, 200]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::BigInt(&[100i64, 200]));
+    }
+
+    #[test]
+    fn from_owned_column_int128() {
+        let owned = OwnedColumn::<TestScalar>::Int128(alloc::vec![1i128, 2]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::Int128(&[1i128, 2]));
+    }
+
+    #[test]
+    fn from_owned_column_varchar_empty() {
+        let owned = OwnedColumn::<TestScalar>::VarChar(alloc::vec![]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::VarChar(alloc::vec![]));
+    }
+
+    #[test]
+    fn from_owned_column_varchar_nonempty() {
+        let strings = alloc::vec![alloc::string::String::from("a"), alloc::string::String::from("b")];
+        let owned = OwnedColumn::<TestScalar>::VarChar(strings.clone());
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col.len(), 2);
+        assert_eq!(col.column_type(), ColumnType::VarChar);
+    }
+
+    #[test]
+    fn from_owned_column_scalar() {
+        let scalars = alloc::vec![TestScalar::from(1u64), TestScalar::from(2u64)];
+        let owned = OwnedColumn::Scalar(scalars);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col.len(), 2);
+        assert_eq!(col.column_type(), ColumnType::Scalar);
+    }
+
+    #[test]
+    fn from_owned_column_timestamptz() {
+        let owned = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            alloc::vec![1000i64, 2000],
+        );
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(
+            col,
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[1000i64, 2000]
+            )
+        );
+    }
+
+    #[test]
+    fn from_owned_column_varbinary_empty() {
+        let owned = OwnedColumn::<TestScalar>::VarBinary(alloc::vec![]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col, CommittableColumn::VarBinary(alloc::vec![]));
+    }
+
+    #[test]
+    fn from_owned_column_varbinary_nonempty() {
+        let owned = OwnedColumn::<TestScalar>::VarBinary(alloc::vec![b"foo".to_vec()]);
+        let col = CommittableColumn::from(&owned);
+        assert_eq!(col.len(), 1);
+        assert_eq!(col.column_type(), ColumnType::VarBinary);
+    }
+
+    // --- PartialEq ---
+
+    #[test]
+    fn same_boolean_columns_are_equal() {
+        let a = CommittableColumn::Boolean(&[true, false]);
+        let b = CommittableColumn::Boolean(&[true, false]);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_variants_are_not_equal() {
+        let a = CommittableColumn::Boolean(&[true]);
+        let b = CommittableColumn::Uint8(&[1u8]);
+        assert_ne!(a, b);
+    }
+}
+
