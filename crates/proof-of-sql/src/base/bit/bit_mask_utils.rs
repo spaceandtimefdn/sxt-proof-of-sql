@@ -19,3 +19,45 @@ pub fn make_bit_mask<S: ScalarExt>(x: S) -> U256 {
 pub fn is_bit_mask_negative_representation(bit_mask: U256) -> bool {
     bit_mask & MSB_MASK == U256::ZERO
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_bit_mask_negative_representation;
+    use bnum::types::U256;
+
+    fn msb_mask() -> U256 {
+        U256::ONE << 255u32
+    }
+
+    #[test]
+    fn zero_has_no_msb_so_is_negative_representation() {
+        assert!(is_bit_mask_negative_representation(U256::ZERO));
+    }
+
+    #[test]
+    fn one_has_no_msb_so_is_negative_representation() {
+        assert!(is_bit_mask_negative_representation(U256::ONE));
+    }
+
+    #[test]
+    fn msb_set_alone_is_not_negative_representation() {
+        assert!(!is_bit_mask_negative_representation(msb_mask()));
+    }
+
+    #[test]
+    fn max_u256_has_msb_set_so_not_negative_representation() {
+        assert!(!is_bit_mask_negative_representation(U256::MAX));
+    }
+
+    #[test]
+    fn msb_plus_lower_bits_is_not_negative_representation() {
+        let val = msb_mask() | U256::ONE;
+        assert!(!is_bit_mask_negative_representation(val));
+    }
+
+    #[test]
+    fn large_value_without_msb_is_negative_representation() {
+        let val = msb_mask() - U256::ONE;
+        assert!(is_bit_mask_negative_representation(val));
+    }
+}
