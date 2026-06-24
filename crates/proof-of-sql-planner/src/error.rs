@@ -105,3 +105,64 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+
+    #[test]
+    fn column_not_found_displays_correctly() {
+        assert_eq!(PlannerError::ColumnNotFound.to_string(), "Column not found");
+    }
+
+    #[test]
+    fn table_not_found_displays_table_name() {
+        let err = PlannerError::TableNotFound { table_name: "my_table".to_string() };
+        let msg = err.to_string();
+        assert!(msg.contains("my_table"));
+        assert!(msg.contains("Table not found"));
+    }
+
+    #[test]
+    fn invalid_placeholder_id_displays_id() {
+        let err = PlannerError::InvalidPlaceholderId { id: "$99".to_string() };
+        assert!(err.to_string().contains("$99"));
+        assert!(err.to_string().contains("Placeholder id"));
+    }
+
+    #[test]
+    fn unresolved_logical_plan_displays_correctly() {
+        assert_eq!(
+            PlannerError::UnresolvedLogicalPlan.to_string(),
+            "LogicalPlan is not resolved"
+        );
+    }
+
+    #[test]
+    fn catalog_not_supported_displays_correctly() {
+        assert_eq!(
+            PlannerError::CatalogNotSupported.to_string(),
+            "Catalog is not supported"
+        );
+    }
+
+    #[test]
+    fn unsupported_data_type_boolean_displays_type_name() {
+        let err = PlannerError::UnsupportedDataType { data_type: DataType::Boolean };
+        assert!(err.to_string().contains("Boolean"));
+        assert!(err.to_string().contains("Unsupported datatype"));
+    }
+
+    #[test]
+    fn unsupported_data_type_int64_displays_type_name() {
+        let err = PlannerError::UnsupportedDataType { data_type: DataType::Int64 };
+        assert!(err.to_string().contains("Int64"));
+    }
+
+    #[test]
+    fn debug_output_contains_variant_name() {
+        let debug = format!("{:?}", PlannerError::ColumnNotFound);
+        assert!(debug.contains("ColumnNotFound"));
+    }
+}
