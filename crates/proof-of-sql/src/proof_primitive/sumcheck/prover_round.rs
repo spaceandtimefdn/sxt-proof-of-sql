@@ -124,3 +124,85 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{in_place_fix_variable, vec_elementwise_add};
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::vec;
+
+    #[test]
+    fn vec_elementwise_add_sums_each_position() {
+        let a = vec![TestScalar::from(1u64), TestScalar::from(2u64), TestScalar::from(3u64)];
+        let b = vec![TestScalar::from(10u64), TestScalar::from(20u64), TestScalar::from(30u64)];
+        let result = vec_elementwise_add(a, b);
+        assert_eq!(result[0], TestScalar::from(11u64));
+        assert_eq!(result[1], TestScalar::from(22u64));
+        assert_eq!(result[2], TestScalar::from(33u64));
+    }
+
+    #[test]
+    fn vec_elementwise_add_of_empty_vecs_is_empty() {
+        let result = vec_elementwise_add::<TestScalar>(vec![], vec![]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn vec_elementwise_add_with_zero_is_identity() {
+        let v = vec![TestScalar::from(5u64), TestScalar::from(7u64)];
+        let zeros = vec![TestScalar::from(0u64), TestScalar::from(0u64)];
+        let result = vec_elementwise_add(v.clone(), zeros);
+        assert_eq!(result, v);
+    }
+
+    #[test]
+    fn in_place_fix_variable_at_zero_selects_even_indexed_pairs() {
+        // num_vars=1: loops b in 0..2
+        // b=0: result[0] = v[0] + 0*(v[1]-v[0]) = v[0] = 10
+        // b=1: result[1] = v[2] + 0*(v[3]-v[2]) = v[2] = 30
+        let mut v = vec![
+            TestScalar::from(10u64), TestScalar::from(20u64),
+            TestScalar::from(30u64), TestScalar::from(40u64),
+        ];
+        in_place_fix_variable(&mut v, TestScalar::from(0u64), 1);
+        assert_eq!(v[0], TestScalar::from(10u64));
+        assert_eq!(v[1], TestScalar::from(30u64));
+    }
+
+    #[test]
+    fn in_place_fix_variable_at_one_selects_odd_indexed_pairs() {
+        // b=0: result[0] = v[0] + 1*(v[1]-v[0]) = v[1] = 20
+        // b=1: result[1] = v[2] + 1*(v[3]-v[2]) = v[3] = 40
+        let mut v = vec![
+            TestScalar::from(10u64), TestScalar::from(20u64),
+            TestScalar::from(30u64), TestScalar::from(40u64),
+        ];
+        in_place_fix_variable(&mut v, TestScalar::from(1u64), 1);
+        assert_eq!(v[0], TestScalar::from(20u64));
+        assert_eq!(v[1], TestScalar::from(40u64));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid size of partial point")]
+    fn in_place_fix_variable_panics_on_zero_num_vars() {
+        let mut v = vec![TestScalar::from(1u64), TestScalar::from(2u64)];
+        in_place_fix_variable(&mut v, TestScalar::from(0u64), 0);
+    }
+
+    #[test]
+    fn in_place_fix_variable_with_num_vars_2_selects_quarter_of_table() {
+        // num_vars=2: loops b in 0..4
+        // r=0: result[b] = v[2b] for each b
+        let mut v = vec![
+            TestScalar::from(1u64), TestScalar::from(2u64),
+            TestScalar::from(3u64), TestScalar::from(4u64),
+            TestScalar::from(5u64), TestScalar::from(6u64),
+            TestScalar::from(7u64), TestScalar::from(8u64),
+        ];
+        in_place_fix_variable(&mut v, TestScalar::from(0u64), 2);
+        assert_eq!(v[0], TestScalar::from(1u64));
+        assert_eq!(v[1], TestScalar::from(3u64));
+        assert_eq!(v[2], TestScalar::from(5u64));
+        assert_eq!(v[3], TestScalar::from(7u64));
+    }
+}
