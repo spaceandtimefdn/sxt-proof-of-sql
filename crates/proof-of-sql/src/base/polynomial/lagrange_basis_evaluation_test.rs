@@ -192,6 +192,23 @@ fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_0_va
         TestScalar::from(0u32)
     );
 }
+
+#[test]
+#[should_panic]
+fn compute_truncated_lagrange_basis_inner_product_rejects_length_beyond_0_variable_domain() {
+    let a: Vec<TestScalar> = vec![];
+    let b = vec![];
+    compute_truncated_lagrange_basis_inner_product(2, &a, &b);
+}
+
+#[test]
+#[should_panic]
+fn compute_truncated_lagrange_basis_inner_product_rejects_mismatched_point_lengths() {
+    let a = vec![TestScalar::from(2u8)];
+    let b = vec![];
+    compute_truncated_lagrange_basis_inner_product(1, &a, &b);
+}
+
 #[test]
 fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_1_variables() {
     let a = vec![TestScalar::from(2u8)];
