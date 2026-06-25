@@ -107,3 +107,21 @@ pub(super) fn compute_dynamic_dory_commitments(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{test_rng, PublicParameters};
+
+    #[test]
+    fn we_return_default_commitment_for_empty_column_impl() {
+        let public_parameters = PublicParameters::test_rand(0, &mut test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+        let column: [i64; 0] = [];
+
+        assert_eq!(
+            compute_dory_commitment_impl(&column, 7, &setup),
+            DynamicDoryCommitment::default()
+        );
+    }
+}
