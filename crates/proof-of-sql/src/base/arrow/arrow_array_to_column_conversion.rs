@@ -279,7 +279,7 @@ impl ArrayRefExt for ArrayRef {
                     let scals = if let Some(scals) = precomputed_scals {
                         &scals[range.start..range.end]
                     } else {
-                        alloc.alloc_slice_fill_with(vals.len(), |i| -> S { vals[i].into() })
+                        alloc.alloc_slice_fill_with(vals.len(), |i| S::from_str_via_hash(vals[i]))
                     };
 
                     Ok(Column::VarChar((vals, scals)))
@@ -430,7 +430,10 @@ mod tests {
         let array: ArrayRef = Arc::new(StringArray::from(vec!["hello", "world", "test"]));
         let result = array.to_column::<TestScalar>(&alloc, &(1..3), None);
         let expected_vals = vec!["world", "test"];
-        let expected_scals: Vec<TestScalar> = expected_vals.iter().map(|&v| v.into()).collect();
+        let expected_scals: Vec<TestScalar> = expected_vals
+            .iter()
+            .map(|&v| TestScalar::from_str_via_hash(v))
+            .collect();
 
         assert_eq!(
             result.unwrap(),
