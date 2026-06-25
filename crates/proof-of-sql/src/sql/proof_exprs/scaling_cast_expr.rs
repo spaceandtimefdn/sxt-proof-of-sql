@@ -110,3 +110,70 @@ impl ProofExpr for ScalingCastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests_scaling_cast {
+    use crate::{
+        base::{database::{ColumnType, LiteralValue}, math::decimal::Precision},
+        sql::proof_exprs::{DynProofExpr, ProofExpr, ScalingCastExpr},
+    };
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(5))
+    }
+
+    fn decimal75_type() -> ColumnType {
+        // BigInt has precision=19, scale=0; Decimal75(75, 2) has 75-2=73 >= 19-0=19
+        ColumnType::Decimal75(Precision::new(75).unwrap(), 2)
+    }
+
+    #[test]
+    fn try_new_valid_cast_returns_ok() {
+        assert!(ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).is_ok());
+    }
+
+    #[test]
+    fn try_new_invalid_cast_returns_err() {
+        // Boolean → Decimal75 is not a valid scale cast
+        let bool_expr = DynProofExpr::new_literal(LiteralValue::Boolean(true));
+        assert!(ScalingCastExpr::try_new(alloc::boxed::Box::new(bool_expr), decimal75_type()).is_err());
+    }
+
+    #[test]
+    fn data_type_returns_to_type() {
+        let e = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert_eq!(e.data_type(), decimal75_type());
+    }
+
+    #[test]
+    fn to_type_accessor() {
+        let e = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert_eq!(*e.to_type(), decimal75_type());
+    }
+
+    #[test]
+    fn from_expr_has_bigint_type() {
+        let e = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert_eq!(e.get_from_expr().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn scaling_factor_is_100_for_scale_2() {
+        // 10^(2-0) = 100 as a U256 → [u64; 4] = [100, 0, 0, 0]
+        let e = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert_eq!(e.scaling_factor()[0], 100);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        let b = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = ScalingCastExpr::try_new(alloc::boxed::Box::new(bigint_expr()), decimal75_type()).unwrap();
+        assert!(alloc::format!("{e:?}").contains("ScalingCastExpr"));
+    }
+}

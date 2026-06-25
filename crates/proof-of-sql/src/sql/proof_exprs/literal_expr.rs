@@ -92,3 +92,50 @@ impl ProofExpr for LiteralExpr {
 
     fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LiteralExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::ProofExpr,
+    };
+
+    #[test]
+    fn new_bigint_literal_stores_value() {
+        let e = LiteralExpr::new(LiteralValue::BigInt(42));
+        assert_eq!(e.value(), &LiteralValue::BigInt(42));
+    }
+
+    #[test]
+    fn data_type_bigint() {
+        let e = LiteralExpr::new(LiteralValue::BigInt(1));
+        assert_eq!(e.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn data_type_boolean() {
+        let e = LiteralExpr::new(LiteralValue::Boolean(true));
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = LiteralExpr::new(LiteralValue::BigInt(5));
+        let b = LiteralExpr::new(LiteralValue::BigInt(5));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn inequality_for_different_values() {
+        let a = LiteralExpr::new(LiteralValue::BigInt(1));
+        let b = LiteralExpr::new(LiteralValue::BigInt(2));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = LiteralExpr::new(LiteralValue::Boolean(false));
+        assert!(alloc::format!("{e:?}").contains("LiteralExpr"));
+    }
+}

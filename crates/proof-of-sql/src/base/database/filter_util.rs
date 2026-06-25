@@ -84,3 +84,80 @@ pub fn filter_column_by_index<'a, S: Scalar>(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{filter_column_by_index, filter_columns};
+    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use bumpalo::Bump;
+
+    type S = TestScalar;
+
+    #[test]
+    fn filter_columns_with_all_selected() {
+        let alloc = Bump::new();
+        let data = &[1i64, 2, 3];
+        let cols: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[true, true, true];
+        let (filtered, count) = filter_columns(&alloc, cols, selection);
+        assert_eq!(count, 3);
+        assert_eq!(filtered.len(), 1);
+    }
+
+    #[test]
+    fn filter_columns_with_none_selected() {
+        let alloc = Bump::new();
+        let data = &[1i64, 2, 3];
+        let cols: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[false, false, false];
+        let (_, count) = filter_columns(&alloc, cols, selection);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn filter_columns_selects_correct_rows() {
+        let alloc = Bump::new();
+        let data = &[10i64, 20, 30];
+        let cols: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[false, true, false];
+        let (filtered, count) = filter_columns(&alloc, cols, selection);
+        assert_eq!(count, 1);
+        if let Column::BigInt(vals) = &filtered[0] {
+            assert_eq!(vals[0], 20);
+        } else {
+            panic!("expected BigInt column");
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_boolean_column() {
+        let alloc = Bump::new();
+        let data = &[true, false, true];
+        let col = Column::<S>::Boolean(data);
+        let filtered = filter_column_by_index(&alloc, &col, &[0, 2]);
+        if let Column::Boolean(vals) = filtered {
+            assert_eq!(vals, &[true, true]);
+        } else {
+            panic!("expected Boolean column");
+        }
+    }
+
+    #[test]
+    fn filter_column_by_index_empty_indexes() {
+        let alloc = Bump::new();
+        let data = &[1i64, 2, 3];
+        let col = Column::<S>::BigInt(data);
+        let filtered = filter_column_by_index(&alloc, &col, &[]);
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    fn filter_columns_empty_columns_list() {
+        let alloc = Bump::new();
+        let cols: &[Column<S>] = &[];
+        let selection = &[true, false, true];
+        let (filtered, count) = filter_columns(&alloc, cols, selection);
+        assert_eq!(count, 2);
+        assert!(filtered.is_empty());
+    }
+}
