@@ -275,7 +275,7 @@ impl<T: MontConfig<4>> num_traits::Inv for MontScalar<T> {
 }
 impl<T: MontConfig<4>> Serialize for MontScalar<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut limbs: [u64; 4] = self.into();
+        let mut limbs = self.to_limbs();
         limbs.reverse();
         limbs.serialize(serializer)
     }
@@ -304,6 +304,14 @@ impl<T: MontConfig<4>> From<MontScalar<T>> for [u64; 4] {
 impl<T: MontConfig<4>> From<&MontScalar<T>> for [u64; 4] {
     fn from(value: &MontScalar<T>) -> Self {
         value.0.into_bigint().0
+    }
+}
+
+impl<T: MontConfig<4>> MontScalar<T> {
+    /// Convert this scalar into non-Montgomery-form limbs.
+    #[must_use]
+    pub fn to_limbs(&self) -> [u64; 4] {
+        self.0.into_bigint().0
     }
 }
 
@@ -403,6 +411,14 @@ where
         255 - T::MODULUS.0[3].leading_zeros() as u8
     };
     const MAX_SIGNED_U256: U256 = U256::from_digits(T::MODULUS.divide_by_2_round_down().0);
+
+    fn from_limbs(limbs: [u64; 4]) -> Self {
+        Self::from(limbs)
+    }
+
+    fn to_limbs(&self) -> [u64; 4] {
+        MontScalar::to_limbs(self)
+    }
 }
 
 impl<T> TryFrom<MontScalar<T>> for bool
@@ -413,9 +429,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -447,7 +463,7 @@ where
             });
         }
 
-        let abs: [u64; 4] = value.into();
+        let abs = value.to_limbs();
 
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -471,9 +487,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -495,9 +511,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -519,9 +535,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -543,9 +559,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -569,9 +585,9 @@ where
     #[expect(clippy::cast_possible_wrap)]
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -603,7 +619,7 @@ where
         } else {
             num_bigint::Sign::Plus
         };
-        let value_abs: [u64; 4] = (if is_negative { -value } else { value }).into();
+        let value_abs = (if is_negative { -value } else { value }).to_limbs();
         let bits: &[u8] = bytemuck::cast_slice(&value_abs);
         BigInt::from_bytes_le(sign, bits)
     }
