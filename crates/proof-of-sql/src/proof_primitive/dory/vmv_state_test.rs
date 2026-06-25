@@ -1,12 +1,11 @@
-use super::{test_rng, PublicParameters, F, VMV};
+use super::{cached_prover_setup, cached_public_parameters, test_rng, F, VMV};
 use ark_ec::pairing::Pairing;
 
 #[test]
 fn we_can_create_correct_vmv_states_from_a_small_fixed_vmv() {
-    let mut rng = test_rng();
     let nu = 2;
-    let pp = PublicParameters::test_rand(nu, &mut rng);
-    let prover_setup = (&pp).into();
+    let pp = cached_public_parameters(nu);
+    let prover_setup = cached_prover_setup(nu);
     let Gamma_1 = pp.Gamma_1.clone();
     let Gamma_2 = pp.Gamma_2.clone();
     let L = vec![100.into(), 101.into(), 102.into(), 103.into()];
@@ -100,8 +99,7 @@ fn we_can_create_correct_vmv_states_from_a_small_fixed_vmv() {
 fn we_can_create_vmv_states_from_random_vmv_and_get_correct_sizes() {
     let mut rng = test_rng();
     let max_nu = 5;
-    let pp = PublicParameters::test_rand(max_nu, &mut rng);
-    let prover_setup = (&pp).into();
+    let prover_setup = cached_prover_setup(max_nu);
     for nu in 0..max_nu {
         let vmv = VMV::rand(nu, &mut rng);
 
