@@ -50,3 +50,94 @@ impl core::ops::Mul<Curve25519Scalar> for &curve25519_dalek::ristretto::Ristrett
         self * curve25519_dalek::scalar::Scalar::from(rhs)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Curve25519Scalar;
+    use crate::base::scalar::Scalar;
+    use curve25519_dalek::{
+        constants::RISTRETTO_BASEPOINT_POINT,
+        scalar::Scalar as DalekScalar,
+    };
+
+    #[test]
+    fn scalar_mul_ristretto_point_zero_gives_identity() {
+        let s = Curve25519Scalar::ZERO;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = s * g;
+        let expected = DalekScalar::ZERO * g;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn scalar_mul_ristretto_ref_zero_gives_identity() {
+        let s = Curve25519Scalar::ZERO;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = s * &g;
+        let expected = DalekScalar::ZERO * g;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn ristretto_point_mul_scalar_zero_gives_identity() {
+        let s = Curve25519Scalar::ZERO;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = g * s;
+        let expected = g * DalekScalar::ZERO;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn ristretto_point_ref_mul_scalar_zero_gives_identity() {
+        let s = Curve25519Scalar::ZERO;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = &g * s;
+        let expected = &g * DalekScalar::ZERO;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn scalar_mul_ristretto_point_one_gives_base_point() {
+        let s = Curve25519Scalar::ONE;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = s * g;
+        assert_eq!(result, g);
+    }
+
+    #[test]
+    fn scalar_mul_ristretto_ref_one_gives_base_point() {
+        let s = Curve25519Scalar::ONE;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = s * &g;
+        assert_eq!(result, g);
+    }
+
+    #[test]
+    fn ristretto_point_mul_scalar_one_gives_base_point() {
+        let s = Curve25519Scalar::ONE;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = g * s;
+        assert_eq!(result, g);
+    }
+
+    #[test]
+    fn ristretto_point_ref_mul_scalar_one_gives_base_point() {
+        let s = Curve25519Scalar::ONE;
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let result = &g * s;
+        assert_eq!(result, g);
+    }
+
+    #[test]
+    fn all_four_mul_impls_are_consistent() {
+        let s = Curve25519Scalar::from(7u64);
+        let g = RISTRETTO_BASEPOINT_POINT;
+        let r1 = s * g;
+        let r2 = s * &g;
+        let r3 = g * s;
+        let r4 = &g * s;
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert_eq!(r3, r4);
+    }
+}
