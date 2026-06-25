@@ -27,7 +27,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
 
-const DORY_SETUP_MAX_NU: usize = 8;
+const DORY_SETUP_MAX_NU: usize = 3;
 const DORY_SEED: [u8; 32] = *b"ebab60d58dee4cc69658939b7c2a582d";
 
 /// # Panics
