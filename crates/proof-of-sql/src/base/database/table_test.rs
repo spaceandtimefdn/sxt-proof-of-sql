@@ -1,5 +1,7 @@
 use crate::base::{
-    database::{table_utility::*, Column, Table, TableError, TableOptions},
+    database::{
+        table_utility::*, Column, ColumnField, ColumnType, Table, TableError, TableOptions,
+    },
     map::{indexmap, IndexMap},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
@@ -192,6 +194,72 @@ fn we_can_create_a_table_with_data() {
     expected_table.insert(Ident::new("boolean"), Column::Boolean(boolean_data));
 
     assert_eq!(borrowed_table.into_inner(), expected_table);
+}
+
+#[test]
+fn table_accessors_preserve_column_order_and_types() {
+    let alloc = Bump::new();
+    let table = table::<TestScalar>([
+        borrowed_bigint("bigint", [3_i64, 5], &alloc),
+        borrowed_boolean("flag", [true, false], &alloc),
+        borrowed_varchar("label", ["alpha", "beta"], &alloc),
+    ]);
+
+    let column_names: Vec<_> = table.column_names().cloned().collect();
+    assert_eq!(
+        column_names,
+        vec![
+            Ident::new("bigint"),
+            Ident::new("flag"),
+            Ident::new("label")
+        ]
+    );
+
+    assert_eq!(
+        table.schema(),
+        vec![
+            ColumnField::new(Ident::new("bigint"), ColumnType::BigInt),
+            ColumnField::new(Ident::new("flag"), ColumnType::Boolean),
+            ColumnField::new(Ident::new("label"), ColumnType::VarChar),
+        ]
+    );
+
+    assert_eq!(table.column(0), Some(&Column::BigInt(&[3_i64, 5])));
+    assert_eq!(table.column(1), Some(&Column::Boolean(&[true, false])));
+    assert!(matches!(table.column(2), Some(Column::VarChar(_))));
+    assert_eq!(table.column(3), None);
+
+    let column_types: Vec<_> = table.columns().map(Column::column_type).collect();
+    assert_eq!(
+        column_types,
+        vec![ColumnType::BigInt, ColumnType::Boolean, ColumnType::VarChar]
+    );
+}
+
+#[test]
+fn table_inner_views_expose_the_same_ordered_columns() {
+    let table = Table::<TestScalar>::try_new(indexmap! {
+        Ident::new("left") => Column::Int(&[1, 2]),
+        Ident::new("right") => Column::SmallInt(&[3, 4]),
+    })
+    .unwrap();
+
+    let inner_names: Vec<_> = table.inner_table().keys().cloned().collect();
+    assert_eq!(inner_names, vec![Ident::new("left"), Ident::new("right")]);
+
+    let inner_columns: Vec<_> = table.inner_table().values().copied().collect();
+    assert_eq!(
+        inner_columns,
+        vec![Column::Int(&[1, 2]), Column::SmallInt(&[3, 4])]
+    );
+
+    let owned_inner = table.into_inner();
+    assert_eq!(
+        owned_inner.keys().cloned().collect::<Vec<_>>(),
+        vec![Ident::new("left"), Ident::new("right")]
+    );
+    assert_eq!(owned_inner[0], Column::Int(&[1, 2]));
+    assert_eq!(owned_inner[1], Column::SmallInt(&[3, 4]));
 }
 
 #[test]
