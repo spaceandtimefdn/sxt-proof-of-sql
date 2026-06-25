@@ -320,3 +320,125 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::OwnedColumn,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn uint8_creates_correct_column() {
+        let (name, col) = uint8::<TestScalar>("a", [1u8, 2, 3]);
+        assert_eq!(name, Ident::new("a"));
+        assert_eq!(col, OwnedColumn::Uint8(alloc::vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn tinyint_creates_correct_column() {
+        let (name, col) = tinyint::<TestScalar>("b", [-1i8, 0, 1]);
+        assert_eq!(name, Ident::new("b"));
+        assert_eq!(col, OwnedColumn::TinyInt(alloc::vec![-1, 0, 1]));
+    }
+
+    #[test]
+    fn smallint_creates_correct_column() {
+        let (name, col) = smallint::<TestScalar>("c", [100i16, 200]);
+        assert_eq!(name, Ident::new("c"));
+        assert_eq!(col, OwnedColumn::SmallInt(alloc::vec![100, 200]));
+    }
+
+    #[test]
+    fn int_creates_correct_column() {
+        let (name, col) = int::<TestScalar>("d", [1i32, 2, 3]);
+        assert_eq!(name, Ident::new("d"));
+        assert_eq!(col, OwnedColumn::Int(alloc::vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn bigint_creates_correct_column() {
+        let (name, col) = bigint::<TestScalar>("e", [10i64, 20, 30]);
+        assert_eq!(name, Ident::new("e"));
+        assert_eq!(col, OwnedColumn::BigInt(alloc::vec![10, 20, 30]));
+    }
+
+    #[test]
+    fn boolean_creates_correct_column() {
+        let (name, col) = boolean::<TestScalar>("f", [true, false]);
+        assert_eq!(name, Ident::new("f"));
+        assert_eq!(col, OwnedColumn::Boolean(alloc::vec![true, false]));
+    }
+
+    #[test]
+    fn int128_creates_correct_column() {
+        let (name, col) = int128::<TestScalar>("g", [1i128, -1]);
+        assert_eq!(name, Ident::new("g"));
+        assert_eq!(col, OwnedColumn::Int128(alloc::vec![1, -1]));
+    }
+
+    #[test]
+    fn scalar_creates_correct_column() {
+        let (name, col) = scalar::<TestScalar>("h", [TestScalar::from(5)]);
+        assert_eq!(name, Ident::new("h"));
+        assert_eq!(col, OwnedColumn::Scalar(alloc::vec![TestScalar::from(5)]));
+    }
+
+    #[test]
+    fn varchar_creates_correct_column() {
+        let (name, col) = varchar::<TestScalar>("i", ["hello", "world"]);
+        assert_eq!(name, Ident::new("i"));
+        assert_eq!(col, OwnedColumn::VarChar(alloc::vec!["hello".into(), "world".into()]));
+    }
+
+    #[test]
+    fn varbinary_creates_correct_column() {
+        let (name, col) = varbinary::<TestScalar>("j", [alloc::vec![1u8, 2, 3]]);
+        assert_eq!(name, Ident::new("j"));
+        assert!(matches!(col, OwnedColumn::VarBinary(_)));
+    }
+
+    #[test]
+    fn decimal75_creates_correct_column() {
+        let (name, col) = decimal75::<TestScalar>("k", 10, 2, [TestScalar::from(1)]);
+        assert_eq!(name, Ident::new("k"));
+        assert!(matches!(col, OwnedColumn::Decimal75(_, 2, _)));
+    }
+
+    #[test]
+    fn timestamptz_creates_correct_column() {
+        let (name, col) = timestamptz::<TestScalar>(
+            "l",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            [1_000_000i64],
+        );
+        assert_eq!(name, Ident::new("l"));
+        assert!(matches!(col, OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, _, _)));
+    }
+
+    #[test]
+    fn owned_table_creates_table_with_correct_column_count() {
+        let t = owned_table::<TestScalar>([
+            bigint("x", [1i64, 2]),
+            boolean("y", [true, false]),
+        ]);
+        assert_eq!(t.num_columns(), 2);
+    }
+
+    #[test]
+    fn owned_table_columns_accessible_by_name() {
+        let t = owned_table::<TestScalar>([bigint("val", [42i64])]);
+        let col = t.inner_table().get(&Ident::new("val")).unwrap();
+        assert_eq!(*col, OwnedColumn::BigInt(alloc::vec![42]));
+    }
+
+    #[test]
+    fn owned_table_empty_has_zero_columns() {
+        let t = owned_table::<TestScalar>([]);
+        assert_eq!(t.num_columns(), 0);
+    }
+}
