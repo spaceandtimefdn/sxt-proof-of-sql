@@ -33,12 +33,13 @@ use std::{fs::File, time::Instant};
 // For a sampling:
 // max_nu = 3 => max table size is 32 rows
 // max_nu = 4 => max table size is 128 rows
+// max_nu = 6 => max table size is 2048 rows
 // max_nu = 8 => max table size is 32768 rows
 // max_nu = 10 => max table size is 0.5 million rows
 // max_nu = 15 => max table size is 0.5 billion rows
 // max_nu = 20 => max table size is 0.5 trillion rows
 // Note: we will eventually load these from a file.
-const DORY_SETUP_MAX_NU: usize = 8;
+const DORY_SETUP_MAX_NU: usize = 6;
 // This should be a "nothing-up-my-sleeve" phrase or number.
 const DORY_SEED: [u8; 32] = *b"len 32 rng seed - Space and Time";
 
