@@ -90,3 +90,137 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn proof_error_display_covers_top_level_variants() {
+        assert_eq!(
+            ProofError::VerificationError {
+                error: "bad transcript",
+            }
+            .to_string(),
+            "Verification error: bad transcript"
+        );
+        assert_eq!(
+            ProofError::UnsupportedQueryPlan {
+                error: "recursive CTE",
+            }
+            .to_string(),
+            "Unsupported query plan: recursive CTE"
+        );
+        assert_eq!(
+            ProofError::InvalidTypeCoercion.to_string(),
+            "Result does not match query: type mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldNamesMismatch.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldCountMismatch.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+
+    #[test]
+    fn proof_error_transparent_variants_preserve_source_messages() {
+        let proof_size_error = ProofError::ProofSizeMismatch {
+            source: ProofSizeMismatch::TooFewMLEEvaluations,
+        };
+        let placeholder_error = ProofError::PlaceholderError {
+            source: PlaceholderError::InvalidPlaceholderType {
+                index: 2,
+                expected: ColumnType::BigInt,
+                actual: ColumnType::Boolean,
+            },
+        };
+
+        assert_eq!(
+            proof_size_error.to_string(),
+            "Proof has too few MLE evaluations"
+        );
+        assert_eq!(
+            placeholder_error.to_string(),
+            "Invalid placeholder type: 2, expected: BIGINT, actual: BOOLEAN"
+        );
+    }
+
+    #[test]
+    fn proof_size_mismatch_display_covers_each_variant() {
+        let cases = [
+            (
+                ProofSizeMismatch::SumcheckProofTooSmall,
+                "Sumcheck proof is too small",
+            ),
+            (
+                ProofSizeMismatch::TooFewMLEEvaluations,
+                "Proof has too few MLE evaluations",
+            ),
+            (
+                ProofSizeMismatch::PostResultCountMismatch,
+                "Post result challenge count mismatch",
+            ),
+            (
+                ProofSizeMismatch::ConstraintCountMismatch,
+                "Constraint count mismatch",
+            ),
+            (
+                ProofSizeMismatch::TooFewBitDistributions,
+                "Proof has too few bit distributions",
+            ),
+            (
+                ProofSizeMismatch::TooFewChiLengths,
+                "Proof has too few one lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewRhoLengths,
+                "Proof has too few rho lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewSumcheckVariables,
+                "Proof has too few sumcheck variables",
+            ),
+            (
+                ProofSizeMismatch::ChiLengthNotFound,
+                "Proof doesn't have requested one length",
+            ),
+            (
+                ProofSizeMismatch::RhoLengthNotFound,
+                "Proof doesn't have requested rho length",
+            ),
+        ];
+
+        for (err, expected) in cases {
+            assert_eq!(err.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn placeholder_error_display_covers_each_validation_failure() {
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderIndex {
+                index: 3,
+                num_params: 1,
+            }
+            .to_string(),
+            "Invalid placeholder index: 3, number of params: 1"
+        );
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderType {
+                index: 0,
+                expected: ColumnType::VarChar,
+                actual: ColumnType::BigInt,
+            }
+            .to_string(),
+            "Invalid placeholder type: 0, expected: VARCHAR, actual: BIGINT"
+        );
+        assert_eq!(
+            PlaceholderError::ZeroPlaceholderId.to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+}
