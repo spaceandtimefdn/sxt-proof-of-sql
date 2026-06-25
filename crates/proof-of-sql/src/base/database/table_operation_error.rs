@@ -65,3 +65,66 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::TableOperationError;
+    use crate::base::database::{ColumnType};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn union_not_enough_tables_display() {
+        let e = TableOperationError::UnionNotEnoughTables;
+        assert_eq!(alloc::format!("{e}"), "Cannot union fewer than 2 tables");
+    }
+
+    #[test]
+    fn join_with_different_column_count_display_contains_numbers() {
+        let e = TableOperationError::JoinWithDifferentNumberOfColumns {
+            left_num_columns: 3,
+            right_num_columns: 5,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("3") && s.contains("5"));
+    }
+
+    #[test]
+    fn join_incompatible_types_display() {
+        let e = TableOperationError::JoinIncompatibleTypes {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        assert!(alloc::format!("{e}").contains("incompatible"));
+    }
+
+    #[test]
+    fn column_does_not_exist_display_contains_column_name() {
+        let e = TableOperationError::ColumnDoesNotExist {
+            column_ident: Ident::new("mycol"),
+        };
+        assert!(alloc::format!("{e}").contains("mycol"));
+    }
+
+    #[test]
+    fn duplicate_column_display() {
+        let e = TableOperationError::DuplicateColumn;
+        assert!(alloc::format!("{e}").contains("duplicated") || alloc::format!("{e}").contains("duplicate"));
+    }
+
+    #[test]
+    fn column_index_out_of_bounds_display_contains_index() {
+        let e = TableOperationError::ColumnIndexOutOfBounds { column_index: 42 };
+        assert!(alloc::format!("{e}").contains("42"));
+    }
+
+    #[test]
+    fn union_not_enough_tables_equality() {
+        assert_eq!(TableOperationError::UnionNotEnoughTables, TableOperationError::UnionNotEnoughTables);
+    }
+
+    #[test]
+    fn debug_contains_variant_name() {
+        let e = TableOperationError::DuplicateColumn;
+        assert!(alloc::format!("{e:?}").contains("DuplicateColumn"));
+    }
+}

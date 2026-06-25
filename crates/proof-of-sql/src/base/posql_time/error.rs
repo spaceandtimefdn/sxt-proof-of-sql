@@ -38,3 +38,50 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PoSQLTimestampError;
+
+    #[test]
+    fn invalid_timezone_display_contains_timezone() {
+        let e = PoSQLTimestampError::InvalidTimezone { timezone: "badzone".into() };
+        assert!(alloc::format!("{e}").contains("badzone"));
+    }
+
+    #[test]
+    fn invalid_timezone_offset_display() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        assert_eq!(alloc::format!("{e}"), "invalid timezone offset");
+    }
+
+    #[test]
+    fn invalid_time_unit_display_contains_error() {
+        let e = PoSQLTimestampError::InvalidTimeUnit { error: "bad unit".into() };
+        assert!(alloc::format!("{e}").contains("time unit") || alloc::format!("{e}").contains("Invalid"));
+    }
+
+    #[test]
+    fn unsupported_precision_display_contains_error() {
+        let e = PoSQLTimestampError::UnsupportedPrecision { error: "nanoseconds".into() };
+        assert!(alloc::format!("{e}").contains("nanoseconds") || alloc::format!("{e}").contains("precision"));
+    }
+
+    #[test]
+    fn error_can_be_converted_to_string() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        let s: alloc::string::String = e.into();
+        assert!(!s.is_empty());
+    }
+
+    #[test]
+    fn debug_contains_variant_name() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        assert!(alloc::format!("{e:?}").contains("InvalidTimezoneOffset"));
+    }
+
+    #[test]
+    fn equality_holds_for_same_variant() {
+        assert_eq!(PoSQLTimestampError::InvalidTimezoneOffset, PoSQLTimestampError::InvalidTimezoneOffset);
+    }
+}
