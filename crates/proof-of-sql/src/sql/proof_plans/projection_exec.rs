@@ -191,3 +191,51 @@ impl ProverEvaluate for ProjectionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectionExec;
+    use crate::sql::{proof::ProofPlan, proof_plans::DynProofPlan};
+    use alloc::boxed::Box;
+
+    fn make_input() -> Box<DynProofPlan> {
+        Box::new(DynProofPlan::new_empty())
+    }
+
+    #[test]
+    fn new_creates_projection_with_empty_results() {
+        let proj = ProjectionExec::new(alloc::vec![], make_input());
+        assert!(proj.aliased_results().is_empty());
+    }
+
+    #[test]
+    fn aliased_results_is_empty_when_constructed_empty() {
+        let proj = ProjectionExec::new(alloc::vec![], make_input());
+        assert_eq!(proj.aliased_results().len(), 0);
+    }
+
+    #[test]
+    fn input_returns_stored_plan() {
+        let proj = ProjectionExec::new(alloc::vec![], make_input());
+        let _ = proj.input();
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = ProjectionExec::new(alloc::vec![], make_input());
+        let b = ProjectionExec::new(alloc::vec![], make_input());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let proj = ProjectionExec::new(alloc::vec![], make_input());
+        assert!(alloc::format!("{proj:?}").contains("ProjectionExec"));
+    }
+
+    #[test]
+    fn get_column_result_fields_is_empty_when_no_results() {
+        let proj = ProjectionExec::new(alloc::vec![], make_input());
+        assert!(proj.get_column_result_fields().is_empty());
+    }
+}

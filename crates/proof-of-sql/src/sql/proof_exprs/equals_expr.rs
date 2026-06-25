@@ -213,3 +213,61 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests_equals {
+    use super::EqualsExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+    use alloc::boxed::Box;
+
+    fn bigint_expr() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1)))
+    }
+
+    fn bool_expr() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true)))
+    }
+
+    #[test]
+    fn try_new_with_same_types_returns_ok() {
+        assert!(EqualsExpr::try_new(bigint_expr(), bigint_expr()).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_booleans_returns_ok() {
+        assert!(EqualsExpr::try_new(bool_expr(), bool_expr()).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_mismatched_types_returns_err() {
+        assert!(EqualsExpr::try_new(bigint_expr(), bool_expr()).is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = EqualsExpr::try_new(bigint_expr(), bigint_expr()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn lhs_has_correct_type() {
+        let expr = EqualsExpr::try_new(bigint_expr(), bigint_expr()).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = EqualsExpr::try_new(bigint_expr(), bigint_expr()).unwrap();
+        let b = EqualsExpr::try_new(bigint_expr(), bigint_expr()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let expr = EqualsExpr::try_new(bigint_expr(), bigint_expr()).unwrap();
+        assert!(alloc::format!("{expr:?}").contains("EqualsExpr"));
+    }
+}

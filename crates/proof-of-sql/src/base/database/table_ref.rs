@@ -142,3 +142,56 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableRef;
+
+    #[test]
+    fn new_creates_table_ref_with_schema_and_table() {
+        let t = TableRef::new("myschema", "mytable");
+        assert_eq!(t.schema_id().map(|i| i.value.as_str()), Some("myschema"));
+        assert_eq!(t.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn from_names_with_some_schema() {
+        let t = TableRef::from_names(Some("s"), "t");
+        assert_eq!(t.schema_id().map(|i| i.value.as_str()), Some("s"));
+        assert_eq!(t.table_id().value, "t");
+    }
+
+    #[test]
+    fn from_names_with_no_schema() {
+        let t = TableRef::from_names(None, "t");
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "t");
+    }
+
+    #[test]
+    fn from_strs_with_two_components() {
+        let t = TableRef::from_strs(&["schema", "table"]).unwrap();
+        assert_eq!(t.table_id().value, "table");
+    }
+
+    #[test]
+    fn from_strs_with_one_component() {
+        let t = TableRef::from_strs(&["table"]).unwrap();
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "table");
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = TableRef::new("s", "t");
+        let b = TableRef::new("s", "t");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_table_names_are_not_equal() {
+        let a = TableRef::new("s", "t1");
+        let b = TableRef::new("s", "t2");
+        assert_ne!(a, b);
+    }
+}

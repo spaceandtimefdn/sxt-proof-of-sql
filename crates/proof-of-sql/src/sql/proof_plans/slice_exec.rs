@@ -247,3 +247,53 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SliceExec;
+    use crate::sql::{proof::ProofPlan, proof_plans::DynProofPlan};
+    use alloc::boxed::Box;
+
+    fn make_input() -> Box<DynProofPlan> {
+        Box::new(DynProofPlan::new_empty())
+    }
+
+    #[test]
+    fn new_with_skip_and_no_fetch() {
+        let exec = SliceExec::new(make_input(), 5, None);
+        assert_eq!(exec.skip(), 5);
+        assert_eq!(exec.fetch(), None);
+    }
+
+    #[test]
+    fn new_with_skip_and_fetch() {
+        let exec = SliceExec::new(make_input(), 2, Some(10));
+        assert_eq!(exec.skip(), 2);
+        assert_eq!(exec.fetch(), Some(10));
+    }
+
+    #[test]
+    fn new_with_zero_skip() {
+        let exec = SliceExec::new(make_input(), 0, Some(5));
+        assert_eq!(exec.skip(), 0);
+    }
+
+    #[test]
+    fn input_returns_stored_plan() {
+        let exec = SliceExec::new(make_input(), 0, None);
+        let _ = exec.input();
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = SliceExec::new(make_input(), 3, Some(7));
+        let b = SliceExec::new(make_input(), 3, Some(7));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let exec = SliceExec::new(make_input(), 0, None);
+        assert!(alloc::format!("{exec:?}").contains("SliceExec"));
+    }
+}

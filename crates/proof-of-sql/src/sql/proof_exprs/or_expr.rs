@@ -184,3 +184,62 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests_or {
+    use super::OrExpr;
+    use crate::{
+        base::database::LiteralValue,
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+    use alloc::boxed::Box;
+
+    fn bool_expr() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true)))
+    }
+
+    fn bigint_expr() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1)))
+    }
+
+    #[test]
+    fn try_new_with_booleans_returns_ok() {
+        assert!(OrExpr::try_new(bool_expr(), bool_expr()).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_non_booleans_returns_err() {
+        assert!(OrExpr::try_new(bigint_expr(), bigint_expr()).is_err());
+    }
+
+    #[test]
+    fn try_new_with_mixed_types_returns_err() {
+        assert!(OrExpr::try_new(bool_expr(), bigint_expr()).is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = OrExpr::try_new(bool_expr(), bool_expr()).unwrap();
+        assert_eq!(expr.data_type(), crate::base::database::ColumnType::Boolean);
+    }
+
+    #[test]
+    fn lhs_and_rhs_return_correct_types() {
+        let expr = OrExpr::try_new(bool_expr(), bool_expr()).unwrap();
+        assert_eq!(expr.lhs().data_type(), crate::base::database::ColumnType::Boolean);
+        assert_eq!(expr.rhs().data_type(), crate::base::database::ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = OrExpr::try_new(bool_expr(), bool_expr()).unwrap();
+        let b = OrExpr::try_new(bool_expr(), bool_expr()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let expr = OrExpr::try_new(bool_expr(), bool_expr()).unwrap();
+        assert!(alloc::format!("{expr:?}").contains("OrExpr"));
+    }
+}
