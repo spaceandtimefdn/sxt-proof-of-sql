@@ -323,3 +323,81 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AddOp, ArithmeticOp, DivOp, MulOp, SubOp};
+    use crate::base::{
+        database::{ColumnOperationError, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+
+    type TS = TestScalar;
+
+    #[test]
+    fn add_op_bigint_element_wise() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![4, 5, 6]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(alloc::vec![5, 7, 9]));
+    }
+
+    #[test]
+    fn sub_op_bigint_element_wise() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![5, 7, 9]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![4, 5, 6]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(alloc::vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn mul_op_bigint_element_wise() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![2, 3, 4]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![3, 4, 5]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(alloc::vec![6, 12, 20]));
+    }
+
+    #[test]
+    fn div_op_bigint_element_wise() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![6, 9, 12]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![2, 3, 4]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(alloc::vec![3, 3, 3]));
+    }
+
+    #[test]
+    fn div_op_division_by_zero_returns_error() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![0]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn add_op_different_length_returns_error() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { .. })
+        ));
+    }
+
+    #[test]
+    fn add_op_smallint_bigint_type_promotion() {
+        let lhs = OwnedColumn::<TS>::SmallInt(alloc::vec![1i16, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![10i64, 20]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(alloc::vec![11, 22]));
+    }
+
+    #[test]
+    fn add_op_overflow_returns_error() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![i64::MAX]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+}
