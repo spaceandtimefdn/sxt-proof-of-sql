@@ -213,3 +213,76 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EqualsExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bool_dyn() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true)))
+    }
+
+    fn bigint_dyn() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1)))
+    }
+
+    fn int128_dyn() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Int128(42)))
+    }
+
+    #[test]
+    fn equals_expr_try_new_succeeds_with_two_bigints() {
+        assert!(EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).is_ok());
+    }
+
+    #[test]
+    fn equals_expr_try_new_succeeds_with_two_booleans() {
+        assert!(EqualsExpr::try_new(bool_dyn(), bool_dyn()).is_ok());
+    }
+
+    #[test]
+    fn equals_expr_try_new_fails_with_boolean_and_bigint() {
+        assert!(EqualsExpr::try_new(bool_dyn(), bigint_dyn()).is_err());
+    }
+
+    #[test]
+    fn equals_expr_try_new_succeeds_with_bigint_and_int128() {
+        assert!(EqualsExpr::try_new(bigint_dyn(), int128_dyn()).is_ok());
+    }
+
+    #[test]
+    fn equals_expr_data_type_is_boolean() {
+        let expr = EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equals_expr_lhs_is_accessible() {
+        let expr = EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).unwrap();
+        // lhs returns a DynProofExpr reference; just verify it doesn't panic
+        let _ = expr.lhs();
+    }
+
+    #[test]
+    fn equals_expr_rhs_is_accessible() {
+        let expr = EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).unwrap();
+        let _ = expr.rhs();
+    }
+
+    #[test]
+    fn equals_expr_clone_equals_original() {
+        let a = EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).unwrap();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn equals_expr_debug_contains_struct_name() {
+        let expr = EqualsExpr::try_new(bigint_dyn(), bigint_dyn()).unwrap();
+        assert!(format!("{expr:?}").contains("EqualsExpr"));
+    }
+}

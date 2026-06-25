@@ -184,3 +184,66 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::OrExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bool_dyn() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true)))
+    }
+
+    fn bigint_dyn() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1)))
+    }
+
+    #[test]
+    fn or_expr_try_new_succeeds_with_two_booleans() {
+        assert!(OrExpr::try_new(bool_dyn(), bool_dyn()).is_ok());
+    }
+
+    #[test]
+    fn or_expr_try_new_fails_with_boolean_and_bigint() {
+        assert!(OrExpr::try_new(bool_dyn(), bigint_dyn()).is_err());
+    }
+
+    #[test]
+    fn or_expr_try_new_fails_with_two_bigints() {
+        assert!(OrExpr::try_new(bigint_dyn(), bigint_dyn()).is_err());
+    }
+
+    #[test]
+    fn or_expr_data_type_is_boolean() {
+        let expr = OrExpr::try_new(bool_dyn(), bool_dyn()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn or_expr_lhs_is_accessible() {
+        let expr = OrExpr::try_new(bool_dyn(), bool_dyn()).unwrap();
+        let _ = expr.lhs();
+    }
+
+    #[test]
+    fn or_expr_rhs_is_accessible() {
+        let expr = OrExpr::try_new(bool_dyn(), bool_dyn()).unwrap();
+        let _ = expr.rhs();
+    }
+
+    #[test]
+    fn or_expr_clone_equals_original() {
+        let a = OrExpr::try_new(bool_dyn(), bool_dyn()).unwrap();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn or_expr_debug_contains_struct_name() {
+        let expr = OrExpr::try_new(bool_dyn(), bool_dyn()).unwrap();
+        assert!(format!("{expr:?}").contains("OrExpr"));
+    }
+}
