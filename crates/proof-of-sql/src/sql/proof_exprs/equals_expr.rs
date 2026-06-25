@@ -213,3 +213,69 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(true),
+        )))
+    }
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(42),
+        )))
+    }
+
+    // ── try_new ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn try_new_matching_types_succeeds() {
+        let result = EqualsExpr::try_new(bigint_literal(), bigint_literal());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_mismatched_types_returns_error() {
+        // Boolean vs BigInt — not equals-compatible
+        let result = EqualsExpr::try_new(bool_literal(), bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    // ── accessors ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lhs_rhs_data_types_are_preserved() {
+        let expr = EqualsExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = EqualsExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    // ── PartialEq / Clone ────────────────────────────────────────────────────
+
+    #[test]
+    fn equal_exprs_are_equal() {
+        let a = EqualsExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        let b = EqualsExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = EqualsExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
