@@ -61,24 +61,50 @@ mod time_unit_tests {
     use crate::base::posql_time::PoSQLTimestampError;
 
     #[test]
-    fn test_valid_precisions() {
-        assert_eq!(PoSQLTimeUnit::try_from("0"), Ok(PoSQLTimeUnit::Second));
-        assert_eq!(PoSQLTimeUnit::try_from("3"), Ok(PoSQLTimeUnit::Millisecond));
-        assert_eq!(PoSQLTimeUnit::try_from("6"), Ok(PoSQLTimeUnit::Microsecond));
-        assert_eq!(PoSQLTimeUnit::try_from("9"), Ok(PoSQLTimeUnit::Nanosecond));
+    fn test_valid_precisions_roundtrip_to_units_and_back() {
+        for (precision, unit) in [
+            ("0", PoSQLTimeUnit::Second),
+            ("3", PoSQLTimeUnit::Millisecond),
+            ("6", PoSQLTimeUnit::Microsecond),
+            ("9", PoSQLTimeUnit::Nanosecond),
+        ] {
+            let parsed = PoSQLTimeUnit::try_from(precision).unwrap();
+
+            assert_eq!(parsed, unit);
+            assert_eq!(u64::from(parsed), precision.parse::<u64>().unwrap());
+        }
+    }
+
+    #[test]
+    fn test_time_unit_display() {
+        assert_eq!(PoSQLTimeUnit::Second.to_string(), "seconds (precision: 0)");
+        assert_eq!(
+            PoSQLTimeUnit::Millisecond.to_string(),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Microsecond.to_string(),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Nanosecond.to_string(),
+            "nanoseconds (precision: 9)"
+        );
     }
 
     #[test]
     fn test_invalid_precision() {
-        let invalid_precisions = [
+        for value in [
             "1", "2", "4", "5", "7", "8", "10", "zero", "three", "cat", "-1", "-2",
-        ]; // Testing all your various invalid inputs
-        for &value in &invalid_precisions {
-            let result = PoSQLTimeUnit::try_from(value);
-            assert!(matches!(
+        ] {
+            let result = PoSQLTimeUnit::try_from(value).unwrap_err();
+
+            assert_eq!(
                 result,
-                Err(PoSQLTimestampError::UnsupportedPrecision { .. })
-            ));
+                PoSQLTimestampError::UnsupportedPrecision {
+                    error: value.into()
+                }
+            );
         }
     }
 }
