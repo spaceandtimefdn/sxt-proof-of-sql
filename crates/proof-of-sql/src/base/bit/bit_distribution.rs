@@ -170,3 +170,54 @@ impl BitDistribution {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{BitDistribution, BitDistributionError};
+    use crate::{
+        base::{proof::ProofError, scalar::test_scalar::TestScalar},
+    };
+
+    #[test]
+    fn new_with_empty_slice_has_zero_varying_bits() {
+        let dist = BitDistribution::new::<TestScalar, i64>(&[]);
+        assert_eq!(dist.num_varying_bits(), 0);
+    }
+
+    #[test]
+    fn new_with_constant_data_has_zero_varying_bits() {
+        let dist = BitDistribution::new::<TestScalar, i64>(&[42, 42, 42]);
+        assert_eq!(dist.num_varying_bits(), 0);
+    }
+
+    #[test]
+    fn new_with_varying_data_has_nonzero_vary_mask() {
+        let dist = BitDistribution::new::<TestScalar, i64>(&[0, 1]);
+        assert!(dist.num_varying_bits() > 0);
+    }
+
+    #[test]
+    fn is_valid_returns_true_for_constant_data() {
+        let dist = BitDistribution::new::<TestScalar, i64>(&[5, 5, 5]);
+        assert!(dist.is_valid());
+    }
+
+    #[test]
+    fn vary_mask_is_zero_for_constant_data() {
+        use bnum::types::U256;
+        let dist = BitDistribution::new::<TestScalar, i64>(&[10, 10]);
+        assert_eq!(dist.vary_mask(), U256::ZERO);
+    }
+
+    #[test]
+    fn error_verification_converts_to_proof_error() {
+        let err: ProofError = BitDistributionError::Verification.into();
+        assert!(matches!(err, ProofError::VerificationError { .. }));
+    }
+
+    #[test]
+    fn error_debug_contains_variant_name() {
+        assert!(alloc::format!("{:?}", BitDistributionError::Verification).contains("Verification"));
+        assert!(alloc::format!("{:?}", BitDistributionError::NoLeadBit).contains("NoLeadBit"));
+    }
+}
