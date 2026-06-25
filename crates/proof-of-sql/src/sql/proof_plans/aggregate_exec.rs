@@ -493,3 +493,159 @@ impl ProverEvaluate for AggregateExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AggregateExec;
+    use crate::{
+        base::database::LiteralValue,
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+            proof_plans::DynProofPlan,
+        },
+    };
+    use alloc::boxed::Box;
+    use sqlparser::ast::Ident;
+
+    fn make_input() -> Box<DynProofPlan> {
+        Box::new(DynProofPlan::new_empty())
+    }
+
+    fn make_where() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    fn make_count_alias() -> Ident {
+        Ident::new("count")
+    }
+
+    #[test]
+    fn try_new_with_empty_group_by_returns_some() {
+        let result = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        );
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn try_new_with_two_group_by_returns_none() {
+        let aliased = AliasedDynProofExpr {
+            expr: DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+            alias: Ident::new("a"),
+        };
+        let result = AggregateExec::try_new(
+            alloc::vec![aliased.clone(), aliased],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn count_alias_returns_stored_ident() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("my_count"),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(exec.count_alias(), &Ident::new("my_count"));
+    }
+
+    #[test]
+    fn group_by_exprs_is_empty() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(exec.group_by_exprs().is_empty());
+    }
+
+    #[test]
+    fn sum_expr_is_empty() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(exec.sum_expr().is_empty());
+    }
+
+    #[test]
+    fn try_get_is_uniqueness_provable_empty_group_by_returns_false() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(exec.try_get_is_uniqueness_provable(), Some(false));
+    }
+
+    #[test]
+    fn get_column_result_fields_has_count_when_empty() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("cnt"),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        let fields = exec.get_column_result_fields();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name(), Ident::new("cnt"));
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        let b = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let exec = AggregateExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_input(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(alloc::format!("{exec:?}").contains("AggregateExec"));
+    }
+}

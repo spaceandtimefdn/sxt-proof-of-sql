@@ -479,3 +479,160 @@ impl ProverEvaluate for GroupByExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::GroupByExec;
+    use crate::{
+        base::database::{LiteralValue, TableRef},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{DynProofExpr, TableExpr},
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    fn make_table_ref() -> TableRef {
+        TableRef::new("s", "t")
+    }
+
+    fn make_table_expr() -> TableExpr {
+        TableExpr {
+            table_ref: make_table_ref(),
+        }
+    }
+
+    fn make_where() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    fn make_count_alias() -> Ident {
+        Ident::new("count")
+    }
+
+    #[test]
+    fn try_new_with_empty_group_by_returns_some() {
+        let result = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        );
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn table_returns_stored_table_ref() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(exec.table().table_ref, make_table_ref());
+    }
+
+    #[test]
+    fn count_alias_returns_stored_ident() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("my_count"),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(exec.count_alias(), &Ident::new("my_count"));
+    }
+
+    #[test]
+    fn group_by_exprs_is_empty() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(exec.group_by_exprs().is_empty());
+    }
+
+    #[test]
+    fn sum_expr_is_empty() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(exec.sum_expr().is_empty());
+    }
+
+    #[test]
+    fn get_column_result_fields_has_only_count_when_empty() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("cnt"),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        let fields = exec.get_column_result_fields();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name(), Ident::new("cnt"));
+    }
+
+    #[test]
+    fn try_get_is_uniqueness_provable_empty_group_by_returns_false() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(exec.try_get_is_uniqueness_provable(), Some(false));
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        let b = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let exec = GroupByExec::try_new(
+            alloc::vec![],
+            alloc::vec![],
+            make_count_alias(),
+            make_table_expr(),
+            make_where(),
+        )
+        .unwrap();
+        assert!(alloc::format!("{exec:?}").contains("GroupByExec"));
+    }
+}
