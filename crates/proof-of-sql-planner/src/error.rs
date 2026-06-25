@@ -105,3 +105,65 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::Operator;
+
+    #[test]
+    fn display_column_not_found_error() {
+        assert_eq!(PlannerError::ColumnNotFound.to_string(), "Column not found");
+    }
+
+    #[test]
+    fn display_table_not_found_error_includes_table_name() {
+        let error = PlannerError::TableNotFound {
+            table_name: "SXT.BLOCKS".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "Table not found: SXT.BLOCKS");
+    }
+
+    #[test]
+    fn display_invalid_placeholder_id_error_includes_placeholder() {
+        let error = PlannerError::InvalidPlaceholderId {
+            id: "$01".to_string(),
+        };
+
+        assert_eq!(error.to_string(), r#"Placeholder id "$01" is invalid"#);
+    }
+
+    #[test]
+    fn display_catalog_not_supported_error() {
+        assert_eq!(
+            PlannerError::CatalogNotSupported.to_string(),
+            "Catalog is not supported"
+        );
+    }
+
+    #[test]
+    fn display_unsupported_data_type_error_includes_type() {
+        let error = PlannerError::UnsupportedDataType {
+            data_type: DataType::Float64,
+        };
+
+        assert_eq!(error.to_string(), "Unsupported datatype: Float64");
+    }
+
+    #[test]
+    fn display_unsupported_binary_operator_error_includes_operator() {
+        let error = PlannerError::UnsupportedBinaryOperator { op: Operator::Plus };
+
+        assert_eq!(error.to_string(), "Binary operator + is not supported");
+    }
+
+    #[test]
+    fn display_unresolved_logical_plan_error() {
+        assert_eq!(
+            PlannerError::UnresolvedLogicalPlan.to_string(),
+            "LogicalPlan is not resolved"
+        );
+    }
+}
