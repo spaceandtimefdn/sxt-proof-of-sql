@@ -71,6 +71,37 @@ mod tests {
         assert_eq!(log2_up(4u32), 2);
     }
 
+    #[test]
+    fn we_can_detect_integer_powers_of_two() {
+        assert!(is_pow2(1u8));
+        assert!(is_pow2(128u8));
+        assert!(is_pow2(1_u64 << 42));
+
+        assert!(!is_pow2(3u8));
+        assert!(!is_pow2((1_u64 << 42) + 1));
+    }
+
+    #[test]
+    fn we_can_detect_little_endian_byte_powers_of_two() {
+        assert!(is_pow2_bytes(&[0, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[1, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 1, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 0, 128, 0]));
+
+        assert!(!is_pow2_bytes(&[3, 0, 0, 0]));
+        assert!(!is_pow2_bytes(&[0, 128, 1, 0]));
+        assert!(!is_pow2_bytes(&[0, 0, 128, 1]));
+    }
+
+    #[test]
+    fn we_can_calculate_floor_log2_for_little_endian_bytes() {
+        assert_eq!(log2_down_bytes(&[0, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[1, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[0, 1, 0, 0]), 8);
+        assert_eq!(log2_down_bytes(&[0, 0, 128, 0]), 23);
+        assert_eq!(log2_down_bytes(&[255, 255, 255, 255]), 31);
+    }
+
     #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     #[test]
     fn test_log2_bytes_ceil() {
