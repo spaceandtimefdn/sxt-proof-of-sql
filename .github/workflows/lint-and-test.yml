@@ -282,6 +282,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+          cache: pip
+          cache-dependency-path: solidity/slither-requirements-ci.txt
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -311,7 +313,7 @@ jobs:
           solhint '**/*.sol' -w 0
           cd ..
       - name: Install Slither
-        run: pip install slither-analyzer
+        run: pip install -r solidity/slither-requirements-ci.txt
 
       - name: Run slither on verifier
         run: slither solidity/src/verifier/Verifier.post.sol --config-file solidity/slither.config.json
