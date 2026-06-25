@@ -27,3 +27,42 @@ impl<'a, S: Scalar> SumcheckRandomScalars<'a, S> {
         v
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_can_split_sumcheck_random_scalars() {
+        let scalars = [
+            TestScalar::from(10),
+            TestScalar::from(11),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+        let sumcheck_random_scalars = SumcheckRandomScalars::new(&scalars, 4, 2);
+
+        assert_eq!(
+            sumcheck_random_scalars.subpolynomial_multipliers,
+            &scalars[..2]
+        );
+        assert_eq!(sumcheck_random_scalars.entrywise_point, &scalars[2..]);
+        assert_eq!(sumcheck_random_scalars.table_length, 4);
+    }
+
+    #[test]
+    fn we_can_compute_entrywise_multipliers() {
+        let scalars = [
+            TestScalar::from(10),
+            TestScalar::from(11),
+            TestScalar::from(2),
+        ];
+        let sumcheck_random_scalars = SumcheckRandomScalars::new(&scalars, 2, 1);
+
+        assert_eq!(
+            sumcheck_random_scalars.compute_entrywise_multipliers(),
+            vec![TestScalar::from(1 - 2), TestScalar::from(2)]
+        );
+    }
+}
