@@ -90,3 +90,126 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{PlaceholderError, ProofError, ProofSizeMismatch};
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn proof_error_verification_display() {
+        let e = ProofError::VerificationError { error: "bad proof" };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("bad proof"));
+    }
+
+    #[test]
+    fn proof_error_unsupported_query_plan_display() {
+        let e = ProofError::UnsupportedQueryPlan { error: "no cross join" };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("no cross join"));
+    }
+
+    #[test]
+    fn proof_error_invalid_type_coercion_display() {
+        let e = ProofError::InvalidTypeCoercion;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("type") || s.contains("mismatch"));
+    }
+
+    #[test]
+    fn proof_error_field_names_mismatch_display() {
+        let e = ProofError::FieldNamesMismatch;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("field") || s.contains("mismatch"));
+    }
+
+    #[test]
+    fn proof_error_field_count_mismatch_display() {
+        let e = ProofError::FieldCountMismatch;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("field") || s.contains("count") || s.contains("mismatch"));
+    }
+
+    #[test]
+    fn proof_error_is_debug_formattable() {
+        let e = ProofError::FieldCountMismatch;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("FieldCountMismatch"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_sumcheck_too_small_display() {
+        let e = ProofSizeMismatch::SumcheckProofTooSmall;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("Sumcheck") || s.contains("small"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_too_few_mle_evaluations_display() {
+        let e = ProofSizeMismatch::TooFewMLEEvaluations;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("MLE") || s.contains("few"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_constraint_count_display() {
+        let e = ProofSizeMismatch::ConstraintCountMismatch;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("Constraint") || s.contains("mismatch"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_is_debug_formattable() {
+        let e = ProofSizeMismatch::TooFewBitDistributions;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("TooFewBitDistributions"));
+    }
+
+    #[test]
+    fn placeholder_error_invalid_index_display() {
+        let e = PlaceholderError::InvalidPlaceholderIndex { index: 5, num_params: 3 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("5") && s.contains("3"));
+    }
+
+    #[test]
+    fn placeholder_error_invalid_type_display() {
+        let e = PlaceholderError::InvalidPlaceholderType {
+            index: 2,
+            expected: ColumnType::BigInt,
+            actual: ColumnType::Boolean,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("2"));
+    }
+
+    #[test]
+    fn placeholder_error_zero_id_display() {
+        let e = PlaceholderError::ZeroPlaceholderId;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("0") || s.contains("greater") || s.contains("zero"));
+    }
+
+    #[test]
+    fn placeholder_error_zero_id_equality() {
+        assert_eq!(
+            PlaceholderError::ZeroPlaceholderId,
+            PlaceholderError::ZeroPlaceholderId
+        );
+    }
+
+    #[test]
+    fn placeholder_error_invalid_index_equality() {
+        let a = PlaceholderError::InvalidPlaceholderIndex { index: 1, num_params: 1 };
+        let b = PlaceholderError::InvalidPlaceholderIndex { index: 1, num_params: 1 };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn placeholder_error_is_debug_formattable() {
+        let e = PlaceholderError::ZeroPlaceholderId;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("ZeroPlaceholderId"));
+    }
+}

@@ -38,3 +38,70 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PoSQLTimestampError;
+
+    #[test]
+    fn invalid_timezone_display() {
+        let e = PoSQLTimestampError::InvalidTimezone {
+            timezone: "Nowhere/Land".into(),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("Nowhere/Land"));
+    }
+
+    #[test]
+    fn invalid_timezone_offset_display() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("offset") || s.contains("timezone"));
+    }
+
+    #[test]
+    fn invalid_time_unit_display() {
+        let e = PoSQLTimestampError::InvalidTimeUnit {
+            error: "bad unit".into(),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("time unit") || s.contains("Invalid"));
+    }
+
+    #[test]
+    fn unsupported_precision_display() {
+        let e = PoSQLTimestampError::UnsupportedPrecision {
+            error: "femtoseconds".into(),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("femtoseconds"));
+    }
+
+    #[test]
+    fn invalid_timezone_equality() {
+        let a = PoSQLTimestampError::InvalidTimezone { timezone: "X".into() };
+        let b = PoSQLTimestampError::InvalidTimezone { timezone: "X".into() };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn invalid_timezone_offset_equality() {
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezoneOffset,
+            PoSQLTimestampError::InvalidTimezoneOffset
+        );
+    }
+
+    #[test]
+    fn posql_timestamp_error_is_debug_formattable() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        let _ = alloc::format!("{e:?}");
+    }
+
+    #[test]
+    fn from_posql_timestamp_error_to_string() {
+        let e = PoSQLTimestampError::InvalidTimezoneOffset;
+        let s: alloc::string::String = e.into();
+        assert!(!s.is_empty());
+    }
+}
