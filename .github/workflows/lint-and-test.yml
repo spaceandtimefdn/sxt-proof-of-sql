@@ -286,6 +286,11 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.0.0
+      - name: Restore Soldeer dependency cache
+        uses: actions/cache@v4
+        with:
+          path: solidity/dependencies
+          key: ${{ runner.os }}-soldeer-${{ hashFiles('solidity/soldeer.lock') }}
       - name: Install dependencies
         run: solidity/scripts/install_deps.sh
       - name: Run tests without via-ir or optimization
