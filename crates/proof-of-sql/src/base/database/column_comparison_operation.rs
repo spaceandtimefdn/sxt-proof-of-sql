@@ -414,3 +414,97 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ComparisonOp, EqualOp, GreaterThanOp, LessThanOp};
+    use crate::base::{
+        database::{ColumnOperationError, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+
+    type TS = TestScalar;
+
+    #[test]
+    fn equal_op_bigint_element_wise_equal() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, true, true]));
+    }
+
+    #[test]
+    fn equal_op_bigint_element_wise_mixed() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 0, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false, true]));
+    }
+
+    #[test]
+    fn equal_op_different_length_returns_error() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { .. })
+        ));
+    }
+
+    #[test]
+    fn equal_op_boolean_columns() {
+        let lhs = OwnedColumn::<TS>::Boolean(alloc::vec![true, false]);
+        let rhs = OwnedColumn::<TS>::Boolean(alloc::vec![true, true]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false]));
+    }
+
+    #[test]
+    fn equal_op_varchar_columns() {
+        let lhs = OwnedColumn::<TS>::VarChar(alloc::vec!["a".into(), "b".into()]);
+        let rhs = OwnedColumn::<TS>::VarChar(alloc::vec!["a".into(), "c".into()]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false]));
+    }
+
+    #[test]
+    fn greater_than_op_bigint() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![3, 1, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 2, 2]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false, false]));
+    }
+
+    #[test]
+    fn greater_than_op_varchar_returns_error() {
+        let lhs = OwnedColumn::<TS>::VarChar(alloc::vec!["a".into()]);
+        let rhs = OwnedColumn::<TS>::VarChar(alloc::vec!["b".into()]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn less_than_op_bigint() {
+        let lhs = OwnedColumn::<TS>::BigInt(alloc::vec![1, 3, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![2, 2, 2]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false, false]));
+    }
+
+    #[test]
+    fn less_than_op_varchar_returns_error() {
+        let lhs = OwnedColumn::<TS>::VarChar(alloc::vec!["a".into()]);
+        let rhs = OwnedColumn::<TS>::VarChar(alloc::vec!["b".into()]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn equal_op_smallint_bigint_type_promotion() {
+        let lhs = OwnedColumn::<TS>::SmallInt(alloc::vec![1i16, 2]);
+        let rhs = OwnedColumn::<TS>::BigInt(alloc::vec![1i64, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(alloc::vec![true, false]));
+    }
+}
