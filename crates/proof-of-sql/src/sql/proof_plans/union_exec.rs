@@ -51,6 +51,81 @@ impl UnionExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn we_can_build_union_exec_and_read_input_plans() {
+        let left = DynProofPlan::new_empty();
+        let right = DynProofPlan::new_empty();
+        let inputs = vec![left.clone(), right.clone()];
+
+        let union = UnionExec::try_new(inputs.clone()).expect("union should accept two inputs");
+
+        assert_eq!(union.input_plans(), inputs.as_slice());
+    }
+
+    #[test]
+    fn we_reject_union_exec_with_too_few_input_plans() {
+        assert!(matches!(
+            UnionExec::try_new(vec![DynProofPlan::new_empty()]),
+            Err(AnalyzeError::NotEnoughInputPlans)
+        ));
+    }
+
+    #[test]
+    fn union_result_fields_follow_first_input_schema() {
+        let left_schema = vec![
+            ColumnField::new("left_id".into(), ColumnType::Int),
+            ColumnField::new("left_flag".into(), ColumnType::Boolean),
+        ];
+        let right_schema = vec![
+            ColumnField::new("right_id".into(), ColumnType::Int),
+            ColumnField::new("right_flag".into(), ColumnType::Boolean),
+        ];
+        let union = UnionExec::try_new(vec![
+            DynProofPlan::new_table(TableRef::new("public", "left_table"), left_schema.clone()),
+            DynProofPlan::new_table(TableRef::new("public", "right_table"), right_schema),
+        ])
+        .expect("union should accept two inputs");
+
+        assert_eq!(union.get_column_result_fields(), left_schema);
+    }
+
+    #[test]
+    fn union_collects_column_and_table_references_from_all_inputs() {
+        let left_table = TableRef::new("public", "left_table");
+        let right_table = TableRef::new("public", "right_table");
+        let left_field = ColumnField::new("left_id".into(), ColumnType::Int);
+        let right_field = ColumnField::new("right_id".into(), ColumnType::BigInt);
+        let union = UnionExec::try_new(vec![
+            DynProofPlan::new_table(left_table.clone(), vec![left_field.clone()]),
+            DynProofPlan::new_table(right_table.clone(), vec![right_field.clone()]),
+        ])
+        .expect("union should accept two inputs");
+
+        let column_references = union.get_column_references();
+        assert_eq!(column_references.len(), 2);
+        assert!(column_references.contains(&ColumnRef::new(
+            left_table.clone(),
+            left_field.name(),
+            left_field.data_type(),
+        )));
+        assert!(column_references.contains(&ColumnRef::new(
+            right_table.clone(),
+            right_field.name(),
+            right_field.data_type(),
+        )));
+
+        let table_references = union.get_table_references();
+        assert_eq!(table_references.len(), 2);
+        assert!(table_references.contains(&left_table));
+        assert!(table_references.contains(&right_table));
+    }
+}
+
 impl ProofPlan for UnionExec
 where
     UnionExec: ProverEvaluate,

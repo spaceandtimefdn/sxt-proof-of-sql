@@ -66,6 +66,78 @@ impl FilterExec {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        },
+    };
+
+    #[test]
+    fn we_can_read_filter_exec_plan_accessors() {
+        let input = DynProofPlan::new_empty();
+        let aliased_results = vec![AliasedDynProofExpr {
+            expr: DynProofExpr::new_literal(LiteralValue::BigInt(123)),
+            alias: "answer".into(),
+        }];
+        let where_clause = DynProofExpr::new_literal(LiteralValue::Boolean(true));
+        let filter = FilterExec::new(
+            aliased_results.clone(),
+            Box::new(input.clone()),
+            where_clause.clone(),
+        );
+
+        assert_eq!(filter.aliased_results(), aliased_results.as_slice());
+        assert_eq!(filter.input(), &input);
+        assert_eq!(filter.where_clause(), &where_clause);
+    }
+
+    #[test]
+    fn we_can_get_literal_filter_result_fields() {
+        let filter = FilterExec::new(
+            vec![
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_literal(LiteralValue::BigInt(123)),
+                    alias: "answer".into(),
+                },
+                AliasedDynProofExpr {
+                    expr: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                    alias: "accepted".into(),
+                },
+            ],
+            Box::new(DynProofPlan::new_empty()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        assert_eq!(
+            filter.get_column_result_fields(),
+            vec![
+                ColumnField::new("answer".into(), ColumnType::BigInt),
+                ColumnField::new("accepted".into(), ColumnType::Boolean),
+            ]
+        );
+    }
+
+    #[test]
+    fn filter_exec_forwards_input_references() {
+        let filter = FilterExec::new(
+            vec![AliasedDynProofExpr {
+                expr: DynProofExpr::new_literal(LiteralValue::BigInt(123)),
+                alias: "answer".into(),
+            }],
+            Box::new(DynProofPlan::new_empty()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+
+        assert_eq!(filter.get_column_references(), IndexSet::default());
+        assert_eq!(filter.get_table_references(), IndexSet::default());
+    }
+}
+
 impl ProofPlan for FilterExec {
     fn verifier_evaluate<S: Scalar>(
         &self,
