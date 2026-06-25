@@ -141,3 +141,45 @@ impl<'a, S: Scalar + 'a> IntoIterator for &'a OptimizedSumcheckTerms<'a, S> {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{OptimizedSumcheckTerms, SumcheckTermOptimizer};
+    use crate::sql::proof::SumcheckSubpolynomialType;
+
+    #[test]
+    fn optimizer_with_empty_terms_produces_no_iterations() {
+        let optimizer =
+            SumcheckTermOptimizer::<crate::base::scalar::test_scalar::TestScalar>::new(
+                core::iter::empty(),
+                4,
+            );
+        let terms = optimizer.terms();
+        let count = (&terms).into_iter().count();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn zero_sum_and_identity_subpolynomial_types_are_distinct() {
+        assert_ne!(
+            SumcheckSubpolynomialType::ZeroSum,
+            SumcheckSubpolynomialType::Identity
+        );
+    }
+
+    #[test]
+    fn zero_sum_type_equals_itself() {
+        assert_eq!(
+            SumcheckSubpolynomialType::ZeroSum,
+            SumcheckSubpolynomialType::ZeroSum
+        );
+    }
+
+    #[test]
+    fn identity_type_equals_itself() {
+        assert_eq!(
+            SumcheckSubpolynomialType::Identity,
+            SumcheckSubpolynomialType::Identity
+        );
+    }
+}
