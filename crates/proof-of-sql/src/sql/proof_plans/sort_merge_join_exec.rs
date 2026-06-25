@@ -584,3 +584,184 @@ impl ProverEvaluate for SortMergeJoinExec {
         .expect("Can not create table"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{ColumnType, TableRef},
+            map::{indexmap, indexset},
+            proof::ProofError,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, ProofPlan},
+            proof_plans::test_utility::{column_field, table_exec},
+        },
+    };
+    use alloc::{boxed::Box, vec};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn we_can_compute_hat_column_evals_for_join_columns() {
+        let eval = TableEvaluation::new(
+            vec![
+                TestScalar::from(10_u64),
+                TestScalar::from(20_u64),
+                TestScalar::from(30_u64),
+            ],
+            (TestScalar::ONE, 3),
+        );
+
+        let (hat_column_evals, join_column_evals, num_columns) =
+            compute_hat_column_evals(&eval, TestScalar::from(40_u64), &[1]);
+
+        assert_eq!(num_columns, 3);
+        assert_eq!(join_column_evals, vec![TestScalar::from(20_u64)]);
+        assert_eq!(
+            hat_column_evals,
+            vec![
+                TestScalar::from(20_u64),
+                TestScalar::from(10_u64),
+                TestScalar::from(30_u64),
+                TestScalar::from(40_u64),
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_inspect_sort_merge_join_plan_metadata() {
+        let left_table: TableRef = "sxt.left_animals".parse().unwrap();
+        let right_table: TableRef = "sxt.right_animals".parse().unwrap();
+        let plan = SortMergeJoinExec::new(
+            Box::new(table_exec(
+                left_table.clone(),
+                vec![
+                    column_field("left_name", ColumnType::VarChar),
+                    column_field("id", ColumnType::BigInt),
+                ],
+            )),
+            Box::new(table_exec(
+                right_table.clone(),
+                vec![
+                    column_field("id", ColumnType::BigInt),
+                    column_field("right_score", ColumnType::Int),
+                ],
+            )),
+            vec![1],
+            vec![0],
+            vec![
+                Ident::new("joined_id"),
+                Ident::new("left_name"),
+                Ident::new("right_score"),
+            ],
+        );
+
+        assert!(matches!(plan.left_plan(), DynProofPlan::Table(_)));
+        assert!(matches!(plan.right_plan(), DynProofPlan::Table(_)));
+        assert_eq!(plan.left_join_column_indexes().as_slice(), &[1]);
+        assert_eq!(plan.right_join_column_indexes().as_slice(), &[0]);
+        assert_eq!(
+            plan.result_idents(),
+            &vec![
+                Ident::new("joined_id"),
+                Ident::new("left_name"),
+                Ident::new("right_score"),
+            ]
+        );
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![
+                column_field("joined_id", ColumnType::BigInt),
+                column_field("left_name", ColumnType::VarChar),
+                column_field("right_score", ColumnType::Int),
+            ]
+        );
+
+        let column_refs = plan.get_column_references();
+        assert_eq!(column_refs.len(), 4);
+        assert!(column_refs.contains(&ColumnRef::new(
+            left_table.clone(),
+            Ident::new("left_name"),
+            ColumnType::VarChar,
+        )));
+        assert!(column_refs.contains(&ColumnRef::new(
+            right_table.clone(),
+            Ident::new("right_score"),
+            ColumnType::Int,
+        )));
+        assert_eq!(
+            plan.get_table_references(),
+            indexset! { left_table, right_table }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_multi_column_sort_merge_joins_before_consuming_result_mles() {
+        let left_table: TableRef = "sxt.left_join_input".parse().unwrap();
+        let right_table: TableRef = "sxt.right_join_input".parse().unwrap();
+        let plan = SortMergeJoinExec::new(
+            Box::new(table_exec(
+                left_table.clone(),
+                vec![
+                    column_field("id", ColumnType::BigInt),
+                    column_field("tenant", ColumnType::BigInt),
+                    column_field("left_name", ColumnType::VarChar),
+                ],
+            )),
+            Box::new(table_exec(
+                right_table.clone(),
+                vec![
+                    column_field("id", ColumnType::BigInt),
+                    column_field("tenant", ColumnType::BigInt),
+                    column_field("right_score", ColumnType::Int),
+                ],
+            )),
+            vec![0, 1],
+            vec![0, 1],
+            vec![
+                Ident::new("id"),
+                Ident::new("tenant"),
+                Ident::new("left_name"),
+                Ident::new("right_score"),
+            ],
+        );
+        let accessor = indexmap! {
+            left_table.clone() => indexmap! {
+                Ident::new("id") => TestScalar::from(1_u64),
+                Ident::new("tenant") => TestScalar::from(2_u64),
+                Ident::new("left_name") => TestScalar::from(3_u64),
+            },
+            right_table.clone() => indexmap! {
+                Ident::new("id") => TestScalar::from(1_u64),
+                Ident::new("tenant") => TestScalar::from(2_u64),
+                Ident::new("right_score") => TestScalar::from(4_u64),
+            },
+        };
+        let chi_eval_map = indexmap! {
+            left_table => (TestScalar::ONE, 1),
+            right_table => (TestScalar::ONE, 1),
+        };
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![TestScalar::from(5_u64), TestScalar::from(7_u64)],
+            vec![1],
+            vec![1],
+        );
+
+        let err = plan
+            .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "Join on multiple columns not supported yet"
+            }
+        ));
+    }
+}
