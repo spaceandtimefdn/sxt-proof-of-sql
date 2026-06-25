@@ -613,6 +613,20 @@ mod tests {
     }
 
     #[expect(non_snake_case)]
+    fn JOIN_SCHEMAS() -> impl SchemaAccessor {
+        SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("left_value".into(), ColumnType::Int),
+            ],
+            TableRef::new("", "right_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("right_value".into(), ColumnType::VarChar),
+            ],
+        })
+    }
+
+    #[expect(non_snake_case)]
     fn EMPTY_SCHEMAS() -> impl SchemaAccessor {
         SchemaAccessorImpl::new(indexmap_with_default! {AHasher;})
     }
@@ -2221,6 +2235,50 @@ mod tests {
         .unwrap_err();
         assert!(
             matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_inner_join_plan_to_proof_plan() {
+        let left_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("left_value".into(), ColumnType::Int),
+        ]));
+        let right_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("right_value".into(), ColumnType::VarChar),
+        ]));
+        let left_plan = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_source, Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right_plan = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_source, Some(vec![0, 1]), vec![], None)
+                .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left_plan),
+            right: Arc::new(right_plan),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &JOIN_SCHEMAS()).unwrap();
+
+        assert!(matches!(result, DynProofPlan::SortMergeJoin(_)));
+        assert_eq!(
+            result.get_column_result_fields(),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::Int),
+                ColumnField::new("right_value".into(), ColumnType::VarChar),
+            ]
         );
     }
 
