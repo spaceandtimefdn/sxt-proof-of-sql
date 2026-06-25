@@ -35,3 +35,44 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::U256;
+
+    #[test]
+    fn from_words_stores_low_and_high() {
+        let u = U256::from_words(100, 200);
+        assert_eq!(u.low, 100);
+        assert_eq!(u.high, 200);
+    }
+
+    #[test]
+    fn zero_zero_creates_zero_value() {
+        let u = U256::from_words(0, 0);
+        assert_eq!(u.low, 0);
+        assert_eq!(u.high, 0);
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        let a = U256::from_words(1, 2);
+        let b = U256::from_words(1, 2);
+        assert!(a == b);
+    }
+
+    #[test]
+    fn inequality_for_different_high() {
+        let a = U256::from_words(1, 2);
+        let b = U256::from_words(1, 3);
+        assert!(a != b);
+    }
+
+    #[test]
+    fn copy_trait_works() {
+        let a = U256::from_words(42, 99);
+        let b = a; // copy
+        assert_eq!(a.low, b.low);
+        assert_eq!(a.high, b.high);
+    }
+}

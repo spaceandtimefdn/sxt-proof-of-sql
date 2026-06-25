@@ -31,3 +31,48 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnField;
+    use crate::base::database::ColumnType;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn new_stores_name() {
+        let f = ColumnField::new(Ident::new("mycolumn"), ColumnType::BigInt);
+        assert_eq!(f.name().value.as_str(), "mycolumn");
+    }
+
+    #[test]
+    fn new_stores_data_type() {
+        let f = ColumnField::new(Ident::new("col"), ColumnType::Boolean);
+        assert_eq!(f.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        let a = ColumnField::new(Ident::new("x"), ColumnType::BigInt);
+        let b = ColumnField::new(Ident::new("x"), ColumnType::BigInt);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn inequality_for_different_type() {
+        let a = ColumnField::new(Ident::new("x"), ColumnType::BigInt);
+        let b = ColumnField::new(Ident::new("x"), ColumnType::Boolean);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn clone_produces_equal_value() {
+        let f = ColumnField::new(Ident::new("col"), ColumnType::BigInt);
+        assert_eq!(f.clone(), f);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let f = ColumnField::new(Ident::new("col"), ColumnType::BigInt);
+        assert!(alloc::format!("{f:?}").contains("ColumnField"));
+    }
+}
