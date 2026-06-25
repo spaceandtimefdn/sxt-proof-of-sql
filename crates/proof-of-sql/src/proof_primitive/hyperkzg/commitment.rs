@@ -157,7 +157,8 @@ fn compute_commitments_impl(
             | CommittableColumn::Scalar(vals)
             | CommittableColumn::VarChar(vals)
             | CommittableColumn::VarBinary(vals) => {
-                compute_commitment_generic_impl(setup, offset, vals)
+                let casted = slice_ops::slice_cast_with(vals, |val| BNScalar::from_limbs(*val));
+                compute_commitment_generic_impl(setup, offset, &casted)
             }
         })
         .collect()

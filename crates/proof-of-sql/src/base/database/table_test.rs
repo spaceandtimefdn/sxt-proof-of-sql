@@ -2,7 +2,7 @@ use crate::base::{
     database::{table_utility::*, Column, Table, TableError, TableOptions},
     map::{indexmap, IndexMap},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-    scalar::test_scalar::TestScalar,
+    scalar::{test_scalar::TestScalar, Scalar},
 };
 use bumpalo::Bump;
 use sqlparser::ast::Ident;
@@ -176,7 +176,10 @@ fn we_can_create_a_table_with_data() {
         .map(|&s| alloc.alloc_str(s) as &str)
         .collect();
     let varchar_str_slice = alloc.alloc_slice_clone(&varchar_data);
-    let varchar_scalars: Vec<TestScalar> = varchar_data.iter().map(Into::into).collect();
+    let varchar_scalars: Vec<TestScalar> = varchar_data
+        .iter()
+        .map(|s| TestScalar::from_str_via_hash(s))
+        .collect();
     let varchar_scalars_slice = alloc.alloc_slice_clone(&varchar_scalars);
     expected_table.insert(
         Ident::new("varchar"),

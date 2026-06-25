@@ -52,7 +52,7 @@ fn test_mod() {
     let pm1: ark_ff::BigInt<4> = ark_ff::BigInt!(
         "7237005577332262213973186563042994240857116359379907606001950938285454250988"
     );
-    let x = Curve25519Scalar::from(pm1.0);
+    let x = Curve25519Scalar::from_limbs(pm1.0);
     let one = Curve25519Scalar::from(1u64);
     let zero = Curve25519Scalar::from(0u64);
     let xp1 = x + one;
@@ -370,9 +370,12 @@ fn the_one_scalar_is_the_multiplicative_identity() {
 
 #[test]
 fn the_empty_string_will_be_mapped_to_the_zero_scalar() {
-    assert_eq!(Curve25519Scalar::from(""), Curve25519Scalar::zero());
     assert_eq!(
-        Curve25519Scalar::from(<&str>::default()),
+        Curve25519Scalar::from_str_via_hash(""),
+        Curve25519Scalar::zero()
+    );
+    assert_eq!(
+        Curve25519Scalar::from_str_via_hash(<&str>::default()),
         Curve25519Scalar::zero()
     );
 }
@@ -380,8 +383,14 @@ fn the_empty_string_will_be_mapped_to_the_zero_scalar() {
 #[test]
 fn two_different_strings_map_to_different_scalars() {
     let s = "abc12";
-    assert_ne!(Curve25519Scalar::from(s), Curve25519Scalar::zero());
-    assert_ne!(Curve25519Scalar::from(s), Curve25519Scalar::from("abc123"));
+    assert_ne!(
+        Curve25519Scalar::from_str_via_hash(s),
+        Curve25519Scalar::zero()
+    );
+    assert_ne!(
+        Curve25519Scalar::from_str_via_hash(s),
+        Curve25519Scalar::from_str_via_hash("abc123")
+    );
 }
 
 #[test]
@@ -416,7 +425,7 @@ fn strings_of_arbitrary_size_map_to_different_scalars() {
             i,
             "testing string to scalar".repeat(dist.sample(&mut rng))
         );
-        assert!(prev_scalars.insert(Curve25519Scalar::from(s.as_str())));
+        assert!(prev_scalars.insert(Curve25519Scalar::from_str_via_hash(s.as_str())));
     }
 }
 
@@ -446,7 +455,8 @@ fn the_string_hash_implementation_uses_the_full_range_of_bits() {
         let mut bset = IndexSet::default();
 
         loop {
-            let s: Curve25519Scalar = dist.sample(&mut rng).to_string().as_str().into();
+            let s: Curve25519Scalar =
+                Curve25519Scalar::from_str_via_hash(&dist.sample(&mut rng).to_string());
             let bytes = s.to_bytes_le(); //Note: this is the only spot that these tests are different from the to_curve25519_scalar tests.
 
             let is_ith_bit_set = bytes[i / 8] & (1 << (i % 8)) != 0;
