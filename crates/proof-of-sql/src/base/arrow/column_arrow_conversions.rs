@@ -77,7 +77,7 @@ impl From<&ColumnField> for Field {
         Field::new(
             column_field.name().value.as_str(),
             (&column_field.data_type()).into(),
-            false,
+            column_field.is_nullable(),
         )
     }
 }
@@ -95,5 +95,22 @@ mod tests {
 
             prop_assert_eq!(actual, column_type);
         }
+    }
+
+    #[test]
+    fn column_field_arrow_conversion_preserves_nullability() {
+        let non_nullable = ColumnField::new("amount".into(), ColumnType::BigInt);
+        let nullable = ColumnField::new_nullable("memo".into(), ColumnType::VarChar);
+
+        let non_nullable_arrow = Field::from(&non_nullable);
+        let nullable_arrow = Field::from(&nullable);
+
+        assert_eq!(non_nullable_arrow.name(), "amount");
+        assert_eq!(non_nullable_arrow.data_type(), &DataType::Int64);
+        assert!(!non_nullable_arrow.is_nullable());
+
+        assert_eq!(nullable_arrow.name(), "memo");
+        assert_eq!(nullable_arrow.data_type(), &DataType::Utf8);
+        assert!(nullable_arrow.is_nullable());
     }
 }
