@@ -105,3 +105,86 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::Operator;
+
+    #[test]
+    fn column_not_found_displays_correctly() {
+        assert_eq!(PlannerError::ColumnNotFound.to_string(), "Column not found");
+    }
+
+    #[test]
+    fn table_not_found_displays_table_name() {
+        let err = PlannerError::TableNotFound {
+            table_name: "my_table".to_string(),
+        };
+        assert_eq!(err.to_string(), "Table not found: my_table");
+    }
+
+    #[test]
+    fn invalid_placeholder_id_displays_id_in_message() {
+        let err = PlannerError::InvalidPlaceholderId { id: "$abc".to_string() };
+        let msg = err.to_string();
+        assert!(msg.contains("$abc"), "expected id in: {msg}");
+        assert!(msg.contains("invalid"), "expected 'invalid' in: {msg}");
+    }
+
+    #[test]
+    fn unsupported_data_type_displays_type_name() {
+        let err = PlannerError::UnsupportedDataType { data_type: DataType::Boolean };
+        let msg = err.to_string();
+        assert!(msg.contains("Unsupported"), "expected Unsupported in: {msg}");
+    }
+
+    #[test]
+    fn unsupported_binary_operator_displays_not_supported() {
+        let err = PlannerError::UnsupportedBinaryOperator { op: Operator::Plus };
+        let msg = err.to_string();
+        assert!(msg.contains("not supported"), "expected 'not supported' in: {msg}");
+    }
+
+    #[test]
+    fn catalog_not_supported_displays_correctly() {
+        assert_eq!(
+            PlannerError::CatalogNotSupported.to_string(),
+            "Catalog is not supported"
+        );
+    }
+
+    #[test]
+    fn unresolved_logical_plan_displays_correctly() {
+        assert_eq!(
+            PlannerError::UnresolvedLogicalPlan.to_string(),
+            "LogicalPlan is not resolved"
+        );
+    }
+
+    #[test]
+    fn planner_error_debug_includes_variant_name() {
+        let debug = format!("{:?}", PlannerError::ColumnNotFound);
+        assert!(debug.contains("ColumnNotFound"));
+    }
+
+    #[test]
+    fn table_not_found_with_schema_qualified_name() {
+        let err = PlannerError::TableNotFound {
+            table_name: "public.users".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("public.users"), "expected table name in: {msg}");
+        assert!(msg.contains("Table not found"), "expected prefix in: {msg}");
+    }
+
+    #[test]
+    fn column_not_found_and_catalog_not_supported_are_not_equal() {
+        // PlannerError does not derive PartialEq but we test debug output differs
+        assert_ne!(
+            format!("{:?}", PlannerError::ColumnNotFound),
+            format!("{:?}", PlannerError::CatalogNotSupported)
+        );
+    }
+}
