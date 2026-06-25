@@ -323,3 +323,87 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::string::String;
+
+    #[test]
+    fn unsigned_signed_arithmetic_pairs_are_rejected() {
+        let uints = OwnedColumn::<TestScalar>::Uint8(vec![1, 2]);
+        let tinyints = OwnedColumn::<TestScalar>::TinyInt(vec![1, -2]);
+
+        assert_eq!(
+            AddOp::owned_column_element_wise_arithmetic(&uints, &tinyints),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::Uint8,
+                right_type: ColumnType::TinyInt,
+            })
+        );
+        assert_eq!(
+            SubOp::owned_column_element_wise_arithmetic(&tinyints, &uints),
+            Err(ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            })
+        );
+    }
+
+    #[test]
+    fn integer_arithmetic_preserves_or_upcasts_result_type() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![2, 4]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1, 3]);
+        assert_eq!(
+            AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Ok(OwnedColumn::<TestScalar>::Uint8(vec![3, 7]))
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![10, 20]);
+        assert_eq!(
+            MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Ok(OwnedColumn::<TestScalar>::SmallInt(vec![20, 80]))
+        );
+
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![20, 30]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![2, 3]);
+        assert_eq!(
+            DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Ok(OwnedColumn::<TestScalar>::BigInt(vec![10, 10]))
+        );
+    }
+
+    #[test]
+    fn checked_arithmetic_errors_are_propagated() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![u8::MAX]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1]);
+        assert!(matches!(
+            AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Err(ColumnOperationError::IntegerOverflow { error })
+                if error.contains("integer addition")
+        ));
+
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![5]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![0]);
+        assert_eq!(
+            DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Err(ColumnOperationError::DivisionByZero)
+        );
+    }
+
+    #[test]
+    fn nonnumeric_arithmetic_reports_operand_types() {
+        let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true, false]);
+        let rhs = OwnedColumn::<TestScalar>::Boolean(vec![false, true]);
+
+        assert_eq!(
+            AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: String::from("ArithmeticOp"),
+                left_type: ColumnType::Boolean,
+                right_type: ColumnType::Boolean,
+            })
+        );
+    }
+}
