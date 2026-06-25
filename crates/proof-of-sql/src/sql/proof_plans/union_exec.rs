@@ -204,3 +204,56 @@ impl ProverEvaluate for UnionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::UnionExec;
+    use crate::sql::{
+        proof::ProofPlan,
+        proof_plans::DynProofPlan,
+    };
+
+    fn empty_plan() -> DynProofPlan {
+        DynProofPlan::new_empty()
+    }
+
+    #[test]
+    fn try_new_with_two_inputs_returns_ok() {
+        assert!(UnionExec::try_new(alloc::vec![empty_plan(), empty_plan()]).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_one_input_returns_err() {
+        assert!(UnionExec::try_new(alloc::vec![empty_plan()]).is_err());
+    }
+
+    #[test]
+    fn try_new_with_zero_inputs_returns_err() {
+        assert!(UnionExec::try_new(alloc::vec![]).is_err());
+    }
+
+    #[test]
+    fn input_plans_returns_all_inputs() {
+        let u = UnionExec::try_new(alloc::vec![empty_plan(), empty_plan(), empty_plan()]).unwrap();
+        assert_eq!(u.input_plans().len(), 3);
+    }
+
+    #[test]
+    fn get_column_result_fields_empty_when_inputs_are_empty() {
+        let u = UnionExec::try_new(alloc::vec![empty_plan(), empty_plan()]).unwrap();
+        assert!(u.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn equality_holds_for_same_inputs() {
+        let a = UnionExec::try_new(alloc::vec![empty_plan(), empty_plan()]).unwrap();
+        let b = UnionExec::try_new(alloc::vec![empty_plan(), empty_plan()]).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let u = UnionExec::try_new(alloc::vec![empty_plan(), empty_plan()]).unwrap();
+        assert!(alloc::format!("{u:?}").contains("UnionExec"));
+    }
+}

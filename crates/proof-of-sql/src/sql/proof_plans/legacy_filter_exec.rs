@@ -287,3 +287,84 @@ impl ProverEvaluate for LegacyFilterExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LegacyFilterExec;
+    use crate::{
+        base::database::{ColumnType, LiteralValue, TableRef},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr, TableExpr},
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    fn table_expr() -> TableExpr {
+        TableExpr {
+            table_ref: TableRef::new("schema", "tbl"),
+        }
+    }
+
+    fn bool_clause() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    fn aliased(alias: &str) -> AliasedDynProofExpr {
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_literal(LiteralValue::BigInt(0)),
+            alias: Ident::new(alias),
+        }
+    }
+
+    fn make_filter() -> LegacyFilterExec {
+        LegacyFilterExec::new(
+            alloc::vec![aliased("col")],
+            table_expr(),
+            bool_clause(),
+        )
+    }
+
+    #[test]
+    fn new_stores_aliased_results() {
+        let f = make_filter();
+        assert_eq!(f.aliased_results().len(), 1);
+    }
+
+    #[test]
+    fn table_returns_table_expr() {
+        let f = make_filter();
+        assert_eq!(f.table().table_ref, TableRef::new("schema", "tbl"));
+    }
+
+    #[test]
+    fn where_clause_has_boolean_type() {
+        let f = make_filter();
+        assert_eq!(f.where_clause().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn empty_results_is_valid() {
+        let f = LegacyFilterExec::new(alloc::vec![], table_expr(), bool_clause());
+        assert!(f.aliased_results().is_empty());
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = make_filter();
+        let b = make_filter();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let f = make_filter();
+        assert!(alloc::format!("{f:?}").contains("OstensibleLegacyFilterExec"));
+    }
+
+    #[test]
+    fn get_column_result_fields_matches_aliased_count() {
+        let f = make_filter();
+        assert_eq!(f.get_column_result_fields().len(), 1);
+    }
+}
