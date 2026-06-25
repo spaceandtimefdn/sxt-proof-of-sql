@@ -93,6 +93,7 @@ impl<'a, S: Scalar> SumcheckSubpolynomial<'a, S> {
 mod tests {
     use super::{SumcheckSubpolynomial, SumcheckSubpolynomialTerm, SumcheckSubpolynomialType};
     use crate::base::scalar::test_scalar::TestScalar;
+    use crate::sql::proof::CompositePolynomialBuilder;
     use alloc::boxed::Box;
 
     #[test]
@@ -118,5 +119,45 @@ mod tests {
         assert_eq!(coeff, TestScalar::from(15));
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_compose_identity_and_zero_sum_terms() {
+        let fr = vec![TestScalar::from(2), TestScalar::from(5)];
+        let identity_mle = vec![TestScalar::from(3), TestScalar::from(7)];
+        let zerosum_mle = vec![TestScalar::from(11), TestScalar::from(13)];
+
+        let identity_subpoly = SumcheckSubpolynomial::new(
+            SumcheckSubpolynomialType::Identity,
+            vec![(TestScalar::from(3), vec![Box::new(&identity_mle)])],
+        );
+        let zerosum_subpoly = SumcheckSubpolynomial::new(
+            SumcheckSubpolynomialType::ZeroSum,
+            vec![(TestScalar::from(5), vec![Box::new(&zerosum_mle)])],
+        );
+
+        assert_eq!(
+            zerosum_subpoly.subpolynomial_type(),
+            SumcheckSubpolynomialType::ZeroSum
+        );
+
+        let mut builder = CompositePolynomialBuilder::new(1, &fr);
+        let group_multiplier = TestScalar::from(2);
+        identity_subpoly.compose(&mut builder, group_multiplier);
+        zerosum_subpoly.compose(&mut builder, group_multiplier);
+
+        let point = [TestScalar::from(17)];
+        let m0 = TestScalar::from(1) - point[0];
+        let m1 = point[0];
+        let eval_fr = fr[0] * m0 + fr[1] * m1;
+        let eval_identity = identity_mle[0] * m0 + identity_mle[1] * m1;
+        let eval_zerosum = zerosum_mle[0] * m0 + zerosum_mle[1] * m1;
+
+        let expected =
+            eval_fr * TestScalar::from(6) * eval_identity + TestScalar::from(10) * eval_zerosum;
+        assert_eq!(
+            builder.make_composite_polynomial().evaluate(&point),
+            expected
+        );
     }
 }
