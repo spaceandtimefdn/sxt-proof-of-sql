@@ -29,6 +29,10 @@ use rand_util::rand_F_tensors;
 use rand_util::rand_G_vecs;
 #[cfg(test)]
 pub use rand_util::test_rng;
+#[cfg(test)]
+use rand_util::test_seed_rng;
+#[cfg(test)]
+use std::sync::OnceLock;
 
 mod dory_messages;
 pub(crate) use dory_messages::DoryMessages;
@@ -162,3 +166,27 @@ pub use dynamic_dory_commitment::DynamicDoryCommitment;
 #[cfg(test)]
 mod dynamic_dory_commitment_evaluation_proof_test;
 pub use dynamic_dory_commitment_evaluation_proof::DynamicDoryEvaluationProof;
+
+#[cfg(test)]
+pub(crate) fn cached_test_public_parameters(max_nu: usize) -> &'static PublicParameters {
+    static NU_4: OnceLock<PublicParameters> = OnceLock::new();
+    static NU_6: OnceLock<PublicParameters> = OnceLock::new();
+
+    match max_nu {
+        4 => NU_4.get_or_init(|| PublicParameters::test_rand(4, &mut test_seed_rng([4; 32]))),
+        6 => NU_6.get_or_init(|| PublicParameters::test_rand(6, &mut test_seed_rng([6; 32]))),
+        _ => panic!("cached Dory test parameters are not configured for nu={max_nu}"),
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn cached_test_verifier_setup(max_nu: usize) -> &'static VerifierSetup {
+    static NU_4: OnceLock<VerifierSetup> = OnceLock::new();
+    static NU_6: OnceLock<VerifierSetup> = OnceLock::new();
+
+    match max_nu {
+        4 => NU_4.get_or_init(|| VerifierSetup::from(cached_test_public_parameters(4))),
+        6 => NU_6.get_or_init(|| VerifierSetup::from(cached_test_public_parameters(6))),
+        _ => panic!("cached Dory verifier setup is not configured for nu={max_nu}"),
+    }
+}
