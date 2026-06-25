@@ -138,3 +138,90 @@ fn multi_pairing_4_impl<P: Pairing>(
     );
     (c0, c1, c2, c3)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{test_rng, G1Affine, G2Affine};
+    use ark_bls12_381::Bls12_381;
+    use ark_std::UniformRand;
+
+    #[test]
+    fn multi_pairing_matches_single_pairing_for_one_pair() {
+        let mut rng = test_rng();
+        let g1 = G1Affine::rand(&mut rng);
+        let g2 = G2Affine::rand(&mut rng);
+
+        assert_eq!(
+            multi_pairing::<Bls12_381>([g1], [g2]),
+            pairing::<Bls12_381>(g1, g2)
+        );
+    }
+
+    #[test]
+    fn multi_pairing_2_matches_individual_multi_pairings() {
+        let mut rng = test_rng();
+        let g1 = [
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+        ];
+        let g2 = [
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+        ];
+
+        let left = (g1[0..2].iter().copied(), g2[0..2].iter().copied());
+        let right = (g1[2..4].iter().copied(), g2[2..4].iter().copied());
+
+        assert_eq!(
+            multi_pairing_2::<Bls12_381>(left.clone(), right.clone()),
+            (
+                multi_pairing::<Bls12_381>(left.0, left.1),
+                multi_pairing::<Bls12_381>(right.0, right.1)
+            )
+        );
+    }
+
+    #[test]
+    fn multi_pairing_4_matches_individual_multi_pairings() {
+        let mut rng = test_rng();
+        let g1 = [
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+            G1Affine::rand(&mut rng),
+        ];
+        let g2 = [
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+            G2Affine::rand(&mut rng),
+        ];
+
+        let pairings = [
+            ([g1[0]], [g2[0]]),
+            ([g1[1]], [g2[1]]),
+            ([g1[2]], [g2[2]]),
+            ([g1[3]], [g2[3]]),
+        ];
+
+        assert_eq!(
+            multi_pairing_4::<Bls12_381>(
+                (pairings[0].0, pairings[0].1),
+                (pairings[1].0, pairings[1].1),
+                (pairings[2].0, pairings[2].1),
+                (pairings[3].0, pairings[3].1),
+            ),
+            (
+                multi_pairing::<Bls12_381>(pairings[0].0, pairings[0].1),
+                multi_pairing::<Bls12_381>(pairings[1].0, pairings[1].1),
+                multi_pairing::<Bls12_381>(pairings[2].0, pairings[2].1),
+                multi_pairing::<Bls12_381>(pairings[3].0, pairings[3].1)
+            )
+        );
+    }
+}
