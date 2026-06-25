@@ -213,3 +213,103 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests_equals {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, EqualsExpr, ProofExpr},
+    };
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(5))
+    }
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn try_new_with_same_types_returns_ok() {
+        assert!(EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_different_types_returns_err() {
+        assert!(EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bool_expr())).is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let e = EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).unwrap();
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn lhs_has_correct_type() {
+        let e = EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).unwrap();
+        assert_eq!(e.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equality_holds_for_same_exprs() {
+        let a = EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).unwrap();
+        let b = EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = EqualsExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).unwrap();
+        assert!(alloc::format!("{e:?}").contains("EqualsExpr"));
+    }
+}
+
+#[cfg(test)]
+mod tests_projection {
+    use crate::{
+        base::database::{LiteralValue},
+        sql::proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+        sql::proof_plans::{DynProofPlan, ProjectionExec},
+        sql::proof::ProofPlan,
+    };
+    use sqlparser::ast::Ident;
+
+    fn make_aliased() -> AliasedDynProofExpr {
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_literal(LiteralValue::BigInt(1)),
+            alias: Ident::new("col"),
+        }
+    }
+
+    #[test]
+    fn new_stores_aliased_results() {
+        let e = ProjectionExec::new(alloc::vec![make_aliased()], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        assert_eq!(e.aliased_results().len(), 1);
+    }
+
+    #[test]
+    fn input_returns_inner_plan() {
+        let e = ProjectionExec::new(alloc::vec![], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        assert!(matches!(e.input(), DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn get_column_result_fields_matches_aliased_results() {
+        let e = ProjectionExec::new(alloc::vec![], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        assert!(e.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = ProjectionExec::new(alloc::vec![], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        let b = ProjectionExec::new(alloc::vec![], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = ProjectionExec::new(alloc::vec![], alloc::boxed::Box::new(DynProofPlan::new_empty()));
+        assert!(alloc::format!("{e:?}").contains("ProjectionExec"));
+    }
+}

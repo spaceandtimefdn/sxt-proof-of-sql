@@ -184,3 +184,55 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests_or {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, OrExpr, ProofExpr},
+    };
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(1))
+    }
+
+    #[test]
+    fn try_new_with_booleans_returns_ok() {
+        assert!(OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_non_booleans_returns_err() {
+        assert!(OrExpr::try_new(alloc::boxed::Box::new(bigint_expr()), alloc::boxed::Box::new(bigint_expr())).is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let e = OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert!(alloc::format!("{e:?}").contains("OrExpr"));
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).unwrap();
+        let b = OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn lhs_and_rhs_return_correct_types() {
+        let e = OrExpr::try_new(alloc::boxed::Box::new(bool_expr()), alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(e.lhs().data_type(), ColumnType::Boolean);
+        assert_eq!(e.rhs().data_type(), ColumnType::Boolean);
+    }
+}

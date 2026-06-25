@@ -247,3 +247,46 @@ impl ProverEvaluate for SliceExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SliceExec;
+    use crate::sql::proof_plans::DynProofPlan;
+
+    #[test]
+    fn new_stores_skip() {
+        let e = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 5, None);
+        assert_eq!(e.skip(), 5);
+    }
+
+    #[test]
+    fn new_stores_fetch_none() {
+        let e = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 0, None);
+        assert_eq!(e.fetch(), None);
+    }
+
+    #[test]
+    fn new_stores_fetch_some() {
+        let e = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 0, Some(10));
+        assert_eq!(e.fetch(), Some(10));
+    }
+
+    #[test]
+    fn input_returns_inner_plan() {
+        let e = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 0, None);
+        assert!(matches!(e.input(), DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        let a = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 3, Some(5));
+        let b = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 3, Some(5));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = SliceExec::new(alloc::boxed::Box::new(DynProofPlan::new_empty()), 0, None);
+        assert!(alloc::format!("{e:?}").contains("SliceExec"));
+    }
+}
