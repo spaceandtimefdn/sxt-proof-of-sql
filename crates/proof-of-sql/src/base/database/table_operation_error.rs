@@ -65,3 +65,83 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::TableOperationError;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn union_not_enough_tables_display() {
+        let e = TableOperationError::UnionNotEnoughTables;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("2") || s.contains("fewer"));
+    }
+
+    #[test]
+    fn join_with_different_number_of_columns_display() {
+        let e = TableOperationError::JoinWithDifferentNumberOfColumns {
+            left_num_columns: 3,
+            right_num_columns: 5,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("3") && s.contains("5"));
+    }
+
+    #[test]
+    fn join_incompatible_types_display() {
+        let e = TableOperationError::JoinIncompatibleTypes {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("incompatible") || s.contains("Incompatible"));
+    }
+
+    #[test]
+    fn duplicate_column_display() {
+        let e = TableOperationError::DuplicateColumn;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("duplicated") || s.contains("duplicate"));
+    }
+
+    #[test]
+    fn column_index_out_of_bounds_display() {
+        let e = TableOperationError::ColumnIndexOutOfBounds { column_index: 42 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("42"));
+    }
+
+    #[test]
+    fn union_not_enough_tables_equality() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables,
+            TableOperationError::UnionNotEnoughTables
+        );
+    }
+
+    #[test]
+    fn duplicate_column_equality() {
+        assert_eq!(
+            TableOperationError::DuplicateColumn,
+            TableOperationError::DuplicateColumn
+        );
+    }
+
+    #[test]
+    fn table_operation_error_is_debug_formattable() {
+        let e = TableOperationError::DuplicateColumn;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("DuplicateColumn"));
+    }
+
+    #[test]
+    fn column_does_not_exist_display() {
+        use sqlparser::ast::Ident;
+        let e = TableOperationError::ColumnDoesNotExist {
+            column_ident: Ident::new("my_col"),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("my_col") || s.contains("exist"));
+    }
+}

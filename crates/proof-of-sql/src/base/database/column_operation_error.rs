@@ -108,3 +108,115 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnOperationError;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn different_column_length_display() {
+        let e = ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 5 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("3") && s.contains("5"));
+    }
+
+    #[test]
+    fn different_column_length_equality() {
+        let a = ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 5 };
+        let b = ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 5 };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn binary_operation_invalid_column_type_display() {
+        let e = ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "ADD".into(),
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("ADD"));
+    }
+
+    #[test]
+    fn unary_operation_invalid_column_type_display() {
+        let e = ColumnOperationError::UnaryOperationInvalidColumnType {
+            operator: "NEG".into(),
+            operand_type: ColumnType::VarChar,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("NEG"));
+    }
+
+    #[test]
+    fn integer_overflow_display() {
+        let e = ColumnOperationError::IntegerOverflow {
+            error: "max exceeded".into(),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("max exceeded"));
+    }
+
+    #[test]
+    fn division_by_zero_display() {
+        let e = ColumnOperationError::DivisionByZero;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("zero") || s.contains("Zero"));
+    }
+
+    #[test]
+    fn index_out_of_bounds_display() {
+        let e = ColumnOperationError::IndexOutOfBounds { index: 10, len: 5 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("10") && s.contains("5"));
+    }
+
+    #[test]
+    fn signed_casting_error_display() {
+        let e = ColumnOperationError::SignedCastingError {
+            left_type: ColumnType::TinyInt,
+            right_type: ColumnType::Uint8,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("losing data") || s.contains("fit"));
+    }
+
+    #[test]
+    fn casting_error_equality() {
+        let a = ColumnOperationError::CastingError {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        let b = ColumnOperationError::CastingError {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::Boolean,
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn division_by_zero_equality() {
+        assert_eq!(
+            ColumnOperationError::DivisionByZero,
+            ColumnOperationError::DivisionByZero
+        );
+    }
+
+    #[test]
+    fn column_operation_error_is_debug_formattable() {
+        let e = ColumnOperationError::DivisionByZero;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("DivisionByZero"));
+    }
+
+    #[test]
+    fn union_different_types_display() {
+        let e = ColumnOperationError::UnionDifferentTypes {
+            correct_type: ColumnType::BigInt,
+            actual_type: ColumnType::Boolean,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("union") || s.contains("Union"));
+    }
+}
