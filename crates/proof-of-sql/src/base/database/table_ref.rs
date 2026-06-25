@@ -142,3 +142,90 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn table_refs_can_be_constructed_from_names_and_idents() {
+        let table_only = TableRef::new("", "transactions");
+        assert!(table_only.schema_id().is_none());
+        assert_eq!(table_only.table_id().value, "transactions");
+        assert_eq!(table_only.to_string(), "transactions");
+
+        let names = TableRef::from_names(Some("analytics"), "transactions");
+        assert_eq!(names.schema_id().unwrap().value, "analytics");
+        assert_eq!(names.table_id().value, "transactions");
+        assert_eq!(names.to_string(), "analytics.transactions");
+
+        let idents = TableRef::from_idents(
+            Some(Ident::new("warehouse")),
+            Ident::new("transactions_archive"),
+        );
+        assert_eq!(idents.schema_id().unwrap().value, "warehouse");
+        assert_eq!(idents.table_id().value, "transactions_archive");
+        assert_eq!(idents.to_string(), "warehouse.transactions_archive");
+    }
+
+    #[test]
+    fn table_refs_can_be_parsed_from_components_and_dot_strings() {
+        assert_eq!(
+            TableRef::from_strs(&["orders"]).unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["analytics", "orders"]).unwrap(),
+            TableRef::new("analytics", "orders")
+        );
+        assert_eq!(
+            TableRef::try_from("analytics.orders").unwrap(),
+            TableRef::new("analytics", "orders")
+        );
+        assert_eq!(
+            "orders".parse::<TableRef>().unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+    }
+
+    #[test]
+    fn table_ref_parsing_rejects_invalid_component_counts() {
+        assert!(matches!(
+            TableRef::from_strs(&["a", "b", "c"]),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "a,b,c"
+        ));
+        assert!(matches!(
+            TableRef::try_from("a.b.c"),
+            Err(ParseError::InvalidTableReference { table_reference })
+                if table_reference == "a.b.c"
+        ));
+    }
+
+    #[test]
+    fn table_refs_serialize_as_display_strings() {
+        let table_ref = TableRef::new("analytics", "orders");
+        let encoded = serde_json::to_string(&table_ref).unwrap();
+
+        assert_eq!(encoded, "\"analytics.orders\"");
+        assert_eq!(
+            serde_json::from_str::<TableRef>(&encoded).unwrap(),
+            table_ref
+        );
+
+        let err = serde_json::from_str::<TableRef>("\"a.b.c\"").unwrap_err();
+        assert!(err.to_string().contains("Invalid table reference: a.b.c"));
+    }
+
+    #[test]
+    fn table_ref_equivalent_matches_schema_and_table_names() {
+        let table_ref = TableRef::new("analytics", "orders");
+        let same = TableRef::from_str("analytics.orders").unwrap();
+        let different_table = TableRef::new("analytics", "customers");
+        let different_schema = TableRef::new("warehouse", "orders");
+
+        assert!((&table_ref).equivalent(&same));
+        assert!(!(&table_ref).equivalent(&different_table));
+        assert!(!(&table_ref).equivalent(&different_schema));
+    }
+}
