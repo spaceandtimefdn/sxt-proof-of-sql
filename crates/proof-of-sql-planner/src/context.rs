@@ -181,6 +181,15 @@ mod tests {
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
         assert_eq!(context_provider.get_window_meta(""), None);
+        assert_eq!(
+            context_provider
+                .options()
+                .sql_parser
+                .enable_ident_normalization,
+            ConfigOptions::default()
+                .sql_parser
+                .enable_ident_normalization
+        );
 
         // Non-empty
         let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
@@ -207,6 +216,15 @@ mod tests {
         assert_eq!(context_provider.get_window_meta(""), None);
         assert_eq!(
             context_provider
+                .options()
+                .sql_parser
+                .enable_ident_normalization,
+            ConfigOptions::default()
+                .sql_parser
+                .enable_ident_normalization
+        );
+        assert_eq!(
+            context_provider
                 .get_table_source(TableReference::from("namespace.a"))
                 .unwrap()
                 .schema(),
@@ -226,5 +244,18 @@ mod tests {
             context_provider.get_table_source(TableReference::from("catalog.namespace.table")),
             Err(DataFusionError::External(_))
         ));
+    }
+
+    #[test]
+    fn posql_table_source_supports_exact_filter_pushdown_for_each_filter() {
+        let table_source =
+            PoSqlTableSource::new(vec![ColumnField::new("a".into(), ColumnType::Boolean)]);
+        let filter = Expr::Literal(datafusion::common::ScalarValue::Boolean(Some(true)));
+        assert_eq!(
+            table_source
+                .supports_filters_pushdown(&[&filter, &filter])
+                .unwrap(),
+            vec![TableProviderFilterPushDown::Exact; 2]
+        );
     }
 }
