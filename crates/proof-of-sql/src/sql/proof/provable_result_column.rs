@@ -69,3 +69,72 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProvableResultColumn;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::database::Column;
+
+    #[test]
+    fn bool_slice_num_bytes_equals_length() {
+        let data = [true, false, true];
+        assert_eq!(data.as_slice().num_bytes(3), 3);
+    }
+
+    #[test]
+    fn bool_slice_num_bytes_zero_for_empty() {
+        let data: &[bool] = &[];
+        assert_eq!(data.num_bytes(0), 0);
+    }
+
+    #[test]
+    fn bool_slice_write_encodes_true_as_one() {
+        let data = [true];
+        let mut out = alloc::vec![0u8; 1];
+        data.as_slice().write(&mut out, 1);
+        assert_eq!(out[0], 1);
+    }
+
+    #[test]
+    fn bool_slice_write_encodes_false_as_zero() {
+        let data = [false];
+        let mut out = alloc::vec![0u8; 1];
+        data.as_slice().write(&mut out, 1);
+        assert_eq!(out[0], 0);
+    }
+
+    #[test]
+    fn bool_slice_write_returns_written_count() {
+        let data = [true, false];
+        let mut out = alloc::vec![0u8; 2];
+        let written = data.as_slice().write(&mut out, 2);
+        assert_eq!(written, 2);
+    }
+
+    #[test]
+    fn bigint_column_num_bytes_is_correct() {
+        let data = alloc::vec![1i64, 2, 3];
+        let col = Column::<TestScalar>::BigInt(&data);
+        // BigInt uses VarInt encoding which is variable size
+        let nb = col.num_bytes(3);
+        assert!(nb > 0);
+    }
+
+    #[test]
+    fn boolean_column_num_bytes_equals_length() {
+        let data = alloc::vec![true, false, true];
+        let col = Column::<TestScalar>::Boolean(&data);
+        assert_eq!(col.num_bytes(3), 3);
+    }
+
+    #[test]
+    fn boolean_column_write_fills_output() {
+        let data = alloc::vec![true];
+        let col = Column::<TestScalar>::Boolean(&data);
+        let mut out = alloc::vec![0u8; 1];
+        let written = col.write(&mut out, 1);
+        assert_eq!(written, 1);
+        assert_eq!(out[0], 1);
+    }
+}

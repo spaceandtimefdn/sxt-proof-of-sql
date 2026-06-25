@@ -35,3 +35,60 @@ pub(crate) enum EVMProofPlanError {
 
 /// Result type for EVM proof plan operations.
 pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlanError;
+
+    #[test]
+    fn not_supported_display() {
+        let e = EVMProofPlanError::NotSupported;
+        assert_eq!(alloc::format!("{e}"), "plan not yet supported");
+    }
+
+    #[test]
+    fn column_not_found_display() {
+        let e = EVMProofPlanError::ColumnNotFound;
+        assert_eq!(alloc::format!("{e}"), "column not found");
+    }
+
+    #[test]
+    fn table_not_found_display() {
+        let e = EVMProofPlanError::TableNotFound;
+        assert_eq!(alloc::format!("{e}"), "table not found");
+    }
+
+    #[test]
+    fn invalid_table_name_display() {
+        let e = EVMProofPlanError::InvalidTableName;
+        assert_eq!(alloc::format!("{e}"), "table name can not be parsed into TableRef");
+    }
+
+    #[test]
+    fn invalid_output_column_name_display() {
+        let e = EVMProofPlanError::InvalidOutputColumnName;
+        assert_eq!(alloc::format!("{e}"), "invalid or missing output column name");
+    }
+
+    #[test]
+    fn incorrect_scaling_factor_display() {
+        let e = EVMProofPlanError::IncorrectScalingFactor;
+        assert_eq!(alloc::format!("{e}"), "incorrect scaling factor");
+    }
+
+    #[test]
+    fn not_supported_debug() {
+        let e = EVMProofPlanError::NotSupported;
+        assert!(alloc::format!("{e:?}").contains("NotSupported"));
+    }
+
+    #[test]
+    fn not_supported_equality() {
+        assert_eq!(EVMProofPlanError::NotSupported, EVMProofPlanError::NotSupported);
+    }
+
+    #[test]
+    fn different_variants_not_equal() {
+        assert_ne!(EVMProofPlanError::NotSupported, EVMProofPlanError::ColumnNotFound);
+    }
+}

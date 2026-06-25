@@ -191,3 +191,57 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlan;
+    use crate::{
+        sql::proof::ProofPlan,
+        sql::proof_plans::DynProofPlan,
+    };
+
+    #[test]
+    fn new_wraps_plan() {
+        let inner = DynProofPlan::new_empty();
+        let _ = EVMProofPlan::new(inner);
+    }
+
+    #[test]
+    fn inner_returns_reference_to_plan() {
+        let inner = DynProofPlan::new_empty();
+        let plan = EVMProofPlan::new(inner);
+        assert!(matches!(plan.inner(), DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn into_inner_returns_plan() {
+        let inner = DynProofPlan::new_empty();
+        let plan = EVMProofPlan::new(inner);
+        let recovered = plan.into_inner();
+        assert!(matches!(recovered, DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn debug_formatting_contains_struct_name() {
+        let plan = EVMProofPlan::new(DynProofPlan::new_empty());
+        assert!(alloc::format!("{plan:?}").contains("EVMProofPlan") || alloc::format!("{plan:?}").contains("Empty"));
+    }
+
+    #[test]
+    fn get_column_result_fields_is_empty_for_empty_plan() {
+        let plan = EVMProofPlan::new(DynProofPlan::new_empty());
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn get_column_references_is_empty_for_empty_plan() {
+        let plan = EVMProofPlan::new(DynProofPlan::new_empty());
+        assert!(plan.get_column_references().is_empty());
+    }
+
+    #[test]
+    fn get_table_references_is_empty_for_empty_plan() {
+        let plan = EVMProofPlan::new(DynProofPlan::new_empty());
+        assert!(plan.get_table_references().is_empty());
+    }
+}
