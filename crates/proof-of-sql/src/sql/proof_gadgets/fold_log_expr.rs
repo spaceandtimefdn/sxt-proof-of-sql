@@ -83,3 +83,48 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FoldLogExpr;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn new_stores_alpha_field() {
+        let e = FoldLogExpr::new(ts(3), ts(5));
+        assert_eq!(e.alpha, ts(3));
+    }
+
+    #[test]
+    fn new_stores_beta_field() {
+        let e = FoldLogExpr::new(ts(3), ts(5));
+        assert_eq!(e.beta, ts(5));
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        assert_eq!(FoldLogExpr::new(ts(1), ts(2)), FoldLogExpr::new(ts(1), ts(2)));
+    }
+
+    #[test]
+    fn inequality_on_different_alpha() {
+        assert_ne!(FoldLogExpr::new(ts(1), ts(2)), FoldLogExpr::new(ts(3), ts(2)));
+    }
+
+    #[test]
+    fn clone_produces_equal_value() {
+        let e = FoldLogExpr::new(ts(7), ts(8));
+        assert_eq!(e.clone(), e);
+    }
+
+    #[test]
+    fn debug_formatting_contains_struct_name() {
+        let e = FoldLogExpr::new(ts(1), ts(2));
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("FoldLogExpr"));
+    }
+}
