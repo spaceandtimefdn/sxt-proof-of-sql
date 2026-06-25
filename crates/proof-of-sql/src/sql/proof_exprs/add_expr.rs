@@ -117,3 +117,94 @@ impl ProofExpr for AddExpr {
 }
 
 impl DecimalProofExpr for AddExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::AddExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bigint_literal() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(1))
+    }
+
+    fn boolean_literal() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn try_new_with_compatible_numeric_types_returns_ok() {
+        let result = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_with_incompatible_types_returns_err() {
+        let result = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(boolean_literal()),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn lhs_returns_left_expr() {
+        let lhs = bigint_literal();
+        let expr = AddExpr::try_new(
+            alloc::boxed::Box::new(lhs),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn rhs_returns_right_expr() {
+        let expr = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn debug_formatting_contains_struct_name() {
+        let expr = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert!(alloc::format!("{expr:?}").contains("AddExpr"));
+    }
+
+    #[test]
+    fn equality_holds_for_equal_expressions() {
+        let a = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        let b = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_produces_equal_value() {
+        let expr = AddExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.clone(), expr);
+    }
+}

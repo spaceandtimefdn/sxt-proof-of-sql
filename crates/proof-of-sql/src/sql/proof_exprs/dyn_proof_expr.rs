@@ -122,3 +122,105 @@ impl DynProofExpr {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofExpr;
+    use crate::{
+        base::database::{ColumnRef, ColumnType, LiteralValue, TableRef},
+        sql::proof_exprs::ProofExpr,
+    };
+    use sqlparser::ast::Ident;
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(42))
+    }
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn new_literal_creates_literal_variant() {
+        let expr = DynProofExpr::new_literal(LiteralValue::BigInt(1));
+        assert!(matches!(expr, DynProofExpr::Literal(_)));
+    }
+
+    #[test]
+    fn new_literal_bigint_has_correct_data_type() {
+        let expr = bigint_expr();
+        assert_eq!(expr.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn new_literal_boolean_has_correct_data_type() {
+        let expr = bool_expr();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn new_column_creates_column_variant() {
+        let col_ref = ColumnRef::new(TableRef::new("s", "t"), Ident::new("col"), ColumnType::BigInt);
+        let expr = DynProofExpr::new_column(col_ref);
+        assert!(matches!(expr, DynProofExpr::Column(_)));
+    }
+
+    #[test]
+    fn try_new_and_with_booleans_returns_ok() {
+        let result = DynProofExpr::try_new_and(bool_expr(), bool_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_and_creates_and_variant() {
+        let expr = DynProofExpr::try_new_and(bool_expr(), bool_expr()).unwrap();
+        assert!(matches!(expr, DynProofExpr::And(_)));
+    }
+
+    #[test]
+    fn try_new_not_with_boolean_returns_ok() {
+        let result = DynProofExpr::try_new_not(bool_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_equals_with_same_types_returns_ok() {
+        let result = DynProofExpr::try_new_equals(bigint_expr(), bigint_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_add_with_bigints_returns_ok() {
+        let result = DynProofExpr::try_new_add(bigint_expr(), bigint_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_subtract_with_bigints_returns_ok() {
+        let result = DynProofExpr::try_new_subtract(bigint_expr(), bigint_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_multiply_with_bigints_returns_ok() {
+        let result = DynProofExpr::try_new_multiply(bigint_expr(), bigint_expr());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn debug_formatting_contains_expr_type() {
+        let expr = bigint_expr();
+        assert!(alloc::format!("{expr:?}").contains("Literal") || alloc::format!("{expr:?}").contains("BigInt"));
+    }
+
+    #[test]
+    fn equality_holds_for_same_literals() {
+        assert_eq!(bigint_expr(), bigint_expr());
+    }
+
+    #[test]
+    fn clone_produces_equal_value() {
+        let expr = bigint_expr();
+        assert_eq!(expr.clone(), expr);
+    }
+}

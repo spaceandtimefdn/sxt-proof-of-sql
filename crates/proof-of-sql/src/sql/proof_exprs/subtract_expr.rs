@@ -118,3 +118,93 @@ impl ProofExpr for SubtractExpr {
 }
 
 impl DecimalProofExpr for SubtractExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::SubtractExpr;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, ProofExpr},
+    };
+
+    fn bigint_literal() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(1))
+    }
+
+    fn boolean_literal() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(false))
+    }
+
+    #[test]
+    fn try_new_with_compatible_types_returns_ok() {
+        let result = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_with_incompatible_types_returns_err() {
+        let result = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(boolean_literal()),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn lhs_returns_left_expr_type() {
+        let expr = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn rhs_returns_right_expr_type() {
+        let expr = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn debug_formatting_contains_struct_name() {
+        let expr = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert!(alloc::format!("{expr:?}").contains("SubtractExpr"));
+    }
+
+    #[test]
+    fn equality_holds_for_equal_expressions() {
+        let a = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        let b = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_produces_equal_value() {
+        let expr = SubtractExpr::try_new(
+            alloc::boxed::Box::new(bigint_literal()),
+            alloc::boxed::Box::new(bigint_literal()),
+        )
+        .unwrap();
+        assert_eq!(expr.clone(), expr);
+    }
+}
