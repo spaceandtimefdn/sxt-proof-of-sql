@@ -1,6 +1,6 @@
 use crate::base::{
     commitment::Commitment,
-    database::{Column, ColumnType, Table, TableOptions, TableRef},
+    database::{Column, ColumnField, ColumnType, Table, TableOptions, TableRef},
     map::{IndexMap, IndexSet},
     scalar::Scalar,
 };
@@ -126,6 +126,14 @@ pub trait SchemaAccessor {
     /// Precondition 2: `table_ref` and `column_id` must always be lowercase.
     fn lookup_column(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnType>;
 
+    /// Lookup the column's field metadata in the specified table.
+    ///
+    /// Implementations that track nullability should override this method.
+    fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
+        self.lookup_column(table_ref, column_id)
+            .map(|column_type| ColumnField::new(column_id.clone(), column_type))
+    }
+
     /// Lookup all the column names and their data types in the specified table
     ///
     /// Return:
@@ -134,6 +142,16 @@ pub trait SchemaAccessor {
     /// Precondition 1: the table must exist and be tamperproof.
     /// Precondition 2: `table_name` must be lowercase.
     fn lookup_schema(&self, table_ref: &TableRef) -> Vec<(Ident, ColumnType)>;
+
+    /// Lookup all the column fields in the specified table.
+    ///
+    /// Implementations that track nullability should override this method.
+    fn lookup_schema_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
+        self.lookup_schema(table_ref)
+            .into_iter()
+            .map(|(name, column_type)| ColumnField::new(name, column_type))
+            .collect()
+    }
 }
 
 /// The simplest implementation of `SchemaAccessor`.
@@ -173,6 +191,18 @@ impl SchemaAccessor for SchemaAccessorImpl {
             .get(table_ref)
             .expect("Table does not exist in schema accessor.")
             .clone()
+    }
+
+    fn lookup_column_field(&self, table_ref: &TableRef, column_id: &Ident) -> Option<ColumnField> {
+        self.lookup_schema_fields(table_ref)
+            .into_iter()
+            .find(|field| field.name() == *column_id)
+    }
+
+    fn lookup_schema_fields(&self, table_ref: &TableRef) -> Vec<ColumnField> {
+        crate::base::database::logical_column_fields_from_physical_schema(
+            self.lookup_schema(table_ref),
+        )
     }
 }
 
@@ -242,6 +272,33 @@ mod tests {
         assert_eq!(
             accessor.lookup_schema(&table2),
             vec![("col1".into(), ColumnType::BigInt),]
+        );
+    }
+
+    #[test]
+    fn test_lookup_schema_fields_infers_nullable_physical_pairs() {
+        let table = TableRef::new("schema", "nullable_table");
+        let accessor = SchemaAccessorImpl::new(indexmap! {
+            table.clone() => vec![
+                ("score".into(), ColumnType::BigInt),
+                ("score__presence".into(), ColumnType::Boolean),
+                ("orphan__presence".into(), ColumnType::Boolean),
+            ],
+        });
+
+        assert_eq!(
+            accessor.lookup_schema_fields(&table),
+            vec![
+                ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+                ColumnField::new("orphan__presence".into(), ColumnType::Boolean),
+            ]
+        );
+        assert_eq!(
+            accessor.lookup_column_field(&table, &"score".into()),
+            Some(ColumnField::new_nullable(
+                "score".into(),
+                ColumnType::BigInt
+            ))
         );
     }
 

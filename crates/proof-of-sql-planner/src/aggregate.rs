@@ -1,5 +1,6 @@
-use super::{PlannerError, PlannerResult};
+use super::{PlannerError, PlannerResult, SchemaFields};
 use crate::expr_to_proof_expr;
+use alloc::boxed::Box;
 use datafusion::{
     logical_expr::{
         expr::{AggregateFunction, AggregateFunctionDefinition},
@@ -8,10 +9,9 @@ use datafusion::{
     physical_plan,
 };
 use proof_of_sql::{
-    base::database::{ColumnType, LiteralValue},
-    sql::proof_exprs::DynProofExpr,
+    base::database::LiteralValue,
+    sql::proof_exprs::{DynProofExpr, ProofExpr},
 };
-use sqlparser::ast::Ident;
 
 /// An aggregate function we support
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,9 +25,9 @@ pub enum AggregateFunc {
 /// Convert an [`AggregateFunction`] to a [`DynProofExpr`]
 ///
 /// TODO: Some moderate changes are necessary once we upgrade `DataFusion` to 46.0.0
-pub(crate) fn aggregate_function_to_proof_expr(
+pub(crate) fn aggregate_function_to_proof_expr<S: SchemaFields + ?Sized>(
     function: &AggregateFunction,
-    schema: &[(Ident, ColumnType)],
+    schema: &S,
 ) -> PlannerResult<(AggregateFunc, DynProofExpr)> {
     match function {
         AggregateFunction {
@@ -45,12 +45,14 @@ pub(crate) fn aggregate_function_to_proof_expr(
                     let proof_expr = DynProofExpr::new_literal(LiteralValue::BigInt(1));
                     Ok((AggregateFunc::Count, proof_expr))
                 }
-                (physical_plan::aggregates::AggregateFunction::Sum, _) => {
-                    Ok((AggregateFunc::Sum, expr_to_proof_expr(arg, schema)?))
-                }
-                (physical_plan::aggregates::AggregateFunction::Count, _) => {
-                    Ok((AggregateFunc::Count, expr_to_proof_expr(arg, schema)?))
-                }
+                (physical_plan::aggregates::AggregateFunction::Sum, _) => Ok((
+                    AggregateFunc::Sum,
+                    non_nullable_aggregate_expr(arg, schema)?,
+                )),
+                (physical_plan::aggregates::AggregateFunction::Count, _) => Ok((
+                    AggregateFunc::Count,
+                    non_nullable_aggregate_expr(arg, schema)?,
+                )),
                 _ => Err(PlannerError::UnsupportedAggregateOperation { op: op.clone() }),
             }
         }
@@ -60,11 +62,25 @@ pub(crate) fn aggregate_function_to_proof_expr(
     }
 }
 
+fn non_nullable_aggregate_expr<S: SchemaFields + ?Sized>(
+    expr: &Expr,
+    schema: &S,
+) -> PlannerResult<DynProofExpr> {
+    let proof_expr = expr_to_proof_expr(expr, schema)?;
+    if proof_expr.is_nullable() {
+        return Err(PlannerError::UnsupportedNullableAggregateExpression {
+            expr: Box::new(expr.clone()),
+        });
+    }
+    Ok(proof_expr)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::df_util::*;
     use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
+    use sqlparser::ast::Ident;
 
     // AggregateFunction to DynProofExpr
     #[test]
@@ -224,5 +240,24 @@ mod tests {
             aggregate_function_to_proof_expr(&function, &schema),
             Err(PlannerError::UnsupportedAggregateFunction { .. })
         ));
+    }
+
+    #[test]
+    fn we_cannot_convert_nullable_aggregate_arguments() {
+        use proof_of_sql::base::database::ColumnField;
+
+        let expr = df_column("table", "a");
+        let schema = vec![ColumnField::new_nullable("a".into(), ColumnType::BigInt)];
+        for function in [
+            physical_plan::aggregates::AggregateFunction::Sum,
+            physical_plan::aggregates::AggregateFunction::Count,
+        ] {
+            let function =
+                AggregateFunction::new(function, vec![expr.clone()], false, None, None, None);
+            assert!(matches!(
+                aggregate_function_to_proof_expr(&function, &schema),
+                Err(PlannerError::UnsupportedNullableAggregateExpression { .. })
+            ));
+        }
     }
 }

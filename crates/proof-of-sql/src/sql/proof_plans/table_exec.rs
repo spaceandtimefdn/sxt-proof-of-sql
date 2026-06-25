@@ -1,6 +1,9 @@
 use crate::{
     base::{
-        database::{ColumnField, ColumnRef, LiteralValue, Table, TableEvaluation, TableRef},
+        database::{
+            physical_column_fields_from_logical_schema, presence_column_id, ColumnField, ColumnRef,
+            ColumnType, LiteralValue, Table, TableEvaluation, TableRef,
+        },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -55,8 +58,8 @@ impl ProofPlan for TableExec {
         chi_eval_map: &IndexMap<TableRef, (S, usize)>,
         params: &[LiteralValue],
     ) -> Result<TableEvaluation<S>, ProofError> {
-        let column_evals = self
-            .schema
+        let output_schema = self.get_column_result_fields();
+        let column_evals = output_schema
             .iter()
             .map(|field| {
                 *accessor
@@ -73,13 +76,28 @@ impl ProofPlan for TableExec {
     }
 
     fn get_column_result_fields(&self) -> Vec<ColumnField> {
-        self.schema.clone()
+        physical_column_fields_from_logical_schema(self.schema.clone())
     }
 
     fn get_column_references(&self) -> IndexSet<ColumnRef> {
         self.schema
             .iter()
-            .map(|field| ColumnRef::new(self.table_ref.clone(), field.name(), field.data_type()))
+            .flat_map(|field| {
+                let mut refs = Vec::with_capacity(if field.is_nullable() { 2 } else { 1 });
+                refs.push(if field.is_nullable() {
+                    ColumnRef::new_nullable(self.table_ref.clone(), field.name(), field.data_type())
+                } else {
+                    ColumnRef::new(self.table_ref.clone(), field.name(), field.data_type())
+                });
+                if field.is_nullable() {
+                    refs.push(ColumnRef::new(
+                        self.table_ref.clone(),
+                        presence_column_id(&field.name()),
+                        ColumnType::Boolean,
+                    ));
+                }
+                refs
+            })
             .collect()
     }
 

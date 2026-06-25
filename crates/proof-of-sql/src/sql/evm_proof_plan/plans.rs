@@ -43,6 +43,14 @@ impl EVMDynProofPlan {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        if plan
+            .get_column_result_fields_as_references()
+            .iter()
+            .any(ColumnRef::is_nullable)
+        {
+            return Err(EVMProofPlanError::NotSupported);
+        }
+
         match plan {
             DynProofPlan::Empty(empty_exec) => {
                 Ok(Self::Empty(EVMEmptyExec::try_from_proof_plan(empty_exec)))
@@ -167,6 +175,10 @@ impl EVMTableExec {
         table_refs: &IndexSet<TableRef>,
         column_refs: &IndexSet<ColumnRef>,
     ) -> EVMProofPlanResult<Self> {
+        if plan.schema().iter().any(ColumnField::is_nullable) {
+            return Err(EVMProofPlanError::NotSupported);
+        }
+
         Ok(Self {
             table_number: table_refs
                 .get_index_of(plan.table_ref())
@@ -1028,6 +1040,41 @@ mod tests {
             *table_exec.table_ref()
         );
         assert_eq!(roundtripped_table_exec.schema().len(), 2);
+    }
+
+    #[test]
+    fn we_cannot_put_nullable_table_exec_in_evm_until_presence_evals_are_supported() {
+        let table_ref: TableRef = "namespace.table".parse().unwrap();
+        let ident_a: Ident = "a".into();
+        let presence_ident = Ident::new("a__presence");
+        let column_ref_a =
+            ColumnRef::new_nullable(table_ref.clone(), ident_a.clone(), ColumnType::BigInt);
+        let presence_ref = ColumnRef::new(
+            table_ref.clone(),
+            presence_ident.clone(),
+            ColumnType::Boolean,
+        );
+        let table_exec = TableExec::new(
+            table_ref.clone(),
+            vec![ColumnField::new_nullable(ident_a, ColumnType::BigInt)],
+        );
+
+        assert_eq!(
+            EVMTableExec::try_from_proof_plan(
+                &table_exec,
+                &indexset![table_ref.clone()],
+                &indexset![column_ref_a.clone(), presence_ref.clone()],
+            ),
+            Err(EVMProofPlanError::NotSupported)
+        );
+        assert_eq!(
+            EVMDynProofPlan::try_from_proof_plan(
+                &DynProofPlan::Table(table_exec),
+                &indexset![table_ref],
+                &indexset![column_ref_a, presence_ref],
+            ),
+            Err(EVMProofPlanError::NotSupported)
+        );
     }
 
     #[test]

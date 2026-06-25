@@ -169,6 +169,242 @@ fn test_simple_filter_queries() {
     );
 }
 
+#[test]
+fn test_nullable_column_queries() {
+    let alloc = Bump::new();
+    let sql = "
+        select score + bonus as total from nullable_scores where score + bonus = 12;
+        select score is null as score_missing from nullable_scores;
+        select flag or guard as flag_or_guard, flag and guard as flag_and_guard from nullable_flags;
+        select
+            flag is false as flag_false,
+            flag is not true as flag_not_true,
+            flag is not false as flag_not_false,
+            flag is unknown as flag_unknown,
+            flag is not unknown as flag_known
+        from nullable_flags;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "nullable_scores") => table(
+            vec![
+                borrowed_bigint("score", [5_i64, 0, 9, 5, 0], &alloc),
+                borrowed_boolean("score__presence", [true, false, true, true, false], &alloc),
+                borrowed_bigint("bonus", [7_i64, 0, 1, 7, 0], &alloc),
+            ]
+        ),
+        TableRef::from_names(None, "nullable_flags") => table(
+            vec![
+                borrowed_boolean("flag", [true, false, false, true], &alloc),
+                borrowed_boolean("flag__presence", [true, true, false, false], &alloc),
+                borrowed_boolean("guard", [false, false, false, true], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            decimal75("total", 20, 0, [12_i128, 12]),
+            boolean("total__presence", [true, true]),
+        ]),
+        owned_table([boolean("score_missing", [false, true, false, false, true])]),
+        owned_table([
+            boolean("flag_or_guard", [true, false, false, true]),
+            boolean("flag_or_guard__presence", [true, true, false, true]),
+            boolean("flag_and_guard", [false, false, false, true]),
+            boolean("flag_and_guard__presence", [true, true, true, false]),
+        ]),
+        owned_table([
+            boolean("flag_false", [false, true, false, false]),
+            boolean("flag_not_true", [false, true, true, true]),
+            boolean("flag_not_false", [true, false, true, true]),
+            boolean("flag_unknown", [false, false, true, true]),
+            boolean("flag_known", [true, true, false, false]),
+        ]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+#[test]
+#[expect(clippy::too_many_lines)]
+fn test_nullable_select_star_filter_queries() {
+    let alloc = Bump::new();
+    let sql = "
+        select * from nullable_addends where a + b = 2;
+        select * from nullable_addends where a + b = 4;
+        select * from nullable_addends where a + b = 3;
+        select * from nullable_addends where a + b = 0;
+        select * from nullable_addends where a = 1 or b = 1;
+        select * from nullable_addends where a - b = 0;
+        select * from nullable_addends where a is null;
+        select * from nullable_addends where a is not null and b is null;
+        select * from nullable_addends where (a + b) is null;
+        select * from nullable_addends where (a = 1) is unknown;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "nullable_addends") => table(
+            vec![
+                borrowed_bigint("a", [1_i64, 1, 0, 0, 2, 2, 0], &alloc),
+                borrowed_boolean(
+                    "a__presence",
+                    [true, true, false, false, true, true, false],
+                    &alloc,
+                ),
+                borrowed_bigint("b", [1_i64, 0, 1, 0, 2, 0, 2], &alloc),
+                borrowed_boolean(
+                    "b__presence",
+                    [true, false, true, false, true, false, true],
+                    &alloc,
+                ),
+                borrowed_bigint("c", [101_i64, 102, 103, 104, 105, 106, 107], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            bigint("a", [1_i64]),
+            boolean("a__presence", [true]),
+            bigint("b", [1_i64]),
+            boolean("b__presence", [true]),
+            bigint("c", [101_i64]),
+        ]),
+        owned_table([
+            bigint("a", [2_i64]),
+            boolean("a__presence", [true]),
+            bigint("b", [2_i64]),
+            boolean("b__presence", [true]),
+            bigint("c", [105_i64]),
+        ]),
+        owned_table([
+            bigint("a", core::iter::empty::<i64>()),
+            boolean("a__presence", core::iter::empty::<bool>()),
+            bigint("b", core::iter::empty::<i64>()),
+            boolean("b__presence", core::iter::empty::<bool>()),
+            bigint("c", core::iter::empty::<i64>()),
+        ]),
+        owned_table([
+            bigint("a", core::iter::empty::<i64>()),
+            boolean("a__presence", core::iter::empty::<bool>()),
+            bigint("b", core::iter::empty::<i64>()),
+            boolean("b__presence", core::iter::empty::<bool>()),
+            bigint("c", core::iter::empty::<i64>()),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 1, 0]),
+            boolean("a__presence", [true, true, false]),
+            bigint("b", [1_i64, 0, 1]),
+            boolean("b__presence", [true, false, true]),
+            bigint("c", [101_i64, 102, 103]),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 2]),
+            boolean("a__presence", [true, true]),
+            bigint("b", [1_i64, 2]),
+            boolean("b__presence", [true, true]),
+            bigint("c", [101_i64, 105]),
+        ]),
+        owned_table([
+            bigint("a", [0_i64, 0, 0]),
+            boolean("a__presence", [false, false, false]),
+            bigint("b", [1_i64, 0, 2]),
+            boolean("b__presence", [true, false, true]),
+            bigint("c", [103_i64, 104, 107]),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 2]),
+            boolean("a__presence", [true, true]),
+            bigint("b", [0_i64, 0]),
+            boolean("b__presence", [false, false]),
+            bigint("c", [102_i64, 106]),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 0, 0, 2, 0]),
+            boolean("a__presence", [true, false, false, true, false]),
+            bigint("b", [0_i64, 1, 0, 0, 2]),
+            boolean("b__presence", [false, true, false, false, true]),
+            bigint("c", [102_i64, 103, 104, 106, 107]),
+        ]),
+        owned_table([
+            bigint("a", [0_i64, 0, 0]),
+            boolean("a__presence", [false, false, false]),
+            bigint("b", [1_i64, 0, 2]),
+            boolean("b__presence", [true, false, true]),
+            bigint("c", [103_i64, 104, 107]),
+        ]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+#[test]
+fn test_nullable_filters_ignore_adversarial_physical_values_on_null_rows() {
+    let alloc = Bump::new();
+    let sql = "
+        select * from adversarial_nulls where a + b = -999999999998;
+        select * from adversarial_nulls where a + b = 2;
+        select a + b as total from adversarial_nulls where (a + b) is not null;
+    ";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(None, "adversarial_nulls") => table(
+            vec![
+                borrowed_bigint("a", [1_i64, -999_999_999_999, 3], &alloc),
+                borrowed_boolean("a__presence", [true, false, true], &alloc),
+                borrowed_bigint("b", [1_i64, 1, -1], &alloc),
+            ]
+        )
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            bigint("a", core::iter::empty::<i64>()),
+            boolean("a__presence", core::iter::empty::<bool>()),
+            bigint("b", core::iter::empty::<i64>()),
+        ]),
+        owned_table([
+            bigint("a", [1_i64, 3]),
+            boolean("a__presence", [true, true]),
+            bigint("b", [1_i64, -1]),
+        ]),
+        owned_table([
+            decimal75("total", 20, 0, [2_i128, 2]),
+            boolean("total__presence", [true, true]),
+        ]),
+    ];
+
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
 /// Test complex filter queries with nested filters using subqueries
 #[test]
 fn test_complex_filter_queries() {

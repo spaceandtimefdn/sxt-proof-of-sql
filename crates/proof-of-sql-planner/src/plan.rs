@@ -1,6 +1,6 @@
 use super::{
     aggregate_function_to_proof_expr, expr_to_proof_expr, get_column_idents_from_expr,
-    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
+    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult, SchemaFields,
 };
 use alloc::vec::Vec;
 use datafusion::{
@@ -13,7 +13,10 @@ use datafusion::{
 };
 use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
-    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
+    base::database::{
+        presence_column_id, value_column_id_from_presence, ColumnField, ColumnRef, ColumnType,
+        LiteralValue, SchemaAccessor, TableRef,
+    },
     sql::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
@@ -31,7 +34,7 @@ use proof_of_sql::{
 fn get_aliased_dyn_proof_exprs(
     table_ref: &TableRef,
     projection: &[usize],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &impl SchemaFields,
     output_schema: &DFSchema,
 ) -> PlannerResult<Vec<AliasedDynProofExpr>> {
     projection
@@ -41,14 +44,23 @@ fn get_aliased_dyn_proof_exprs(
             |(output_index, input_index)| -> PlannerResult<AliasedDynProofExpr> {
                 // Get output column name / alias
                 let alias: Ident = output_schema.field(output_index).name().as_str().into();
-                let (input_column_name, data_type) = input_schema
-                    .get(*input_index)
+                let input_field = input_schema
+                    .field_at(*input_index)
                     .ok_or(PlannerError::ColumnNotFound)?;
-                let expr = DynProofExpr::new_column(ColumnRef::new(
-                    table_ref.clone(),
-                    input_column_name.clone(),
-                    *data_type,
-                ));
+                let input_column_name = input_field.name();
+                let expr = DynProofExpr::new_column(if input_field.is_nullable() {
+                    ColumnRef::new_nullable(
+                        table_ref.clone(),
+                        input_column_name,
+                        input_field.data_type(),
+                    )
+                } else {
+                    ColumnRef::new(
+                        table_ref.clone(),
+                        input_column_name,
+                        input_field.data_type(),
+                    )
+                });
                 Ok(AliasedDynProofExpr { expr, alias })
             },
         )
@@ -59,13 +71,24 @@ fn get_aliased_dyn_proof_exprs(
 fn table_scan_get_required_columns(
     projection: &[usize],
     filters: &[Expr],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &impl SchemaFields,
 ) -> IndexSet<Ident> {
     projection
         .iter()
-        .filter_map(|&i| input_schema.get(i).map(|(ident, _)| ident.clone()))
+        .filter_map(|&i| input_schema.field_at(i).map(|field| field.name()))
         .chain(filters.iter().flat_map(get_column_idents_from_expr))
         .collect()
+}
+
+fn is_generated_nullable_presence_field(field: &ColumnField, fields: &[ColumnField]) -> bool {
+    let Some(value_column_id) = value_column_id_from_presence(&field.name()) else {
+        return false;
+    };
+    fields.iter().any(|candidate| {
+        candidate.is_nullable()
+            && candidate.name() == value_column_id
+            && presence_column_id(&candidate.name()) == field.name()
+    })
 }
 
 /// Convert a `TableScan` without filters or fetch limit to a `DynProofPlan`
@@ -79,15 +102,15 @@ fn table_scan_to_proof_plan(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_schema_fields(&table_ref);
     // Filter for only the fields we use
     let input_column_fields = projection
         .iter()
         .map(|i| {
-            let (ident, column_type) = input_schema
+            input_schema
                 .get(*i)
-                .expect("Projection index out of bounds");
-            ColumnField::new(ident.clone(), *column_type)
+                .expect("Projection index out of bounds")
+                .clone()
         })
         .collect::<Vec<_>>();
     Ok(DynProofPlan::new_table(table_ref, input_column_fields))
@@ -106,15 +129,15 @@ fn table_scan_to_filter(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_schema_fields(&table_ref);
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
     let required_columns = table_scan_get_required_columns(projection, filters, &input_schema);
     let input_column_fields = input_schema
         .iter()
-        .filter(|(ident, _)| required_columns.contains(ident))
-        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .filter(|field| required_columns.contains(&field.name()))
+        .cloned()
         .collect::<Vec<_>>();
     let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
     let filter_proof_exprs = filters
@@ -137,11 +160,7 @@ fn projection_to_proof_plan(
     schemas: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields();
     let aliased_exprs = expr
         .iter()
         .zip(output_schema.fields().iter())
@@ -172,11 +191,7 @@ fn aggregate_to_proof_plan(
     alias_map: &IndexMap<String, String>,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields();
     let dummy_table_ref = TableRef::from_names(None, "");
     // We keep an extra alias just in case there is no count in the aggregate expr list
     let mut inner_aliases = 0..=(group_expr.len() + aggr_expr.len());
@@ -186,6 +201,11 @@ fn aggregate_to_proof_plan(
         .map(|(e, aggregate_alias)| -> PlannerResult<_> {
             let aggregate_alias: Ident = aggregate_alias.to_string().as_str().into();
             let aggregate_proof_expr = expr_to_proof_expr(e, &input_schema)?;
+            if aggregate_proof_expr.is_nullable() {
+                return Err(PlannerError::UnsupportedNullableGroupByExpression {
+                    expr: Box::new(e.clone()),
+                });
+            }
             let name_string = e.clone().unalias().display_name()?;
             let alias = alias_map.get(&name_string).ok_or_else(|| {
                 PlannerError::UnsupportedLogicalPlan {
@@ -311,15 +331,15 @@ fn join_to_proof_plan(
     }
     let left_plan = Box::new(logical_plan_to_proof_plan(&join.left, schema_accessor)?);
     let right_plan = Box::new(logical_plan_to_proof_plan(&join.right, schema_accessor)?);
-    let left_column_result_fields = left_plan
-        .get_column_result_fields()
-        .into_iter()
-        .map(|c| c.name())
+    let left_column_result_fields = left_plan.get_column_result_fields();
+    let right_column_result_fields = right_plan.get_column_result_fields();
+    let left_column_result_idents = left_column_result_fields
+        .iter()
+        .map(ColumnField::name)
         .collect::<IndexSet<_>>();
-    let right_column_result_fields = right_plan
-        .get_column_result_fields()
-        .into_iter()
-        .map(|c| c.name())
+    let right_column_result_idents = right_column_result_fields
+        .iter()
+        .map(ColumnField::name)
         .collect::<IndexSet<_>>();
     let on_indices_and_idents = join
         .on
@@ -330,8 +350,8 @@ fn join_to_proof_plan(
                     let column_id = Ident::new(col_a.name.clone());
                     Ok((
                         (
-                            left_column_result_fields.get_index_of(&column_id)?,
-                            right_column_result_fields.get_index_of(&column_id)?,
+                            left_column_result_idents.get_index_of(&column_id)?,
+                            right_column_result_idents.get_index_of(&column_id)?,
                         ),
                         column_id,
                     ))
@@ -344,14 +364,22 @@ fn join_to_proof_plan(
         .collect::<Result<Vec<_>, _>>()?;
     let (on_indices, join_idents): (Vec<(usize, usize)>, Vec<Ident>) =
         on_indices_and_idents.into_iter().unzip();
+    for ((left_index, right_index), join_ident) in on_indices.iter().zip(join_idents.iter()) {
+        if left_column_result_fields[*left_index].is_nullable()
+            || right_column_result_fields[*right_index].is_nullable()
+        {
+            return Err(PlannerError::UnsupportedNullableJoinColumn {
+                column: join_ident.value.clone(),
+            });
+        }
+    }
     let (left_indices, right_indices): (Vec<usize>, Vec<usize>) = on_indices.into_iter().unzip();
     let (left_indices_cloned, right_indices_cloned) = (left_indices.clone(), right_indices.clone());
-    let left_other_column_idents = left_column_result_fields
-        .clone()
+    let left_other_column_idents = left_column_result_idents
         .into_iter()
         .enumerate()
         .filter_map(|(i, col_ident)| (!left_indices.contains(&i)).then_some(col_ident));
-    let right_other_column_idents = right_column_result_fields
+    let right_other_column_idents = right_column_result_idents
         .into_iter()
         .enumerate()
         .filter_map(|(i, col_ident)| (!right_indices.contains(&i)).then_some(col_ident));
@@ -434,23 +462,27 @@ pub fn logical_plan_to_proof_plan(
             input, predicate, ..
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            let input_schema = input_plan
-                .get_column_result_fields()
+            let input_fields = input_plan.get_column_result_fields();
+            let filter_proof_expr = expr_to_proof_expr(predicate, &input_fields)?;
+            let aliased_exprs = input_fields
                 .iter()
-                .map(|field| (field.name(), field.data_type()))
-                .collect::<Vec<_>>();
-            let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
-            let aliased_exprs = input_plan
-                .get_column_result_fields()
-                .iter()
+                .filter(|field| !is_generated_nullable_presence_field(field, &input_fields))
                 .map(|field| -> PlannerResult<AliasedDynProofExpr> {
                     let alias = field.name();
                     Ok(AliasedDynProofExpr {
-                        expr: DynProofExpr::new_column(ColumnRef::new(
-                            TableRef::from_names(None, "__filter_input__"), // Dummy table ref
-                            alias.clone(),
-                            field.data_type(),
-                        )),
+                        expr: DynProofExpr::new_column(if field.is_nullable() {
+                            ColumnRef::new_nullable(
+                                TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                                alias.clone(),
+                                field.data_type(),
+                            )
+                        } else {
+                            ColumnRef::new(
+                                TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                                alias.clone(),
+                                field.data_type(),
+                            )
+                        }),
                         alias,
                     })
                 })
@@ -1247,6 +1279,42 @@ mod tests {
         assert!(matches!(
             result,
             Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_group_by_nullable_expressions() {
+        let group_expr = vec![df_column("table", "a")];
+        let aggr_expr = vec![COUNT_1()];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                Arc::new(PoSqlTableSource::new(vec![
+                    ColumnField::new_nullable("a".into(), ColumnType::BigInt),
+                    ColumnField::new("b".into(), ColumnType::Int),
+                ])) as Arc<dyn TableSource>,
+                Some(vec![0, 1]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {
+            AHasher;
+            TABLE_REF_TABLE() => vec![
+                ("a".into(), ColumnType::BigInt),
+                ("a__presence".into(), ColumnType::Boolean),
+                ("b".into(), ColumnType::Int),
+            ],
+        });
+        let alias_map = indexmap! {
+            "a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+        };
+
+        assert!(matches!(
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &schemas, &alias_map),
+            Err(PlannerError::UnsupportedNullableGroupByExpression { .. })
         ));
     }
 
@@ -2224,6 +2292,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn we_cannot_join_on_nullable_columns() {
+        let left_table = Arc::new(PoSqlTableSource::new(vec![ColumnField::new_nullable(
+            "id".into(),
+            ColumnType::BigInt,
+        )])) as Arc<dyn TableSource>;
+        let right_table = Arc::new(PoSqlTableSource::new(vec![ColumnField::new(
+            "id".into(),
+            ColumnType::BigInt,
+        )])) as Arc<dyn TableSource>;
+        let left_scan = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_table, Some(vec![0]), vec![], None).unwrap(),
+        );
+        let right_scan = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_table, Some(vec![0]), vec![], None).unwrap(),
+        );
+        let join_plan = LogicalPlan::Join(Join {
+            left: Arc::new(left_scan),
+            right: Arc::new(right_scan),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("id__presence".into(), ColumnType::Boolean),
+            ],
+            TableRef::new("", "right_table") => vec![("id".into(), ColumnType::BigInt)],
+        });
+
+        assert!(matches!(
+            logical_plan_to_proof_plan(&join_plan, &schemas),
+            Err(PlannerError::UnsupportedNullableJoinColumn { column }) if column == "id"
+        ));
+    }
+
     // Filter (LogicalPlan::Filter) tests - Happy paths
     #[test]
     fn we_can_convert_simple_nested_filters() {
@@ -2311,6 +2422,26 @@ mod tests {
         let result = table_scan_get_required_columns(&projection, &filters, &input_schema);
         let expected: IndexSet<Ident> = ["a".into(), "c".into()].into_iter().collect();
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn generated_presence_field_detection_keeps_orphan_suffix_columns() {
+        let fields = vec![
+            ColumnField::new_nullable("score".into(), ColumnType::BigInt),
+            ColumnField::new("score__presence".into(), ColumnType::Boolean),
+            ColumnField::new("orphan__presence".into(), ColumnType::Boolean),
+        ];
+
+        let visible_fields = fields
+            .iter()
+            .filter(|field| !is_generated_nullable_presence_field(field, &fields))
+            .map(ColumnField::name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            visible_fields,
+            vec!["score".into(), "orphan__presence".into()]
+        );
     }
 
     #[test]

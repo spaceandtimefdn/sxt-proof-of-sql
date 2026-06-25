@@ -68,7 +68,11 @@ impl AggregateExec {
             input,
             where_clause,
         };
-        group_by.try_get_is_uniqueness_provable().map(|_| group_by)
+        if group_by.has_nullable_inputs() {
+            None
+        } else {
+            group_by.try_get_is_uniqueness_provable().map(|_| group_by)
+        }
     }
 
     /// Get a reference to the input plan
@@ -94,6 +98,17 @@ impl AggregateExec {
     /// Get a reference to the count alias
     pub fn count_alias(&self) -> &Ident {
         &self.count_alias
+    }
+
+    fn has_nullable_inputs(&self) -> bool {
+        self.group_by_exprs
+            .iter()
+            .any(|aliased_expr| aliased_expr.expr.is_nullable())
+            || self
+                .sum_expr
+                .iter()
+                .any(|aliased_expr| aliased_expr.expr.is_nullable())
+            || self.where_clause.is_nullable()
     }
 
     /// Checks if the group by expression can prove uniqueness

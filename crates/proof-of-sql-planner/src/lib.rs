@@ -23,8 +23,8 @@ pub use plan::logical_plan_to_proof_plan;
 mod uppercase_column_visitor;
 pub use uppercase_column_visitor::{statement_with_uppercase_identifiers, uppercase_identifier};
 mod util;
-pub use util::column_fields_to_schema;
+pub use util::{column_fields_to_schema, SchemaFields};
 pub(crate) use util::{
     column_to_column_ref, placeholder_to_placeholder_expr, scalar_value_to_literal_value,
-    schema_to_column_fields, table_reference_to_table_ref,
+    table_reference_to_table_ref,
 };
