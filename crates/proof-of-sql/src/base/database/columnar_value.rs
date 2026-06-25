@@ -66,7 +66,6 @@ impl<'a, S: Scalar> ColumnarValue<'a, S> {
 mod tests {
     use super::*;
     use crate::base::scalar::test_scalar::TestScalar;
-    use core::convert::Into;
 
     #[test]
     fn we_can_get_column_type_of_columnar_values() {
@@ -114,7 +113,10 @@ mod tests {
         );
 
         let strings = ["a", "b", "c"];
-        let scalars: Vec<TestScalar> = strings.iter().map(Into::into).collect();
+        let scalars: Vec<TestScalar> = strings
+            .iter()
+            .map(|&s| TestScalar::from_str_via_hash(s))
+            .collect();
         let columnar_value =
             ColumnarValue::Column(Column::<TestScalar>::VarChar((&strings, &scalars)));
         let res = columnar_value.into_column(0, &bump);
