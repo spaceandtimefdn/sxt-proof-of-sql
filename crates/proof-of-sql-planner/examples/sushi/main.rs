@@ -23,7 +23,9 @@ use proof_of_sql_planner::sql_to_proof_plans;
 use rand::{rngs::StdRng, SeedableRng};
 use sqlparser::{dialect::GenericDialect, parser::Parser};
 use std::{fs::File, time::Instant};
-const DORY_SETUP_MAX_NU: usize = 8;
+
+// The checked-in fish CSV has 12 rows, which fits under the 32-row capacity for max_nu = 3.
+const DORY_SETUP_MAX_NU: usize = 3;
 const DORY_SEED: [u8; 32] = *b"sushi-is-the-best-food-available";
 
 /// # Panics
