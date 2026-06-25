@@ -16,10 +16,8 @@ use super::{
     },
     U256,
 };
-use crate::base::scalar::MontScalar;
 #[cfg(test)]
 use alloc::{vec, vec::Vec};
-use ark_ff::MontConfig;
 
 /// Most-significant byte, == 0x80
 pub const MSB: u8 = 0b1000_0000;
@@ -282,7 +280,15 @@ impl VarInt for i128 {
     }
 }
 
-impl<T: MontConfig<4>> VarInt for MontScalar<T> {
+/// Blanket `VarInt` implementation for any `Scalar`.
+///
+/// This replaces the previous `MontScalar<T>`-specific impl: every `Scalar`
+/// implementor now gets varint encoding for free. The body relies only on
+/// `Scalar`'s `to_limbs` / `from_le_bytes_mod_order` surface (via
+/// `ZigZag` and the helpers in `scalar_varint`), so future `Scalar`
+/// types — non-Montgomery field representations, alternative wrappers —
+/// work without any extra impl block.
+impl<S: crate::base::scalar::Scalar> VarInt for S {
     fn required_space(self) -> usize {
         scalar_varint_size(&self)
     }
