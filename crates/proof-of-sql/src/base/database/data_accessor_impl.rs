@@ -39,10 +39,11 @@ impl<'a, S: Scalar> TableDataAccessor<'a, S> {
     /// Creates a new instance of `TableDataAccessor` using a `RecordBatch`
     #[cfg(feature = "arrow")]
     pub fn try_from_record_batch(
-        record_batch: &'a RecordBatch,
+        record_batch: &RecordBatch,
         offset: usize,
         alloc: &'a Bump,
     ) -> Result<Self, ArrowArrayToColumnConversionError> {
+        let inner_alloc = Bump::new();
         let range = 0..record_batch.num_rows();
         let columns = record_batch
             .schema()
@@ -50,8 +51,8 @@ impl<'a, S: Scalar> TableDataAccessor<'a, S> {
             .iter()
             .zip(record_batch.columns())
             .map(|(f, col)| {
-                col.to_column::<S>(alloc, &range, None)
-                    .map(|col| (f.name().as_str().into(), col))
+                col.to_column::<S>(&inner_alloc, &range, None)
+                    .map(|col| (f.name().as_str().into(), col.alloc_column(alloc)))
             })
             // Use collect to transform Iterator<Result<T, E>> into Result<Collection<T>, E>
             .collect::<Result<IndexMap<_, _>, _>>()?;
