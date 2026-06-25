@@ -65,3 +65,73 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{string::ToString, vec};
+
+    fn field(name: &str, data_type: ColumnType) -> ColumnField {
+        ColumnField::new(Ident::new(name), data_type)
+    }
+
+    #[test]
+    fn table_operation_errors_render_their_context() {
+        let incompatible_schema_message = TableOperationError::UnionIncompatibleSchemas {
+            correct_schema: vec![field("a", ColumnType::Int)],
+            actual_schema: vec![field("a", ColumnType::BigInt)],
+        }
+        .to_string();
+        assert!(
+            incompatible_schema_message.contains("Cannot union tables with incompatible schemas")
+        );
+        assert!(incompatible_schema_message.contains("data_type: Int"));
+        assert!(incompatible_schema_message.contains("data_type: BigInt"));
+
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+        assert_eq!(
+            TableOperationError::JoinWithDifferentNumberOfColumns {
+                left_num_columns: 2,
+                right_num_columns: 3,
+            }
+            .to_string(),
+            "Cannot join tables with different numbers of columns: 2 and 3"
+        );
+        assert_eq!(
+            TableOperationError::JoinIncompatibleTypes {
+                left_type: ColumnType::SmallInt,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Cannot join tables on columns with incompatible types: SmallInt and VarChar"
+        );
+
+        let missing_column_message = TableOperationError::ColumnDoesNotExist {
+            column_ident: Ident::new("missing"),
+        }
+        .to_string();
+        assert!(missing_column_message.contains("missing"));
+        assert!(missing_column_message.contains("does not exist in table"));
+
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+        assert_eq!(
+            TableOperationError::ColumnIndexOutOfBounds { column_index: 7 }.to_string(),
+            "Column index out of bounds: 7"
+        );
+    }
+
+    #[test]
+    fn column_operation_error_is_transparent() {
+        let error = TableOperationError::ColumnOperationError {
+            source: ColumnOperationError::DivisionByZero,
+        };
+
+        assert_eq!(error.to_string(), "Division by zero");
+    }
+}
