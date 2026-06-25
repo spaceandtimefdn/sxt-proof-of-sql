@@ -106,3 +106,60 @@ where
         tmp = new_tmp;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{batch_inversion, batch_inversion_and_mul};
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn batch_inversion_empty_slice_does_not_panic() {
+        let mut v: Vec<TestScalar> = alloc::vec![];
+        batch_inversion(&mut v);
+    }
+
+    #[test]
+    fn batch_inversion_single_element_inverts() {
+        // inv(2) * 2 == 1
+        let mut v = alloc::vec![ts(2)];
+        batch_inversion(&mut v);
+        assert_eq!(v[0] * ts(2), ts(1));
+    }
+
+    #[test]
+    fn batch_inversion_skips_zeros_leaving_them_unchanged() {
+        let mut v = alloc::vec![ts(0), ts(2)];
+        batch_inversion(&mut v);
+        assert_eq!(v[0], ts(0)); // zero unchanged
+        assert_eq!(v[1] * ts(2), ts(1)); // inv(2) correct
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_multiplies_by_coeff() {
+        // inv(2) * coeff=3 => 3 * inv(2) 
+        // check: result * 2 == 3
+        let mut v = alloc::vec![ts(2)];
+        batch_inversion_and_mul(&mut v, ts(3));
+        assert_eq!(v[0] * ts(2), ts(3));
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_empty_does_not_panic() {
+        let mut v: Vec<TestScalar> = alloc::vec![];
+        batch_inversion_and_mul(&mut v, ts(5));
+    }
+
+    #[test]
+    fn batch_inversion_multiple_elements_all_correct() {
+        let mut v = alloc::vec![ts(2), ts(3)];
+        batch_inversion(&mut v);
+        // inv(2) * 2 = 1
+        assert_eq!(v[0] * ts(2), ts(1));
+        // inv(3) * 3 = 1
+        assert_eq!(v[1] * ts(3), ts(1));
+    }
+}

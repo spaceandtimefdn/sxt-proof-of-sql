@@ -99,3 +99,53 @@ impl ProofExpr for NotExpr {
         self.expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests_not {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, NotExpr, ProofExpr},
+    };
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(1))
+    }
+
+    #[test]
+    fn try_new_with_boolean_returns_ok() {
+        assert!(NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_bigint_returns_err() {
+        assert!(NotExpr::try_new(alloc::boxed::Box::new(bigint_expr())).is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let e = NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn input_returns_correct_type() {
+        let e = NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(e.input().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).unwrap();
+        let b = NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = NotExpr::try_new(alloc::boxed::Box::new(bool_expr())).unwrap();
+        assert!(alloc::format!("{e:?}").contains("NotExpr"));
+    }
+}

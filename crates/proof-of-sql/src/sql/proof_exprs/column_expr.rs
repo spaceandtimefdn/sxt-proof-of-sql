@@ -116,3 +116,51 @@ impl ProofExpr for ColumnExpr {
         columns.insert(self.column_ref.clone());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnExpr;
+    use crate::base::database::{ColumnRef, ColumnType, TableRef};
+    use sqlparser::ast::Ident;
+
+    fn make_col_ref() -> ColumnRef {
+        ColumnRef::new(TableRef::new("s", "t"), Ident::new("col"), ColumnType::BigInt)
+    }
+
+    #[test]
+    fn new_stores_column_ref() {
+        let e = ColumnExpr::new(make_col_ref());
+        assert_eq!(e.column_ref(), &make_col_ref());
+    }
+
+    #[test]
+    fn get_column_reference_returns_clone() {
+        let e = ColumnExpr::new(make_col_ref());
+        assert_eq!(e.get_column_reference(), make_col_ref());
+    }
+
+    #[test]
+    fn column_id_returns_ident() {
+        let e = ColumnExpr::new(make_col_ref());
+        assert_eq!(e.column_id().value.as_str(), "col");
+    }
+
+    #[test]
+    fn get_column_field_has_correct_type() {
+        let e = ColumnExpr::new(make_col_ref());
+        assert_eq!(e.get_column_field().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = ColumnExpr::new(make_col_ref());
+        let b = ColumnExpr::new(make_col_ref());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = ColumnExpr::new(make_col_ref());
+        assert!(alloc::format!("{e:?}").contains("ColumnExpr"));
+    }
+}

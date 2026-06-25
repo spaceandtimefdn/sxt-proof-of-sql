@@ -99,3 +99,73 @@ impl ProofExpr for CastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests_cast {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{CastExpr, DynProofExpr, ProofExpr},
+    };
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+    fn tinyint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::TinyInt(1))
+    }
+
+    #[test]
+    fn try_new_bool_to_bigint_returns_ok() {
+        assert!(
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).is_ok()
+        );
+    }
+
+    #[test]
+    fn try_new_bigint_to_boolean_returns_err() {
+        assert!(
+            CastExpr::try_new(
+                alloc::boxed::Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+                ColumnType::Boolean
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn data_type_returns_to_type() {
+        let e =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).unwrap();
+        assert_eq!(e.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn to_type_accessor() {
+        let e =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::Int128).unwrap();
+        assert_eq!(*e.to_type(), ColumnType::Int128);
+    }
+
+    #[test]
+    fn from_expr_has_correct_type() {
+        let e =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).unwrap();
+        assert_eq!(e.get_from_expr().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).unwrap();
+        let b =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e =
+            CastExpr::try_new(alloc::boxed::Box::new(bool_expr()), ColumnType::BigInt).unwrap();
+        assert!(alloc::format!("{e:?}").contains("CastExpr"));
+    }
+}
