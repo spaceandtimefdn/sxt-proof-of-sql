@@ -32,3 +32,53 @@ pub fn fold_vals<S: Scalar>(beta: S, vals: &[S]) -> S {
 fn powers<S: Scalar>(init: S, base: S) -> impl Iterator<Item = S> {
     core::iter::successors(Some(init), move |&m| Some(m * base))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::fold_vals;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn fold_vals_empty_returns_zero() {
+        let result = fold_vals(ts(3), &[]);
+        assert_eq!(result, ts(0));
+    }
+
+    #[test]
+    fn fold_vals_single_element_is_that_element() {
+        let result = fold_vals(ts(2), &[ts(7)]);
+        assert_eq!(result, ts(7));
+    }
+
+    #[test]
+    fn fold_vals_two_elements_with_beta_one() {
+        // beta=1, vals=[a, b] => result = a*1 + b = a + b
+        let result = fold_vals(ts(1), &[ts(3), ts(4)]);
+        assert_eq!(result, ts(7));
+    }
+
+    #[test]
+    fn fold_vals_two_elements_with_beta_two() {
+        // beta=2, vals=[3, 4] => 3*2 + 4 = 10
+        let result = fold_vals(ts(2), &[ts(3), ts(4)]);
+        assert_eq!(result, ts(10));
+    }
+
+    #[test]
+    fn fold_vals_three_elements_with_beta_10() {
+        // beta=10, vals=[1, 2, 3] => 1*100 + 2*10 + 3 = 123
+        let result = fold_vals(ts(10), &[ts(1), ts(2), ts(3)]);
+        assert_eq!(result, ts(123));
+    }
+
+    #[test]
+    fn fold_vals_with_beta_zero_returns_last_element() {
+        // beta=0, vals=[a, b] => 0*a + b = b
+        let result = fold_vals(ts(0), &[ts(5), ts(9)]);
+        assert_eq!(result, ts(9));
+    }
+}

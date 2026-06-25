@@ -29,3 +29,34 @@ pub enum AppendRecordBatchTableCommitmentError {
         source: RecordBatchToColumnsError,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RecordBatchToColumnsError;
+    use crate::base::arrow::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError;
+    use arrow::datatypes::DataType;
+
+    #[test]
+    fn record_batch_to_columns_error_debug() {
+        let inner = ArrowArrayToColumnConversionError::ArrayContainsNulls;
+        let err = RecordBatchToColumnsError::ArrowArrayToColumnConversionError { source: inner };
+        let msg = alloc::format!("{err:?}");
+        assert!(msg.contains("ArrowArrayToColumnConversionError") || msg.contains("ArrayContainsNulls"));
+    }
+
+    #[test]
+    fn unsupported_type_error_propagates_through_record_batch_error() {
+        let inner = ArrowArrayToColumnConversionError::UnsupportedType { datatype: DataType::Float64 };
+        let err = RecordBatchToColumnsError::ArrowArrayToColumnConversionError { source: inner };
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("Float64") || msg.contains("unsupported"));
+    }
+
+    #[test]
+    fn array_contains_nulls_error_display() {
+        let inner = ArrowArrayToColumnConversionError::ArrayContainsNulls;
+        let err = RecordBatchToColumnsError::ArrowArrayToColumnConversionError { source: inner };
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("null") || msg.contains("null"));
+    }
+}
