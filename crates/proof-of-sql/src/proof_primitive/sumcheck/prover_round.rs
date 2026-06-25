@@ -124,3 +124,79 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{prove_round, ProverState};
+    use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+    use alloc::vec;
+
+    fn two_variable_state() -> ProverState<Curve25519Scalar> {
+        ProverState::new(
+            vec![(Curve25519Scalar::from(2), vec![0, 1])],
+            vec![
+                vec![
+                    Curve25519Scalar::from(1),
+                    Curve25519Scalar::from(3),
+                    Curve25519Scalar::from(5),
+                    Curve25519Scalar::from(7),
+                ],
+                vec![
+                    Curve25519Scalar::from(2),
+                    Curve25519Scalar::from(4),
+                    Curve25519Scalar::from(6),
+                    Curve25519Scalar::from(8),
+                ],
+            ],
+            2,
+            2,
+        )
+    }
+
+    #[test]
+    fn we_can_compute_successive_prover_rounds() {
+        let mut state = two_variable_state();
+
+        assert_eq!(
+            prove_round(&mut state, &None),
+            vec![
+                Curve25519Scalar::from(64),
+                Curve25519Scalar::from(136),
+                Curve25519Scalar::from(240),
+            ]
+        );
+        assert_eq!(state.round, 1);
+
+        assert_eq!(
+            prove_round(&mut state, &Some(Curve25519Scalar::from(10))),
+            vec![
+                Curve25519Scalar::from(924),
+                Curve25519Scalar::from(1300),
+                Curve25519Scalar::from(1740),
+            ]
+        );
+        assert_eq!(state.round, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first")]
+    fn we_reject_a_verifier_message_before_the_first_round() {
+        let mut state = two_variable_state();
+        prove_round(&mut state, &Some(Curve25519Scalar::from(10)));
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn we_reject_a_missing_verifier_message_after_the_first_round() {
+        let mut state = two_variable_state();
+        prove_round(&mut state, &None);
+        prove_round(&mut state, &None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Prover is not active")]
+    fn we_reject_rounds_for_an_inactive_prover() {
+        let mut state = ProverState::new(vec![], vec![], 0, 0);
+        prove_round::<Curve25519Scalar>(&mut state, &None);
+    }
+}
