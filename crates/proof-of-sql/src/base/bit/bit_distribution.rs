@@ -170,3 +170,90 @@ impl BitDistribution {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BitDistribution;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn new_from_i64(data: &[i64]) -> BitDistribution {
+        BitDistribution::new::<TestScalar, i64>(data)
+    }
+
+    #[test]
+    fn bit_distribution_with_empty_slice_is_valid() {
+        let dist = new_from_i64(&[]);
+        assert!(dist.is_valid());
+    }
+
+    #[test]
+    fn bit_distribution_with_constant_zero_has_zero_vary_mask() {
+        let dist = new_from_i64(&[0, 0, 0]);
+        assert_eq!(dist.num_varying_bits(), 0);
+    }
+
+    #[test]
+    fn bit_distribution_with_all_same_positive_value_has_zero_vary_mask() {
+        let dist = new_from_i64(&[42, 42, 42]);
+        assert_eq!(dist.num_varying_bits(), 0);
+    }
+
+    #[test]
+    fn bit_distribution_with_different_values_has_nonzero_vary_mask() {
+        let dist = new_from_i64(&[1, 2]);
+        assert!(dist.num_varying_bits() > 0);
+    }
+
+    #[test]
+    fn bit_distribution_from_constant_data_is_valid() {
+        let dist = new_from_i64(&[7, 7, 7]);
+        assert!(dist.is_valid());
+    }
+
+    #[test]
+    fn bit_distribution_from_mixed_data_is_valid() {
+        let dist = new_from_i64(&[1, 2, 3, 4]);
+        assert!(dist.is_valid());
+    }
+
+    #[test]
+    fn bit_distribution_vary_mask_iter_is_empty_for_constant_data() {
+        let dist = new_from_i64(&[5, 5, 5]);
+        let varying_bits: Vec<u8> = dist.vary_mask_iter().collect();
+        assert!(varying_bits.is_empty());
+    }
+
+    #[test]
+    fn bit_distribution_vary_mask_iter_nonempty_for_mixed_data() {
+        let dist = new_from_i64(&[1, 2]);
+        let varying_bits: Vec<u8> = dist.vary_mask_iter().collect();
+        assert!(!varying_bits.is_empty());
+    }
+
+    #[test]
+    fn bit_distribution_clone_equals_original() {
+        let dist = new_from_i64(&[1, 2, 3]);
+        let cloned = dist.clone();
+        assert_eq!(dist, cloned);
+    }
+
+    #[test]
+    fn bit_distribution_debug_format_works() {
+        let dist = new_from_i64(&[1]);
+        let _ = format!("{dist:?}");
+    }
+
+    #[test]
+    fn bit_distribution_single_element_slice() {
+        let dist = new_from_i64(&[100]);
+        assert!(dist.is_valid());
+        assert_eq!(dist.num_varying_bits(), 0);
+    }
+
+    #[test]
+    fn bit_distribution_positive_and_negative_data() {
+        let dist = new_from_i64(&[1, -1]);
+        assert!(dist.is_valid());
+        assert!(dist.num_varying_bits() > 0);
+    }
+}
