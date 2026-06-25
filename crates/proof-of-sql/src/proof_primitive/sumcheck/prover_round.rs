@@ -124,3 +124,83 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::prove_round;
+    use crate::{
+        base::scalar::test_scalar::TestScalar,
+        proof_primitive::sumcheck::ProverState,
+    };
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn first_round_constant_polynomial_returns_same_value_at_both_points() {
+        // f = constant 3: extension = [1, 1], coeff = 3
+        let mut state = ProverState::new(
+            alloc::vec![(ts(3), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(1), ts(1)]],
+            1,
+            1,
+        );
+        let result = prove_round(&mut state, &None);
+        assert_eq!(result[0], ts(3));
+        assert_eq!(result[1], ts(3));
+    }
+
+    #[test]
+    fn first_round_result_has_degree_plus_one_entries() {
+        let mut state = ProverState::new(
+            alloc::vec![(ts(1), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(0), ts(2)]],
+            1,
+            1,
+        );
+        let result = prove_round(&mut state, &None);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn prove_round_increments_round_counter() {
+        let mut state = ProverState::new(
+            alloc::vec![(ts(1), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(1), ts(1)]],
+            1,
+            1,
+        );
+        assert_eq!(state.round, 0);
+        prove_round(&mut state, &None);
+        assert_eq!(state.round, 1);
+    }
+
+    #[test]
+    fn first_round_linear_polynomial_evaluations_correct() {
+        // extension = [0, 4], coeff = 1 → at t=0: 0, at t=1: 4
+        let mut state = ProverState::new(
+            alloc::vec![(ts(1), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(0), ts(4)]],
+            1,
+            1,
+        );
+        let result = prove_round(&mut state, &None);
+        assert_eq!(result[0], ts(0));
+        assert_eq!(result[1], ts(4));
+    }
+
+    #[test]
+    fn first_round_with_scalar_coefficient() {
+        // coeff=2, extension=[1,3] → at t=0: 2, at t=1: 6
+        let mut state = ProverState::new(
+            alloc::vec![(ts(2), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(1), ts(3)]],
+            1,
+            1,
+        );
+        let result = prove_round(&mut state, &None);
+        assert_eq!(result[0], ts(2));
+        assert_eq!(result[1], ts(6));
+    }
+}

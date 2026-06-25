@@ -62,3 +62,62 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProverState;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn new_creates_state_with_round_zero() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 3, 2);
+        assert_eq!(state.round, 0);
+    }
+
+    #[test]
+    fn new_stores_num_vars() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 5, 1);
+        assert_eq!(state.num_vars, 5);
+    }
+
+    #[test]
+    fn new_stores_max_multiplicands() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 2, 3);
+        assert_eq!(state.max_multiplicands, 3);
+    }
+
+    #[test]
+    fn new_stores_list_of_products_length() {
+        let products = alloc::vec![(ts(2), alloc::vec![0usize, 1])];
+        let state = ProverState::new(products, alloc::vec![], 2, 1);
+        assert_eq!(state.list_of_products.len(), 1);
+        assert_eq!(state.list_of_products[0].0, ts(2));
+    }
+
+    #[test]
+    fn new_stores_flattened_extensions() {
+        let exts = alloc::vec![alloc::vec![ts(1), ts(2), ts(3), ts(4)]];
+        let state = ProverState::new(alloc::vec![], exts, 2, 1);
+        assert_eq!(state.flattened_ml_extensions.len(), 1);
+        assert_eq!(state.flattened_ml_extensions[0][0], ts(1));
+    }
+
+    #[test]
+    fn debug_formatting_works() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 1, 1);
+        let s = alloc::format!("{state:?}");
+        assert!(s.contains("ProverState"));
+    }
+
+    #[test]
+    fn empty_state_has_zero_products_and_extensions() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 0, 0);
+        assert_eq!(state.round, 0);
+        assert_eq!(state.list_of_products.len(), 0);
+        assert_eq!(state.flattened_ml_extensions.len(), 0);
+    }
+}

@@ -104,3 +104,51 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EmptyExec;
+    use crate::sql::proof::ProofPlan;
+
+    #[test]
+    fn new_creates_unit_struct() {
+        let _ = EmptyExec::new();
+    }
+
+    #[test]
+    fn default_equals_new() {
+        assert_eq!(EmptyExec::default(), EmptyExec::new());
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = EmptyExec::new();
+        assert_eq!(a.clone(), a);
+    }
+
+    #[test]
+    fn equality_holds_between_two_instances() {
+        assert_eq!(EmptyExec::new(), EmptyExec::new());
+    }
+
+    #[test]
+    fn debug_formatting_contains_struct_name() {
+        let s = alloc::format!("{:?}", EmptyExec::new());
+        assert!(s.contains("EmptyExec"));
+    }
+
+    #[test]
+    fn get_column_result_fields_is_empty() {
+        assert!(EmptyExec::new().get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn get_column_references_is_empty() {
+        assert!(EmptyExec::new().get_column_references().is_empty());
+    }
+
+    #[test]
+    fn get_table_references_is_empty() {
+        assert!(EmptyExec::new().get_table_references().is_empty());
+    }
+}
