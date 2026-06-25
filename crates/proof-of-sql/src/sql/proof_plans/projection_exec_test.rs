@@ -132,11 +132,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_projection() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected = owned_table([bigint("b", [1_i64, 2, 3, 4, 5, 1, 2, 3, 4, 5])]);
     assert_eq!(res, expected);
 }
@@ -167,11 +163,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_nontrivial_projection() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected = owned_table([
         decimal75("b", 20, 0, [2_i64, 3, 4, 5, 6]),
         decimal75("prod", 39, 0, [1_i64, 8, 15, 8, 25]),
@@ -229,11 +221,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_composed_projection() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected = owned_table([
         decimal75("b", 21, 0, [5_i64, 7]),
         decimal75("prod", 41, 0, [32_i64, 60]),
