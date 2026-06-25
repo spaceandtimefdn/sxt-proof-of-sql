@@ -30,3 +30,18 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::log_memory_usage;
+
+    #[test]
+    fn log_memory_usage_does_not_panic_with_empty_name() {
+        log_memory_usage("");
+    }
+
+    #[test]
+    fn log_memory_usage_does_not_panic_with_name() {
+        log_memory_usage("test");
+    }
+}

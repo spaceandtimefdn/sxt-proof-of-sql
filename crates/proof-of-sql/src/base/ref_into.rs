@@ -23,3 +23,38 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn test_scalar_ref_into_u64_4_does_not_panic() {
+        let s = TestScalar::from(0i32);
+        let _: [u64; 4] = s.ref_into();
+    }
+
+    #[test]
+    fn zero_scalar_ref_into_is_all_zeros() {
+        let s = TestScalar::from(0i32);
+        let limbs: [u64; 4] = s.ref_into();
+        assert_eq!(limbs, [0u64; 4]);
+    }
+
+    #[test]
+    fn nonzero_scalar_ref_into_is_nonzero() {
+        let s = TestScalar::from(1i32);
+        let limbs: [u64; 4] = s.ref_into();
+        assert_ne!(limbs, [0u64; 4]);
+    }
+
+    #[test]
+    fn distinct_scalars_produce_distinct_limbs() {
+        let a = TestScalar::from(1i32);
+        let b = TestScalar::from(2i32);
+        let limbs_a: [u64; 4] = a.ref_into();
+        let limbs_b: [u64; 4] = b.ref_into();
+        assert_ne!(limbs_a, limbs_b);
+    }
+}
