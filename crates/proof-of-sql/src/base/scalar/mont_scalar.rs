@@ -143,7 +143,8 @@ macro_rules! impl_from_for_mont_scalar_for_string {
     ($tt:ty) => {
         impl<T: MontConfig<4>> From<$tt> for MontScalar<T> {
             fn from(x: $tt) -> Self {
-                x.as_bytes().into()
+                let value: &str = x.as_ref();
+                Self::from_str_via_hash(value)
             }
         }
     };
