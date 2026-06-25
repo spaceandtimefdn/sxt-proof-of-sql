@@ -184,3 +184,83 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::{
+        base::database::{ColumnField, ColumnType, TableRef},
+        sql::proof::ProofPlan,
+    };
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn new_empty_creates_empty_variant() {
+        let plan = DynProofPlan::new_empty();
+        assert!(matches!(plan, DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn new_empty_get_column_result_fields_is_empty() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn new_empty_get_column_references_is_empty() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_column_references().is_empty());
+    }
+
+    #[test]
+    fn new_empty_get_table_references_is_empty() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn new_empty_equality() {
+        assert_eq!(DynProofPlan::new_empty(), DynProofPlan::new_empty());
+    }
+
+    #[test]
+    fn new_empty_clone_equals_original() {
+        let plan = DynProofPlan::new_empty();
+        assert_eq!(plan.clone(), plan);
+    }
+
+    #[test]
+    fn new_empty_debug_contains_variant() {
+        let plan = DynProofPlan::new_empty();
+        assert!(alloc::format!("{plan:?}").contains("Empty") || alloc::format!("{plan:?}").contains("EmptyExec"));
+    }
+
+    #[test]
+    fn new_table_creates_table_variant() {
+        let tref = TableRef::new("s", "t");
+        let schema = alloc::vec![ColumnField::new(Ident::new("col"), ColumnType::BigInt)];
+        let plan = DynProofPlan::new_table(tref, schema);
+        assert!(matches!(plan, DynProofPlan::Table(_)));
+    }
+
+    #[test]
+    fn new_table_with_no_columns_creates_table_variant() {
+        let tref = TableRef::new("", "t");
+        let plan = DynProofPlan::new_table(tref, alloc::vec![]);
+        assert!(matches!(plan, DynProofPlan::Table(_)));
+    }
+
+    #[test]
+    fn new_slice_creates_slice_variant() {
+        let input = DynProofPlan::new_empty();
+        let plan = DynProofPlan::new_slice(input, 0, None);
+        assert!(matches!(plan, DynProofPlan::Slice(_)));
+    }
+
+    #[test]
+    fn new_slice_with_fetch_creates_slice_variant() {
+        let input = DynProofPlan::new_empty();
+        let plan = DynProofPlan::new_slice(input, 5, Some(10));
+        assert!(matches!(plan, DynProofPlan::Slice(_)));
+    }
+}

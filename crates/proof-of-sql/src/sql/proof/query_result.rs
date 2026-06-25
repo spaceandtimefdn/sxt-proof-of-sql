@@ -69,3 +69,87 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::QueryError;
+    use crate::base::{
+        database::{ColumnCoercionError, TableCoercionError},
+        proof::ProofError,
+    };
+
+    #[test]
+    fn overflow_display() {
+        let e = QueryError::Overflow;
+        assert_eq!(alloc::format!("{e}"), "Overflow error");
+    }
+
+    #[test]
+    fn invalid_string_display() {
+        let e = QueryError::InvalidString;
+        assert_eq!(alloc::format!("{e}"), "String decode error");
+    }
+
+    #[test]
+    fn miscellaneous_decoding_error_display() {
+        let e = QueryError::MiscellaneousDecodingError;
+        assert_eq!(alloc::format!("{e}"), "Miscellaneous decoding error");
+    }
+
+    #[test]
+    fn miscellaneous_evaluation_error_display() {
+        let e = QueryError::MiscellaneousEvaluationError;
+        assert_eq!(alloc::format!("{e}"), "Miscellaneous evaluation error");
+    }
+
+    #[test]
+    fn invalid_column_count_display() {
+        let e = QueryError::InvalidColumnCount;
+        assert_eq!(alloc::format!("{e}"), "Invalid number of columns");
+    }
+
+    #[test]
+    fn debug_overflow_contains_variant_name() {
+        let e = QueryError::Overflow;
+        assert!(alloc::format!("{e:?}").contains("Overflow"));
+    }
+
+    #[test]
+    fn from_table_coercion_overflow_produces_query_overflow() {
+        let tc = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        };
+        let qe: QueryError = tc.into();
+        assert!(matches!(qe, QueryError::Overflow));
+    }
+
+    #[test]
+    fn from_table_coercion_invalid_type_produces_proof_error() {
+        let tc = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        };
+        let qe: QueryError = tc.into();
+        assert!(matches!(qe, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn from_table_coercion_name_mismatch_produces_proof_error() {
+        let tc = TableCoercionError::NameMismatch;
+        let qe: QueryError = tc.into();
+        assert!(matches!(qe, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn from_table_coercion_count_mismatch_produces_proof_error() {
+        let tc = TableCoercionError::ColumnCountMismatch;
+        let qe: QueryError = tc.into();
+        assert!(matches!(qe, QueryError::ProofError { .. }));
+    }
+
+    #[test]
+    fn from_proof_error_transparent() {
+        let pe = ProofError::InvalidTypeCoercion;
+        let qe: QueryError = pe.into();
+        assert!(matches!(qe, QueryError::ProofError { .. }));
+    }
+}
