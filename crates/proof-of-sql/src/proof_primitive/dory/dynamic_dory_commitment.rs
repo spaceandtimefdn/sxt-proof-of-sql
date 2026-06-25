@@ -106,7 +106,7 @@ mod tests {
             posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
             try_standard_binary_deserialization, try_standard_binary_serialization,
         },
-        proof_primitive::dory::{test_rng, DoryScalar, ProverSetup, PublicParameters},
+        proof_primitive::dory::{DoryScalar, ProverSetup, shared_test_public_parameters},
     };
     use ark_ff::UniformRand;
     use rand::{rngs::StdRng, SeedableRng};
@@ -128,8 +128,8 @@ mod tests {
     fn commitment_serialization_does_not_change() {
         let expected_serialization =
             include_bytes!("./test_table_commitmet_do_not_modify.bin").to_vec();
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let setup = ProverSetup::from(&public_parameters);
+        let public_parameters = shared_test_public_parameters(5);
+        let setup = ProverSetup::from(public_parameters);
 
         let base_table: OwnedTable<DoryScalar> = owned_table([
             uint8("uint8_column", [1, 2, 3, 4]),

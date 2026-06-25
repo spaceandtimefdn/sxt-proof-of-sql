@@ -5,17 +5,16 @@ use crate::{
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     proof_primitive::dory::{
-        compute_dory_commitments, DoryProverPublicSetup, ProverSetup, PublicParameters, F, GT,
+        compute_dory_commitments, DoryProverPublicSetup, ProverSetup, shared_test_public_parameters, F, GT,
     },
 };
 use ark_ec::pairing::Pairing;
-use ark_std::test_rng;
 use num_traits::Zero;
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_varbinary_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
 
     let data = [[1, 0, 0, 0], [2, 0, 0, 0], [3, 0, 0, 0]];
@@ -23,8 +22,8 @@ fn we_can_compute_a_dory_commitment_with_varbinary_values() {
 
     let res = compute_dory_commitments(&[col], 0, &setup);
 
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(1u64)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(2u64)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(3u64);
@@ -34,12 +33,12 @@ fn we_can_compute_a_dory_commitment_with_varbinary_values() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_int128_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::Int128(&[0, -1, 2])], 0, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0_i128)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(-1_i128)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2_i128);
@@ -48,16 +47,16 @@ fn we_can_compute_a_dory_commitment_with_int128_values() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_boolean_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[CommittableColumn::Boolean(&[true, false, true])],
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(true)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(false)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(true);
@@ -66,12 +65,12 @@ fn we_can_compute_a_dory_commitment_with_boolean_values() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_only_one_row() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0, 1, 2])], 0, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2);
@@ -80,12 +79,12 @@ fn we_can_compute_a_dory_commitment_with_only_one_row() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_exactly_one_full_row() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0, 1, 2, 3])], 0, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2)
@@ -95,12 +94,12 @@ fn we_can_compute_a_dory_commitment_with_exactly_one_full_row() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_exactly_one_full_row_and_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[2, 3])], 2, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2)
         + Pairing::pairing(Gamma_1[3], Gamma_2[0]) * F::from(3);
     assert_eq!(res[0].0, expected);
@@ -108,12 +107,12 @@ fn we_can_compute_a_dory_commitment_with_exactly_one_full_row_and_an_offset() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_exactly_one_full_row_and_an_offset_with_signed_data() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[-2, -3])], 2, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(-2)
         + Pairing::pairing(Gamma_1[3], Gamma_2[0]) * F::from(-3);
     assert_eq!(res[0].0, expected);
@@ -121,16 +120,16 @@ fn we_can_compute_a_dory_commitment_with_exactly_one_full_row_and_an_offset_with
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_fewer_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[CommittableColumn::BigInt(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])],
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2)
@@ -146,8 +145,8 @@ fn we_can_compute_a_dory_commitment_with_fewer_rows_than_columns() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_more_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[CommittableColumn::BigInt(&[
@@ -156,8 +155,8 @@ fn we_can_compute_a_dory_commitment_with_more_rows_than_columns() {
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2)
@@ -182,12 +181,12 @@ fn we_can_compute_a_dory_commitment_with_more_rows_than_columns() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_an_offset_and_only_one_row() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0, 1])], 5, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[1]) * F::from(1);
     assert_eq!(res[0].0, expected);
@@ -195,16 +194,16 @@ fn we_can_compute_a_dory_commitment_with_an_offset_and_only_one_row() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_an_offset_and_fewer_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[CommittableColumn::BigInt(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])],
         5,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[1]) * F::from(1)
         + Pairing::pairing(Gamma_1[3], Gamma_2[1]) * F::from(2)
@@ -220,8 +219,8 @@ fn we_can_compute_a_dory_commitment_with_an_offset_and_fewer_rows_than_columns()
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_an_offset_and_more_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[CommittableColumn::BigInt(&[
@@ -230,8 +229,8 @@ fn we_can_compute_a_dory_commitment_with_an_offset_and_more_rows_than_columns() 
         5,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[1]) * F::from(1)
         + Pairing::pairing(Gamma_1[3], Gamma_2[1]) * F::from(2)
@@ -256,8 +255,8 @@ fn we_can_compute_a_dory_commitment_with_an_offset_and_more_rows_than_columns() 
 
 #[test]
 fn we_can_compute_three_dory_commitments_with_an_offset_and_more_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[
@@ -274,8 +273,8 @@ fn we_can_compute_three_dory_commitments_with_an_offset_and_more_rows_than_colum
         5,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(0)
         + Pairing::pairing(Gamma_1[2], Gamma_2[1]) * F::from(1)
         + Pairing::pairing(Gamma_1[3], Gamma_2[1]) * F::from(2)
@@ -342,8 +341,8 @@ fn we_can_compute_three_dory_commitments_with_an_offset_and_more_rows_than_colum
 
 #[test]
 fn we_can_compute_an_empty_dory_commitment() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0; 0])], 0, &setup);
     assert_eq!(res[0].0, GT::zero());
@@ -385,12 +384,12 @@ fn we_can_compute_an_empty_dory_commitment() {
 
 #[test]
 fn test_compute_dory_commitment_when_sigma_is_zero() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 0);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0, 1, 2, 3, 4])], 0, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[0], Gamma_2[1]) * F::from(1)
         + Pairing::pairing(Gamma_1[0], Gamma_2[2]) * F::from(2)
@@ -401,12 +400,12 @@ fn test_compute_dory_commitment_when_sigma_is_zero() {
 
 #[test]
 fn test_compute_dory_commitment_with_zero_sigma_and_with_an_offset() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 0);
     let res = compute_dory_commitments(&[CommittableColumn::BigInt(&[0, 1, 2, 3, 4])], 5, &setup);
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[5]) * F::from(0)
         + Pairing::pairing(Gamma_1[0], Gamma_2[6]) * F::from(1)
         + Pairing::pairing(Gamma_1[0], Gamma_2[7]) * F::from(2)
@@ -417,8 +416,8 @@ fn test_compute_dory_commitment_with_zero_sigma_and_with_an_offset() {
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_fewer_rows_than_columns() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[
@@ -444,8 +443,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_fewer_ro
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(1);
     assert_eq!(res[0].0, expected);
@@ -494,8 +493,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_fewer_ro
 #[test]
 fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_an_offset_and_fewer_rows_than_columns(
 ) {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[
@@ -521,8 +520,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_an_offse
         2,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(0)
         + Pairing::pairing(Gamma_1[3], Gamma_2[0]) * F::from(1);
     assert_eq!(res[0].0, expected);
@@ -570,8 +569,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_an_offse
 
 #[test]
 fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_signed_values() {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[
@@ -597,8 +596,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_signed_v
         0,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(-2)
         + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(-1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(0)
@@ -659,8 +658,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_signed_v
 #[test]
 fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_an_offset_and_signed_values(
 ) {
-    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let public_parameters = shared_test_public_parameters(5);
+    let prover_setup = ProverSetup::from(public_parameters);
     let setup = DoryProverPublicSetup::new(&prover_setup, 2);
     let res = compute_dory_commitments(
         &[
@@ -686,8 +685,8 @@ fn we_can_compute_a_dory_commitment_with_mixed_committable_columns_with_an_offse
         4,
         &setup,
     );
-    let Gamma_1 = public_parameters.Gamma_1;
-    let Gamma_2 = public_parameters.Gamma_2;
+    let Gamma_1 = &public_parameters.Gamma_1;
+    let Gamma_2 = &public_parameters.Gamma_2;
     let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[1]) * F::from(-2)
         + Pairing::pairing(Gamma_1[1], Gamma_2[1]) * F::from(-1)
         + Pairing::pairing(Gamma_1[2], Gamma_2[1]) * F::from(0)
