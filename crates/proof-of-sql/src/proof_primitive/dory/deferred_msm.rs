@@ -140,4 +140,38 @@ mod test {
 
         assert_eq!(result, expected_result);
     }
+
+    #[test]
+    fn new_builds_deferred_msm_from_matching_bases_and_scalars() {
+        let rng = &mut ark_std::test_rng();
+        let bases = vec![
+            G1Affine::rand(rng),
+            G1Affine::rand(rng),
+            G1Affine::rand(rng),
+        ];
+        let scalars = vec![Fr::rand(rng), Fr::rand(rng), Fr::rand(rng)];
+
+        let result = DeferredMSM::new(bases.clone(), scalars.clone())
+            .compute::<<G1Affine as AffineRepr>::Group>();
+        let expected_result = bases[0] * scalars[0] + bases[1] * scalars[1] + bases[2] * scalars[2];
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn add_composes_deferred_msm_and_group_terms() {
+        let rng = &mut ark_std::test_rng();
+        let g0 = G1Affine::rand(rng);
+        let g1 = G1Affine::rand(rng);
+        let g2 = G1Affine::rand(rng);
+        let f0 = Fr::rand(rng);
+        let f1 = Fr::rand(rng);
+
+        let left = DeferredMSM::<G1Affine, Fr>::from(g0) * f0;
+        let right = DeferredMSM::<G1Affine, Fr>::from(g1) * f1;
+        let result = left + right + g2;
+        let expected_result = g0 * f0 + g1 * f1 + g2;
+
+        assert_eq!(result, expected_result);
+    }
 }
