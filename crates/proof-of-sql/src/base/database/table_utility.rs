@@ -363,3 +363,132 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::Column,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn borrowed_uint8_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_uint8::<TestScalar>("a", [1u8, 2, 3], &alloc);
+        assert_eq!(name, Ident::new("a"));
+        assert_eq!(col, Column::Uint8(&[1u8, 2, 3]));
+    }
+
+    #[test]
+    fn borrowed_tinyint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_tinyint::<TestScalar>("b", [-1i8, 0, 1], &alloc);
+        assert_eq!(name, Ident::new("b"));
+        assert_eq!(col, Column::TinyInt(&[-1i8, 0, 1]));
+    }
+
+    #[test]
+    fn borrowed_smallint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_smallint::<TestScalar>("c", [100i16, 200], &alloc);
+        assert_eq!(name, Ident::new("c"));
+        assert_eq!(col, Column::SmallInt(&[100i16, 200]));
+    }
+
+    #[test]
+    fn borrowed_int_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_int::<TestScalar>("d", [1i32, 2, 3], &alloc);
+        assert_eq!(name, Ident::new("d"));
+        assert_eq!(col, Column::Int(&[1i32, 2, 3]));
+    }
+
+    #[test]
+    fn borrowed_bigint_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_bigint::<TestScalar>("e", [10i64, 20, 30], &alloc);
+        assert_eq!(name, Ident::new("e"));
+        assert_eq!(col, Column::BigInt(&[10i64, 20, 30]));
+    }
+
+    #[test]
+    fn borrowed_boolean_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_boolean::<TestScalar>("f", [true, false], &alloc);
+        assert_eq!(name, Ident::new("f"));
+        assert_eq!(col, Column::Boolean(&[true, false]));
+    }
+
+    #[test]
+    fn borrowed_int128_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_int128::<TestScalar>("g", [1i128, -1], &alloc);
+        assert_eq!(name, Ident::new("g"));
+        assert_eq!(col, Column::Int128(&[1i128, -1]));
+    }
+
+    #[test]
+    fn borrowed_scalar_creates_correct_column() {
+        let alloc = Bump::new();
+        let data = [TestScalar::from(5)];
+        let (name, col) = borrowed_scalar::<TestScalar>("h", data, &alloc);
+        assert_eq!(name, Ident::new("h"));
+        assert_eq!(col, Column::Scalar(&[TestScalar::from(5)]));
+    }
+
+    #[test]
+    fn borrowed_varchar_creates_correct_column_name() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_varchar::<TestScalar>("i", ["hello"], &alloc);
+        assert_eq!(name, Ident::new("i"));
+        assert!(matches!(col, Column::VarChar(_)));
+    }
+
+    #[test]
+    fn borrowed_decimal75_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_decimal75::<TestScalar>("k", 10, 2, [TestScalar::from(1)], &alloc);
+        assert_eq!(name, Ident::new("k"));
+        assert!(matches!(col, Column::Decimal75(_, 2, _)));
+    }
+
+    #[test]
+    fn borrowed_timestamptz_creates_correct_column() {
+        let alloc = Bump::new();
+        let (name, col) = borrowed_timestamptz::<TestScalar>(
+            "l",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            [1_000_000i64],
+            &alloc,
+        );
+        assert_eq!(name, Ident::new("l"));
+        assert!(matches!(col, Column::TimestampTZ(PoSQLTimeUnit::Second, _, _)));
+    }
+
+    #[test]
+    fn table_creates_table_with_correct_column_count() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([
+            borrowed_bigint("x", [1i64, 2], &alloc),
+            borrowed_boolean("y", [true, false], &alloc),
+        ]);
+        assert_eq!(t.num_columns(), 2);
+    }
+
+    #[test]
+    fn table_with_row_count_zero_rows_is_valid() {
+        let t = table_with_row_count::<TestScalar>([], 0);
+        assert_eq!(t.num_rows(), 0);
+    }
+
+    #[test]
+    fn table_with_row_count_sets_row_count() {
+        let t = table_with_row_count::<TestScalar>([], 5);
+        assert_eq!(t.num_rows(), 5);
+    }
+}
