@@ -90,3 +90,100 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{PlaceholderError, ProofError, ProofSizeMismatch};
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn verification_error_display_contains_message() {
+        let e = ProofError::VerificationError { error: "bad proof" };
+        assert!(alloc::format!("{e}").contains("bad proof"));
+    }
+
+    #[test]
+    fn unsupported_query_plan_display_contains_message() {
+        let e = ProofError::UnsupportedQueryPlan { error: "no plan" };
+        assert!(alloc::format!("{e}").contains("no plan"));
+    }
+
+    #[test]
+    fn invalid_type_coercion_display() {
+        let e = ProofError::InvalidTypeCoercion;
+        assert!(alloc::format!("{e}").contains("type mismatch"));
+    }
+
+    #[test]
+    fn field_names_mismatch_display() {
+        let e = ProofError::FieldNamesMismatch;
+        assert!(alloc::format!("{e}").contains("field names"));
+    }
+
+    #[test]
+    fn field_count_mismatch_display() {
+        let e = ProofError::FieldCountMismatch;
+        assert!(alloc::format!("{e}").contains("field count"));
+    }
+
+    #[test]
+    fn proof_error_verification_debug() {
+        let e = ProofError::VerificationError { error: "err" };
+        assert!(alloc::format!("{e:?}").contains("VerificationError"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_sumcheck_too_small_display() {
+        let e = ProofSizeMismatch::SumcheckProofTooSmall;
+        assert!(alloc::format!("{e}").contains("small") || alloc::format!("{e}").contains("Sumcheck"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_too_few_mle_display() {
+        let e = ProofSizeMismatch::TooFewMLEEvaluations;
+        assert!(alloc::format!("{e}").contains("MLE") || alloc::format!("{e}").contains("few"));
+    }
+
+    #[test]
+    fn proof_size_mismatch_chi_length_not_found_display() {
+        let e = ProofSizeMismatch::ChiLengthNotFound;
+        assert!(alloc::format!("{e}").contains("one length") || alloc::format!("{e}").contains("not found"));
+    }
+
+    #[test]
+    fn placeholder_error_invalid_index_display() {
+        let e = PlaceholderError::InvalidPlaceholderIndex { index: 5, num_params: 3 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("5") && s.contains("3"));
+    }
+
+    #[test]
+    fn placeholder_error_invalid_type_display() {
+        let e = PlaceholderError::InvalidPlaceholderType {
+            index: 0,
+            expected: ColumnType::BigInt,
+            actual: ColumnType::Boolean,
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("0"));
+    }
+
+    #[test]
+    fn placeholder_error_zero_placeholder_id_display() {
+        let e = PlaceholderError::ZeroPlaceholderId;
+        assert!(alloc::format!("{e}").contains("0") || alloc::format!("{e}").contains("zero"));
+    }
+
+    #[test]
+    fn placeholder_error_invalid_index_equality() {
+        let e1 = PlaceholderError::InvalidPlaceholderIndex { index: 1, num_params: 2 };
+        let e2 = PlaceholderError::InvalidPlaceholderIndex { index: 1, num_params: 2 };
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn placeholder_error_zero_debug() {
+        let e = PlaceholderError::ZeroPlaceholderId;
+        assert!(alloc::format!("{e:?}").contains("ZeroPlaceholderId"));
+    }
+}

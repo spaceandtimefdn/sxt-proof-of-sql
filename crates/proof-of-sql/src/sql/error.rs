@@ -71,3 +71,72 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyzeError;
+    use crate::base::database::ColumnType;
+
+    #[test]
+    fn invalid_data_type_display_contains_type() {
+        let e = AnalyzeError::InvalidDataType { expr_type: ColumnType::BigInt };
+        assert!(alloc::format!("{e}").contains("BIGINT") || alloc::format!("{e}").contains("BigInt"));
+    }
+
+    #[test]
+    fn data_type_mismatch_display_contains_both_types() {
+        let e = AnalyzeError::DataTypeMismatch {
+            left_type: "BIGINT".into(),
+            right_type: "BOOLEAN".into(),
+        };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("BIGINT") && s.contains("BOOLEAN"));
+    }
+
+    #[test]
+    fn different_column_length_display_contains_lengths() {
+        let e = AnalyzeError::DifferentColumnLength { len_a: 5, len_b: 3 };
+        let s = alloc::format!("{e}");
+        assert!(s.contains("5") && s.contains("3"));
+    }
+
+    #[test]
+    fn not_enough_input_plans_display() {
+        let e = AnalyzeError::NotEnoughInputPlans;
+        assert!(alloc::format!("{e}").contains("input") || alloc::format!("{e}").contains("plans"));
+    }
+
+    #[test]
+    fn analyze_error_debug_for_invalid_data_type() {
+        let e = AnalyzeError::InvalidDataType { expr_type: ColumnType::Boolean };
+        assert!(alloc::format!("{e:?}").contains("InvalidDataType"));
+    }
+
+    #[test]
+    fn data_type_mismatch_equality() {
+        let e1 = AnalyzeError::DataTypeMismatch {
+            left_type: "A".into(),
+            right_type: "B".into(),
+        };
+        let e2 = AnalyzeError::DataTypeMismatch {
+            left_type: "A".into(),
+            right_type: "B".into(),
+        };
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn not_enough_input_plans_inequality_with_different_variant() {
+        assert_ne!(
+            AnalyzeError::NotEnoughInputPlans,
+            AnalyzeError::InvalidDataType { expr_type: ColumnType::BigInt },
+        );
+    }
+
+    #[test]
+    fn analyze_error_from_converts_to_string() {
+        let e = AnalyzeError::NotEnoughInputPlans;
+        let s: alloc::string::String = e.into();
+        assert!(!s.is_empty());
+    }
+}
