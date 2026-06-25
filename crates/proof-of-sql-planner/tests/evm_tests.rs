@@ -39,6 +39,8 @@ struct EvmVerifierArgs {
     commitments: String,
 }
 
+const TEST_SETUP_FILE: &str = "test_assets/ppot_0080_10.bin";
+
 #[expect(clippy::missing_panics_doc)]
 fn evm_verifier_args(
     plan: &DynProofPlan,
@@ -155,7 +157,7 @@ fn aliased_plan(expr: DynProofExpr, alias: &str) -> AliasedDynProofExpr {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -239,7 +241,7 @@ fn we_can_verify_a_query_with_all_supported_types_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_filter_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -276,7 +278,7 @@ fn we_can_verify_a_simple_filter_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_filter_with_a_parameter_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -319,7 +321,7 @@ fn we_can_verify_a_simple_filter_with_a_parameter_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -356,7 +358,7 @@ fn we_can_verify_a_simple_filter_with_negative_literal_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -394,7 +396,7 @@ fn we_can_verify_a_filter_with_arithmetic_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_arithmetic_with_scaling_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -432,7 +434,7 @@ fn we_can_verify_a_filter_with_arithmetic_with_scaling_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_cast_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -490,7 +492,7 @@ fn we_can_verify_a_filter_with_cast_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -548,7 +550,7 @@ fn we_can_verify_a_filter_with_int_to_decimal_cast_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_complex_filter_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -587,7 +589,7 @@ fn we_can_verify_a_complex_filter_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_simple_projection_exec_and_table_exec_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -626,7 +628,7 @@ fn we_can_verify_a_simple_projection_exec_and_table_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_simple_inequality_filter_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -660,7 +662,7 @@ fn we_can_verify_simple_inequality_filter_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_empty_exec_using_the_evm() {
-    let (ps, _vk) = load_small_setup_for_testing();
+    let (ps, _vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::default();
     let plan = &DynProofPlan::new_empty();
@@ -679,7 +681,7 @@ fn we_can_verify_a_empty_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_groupby_query_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -723,7 +725,7 @@ fn we_can_verify_a_groupby_query_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_zero_column_groupby_query_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -765,7 +767,7 @@ fn we_can_verify_a_zero_column_groupby_query_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_simple_slice_exec_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -799,7 +801,7 @@ fn we_can_verify_simple_slice_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_slice_exec_using_the_evm() {
-    let (ps, _) = load_small_setup_for_testing();
+    let (ps, _) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -830,7 +832,7 @@ fn we_can_verify_a_slice_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_union_exec_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let mut accessor =
         OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_empty_with_setup(&ps[..]);
@@ -876,7 +878,7 @@ fn we_can_verify_a_union_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_a_sort_merge_join_exec_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let mut accessor =
         OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_empty_with_setup(&ps[..]);
@@ -916,7 +918,7 @@ fn we_can_verify_a_sort_merge_join_exec_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc)]
 fn we_can_verify_nested_filter_using_the_evm() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
 
     let accessor = OwnedTableTestAccessor::<HyperKZGCommitmentEvaluationProof>::new_from_table(
         TableRef::new("namespace", "table"),
@@ -954,7 +956,7 @@ fn we_can_verify_nested_filter_using_the_evm() {
 #[test]
 #[expect(clippy::missing_panics_doc, clippy::too_many_lines)]
 fn we_can_have_projection_as_input_plan_for_filter() {
-    let (ps, vk) = load_small_setup_for_testing();
+    let (ps, vk) = load_small_setup_for_testing(TEST_SETUP_FILE);
     let data = owned_table([
         bigint("a", [1, 4, 5, 2, 5]),
         bigint("b", [1, 2, 3, 4, 5]),
