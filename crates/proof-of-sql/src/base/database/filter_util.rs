@@ -69,6 +69,13 @@ pub fn filter_column_by_index<'a, S: Scalar>(
             alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| col[i])),
             alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| scals[i])),
         )),
+        Column::FixedSizeBinary(size, (col, scals)) => Column::FixedSizeBinary(
+            *size,
+            (
+                alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| col[i])),
+                alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| scals[i])),
+            ),
+        ),
         Column::Scalar(col) => {
             Column::Scalar(alloc.alloc_slice_fill_iter(indexes.iter().map(|&i| col[i])))
         }

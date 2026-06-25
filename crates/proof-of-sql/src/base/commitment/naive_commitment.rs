@@ -148,7 +148,8 @@ impl Commitment for NaiveCommitment {
                         scalar_vec.iter().map(core::convert::Into::into).collect()
                     }
                     CommittableColumn::VarChar(varchar_vec)
-                    | CommittableColumn::VarBinary(varchar_vec) => {
+                    | CommittableColumn::VarBinary(varchar_vec)
+                    | CommittableColumn::FixedSizeBinary(_, varchar_vec) => {
                         varchar_vec.iter().map(core::convert::Into::into).collect()
                     }
                     CommittableColumn::TimestampTZ(_, _, i64_vec) => {

@@ -48,6 +48,8 @@ pub enum CommittableColumn<'a> {
     VarChar(Vec<[u64; 4]>),
     /// Column of limbs for committing to scalars, hashed from a `Binary` column.
     VarBinary(Vec<[u64; 4]>),
+    /// Column of limbs for committing to scalars, converted from a fixed-size binary column.
+    FixedSizeBinary(i32, Vec<[u64; 4]>),
     /// Borrowed Timestamp column with Timezone, mapped to `i64`.
     TimestampTZ(PoSQLTimeUnit, PoSQLTimeZone, &'a [i64]),
 }
@@ -66,7 +68,8 @@ impl CommittableColumn<'_> {
             CommittableColumn::Decimal75(_, _, col)
             | CommittableColumn::Scalar(col)
             | CommittableColumn::VarChar(col)
-            | CommittableColumn::VarBinary(col) => col.len(),
+            | CommittableColumn::VarBinary(col)
+            | CommittableColumn::FixedSizeBinary(_, col) => col.len(),
             CommittableColumn::Boolean(col) => col.len(),
         }
     }
@@ -99,6 +102,7 @@ impl<'a> From<&CommittableColumn<'a>> for ColumnType {
             CommittableColumn::Scalar(_) => ColumnType::Scalar,
             CommittableColumn::VarChar(_) => ColumnType::VarChar,
             CommittableColumn::VarBinary(_) => ColumnType::VarBinary,
+            CommittableColumn::FixedSizeBinary(size, _) => ColumnType::FixedSizeBinary(*size),
             CommittableColumn::Boolean(_) => ColumnType::Boolean,
             CommittableColumn::TimestampTZ(tu, tz, _) => ColumnType::TimestampTZ(*tu, *tz),
         }
@@ -127,6 +131,10 @@ impl<'a, S: Scalar> From<&Column<'a, S>> for CommittableColumn<'a> {
             Column::VarBinary((_, scalars)) => {
                 let as_limbs: Vec<_> = scalars.iter().map(RefInto::<[u64; 4]>::ref_into).collect();
                 CommittableColumn::VarBinary(as_limbs)
+            }
+            Column::FixedSizeBinary(size, (_, scalars)) => {
+                let as_limbs: Vec<_> = scalars.iter().map(RefInto::<[u64; 4]>::ref_into).collect();
+                CommittableColumn::FixedSizeBinary(*size, as_limbs)
             }
             Column::TimestampTZ(tu, tz, times) => CommittableColumn::TimestampTZ(*tu, *tz, times),
         }
@@ -170,6 +178,17 @@ impl<'a, S: Scalar> From<&'a OwnedColumn<S>> for CommittableColumn<'a> {
                 bytes
                     .iter()
                     .map(|b| S::from_byte_slice_via_hash(b))
+                    .map(Into::<[u64; 4]>::into)
+                    .collect(),
+            ),
+            OwnedColumn::FixedSizeBinary(size, bytes) => CommittableColumn::FixedSizeBinary(
+                *size,
+                bytes
+                    .iter()
+                    .map(|b| {
+                        S::from_fixed_size_byte_slice(b)
+                            .expect("fixed-size binary width is supported")
+                    })
                     .map(Into::<[u64; 4]>::into)
                     .collect(),
             ),
@@ -240,7 +259,8 @@ impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
             CommittableColumn::Decimal75(_, _, limbs)
             | CommittableColumn::Scalar(limbs)
             | CommittableColumn::VarChar(limbs)
-            | CommittableColumn::VarBinary(limbs) => Sequence::from(limbs),
+            | CommittableColumn::VarBinary(limbs)
+            | CommittableColumn::FixedSizeBinary(_, limbs) => Sequence::from(limbs),
             CommittableColumn::Boolean(bools) => Sequence::from(*bools),
             CommittableColumn::TimestampTZ(_, _, times) => Sequence::from(*times),
         }

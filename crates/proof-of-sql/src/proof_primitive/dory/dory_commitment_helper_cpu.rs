@@ -77,6 +77,9 @@ fn compute_dory_commitment(
         }
         CommittableColumn::VarChar(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::VarBinary(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::FixedSizeBinary(_, column) => {
+            compute_dory_commitment_impl(column, offset, setup)
+        }
         CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::TimestampTZ(_, _, column) => {
             compute_dory_commitment_impl(column, offset, setup)

@@ -103,6 +103,20 @@ where
                 alloc.alloc_slice_copy(&scalars) as &[_],
             )))
         }
+        ColumnType::FixedSizeBinary(size) => {
+            let (_, raw_values, raw_scalars) = column
+                .as_fixed_size_binary()
+                .expect("Column types should match");
+            let raw_values = apply_slice_to_indexes(raw_values, indexes)?;
+            let scalars = apply_slice_to_indexes(raw_scalars, indexes)?;
+            Ok(Column::FixedSizeBinary(
+                size,
+                (
+                    alloc.alloc_slice_clone(&raw_values) as &[_],
+                    alloc.alloc_slice_copy(&scalars) as &[_],
+                ),
+            ))
+        }
         ColumnType::TimestampTZ(tu, tz) => {
             let raw_values = apply_slice_to_indexes(
                 column.as_timestamptz().expect("Column types should match"),
