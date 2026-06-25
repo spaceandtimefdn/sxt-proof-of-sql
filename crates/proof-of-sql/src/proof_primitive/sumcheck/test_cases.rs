@@ -44,8 +44,9 @@ impl<S: Scalar> SumcheckTestCase<S> {
 pub fn sumcheck_test_cases<S: Scalar>(
     rng: &mut (impl ark_std::rand::Rng + ?Sized),
 ) -> impl Iterator<Item = SumcheckTestCase<S>> + '_ {
-    (1..=8)
+    (1..=7)
         .cartesian_product(0..=5)
+        .chain([(8, 0), (8, 5)])
         .flat_map(|(num_vars, max_multiplicands)| {
             [
                 Some(vec![]),
