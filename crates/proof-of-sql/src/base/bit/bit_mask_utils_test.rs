@@ -19,6 +19,18 @@ fn we_can_make_positive_bit_mask() {
 }
 
 #[test]
+fn we_can_make_zero_bit_mask() {
+    // ARRANGE
+    let zero_scalar = TestScalar::ZERO;
+
+    // ACT
+    let bit_mask = make_bit_mask(zero_scalar);
+
+    // ASSERT
+    assert_eq!(bit_mask, U256::ONE.shl(255));
+}
+
+#[test]
 fn we_can_make_negative_bit_mask() {
     // ARRANGE
     let negative_scalar = -TestScalar::TWO;
@@ -28,6 +40,18 @@ fn we_can_make_negative_bit_mask() {
 
     // ASSERT
     assert_eq!(bit_mask, (U256::ONE.shl(255)) - U256::TWO);
+}
+
+#[test]
+fn we_can_make_negative_one_bit_mask() {
+    // ARRANGE
+    let negative_scalar = -TestScalar::ONE;
+
+    // ACT
+    let bit_mask = make_bit_mask(negative_scalar);
+
+    // ASSERT
+    assert_eq!(bit_mask, U256::ONE.shl(255) - U256::ONE);
 }
 
 #[test]
