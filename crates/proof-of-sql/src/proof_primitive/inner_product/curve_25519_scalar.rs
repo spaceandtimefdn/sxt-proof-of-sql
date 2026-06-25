@@ -50,3 +50,53 @@ impl core::ops::Mul<Curve25519Scalar> for &curve25519_dalek::ristretto::Ristrett
         self * curve25519_dalek::scalar::Scalar::from(rhs)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Curve25519Scalar;
+
+    #[test]
+    fn zero_converts_to_dalek_zero() {
+        let c = Curve25519Scalar::from(0i32);
+        let d = curve25519_dalek::scalar::Scalar::from(c);
+        assert_eq!(d, curve25519_dalek::scalar::Scalar::ZERO);
+    }
+
+    #[test]
+    fn nonzero_converts_to_nonzero_dalek() {
+        let c = Curve25519Scalar::from(1i32);
+        let d = curve25519_dalek::scalar::Scalar::from(c);
+        assert_ne!(d, curve25519_dalek::scalar::Scalar::ZERO);
+    }
+
+    #[test]
+    fn reference_and_value_conversions_agree() {
+        let c = Curve25519Scalar::from(42i32);
+        let by_ref = curve25519_dalek::scalar::Scalar::from(&c);
+        let by_val = curve25519_dalek::scalar::Scalar::from(c);
+        assert_eq!(by_ref, by_val);
+    }
+
+    #[test]
+    fn distinct_scalars_convert_to_distinct_dalek() {
+        let a = Curve25519Scalar::from(1i32);
+        let b = Curve25519Scalar::from(2i32);
+        let da = curve25519_dalek::scalar::Scalar::from(a);
+        let db = curve25519_dalek::scalar::Scalar::from(b);
+        assert_ne!(da, db);
+    }
+
+    #[test]
+    fn scalar_mul_ristretto_basepoint_does_not_panic() {
+        use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+        let c = Curve25519Scalar::from(2i32);
+        let _result = c * RISTRETTO_BASEPOINT_POINT;
+    }
+
+    #[test]
+    fn ristretto_mul_scalar_does_not_panic() {
+        use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+        let c = Curve25519Scalar::from(3i32);
+        let _result = RISTRETTO_BASEPOINT_POINT * c;
+    }
+}
