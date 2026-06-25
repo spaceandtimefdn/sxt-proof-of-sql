@@ -138,3 +138,55 @@ impl ProofExpr for MultiplyExpr {
 }
 
 impl DecimalProofExpr for MultiplyExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(2),
+        )))
+    }
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(true),
+        )))
+    }
+
+    #[test]
+    fn try_new_numeric_types_succeeds() {
+        assert!(MultiplyExpr::try_new(bigint_literal(), bigint_literal()).is_ok());
+    }
+
+    #[test]
+    fn try_new_with_boolean_fails() {
+        let result = MultiplyExpr::try_new(bool_literal(), bool_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn lhs_rhs_accessors_preserved() {
+        let expr = MultiplyExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equal_exprs_compare_equal() {
+        let a = MultiplyExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        let b = MultiplyExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = MultiplyExpr::try_new(bigint_literal(), bigint_literal()).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
