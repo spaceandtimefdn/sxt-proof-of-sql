@@ -105,3 +105,88 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+    use datafusion::{
+        logical_expr::{expr::Placeholder, Operator},
+        physical_plan,
+    };
+
+    #[test]
+    fn column_not_found_display() {
+        let e = PlannerError::ColumnNotFound;
+        assert_eq!(format!("{e}"), "Column not found");
+    }
+
+    #[test]
+    fn table_not_found_display_contains_table_name() {
+        let e = PlannerError::TableNotFound { table_name: "mytable".to_string() };
+        assert!(format!("{e}").contains("mytable"));
+    }
+
+    #[test]
+    fn invalid_placeholder_id_display_contains_id() {
+        let e = PlannerError::InvalidPlaceholderId { id: "bad_id".to_string() };
+        assert!(format!("{e}").contains("bad_id"));
+    }
+
+    #[test]
+    fn unsupported_datatype_display_contains_type() {
+        let e = PlannerError::UnsupportedDataType { data_type: DataType::Float64 };
+        assert!(format!("{e}").contains("Float64") || format!("{e}").contains("datatype"));
+    }
+
+    #[test]
+    fn unsupported_binary_operator_display() {
+        let e = PlannerError::UnsupportedBinaryOperator { op: Operator::Plus };
+        assert!(format!("{e}").contains("not supported"));
+    }
+
+    #[test]
+    fn unresolved_logical_plan_display() {
+        let e = PlannerError::UnresolvedLogicalPlan;
+        assert_eq!(format!("{e}"), "LogicalPlan is not resolved");
+    }
+
+    #[test]
+    fn catalog_not_supported_display() {
+        let e = PlannerError::CatalogNotSupported;
+        assert_eq!(format!("{e}"), "Catalog is not supported");
+    }
+
+    #[test]
+    fn untyped_placeholder_display_contains_id() {
+        let placeholder = Placeholder { id: "$1".to_string(), data_type: None };
+        let e = PlannerError::UntypedPlaceholder { placeholder };
+        assert!(format!("{e}").contains("$1") || format!("{e}").contains("untyped"));
+    }
+
+    #[test]
+    fn unsupported_aggregate_operation_display() {
+        let e = PlannerError::UnsupportedAggregateOperation {
+            op: physical_plan::aggregates::AggregateFunction::Sum,
+        };
+        assert!(format!("{e}").contains("not supported") || format!("{e}").contains("Sum"));
+    }
+
+    #[test]
+    fn column_not_found_debug_contains_variant_name() {
+        let e = PlannerError::ColumnNotFound;
+        assert!(format!("{e:?}").contains("ColumnNotFound"));
+    }
+
+    #[test]
+    fn table_not_found_debug() {
+        let e = PlannerError::TableNotFound { table_name: "t".to_string() };
+        assert!(format!("{e:?}").contains("TableNotFound"));
+    }
+
+    #[test]
+    fn unresolved_logical_plan_debug() {
+        let e = PlannerError::UnresolvedLogicalPlan;
+        assert!(format!("{e:?}").contains("UnresolvedLogicalPlan"));
+    }
+}
