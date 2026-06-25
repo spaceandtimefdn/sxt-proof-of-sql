@@ -62,4 +62,22 @@ mod tests {
             commitment2.to_transcript_bytes()
         );
     }
+
+    #[test]
+    fn transcript_bytes_are_compressed_ristretto_bytes() {
+        assert_eq!(RISTRETTO_BASEPOINT_POINT.to_transcript_bytes().len(), 32);
+        assert_eq!(
+            RISTRETTO_BASEPOINT_POINT.to_transcript_bytes(),
+            RISTRETTO_BASEPOINT_POINT.compress().as_bytes()
+        );
+    }
+
+    #[cfg(not(feature = "blitzar"))]
+    #[test]
+    #[should_panic(expected = "not implemented")]
+    fn compute_commitments_panics_without_blitzar() {
+        let columns: &[CommittableColumn<'_>] = &[];
+
+        let _commitments = RistrettoPoint::compute_commitments(columns, 0, &());
+    }
 }
