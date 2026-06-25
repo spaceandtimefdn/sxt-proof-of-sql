@@ -218,6 +218,10 @@ mod tests {
     use super::*;
     #[cfg(feature = "hyperkzg_proof")]
     use crate::base::database::OwnedColumn;
+    #[cfg(feature = "hyperkzg_proof")]
+    use crate::base::math::decimal::Precision;
+    #[cfg(feature = "hyperkzg_proof")]
+    use crate::base::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
     use crate::base::{try_standard_binary_deserialization, try_standard_binary_serialization};
     #[cfg(feature = "hyperkzg_proof")]
     use crate::proof_primitive::hyperkzg::nova_commitment_key_to_hyperkzg_public_setup;
@@ -244,6 +248,39 @@ mod tests {
         assert_eq!(commitment.commitment, expected.commitment);
     }
 
+    #[test]
+    fn we_can_apply_hyperkzg_commitment_arithmetic() {
+        let generator: HyperKZGCommitment = (&G1Affine::generator()).into();
+        let doubled_by_ref = BNScalar::from(2_u64) * &generator;
+        let doubled_by_value = BNScalar::from(2_u64) * generator;
+        assert_eq!(doubled_by_ref, doubled_by_value);
+
+        let mut sum = generator;
+        sum += generator;
+        assert_eq!(sum, doubled_by_ref);
+
+        let mut difference = doubled_by_value;
+        difference -= generator;
+        assert_eq!(difference, generator);
+
+        assert_eq!(doubled_by_value - generator, generator);
+
+        let zero = generator - generator;
+        assert_eq!(zero.commitment, G1Affine::identity());
+    }
+
+    #[test]
+    fn we_can_write_hyperkzg_commitments_to_transcript_bytes() {
+        let commitment: HyperKZGCommitment = (&G1Affine::generator()).into();
+        let mut expected = Vec::with_capacity(commitment.commitment.compressed_size());
+        commitment
+            .commitment
+            .serialize_compressed(&mut expected)
+            .unwrap();
+
+        assert_eq!(commitment.to_transcript_bytes(), expected);
+    }
+
     #[cfg(feature = "hyperkzg_proof")]
     proptest! {
         #[test]
@@ -259,6 +296,48 @@ mod tests {
 
             prop_assert_eq!(non_blitzar_commitments, blitzar_commitments);
         }
+    }
+
+    #[test]
+    #[cfg(feature = "hyperkzg_proof")]
+    fn we_can_compute_non_blitzar_commitments_for_scalar_backed_columns() {
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 4);
+        let setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
+        let scalar_values = vec![
+            BNScalar::from(1_u64),
+            BNScalar::from(2_u64),
+            BNScalar::from(3_u64),
+        ];
+        let committable_columns = [
+            CommittableColumn::Decimal75(Precision::new(10).unwrap(), 0, scalar_values.clone()),
+            CommittableColumn::Scalar(scalar_values.clone()),
+            CommittableColumn::VarChar(scalar_values.clone()),
+            CommittableColumn::VarBinary(scalar_values),
+        ];
+
+        let commitments = compute_commitments_impl(&committable_columns, 1, &&setup[..]);
+
+        assert_eq!(commitments.len(), committable_columns.len());
+        assert!(commitments
+            .iter()
+            .all(|commitment| commitment.commitment != G1Affine::identity()));
+    }
+
+    #[test]
+    #[cfg(feature = "hyperkzg_proof")]
+    fn we_can_compute_non_blitzar_commitments_for_timestamps() {
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 4);
+        let setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
+        let committable_columns = [CommittableColumn::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            &[1, 2, 3],
+        )];
+
+        let commitments = compute_commitments_impl(&committable_columns, 1, &&setup[..]);
+
+        assert_eq!(commitments.len(), 1);
+        assert_ne!(commitments[0].commitment, G1Affine::identity());
     }
 
     #[test]
