@@ -67,7 +67,8 @@ merlin = { workspace = true }
 rand = { workspace = true, default-features = false, features = ["std"] }
 rand_core = { workspace = true, default-features = false }
 serde_json = { workspace = true }
-tracing = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
+tracing-subscriber = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 
