@@ -7,8 +7,8 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int16Array, Int32Array, Int64Array,
+        Int8Array, LargeBinaryArray, StringArray, UInt8Array,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -42,6 +42,30 @@ fn we_can_convert_between_boolean_owned_column_and_array_ref_impl(data: Vec<bool
         Arc::new(BooleanArray::from(data)),
     );
 }
+fn we_can_convert_between_uint8_owned_column_and_array_ref_impl(data: Vec<u8>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Uint8(data.clone()),
+        Arc::new(UInt8Array::from(data)),
+    );
+}
+fn we_can_convert_between_tinyint_owned_column_and_array_ref_impl(data: Vec<i8>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::TinyInt(data.clone()),
+        Arc::new(Int8Array::from(data)),
+    );
+}
+fn we_can_convert_between_smallint_owned_column_and_array_ref_impl(data: Vec<i16>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::SmallInt(data.clone()),
+        Arc::new(Int16Array::from(data)),
+    );
+}
+fn we_can_convert_between_int_owned_column_and_array_ref_impl(data: Vec<i32>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Int(data.clone()),
+        Arc::new(Int32Array::from(data)),
+    );
+}
 fn we_can_convert_between_bigint_owned_column_and_array_ref_impl(data: Vec<i64>) {
     we_can_convert_between_owned_column_and_array_ref_impl(
         &OwnedColumn::<TestScalar>::BigInt(data.clone()),
@@ -67,11 +91,23 @@ fn we_can_convert_between_varchar_owned_column_and_array_ref_impl(data: Vec<Stri
 #[test]
 fn we_can_convert_between_owned_column_and_array_ref() {
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_uint8_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_tinyint_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_smallint_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_int_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_bigint_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_int128_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_varchar_owned_column_and_array_ref_impl(vec![]);
     let data = vec![true, false, true, false, true, false, true, false, true];
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(data);
+    let data = vec![0, 1, 2, 3, 4, 5, 6, u8::MIN, u8::MAX];
+    we_can_convert_between_uint8_owned_column_and_array_ref_impl(data);
+    let data = vec![0, 1, 2, 3, 4, 5, 6, i8::MIN, i8::MAX];
+    we_can_convert_between_tinyint_owned_column_and_array_ref_impl(data);
+    let data = vec![0, 1, 2, 3, 4, 5, 6, i16::MIN, i16::MAX];
+    we_can_convert_between_smallint_owned_column_and_array_ref_impl(data);
+    let data = vec![0, 1, 2, 3, 4, 5, 6, i32::MIN, i32::MAX];
+    we_can_convert_between_int_owned_column_and_array_ref_impl(data);
     let data = vec![0, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX];
     we_can_convert_between_bigint_owned_column_and_array_ref_impl(data);
     let data = vec![0, 1, 2, 3, 4, 5, 6, i128::MIN, i128::MAX];
@@ -119,6 +155,10 @@ fn we_can_convert_between_owned_table_and_record_batch() {
     );
 
     let schema = Arc::new(Schema::new(vec![
+        Field::new("uint8", DataType::UInt8, false),
+        Field::new("int8", DataType::Int8, false),
+        Field::new("int16", DataType::Int16, false),
+        Field::new("int32", DataType::Int32, false),
         Field::new("int64", DataType::Int64, false),
         Field::new("int128", DataType::Decimal128(38, 0), false),
         Field::new("string", DataType::Utf8, false),
@@ -128,6 +168,10 @@ fn we_can_convert_between_owned_table_and_record_batch() {
     let batch1 = RecordBatch::try_new(
         schema.clone(),
         vec![
+            Arc::new(UInt8Array::from(Vec::<u8>::new())),
+            Arc::new(Int8Array::from(Vec::<i8>::new())),
+            Arc::new(Int16Array::from(Vec::<i16>::new())),
+            Arc::new(Int32Array::from(Vec::<i32>::new())),
             Arc::new(Int64Array::from(vec![0_i64; 0])),
             Arc::new(
                 Decimal128Array::from(vec![0_i128; 0])
@@ -142,6 +186,10 @@ fn we_can_convert_between_owned_table_and_record_batch() {
 
     we_can_convert_between_owned_table_and_record_batch_impl(
         &owned_table([
+            uint8("uint8", [0_u8; 0]),
+            tinyint("int8", [0_i8; 0]),
+            smallint("int16", [0_i16; 0]),
+            int("int32", [0_i32; 0]),
             bigint("int64", [0; 0]),
             int128("int128", [0; 0]),
             varchar("string", ["0"; 0]),
@@ -153,6 +201,40 @@ fn we_can_convert_between_owned_table_and_record_batch() {
     let batch2 = RecordBatch::try_new(
         schema.clone(),
         vec![
+            Arc::new(UInt8Array::from(vec![
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                u8::MIN,
+                u8::MAX,
+            ])),
+            Arc::new(Int8Array::from(vec![0, 1, 2, 3, 4, 5, 6, i8::MIN, i8::MAX])),
+            Arc::new(Int16Array::from(vec![
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                i16::MIN,
+                i16::MAX,
+            ])),
+            Arc::new(Int32Array::from(vec![
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                i32::MIN,
+                i32::MAX,
+            ])),
             Arc::new(Int64Array::from(vec![
                 0,
                 1,
@@ -181,6 +263,10 @@ fn we_can_convert_between_owned_table_and_record_batch() {
 
     we_can_convert_between_owned_table_and_record_batch_impl(
         &owned_table([
+            uint8("uint8", [0, 1, 2, 3, 4, 5, 6, u8::MIN, u8::MAX]),
+            tinyint("int8", [0, 1, 2, 3, 4, 5, 6, i8::MIN, i8::MAX]),
+            smallint("int16", [0, 1, 2, 3, 4, 5, 6, i16::MIN, i16::MAX]),
+            int("int32", [0, 1, 2, 3, 4, 5, 6, i32::MIN, i32::MAX]),
             bigint("int64", [0, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX]),
             int128("int128", [0, 1, 2, 3, 4, 5, 6, i128::MIN, i128::MAX]),
             varchar("string", ["0", "1", "2", "3", "4", "5", "6", "7", "8"]),

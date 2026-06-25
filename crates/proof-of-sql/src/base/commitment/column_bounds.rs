@@ -586,6 +586,35 @@ mod tests {
     }
 
     #[test]
+    fn we_can_handle_uint8_column_bounds() {
+        let empty_column = OwnedColumn::<TestScalar>::Uint8(vec![]);
+        assert_eq!(
+            ColumnBounds::from_column(&CommittableColumn::from(&empty_column)),
+            ColumnBounds::Uint8(Bounds::Empty)
+        );
+
+        let column = OwnedColumn::<TestScalar>::Uint8(vec![3, 1, 2, 1]);
+        assert_eq!(
+            ColumnBounds::from_column(&CommittableColumn::from(&column)),
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }))
+        );
+
+        let bounds_a = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 3 }));
+        let bounds_b = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 5, max: 8 }));
+        assert_eq!(
+            bounds_a.try_union(bounds_b).unwrap(),
+            ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 1, max: 8 }))
+        );
+        assert_eq!(bounds_a.try_difference(bounds_b).unwrap(), bounds_a);
+
+        let overlapping = ColumnBounds::Uint8(Bounds::Sharp(BoundsInner { min: 2, max: 4 }));
+        assert_eq!(
+            bounds_a.try_difference(overlapping).unwrap(),
+            ColumnBounds::Uint8(Bounds::Bounded(BoundsInner { min: 1, max: 3 }))
+        );
+    }
+
+    #[test]
     fn we_can_union_column_bounds_with_matching_variant() {
         let no_order = ColumnBounds::NoOrder;
         assert_eq!(no_order.try_union(no_order).unwrap(), no_order);

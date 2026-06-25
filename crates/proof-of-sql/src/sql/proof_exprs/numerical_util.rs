@@ -662,8 +662,8 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::{
-        cast_bool_column_to_signed_int_column, cast_column, cast_int_slice_to_int_column,
-        divide_columns, divide_integer_columns,
+        add_subtract_columns, cast_bool_column_to_signed_int_column, cast_column,
+        cast_int_slice_to_int_column, divide_columns, divide_integer_columns, multiply_columns,
     };
     use crate::{
         base::{
@@ -712,6 +712,26 @@ mod tests {
         let remainder_ba: &[i128] = modulo_integer_columns(b, a, &alloc, false);
         assert_eq!(quotient_ba.0, &[0i128, 42, 0, 0]);
         assert_eq!(remainder_ba, &[-1i128, 6, 6, 0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    fn we_reject_add_subtract_columns_with_mismatched_lengths() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::Int(&[1, 2]);
+        let rhs = Column::<TestScalar>::Int(&[3]);
+
+        add_subtract_columns(lhs, rhs, &alloc, false);
+    }
+
+    #[test]
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    fn we_reject_multiply_columns_with_mismatched_lengths() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::Int(&[1, 2]);
+        let rhs = Column::<TestScalar>::Int(&[3]);
+
+        multiply_columns(&lhs, &rhs, &alloc);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use super::*;
 use crate::base::{
+    proof::ProofError,
     scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
     try_standard_binary_deserialization, try_standard_binary_serialization,
 };
@@ -391,6 +392,36 @@ fn we_can_detect_invalid_bit_distributions() {
         leading_bit_mask: [1, 0, 0, 0],
     };
     assert!(!dist.is_valid());
+}
+
+#[test]
+fn we_can_iterate_vary_mask_bits_across_limbs_in_order() {
+    let dist = BitDistribution {
+        vary_mask: [1, 1 << 1, 1 << 2, 1 << 63],
+        leading_bit_mask: [0; 4],
+    };
+
+    let varying_bits: Vec<_> = dist.vary_mask_iter().collect();
+
+    assert_eq!(varying_bits, [0, 65, 130, 255]);
+}
+
+#[test]
+fn verification_bit_distribution_error_converts_to_proof_error() {
+    let proof_error = ProofError::from(BitDistributionError::Verification);
+
+    assert!(matches!(
+        proof_error,
+        ProofError::VerificationError {
+            error: "invalid bit_decomposition"
+        }
+    ));
+}
+
+#[test]
+#[should_panic(expected = "No lead bit available despite variable lead bit.")]
+fn no_lead_bit_distribution_error_panics_when_converted() {
+    let _ = ProofError::from(BitDistributionError::NoLeadBit);
 }
 
 #[test]

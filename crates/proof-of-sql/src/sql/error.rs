@@ -71,3 +71,63 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_display_direct_analyze_errors() {
+        assert_eq!(
+            AnalyzeError::InvalidDataType {
+                expr_type: ColumnType::Boolean
+            }
+            .to_string(),
+            "Expression has datatype BOOLEAN, which was not valid"
+        );
+        assert_eq!(
+            AnalyzeError::DataTypeMismatch {
+                left_type: "INT".to_string(),
+                right_type: "VARCHAR".to_string(),
+            }
+            .to_string(),
+            "Left side has 'INT' type but right side has 'VARCHAR' type"
+        );
+        assert_eq!(
+            AnalyzeError::DifferentColumnLength { len_a: 3, len_b: 5 }.to_string(),
+            "Columns have different lengths: 3 != 5"
+        );
+        assert_eq!(
+            AnalyzeError::NotEnoughInputPlans.to_string(),
+            "Not enough input plans"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_analyze_errors_into_strings() {
+        let err = AnalyzeError::DataTypeMismatch {
+            left_type: "BOOLEAN".to_string(),
+            right_type: "BIGINT".to_string(),
+        };
+
+        assert_eq!(
+            String::from(err),
+            "Left side has 'BOOLEAN' type but right side has 'BIGINT' type"
+        );
+    }
+
+    #[test]
+    fn we_wrap_intermediate_decimal_errors_as_analyze_errors() {
+        let err = AnalyzeError::from(IntermediateDecimalError::LossyCast);
+
+        assert_eq!(err.to_string(), "Fractional part of decimal is non-zero");
+        assert!(matches!(
+            err,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::LossyCast
+                }
+            }
+        ));
+    }
+}

@@ -170,3 +170,22 @@ impl BitDistribution {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BitDistribution;
+    use alloc::{vec, vec::Vec};
+
+    #[test]
+    fn we_iterate_varying_bits_across_all_limbs() {
+        let bit_distribution = BitDistribution {
+            vary_mask: [1, 1 << 1, 1 << 2, 1 << 3],
+            leading_bit_mask: [0; 4],
+        };
+
+        assert_eq!(
+            bit_distribution.vary_mask_iter().collect::<Vec<_>>(),
+            vec![0, 65, 130, 195]
+        );
+    }
+}

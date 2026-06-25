@@ -112,3 +112,65 @@ impl<'a, S: Scalar> SumcheckMleEvaluations<'a, S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SumcheckMleEvaluations;
+    use crate::{
+        base::scalar::{test_scalar::TestScalar, Scalar},
+        sql::proof::SumcheckRandomScalars,
+    };
+
+    #[test]
+    fn we_only_compute_rho_256_when_the_point_has_enough_variables() {
+        let evaluation_point = [TestScalar::ONE; 7];
+        let random_scalars = [TestScalar::ZERO; 7];
+        let sumcheck_random_scalars =
+            SumcheckRandomScalars::new(&random_scalars, 1, evaluation_point.len());
+
+        let evaluations = SumcheckMleEvaluations::new(
+            1,
+            [],
+            [],
+            &evaluation_point,
+            &sumcheck_random_scalars,
+            &[],
+            &[],
+        );
+
+        assert_eq!(evaluations.rho_256_evaluation, None);
+    }
+
+    #[test]
+    fn we_compute_rho_256_with_padding_variables() {
+        let evaluation_point = [
+            TestScalar::ONE,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::from(3_u32),
+        ];
+        let random_scalars = [TestScalar::ZERO; 9];
+        let sumcheck_random_scalars =
+            SumcheckRandomScalars::new(&random_scalars, 1, evaluation_point.len());
+
+        let evaluations = SumcheckMleEvaluations::new(
+            1,
+            [],
+            [],
+            &evaluation_point,
+            &sumcheck_random_scalars,
+            &[],
+            &[],
+        );
+
+        assert_eq!(
+            evaluations.rho_256_evaluation,
+            Some(-TestScalar::from(2_u32))
+        );
+    }
+}

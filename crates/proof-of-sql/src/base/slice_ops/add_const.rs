@@ -17,3 +17,17 @@ where
         *res_i += to_add.into();
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::add_const;
+
+    #[test]
+    fn we_can_add_const_to_an_empty_slice() {
+        let mut values: [i32; 0] = [];
+
+        add_const(&mut values, 10);
+
+        assert!(values.is_empty());
+    }
+}

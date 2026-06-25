@@ -156,3 +156,27 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         self.post_result_challenges.pop_front().unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{FinalRoundBuilder, SumcheckSubpolynomialType};
+    use crate::base::{bit::BitDistribution, scalar::test_scalar::TestScalar};
+    use alloc::{collections::VecDeque, vec};
+
+    #[test]
+    fn we_can_track_bit_distributions_and_sumcheck_subpolynomials() {
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(3, VecDeque::new());
+        let bit_distribution = BitDistribution::new::<TestScalar, _>(&[1_i64, 3, 7]);
+
+        builder.produce_bit_distribution(bit_distribution.clone());
+        builder.produce_sumcheck_subpolynomial(SumcheckSubpolynomialType::Identity, vec![]);
+
+        assert_eq!(builder.num_sumcheck_variables(), 3);
+        assert_eq!(builder.bit_distributions(), &[bit_distribution]);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        assert_eq!(
+            builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+            SumcheckSubpolynomialType::Identity
+        );
+    }
+}

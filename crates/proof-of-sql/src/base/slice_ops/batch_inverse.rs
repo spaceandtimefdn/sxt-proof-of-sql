@@ -106,3 +106,31 @@ where
         tmp = new_tmp;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::batch_inversion_and_mul;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use num_traits::{Inv, Zero};
+
+    #[test]
+    fn we_can_scale_batch_inversion_results() {
+        let input = [
+            TestScalar::from(0_u32),
+            TestScalar::from(2_u32),
+            TestScalar::from(5_u32),
+            TestScalar::zero(),
+            TestScalar::from(7_u32),
+        ];
+        let coeff = TestScalar::from(3_u32);
+        let mut actual = input;
+
+        batch_inversion_and_mul(&mut actual, coeff);
+
+        assert_eq!(actual[0], TestScalar::zero());
+        assert_eq!(actual[1], input[1].inv().unwrap() * coeff);
+        assert_eq!(actual[2], input[2].inv().unwrap() * coeff);
+        assert_eq!(actual[3], TestScalar::zero());
+        assert_eq!(actual[4], input[4].inv().unwrap() * coeff);
+    }
+}

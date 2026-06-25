@@ -320,3 +320,61 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn we_can_create_integer_owned_column_pairs() {
+        assert_eq!(
+            uint8::<TestScalar>("uint8_col", [1_u8, 2, 3]),
+            (
+                Ident::new("uint8_col"),
+                OwnedColumn::Uint8(vec![1_u8, 2, 3])
+            )
+        );
+        assert_eq!(
+            tinyint::<TestScalar>("tinyint_col", [-1_i8, 2, 3]),
+            (
+                Ident::new("tinyint_col"),
+                OwnedColumn::TinyInt(vec![-1_i8, 2, 3])
+            )
+        );
+        assert_eq!(
+            smallint::<TestScalar>("smallint_col", [-1_i16, 2, 3]),
+            (
+                Ident::new("smallint_col"),
+                OwnedColumn::SmallInt(vec![-1_i16, 2, 3])
+            )
+        );
+        assert_eq!(
+            int::<TestScalar>("int_col", [-1_i32, 2, 3]),
+            (Ident::new("int_col"), OwnedColumn::Int(vec![-1_i32, 2, 3]))
+        );
+    }
+
+    #[test]
+    fn we_can_create_varbinary_and_decimal_owned_column_pairs() {
+        assert_eq!(
+            varbinary::<TestScalar>("bytes_col", [vec![1_u8, 2], vec![3, 4, 5]]),
+            (
+                Ident::new("bytes_col"),
+                OwnedColumn::VarBinary(vec![vec![1_u8, 2], vec![3, 4, 5]])
+            )
+        );
+
+        assert_eq!(
+            decimal75::<TestScalar>("decimal_col", 6, 2, [1_200, -340]),
+            (
+                Ident::new("decimal_col"),
+                OwnedColumn::Decimal75(
+                    Precision::new(6).unwrap(),
+                    2,
+                    vec![TestScalar::from(1_200), TestScalar::from(-340)]
+                )
+            )
+        );
+    }
+}

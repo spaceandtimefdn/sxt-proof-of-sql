@@ -203,6 +203,53 @@ fn we_can_access_schema_and_column_names() {
 }
 
 #[test]
+fn we_can_create_owned_table_test_accessor_from_table() {
+    let table_ref = TableRef::new("sxt", "from_table");
+    let data = owned_table([int("a", [1, 2, 3]), boolean("b", [true, false, true])]);
+
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        data,
+        7,
+        (),
+    );
+
+    assert_eq!(accessor.get_length(&table_ref), 3);
+    assert_eq!(accessor.get_offset(&table_ref), 7);
+    assert_eq!(accessor.get_column_names(&table_ref), vec!["a", "b"]);
+    assert_eq!(
+        accessor.lookup_schema(&table_ref),
+        vec![
+            ("a".into(), ColumnType::Int),
+            ("b".into(), ColumnType::Boolean)
+        ]
+    );
+}
+
+#[test]
+fn cloning_owned_table_test_accessor_preserves_independent_offsets() {
+    let table_ref = TableRef::new("sxt", "clone_test");
+    let data = owned_table([bigint("a", [1, 2, 3])]);
+
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        data,
+        3,
+        (),
+    );
+    let cloned_accessor = accessor.clone();
+
+    accessor.update_offset(&table_ref, 9);
+
+    assert_eq!(accessor.get_offset(&table_ref), 9);
+    assert_eq!(cloned_accessor.get_offset(&table_ref), 3);
+    assert_eq!(
+        cloned_accessor.lookup_column(&table_ref, &"a".into()),
+        Some(ColumnType::BigInt)
+    );
+}
+
+#[test]
 fn we_can_correctly_update_offsets() {
     let mut accessor1 = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let table_ref = TableRef::new("sxt", "test1");

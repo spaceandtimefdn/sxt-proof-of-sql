@@ -321,6 +321,19 @@ mod test {
     }
 
     #[test]
+    fn we_can_do_fallible_binary_ops_on_empty_slices() {
+        let empty: [i32; 0] = [];
+
+        let actual: ColumnOperationResult<Vec<i32>> =
+            try_slice_lit_binary_op(&empty, &1, |_, _| panic!("op should not be called"));
+        assert_eq!(actual.unwrap(), Vec::<i32>::new());
+
+        let actual: ColumnOperationResult<Vec<i32>> =
+            try_slice_binary_op(&empty, &empty, |_, _| panic!("op should not be called"));
+        assert_eq!(actual.unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
     fn we_cannot_do_fallible_binary_op_on_a_single_value_and_a_slice_if_error_anywhere() {
         // No casting
         let slice = [1, i16::MAX, 1];

@@ -69,3 +69,41 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn we_count_and_write_result_slices() {
+        let values = [3_u8, 5, 8];
+        let column = &values[..];
+        let mut out = [0_u8; 3];
+
+        assert_eq!(column.num_bytes(3), 3);
+        assert_eq!(column.write(&mut out, 3), 3);
+        assert_eq!(out, values);
+    }
+
+    #[test]
+    fn we_count_and_write_result_arrays() {
+        let values = [13_u8, 21];
+        let mut out = [0_u8; 2];
+
+        assert_eq!(values.num_bytes(2), 2);
+        assert_eq!(values.write(&mut out, 2), 2);
+        assert_eq!(out, values);
+    }
+
+    #[test]
+    fn we_delegate_column_serialization_to_the_inner_column() {
+        let values = [34_u8, 55];
+        let column = Column::<TestScalar>::Uint8(&values);
+        let mut out = [0_u8; 2];
+
+        assert_eq!(column.num_bytes(2), (&values[..]).num_bytes(2));
+        assert_eq!(column.write(&mut out, 2), 2);
+        assert_eq!(out, values);
+    }
+}

@@ -86,6 +86,110 @@ impl From<DecimalError> for String {
     }
 }
 
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+    use alloc::string::{String, ToString};
+
+    #[test]
+    fn intermediate_decimal_errors_display_expected_messages() {
+        assert_eq!(
+            IntermediateDecimalError::OutOfRange.to_string(),
+            "Value out of range for target type"
+        );
+        assert_eq!(
+            IntermediateDecimalError::LossyCast.to_string(),
+            "Fractional part of decimal is non-zero"
+        );
+        assert_eq!(
+            IntermediateDecimalError::ConversionFailure.to_string(),
+            "Conversion to integer failed"
+        );
+    }
+
+    #[test]
+    fn decimal_errors_display_expected_messages() {
+        assert_eq!(
+            DecimalError::InvalidDecimal {
+                error: "not a decimal".to_string(),
+            }
+            .to_string(),
+            "Invalid decimal format or value: not a decimal"
+        );
+        assert_eq!(
+            DecimalError::InvalidPrecision {
+                error: "76".to_string(),
+            }
+            .to_string(),
+            "Decimal precision is not valid: 76"
+        );
+        assert_eq!(
+            DecimalError::InvalidScale {
+                scale: "-129".to_string(),
+            }
+            .to_string(),
+            "Decimal scale is not valid: -129"
+        );
+        assert_eq!(
+            DecimalError::RoundingError {
+                error: "lossy scale".to_string(),
+            }
+            .to_string(),
+            "Unsupported operation: cannot round decimal: lossy scale"
+        );
+    }
+
+    #[test]
+    fn decimal_errors_transparently_wrap_intermediate_decimal_errors() {
+        assert_eq!(
+            DecimalError::IntermediateDecimalConversionError {
+                source: IntermediateDecimalError::LossyCast,
+            }
+            .to_string(),
+            "Fractional part of decimal is non-zero"
+        );
+    }
+
+    #[test]
+    fn decimal_error_converts_into_string() {
+        let message: String = DecimalError::InvalidScale {
+            scale: "100".to_string(),
+        }
+        .into();
+
+        assert_eq!(message, "Decimal scale is not valid: 100");
+    }
+
+    #[test]
+    fn precision_rejects_zero_and_values_above_max() {
+        assert_eq!(
+            Precision::new(0),
+            Err(DecimalError::InvalidPrecision {
+                error: "0".to_string(),
+            })
+        );
+        assert_eq!(
+            Precision::new(MAX_SUPPORTED_PRECISION + 1),
+            Err(DecimalError::InvalidPrecision {
+                error: "76".to_string(),
+            })
+        );
+        assert_eq!(
+            Precision::try_from(u64::from(u8::MAX) + 1),
+            Err(DecimalError::InvalidPrecision {
+                error: "256".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn precision_deserializes_only_supported_values() {
+        assert_eq!(serde_json::from_str::<Precision>("10").unwrap().value(), 10);
+        assert!(serde_json::from_str::<Precision>("0").is_err());
+        assert!(serde_json::from_str::<Precision>("76").is_err());
+    }
+}
+
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Copy)]
 /// limit-enforced precision
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

@@ -353,10 +353,77 @@ impl<C> FromIterator<(Ident, ColumnCommitmentMetadata, C)> for ColumnCommitments
 mod tests {
     use super::*;
     use crate::base::{
-        commitment::{column_bounds::Bounds, naive_commitment::NaiveCommitment, ColumnBounds},
-        database::{owned_table_utility::*, ColumnType, OwnedColumn, OwnedTable},
+        commitment::{
+            column_bounds::Bounds, naive_commitment::NaiveCommitment,
+            naive_evaluation_proof::NaiveEvaluationProof, ColumnBounds,
+        },
+        database::{
+            owned_table_utility::*, ColumnType, OwnedColumn, OwnedTable, OwnedTableTestAccessor,
+        },
         scalar::test_scalar::TestScalar,
     };
+
+    #[test]
+    fn we_can_construct_column_commitments_from_accessor_with_max_bounds() {
+        let table_ref = TableRef::new("sxt", "events");
+        let uint8_id: Ident = "uint8_column".into();
+        let bigint_id: Ident = "bigint_column".into();
+        let missing_id: Ident = "missing_column".into();
+        let owned_table: OwnedTable<TestScalar> = owned_table([
+            uint8(uint8_id.value.as_str(), [1u8, 7, 255]),
+            bigint(bigint_id.value.as_str(), [-2, 0, 3]),
+        ]);
+
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+            table_ref.clone(),
+            owned_table.clone(),
+            4,
+            (),
+        );
+        let column_fields = [
+            ColumnField::new(uint8_id.clone(), ColumnType::Uint8),
+            ColumnField::new(bigint_id.clone(), ColumnType::BigInt),
+        ];
+
+        let column_commitments =
+            ColumnCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+                &table_ref,
+                &column_fields,
+                &accessor,
+            );
+
+        let expected_commitments = Vec::<NaiveCommitment>::from_columns_with_offset(
+            [
+                owned_table.inner_table().get(&uint8_id).unwrap(),
+                owned_table.inner_table().get(&bigint_id).unwrap(),
+            ],
+            4,
+            &(),
+        );
+        assert_eq!(column_commitments.commitments(), &expected_commitments);
+        assert_eq!(
+            column_commitments.get_commitment(&uint8_id).unwrap(),
+            expected_commitments[0]
+        );
+        assert_eq!(
+            column_commitments.get_commitment(&bigint_id).unwrap(),
+            expected_commitments[1]
+        );
+        assert!(column_commitments.get_commitment(&missing_id).is_none());
+        assert!(column_commitments.get_metadata(&missing_id).is_none());
+
+        assert_eq!(
+            column_commitments.get_metadata(&uint8_id).unwrap().bounds(),
+            &ColumnBounds::Uint8(Bounds::bounded(u8::MIN, u8::MAX).unwrap())
+        );
+        assert_eq!(
+            column_commitments
+                .get_metadata(&bigint_id)
+                .unwrap()
+                .bounds(),
+            &ColumnBounds::BigInt(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+        );
+    }
 
     #[test]
     fn we_can_construct_column_commitments_from_columns_and_identifiers() {

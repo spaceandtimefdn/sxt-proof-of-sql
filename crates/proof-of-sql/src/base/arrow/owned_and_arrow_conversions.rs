@@ -148,6 +148,10 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
     /// - `Decimal256Array` when converting from `DataType::Decimal256` if precision is less than or equal to 75.
     /// - `StringArray` when converting from `DataType::Utf8`.
     fn try_from(value: &ArrayRef) -> Result<Self, Self::Error> {
+        if value.null_count() != 0 {
+            return Err(OwnedArrowConversionError::NullNotSupportedYet);
+        }
+
         match &value.data_type() {
             // Arrow uses a bit-packed representation for booleans.
             // Hence we need to unpack the bits to get the actual boolean values.
@@ -301,6 +305,39 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
                 datatype: data_type.clone(),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn assert_null_not_supported(array_ref: ArrayRef) {
+        assert!(matches!(
+            OwnedColumn::<TestScalar>::try_from(array_ref),
+            Err(OwnedArrowConversionError::NullNotSupportedYet)
+        ));
+    }
+
+    #[test]
+    fn we_reject_nulls_before_converting_arrow_arrays_to_owned_columns() {
+        assert_null_not_supported(Arc::new(BooleanArray::from(vec![Some(true), None])));
+        assert_null_not_supported(Arc::new(UInt8Array::from(vec![Some(1), None])));
+        assert_null_not_supported(Arc::new(Int8Array::from(vec![Some(1), None])));
+        assert_null_not_supported(Arc::new(Int16Array::from(vec![Some(1), None])));
+        assert_null_not_supported(Arc::new(Int32Array::from(vec![Some(1), None])));
+        assert_null_not_supported(Arc::new(Int64Array::from(vec![Some(1), None])));
+        assert_null_not_supported(Arc::new(
+            Decimal128Array::from(vec![Some(1_i128), None])
+                .with_precision_and_scale(38, 0)
+                .unwrap(),
+        ));
+        assert_null_not_supported(Arc::new(StringArray::from(vec![Some("a"), None])));
+        assert_null_not_supported(Arc::new(LargeBinaryArray::from_iter([
+            Some(b"a".as_slice()),
+            None,
+        ])));
     }
 }
 
