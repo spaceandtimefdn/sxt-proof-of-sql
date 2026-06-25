@@ -40,3 +40,12 @@ pub fn inner_product_with_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
         .map(|(lhs_bytes, &rhs)| S::from_byte_slice_via_hash(lhs_bytes) * rhs)
         .sum()
 }
+
+/// Cannot use blanket impls for `Vec<u8>` because fixed-size binary uses a
+/// direct scalar embedding for values shorter than 32 bytes.
+pub fn inner_product_with_fixed_size_binary<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
+    if_rayon!(a.par_iter().with_min_len(super::MIN_RAYON_LEN), a.iter())
+        .zip(b)
+        .map(|(lhs_bytes, &rhs)| S::from_fixed_size_binary(lhs_bytes) * rhs)
+        .sum()
+}

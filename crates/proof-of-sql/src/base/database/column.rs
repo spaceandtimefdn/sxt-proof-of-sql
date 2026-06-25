@@ -47,6 +47,8 @@ pub enum Column<'a, S: Scalar> {
     Scalar(&'a [S]),
     /// Variable length binary columns
     VarBinary((&'a [&'a [u8]], &'a [S])),
+    /// Fixed length binary columns
+    FixedSizeBinary(i32, (&'a [&'a [u8]], &'a [S])),
 }
 
 impl<'a, S: Scalar> Column<'a, S> {
@@ -68,6 +70,7 @@ impl<'a, S: Scalar> Column<'a, S> {
                 ColumnType::TimestampTZ(*time_unit, *timezone)
             }
             Self::VarBinary(..) => ColumnType::VarBinary,
+            Self::FixedSizeBinary(size, ..) => ColumnType::FixedSizeBinary(*size),
         }
     }
     /// Returns the length of the column.
@@ -87,6 +90,10 @@ impl<'a, S: Scalar> Column<'a, S> {
                 col.len()
             }
             Self::VarBinary((col, scals)) => {
+                assert_eq!(col.len(), scals.len());
+                col.len()
+            }
+            Self::FixedSizeBinary(_, (col, scals)) => {
                 assert_eq!(col.len(), scals.len());
                 col.len()
             }
@@ -152,6 +159,24 @@ impl<'a, S: Scalar> Column<'a, S> {
 
                 Column::VarBinary((bytes_slice, scalars))
             }
+            LiteralValue::FixedSizeBinary(size, bytes) => {
+                let fixed_size =
+                    usize::try_from(*size).expect("fixed-size binary size must be nonnegative");
+                assert!(
+                    fixed_size <= 32,
+                    "fixed-size binary size must be at most 32"
+                );
+                assert_eq!(
+                    fixed_size,
+                    bytes.len(),
+                    "literal byte length must match the fixed-size binary size"
+                );
+                let bytes_slice = alloc
+                    .alloc_slice_fill_with(length, |_| alloc.alloc_slice_copy(bytes) as &[_]);
+                let scalars = alloc.alloc_slice_fill_copy(length, S::from_fixed_size_binary(bytes));
+
+                Column::FixedSizeBinary(*size, (bytes_slice, scalars))
+            }
         }
     }
 
@@ -197,6 +222,20 @@ impl<'a, S: Scalar> Column<'a, S> {
                     alloc.alloc_slice_clone(&bytes),
                     alloc.alloc_slice_copy(scalars.as_slice()),
                 ))
+            }
+            OwnedColumn::FixedSizeBinary(size, col) => {
+                let scalars = col
+                    .iter()
+                    .map(|b| S::from_fixed_size_binary(b))
+                    .collect::<Vec<_>>();
+                let bytes = col.iter().map(|s| s as &'a [u8]).collect::<Vec<_>>();
+                Column::FixedSizeBinary(
+                    *size,
+                    (
+                        alloc.alloc_slice_clone(&bytes),
+                        alloc.alloc_slice_copy(scalars.as_slice()),
+                    ),
+                )
             }
             OwnedColumn::TimestampTZ(tu, tz, col) => Column::TimestampTZ(*tu, *tz, col.as_slice()),
         }
@@ -285,7 +324,9 @@ impl<'a, S: Scalar> Column<'a, S> {
     /// Returns the column as a slice of strings and a slice of scalars if it is a varchar column. Otherwise, returns None.
     pub(crate) fn as_varbinary(&self) -> Option<(&'a [&'a [u8]], &'a [S])> {
         match self {
-            Self::VarBinary((col, scals)) => Some((col, scals)),
+            Self::VarBinary((col, scals)) | Self::FixedSizeBinary(_, (col, scals)) => {
+                Some((col, scals))
+            }
             _ => None,
         }
     }
@@ -311,7 +352,9 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::BigInt(col) | Self::TimestampTZ(_, _, col) => S::from(col[index]),
             Self::Int128(col) => S::from(col[index]),
             Self::Scalar(col) | Self::Decimal75(_, _, col) => col[index],
-            Self::VarChar((_, scals)) | Self::VarBinary((_, scals)) => scals[index],
+            Self::VarChar((_, scals))
+            | Self::VarBinary((_, scals))
+            | Self::FixedSizeBinary(_, (_, scals)) => scals[index],
         })
     }
 
@@ -322,7 +365,9 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::Boolean(col) => slice_cast_with(col, |b| S::from(b)),
             Self::Decimal75(_, _, col) => slice_cast_with(col, |s| *s),
             Self::VarChar((_, values)) => slice_cast_with(values, |s| *s),
-            Self::VarBinary((_, values)) => slice_cast_with(values, |s| *s),
+            Self::VarBinary((_, values)) | Self::FixedSizeBinary(_, (_, values)) => {
+                slice_cast_with(values, |s| *s)
+            }
             Self::Uint8(col) => slice_cast_with(col, |i| S::from(i)),
             Self::TinyInt(col) => slice_cast_with(col, |i| S::from(i)),
             Self::SmallInt(col) => slice_cast_with(col, |i| S::from(i)),
@@ -555,6 +600,22 @@ mod tests {
         assert_eq!(column.len(), 3);
         assert!(!column.is_empty());
         assert_eq!(column.column_type(), ColumnType::VarBinary);
+    }
+
+    #[test]
+    fn we_can_convert_fixed_size_binary_literal_to_column() {
+        use bumpalo::Bump;
+
+        let alloc = Bump::new();
+        let literal = LiteralValue::FixedSizeBinary(2, b"\x34\x12".to_vec());
+        let expected_bytes = [b"\x34\x12".as_slice(); 3];
+        let expected_scalar = TestScalar::from_fixed_size_binary(b"\x34\x12");
+        let expected_scalars = [expected_scalar; 3];
+
+        assert_eq!(
+            Column::from_literal_with_length(&literal, 3, &alloc),
+            Column::FixedSizeBinary(2, (&expected_bytes, &expected_scalars))
+        );
     }
 
     #[test]

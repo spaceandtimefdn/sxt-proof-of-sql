@@ -7,8 +7,8 @@ use crate::base::{
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, FixedSizeBinaryArray, Float32Array, Int64Array,
+        LargeBinaryArray, StringArray,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -33,6 +33,21 @@ fn we_can_convert_between_varbinary_owned_column_and_array_ref_impl(data: &[Vec<
             .map(std::vec::Vec::as_slice)
             .collect::<Vec<&[u8]>>(),
     ));
+    we_can_convert_between_owned_column_and_array_ref_impl(&owned_col, arrow_col);
+}
+
+fn we_can_convert_between_fixed_size_binary_owned_column_and_array_ref_impl(
+    size: i32,
+    data: &[Vec<u8>],
+) {
+    let owned_col = OwnedColumn::<TestScalar>::FixedSizeBinary(size, data.to_owned());
+    let arrow_col = Arc::new(
+        FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+            data.iter().map(|bytes| Some(bytes.as_slice())),
+            size,
+        )
+        .unwrap(),
+    );
     we_can_convert_between_owned_column_and_array_ref_impl(&owned_col, arrow_col);
 }
 
@@ -89,6 +104,12 @@ fn we_can_convert_between_owned_column_and_array_ref() {
         b"some bytes".to_vec(),
     ];
     we_can_convert_between_varbinary_owned_column_and_array_ref_impl(&varbin_data);
+
+    let fixed_size_binary_data = vec![b"foo".to_vec(), b"bar".to_vec(), b"baz".to_vec()];
+    we_can_convert_between_fixed_size_binary_owned_column_and_array_ref_impl(
+        3,
+        &fixed_size_binary_data,
+    );
 }
 
 #[test]
