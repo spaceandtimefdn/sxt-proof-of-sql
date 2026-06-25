@@ -71,7 +71,10 @@ pub trait Transcript {
 #[cfg(test)]
 mod tests {
     use super::Transcript;
-    use crate::base::proof::Keccak256Transcript;
+    use crate::base::{
+        proof::Keccak256Transcript,
+        scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
+    };
     use alloc::{string::ToString, vec};
 
     #[test]
@@ -155,5 +158,58 @@ mod tests {
         transcript2.extend_as_be_from_refs(&more_messages);
 
         assert_ne!(transcript1.challenge_as_le(), transcript2.challenge_as_le());
+    }
+
+    #[test]
+    fn we_can_extend_transcript_with_extend_as_le_from_refs() {
+        let first = [1_u8, 2, 3, 4];
+        let second = [5_u8, 6, 7, 8];
+
+        let mut transcript1: Keccak256Transcript = Transcript::new();
+        let mut transcript2: Keccak256Transcript = Transcript::new();
+
+        transcript1.extend_as_le_from_refs([first.as_slice(), second.as_slice()]);
+        transcript2.extend_as_le([first, second]);
+
+        assert_eq!(transcript1.challenge_as_le(), transcript2.challenge_as_le());
+    }
+
+    #[test]
+    fn we_can_extend_transcript_with_scalars_as_be() {
+        let scalars = [
+            TestScalar::from(7_u64),
+            TestScalar::from([11_u64, 12, 13, 14]),
+            -TestScalar::ONE,
+        ];
+
+        let mut scalar_transcript: Keccak256Transcript = Transcript::new();
+        let mut limb_transcript: Keccak256Transcript = Transcript::new();
+
+        scalar_transcript.extend_scalars_as_be(&scalars);
+        limb_transcript.extend_as_be(scalars.iter().copied().map(Into::<[u64; 4]>::into));
+
+        assert_eq!(
+            scalar_transcript.challenge_as_le(),
+            limb_transcript.challenge_as_le()
+        );
+    }
+
+    #[test]
+    fn scalar_challenges_are_masked_and_stateful() {
+        let mut transcript: Keccak256Transcript = Transcript::new();
+        transcript.extend_as_le([*b"challenge seed"]);
+
+        let challenge1 = transcript.scalar_challenge_as_be::<TestScalar>();
+        let challenge2 = transcript.scalar_challenge_as_be::<TestScalar>();
+
+        assert_eq!(
+            challenge1.into_u256_wrapping() & !TestScalar::CHALLENGE_MASK,
+            0_u8.into()
+        );
+        assert_eq!(
+            challenge2.into_u256_wrapping() & !TestScalar::CHALLENGE_MASK,
+            0_u8.into()
+        );
+        assert_ne!(challenge1, challenge2);
     }
 }
