@@ -62,3 +62,54 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProverState;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn new_stores_list_of_products() {
+        let state = ProverState::new(
+            alloc::vec![(ts(1), alloc::vec![0usize])],
+            alloc::vec![alloc::vec![ts(1), ts(2)]],
+            1,
+            1,
+        );
+        assert_eq!(state.list_of_products.len(), 1);
+    }
+
+    #[test]
+    fn new_stores_flattened_extensions() {
+        let state = ProverState::new(
+            alloc::vec![],
+            alloc::vec![alloc::vec![ts(3), ts(4)]],
+            1,
+            0,
+        );
+        assert_eq!(state.flattened_ml_extensions.len(), 1);
+        assert_eq!(state.flattened_ml_extensions[0][0], ts(3));
+    }
+
+    #[test]
+    fn new_stores_num_vars() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 3, 0);
+        assert_eq!(state.num_vars, 3);
+    }
+
+    #[test]
+    fn new_stores_max_multiplicands() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 1, 4);
+        assert_eq!(state.max_multiplicands, 4);
+    }
+
+    #[test]
+    fn new_starts_round_at_zero() {
+        let state = ProverState::<TestScalar>::new(alloc::vec![], alloc::vec![], 1, 0);
+        assert_eq!(state.round, 0);
+    }
+}

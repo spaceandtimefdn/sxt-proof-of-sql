@@ -53,3 +53,45 @@ where
 {
     slice_cast_mut_with(value, result, Into::into);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{slice_cast_mut_with, slice_cast_with};
+
+    #[test]
+    fn slice_cast_with_converts_each_element() {
+        let v = alloc::vec![1i32, 2, 3];
+        let result = slice_cast_with(&v, |&x| x as i64 * 2);
+        assert_eq!(result, alloc::vec![2i64, 4, 6]);
+    }
+
+    #[test]
+    fn slice_cast_with_empty_slice() {
+        let v: &[i32] = &[];
+        let result = slice_cast_with(v, |&x| x as i64);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn slice_cast_mut_with_writes_to_output() {
+        let v = alloc::vec![10i32, 20, 30];
+        let mut result = alloc::vec![0i64; 3];
+        slice_cast_mut_with(&v, &mut result, |&x| x as i64 + 1);
+        assert_eq!(result, alloc::vec![11i64, 21, 31]);
+    }
+
+    #[test]
+    fn slice_cast_mut_with_empty_slice() {
+        let v: &[i32] = &[];
+        let mut result: alloc::vec::Vec<i64> = alloc::vec![];
+        slice_cast_mut_with(v, &mut result, |&x| x as i64);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn slice_cast_with_negate() {
+        let v = alloc::vec![3i32, -1, 5];
+        let result = slice_cast_with(&v, |&x| -x);
+        assert_eq!(result, alloc::vec![-3i32, 1, -5]);
+    }
+}

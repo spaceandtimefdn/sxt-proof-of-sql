@@ -67,3 +67,63 @@ where
 
     log::log_memory_usage("End");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_evaluation_vector;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn empty_point_fills_with_one() {
+        let mut v = alloc::vec![ts(0); 1];
+        compute_evaluation_vector(&mut v, &[]);
+        assert_eq!(v[0], ts(1));
+    }
+
+    #[test]
+    fn single_var_at_zero_gives_one_zero() {
+        let mut v = alloc::vec![ts(0), ts(0)];
+        compute_evaluation_vector(&mut v, &[ts(0)]);
+        assert_eq!(v[0], ts(1)); // 1 - 0 = 1
+        assert_eq!(v[1], ts(0)); // 0
+    }
+
+    #[test]
+    fn single_var_at_one_gives_zero_one() {
+        let mut v = alloc::vec![ts(0), ts(0)];
+        compute_evaluation_vector(&mut v, &[ts(1)]);
+        assert_eq!(v[0], ts(0)); // 1 - 1 = 0
+        assert_eq!(v[1], ts(1)); // 1
+    }
+
+    #[test]
+    fn two_vars_evaluates_to_four_basis_values() {
+        // point = [0, 0] => basis = [1, 0, 0, 0]
+        let mut v = alloc::vec![ts(0); 4];
+        compute_evaluation_vector(&mut v, &[ts(0), ts(0)]);
+        assert_eq!(v[0], ts(1));
+        assert_eq!(v[1], ts(0));
+        assert_eq!(v[2], ts(0));
+        assert_eq!(v[3], ts(0));
+    }
+
+    #[test]
+    fn basis_values_sum_to_one_for_any_point() {
+        let mut v = alloc::vec![ts(0); 4];
+        compute_evaluation_vector(&mut v, &[ts(3), ts(5)]);
+        let sum: TestScalar = v.iter().fold(ts(0), |acc, &x| acc + x);
+        assert_eq!(sum, ts(1));
+    }
+
+    #[test]
+    fn length_one_vector_fills_with_one() {
+        let mut v = alloc::vec![ts(0); 1];
+        compute_evaluation_vector(&mut v, &[ts(7)]);
+        // Only one element, just 1-p term
+        assert_eq!(v[0], ts(1) - ts(7));
+    }
+}
