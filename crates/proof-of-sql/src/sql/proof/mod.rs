@@ -77,3 +77,5 @@ mod provable_query_result_test;
 mod make_sumcheck_state;
 
 mod sumcheck_term_optimizer;
+#[cfg(test)]
+mod sumcheck_term_optimizer_test;
