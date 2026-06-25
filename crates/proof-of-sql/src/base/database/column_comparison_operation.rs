@@ -414,3 +414,103 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{EqualOp, GreaterThanOp, LessThanOp};
+    use crate::base::{database::OwnedColumn, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn equal_op_bigint_equal_and_unequal_elements() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1i64, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1i64, 4, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn equal_op_different_lengths_returns_error() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1i64, 2]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1i64]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn greater_than_op_bigint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![5i64, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![3i64, 3, 3]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn less_than_op_bigint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1i64, 5, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![3i64, 3, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn equal_op_boolean_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
+        let rhs = OwnedColumn::<TestScalar>::Boolean(vec![true, true, false]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, false]));
+    }
+
+    #[test]
+    fn equal_op_int128_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![100i128, 200]);
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![100i128, 300]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false]));
+    }
+
+    #[test]
+    fn equal_op_tinyint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1i8, 2, -1]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![1i8, 3, -1]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn equal_op_varchar_columns() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(vec!["hello".to_string(), "world".to_string()]);
+        let rhs = OwnedColumn::<TestScalar>::VarChar(vec!["hello".to_string(), "earth".to_string()]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false]));
+    }
+
+    #[test]
+    fn greater_than_op_varchar_returns_error() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(vec!["a".to_string()]);
+        let rhs = OwnedColumn::<TestScalar>::VarChar(vec!["b".to_string()]);
+        assert!(GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn less_than_op_varchar_returns_error() {
+        let lhs = OwnedColumn::<TestScalar>::VarChar(vec!["a".to_string()]);
+        let rhs = OwnedColumn::<TestScalar>::VarChar(vec!["b".to_string()]);
+        assert!(LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn equal_op_smallint_columns() {
+        let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![10i16, 20]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![10i16, 30]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false]));
+    }
+
+    #[test]
+    fn greater_than_op_int128_columns() {
+        let lhs = OwnedColumn::<TestScalar>::Int128(vec![100i128, 50]);
+        let rhs = OwnedColumn::<TestScalar>::Int128(vec![50i128, 100]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Boolean(vec![true, false]));
+    }
+}
