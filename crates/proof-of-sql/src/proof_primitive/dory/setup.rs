@@ -3,7 +3,6 @@ use crate::{base::impl_serde_for_ark_serde_unchecked, utils::log};
 use alloc::vec::Vec;
 use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
-use itertools::MultiUnzip;
 use num_traits::One;
 #[cfg(feature = "std")]
 use std::{
@@ -225,34 +224,35 @@ impl VerifierSetup {
     ) -> Self {
         assert_eq!(Gamma_1_nu.len(), 1 << max_nu);
         assert_eq!(Gamma_2_nu.len(), 1 << max_nu);
-        let (Delta_1L_2L, Delta_1R, Delta_2R, chi): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) = (0..=max_nu)
-            .map(|k| {
-                if k == 0 {
-                    (
-                        PairingOutput(One::one()),
-                        PairingOutput(One::one()),
-                        PairingOutput(One::one()),
-                        Pairing::pairing(Gamma_1_nu[0], Gamma_2_nu[0]),
-                    )
-                } else {
-                    (
-                        Pairing::multi_pairing(
-                            &Gamma_1_nu[..1 << (k - 1)],
-                            &Gamma_2_nu[..1 << (k - 1)],
-                        ),
-                        Pairing::multi_pairing(
-                            &Gamma_1_nu[1 << (k - 1)..1 << k],
-                            &Gamma_2_nu[..1 << (k - 1)],
-                        ),
-                        Pairing::multi_pairing(
-                            &Gamma_1_nu[..1 << (k - 1)],
-                            &Gamma_2_nu[1 << (k - 1)..1 << k],
-                        ),
-                        Pairing::multi_pairing(&Gamma_1_nu[..1 << k], &Gamma_2_nu[..1 << k]),
-                    )
-                }
-            })
-            .multiunzip();
+        let mut Delta_1L_2L = Vec::with_capacity(max_nu + 1);
+        let mut Delta_1R = Vec::with_capacity(max_nu + 1);
+        let mut Delta_2R = Vec::with_capacity(max_nu + 1);
+        let mut chi = Vec::with_capacity(max_nu + 1);
+
+        Delta_1L_2L.push(PairingOutput(One::one()));
+        Delta_1R.push(PairingOutput(One::one()));
+        Delta_2R.push(PairingOutput(One::one()));
+        chi.push(Pairing::pairing(Gamma_1_nu[0], Gamma_2_nu[0]));
+
+        for k in 1..=max_nu {
+            let left_len = 1 << (k - 1);
+            let full_len = 1 << k;
+            let left_chi = chi[k - 1];
+            Delta_1L_2L.push(left_chi);
+            Delta_1R.push(Pairing::multi_pairing(
+                &Gamma_1_nu[left_len..full_len],
+                &Gamma_2_nu[..left_len],
+            ));
+            Delta_2R.push(Pairing::multi_pairing(
+                &Gamma_1_nu[..left_len],
+                &Gamma_2_nu[left_len..full_len],
+            ));
+            let right_chi = Pairing::multi_pairing(
+                &Gamma_1_nu[left_len..full_len],
+                &Gamma_2_nu[left_len..full_len],
+            );
+            chi.push(left_chi + right_chi);
+        }
         Self {
             Delta_1L: Delta_1L_2L.clone(),
             Delta_1R,
