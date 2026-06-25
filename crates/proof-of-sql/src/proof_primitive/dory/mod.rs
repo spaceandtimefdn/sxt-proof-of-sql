@@ -29,6 +29,12 @@ use rand_util::rand_F_tensors;
 use rand_util::rand_G_vecs;
 #[cfg(test)]
 pub use rand_util::test_rng;
+#[cfg(test)]
+mod test_setup_cache;
+#[cfg(test)]
+pub(crate) use test_setup_cache::{
+    test_params_nu_4, test_params_nu_6, test_verifier_setup_nu_4, test_verifier_setup_nu_6,
+};
 
 mod dory_messages;
 pub(crate) use dory_messages::DoryMessages;
