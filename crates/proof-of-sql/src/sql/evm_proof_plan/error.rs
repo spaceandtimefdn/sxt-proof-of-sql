@@ -35,3 +35,67 @@ pub(crate) enum EVMProofPlanError {
 
 /// Result type for EVM proof plan operations.
 pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlanError;
+
+    #[test]
+    fn not_supported_displays_correct_message() {
+        assert_eq!(EVMProofPlanError::NotSupported.to_string(), "plan not yet supported");
+    }
+
+    #[test]
+    fn column_not_found_displays_correct_message() {
+        assert_eq!(EVMProofPlanError::ColumnNotFound.to_string(), "column not found");
+    }
+
+    #[test]
+    fn table_not_found_displays_correct_message() {
+        assert_eq!(EVMProofPlanError::TableNotFound.to_string(), "table not found");
+    }
+
+    #[test]
+    fn invalid_table_name_displays_correct_message() {
+        assert_eq!(
+            EVMProofPlanError::InvalidTableName.to_string(),
+            "table name can not be parsed into TableRef"
+        );
+    }
+
+    #[test]
+    fn invalid_output_column_name_displays_correct_message() {
+        assert_eq!(
+            EVMProofPlanError::InvalidOutputColumnName.to_string(),
+            "invalid or missing output column name"
+        );
+    }
+
+    #[test]
+    fn inconsistent_group_by_column_counts_displays_correctly() {
+        assert_eq!(
+            EVMProofPlanError::InconsistentGroupByColumnCounts.to_string(),
+            "column counts in group by plans are inconsistent"
+        );
+    }
+
+    #[test]
+    fn incorrect_scaling_factor_displays_correct_message() {
+        assert_eq!(
+            EVMProofPlanError::IncorrectScalingFactor.to_string(),
+            "incorrect scaling factor"
+        );
+    }
+
+    #[test]
+    fn evm_proof_plan_errors_implement_partial_eq() {
+        assert_eq!(EVMProofPlanError::NotSupported, EVMProofPlanError::NotSupported);
+        assert_ne!(EVMProofPlanError::NotSupported, EVMProofPlanError::ColumnNotFound);
+    }
+
+    #[test]
+    fn evm_proof_plan_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", EVMProofPlanError::NotSupported);
+        assert!(debug.contains("NotSupported"));
+    }
+}

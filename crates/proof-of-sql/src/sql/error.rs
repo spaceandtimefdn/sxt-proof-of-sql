@@ -71,3 +71,61 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyzeError;
+    use crate::base::database::ColumnType;
+    use alloc::string::String;
+
+    #[test]
+    fn invalid_data_type_displays_type() {
+        let err = AnalyzeError::InvalidDataType { expr_type: ColumnType::BigInt };
+        let msg = err.to_string();
+        assert!(msg.contains("BIGINT"));
+        assert!(msg.contains("was not valid"));
+    }
+
+    #[test]
+    fn data_type_mismatch_displays_both_types() {
+        let err = AnalyzeError::DataTypeMismatch {
+            left_type: "Int".to_string(),
+            right_type: "Boolean".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("Int"));
+        assert!(msg.contains("Boolean"));
+    }
+
+    #[test]
+    fn different_column_length_displays_lengths() {
+        let err = AnalyzeError::DifferentColumnLength { len_a: 5, len_b: 10 };
+        assert_eq!(err.to_string(), "Columns have different lengths: 5 != 10");
+    }
+
+    #[test]
+    fn not_enough_input_plans_displays_correctly() {
+        assert_eq!(AnalyzeError::NotEnoughInputPlans.to_string(), "Not enough input plans");
+    }
+
+    #[test]
+    fn from_impl_converts_to_string_via_display() {
+        let err = AnalyzeError::NotEnoughInputPlans;
+        let s: String = err.into();
+        assert_eq!(s, "Not enough input plans");
+    }
+
+    #[test]
+    fn analyze_errors_implement_partial_eq() {
+        assert_eq!(AnalyzeError::NotEnoughInputPlans, AnalyzeError::NotEnoughInputPlans);
+        let e1 = AnalyzeError::DifferentColumnLength { len_a: 1, len_b: 2 };
+        let e2 = AnalyzeError::DifferentColumnLength { len_a: 1, len_b: 2 };
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn analyze_error_debug_contains_variant_name() {
+        let debug = format!("{:?}", AnalyzeError::NotEnoughInputPlans);
+        assert!(debug.contains("NotEnoughInputPlans"));
+    }
+}
