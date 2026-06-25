@@ -371,3 +371,66 @@ where
             .min_by(super::super::scalar::ScalarExt::signed_cmp)
     }))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{aggregate_columns, AggregateColumnsError};
+    use crate::base::{database::Column, scalar::test_scalar::TestScalar};
+    use bumpalo::Bump;
+
+    #[test]
+    fn aggregate_columns_error_column_length_mismatch_display() {
+        let err = AggregateColumnsError::ColumnLengthMismatch;
+        assert_eq!(format!("{err}"), "Column length mismatch");
+    }
+
+    #[test]
+    fn aggregate_columns_error_column_length_mismatch_equality() {
+        let a = AggregateColumnsError::ColumnLengthMismatch;
+        let b = AggregateColumnsError::ColumnLengthMismatch;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn aggregate_columns_returns_error_on_mismatched_sum_column_length() {
+        let alloc = Bump::new();
+        let group_data = [1i64, 2];
+        let sum_data = [1i64, 2, 3]; // length 3 != selection length 2
+        let group_col = Column::<TestScalar>::BigInt(&group_data);
+        let sum_col = Column::<TestScalar>::BigInt(&sum_data);
+        let selection = [true, true]; // length 2 for selection
+        let result = aggregate_columns::<TestScalar>(
+            &alloc,
+            &[group_col],
+            &[sum_col],
+            &[],
+            &[],
+            &selection,
+        );
+        assert!(matches!(result, Err(AggregateColumnsError::ColumnLengthMismatch)));
+    }
+
+    #[test]
+    fn aggregate_columns_empty_inputs_return_empty_output() {
+        let alloc = Bump::new();
+        let selection: &[bool] = &[];
+        let result = aggregate_columns::<TestScalar>(&alloc, &[], &[], &[], &[], selection)
+            .expect("empty inputs should succeed");
+        assert!(result.group_by_columns.is_empty());
+        assert!(result.sum_columns.is_empty());
+        assert!(result.count_column.is_empty());
+    }
+
+    #[test]
+    fn aggregate_columns_all_deselected_gives_empty_groups() {
+        let alloc = Bump::new();
+        let data = [10i64, 20, 30];
+        let col = Column::<TestScalar>::BigInt(&data);
+        let selection = [false, false, false];
+        let result = aggregate_columns::<TestScalar>(&alloc, &[col], &[], &[], &[], &selection)
+            .expect("all-deselected should succeed");
+        assert!(result.count_column.is_empty());
+        assert!(result.group_by_columns[0].is_empty());
+    }
+}

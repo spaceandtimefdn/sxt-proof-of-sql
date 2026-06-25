@@ -30,3 +30,24 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::log_memory_usage;
+
+    #[test]
+    fn log_memory_usage_does_not_panic_on_start() {
+        log_memory_usage("Start");
+    }
+
+    #[test]
+    fn log_memory_usage_does_not_panic_on_empty_label() {
+        log_memory_usage("");
+    }
+
+    #[test]
+    fn log_memory_usage_does_not_panic_on_end() {
+        log_memory_usage("End");
+    }
+}
