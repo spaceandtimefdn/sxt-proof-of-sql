@@ -111,7 +111,17 @@ mod tests {
     use super::*;
     use ark_bn254::G1Affine;
     use ark_serialize::CanonicalDeserialize;
-    use std::fs;
+    use std::{fs, path::PathBuf};
+
+    fn temp_file_path(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("powers-of-tau-util-{name}-{}", std::process::id()))
+    }
+
+    fn path_string(path: &std::path::Path) -> String {
+        path.to_str()
+            .expect("temporary test path should be valid UTF-8")
+            .to_owned()
+    }
 
     /// # Panics
     ///
@@ -119,16 +129,18 @@ mod tests {
     #[test]
     fn we_can_create_a_binary_file() {
         let n = 4;
-        let ptau_path = "/tmp/create_binary_file_test.ptau";
-        let binary_path = "/tmp/create_binary_file_test.bin";
+        let ptau_path = temp_file_path("create_binary_file_test.ptau");
+        let binary_path = temp_file_path("create_binary_file_test.bin");
+        let ptau_path_string = path_string(&ptau_path);
+        let binary_path_string = path_string(&binary_path);
         let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
 
         // Generate the ptau file
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(false)
-            .open(ptau_path)
+            .truncate(true)
+            .open(&ptau_path)
             .unwrap();
         let mut writer = BufWriter::new(file);
         ck.save_to(&mut writer).unwrap();
@@ -136,13 +148,13 @@ mod tests {
         // Create the binary file
         create_binary_file(&[
             "program".to_string(),
-            ptau_path.to_string(),
-            binary_path.to_string(),
+            ptau_path_string,
+            binary_path_string,
             n.to_string(),
         ]);
 
         // Verify the binary file
-        let file = OpenOptions::new().read(true).open(binary_path).unwrap();
+        let file = OpenOptions::new().read(true).open(&binary_path).unwrap();
         let mut reader = BufReader::new(file);
         let elements: Vec<G1Affine> = (0..n)
             .map(|_| G1Affine::deserialize_compressed(&mut reader).unwrap())
@@ -166,30 +178,24 @@ mod tests {
     /// This function panics if the file cannot be generated.
     #[test]
     fn we_can_parse_args() {
-        let n = 4;
-        let file_name = "/tmp/args_test.ptau";
-        let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
+        let file_name = temp_file_path("args_test.ptau");
+        let file_name_string = path_string(&file_name);
 
-        // Generate the file
-        let file = OpenOptions::new()
+        OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(false)
-            .open(file_name)
+            .truncate(true)
+            .open(&file_name)
             .unwrap();
-        let mut writer = BufWriter::new(file);
-
-        // Use Nova's save_to implementation to write the file
-        ck.save_to(&mut writer).unwrap();
 
         let args = vec![
             "program".to_string(),
-            "/tmp/args_test.ptau".to_string(),
+            file_name_string.clone(),
             "/tmp/args_test.bin".to_string(),
             "4".to_string(),
         ];
         let (ptau_path, binary_path, n) = parse_args(&args).unwrap();
-        assert_eq!(ptau_path, "/tmp/args_test.ptau");
+        assert_eq!(ptau_path, file_name_string);
         assert_eq!(binary_path, "/tmp/args_test.bin");
         assert_eq!(n, 4);
 
@@ -202,22 +208,6 @@ mod tests {
     /// This function panics if the file cannot be generated.
     #[test]
     fn we_can_parse_args_with_missing_args() {
-        let n = 4;
-        let file_name = "/tmp/missing_args_test.ptau";
-        let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
-
-        // Generate the file
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(file_name)
-            .unwrap();
-        let mut writer = BufWriter::new(file);
-
-        // Use Nova's save_to implementation to write the file
-        ck.save_to(&mut writer).unwrap();
-
         let args = vec!["program".to_string()];
         let result = parse_args(&args);
         assert!(result.is_err());
@@ -225,9 +215,6 @@ mod tests {
             result.unwrap_err(),
             "Usage: program <ptau_path> <binary_path> <n>"
         );
-
-        // Clean up
-        fs::remove_file(file_name).unwrap();
     }
 
     /// # Panics
@@ -235,22 +222,6 @@ mod tests {
     /// This function panics if the file cannot be generated.
     #[test]
     fn we_can_parse_args_with_invalid_n() {
-        let n = 4;
-        let file_name = "/tmp/invalid_n_args_test.ptau";
-        let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
-
-        // Generate the file
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(file_name)
-            .unwrap();
-        let mut writer = BufWriter::new(file);
-
-        // Use Nova's save_to implementation to write the file
-        ck.save_to(&mut writer).unwrap();
-
         let args = vec![
             "program".to_string(),
             "/tmp/invalid_n_args_test.ptau".to_string(),
@@ -263,9 +234,6 @@ mod tests {
             result.unwrap_err(),
             "The third argument must be a valid usize."
         );
-
-        // Clean up
-        fs::remove_file(file_name).unwrap();
     }
 
     /// # Panics
@@ -293,15 +261,16 @@ mod tests {
     #[test]
     fn we_can_load_ptau_file() {
         let n = 4;
-        let file_name = "/tmp/load_test.ptau";
+        let file_name = temp_file_path("load_test.ptau");
+        let file_name_string = path_string(&file_name);
         let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
 
         // Generate the file
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(false)
-            .open(file_name)
+            .truncate(true)
+            .open(&file_name)
             .unwrap();
         let mut writer = BufWriter::new(file);
 
@@ -309,7 +278,7 @@ mod tests {
         ck.save_to(&mut writer).unwrap();
 
         // Load the powers of tau from the file
-        let setup = load_setup_from_file(file_name, n);
+        let setup = load_setup_from_file(&file_name_string, n);
 
         assert_eq!(ck.ck().len(), setup.ck().len());
         assert_eq!(ck.h(), setup.h());
@@ -328,28 +297,30 @@ mod tests {
     #[test]
     fn we_can_write_commitment_key_to_binary() {
         let n = 4;
-        let ptau_path = "/tmp/write_binary_test.ptau";
-        let binary_path = "/tmp/write_binary_test.bin";
+        let ptau_path = temp_file_path("write_binary_test.ptau");
+        let binary_path = temp_file_path("write_binary_test.bin");
+        let ptau_path_string = path_string(&ptau_path);
+        let binary_path_string = path_string(&binary_path);
         let ck: CommitmentKey<E> = CommitmentEngine::setup(b"test", n);
 
         // Generate the ptau file
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(false)
-            .open(ptau_path)
+            .truncate(true)
+            .open(&ptau_path)
             .unwrap();
         let mut writer = BufWriter::new(file);
         ck.save_to(&mut writer).unwrap();
 
         // Load the setup from the ptau file
-        let setup = load_setup_from_file(ptau_path, n);
+        let setup = load_setup_from_file(&ptau_path_string, n);
 
         // Write the commitment key to the binary file
-        write_commitment_key_to_binary(binary_path, &setup);
+        write_commitment_key_to_binary(&binary_path_string, &setup);
 
         // Verify the binary file
-        let file = OpenOptions::new().read(true).open(binary_path).unwrap();
+        let file = OpenOptions::new().read(true).open(&binary_path).unwrap();
         let mut reader = BufReader::new(file);
         let elements: Vec<G1Affine> = (0..n)
             .map(|_| G1Affine::deserialize_compressed(&mut reader).unwrap())
