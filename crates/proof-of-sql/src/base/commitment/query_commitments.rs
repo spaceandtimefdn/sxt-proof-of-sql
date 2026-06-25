@@ -122,22 +122,23 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        base::{
-            commitment::{naive_commitment::NaiveCommitment, Bounds, ColumnBounds},
-            database::{
-                owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor,
-                TestAccessor,
-            },
-            scalar::test_scalar::TestScalar,
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+            Bounds, ColumnBounds,
         },
-        proof_primitive::dory::{
-            test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
-            PublicParameters,
+        database::{
+            owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor, TestAccessor,
         },
+        scalar::test_scalar::TestScalar,
+    };
+    #[cfg(feature = "blitzar")]
+    use crate::proof_primitive::dory::{
+        test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
+        PublicParameters,
     };
 
     #[test]
@@ -317,6 +318,80 @@ mod tests {
     }
 
     #[expect(clippy::similar_names)]
+    #[test]
+    fn from_accessor_with_max_bounds_uses_requested_columns_in_schema_order() {
+        let column_a_id: Ident = "column_a".into();
+        let column_b_id: Ident = "column_b".into();
+
+        let table_a = owned_table([
+            bigint(column_a_id.value.as_str(), [1, 2, 3, 4]),
+            varchar(
+                column_b_id.value.as_str(),
+                ["Lorem", "ipsum", "dolor", "sit"],
+            ),
+        ]);
+        let table_b = owned_table([
+            scalar(column_a_id.value.as_str(), [1, 2]),
+            int128(column_b_id.value.as_str(), [1, 2]),
+        ]);
+
+        let table_a_id = TableRef::new("table", "a");
+        let table_b_id = TableRef::new("table", "b");
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(table_a_id.clone(), table_a, 5);
+        accessor.add_table(table_b_id.clone(), table_b, 1);
+
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_a_id.clone(), column_b_id.clone(), ColumnType::VarChar),
+                ColumnRef::new(table_b_id.clone(), column_b_id.clone(), ColumnType::Int128),
+                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
+            ],
+            &accessor,
+        );
+
+        assert_eq!(query_commitments.get_offset(&table_a_id), 5);
+        assert_eq!(query_commitments.get_length(&table_a_id), 4);
+        assert_eq!(query_commitments.get_offset(&table_b_id), 1);
+        assert_eq!(query_commitments.get_length(&table_b_id), 2);
+
+        assert_eq!(
+            query_commitments.lookup_schema(&table_a_id),
+            vec![
+                (column_a_id.clone(), ColumnType::BigInt),
+                (column_b_id.clone(), ColumnType::VarChar)
+            ]
+        );
+        assert_eq!(
+            query_commitments.lookup_schema(&table_b_id),
+            vec![(column_b_id.clone(), ColumnType::Int128)]
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_b_id, &column_a_id),
+            None
+        );
+
+        let table_a_commitment = query_commitments.get(&table_a_id).unwrap();
+        let table_a_metadata = table_a_commitment.column_commitments().column_metadata();
+        assert_eq!(
+            table_a_metadata.get(&column_a_id).unwrap().bounds(),
+            &ColumnBounds::BigInt(Bounds::bounded(i64::MIN, i64::MAX).unwrap())
+        );
+        assert_eq!(
+            table_a_metadata.get(&column_b_id).unwrap().bounds(),
+            &ColumnBounds::NoOrder
+        );
+
+        let table_b_commitment = query_commitments.get(&table_b_id).unwrap();
+        let table_b_metadata = table_b_commitment.column_commitments().column_metadata();
+        assert_eq!(
+            table_b_metadata.get(&column_b_id).unwrap().bounds(),
+            &ColumnBounds::Int128(Bounds::bounded(i128::MIN, i128::MAX).unwrap())
+        );
+    }
+
+    #[expect(clippy::similar_names)]
+    #[cfg(feature = "blitzar")]
     #[test]
     fn we_can_get_query_commitments_from_accessor() {
         let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
