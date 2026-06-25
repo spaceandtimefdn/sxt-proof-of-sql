@@ -149,4 +149,118 @@ mod tests {
             Column::Boolean(&[true, false])
         );
     }
+
+    #[test]
+    fn we_can_access_multiple_tables() {
+        let col_a = Ident::from("col_a");
+        let col_b = Ident::from("col_b");
+        let column_a = Column::<TestScalar>::BigInt(&[10i64, 20]);
+        let column_b = Column::<TestScalar>::SmallInt(&[1i16, 2, 3]);
+        let table_ref_a = TableRef::from_names(Some("schema"), "table_a");
+        let table_ref_b = TableRef::from_names(Some("schema"), "table_b");
+        let accessor_a = TableDataAccessor::new(0, [(col_a.clone(), column_a)].into_iter().collect());
+        let accessor_b = TableDataAccessor::new(5, [(col_b.clone(), column_b)].into_iter().collect());
+        let data_accessor = DataAccessorImpl::new(
+            [
+                (table_ref_a.clone(), accessor_a),
+                (table_ref_b.clone(), accessor_b),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(data_accessor.get_length(&table_ref_a), 1);
+        assert_eq!(data_accessor.get_offset(&table_ref_a), 0);
+        assert_eq!(data_accessor.get_column(&table_ref_a, &col_a), column_a);
+        assert_eq!(data_accessor.get_length(&table_ref_b), 1);
+        assert_eq!(data_accessor.get_offset(&table_ref_b), 5);
+        assert_eq!(data_accessor.get_column(&table_ref_b, &col_b), column_b);
+    }
+
+    #[test]
+    fn we_can_access_multiple_columns_in_a_table() {
+        let col_int = Ident::from("int_col");
+        let col_bool = Ident::from("bool_col");
+        let col_small = Ident::from("small_col");
+        let column_int = Column::<TestScalar>::Int(&[1i32, 2, 3]);
+        let column_bool = Column::<TestScalar>::Boolean(&[true, false, true]);
+        let column_small = Column::<TestScalar>::SmallInt(&[10i16, 20, 30]);
+        let table_ref = TableRef::from_names(Some("ns"), "multi");
+        let table_data = TableDataAccessor::new(
+            7,
+            [
+                (col_int.clone(), column_int),
+                (col_bool.clone(), column_bool),
+                (col_small.clone(), column_small),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let data_accessor = DataAccessorImpl::new([(table_ref.clone(), table_data)].into_iter().collect());
+        assert_eq!(data_accessor.get_length(&table_ref), 3);
+        assert_eq!(data_accessor.get_offset(&table_ref), 7);
+        assert_eq!(data_accessor.get_column(&table_ref, &col_int), column_int);
+        assert_eq!(data_accessor.get_column(&table_ref, &col_bool), column_bool);
+        assert_eq!(data_accessor.get_column(&table_ref, &col_small), column_small);
+    }
+
+    #[test]
+    fn we_can_create_table_data_accessor_with_zero_offset() {
+        let column_id = Ident::from("value");
+        let column = Column::<TestScalar>::Int(&[42i32]);
+        let table_ref = TableRef::from_names(None, "t");
+        let table_accessor = TableDataAccessor::new(0, [(column_id.clone(), column)].into_iter().collect());
+        let data_accessor = DataAccessorImpl::new([(table_ref.clone(), table_accessor)].into_iter().collect());
+        assert_eq!(data_accessor.get_offset(&table_ref), 0);
+        assert_eq!(data_accessor.get_column(&table_ref, &column_id), column);
+    }
+
+    #[cfg(feature = "arrow")]
+    #[test]
+    fn we_can_get_data_accessor_from_record_batch_with_multiple_columns() {
+        use arrow::array::{Int32Array, Int64Array};
+        let rb = RecordBatch::try_from_iter([
+            ("INTS", Arc::new(Int32Array::from(vec![1i32, 2, 3])) as ArrayRef),
+            ("BIGS", Arc::new(Int64Array::from(vec![10i64, 20, 30])) as ArrayRef),
+            ("FLAGS", Arc::new(BooleanArray::from(vec![true, false, true])) as ArrayRef),
+        ])
+        .unwrap();
+        let alloc = Bump::new();
+        let table_ref = TableRef::from_str("db.multi").unwrap();
+        let table_data = TableDataAccessor::<TestScalar>::try_from_record_batch(&rb, 3, &alloc).unwrap();
+        let data_accessor = DataAccessorImpl::new([(table_ref.clone(), table_data)].into_iter().collect());
+        assert_eq!(data_accessor.get_length(&table_ref), 3);
+        assert_eq!(data_accessor.get_offset(&table_ref), 3);
+        assert_eq!(
+            data_accessor.get_column(&table_ref, &Ident::new("INTS")),
+            Column::Int(&[1i32, 2, 3])
+        );
+        assert_eq!(
+            data_accessor.get_column(&table_ref, &Ident::new("BIGS")),
+            Column::BigInt(&[10i64, 20, 30])
+        );
+        assert_eq!(
+            data_accessor.get_column(&table_ref, &Ident::new("FLAGS")),
+            Column::Boolean(&[true, false, true])
+        );
+    }
+
+    #[cfg(feature = "arrow")]
+    #[test]
+    fn we_can_get_data_accessor_from_empty_record_batch() {
+        use arrow::{datatypes::Schema, record_batch::RecordBatchOptions};
+        let schema = alloc::sync::Arc::new(Schema::empty());
+        let rb = RecordBatch::try_new_with_options(
+            schema,
+            vec![],
+            &RecordBatchOptions::new().with_row_count(Some(0)),
+        )
+        .unwrap();
+        let alloc = Bump::new();
+        let table_ref = TableRef::from_str("test.empty").unwrap();
+        let table_data = TableDataAccessor::<TestScalar>::try_from_record_batch(&rb, 0, &alloc).unwrap();
+        let data_accessor = DataAccessorImpl::new([(table_ref.clone(), table_data)].into_iter().collect());
+        assert_eq!(data_accessor.get_length(&table_ref), 0);
+        assert_eq!(data_accessor.get_offset(&table_ref), 0);
+    }
+
 }
