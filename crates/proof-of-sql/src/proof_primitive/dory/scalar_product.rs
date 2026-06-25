@@ -79,3 +79,71 @@ pub fn scalar_product_verify(
 
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{
+        rand_G_vecs, test_rng, G1Affine, G2Affine, PublicParameters,
+    };
+    use merlin::Transcript;
+
+    fn scalar_product_fixture() -> (DoryMessages, VerifierState, VerifierSetup) {
+        let mut rng = test_rng();
+        let nu = 0;
+        let pp = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&pp).into();
+        let verifier_setup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let prover_state = ProverState::new(v1, v2, nu);
+        let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+        scalar_product_prove(&mut messages, &mut transcript, &prover_state);
+        (messages, verifier_state, verifier_setup)
+    }
+
+    #[test]
+    fn we_can_verify_scalar_product_with_matching_messages() {
+        let (mut messages, verifier_state, verifier_setup) = scalar_product_fixture();
+
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup,
+        ));
+    }
+
+    #[test]
+    fn we_fail_to_verify_scalar_product_with_missing_messages() {
+        let (_, verifier_state, verifier_setup) = scalar_product_fixture();
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup,
+        ));
+    }
+
+    #[test]
+    fn we_fail_to_verify_scalar_product_with_unexpected_gt_messages() {
+        let (mut messages, verifier_state, verifier_setup) = scalar_product_fixture();
+        messages
+            .GT_messages
+            .push(pairings::pairing(G1Affine::default(), G2Affine::default()));
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup,
+        ));
+    }
+}
