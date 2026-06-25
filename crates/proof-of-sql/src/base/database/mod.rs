@@ -77,6 +77,15 @@ pub mod arrow_schema_utility;
 mod owned_column;
 pub use owned_column::OwnedColumn;
 
+mod nullable_column;
+pub use nullable_column::{
+    logical_column_fields_from_physical_schema, physical_column_fields_from_logical_schema,
+    presence_column_id, value_column_id_from_presence, NullableColumn, NullableColumnError,
+    NullableColumnResult, NullableOwnedColumn, PRESENCE_COLUMN_SUFFIX,
+};
+#[cfg(test)]
+mod nullable_column_proof_test;
+
 mod owned_column_error;
 pub(crate) use owned_column_error::ColumnCoercionError;
 pub use owned_column_error::{OwnedColumnError, OwnedColumnResult};

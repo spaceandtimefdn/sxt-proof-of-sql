@@ -1,6 +1,6 @@
 use super::{
     aggregate_function_to_proof_expr, expr_to_proof_expr, get_column_idents_from_expr,
-    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult,
+    table_reference_to_table_ref, AggregateFunc, PlannerError, PlannerResult, SchemaFields,
 };
 use alloc::vec::Vec;
 use datafusion::{
@@ -13,7 +13,10 @@ use datafusion::{
 };
 use indexmap::{IndexMap, IndexSet};
 use proof_of_sql::{
-    base::database::{ColumnField, ColumnRef, ColumnType, LiteralValue, SchemaAccessor, TableRef},
+    base::database::{
+        value_column_id_from_presence, ColumnRef, ColumnType, LiteralValue, SchemaAccessor,
+        TableRef,
+    },
     sql::{
         proof::ProofPlan,
         proof_exprs::{AliasedDynProofExpr, DynProofExpr, ProofExpr},
@@ -31,7 +34,7 @@ use proof_of_sql::{
 fn get_aliased_dyn_proof_exprs(
     table_ref: &TableRef,
     projection: &[usize],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &impl SchemaFields,
     output_schema: &DFSchema,
 ) -> PlannerResult<Vec<AliasedDynProofExpr>> {
     projection
@@ -41,14 +44,23 @@ fn get_aliased_dyn_proof_exprs(
             |(output_index, input_index)| -> PlannerResult<AliasedDynProofExpr> {
                 // Get output column name / alias
                 let alias: Ident = output_schema.field(output_index).name().as_str().into();
-                let (input_column_name, data_type) = input_schema
-                    .get(*input_index)
+                let input_field = input_schema
+                    .field_at(*input_index)
                     .ok_or(PlannerError::ColumnNotFound)?;
-                let expr = DynProofExpr::new_column(ColumnRef::new(
-                    table_ref.clone(),
-                    input_column_name.clone(),
-                    *data_type,
-                ));
+                let input_column_name = input_field.name();
+                let expr = DynProofExpr::new_column(if input_field.is_nullable() {
+                    ColumnRef::new_nullable(
+                        table_ref.clone(),
+                        input_column_name,
+                        input_field.data_type(),
+                    )
+                } else {
+                    ColumnRef::new(
+                        table_ref.clone(),
+                        input_column_name,
+                        input_field.data_type(),
+                    )
+                });
                 Ok(AliasedDynProofExpr { expr, alias })
             },
         )
@@ -59,11 +71,11 @@ fn get_aliased_dyn_proof_exprs(
 fn table_scan_get_required_columns(
     projection: &[usize],
     filters: &[Expr],
-    input_schema: &[(Ident, ColumnType)],
+    input_schema: &impl SchemaFields,
 ) -> IndexSet<Ident> {
     projection
         .iter()
-        .filter_map(|&i| input_schema.get(i).map(|(ident, _)| ident.clone()))
+        .filter_map(|&i| input_schema.field_at(i).map(|field| field.name()))
         .chain(filters.iter().flat_map(get_column_idents_from_expr))
         .collect()
 }
@@ -79,15 +91,15 @@ fn table_scan_to_proof_plan(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_schema_fields(&table_ref);
     // Filter for only the fields we use
     let input_column_fields = projection
         .iter()
         .map(|i| {
-            let (ident, column_type) = input_schema
+            input_schema
                 .get(*i)
-                .expect("Projection index out of bounds");
-            ColumnField::new(ident.clone(), *column_type)
+                .expect("Projection index out of bounds")
+                .clone()
         })
         .collect::<Vec<_>>();
     Ok(DynProofPlan::new_table(table_ref, input_column_fields))
@@ -106,15 +118,15 @@ fn table_scan_to_filter(
 ) -> PlannerResult<DynProofPlan> {
     // Check if the table exists
     let table_ref = table_reference_to_table_ref(table_name)?;
-    let input_schema = schemas.lookup_schema(&table_ref);
+    let input_schema = schemas.lookup_schema_fields(&table_ref);
     // Get aliased expressions
     let aliased_dyn_proof_exprs =
         get_aliased_dyn_proof_exprs(&table_ref, projection, &input_schema, projected_schema)?;
     let required_columns = table_scan_get_required_columns(projection, filters, &input_schema);
     let input_column_fields = input_schema
         .iter()
-        .filter(|(ident, _)| required_columns.contains(ident))
-        .map(|(ident, column_type)| ColumnField::new(ident.clone(), *column_type))
+        .filter(|field| required_columns.contains(&field.name()))
+        .cloned()
         .collect::<Vec<_>>();
     let table_exec = DynProofPlan::new_table(table_ref, input_column_fields);
     let filter_proof_exprs = filters
@@ -137,11 +149,7 @@ fn projection_to_proof_plan(
     schemas: &impl SchemaAccessor,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields();
     let aliased_exprs = expr
         .iter()
         .zip(output_schema.fields().iter())
@@ -172,11 +180,7 @@ fn aggregate_to_proof_plan(
     alias_map: &IndexMap<String, String>,
 ) -> PlannerResult<DynProofPlan> {
     let input_plan = logical_plan_to_proof_plan(input, schemas)?;
-    let input_schema = input_plan
-        .get_column_result_fields()
-        .iter()
-        .map(|field| (field.name(), field.data_type()))
-        .collect::<Vec<_>>();
+    let input_schema = input_plan.get_column_result_fields();
     let dummy_table_ref = TableRef::from_names(None, "");
     // We keep an extra alias just in case there is no count in the aggregate expr list
     let mut inner_aliases = 0..=(group_expr.len() + aggr_expr.len());
@@ -434,23 +438,28 @@ pub fn logical_plan_to_proof_plan(
             input, predicate, ..
         }) => {
             let input_plan = logical_plan_to_proof_plan(input, schema_accessor)?;
-            let input_schema = input_plan
-                .get_column_result_fields()
-                .iter()
-                .map(|field| (field.name(), field.data_type()))
-                .collect::<Vec<_>>();
+            let input_schema = input_plan.get_column_result_fields();
             let filter_proof_expr = expr_to_proof_expr(predicate, &input_schema)?;
             let aliased_exprs = input_plan
                 .get_column_result_fields()
                 .iter()
+                .filter(|field| value_column_id_from_presence(&field.name()).is_none())
                 .map(|field| -> PlannerResult<AliasedDynProofExpr> {
                     let alias = field.name();
                     Ok(AliasedDynProofExpr {
-                        expr: DynProofExpr::new_column(ColumnRef::new(
-                            TableRef::from_names(None, "__filter_input__"), // Dummy table ref
-                            alias.clone(),
-                            field.data_type(),
-                        )),
+                        expr: DynProofExpr::new_column(if field.is_nullable() {
+                            ColumnRef::new_nullable(
+                                TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                                alias.clone(),
+                                field.data_type(),
+                            )
+                        } else {
+                            ColumnRef::new(
+                                TableRef::from_names(None, "__filter_input__"), // Dummy table ref
+                                alias.clone(),
+                                field.data_type(),
+                            )
+                        }),
                         alias,
                     })
                 })

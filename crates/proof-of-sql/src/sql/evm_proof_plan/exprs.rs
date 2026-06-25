@@ -78,6 +78,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            DynProofExpr::IsNull(_) | DynProofExpr::IsNotNull(_) | DynProofExpr::IsTrue(_) => {
+                Err(EVMProofPlanError::NotSupported)
+            }
         }
     }
 

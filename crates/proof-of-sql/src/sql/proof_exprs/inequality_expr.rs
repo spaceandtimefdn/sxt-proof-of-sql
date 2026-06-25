@@ -1,7 +1,14 @@
-use super::{add_subtract_columns, DynProofExpr, ProofExpr};
+use super::{
+    add_subtract_columns, final_round_evaluate_nullable_presence,
+    first_round_evaluate_nullable_presence, verifier_evaluate_nullable_presence, DynProofExpr,
+    NullableColumnEvaluation, ProofExpr,
+};
 use crate::{
     base::{
-        database::{try_inequality_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            try_inequality_types, Column, ColumnRef, ColumnType, LiteralValue, NullableColumn,
+            Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -64,6 +71,10 @@ impl InequalityExpr {
 impl ProofExpr for InequalityExpr {
     fn data_type(&self) -> ColumnType {
         ColumnType::Boolean
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.lhs.is_nullable() || self.rhs.is_nullable()
     }
 
     #[tracing::instrument(
@@ -151,6 +162,85 @@ impl ProofExpr for InequalityExpr {
 
         // sign(diff) == -1
         verifier_evaluate_sign(builder, diff_eval, chi_eval, None)
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let diff = if self.is_lt {
+            add_subtract_columns(lhs_column.values(), rhs_column.values(), alloc, true)
+        } else {
+            add_subtract_columns(rhs_column.values(), lhs_column.values(), alloc, true)
+        };
+        let values = Column::Boolean(first_round_evaluate_sign(table.num_rows(), alloc, diff));
+        let presence = first_round_evaluate_nullable_presence(
+            table.num_rows(),
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let lhs_column = self
+            .lhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let rhs_column = self
+            .rhs
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let diff = if self.is_lt {
+            add_subtract_columns(lhs_column.values(), rhs_column.values(), alloc, true)
+        } else {
+            add_subtract_columns(rhs_column.values(), lhs_column.values(), alloc, true)
+        };
+        let values = Column::Boolean(final_round_evaluate_sign(builder, alloc, diff));
+        let presence = final_round_evaluate_nullable_presence(
+            builder,
+            alloc,
+            lhs_column.presence(),
+            rhs_column.presence(),
+        );
+        Ok(NullableColumn::try_new(values, presence).expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let lhs = self
+            .lhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let rhs = self
+            .rhs
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        let diff_eval = if self.is_lt {
+            lhs.value_eval() - rhs.value_eval()
+        } else {
+            rhs.value_eval() - lhs.value_eval()
+        };
+        let value_eval = verifier_evaluate_sign(builder, diff_eval, chi_eval, None)?;
+        let presence_eval =
+            verifier_evaluate_nullable_presence(builder, lhs.presence_eval(), rhs.presence_eval())?;
+        Ok(NullableColumnEvaluation::new(value_eval, presence_eval))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {

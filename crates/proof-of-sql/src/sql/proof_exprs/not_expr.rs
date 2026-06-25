@@ -1,7 +1,9 @@
-use super::{DynProofExpr, ProofExpr};
+use super::{DynProofExpr, NullableColumnEvaluation, ProofExpr};
 use crate::{
     base::{
-        database::{can_not_type, Column, ColumnRef, ColumnType, LiteralValue, Table},
+        database::{
+            can_not_type, Column, ColumnRef, ColumnType, LiteralValue, NullableColumn, Table,
+        },
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
         scalar::Scalar,
@@ -93,6 +95,63 @@ impl ProofExpr for NotExpr {
             .expr
             .verifier_evaluate(builder, accessor, chi_eval, params)?;
         Ok(chi_eval - eval)
+    }
+
+    fn is_nullable(&self) -> bool {
+        self.expr.is_nullable()
+    }
+
+    fn first_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let expr_column = self
+            .expr
+            .first_round_evaluate_nullable(alloc, table, params)?;
+        let expr = expr_column
+            .values()
+            .as_boolean()
+            .expect("expr is not boolean");
+        let values = Column::Boolean(alloc.alloc_slice_fill_with(expr.len(), |i| !expr[i]));
+        Ok(NullableColumn::try_new(values, expr_column.presence())
+            .expect("presence length should match values"))
+    }
+
+    fn final_round_evaluate_nullable<'a, S: Scalar>(
+        &self,
+        builder: &mut FinalRoundBuilder<'a, S>,
+        alloc: &'a Bump,
+        table: &Table<'a, S>,
+        params: &[LiteralValue],
+    ) -> PlaceholderResult<NullableColumn<'a, S>> {
+        let expr_column = self
+            .expr
+            .final_round_evaluate_nullable(builder, alloc, table, params)?;
+        let expr = expr_column
+            .values()
+            .as_boolean()
+            .expect("expr is not boolean");
+        let values = Column::Boolean(alloc.alloc_slice_fill_with(expr.len(), |i| !expr[i]));
+        Ok(NullableColumn::try_new(values, expr_column.presence())
+            .expect("presence length should match values"))
+    }
+
+    fn verifier_evaluate_nullable<S: Scalar>(
+        &self,
+        builder: &mut impl VerificationBuilder<S>,
+        accessor: &IndexMap<Ident, S>,
+        chi_eval: S,
+        params: &[LiteralValue],
+    ) -> Result<NullableColumnEvaluation<S>, ProofError> {
+        let eval = self
+            .expr
+            .verifier_evaluate_nullable(builder, accessor, chi_eval, params)?;
+        Ok(NullableColumnEvaluation::new(
+            chi_eval - eval.value_eval(),
+            eval.presence_eval(),
+        ))
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {

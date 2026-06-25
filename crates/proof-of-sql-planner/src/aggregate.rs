@@ -1,4 +1,4 @@
-use super::{PlannerError, PlannerResult};
+use super::{PlannerError, PlannerResult, SchemaFields};
 use crate::expr_to_proof_expr;
 use datafusion::{
     logical_expr::{
@@ -7,11 +7,7 @@ use datafusion::{
     },
     physical_plan,
 };
-use proof_of_sql::{
-    base::database::{ColumnType, LiteralValue},
-    sql::proof_exprs::DynProofExpr,
-};
-use sqlparser::ast::Ident;
+use proof_of_sql::{base::database::LiteralValue, sql::proof_exprs::DynProofExpr};
 
 /// An aggregate function we support
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,9 +21,9 @@ pub enum AggregateFunc {
 /// Convert an [`AggregateFunction`] to a [`DynProofExpr`]
 ///
 /// TODO: Some moderate changes are necessary once we upgrade `DataFusion` to 46.0.0
-pub(crate) fn aggregate_function_to_proof_expr(
+pub(crate) fn aggregate_function_to_proof_expr<S: SchemaFields + ?Sized>(
     function: &AggregateFunction,
-    schema: &[(Ident, ColumnType)],
+    schema: &S,
 ) -> PlannerResult<(AggregateFunc, DynProofExpr)> {
     match function {
         AggregateFunction {
@@ -65,6 +61,7 @@ mod tests {
     use super::*;
     use crate::df_util::*;
     use proof_of_sql::base::database::{ColumnRef, ColumnType, TableRef};
+    use sqlparser::ast::Ident;
 
     // AggregateFunction to DynProofExpr
     #[test]

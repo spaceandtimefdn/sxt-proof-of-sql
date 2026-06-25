@@ -1,5 +1,4 @@
 use super::table_reference_to_table_ref;
-use crate::schema_to_column_fields;
 use alloc::sync::Arc;
 use arrow::datatypes::{Field, Schema};
 use core::any::Any;
@@ -49,8 +48,7 @@ impl<A: SchemaAccessor> ContextProvider for PoSqlContextProvider<A> {
     ) -> Result<Arc<dyn TableSource>, DataFusionError> {
         let table_ref = table_reference_to_table_ref(&name)
             .map_err(|err| DataFusionError::External(Box::new(err)))?;
-        let schema = self.accessor.lookup_schema(&table_ref);
-        let column_fields = schema_to_column_fields(schema);
+        let column_fields = self.accessor.lookup_schema_fields(&table_ref);
         Ok(Arc::new(PoSqlTableSource::new(column_fields)) as Arc<dyn TableSource>)
     }
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -95,7 +93,7 @@ impl PoSqlTableSource {
                     Field::new(
                         column_field.name().value.as_str(),
                         (&column_field.data_type()).into(),
-                        false,
+                        column_field.is_nullable(),
                     )
                 })
                 .collect::<Vec<_>>(),
