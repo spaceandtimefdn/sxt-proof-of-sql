@@ -273,4 +273,25 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn we_reject_columns_outside_the_full_row_width() {
+        for row in 0..32 {
+            let width = full_width_of_row(row);
+            let row_start = row_start_index(row);
+
+            assert_eq!(
+                index_from_row_and_column(row, width - 1),
+                Some(row_start + width - 1)
+            );
+            assert_eq!(index_from_row_and_column(row, width), None);
+        }
+    }
+
+    #[test]
+    fn we_keep_the_reserved_row_one_column_zero_gap() {
+        assert_eq!(index_from_row_and_column(1, 0), None);
+        assert_eq!(index_from_row_and_column(1, 1), Some(1));
+        assert_eq!(row_and_column_from_index(1), (1, 1));
+    }
 }
