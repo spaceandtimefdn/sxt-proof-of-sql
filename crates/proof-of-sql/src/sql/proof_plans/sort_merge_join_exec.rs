@@ -584,3 +584,113 @@ impl ProverEvaluate for SortMergeJoinExec {
         .expect("Can not create table"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SortMergeJoinExec;
+    use crate::{
+        base::database::{ColumnField, ColumnType, TableRef},
+        sql::{proof::ProofPlan, proof_plans::DynProofPlan},
+    };
+    use sqlparser::ast::Ident;
+
+    fn make_table_plan(col_count: usize) -> Box<DynProofPlan> {
+        let fields: Vec<ColumnField> = (0..col_count)
+            .map(|i| ColumnField::new(Ident::new(alloc::format!("c{i}")), ColumnType::BigInt))
+            .collect();
+        alloc::boxed::Box::new(DynProofPlan::new_table(TableRef::new("s", "t"), fields))
+    }
+
+    #[test]
+    fn new_creates_join_with_matching_columns() {
+        // left has 2 cols, right has 2 cols, join on 1 col each
+        // result should have 2 + 2 - 1 = 3 cols
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        assert_eq!(join.result_idents().len(), 3);
+    }
+
+    #[test]
+    fn left_plan_returns_left_input() {
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        let _ = join.left_plan();
+    }
+
+    #[test]
+    fn right_plan_returns_right_input() {
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        let _ = join.right_plan();
+    }
+
+    #[test]
+    fn left_join_column_indexes_stored() {
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![1usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        assert_eq!(join.left_join_column_indexes(), &alloc::vec![1usize]);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        assert!(alloc::format!("{join:?}").contains("SortMergeJoinExec"));
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        let b = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn get_column_result_fields_has_correct_count() {
+        let join = SortMergeJoinExec::new(
+            make_table_plan(2),
+            make_table_plan(2),
+            alloc::vec![0usize],
+            alloc::vec![0usize],
+            (0..3).map(|i| Ident::new(alloc::format!("r{i}"))).collect(),
+        );
+        assert_eq!(join.get_column_result_fields().len(), 3);
+    }
+}
