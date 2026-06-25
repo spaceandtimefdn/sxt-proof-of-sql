@@ -69,3 +69,58 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProvableResultColumn;
+
+    #[test]
+    fn bool_slice_num_bytes_returns_length() {
+        let data = [true, false, true];
+        assert_eq!(data.as_slice().num_bytes(3), 3);
+    }
+
+    #[test]
+    fn bool_slice_num_bytes_empty_returns_zero() {
+        let data: &[bool] = &[];
+        assert_eq!(data.num_bytes(0), 0);
+    }
+
+    #[test]
+    fn bool_slice_write_fills_output() {
+        let data = [true, false, true];
+        let mut out = alloc::vec![0u8; 3];
+        let written = data.as_slice().write(&mut out, 3);
+        assert_eq!(written, 3);
+    }
+
+    #[test]
+    fn bool_slice_write_encodes_true_as_one() {
+        let data = [true];
+        let mut out = alloc::vec![0u8; 1];
+        data.as_slice().write(&mut out, 1);
+        assert_eq!(out[0], 1);
+    }
+
+    #[test]
+    fn bool_slice_write_encodes_false_as_zero() {
+        let data = [false];
+        let mut out = alloc::vec![0u8; 1];
+        data.as_slice().write(&mut out, 1);
+        assert_eq!(out[0], 0);
+    }
+
+    #[test]
+    fn u8_slice_num_bytes_returns_length() {
+        let data = [10u8, 20, 30];
+        assert_eq!(data.as_slice().num_bytes(3), 3);
+    }
+
+    #[test]
+    fn u8_slice_write_fills_bytes() {
+        let data = [42u8];
+        let mut out = alloc::vec![0u8; 1];
+        data.as_slice().write(&mut out, 1);
+        assert_eq!(out[0], 42);
+    }
+}

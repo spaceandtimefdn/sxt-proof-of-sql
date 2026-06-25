@@ -67,3 +67,25 @@ pub trait ProverHonestyMarker: Debug + Send + Sync + PartialEq + 'static {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct HonestProver;
 impl ProverHonestyMarker for HonestProver {}
+
+#[cfg(test)]
+mod tests {
+    use super::HonestProver;
+
+    #[test]
+    fn honest_prover_equality() {
+        assert_eq!(HonestProver, HonestProver);
+    }
+
+    #[test]
+    fn honest_prover_clone_equals_original() {
+        let a = HonestProver;
+        assert_eq!(a.clone(), a);
+    }
+
+    #[test]
+    fn honest_prover_is_debug_formattable() {
+        let s = alloc::format!("{:?}", HonestProver);
+        assert!(s.contains("HonestProver"));
+    }
+}

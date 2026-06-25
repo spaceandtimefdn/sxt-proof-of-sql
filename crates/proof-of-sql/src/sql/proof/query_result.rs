@@ -69,3 +69,50 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::QueryError;
+
+    #[test]
+    fn overflow_display() {
+        let e = QueryError::Overflow;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("Overflow") || s.contains("overflow"));
+    }
+
+    #[test]
+    fn invalid_string_display() {
+        let e = QueryError::InvalidString;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("String") || s.contains("decode"));
+    }
+
+    #[test]
+    fn miscellaneous_decoding_error_display() {
+        let e = QueryError::MiscellaneousDecodingError;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("decoding") || s.contains("Miscellaneous"));
+    }
+
+    #[test]
+    fn miscellaneous_evaluation_error_display() {
+        let e = QueryError::MiscellaneousEvaluationError;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("evaluation") || s.contains("Miscellaneous"));
+    }
+
+    #[test]
+    fn invalid_column_count_display() {
+        let e = QueryError::InvalidColumnCount;
+        let s = alloc::format!("{e}");
+        assert!(s.contains("columns") || s.contains("Invalid"));
+    }
+
+    #[test]
+    fn query_error_is_debug_formattable() {
+        let e = QueryError::InvalidColumnCount;
+        let s = alloc::format!("{e:?}");
+        assert!(s.contains("InvalidColumnCount"));
+    }
+}
