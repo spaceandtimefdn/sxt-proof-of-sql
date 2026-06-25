@@ -57,3 +57,71 @@ impl<'a> DoryVerifierPublicSetup<'a> {
         self.verifier_setup
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DoryProverPublicSetup, DoryVerifierPublicSetup};
+    use crate::proof_primitive::dory::{test_params_nu_4, test_verifier_setup_nu_4, ProverSetup};
+
+    #[test]
+    fn dory_verifier_setup_sigma_returns_configured_value() {
+        let vs = test_verifier_setup_nu_4();
+        let setup = DoryVerifierPublicSetup::new(vs, 3);
+        assert_eq!(setup.sigma(), 3);
+    }
+
+    #[test]
+    fn dory_verifier_setup_sigma_zero() {
+        let vs = test_verifier_setup_nu_4();
+        let setup = DoryVerifierPublicSetup::new(vs, 0);
+        assert_eq!(setup.sigma(), 0);
+    }
+
+    #[test]
+    fn dory_verifier_setup_returns_same_setup_reference() {
+        let vs = test_verifier_setup_nu_4();
+        let setup = DoryVerifierPublicSetup::new(vs, 2);
+        assert!(core::ptr::eq(setup.verifier_setup(), vs));
+    }
+
+    #[test]
+    fn dory_verifier_setup_is_copy() {
+        let vs = test_verifier_setup_nu_4();
+        let setup = DoryVerifierPublicSetup::new(vs, 5);
+        let copied = setup;
+        assert_eq!(copied.sigma(), 5);
+    }
+
+    #[test]
+    fn dory_prover_setup_sigma_returns_configured_value() {
+        let pp = test_params_nu_4();
+        let prover_setup = ProverSetup::from(pp);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 4);
+        assert_eq!(setup.sigma(), 4);
+    }
+
+    #[test]
+    fn dory_prover_setup_sigma_zero() {
+        let pp = test_params_nu_4();
+        let prover_setup = ProverSetup::from(pp);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 0);
+        assert_eq!(setup.sigma(), 0);
+    }
+
+    #[test]
+    fn dory_prover_setup_returns_same_prover_setup_reference() {
+        let pp = test_params_nu_4();
+        let prover_setup = ProverSetup::from(pp);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+        assert!(core::ptr::eq(setup.prover_setup(), &prover_setup));
+    }
+
+    #[test]
+    fn dory_prover_setup_is_copy() {
+        let pp = test_params_nu_4();
+        let prover_setup = ProverSetup::from(pp);
+        let setup = DoryProverPublicSetup::new(&prover_setup, 7);
+        let copied = setup;
+        assert_eq!(copied.sigma(), 7);
+    }
+}
