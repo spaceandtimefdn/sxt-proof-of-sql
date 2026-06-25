@@ -371,3 +371,74 @@ where
             .min_by(super::super::scalar::ScalarExt::signed_cmp)
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{aggregate_columns, AggregateColumnsError};
+    use crate::base::{
+        database::Column,
+        scalar::test_scalar::TestScalar,
+    };
+    use bumpalo::Bump;
+
+    type S = TestScalar;
+
+    #[test]
+    fn column_length_mismatch_returns_error() {
+        let alloc = Bump::new();
+        let group_by: &[Column<S>] = &[Column::BigInt(&[1i64, 2])];
+        let selection = &[true]; // length 1, group_by has length 2
+        let result = aggregate_columns(&alloc, group_by, &[], &[], &[], selection);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn empty_selection_returns_empty_groups() {
+        let alloc = Bump::new();
+        let data = &[10i64, 20, 30];
+        let group_by: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[false, false, false];
+        let result = aggregate_columns(&alloc, group_by, &[], &[], &[], selection).unwrap();
+        assert!(result.group_by_columns[0].is_empty());
+    }
+
+    #[test]
+    fn full_selection_single_group_has_correct_count() {
+        let alloc = Bump::new();
+        let data = &[1i64, 1, 1]; // all same group
+        let group_by: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[true, true, true];
+        let result = aggregate_columns(&alloc, group_by, &[], &[], &[], selection).unwrap();
+        assert_eq!(result.count_column.len(), 1);
+        assert_eq!(result.count_column[0], 3);
+    }
+
+    #[test]
+    fn two_distinct_groups_produces_two_counts() {
+        let alloc = Bump::new();
+        let data = &[1i64, 2, 1]; // groups: 1 (×2) and 2 (×1)
+        let group_by: &[Column<S>] = &[Column::BigInt(data)];
+        let selection = &[true, true, true];
+        let result = aggregate_columns(&alloc, group_by, &[], &[], &[], selection).unwrap();
+        assert_eq!(result.count_column.len(), 2);
+    }
+
+    #[test]
+    fn aggregate_columns_error_display() {
+        let err = AggregateColumnsError::ColumnLengthMismatch;
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("length") || msg.contains("Column"));
+    }
+
+    #[test]
+    fn aggregate_columns_error_debug() {
+        let err = AggregateColumnsError::ColumnLengthMismatch;
+        let msg = alloc::format!("{err:?}");
+        assert!(msg.contains("ColumnLengthMismatch"));
+    }
+
+    #[test]
+    fn aggregate_columns_error_equality() {
+        assert_eq!(AggregateColumnsError::ColumnLengthMismatch, AggregateColumnsError::ColumnLengthMismatch);
+    }
+}

@@ -327,3 +327,74 @@ impl<S: Scalar> TryFrom<RecordBatch> for OwnedTable<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::OwnedArrowConversionError;
+    use crate::base::{
+        database::{OwnedColumn, OwnedTable},
+        scalar::test_scalar::TestScalar,
+    };
+    use arrow::{
+        array::{ArrayRef, BooleanArray, Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use alloc::sync::Arc;
+
+    #[test]
+    fn unsupported_type_display_contains_datatype() {
+        let err = OwnedArrowConversionError::UnsupportedType { datatype: DataType::Float32 };
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("Float32"));
+    }
+
+    #[test]
+    fn duplicate_idents_display() {
+        let err = OwnedArrowConversionError::DuplicateIdents;
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("duplicate idents"));
+    }
+
+    #[test]
+    fn null_not_supported_display() {
+        let err = OwnedArrowConversionError::NullNotSupportedYet;
+        let msg = alloc::format!("{err}");
+        assert!(msg.contains("null"));
+    }
+
+    #[test]
+    fn owned_boolean_column_converts_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::Boolean(alloc::vec![true, false, true]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn owned_bigint_column_converts_to_array_ref() {
+        let col = OwnedColumn::<TestScalar>::BigInt(alloc::vec![1i64, 2, 3]);
+        let arr: ArrayRef = col.into();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn array_ref_boolean_converts_to_owned_column() {
+        let arr: ArrayRef = Arc::new(BooleanArray::from(alloc::vec![true, false]));
+        let col = OwnedColumn::<TestScalar>::try_from(&arr).unwrap();
+        assert!(matches!(col, OwnedColumn::Boolean(_)));
+    }
+
+    #[test]
+    fn array_ref_int64_converts_to_owned_column() {
+        let arr: ArrayRef = Arc::new(Int64Array::from(alloc::vec![10i64, 20]));
+        let col = OwnedColumn::<TestScalar>::try_from(&arr).unwrap();
+        assert!(matches!(col, OwnedColumn::BigInt(_)));
+    }
+
+    #[test]
+    fn array_ref_unsupported_type_returns_error() {
+        let arr: ArrayRef = Arc::new(arrow::array::Float32Array::from(alloc::vec![1.0f32]));
+        let result = OwnedColumn::<TestScalar>::try_from(&arr);
+        assert!(result.is_err());
+    }
+}
