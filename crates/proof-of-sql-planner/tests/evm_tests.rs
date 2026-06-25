@@ -30,16 +30,24 @@ use proof_of_sql::{
 use proof_of_sql_planner::sql_to_proof_plans;
 use sqlparser::{ast::Ident, dialect::GenericDialect, parser::Parser};
 
+struct EvmVerifierArgs {
+    result_hex: String,
+    query_hex: String,
+    params: String,
+    proof_hex: String,
+    table_lengths: String,
+    commitments: String,
+}
+
 const TEST_SETUP_FILE: &str = "test_assets/ppot_0080_10.bin";
 
 #[expect(clippy::missing_panics_doc)]
-fn evm_verifier_with_extra_args(
+fn evm_verifier_args(
     plan: &DynProofPlan,
     params: &str,
     verifiable_result: &VerifiableQueryResult<HyperKZGCommitmentEvaluationProof>,
     accessor: &impl CommitmentAccessor<HyperKZGCommitment>,
-    extra_args: &[&'static str],
-) -> bool {
+) -> EvmVerifierArgs {
     let commitments = plan
         .get_column_references()
         .into_iter()
@@ -69,6 +77,21 @@ fn evm_verifier_with_extra_args(
     let result_bytes =
         bincode::serde::encode_to_vec(&verifiable_result.result, bincode_options).unwrap();
 
+    EvmVerifierArgs {
+        result_hex: hex::encode(result_bytes),
+        query_hex: hex::encode(query_bytes),
+        params: params.to_string(),
+        proof_hex: hex::encode(proof_bytes),
+        table_lengths: format!("[{table_lengths}]"),
+        commitments: format!("[{commitments}]"),
+    }
+}
+
+#[expect(clippy::missing_panics_doc)]
+fn evm_verifier_with_extra_args(
+    verifier_args: &EvmVerifierArgs,
+    extra_args: &[&'static str],
+) -> bool {
     std::process::Command::new("../../solidity/scripts/pre_forge.sh")
         .arg("script")
         .arg("-vvvvv")
@@ -80,13 +103,13 @@ fn evm_verifier_with_extra_args(
         ])
         .arg("./test/verifier/Verifier.t.post.sol")
         .args([
-            dbg!(hex::encode(&result_bytes)),
-            dbg!(hex::encode(&query_bytes)),
-            dbg!(params.to_string()),
-            dbg!(hex::encode(&proof_bytes)),
+            &verifier_args.result_hex,
+            &verifier_args.query_hex,
+            &verifier_args.params,
+            &verifier_args.proof_hex,
         ])
-        .arg(dbg!(format!("[{table_lengths}]")))
-        .arg(dbg!(format!("[{commitments}]")))
+        .arg(&verifier_args.table_lengths)
+        .arg(&verifier_args.commitments)
         .output()
         .unwrap()
         .status
@@ -98,16 +121,11 @@ fn evm_verifier_all(
     verifiable_result: &VerifiableQueryResult<HyperKZGCommitmentEvaluationProof>,
     accessor: &impl CommitmentAccessor<HyperKZGCommitment>,
 ) -> bool {
-    evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &[])
-        && evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &["--via-ir"])
-        && evm_verifier_with_extra_args(plan, params, verifiable_result, accessor, &["--optimize"])
-        && evm_verifier_with_extra_args(
-            plan,
-            params,
-            verifiable_result,
-            accessor,
-            &["--optimize", "--via-ir"],
-        )
+    let verifier_args = evm_verifier_args(plan, params, verifiable_result, accessor);
+    evm_verifier_with_extra_args(&verifier_args, &[])
+        && evm_verifier_with_extra_args(&verifier_args, &["--via-ir"])
+        && evm_verifier_with_extra_args(&verifier_args, &["--optimize"])
+        && evm_verifier_with_extra_args(&verifier_args, &["--optimize", "--via-ir"])
 }
 
 #[expect(clippy::missing_panics_doc)]
