@@ -86,6 +86,7 @@ impl From<&ColumnField> for Field {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use sqlparser::ast::Ident;
 
     proptest! {
         #[test]
@@ -95,5 +96,69 @@ mod tests {
 
             prop_assert_eq!(actual, column_type);
         }
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_column_types_to_arrow_data_types() {
+        let timezone = PoSQLTimeZone::new(5_400);
+        let cases = [
+            (PoSQLTimeUnit::Second, ArrowTimeUnit::Second),
+            (PoSQLTimeUnit::Millisecond, ArrowTimeUnit::Millisecond),
+            (PoSQLTimeUnit::Microsecond, ArrowTimeUnit::Microsecond),
+            (PoSQLTimeUnit::Nanosecond, ArrowTimeUnit::Nanosecond),
+        ];
+
+        for (posql_unit, arrow_unit) in cases {
+            assert_eq!(
+                DataType::from(&ColumnType::TimestampTZ(posql_unit, timezone)),
+                DataType::Timestamp(arrow_unit, Some(Arc::<str>::from("+01:30")))
+            );
+        }
+    }
+
+    #[test]
+    fn we_can_convert_arrow_timestamp_data_types_to_column_types() {
+        let timezone = Some(Arc::<str>::from("+01:30"));
+        let cases = [
+            (ArrowTimeUnit::Second, PoSQLTimeUnit::Second),
+            (ArrowTimeUnit::Millisecond, PoSQLTimeUnit::Millisecond),
+            (ArrowTimeUnit::Microsecond, PoSQLTimeUnit::Microsecond),
+            (ArrowTimeUnit::Nanosecond, PoSQLTimeUnit::Nanosecond),
+        ];
+
+        for (arrow_unit, posql_unit) in cases {
+            assert_eq!(
+                ColumnType::try_from(DataType::Timestamp(arrow_unit, timezone.clone())).unwrap(),
+                ColumnType::TimestampTZ(posql_unit, PoSQLTimeZone::new(5_400))
+            );
+        }
+    }
+
+    #[test]
+    fn we_can_convert_column_fields_to_arrow_fields() {
+        let column_field = ColumnField::new(
+            Ident::new("amount"),
+            ColumnType::Decimal75(Precision::new(12).unwrap(), 2),
+        );
+
+        let arrow_field = Field::from(&column_field);
+
+        assert_eq!(arrow_field.name(), "amount");
+        assert_eq!(arrow_field.data_type(), &DataType::Decimal256(12, 2));
+        assert!(!arrow_field.is_nullable());
+    }
+
+    #[test]
+    fn we_get_an_error_for_unsupported_arrow_data_types() {
+        assert_eq!(
+            ColumnType::try_from(DataType::Float64).unwrap_err(),
+            "Unsupported arrow data type Float64"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "not implemented: Cannot convert Scalar type to arrow type")]
+    fn we_panic_when_converting_scalar_column_type_to_arrow_data_type() {
+        let _ = DataType::from(&ColumnType::Scalar);
     }
 }
