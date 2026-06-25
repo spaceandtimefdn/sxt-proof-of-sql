@@ -375,4 +375,35 @@ mod tests {
         let (l_tensor, r_tensor) = compute_l_r_tensors(&b_point, sigma, nu);
         check_L_R_vecs_with_l_r_tensors(&L_vec, &R_vec, &l_tensor, &r_tensor);
     }
+
+    #[test]
+    fn we_can_compute_t_vec_prime_with_the_blitzar_backend() {
+        use crate::proof_primitive::dory::{test_rng, PublicParameters};
+
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(3, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let sigma = 1;
+        let nu = 2;
+        let a = [100, 101, 102, 103, 104]
+            .into_iter()
+            .map(F::from)
+            .collect::<Vec<_>>();
+
+        let t_vec_prime = compute_T_vec_prime(&a, sigma, nu, &prover_setup);
+
+        assert_eq!(
+            t_vec_prime,
+            vec![
+                (prover_setup.Gamma_1[nu][0] * F::from(100)
+                    + prover_setup.Gamma_1[nu][1] * F::from(101))
+                .into(),
+                (prover_setup.Gamma_1[nu][0] * F::from(102)
+                    + prover_setup.Gamma_1[nu][1] * F::from(103))
+                .into(),
+                (prover_setup.Gamma_1[nu][0] * F::from(104)).into(),
+                G1Affine::identity(),
+            ]
+        );
+    }
 }

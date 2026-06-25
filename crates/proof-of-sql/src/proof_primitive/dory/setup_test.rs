@@ -21,6 +21,37 @@ fn we_can_create_and_manually_check_a_small_prover_setup() {
     assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
 }
 
+#[cfg(feature = "blitzar")]
+#[test]
+fn we_can_create_prover_setup_from_supplied_blitzar_handle() {
+    let mut rng = test_rng();
+    let pp = PublicParameters::test_rand(2, &mut rng);
+    let blitzar_handle = blitzar::compute::MsmHandle::new(
+        &pp.Gamma_1
+            .iter()
+            .copied()
+            .map(Into::into)
+            .collect::<Vec<_>>(),
+    );
+
+    let setup = ProverSetup::from_public_parameters_and_blitzar_handle(&pp, blitzar_handle);
+
+    assert_eq!(setup.max_nu, 2);
+    assert_eq!(setup.Gamma_1.len(), 3);
+    assert_eq!(setup.Gamma_2.len(), 3);
+    assert_eq!(setup.Gamma_1[0], pp.Gamma_1[0..1].to_vec());
+    assert_eq!(setup.Gamma_1[1], pp.Gamma_1[0..2].to_vec());
+    assert_eq!(setup.Gamma_1[2], pp.Gamma_1[0..4].to_vec());
+    assert_eq!(setup.Gamma_2[0], pp.Gamma_2[0..1].to_vec());
+    assert_eq!(setup.Gamma_2[1], pp.Gamma_2[0..2].to_vec());
+    assert_eq!(setup.Gamma_2[2], pp.Gamma_2[0..4].to_vec());
+    assert_eq!(setup.H_1, pp.H_1);
+    assert_eq!(setup.H_2, pp.H_2);
+    assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
+
+    let _handle = setup.blitzar_handle();
+}
+
 #[test]
 fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
     let mut rng = test_rng();

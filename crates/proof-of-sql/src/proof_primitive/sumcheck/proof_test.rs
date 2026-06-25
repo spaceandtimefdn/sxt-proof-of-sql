@@ -7,7 +7,7 @@ use super::test_cases::sumcheck_test_cases;
 use crate::{
     base::{
         polynomial::CompositePolynomial,
-        proof::Transcript as _,
+        proof::{ProofError, Transcript as _},
         scalar::{test_scalar::TestScalar, MontScalar, Scalar},
     },
     proof_primitive::{
@@ -84,6 +84,28 @@ fn test_create_verify_proof() {
         &Curve25519Scalar::from(579u64),
     );
     assert!(subclaim.is_err());
+}
+
+#[test]
+fn verify_rejects_proofs_with_invalid_coefficient_count() {
+    let proof = SumcheckProof {
+        coefficients: vec![Curve25519Scalar::one(); 3],
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+
+    assert!(matches!(
+        proof.verify_without_evaluation(&mut transcript, 2, &Curve25519Scalar::zero()),
+        Err(ProofError::VerificationError {
+            error: "invalid proof size"
+        })
+    ));
+}
+
+#[should_panic(expected = "Attempt to prove a constant.")]
+#[test]
+fn prover_state_rejects_constant_polynomials() {
+    let polynomial = CompositePolynomial::<Curve25519Scalar>::new(0);
+    ProverState::create(&polynomial);
 }
 
 fn random_product(
