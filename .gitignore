@@ -69,6 +69,7 @@ cache
 output/
 
 *.post.sol
+solidity/.pre_forge_cache/
 
 **/dependencies/**
 
