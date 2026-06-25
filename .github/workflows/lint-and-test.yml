@@ -404,6 +404,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Install nix
         uses: cachix/install-nix-action@v31
+      - name: Restore Nix store cache
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml') }}
+          gc-max-store-size-linux: 1G
       - name: Check flake
         run: nix flake check
       - name: Check project with flake
