@@ -184,3 +184,80 @@ mod tests {
         assert_ne!(PlaceholderError::ZeroPlaceholderId, PlaceholderError::InvalidPlaceholderIndex { index: 0, num_params: 0 });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{PlaceholderError, ProofError};
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn verification_error_displays_message() {
+        let err = ProofError::VerificationError { error: "bad hash" };
+        assert_eq!(err.to_string(), "Verification error: bad hash");
+    }
+
+    #[test]
+    fn unsupported_query_plan_displays_message() {
+        let err = ProofError::UnsupportedQueryPlan { error: "join not supported" };
+        assert_eq!(err.to_string(), "Unsupported query plan: join not supported");
+    }
+
+    #[test]
+    fn invalid_type_coercion_displays_message() {
+        let err = ProofError::InvalidTypeCoercion;
+        assert_eq!(err.to_string(), "Result does not match query: type mismatch");
+    }
+
+    #[test]
+    fn field_names_mismatch_displays_message() {
+        let err = ProofError::FieldNamesMismatch;
+        assert_eq!(err.to_string(), "Result does not match query: field names mismatch");
+    }
+
+    #[test]
+    fn field_count_mismatch_displays_message() {
+        let err = ProofError::FieldCountMismatch;
+        assert_eq!(err.to_string(), "Result does not match query: field count mismatch");
+    }
+
+    #[test]
+    fn proof_error_debug_contains_variant() {
+        assert!(format!("{:?}", ProofError::FieldCountMismatch).contains("FieldCountMismatch"));
+    }
+
+    #[test]
+    fn placeholder_invalid_index_displays_index_and_count() {
+        let err = PlaceholderError::InvalidPlaceholderIndex { index: 3, num_params: 2 };
+        let s = err.to_string();
+        assert!(s.contains("3"));
+        assert!(s.contains("2"));
+    }
+
+    #[test]
+    fn placeholder_invalid_type_displays_types() {
+        let err = PlaceholderError::InvalidPlaceholderType {
+            index: 1,
+            expected: ColumnType::BigInt,
+            actual: ColumnType::Boolean,
+        };
+        let s = err.to_string();
+        assert!(s.contains("BigInt"));
+        assert!(s.contains("Boolean"));
+    }
+
+    #[test]
+    fn placeholder_zero_id_displays_message() {
+        let err = PlaceholderError::ZeroPlaceholderId;
+        assert_eq!(err.to_string(), "Placeholder id must be greater than 0");
+    }
+
+    #[test]
+    fn placeholder_errors_implement_partial_eq() {
+        assert_eq!(PlaceholderError::ZeroPlaceholderId, PlaceholderError::ZeroPlaceholderId);
+        assert_ne!(
+            PlaceholderError::ZeroPlaceholderId,
+            PlaceholderError::InvalidPlaceholderIndex { index: 0, num_params: 0 }
+        );
+    }
+}
