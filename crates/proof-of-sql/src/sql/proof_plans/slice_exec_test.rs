@@ -44,11 +44,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_slice_exec() {
         Some(2),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("a", [2_i64, 3]), varchar("b", ["2", "3"])]);
     assert_eq!(res, expected_res);
 }
@@ -80,11 +76,7 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_slice_exec() {
         Some(2),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("a", [0_i64; 0]), varchar("b", [""; 0])]);
     assert_eq!(res, expected_res);
 }
@@ -366,8 +358,7 @@ fn we_can_prove_a_slice_exec() {
         Some(1),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [4]),
         int128("c", [4]),
@@ -425,8 +416,7 @@ fn we_can_prove_a_nested_slice_exec() {
         Some(1),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [4]),
         int128("c", [4]),
@@ -484,8 +474,7 @@ fn we_can_prove_a_nested_slice_exec_with_no_rows() {
         None,
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
@@ -543,8 +532,7 @@ fn we_can_prove_another_nested_slice_exec_with_no_rows() {
         None,
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [0; 0]),
         int128("c", [0; 0]),
@@ -596,11 +584,7 @@ fn we_can_create_and_prove_a_slice_exec_on_top_of_a_table_exec() {
         (),
     );
     let verifiable_res = VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
-    let res = verifiable_res
-        .verify(&plan, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
     let expected = owned_table([
         bigint("language_rank", [1_i64, 2, 3]),
         varchar("language_name", ["Español", "Português", "Français"]),
@@ -645,11 +629,7 @@ fn we_can_prove_a_slice_exec_if_it_has_groupby_with_provable_uniqueness_as_input
     );
     let verifiable_res: VerifiableQueryResult<InnerProductProof> =
         VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &plan, &accessor, &t);
-    let res = verifiable_res
-        .verify(&plan, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &plan, &accessor, &t);
     let expected = owned_table([
         bigint("a", [2]),
         bigint("sum_c", [205]),

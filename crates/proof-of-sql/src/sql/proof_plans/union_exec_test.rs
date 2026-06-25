@@ -114,11 +114,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_union_exec() {
         ),
     ]);
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t0);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t0);
     let expected_res = owned_table([
         bigint("a0", [1_i64, 2, 3, 4, 5, 2, 3, 4, 5, 6]),
         varchar("b0", ["1", "2", "3", "4", "5", "2", "3", "4", "5", "6"]),
@@ -255,11 +251,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_more_complex_union_exec() {
         ),
     ]);
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t0);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t0);
     let expected_res = owned_table([
         bigint("a0", [5_i64, 2, 3, 4, 5, 6, 7, 105, 5, 6, 7, 7, 8, 9, 10]),
         varchar(
