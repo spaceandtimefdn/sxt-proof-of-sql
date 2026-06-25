@@ -3,7 +3,7 @@ use bnum::types::U256;
 use core::cmp::Ordering;
 use tiny_keccak::Hasher;
 
-/// Extension trait for blanket implementations for `Scalar` types.
+    /// Extension trait for blanket implementations for `Scalar` types.
 /// This trait is primarily to avoid cluttering the core `Scalar` implementation with default implementations
 /// and provides helper methods for `Scalar`.
 pub trait ScalarExt: Scalar {
@@ -20,16 +20,21 @@ pub trait ScalarExt: Scalar {
         }
     }
 
+    /// Converts a string into a Scalar by hashing it.
+    fn from_str_via_hash(val: &str) -> Self {
+        Self::from_byte_slice_via_hash(val.as_bytes())
+    }
+
     #[must_use]
     /// Converts a U256 to Scalar, wrapping as needed
     fn from_wrapping(value: U256) -> Self {
         let value_as_limbs: [u64; 4] = value.into();
-        Self::from(value_as_limbs)
+        Self::from_limbs(value_as_limbs)
     }
 
     /// Converts a Scalar to U256. Note that any values above `MAX_SIGNED` shall remain positive, even if they are representative of negative values.
     fn into_u256_wrapping(self) -> U256 {
-        U256::from(Into::<[u64; 4]>::into(self))
+        U256::from(self.to_limbs())
     }
 
     /// Converts a byte slice to a Scalar using a hash function, preventing collisions.
@@ -39,7 +44,7 @@ pub trait ScalarExt: Scalar {
     #[must_use]
     fn from_byte_slice_via_hash(bytes: &[u8]) -> Self {
         if bytes.is_empty() {
-            return Self::zero();
+            return Self::ZERO;
         }
 
         let mut hasher = tiny_keccak::Keccak::v256();
@@ -52,6 +57,7 @@ pub trait ScalarExt: Scalar {
         Self::from_wrapping(masked_val)
     }
 }
+
 
 impl<S: Scalar> ScalarExt for S {}
 
