@@ -1,10 +1,19 @@
 use super::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError;
 use crate::base::commitment::ColumnCommitmentsMismatch;
+use alloc::string::String;
 use snafu::Snafu;
 
 /// Errors that can occur when trying to create or extend a [`TableCommitment`] from a record batch.
 #[derive(Debug, Snafu)]
 pub enum RecordBatchToColumnsError {
+    /// This error occurs when trying to convert from an Arrow field marked nullable.
+    #[snafu(display(
+        "nullable Arrow field {field_name} is not supported in record batch conversion yet"
+    ))]
+    NullableFieldNotSupportedYet {
+        /// The nullable field name.
+        field_name: String,
+    },
     /// Error converting from arrow array
     #[snafu(transparent)]
     ArrowArrayToColumnConversionError {

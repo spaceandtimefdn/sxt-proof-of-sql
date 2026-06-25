@@ -101,6 +101,23 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
     ));
 }
 
+#[test]
+fn we_reject_nullable_record_batch_fields_even_when_values_are_present() {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "nullable_int64",
+        DataType::Int64,
+        true,
+    )]));
+    let batch =
+        RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1, 2, 3]))]).unwrap();
+
+    assert!(matches!(
+        OwnedTable::<TestScalar>::try_from(batch),
+        Err(OwnedArrowConversionError::NullableFieldNotSupportedYet { field_name })
+            if field_name == "nullable_int64"
+    ));
+}
+
 fn we_can_convert_between_owned_table_and_record_batch_impl(
     owned_table: &OwnedTable<TestScalar>,
     record_batch: &RecordBatch,
