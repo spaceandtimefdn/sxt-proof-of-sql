@@ -184,3 +184,111 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::{
+        base::database::{ColumnField, ColumnType, LiteralValue, TableRef},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{DynProofExpr, TableExpr},
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    fn make_table_ref() -> TableRef {
+        TableRef::new("s", "t")
+    }
+
+    fn bool_literal() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn new_empty_creates_empty_plan() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn new_table_creates_table_plan() {
+        let fields = alloc::vec![ColumnField::new(Ident::new("col"), ColumnType::BigInt)];
+        let plan = DynProofPlan::new_table(make_table_ref(), fields);
+        assert_eq!(plan.get_column_result_fields().len(), 1);
+    }
+
+    #[test]
+    fn new_projection_creates_projection_plan() {
+        let plan = DynProofPlan::new_projection(alloc::vec![], DynProofPlan::new_empty());
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn new_slice_creates_slice_with_skip_and_fetch() {
+        let plan = DynProofPlan::new_slice(DynProofPlan::new_empty(), 3, Some(10));
+        let _ = plan;
+    }
+
+    #[test]
+    fn try_new_union_with_two_inputs_returns_ok() {
+        let result = DynProofPlan::try_new_union(alloc::vec![
+            DynProofPlan::new_empty(),
+            DynProofPlan::new_empty(),
+        ]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_union_with_one_input_returns_err() {
+        let result = DynProofPlan::try_new_union(alloc::vec![DynProofPlan::new_empty()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_new_group_by_empty_returns_some() {
+        let result = DynProofPlan::try_new_group_by(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("count"),
+            TableExpr {
+                table_ref: make_table_ref(),
+            },
+            bool_literal(),
+        );
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn try_new_aggregate_empty_returns_some() {
+        let result = DynProofPlan::try_new_aggregate(
+            alloc::vec![],
+            alloc::vec![],
+            Ident::new("count"),
+            DynProofPlan::new_empty(),
+            bool_literal(),
+        );
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn new_filter_creates_filter_plan() {
+        let plan = DynProofPlan::new_filter(
+            alloc::vec![],
+            DynProofPlan::new_empty(),
+            bool_literal(),
+        );
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn equality_holds_between_two_empty_plans() {
+        assert_eq!(DynProofPlan::new_empty(), DynProofPlan::new_empty());
+    }
+
+    #[test]
+    fn debug_contains_plan_name() {
+        let plan = DynProofPlan::new_empty();
+        assert!(alloc::format!("{plan:?}").contains("Empty"));
+    }
+}

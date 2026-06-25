@@ -191,3 +191,43 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EVMProofPlan;
+    use crate::sql::{proof::ProofPlan, proof_plans::DynProofPlan};
+
+    fn make_empty_dyn_plan() -> DynProofPlan {
+        DynProofPlan::new_empty()
+    }
+
+    #[test]
+    fn new_creates_plan_wrapping_dyn_plan() {
+        let plan = EVMProofPlan::new(make_empty_dyn_plan());
+        let _ = plan.inner();
+    }
+
+    #[test]
+    fn inner_returns_ref_to_wrapped_plan() {
+        let plan = EVMProofPlan::new(make_empty_dyn_plan());
+        assert_eq!(plan.inner(), &make_empty_dyn_plan());
+    }
+
+    #[test]
+    fn into_inner_returns_owned_plan() {
+        let plan = EVMProofPlan::new(make_empty_dyn_plan());
+        assert_eq!(plan.into_inner(), make_empty_dyn_plan());
+    }
+
+    #[test]
+    fn get_column_result_fields_is_empty_for_empty_plan() {
+        let plan = EVMProofPlan::new(make_empty_dyn_plan());
+        assert!(plan.get_column_result_fields().is_empty());
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let plan = EVMProofPlan::new(make_empty_dyn_plan());
+        assert!(alloc::format!("{plan:?}").contains("EVMProofPlan"));
+    }
+}
