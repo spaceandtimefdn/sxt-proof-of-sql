@@ -38,6 +38,9 @@ mod group_by_exec_test;
 mod filter_exec;
 pub(crate) use filter_exec::FilterExec;
 
+#[cfg(test)]
+mod filter_exec_no_blitzar_test;
+
 #[cfg(all(test, feature = "blitzar"))]
 mod filter_exec_test;
 
