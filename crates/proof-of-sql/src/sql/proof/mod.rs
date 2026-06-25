@@ -33,6 +33,8 @@ mod sumcheck_mle_evaluations_test;
 
 mod sumcheck_random_scalars;
 pub(crate) use sumcheck_random_scalars::SumcheckRandomScalars;
+#[cfg(test)]
+mod sumcheck_random_scalars_test;
 
 mod proof_plan;
 pub use proof_plan::ProofPlan;
