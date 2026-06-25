@@ -1,5 +1,7 @@
 use crate::base::{
-    commitment::naive_commitment::NaiveCommitment,
+    commitment::{naive_commitment::NaiveCommitment, Commitment, CommittableColumn},
+    math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::{test_scalar::TestScalar, Scalar},
 };
 use alloc::vec::Vec;
@@ -404,3 +406,61 @@ fn we_can_do_scalar_multiplication() {
 }
 
 // Scalar Multiplication Tests End
+
+#[test]
+fn we_can_compute_commitments_from_remaining_committable_column_variants() {
+    let offset = 2;
+    let booleans = [false, true, true];
+    let bytes = [0u8, 17, 255];
+    let tinyints = [-7i8, 0, 9];
+    let smallints = [-300i16, 0, 1200];
+    let ints = [-100_000i32, 0, 250_000];
+    let int128s = [-10_000_000_000i128, 0, 10_000_000_000];
+    let decimal_limbs = vec![[11u64, 0, 0, 0], [22, 0, 0, 0], [33, 0, 0, 0]];
+    let timestamps = [-1_700_000_000i64, 0, 1_700_000_000];
+
+    let committable_columns = [
+        CommittableColumn::Boolean(&booleans),
+        CommittableColumn::Uint8(&bytes),
+        CommittableColumn::TinyInt(&tinyints),
+        CommittableColumn::SmallInt(&smallints),
+        CommittableColumn::Int(&ints),
+        CommittableColumn::Int128(&int128s),
+        CommittableColumn::Decimal75(Precision::new(75).unwrap(), 0, decimal_limbs.clone()),
+        CommittableColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &timestamps),
+    ];
+
+    let commitments = NaiveCommitment::compute_commitments(&committable_columns, offset, &());
+
+    let mut expected_boolean = vec![TestScalar::ZERO; offset];
+    expected_boolean.extend(booleans.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[0], NaiveCommitment(expected_boolean));
+
+    let mut expected_uint8 = vec![TestScalar::ZERO; offset];
+    expected_uint8.extend(bytes.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[1], NaiveCommitment(expected_uint8));
+
+    let mut expected_tinyint = vec![TestScalar::ZERO; offset];
+    expected_tinyint.extend(tinyints.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[2], NaiveCommitment(expected_tinyint));
+
+    let mut expected_smallint = vec![TestScalar::ZERO; offset];
+    expected_smallint.extend(smallints.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[3], NaiveCommitment(expected_smallint));
+
+    let mut expected_int = vec![TestScalar::ZERO; offset];
+    expected_int.extend(ints.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[4], NaiveCommitment(expected_int));
+
+    let mut expected_int128 = vec![TestScalar::ZERO; offset];
+    expected_int128.extend(int128s.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[5], NaiveCommitment(expected_int128));
+
+    let mut expected_decimal = vec![TestScalar::ZERO; offset];
+    expected_decimal.extend(decimal_limbs.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[6], NaiveCommitment(expected_decimal));
+
+    let mut expected_timestamps = vec![TestScalar::ZERO; offset];
+    expected_timestamps.extend(timestamps.iter().map(|value| TestScalar::from(*value)));
+    assert_eq!(commitments[7], NaiveCommitment(expected_timestamps));
+}
