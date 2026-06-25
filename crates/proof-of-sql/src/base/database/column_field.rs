@@ -31,3 +31,66 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ColumnField;
+    use crate::base::database::ColumnType;
+    use sqlparser::ast::Ident;
+
+    fn make_field() -> ColumnField {
+        ColumnField::new(Ident::new("my_col"), ColumnType::BigInt)
+    }
+
+    #[test]
+    fn column_field_name_returns_correct_value() {
+        let f = make_field();
+        assert_eq!(f.name().value, "my_col");
+    }
+
+    #[test]
+    fn column_field_data_type_returns_correct_value() {
+        let f = make_field();
+        assert_eq!(f.data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn column_field_equality() {
+        let a = ColumnField::new(Ident::new("col"), ColumnType::Boolean);
+        let b = ColumnField::new(Ident::new("col"), ColumnType::Boolean);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn column_field_inequality_by_name() {
+        let a = ColumnField::new(Ident::new("a"), ColumnType::BigInt);
+        let b = ColumnField::new(Ident::new("b"), ColumnType::BigInt);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn column_field_inequality_by_type() {
+        let a = ColumnField::new(Ident::new("col"), ColumnType::BigInt);
+        let b = ColumnField::new(Ident::new("col"), ColumnType::Boolean);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn column_field_clone_equals_original() {
+        let f = make_field();
+        assert_eq!(f.clone(), f);
+    }
+
+    #[test]
+    fn column_field_is_debug_formattable() {
+        let f = make_field();
+        let s = alloc::format!("{f:?}");
+        assert!(s.contains("my_col"));
+    }
+
+    #[test]
+    fn column_field_varchar_type() {
+        let f = ColumnField::new(Ident::new("s"), ColumnType::VarChar);
+        assert_eq!(f.data_type(), ColumnType::VarChar);
+    }
+}

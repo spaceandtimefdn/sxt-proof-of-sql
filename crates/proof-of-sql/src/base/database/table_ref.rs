@@ -142,3 +142,99 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableRef;
+    use core::str::FromStr;
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn table_ref_new_with_schema_and_table() {
+        let t = TableRef::new("myschema", "mytable");
+        assert_eq!(t.table_id().value, "mytable");
+        assert_eq!(t.schema_id().map(|i| i.value.as_str()), Some("myschema"));
+    }
+
+    #[test]
+    fn table_ref_new_without_schema() {
+        let t = TableRef::new("", "mytable");
+        assert!(t.schema_id().is_none());
+        assert_eq!(t.table_id().value, "mytable");
+    }
+
+    #[test]
+    fn table_ref_display_with_schema() {
+        let t = TableRef::new("s", "t");
+        assert_eq!(alloc::format!("{t}"), "s.t");
+    }
+
+    #[test]
+    fn table_ref_display_without_schema() {
+        let t = TableRef::new("", "t");
+        assert_eq!(alloc::format!("{t}"), "t");
+    }
+
+    #[test]
+    fn table_ref_from_str_with_dot() {
+        let t = TableRef::from_str("schema.table").unwrap();
+        assert_eq!(t.table_id().value, "table");
+        assert_eq!(t.schema_id().map(|i| i.value.as_str()), Some("schema"));
+    }
+
+    #[test]
+    fn table_ref_from_str_without_dot() {
+        let t = TableRef::from_str("table").unwrap();
+        assert_eq!(t.table_id().value, "table");
+        assert!(t.schema_id().is_none());
+    }
+
+    #[test]
+    fn table_ref_from_str_two_dots_is_error() {
+        assert!(TableRef::from_str("a.b.c").is_err());
+    }
+
+    #[test]
+    fn table_ref_from_strs_single_component() {
+        let t = TableRef::from_strs(&["mytable"]).unwrap();
+        assert!(t.schema_id().is_none());
+    }
+
+    #[test]
+    fn table_ref_from_strs_two_components() {
+        let t = TableRef::from_strs(&["s", "t"]).unwrap();
+        assert_eq!(t.schema_id().unwrap().value, "s");
+    }
+
+    #[test]
+    fn table_ref_from_strs_three_components_is_error() {
+        assert!(TableRef::from_strs(&["a", "b", "c"]).is_err());
+    }
+
+    #[test]
+    fn table_ref_from_idents() {
+        let t = TableRef::from_idents(Some(Ident::new("s")), Ident::new("t"));
+        assert_eq!(t.table_id().value, "t");
+        assert_eq!(t.schema_id().unwrap().value, "s");
+    }
+
+    #[test]
+    fn table_ref_equality() {
+        let a = TableRef::new("s", "t");
+        let b = TableRef::new("s", "t");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn table_ref_clone_equals_original() {
+        let t = TableRef::new("s", "t");
+        assert_eq!(t.clone(), t);
+    }
+
+    #[test]
+    fn table_ref_is_debug_formattable() {
+        let t = TableRef::new("s", "t");
+        let s = alloc::format!("{t:?}");
+        assert!(!s.is_empty());
+    }
+}
