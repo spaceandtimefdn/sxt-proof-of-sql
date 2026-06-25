@@ -174,3 +174,65 @@ where
         rho
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{compute_rho_eval, compute_truncated_lagrange_basis_inner_product, compute_truncated_lagrange_basis_sum};
+
+    type F = f64;
+
+    #[test]
+    fn inner_product_empty_point_length_one_returns_one() {
+        let result = compute_truncated_lagrange_basis_inner_product::<F>(1, &[], &[]);
+        assert!((result - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn inner_product_empty_point_length_zero_returns_zero() {
+        let result = compute_truncated_lagrange_basis_inner_product::<F>(0, &[], &[]);
+        assert!((result - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn inner_product_single_var_full_length_equals_dot_product() {
+        // a=[0.3], b=[0.7], length=2: (1-0.3)(1-0.7) + 0.3*0.7 = 0.7*0.3 + 0.21 = 0.21 + 0.21
+        let result = compute_truncated_lagrange_basis_inner_product::<F>(2, &[0.3], &[0.7]);
+        let expected = (1.0 - 0.3) * (1.0 - 0.7) + 0.3 * 0.7;
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn inner_product_truncated_at_one_is_first_basis_product() {
+        // length=1 means only the first basis function: (1-a[0])*(1-b[0])
+        let result = compute_truncated_lagrange_basis_inner_product::<F>(1, &[0.4], &[0.6]);
+        let expected = (1.0 - 0.4) * (1.0 - 0.6);
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn basis_sum_empty_point_length_one_returns_one() {
+        let result = compute_truncated_lagrange_basis_sum::<F>(1, &[]);
+        assert!((result - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn basis_sum_full_length_returns_one() {
+        // When length >= 2^nu, the sum of all basis functions = 1
+        let result = compute_truncated_lagrange_basis_sum::<F>(4, &[0.5, 0.3]);
+        assert!((result - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rho_eval_single_var_at_zero_is_zero() {
+        // rho is sum of i * basis_i — at point [0], only index 0 has weight, so rho = 0
+        let result = compute_rho_eval::<F>(2, &[0.0]);
+        assert!((result - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rho_eval_single_var_at_one_is_one() {
+        // At point [1.0], only index 1 has weight 1, so rho = 1
+        let result = compute_rho_eval::<F>(2, &[1.0]);
+        assert!((result - 1.0).abs() < 1e-10);
+    }
+}

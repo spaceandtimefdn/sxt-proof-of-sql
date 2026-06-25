@@ -127,3 +127,53 @@ where
         })
         .unwrap_or(vec![])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{interpolate_evaluations_to_reverse_coefficients, interpolate_uni_poly};
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn ts(n: i32) -> TestScalar {
+        TestScalar::from(n)
+    }
+
+    #[test]
+    fn empty_polynomial_evaluates_to_zero() {
+        let result = interpolate_uni_poly::<TestScalar>(&[], ts(5));
+        assert_eq!(result, ts(0));
+    }
+
+    #[test]
+    fn constant_polynomial_evaluates_to_constant() {
+        // f(x) = 3 at x=0, so f(7) = 3
+        let result = interpolate_uni_poly::<TestScalar>(&[ts(3)], ts(7));
+        assert_eq!(result, ts(3));
+    }
+
+    #[test]
+    fn linear_polynomial_evaluates_correctly() {
+        // f(0)=0, f(1)=1 => f(x) = x => f(2) = 2
+        let result = interpolate_uni_poly::<TestScalar>(&[ts(0), ts(1)], ts(2));
+        assert_eq!(result, ts(2));
+    }
+
+    #[test]
+    fn evaluating_at_known_point_returns_exact_value() {
+        // f(0)=5, f(1)=7 => f(0) = 5 exactly (short-circuit)
+        let result = interpolate_uni_poly::<TestScalar>(&[ts(5), ts(7)], ts(0));
+        assert_eq!(result, ts(5));
+    }
+
+    #[test]
+    fn reverse_coefficients_empty_returns_empty() {
+        let result = interpolate_evaluations_to_reverse_coefficients::<TestScalar>(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn reverse_coefficients_single_element_constant() {
+        // f(x) = c => coefficients [c]
+        let result = interpolate_evaluations_to_reverse_coefficients::<TestScalar>(&[ts(4)]);
+        assert_eq!(result, alloc::vec![ts(4)]);
+    }
+}

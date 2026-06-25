@@ -147,3 +147,82 @@ impl ProofExpr for AndExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests_and {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{AndExpr, DynProofExpr, ProofExpr},
+    };
+
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(1))
+    }
+
+    #[test]
+    fn try_new_with_booleans_returns_ok() {
+        assert!(AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr())
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn try_new_with_non_booleans_returns_err() {
+        assert!(AndExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr())
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let e = AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr()),
+        )
+        .unwrap();
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn lhs_and_rhs_return_correct_types() {
+        let e = AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr()),
+        )
+        .unwrap();
+        assert_eq!(e.lhs().data_type(), ColumnType::Boolean);
+        assert_eq!(e.rhs().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr()),
+        )
+        .unwrap();
+        let b = AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr()),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = AndExpr::try_new(
+            alloc::boxed::Box::new(bool_expr()),
+            alloc::boxed::Box::new(bool_expr()),
+        )
+        .unwrap();
+        assert!(alloc::format!("{e:?}").contains("AndExpr"));
+    }
+}

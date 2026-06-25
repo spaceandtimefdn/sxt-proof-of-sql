@@ -158,3 +158,106 @@ impl ProofExpr for InequalityExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests_inequality {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, InequalityExpr, ProofExpr},
+    };
+
+    fn bigint_expr(n: i64) -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(n))
+    }
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn try_new_with_numerics_returns_ok() {
+        assert!(InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(1)),
+            alloc::boxed::Box::new(bigint_expr(2)),
+            true,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn try_new_with_incompatible_types_returns_err() {
+        assert!(InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(1)),
+            alloc::boxed::Box::new(bool_expr()),
+            false,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let e = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(0)),
+            alloc::boxed::Box::new(bigint_expr(1)),
+            true,
+        )
+        .unwrap();
+        assert_eq!(e.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn is_lt_stores_flag_correctly() {
+        let lt = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(0)),
+            alloc::boxed::Box::new(bigint_expr(1)),
+            true,
+        )
+        .unwrap();
+        let lte = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(0)),
+            alloc::boxed::Box::new(bigint_expr(1)),
+            false,
+        )
+        .unwrap();
+        assert!(lt.is_lt());
+        assert!(!lte.is_lt());
+    }
+
+    #[test]
+    fn lhs_has_correct_type() {
+        let e = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(3)),
+            alloc::boxed::Box::new(bigint_expr(5)),
+            true,
+        )
+        .unwrap();
+        assert_eq!(e.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        let a = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(1)),
+            alloc::boxed::Box::new(bigint_expr(2)),
+            true,
+        )
+        .unwrap();
+        let b = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(1)),
+            alloc::boxed::Box::new(bigint_expr(2)),
+            true,
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = InequalityExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr(0)),
+            alloc::boxed::Box::new(bigint_expr(1)),
+            false,
+        )
+        .unwrap();
+        assert!(alloc::format!("{e:?}").contains("InequalityExpr"));
+    }
+}

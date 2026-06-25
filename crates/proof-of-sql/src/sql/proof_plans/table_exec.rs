@@ -130,3 +130,63 @@ impl ProverEvaluate for TableExec {
         Ok(final_round_table)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TableExec;
+    use crate::{
+        base::database::{ColumnField, ColumnType, TableRef},
+        sql::proof::ProofPlan,
+    };
+    use sqlparser::ast::Ident;
+
+    fn make_exec() -> TableExec {
+        TableExec::new(
+            TableRef::new("s", "t"),
+            alloc::vec![ColumnField::new(Ident::new("col"), ColumnType::BigInt)],
+        )
+    }
+
+    #[test]
+    fn table_ref_returns_correct_ref() {
+        let e = make_exec();
+        assert_eq!(e.table_ref().table_id().value.as_str(), "t");
+    }
+
+    #[test]
+    fn schema_returns_columns() {
+        let e = make_exec();
+        assert_eq!(e.schema().len(), 1);
+    }
+
+    #[test]
+    fn empty_schema_creates_zero_columns() {
+        let e = TableExec::new(TableRef::new("", "t"), alloc::vec![]);
+        assert!(e.schema().is_empty());
+    }
+
+    #[test]
+    fn get_column_result_fields_matches_schema() {
+        let e = make_exec();
+        assert_eq!(e.get_column_result_fields().len(), 1);
+    }
+
+    #[test]
+    fn get_table_references_contains_the_table() {
+        let e = make_exec();
+        assert_eq!(e.get_table_references().len(), 1);
+    }
+
+    #[test]
+    fn equality_holds_for_same_values() {
+        let a = make_exec();
+        let b = make_exec();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = make_exec();
+        assert!(alloc::format!("{e:?}").contains("TableExec"));
+    }
+}

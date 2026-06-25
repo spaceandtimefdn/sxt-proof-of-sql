@@ -138,3 +138,81 @@ impl ProofExpr for MultiplyExpr {
 }
 
 impl DecimalProofExpr for MultiplyExpr {}
+
+#[cfg(test)]
+mod tests_multiply {
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::proof_exprs::{DynProofExpr, MultiplyExpr, ProofExpr},
+    };
+
+    fn bigint_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::BigInt(2))
+    }
+    fn bool_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(false))
+    }
+
+    #[test]
+    fn try_new_with_numerics_returns_ok() {
+        assert!(MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr())
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn try_new_with_non_numerics_returns_err() {
+        assert!(MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bool_expr())
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn lhs_has_correct_type() {
+        let e = MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr()),
+        )
+        .unwrap();
+        assert_eq!(e.lhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn rhs_has_correct_type() {
+        let e = MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr()),
+        )
+        .unwrap();
+        assert_eq!(e.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn equality_holds() {
+        let a = MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr()),
+        )
+        .unwrap();
+        let b = MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr()),
+        )
+        .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn debug_contains_struct_name() {
+        let e = MultiplyExpr::try_new(
+            alloc::boxed::Box::new(bigint_expr()),
+            alloc::boxed::Box::new(bigint_expr()),
+        )
+        .unwrap();
+        assert!(alloc::format!("{e:?}").contains("MultiplyExpr"));
+    }
+}
