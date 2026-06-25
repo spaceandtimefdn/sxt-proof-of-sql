@@ -135,15 +135,37 @@ mod tests {
         base::{
             database::table_utility::borrowed_bigint,
             polynomial::MultilinearExtension,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::proof::{
-            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-            FirstRoundBuilder,
+            mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+            FinalRoundBuilder, FirstRoundBuilder,
         },
     };
     use bumpalo::Bump;
     use std::collections::VecDeque;
+
+    fn assert_sumcheck_too_small(err: ProofError) {
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::SumcheckProofTooSmall
+            }
+        ));
+    }
+
+    fn mock_builder(subpolynomial_max_multiplicands: usize) -> MockVerificationBuilder<TestScalar> {
+        MockVerificationBuilder::new(
+            vec![],
+            subpolynomial_max_multiplicands,
+            vec![],
+            vec![vec![TestScalar::TWO, TestScalar::TEN]],
+            vec![],
+            vec![],
+            vec![],
+        )
+    }
 
     #[test]
     fn we_can_do_permutation_check() {
@@ -188,5 +210,98 @@ mod tests {
             .get_zero_sum_results()
             .iter()
             .all(|v| *v));
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source and candidate columns should be equal")]
+    fn we_cannot_evaluate_permutation_check_with_mismatched_column_counts() {
+        let alloc = Bump::new();
+        let column = borrowed_bigint::<TestScalar>("a", [1, 2, 3], &alloc).1;
+        let mut final_round_builder: FinalRoundBuilder<TestScalar> =
+            FinalRoundBuilder::new(3, VecDeque::new());
+
+        final_round_evaluate_permutation_check(
+            &mut final_round_builder,
+            &alloc,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            &[true, true, true],
+            &[column],
+            &[],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source columns should be greater than 0")]
+    fn we_cannot_evaluate_permutation_check_with_empty_columns() {
+        let alloc = Bump::new();
+        let mut final_round_builder: FinalRoundBuilder<TestScalar> =
+            FinalRoundBuilder::new(3, VecDeque::new());
+
+        final_round_evaluate_permutation_check(
+            &mut final_round_builder,
+            &alloc,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            &[true, true, true],
+            &[],
+            &[],
+        );
+    }
+
+    #[test]
+    fn we_cannot_verify_permutation_check_with_mismatched_column_counts() {
+        let mut builder = mock_builder(3);
+
+        let err = verify_permutation_check(
+            &mut builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            }
+        ));
+    }
+
+    #[test]
+    fn we_cannot_verify_permutation_check_when_the_zero_sum_subpolynomial_is_missing() {
+        let mut builder = mock_builder(0);
+
+        let err = verify_permutation_check(
+            &mut builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[TestScalar::ONE],
+        )
+        .unwrap_err();
+
+        assert_sumcheck_too_small(err);
+    }
+
+    #[test]
+    fn we_cannot_verify_permutation_check_when_the_source_identity_subpolynomial_is_missing() {
+        let mut builder = mock_builder(1);
+
+        let err = verify_permutation_check(
+            &mut builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[TestScalar::ONE],
+        )
+        .unwrap_err();
+
+        assert_sumcheck_too_small(err);
     }
 }
