@@ -35,3 +35,85 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::U256;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn eq(a: U256, b: U256) -> bool {
+        a.low == b.low && a.high == b.high
+    }
+
+    #[test]
+    fn from_words_stores_low_and_high() {
+        let u = U256::from_words(42, 100);
+        assert_eq!(u.low, 42);
+        assert_eq!(u.high, 100);
+    }
+
+    #[test]
+    fn from_words_zero_both_parts() {
+        let u = U256::from_words(0, 0);
+        assert_eq!(u.low, 0);
+        assert_eq!(u.high, 0);
+    }
+
+    #[test]
+    fn from_words_max_values() {
+        let u = U256::from_words(u128::MAX, u128::MAX);
+        assert_eq!(u.low, u128::MAX);
+        assert_eq!(u.high, u128::MAX);
+    }
+
+    #[test]
+    fn u256_equality() {
+        let a = U256::from_words(1, 2);
+        let b = U256::from_words(1, 2);
+        assert!(eq(a, b));
+    }
+
+    #[test]
+    fn u256_inequality_different_low() {
+        let a = U256::from_words(1, 0);
+        let b = U256::from_words(2, 0);
+        assert!(!eq(a, b));
+    }
+
+    #[test]
+    fn u256_inequality_different_high() {
+        let a = U256::from_words(0, 1);
+        let b = U256::from_words(0, 2);
+        assert!(!eq(a, b));
+    }
+
+    #[test]
+    fn u256_copy_trait_works() {
+        let a = U256::from_words(5, 10);
+        let b = a;
+        assert!(eq(a, b));
+    }
+
+    #[test]
+    fn scalar_zero_converts_to_zero_u256() {
+        let scalar = TestScalar::from(0);
+        let u: U256 = (&scalar).into();
+        assert_eq!(u.low, 0);
+        assert_eq!(u.high, 0);
+    }
+
+    #[test]
+    fn small_scalar_converts_to_u256_with_correct_low() {
+        let scalar = TestScalar::from(255);
+        let u: U256 = (&scalar).into();
+        assert_eq!(u.low, 255);
+        assert_eq!(u.high, 0);
+    }
+
+    #[test]
+    fn u256_zero_roundtrip_via_scalar() {
+        let u = U256::from_words(0, 0);
+        let scalar: TestScalar = (&u).into();
+        assert_eq!(scalar, TestScalar::from(0));
+    }
+}
