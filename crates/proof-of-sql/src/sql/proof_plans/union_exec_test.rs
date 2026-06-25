@@ -1,23 +1,175 @@
 use super::test_utility::*;
 use crate::{
     base::{
+        bit::BitDistribution,
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         map::indexmap,
+        proof::{ProofError, ProofSizeMismatch},
+        scalar::{test_scalar::TestScalar, Scalar},
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
         proof::{
-            exercise_verification, FirstRoundBuilder, ProvableQueryResult, ProverEvaluate,
-            VerifiableQueryResult,
+            exercise_verification, mock_verification_builder::MockVerificationBuilder,
+            FirstRoundBuilder, ProofPlan, ProvableQueryResult, ProverEvaluate,
+            SumcheckSubpolynomialType, VerifiableQueryResult, VerificationBuilder,
         },
         proof_exprs::test_utility::*,
     },
 };
 use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
+use sqlparser::ast::Ident;
+
+struct RejectZeroSumBuilder<S: Scalar> {
+    inner: MockVerificationBuilder<S>,
+}
+
+impl<S: Scalar> VerificationBuilder<S> for RejectZeroSumBuilder<S> {
+    fn try_consume_chi_evaluation(&mut self) -> Result<(S, usize), ProofSizeMismatch> {
+        self.inner.try_consume_chi_evaluation()
+    }
+
+    fn try_consume_rho_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+        self.inner.try_consume_rho_evaluation()
+    }
+
+    fn try_consume_first_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+        self.inner.try_consume_first_round_mle_evaluation()
+    }
+
+    fn try_consume_first_round_mle_evaluations(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<S>, ProofSizeMismatch> {
+        self.inner.try_consume_first_round_mle_evaluations(count)
+    }
+
+    fn try_consume_final_round_mle_evaluation(&mut self) -> Result<S, ProofSizeMismatch> {
+        self.inner.try_consume_final_round_mle_evaluation()
+    }
+
+    fn try_consume_final_round_mle_evaluations(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<S>, ProofSizeMismatch> {
+        self.inner.try_consume_final_round_mle_evaluations(count)
+    }
+
+    fn try_consume_bit_distribution(&mut self) -> Result<BitDistribution, ProofSizeMismatch> {
+        self.inner.try_consume_bit_distribution()
+    }
+
+    fn try_produce_sumcheck_subpolynomial_evaluation(
+        &mut self,
+        subpolynomial_type: SumcheckSubpolynomialType,
+        eval: S,
+        degree: usize,
+    ) -> Result<(), ProofSizeMismatch> {
+        if subpolynomial_type == SumcheckSubpolynomialType::ZeroSum {
+            Err(ProofSizeMismatch::SumcheckProofTooSmall)
+        } else {
+            self.inner.try_produce_sumcheck_subpolynomial_evaluation(
+                subpolynomial_type,
+                eval,
+                degree,
+            )
+        }
+    }
+
+    fn try_consume_post_result_challenge(&mut self) -> Result<S, ProofSizeMismatch> {
+        self.inner.try_consume_post_result_challenge()
+    }
+
+    fn singleton_chi_evaluation(&self) -> S {
+        self.inner.singleton_chi_evaluation()
+    }
+
+    fn rho_256_evaluation(&self) -> Option<S> {
+        self.inner.rho_256_evaluation()
+    }
+}
+
+#[test]
+fn we_reject_union_exec_verifier_missing_output_mle() {
+    let t0 = TableRef::new("sxt", "t0");
+    let t1 = TableRef::new("sxt", "t1");
+    let plan = union_exec(vec![
+        table_exec(t0.clone(), vec![column_field("a", ColumnType::BigInt)]),
+        table_exec(t1.clone(), vec![column_field("a", ColumnType::BigInt)]),
+    ]);
+    let accessor = indexmap! {
+        t0.clone() => indexmap! { Ident::from("a") => TestScalar::ONE },
+        t1.clone() => indexmap! { Ident::from("a") => TestScalar::TWO },
+    };
+    let chi_eval_map = indexmap! {
+        t0 => (TestScalar::ONE, 1),
+        t1 => (TestScalar::ONE, 1),
+    };
+    let mut verification_builder = MockVerificationBuilder::<TestScalar>::new(
+        Vec::new(),
+        3,
+        vec![vec![]],
+        vec![vec![TestScalar::ZERO, TestScalar::ZERO]],
+        vec![TestScalar::ZERO, TestScalar::ZERO],
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let err = plan
+        .verifier_evaluate(&mut verification_builder, &accessor, &chi_eval_map, &[])
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        ProofError::ProofSizeMismatch {
+            source: ProofSizeMismatch::TooFewMLEEvaluations
+        }
+    ));
+}
+
+#[test]
+fn we_reject_union_exec_verifier_zero_sum() {
+    let t0 = TableRef::new("sxt", "t0");
+    let t1 = TableRef::new("sxt", "t1");
+    let plan = union_exec(vec![
+        table_exec(t0.clone(), vec![column_field("a", ColumnType::BigInt)]),
+        table_exec(t1.clone(), vec![column_field("a", ColumnType::BigInt)]),
+    ]);
+    let accessor = indexmap! {
+        t0.clone() => indexmap! { Ident::from("a") => TestScalar::ONE },
+        t1.clone() => indexmap! { Ident::from("a") => TestScalar::TWO },
+    };
+    let chi_eval_map = indexmap! {
+        t0 => (TestScalar::ONE, 1),
+        t1 => (TestScalar::ONE, 1),
+    };
+    let mut verification_builder = RejectZeroSumBuilder {
+        inner: MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            vec![vec![TestScalar::ONE]],
+            vec![vec![TestScalar::ZERO, TestScalar::ZERO, TestScalar::ZERO]],
+            vec![TestScalar::ZERO, TestScalar::ZERO],
+            vec![2],
+            Vec::new(),
+        ),
+    };
+
+    let err = plan
+        .verifier_evaluate(&mut verification_builder, &accessor, &chi_eval_map, &[])
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        ProofError::ProofSizeMismatch {
+            source: ProofSizeMismatch::SumcheckProofTooSmall
+        }
+    ));
+}
 
 #[test]
 #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: NotEnoughInputPlans")]
