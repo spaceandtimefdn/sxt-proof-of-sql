@@ -333,6 +333,33 @@ impl<'a, S: Scalar> Column<'a, S> {
             Self::TimestampTZ(_, _, col) => slice_cast_with(col, |i| S::from(i)),
         }
     }
+
+    pub(crate) fn alloc_column(self, alloc: &Bump) -> Column<'_, S> {
+        match self {
+            Column::Boolean(col) => Column::Boolean(alloc.alloc_slice_copy(col)),
+            Column::Uint8(col) => Column::Uint8(alloc.alloc_slice_copy(col)),
+            Column::TinyInt(col) => Column::TinyInt(alloc.alloc_slice_copy(col)),
+            Column::SmallInt(col) => Column::SmallInt(alloc.alloc_slice_copy(col)),
+            Column::Int(col) => Column::Int(alloc.alloc_slice_copy(col)),
+            Column::BigInt(col) => Column::BigInt(alloc.alloc_slice_copy(col)),
+            Column::Int128(col) => Column::Int128(alloc.alloc_slice_copy(col)),
+            Column::Decimal75(precision, scale, col) => {
+                Column::Decimal75(precision, scale, alloc.alloc_slice_copy(col))
+            }
+            Column::Scalar(col) => Column::Scalar(alloc.alloc_slice_copy(col)),
+            Column::TimestampTZ(tu, tz, col) => {
+                Column::TimestampTZ(tu, tz, alloc.alloc_slice_copy(col))
+            }
+            Column::VarBinary((bytes, scalars)) => Column::VarBinary((
+                alloc.alloc_slice_fill_iter(bytes.iter().map(|b| &*alloc.alloc_slice_copy(b))),
+                alloc.alloc_slice_copy(scalars),
+            )),
+            Column::VarChar((strings, scalars)) => Column::VarChar((
+                alloc.alloc_slice_fill_iter(strings.iter().map(|s| &*alloc.alloc_str(s))),
+                alloc.alloc_slice_copy(scalars),
+            )),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -577,5 +604,67 @@ mod tests {
 
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
+    }
+
+    #[test]
+    fn we_can_alloc_columns() {
+        let alloc = Bump::new();
+        let column = Column::<TestScalar>::Boolean(&[true, false, true]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<TestScalar>::Uint8(&[1, 2, 3, 4]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<TestScalar>::TinyInt(&[1, 2, 3, 4]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<TestScalar>::SmallInt(&[1, 2, 3, 4]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<TestScalar>::Int(&[1, 2, 3]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<TestScalar>::BigInt(&[1]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::<DoryScalar>::Int128(&[1, 2]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let scalar_values = [
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+
+        let column = Column::VarChar((&["a", "b", "c", "d", "e"], &scalar_values));
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column = Column::Scalar(&scalar_values);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let precision = 10;
+        let scale = 2;
+        let decimal_data = [
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+
+        let precision = Precision::new(precision).unwrap();
+        let column = Column::Decimal75(precision, scale, &decimal_data);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let column: Column<'_, DoryScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[1, 2, 3]);
+        assert_eq!(column, column.alloc_column(&alloc));
+
+        let raw_bytes: &[&[u8]] = &[b"foo", b"bar", b""];
+        let scalars: Vec<TestScalar> = raw_bytes
+            .iter()
+            .map(|b| TestScalar::from_le_bytes_mod_order(b))
+            .collect();
+
+        let column = Column::VarBinary((raw_bytes, &scalars));
+        assert_eq!(column, column.alloc_column(&alloc));
     }
 }
