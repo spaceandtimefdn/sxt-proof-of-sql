@@ -35,3 +35,50 @@ pub(crate) enum EVMProofPlanError {
 
 /// Result type for EVM proof plan operations.
 pub(crate) type EVMProofPlanResult<T> = core::result::Result<T, EVMProofPlanError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn displays_evm_proof_plan_errors() {
+        assert_eq!(
+            EVMProofPlanError::NotSupported.to_string(),
+            "plan not yet supported"
+        );
+        assert_eq!(
+            EVMProofPlanError::ColumnNotFound.to_string(),
+            "column not found"
+        );
+        assert_eq!(
+            EVMProofPlanError::TableNotFound.to_string(),
+            "table not found"
+        );
+        assert_eq!(
+            EVMProofPlanError::InvalidTableName.to_string(),
+            "table name can not be parsed into TableRef"
+        );
+        assert_eq!(
+            EVMProofPlanError::InvalidOutputColumnName.to_string(),
+            "invalid or missing output column name"
+        );
+        assert_eq!(
+            EVMProofPlanError::InconsistentGroupByColumnCounts.to_string(),
+            "column counts in group by plans are inconsistent"
+        );
+        assert_eq!(
+            EVMProofPlanError::IncorrectScalingFactor.to_string(),
+            "incorrect scaling factor"
+        );
+    }
+
+    #[test]
+    fn displays_transparent_analyze_error_source() {
+        let error = EVMProofPlanError::AnalyzeError {
+            source: AnalyzeError::NotEnoughInputPlans,
+        };
+
+        assert_eq!(error.to_string(), "Not enough input plans");
+    }
+}
