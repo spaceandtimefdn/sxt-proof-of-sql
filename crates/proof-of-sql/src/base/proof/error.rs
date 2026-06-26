@@ -90,3 +90,126 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn displays_top_level_proof_errors() {
+        assert_eq!(
+            ProofError::VerificationError {
+                error: "bad transcript"
+            }
+            .to_string(),
+            "Verification error: bad transcript"
+        );
+        assert_eq!(
+            ProofError::UnsupportedQueryPlan {
+                error: "window function"
+            }
+            .to_string(),
+            "Unsupported query plan: window function"
+        );
+        assert_eq!(
+            ProofError::InvalidTypeCoercion.to_string(),
+            "Result does not match query: type mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldNamesMismatch.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldCountMismatch.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+
+    #[test]
+    fn displays_proof_size_mismatch_errors() {
+        assert_eq!(
+            ProofSizeMismatch::SumcheckProofTooSmall.to_string(),
+            "Sumcheck proof is too small"
+        );
+        assert_eq!(
+            ProofSizeMismatch::TooFewMLEEvaluations.to_string(),
+            "Proof has too few MLE evaluations"
+        );
+        assert_eq!(
+            ProofSizeMismatch::PostResultCountMismatch.to_string(),
+            "Post result challenge count mismatch"
+        );
+        assert_eq!(
+            ProofSizeMismatch::ConstraintCountMismatch.to_string(),
+            "Constraint count mismatch"
+        );
+        assert_eq!(
+            ProofSizeMismatch::TooFewBitDistributions.to_string(),
+            "Proof has too few bit distributions"
+        );
+        assert_eq!(
+            ProofSizeMismatch::TooFewChiLengths.to_string(),
+            "Proof has too few one lengths"
+        );
+        assert_eq!(
+            ProofSizeMismatch::TooFewRhoLengths.to_string(),
+            "Proof has too few rho lengths"
+        );
+        assert_eq!(
+            ProofSizeMismatch::TooFewSumcheckVariables.to_string(),
+            "Proof has too few sumcheck variables"
+        );
+        assert_eq!(
+            ProofSizeMismatch::ChiLengthNotFound.to_string(),
+            "Proof doesn't have requested one length"
+        );
+        assert_eq!(
+            ProofSizeMismatch::RhoLengthNotFound.to_string(),
+            "Proof doesn't have requested rho length"
+        );
+    }
+
+    #[test]
+    fn displays_transparent_proof_error_sources() {
+        assert_eq!(
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations,
+            }
+            .to_string(),
+            "Proof has too few MLE evaluations"
+        );
+        assert_eq!(
+            ProofError::PlaceholderError {
+                source: PlaceholderError::ZeroPlaceholderId,
+            }
+            .to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+
+    #[test]
+    fn displays_placeholder_errors() {
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderIndex {
+                index: 3,
+                num_params: 2,
+            }
+            .to_string(),
+            "Invalid placeholder index: 3, number of params: 2"
+        );
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderType {
+                index: 1,
+                expected: ColumnType::BigInt,
+                actual: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Invalid placeholder type: 1, expected: BIGINT, actual: VARCHAR"
+        );
+        assert_eq!(
+            PlaceholderError::ZeroPlaceholderId.to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+}
