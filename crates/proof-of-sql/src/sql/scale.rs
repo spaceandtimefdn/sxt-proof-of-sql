@@ -73,7 +73,10 @@ pub fn scale_cast_binary_op(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::database::{ColumnRef, TableRef};
+    use crate::base::{
+        database::{ColumnRef, TableRef},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
 
     #[expect(non_snake_case)]
     fn COLUMN1_BOOLEAN() -> DynProofExpr {
@@ -138,6 +141,24 @@ mod tests {
                 Precision::new(25).expect("Precision is definitely valid"),
                 5,
             ),
+        ))
+    }
+
+    #[expect(non_snake_case)]
+    fn COLUMN1_TIMESTAMP_SECOND() -> DynProofExpr {
+        DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column1".into(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        ))
+    }
+
+    #[expect(non_snake_case)]
+    fn COLUMN2_TIMESTAMP_MILLISECOND() -> DynProofExpr {
+        DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column2".into(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::utc()),
         ))
     }
 
@@ -234,5 +255,35 @@ mod tests {
         let right = COLUMN2_DECIMAL_25_5();
         let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
         assert_eq!(proof_exprs, (left, right));
+    }
+
+    #[test]
+    fn we_can_convert_scale_cast_binary_op_upcasting_left_timestamp() {
+        let left = COLUMN1_TIMESTAMP_SECOND();
+        let right = COLUMN2_TIMESTAMP_MILLISECOND();
+        let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
+
+        assert_eq!(
+            proof_exprs,
+            (
+                DynProofExpr::try_new_scaling_cast(left, right.data_type()).unwrap(),
+                right
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_scale_cast_binary_op_upcasting_right_timestamp() {
+        let left = COLUMN2_TIMESTAMP_MILLISECOND();
+        let right = COLUMN1_TIMESTAMP_SECOND();
+        let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
+
+        assert_eq!(
+            proof_exprs,
+            (
+                left.clone(),
+                DynProofExpr::try_new_scaling_cast(right, left.data_type()).unwrap()
+            )
+        );
     }
 }
