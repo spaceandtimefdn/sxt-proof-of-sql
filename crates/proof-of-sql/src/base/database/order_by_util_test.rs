@@ -117,6 +117,51 @@ fn we_can_compare_single_row_of_tables() {
 }
 
 #[test]
+fn we_can_compare_single_row_of_tables_for_varbinary_columns() {
+    let left_strings = &["row", "row", "same"];
+    let right_strings = &["row", "row", "same"];
+    let left_string_scalars: Vec<TestScalar> =
+        left_strings.iter().map(core::convert::Into::into).collect();
+    let right_string_scalars: Vec<TestScalar> = right_strings
+        .iter()
+        .map(core::convert::Into::into)
+        .collect();
+    let left_column_string = Column::VarChar((left_strings, &left_string_scalars));
+    let right_column_string = Column::VarChar((right_strings, &right_string_scalars));
+
+    let left_bytes = [b"beta".as_ref(), b"alpha".as_ref(), b"same".as_ref()];
+    let right_bytes = [b"alpha".as_ref(), b"beta".as_ref(), b"same".as_ref()];
+    let left_byte_scalars: Vec<TestScalar> = left_bytes
+        .iter()
+        .map(|b| TestScalar::from_le_bytes_mod_order(b))
+        .collect();
+    let right_byte_scalars: Vec<TestScalar> = right_bytes
+        .iter()
+        .map(|b| TestScalar::from_le_bytes_mod_order(b))
+        .collect();
+    let left_column_bytes =
+        Column::VarBinary((left_bytes.as_slice(), left_byte_scalars.as_slice()));
+    let right_column_bytes =
+        Column::VarBinary((right_bytes.as_slice(), right_byte_scalars.as_slice()));
+
+    let left = &[left_column_string, left_column_bytes];
+    let right = &[right_column_string, right_column_bytes];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 2, 2).unwrap(),
+        Ordering::Equal
+    );
+}
+
+#[test]
 fn we_cannot_compare_single_row_of_tables_if_type_mismatch() {
     let left_slice = &[55, 44, 66, 66, 66, 77, 66, 66, 66, 66];
     let right_slice = &[
