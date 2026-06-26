@@ -12,7 +12,7 @@ use crate::{
     },
     proof_primitive::{
         inner_product::curve_25519_scalar::Curve25519Scalar,
-        sumcheck::{ProverState, SumcheckProof},
+        sumcheck::{prove_round, ProverState, SumcheckProof},
     },
 };
 use alloc::rc::Rc;
@@ -84,6 +84,43 @@ fn test_create_verify_proof() {
         &Curve25519Scalar::from(579u64),
     );
     assert!(subclaim.is_err());
+}
+
+fn simple_prover_state() -> ProverState<TestScalar> {
+    ProverState::new(
+        vec![(TestScalar::ONE, vec![0])],
+        vec![vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(4),
+        ]],
+        2,
+        1,
+    )
+}
+
+#[test]
+#[should_panic(expected = "first round should be prover first.")]
+fn prove_round_rejects_verifier_message_on_first_round() {
+    let mut state = simple_prover_state();
+    prove_round(&mut state, &Some(TestScalar::ONE));
+}
+
+#[test]
+#[should_panic(expected = "verifier message is empty")]
+fn prove_round_rejects_missing_verifier_message_after_first_round() {
+    let mut state = simple_prover_state();
+    prove_round(&mut state, &None);
+    prove_round(&mut state, &None);
+}
+
+#[test]
+#[should_panic(expected = "Prover is not active")]
+fn prove_round_rejects_inactive_prover_state() {
+    let mut state = ProverState::new(Vec::new(), Vec::new(), 1, 0);
+    state.round = state.num_vars;
+    prove_round(&mut state, &Some(TestScalar::ONE));
 }
 
 fn random_product(
