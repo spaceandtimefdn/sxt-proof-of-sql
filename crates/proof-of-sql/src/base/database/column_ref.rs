@@ -39,3 +39,35 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::TableRef;
+
+    #[test]
+    fn constructor_stores_table_column_and_type_metadata() {
+        let table_ref = TableRef::from_names(Some("public"), "orders");
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), Ident::new("amount"), ColumnType::BigInt);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), Ident::new("amount"));
+        assert_eq!(*column_ref.column_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn column_refs_round_trip_through_serde() {
+        let column_ref = ColumnRef::new(
+            TableRef::from_names(Some("analytics"), "orders"),
+            Ident::new("customer_id"),
+            ColumnType::VarChar,
+        );
+
+        let json = serde_json::to_string(&column_ref).unwrap();
+        assert_eq!(
+            serde_json::from_str::<ColumnRef>(&json).unwrap(),
+            column_ref
+        );
+    }
+}

@@ -104,6 +104,25 @@ mod timezone_parsing_tests {
     }
 
     #[test]
+    fn we_can_parse_utc_aliases() {
+        for value in ["Z", "z", "UTC", "utc", "00:00", "+00:00", "0:00", "+0:00"] {
+            let timezone_as_str: Option<Arc<str>> = Some(value.into());
+            assert_eq!(
+                PoSQLTimeZone::try_from(&timezone_as_str).unwrap(),
+                PoSQLTimeZone::utc()
+            );
+        }
+    }
+
+    #[test]
+    fn we_can_parse_positive_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("+05:45".into());
+        let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+        assert_eq!(timezone, PoSQLTimeZone::new(20_700));
+        assert_eq!(format!("{timezone}"), "+05:45");
+    }
+
+    #[test]
     fn we_can_parse_none_time_zone() {
         let timezone = PoSQLTimeZone::try_from(&None).unwrap();
         let expected_time_zone = PoSQLTimeZone::utc();
@@ -118,5 +137,16 @@ mod timezone_parsing_tests {
             timezone_err,
             PoSQLTimestampError::InvalidTimezone { timezone: _ }
         ));
+    }
+
+    #[test]
+    fn we_cannot_parse_malformed_numeric_offsets() {
+        for value in ["+aa:00", "+01:bb", "-zz:30"] {
+            let timezone_as_str: Option<Arc<str>> = Some(value.into());
+            assert_eq!(
+                PoSQLTimeZone::try_from(&timezone_as_str),
+                Err(PoSQLTimestampError::InvalidTimezoneOffset)
+            );
+        }
     }
 }

@@ -38,3 +38,57 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn displays_timestamp_errors() {
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezone {
+                timezone: "Mars/Base".to_string(),
+            }
+            .to_string(),
+            "invalid timezone string: Mars/Base"
+        );
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimezoneOffset.to_string(),
+            "invalid timezone offset"
+        );
+        assert_eq!(
+            PoSQLTimestampError::InvalidTimeUnit {
+                error: "weeks".to_string(),
+            }
+            .to_string(),
+            "Invalid time unit"
+        );
+        assert_eq!(
+            PoSQLTimestampError::UnsupportedPrecision {
+                error: "picoseconds".to_string(),
+            }
+            .to_string(),
+            "Unsupported precision for timestamp: picoseconds"
+        );
+    }
+
+    #[test]
+    fn converts_timestamp_errors_to_strings() {
+        let message: String = PoSQLTimestampError::InvalidTimezoneOffset.into();
+        assert_eq!(message, "invalid timezone offset");
+    }
+
+    #[test]
+    fn timestamp_errors_round_trip_through_serde() {
+        let error = PoSQLTimestampError::InvalidTimezone {
+            timezone: "bad zone".to_string(),
+        };
+        let json = serde_json::to_string(&error).unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<PoSQLTimestampError>(&json).unwrap(),
+            error
+        );
+    }
+}

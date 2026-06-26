@@ -142,3 +142,97 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn constructors_normalize_empty_schema_and_preserve_idents() {
+        let table = TableRef::new("", "orders");
+        assert_eq!(table.schema_id(), None);
+        assert_eq!(table.table_id().value, "orders");
+        assert_eq!(table.to_string(), "orders");
+
+        let table = TableRef::from_names(Some("analytics"), "orders");
+        assert_eq!(table.schema_id().unwrap().value, "analytics");
+        assert_eq!(table.table_id().value, "orders");
+        assert_eq!(table.to_string(), "analytics.orders");
+
+        let table = TableRef::from_idents(Some(Ident::new("public")), Ident::new("lineitem"));
+        assert_eq!(table.schema_id().unwrap().value, "public");
+        assert_eq!(table.table_id().value, "lineitem");
+        assert_eq!(table.to_string(), "public.lineitem");
+    }
+
+    #[test]
+    fn parses_from_component_slices_and_dot_separated_strings() {
+        assert_eq!(
+            TableRef::from_strs(&["orders"]).unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["public", "orders"]).unwrap(),
+            TableRef::from_names(Some("public"), "orders")
+        );
+        assert_eq!(
+            TableRef::try_from("public.orders").unwrap(),
+            TableRef::from_names(Some("public"), "orders")
+        );
+        assert_eq!(
+            TableRef::from_str("orders").unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+    }
+
+    #[test]
+    fn rejects_table_references_with_too_many_components() {
+        assert_eq!(
+            TableRef::from_strs(&["catalog", "schema", "orders"]).unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "catalog,schema,orders".to_string()
+            }
+        );
+        assert_eq!(
+            TableRef::try_from("catalog.schema.orders").unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "catalog.schema.orders".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn serializes_as_display_string_and_deserializes_back() {
+        let table = TableRef::from_names(Some("public"), "orders");
+        let json = serde_json::to_string(&table).unwrap();
+        assert_eq!(json, r#""public.orders""#);
+        assert_eq!(serde_json::from_str::<TableRef>(&json).unwrap(), table);
+
+        let invalid = serde_json::from_str::<TableRef>(r#""a.b.c""#).unwrap_err();
+        assert!(invalid.to_string().contains("Invalid table reference"));
+    }
+
+    #[test]
+    fn borrowed_table_refs_are_equivalent_to_matching_keys() {
+        let key = TableRef::from_names(Some("public"), "orders");
+        let same = TableRef::from_names(Some("public"), "orders");
+        let different_schema = TableRef::from_names(Some("private"), "orders");
+        let different_table = TableRef::from_names(Some("public"), "lineitem");
+
+        assert!(Equivalent::<TableRef>::equivalent(&&same, &key));
+        assert!(!Equivalent::<TableRef>::equivalent(
+            &&different_schema,
+            &key
+        ));
+        assert!(!Equivalent::<TableRef>::equivalent(&&different_table, &key));
+    }
+
+    #[test]
+    fn parse_error_display_includes_bad_reference() {
+        let error = ParseError::InvalidTableReference {
+            table_reference: "a.b.c".to_string(),
+        };
+        assert_eq!(error.to_string(), "Invalid table reference: a.b.c");
+    }
+}

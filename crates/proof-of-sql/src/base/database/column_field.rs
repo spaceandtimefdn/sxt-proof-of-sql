@@ -31,3 +31,24 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constructor_stores_name_and_type_metadata() {
+        let field = ColumnField::new(Ident::new("is_active"), ColumnType::Boolean);
+
+        assert_eq!(field.name(), Ident::new("is_active"));
+        assert_eq!(field.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn column_fields_round_trip_through_serde() {
+        let field = ColumnField::new(Ident::new("payload"), ColumnType::VarBinary);
+        let json = serde_json::to_string(&field).unwrap();
+
+        assert_eq!(serde_json::from_str::<ColumnField>(&json).unwrap(), field);
+    }
+}

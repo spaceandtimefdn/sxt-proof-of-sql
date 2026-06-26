@@ -65,3 +65,75 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn displays_table_union_and_join_errors() {
+        assert_eq!(
+            TableOperationError::UnionNotEnoughTables.to_string(),
+            "Cannot union fewer than 2 tables"
+        );
+        assert_eq!(
+            TableOperationError::JoinWithDifferentNumberOfColumns {
+                left_num_columns: 2,
+                right_num_columns: 3,
+            }
+            .to_string(),
+            "Cannot join tables with different numbers of columns: 2 and 3"
+        );
+        assert_eq!(
+            TableOperationError::JoinIncompatibleTypes {
+                left_type: ColumnType::Int,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Cannot join tables on columns with incompatible types: Int and VarChar"
+        );
+    }
+
+    #[test]
+    fn displays_missing_duplicate_and_index_errors() {
+        assert_eq!(
+            TableOperationError::ColumnDoesNotExist {
+                column_ident: Ident::new("missing_col"),
+            }
+            .to_string(),
+            r#"Column Ident { value: "missing_col", quote_style: None } does not exist in table"#
+        );
+        assert_eq!(
+            TableOperationError::DuplicateColumn.to_string(),
+            "Some column is duplicated in table"
+        );
+        assert_eq!(
+            TableOperationError::ColumnIndexOutOfBounds { column_index: 4 }.to_string(),
+            "Column index out of bounds: 4"
+        );
+    }
+
+    #[test]
+    fn displays_incompatible_schema_and_transparent_column_error() {
+        let correct_schema = vec![ColumnField::new(Ident::new("id"), ColumnType::BigInt)];
+        let actual_schema = vec![ColumnField::new(Ident::new("id"), ColumnType::VarChar)];
+        let schema_error = TableOperationError::UnionIncompatibleSchemas {
+            correct_schema,
+            actual_schema,
+        }
+        .to_string();
+
+        assert!(schema_error.starts_with("Cannot union tables with incompatible schemas:"));
+        assert!(schema_error.contains("BigInt"));
+        assert!(schema_error.contains("VarChar"));
+
+        assert_eq!(
+            TableOperationError::ColumnOperationError {
+                source: ColumnOperationError::DivisionByZero,
+            }
+            .to_string(),
+            "Division by zero"
+        );
+    }
+}
