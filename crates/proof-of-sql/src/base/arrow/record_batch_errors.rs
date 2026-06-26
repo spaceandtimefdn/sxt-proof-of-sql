@@ -29,3 +29,45 @@ pub enum AppendRecordBatchTableCommitmentError {
         source: RecordBatchToColumnsError,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::arrow::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError;
+    use crate::base::commitment::ColumnCommitmentsMismatch;
+
+    #[test]
+    fn we_can_display_record_batch_to_columns_source_errors() {
+        let error = RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+            source: ArrowArrayToColumnConversionError::ArrayContainsNulls,
+        };
+
+        assert_eq!(error.to_string(), "arrow array must not contain nulls");
+    }
+
+    #[test]
+    fn we_can_display_append_record_batch_commitment_mismatch_errors() {
+        let error = AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+            source: ColumnCommitmentsMismatch::NumColumns,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "commitments with different column counts cannot operate with each other"
+        );
+    }
+
+    #[test]
+    fn we_can_display_append_record_batch_column_conversion_errors() {
+        let error = AppendRecordBatchTableCommitmentError::ArrowBatchToColumnError {
+            source: RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                source: ArrowArrayToColumnConversionError::IndexOutOfBounds { len: 2, index: 5 },
+            },
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "index out of bounds: the len is 2 but the index is 5"
+        );
+    }
+}
