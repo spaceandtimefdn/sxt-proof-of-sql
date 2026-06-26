@@ -168,3 +168,26 @@ impl<'a, S: Scalar> core::ops::Index<&str> for Table<'a, S> {
         self.table.get(&Ident::new(index)).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn table_equality_preserves_column_order() {
+        let table = Table::<TestScalar>::try_from_iter([
+            ("first".into(), Column::Int(&[1, 2])),
+            ("second".into(), Column::Boolean(&[true, false])),
+        ])
+        .unwrap();
+        let same_columns_different_order = Table::<TestScalar>::try_from_iter([
+            ("second".into(), Column::Boolean(&[true, false])),
+            ("first".into(), Column::Int(&[1, 2])),
+        ])
+        .unwrap();
+
+        assert_eq!(table.num_rows(), same_columns_different_order.num_rows());
+        assert_ne!(table, same_columns_different_order);
+    }
+}
