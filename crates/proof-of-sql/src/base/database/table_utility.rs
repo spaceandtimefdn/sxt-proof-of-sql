@@ -363,3 +363,103 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        database::ColumnType, math::decimal::Precision, scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn we_can_create_tables_with_explicit_row_count() {
+        let table = table_with_row_count::<TestScalar>([], 3);
+
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), 3);
+        assert!(table.is_empty());
+    }
+
+    #[test]
+    fn we_can_create_borrowed_primitive_columns() {
+        let alloc = Bump::new();
+
+        assert_eq!(
+            borrowed_uint8::<TestScalar>("uint8", [1_u8, 2], &alloc),
+            (Ident::new("uint8"), Column::Uint8(&[1, 2]))
+        );
+        assert_eq!(
+            borrowed_tinyint::<TestScalar>("tinyint", [-1_i8, 2], &alloc),
+            (Ident::new("tinyint"), Column::TinyInt(&[-1, 2]))
+        );
+        assert_eq!(
+            borrowed_smallint::<TestScalar>("smallint", [-10_i16, 20], &alloc),
+            (Ident::new("smallint"), Column::SmallInt(&[-10, 20]))
+        );
+        assert_eq!(
+            borrowed_int::<TestScalar>("int", [-100_i32, 200], &alloc),
+            (Ident::new("int"), Column::Int(&[-100, 200]))
+        );
+        assert_eq!(
+            borrowed_bigint::<TestScalar>("bigint", [-1000_i64, 2000], &alloc),
+            (Ident::new("bigint"), Column::BigInt(&[-1000, 2000]))
+        );
+        assert_eq!(
+            borrowed_boolean::<TestScalar>("bool", [true, false], &alloc),
+            (Ident::new("bool"), Column::Boolean(&[true, false]))
+        );
+        assert_eq!(
+            borrowed_int128::<TestScalar>("int128", [-10000_i128, 20000], &alloc),
+            (Ident::new("int128"), Column::Int128(&[-10000, 20000]))
+        );
+    }
+
+    #[test]
+    fn we_can_create_borrowed_derived_columns() {
+        let alloc = Bump::new();
+
+        let (name, column) = borrowed_scalar::<TestScalar>("scalar", [1, 2], &alloc);
+        assert_eq!(name, Ident::new("scalar"));
+        assert_eq!(
+            column,
+            Column::Scalar(&[TestScalar::from(1), TestScalar::from(2)])
+        );
+
+        let (name, column) = borrowed_varchar::<TestScalar>("varchar", ["a", "bc"], &alloc);
+        assert_eq!(name, Ident::new("varchar"));
+        let expected_scalars = [TestScalar::from("a"), TestScalar::from("bc")];
+        assert_eq!(column, Column::VarChar((&["a", "bc"], &expected_scalars)));
+
+        let (name, column) = borrowed_decimal75::<TestScalar>("decimal", 12, 1, [3, 4], &alloc);
+        assert_eq!(name, Ident::new("decimal"));
+        assert_eq!(
+            column,
+            Column::Decimal75(
+                Precision::new(12).unwrap(),
+                1,
+                &[TestScalar::from(3), TestScalar::from(4)]
+            )
+        );
+        assert_eq!(
+            column.column_type(),
+            ColumnType::Decimal75(Precision::new(12).unwrap(), 1)
+        );
+
+        let (name, column) = borrowed_timestamptz::<TestScalar>(
+            "time",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            [1_625_072_400, 1_625_076_000],
+            &alloc,
+        );
+        assert_eq!(name, Ident::new("time"));
+        assert_eq!(
+            column,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &[1_625_072_400, 1_625_076_000]
+            )
+        );
+    }
+}
