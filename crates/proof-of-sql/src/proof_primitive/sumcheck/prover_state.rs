@@ -62,3 +62,27 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProverState;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn new_prover_state_preserves_inputs_and_starts_at_round_zero() {
+        let products = vec![(TestScalar::from(7), vec![0, 2])];
+        let flattened_extensions = vec![
+            vec![TestScalar::from(1), TestScalar::from(2)],
+            vec![TestScalar::from(3), TestScalar::from(4)],
+            vec![TestScalar::from(5), TestScalar::from(6)],
+        ];
+
+        let state = ProverState::new(products.clone(), flattened_extensions.clone(), 2, 2);
+
+        assert_eq!(state.list_of_products, products);
+        assert_eq!(state.flattened_ml_extensions, flattened_extensions);
+        assert_eq!(state.num_vars, 2);
+        assert_eq!(state.max_multiplicands, 2);
+        assert_eq!(state.round, 0);
+    }
+}
