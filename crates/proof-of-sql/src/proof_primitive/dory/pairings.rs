@@ -138,3 +138,86 @@ fn multi_pairing_4_impl<P: Pairing>(
     );
     (c0, c1, c2, c3)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{multi_pairing, multi_pairing_2, multi_pairing_4, pairing};
+    use ark_bls12_381::{Bls12_381, G1Affine, G2Affine};
+    use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+
+    fn scaled_g1(multiplier: u64) -> G1Affine {
+        G1Affine::generator().mul_bigint([multiplier]).into_affine()
+    }
+
+    fn scaled_g2(multiplier: u64) -> G2Affine {
+        G2Affine::generator().mul_bigint([multiplier]).into_affine()
+    }
+
+    #[test]
+    fn pairing_wrapper_matches_ark_pairing() {
+        let g1 = scaled_g1(2);
+        let g2 = scaled_g2(3);
+
+        assert_eq!(pairing::<Bls12_381>(g1, g2), Bls12_381::pairing(g1, g2));
+    }
+
+    #[test]
+    fn multi_pairing_wrapper_matches_ark_multi_pairing() {
+        let g1 = scaled_g1(2);
+        let g2 = scaled_g2(3);
+        let other_g1 = scaled_g1(5);
+        let other_g2 = scaled_g2(7);
+        let identity_g1 = G1Affine::identity();
+
+        assert_eq!(
+            multi_pairing::<Bls12_381>([g1, identity_g1, other_g1], [g2, other_g2, other_g2]),
+            Bls12_381::multi_pairing([g1, identity_g1, other_g1], [g2, other_g2, other_g2])
+        );
+    }
+
+    #[test]
+    fn multi_pairing_2_wrapper_returns_each_expected_pairing() {
+        let g1 = scaled_g1(2);
+        let g2 = scaled_g2(3);
+        let other_g1 = scaled_g1(5);
+        let other_g2 = scaled_g2(7);
+        let identity_g1 = G1Affine::identity();
+        let identity_g2 = G2Affine::identity();
+
+        let expected_0 = Bls12_381::multi_pairing([g1, identity_g1], [g2, other_g2]);
+        let expected_1 = Bls12_381::multi_pairing([other_g1], [identity_g2]);
+
+        assert_eq!(
+            multi_pairing_2::<Bls12_381>(
+                ([g1, identity_g1], [g2, other_g2]),
+                ([other_g1], [identity_g2])
+            ),
+            (expected_0, expected_1)
+        );
+    }
+
+    #[test]
+    fn multi_pairing_4_wrapper_returns_each_expected_pairing() {
+        let g1 = scaled_g1(2);
+        let g2 = scaled_g2(3);
+        let other_g1 = scaled_g1(5);
+        let other_g2 = scaled_g2(7);
+        let identity_g1 = G1Affine::identity();
+        let identity_g2 = G2Affine::identity();
+
+        let expected_0 = Bls12_381::multi_pairing([g1], [g2]);
+        let expected_1 = Bls12_381::multi_pairing([identity_g1], [other_g2]);
+        let expected_2 = Bls12_381::multi_pairing([g1, other_g1], [g2, identity_g2]);
+        let expected_3 = Bls12_381::multi_pairing([identity_g1, other_g1], [identity_g2, other_g2]);
+
+        assert_eq!(
+            multi_pairing_4::<Bls12_381>(
+                ([g1], [g2]),
+                ([identity_g1], [other_g2]),
+                ([g1, other_g1], [g2, identity_g2]),
+                ([identity_g1, other_g1], [identity_g2, other_g2]),
+            ),
+            (expected_0, expected_1, expected_2, expected_3)
+        );
+    }
+}
