@@ -79,15 +79,109 @@ impl ProverEvaluate for DemoMockPlan {
 
 mod tests {
     use super::DemoMockPlan;
+    #[cfg(feature = "blitzar")]
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            OwnedTableTestAccessor,
         },
         sql::proof::VerifiableQueryResult,
     };
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_bigint, table},
+                ColumnField, ColumnRef, ColumnType, Table, TableRef,
+            },
+            map::{indexmap, indexset},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            FirstRoundBuilder, ProofPlan, ProverEvaluate,
+        },
+    };
+    use alloc::collections::VecDeque;
     #[cfg(feature = "blitzar")]
     use blitzar::proof::InnerProductProof;
+    use bumpalo::Bump;
+    use sqlparser::ast::Ident;
+
+    fn demo_plan() -> (DemoMockPlan, TableRef, ColumnRef) {
+        let table_ref = TableRef::new("namespace", "table_name");
+        let column_ref = ColumnRef::new(
+            table_ref.clone(),
+            Ident::new("column_name"),
+            ColumnType::BigInt,
+        );
+        (
+            DemoMockPlan {
+                column: column_ref.clone(),
+            },
+            table_ref,
+            column_ref,
+        )
+    }
+
+    #[test]
+    fn demo_mock_plan_reports_single_column_and_table_references() {
+        let (plan, table_ref, column_ref) = demo_plan();
+
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![ColumnField::new("column_name".into(), ColumnType::BigInt)]
+        );
+        assert_eq!(plan.get_column_references(), indexset! { column_ref });
+        assert_eq!(plan.get_table_references(), indexset! { table_ref });
+    }
+
+    #[test]
+    fn demo_mock_plan_prover_evaluations_return_source_table() {
+        let (plan, table_ref, _) = demo_plan();
+        let alloc = Bump::new();
+        let source_table: Table<'_, TestScalar> =
+            table([borrowed_bigint("column_name", [1_i64, 2, 3], &alloc)]);
+        let table_map = indexmap! { table_ref => source_table.clone() };
+        let mut first_round_builder = FirstRoundBuilder::<TestScalar>::new(source_table.num_rows());
+        let mut final_round_builder =
+            FinalRoundBuilder::<TestScalar>::new(source_table.num_rows(), VecDeque::new());
+
+        let first_round_result = plan
+            .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        let final_round_result = plan
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert_eq!(first_round_result, source_table);
+        assert_eq!(final_round_result, source_table);
+        assert!(first_round_builder.pcs_proof_mles().is_empty());
+        assert!(final_round_builder.pcs_proof_mles().is_empty());
+        assert!(final_round_builder.sumcheck_subpolynomials().is_empty());
+    }
+
+    #[test]
+    fn demo_mock_plan_verifier_evaluates_selected_column_and_chi() {
+        let (plan, table_ref, _) = demo_plan();
+        let column_id = Ident::new("column_name");
+        let column_eval = TestScalar::from(17);
+        let chi = (TestScalar::from(9), 3);
+        let accessor = indexmap! {
+            table_ref.clone() => indexmap! {
+                column_id => column_eval,
+            },
+        };
+        let chi_eval_map = indexmap! { table_ref => chi };
+        let mut builder =
+            MockVerificationBuilder::new(vec![], 0, vec![], vec![], vec![], vec![], vec![]);
+
+        let evaluation = plan
+            .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+            .unwrap();
+
+        assert_eq!(evaluation.column_evals(), &[column_eval]);
+        assert_eq!(evaluation.chi(), chi);
+    }
 
     #[test]
     #[cfg(feature = "blitzar")]
