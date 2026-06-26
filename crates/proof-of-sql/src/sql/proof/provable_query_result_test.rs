@@ -167,6 +167,22 @@ fn evaluation_fails_if_extra_data_is_included() {
 }
 
 #[test]
+fn evaluation_fails_if_the_column_field_count_is_invalid() {
+    let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[10, 12])];
+    let res = ProvableQueryResult::new(2, &cols);
+    let evaluation_point = [TestScalar::from(10u64), TestScalar::from(100u64)];
+    let column_fields = [
+        ColumnField::new("a".into(), ColumnType::BigInt),
+        ColumnField::new("b".into(), ColumnType::BigInt),
+    ];
+
+    assert!(matches!(
+        res.evaluate(&evaluation_point, 2, &column_fields),
+        Err(QueryError::InvalidColumnCount)
+    ));
+}
+
+#[test]
 fn evaluation_fails_if_the_result_cant_be_decoded() {
     let mut res = ProvableQueryResult::new_from_raw_data(1, 1, vec![0b1111_1111_u8; 38]);
     res.data_mut()[37] = 0b0000_0001_u8;
@@ -207,6 +223,21 @@ fn evaluation_fails_if_data_is_missing() {
     assert!(matches!(
         res.evaluate(&evaluation_point, 2, &column_fields[..]),
         Err(QueryError::Overflow)
+    ));
+}
+
+#[test]
+fn conversion_fails_if_the_column_field_count_is_invalid() {
+    let cols: [Column<TestScalar>; 1] = [Column::BigInt(&[10, 12])];
+    let res = ProvableQueryResult::new(2, &cols);
+    let column_fields = [
+        ColumnField::new("a".into(), ColumnType::BigInt),
+        ColumnField::new("b".into(), ColumnType::BigInt),
+    ];
+
+    assert!(matches!(
+        res.to_owned_table::<TestScalar>(&column_fields),
+        Err(QueryError::InvalidColumnCount)
     ));
 }
 
