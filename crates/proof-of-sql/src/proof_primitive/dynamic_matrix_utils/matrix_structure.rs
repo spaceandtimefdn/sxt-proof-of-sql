@@ -273,4 +273,18 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn we_can_round_trip_boundary_indexes_through_row_and_column() {
+        let indexes = [
+            0, 1, 2, 3, 4, 7, 8, 15, 16, 23, 24, 63, 64, 79, 80, 127, 128, 255,
+        ];
+
+        for index in indexes {
+            let (row, column) = row_and_column_from_index(index);
+
+            assert_eq!(index_from_row_and_column(row, column), Some(index));
+            assert!(column < full_width_of_row(row));
+        }
+    }
 }
