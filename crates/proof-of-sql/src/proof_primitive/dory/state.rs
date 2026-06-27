@@ -68,3 +68,31 @@ impl VerifierState {
         VerifierState { C, D_1, D_2, nu }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{rand_G_vecs, test_rng, ProverSetup, PublicParameters};
+    use super::*;
+    use ark_ec::pairing::Pairing;
+
+    #[test]
+    fn we_can_build_verifier_state_from_deferred_commitments() {
+        let mut rng = test_rng();
+        let max_nu = 4;
+        let nu = 3;
+        let pp = PublicParameters::test_rand(max_nu, &mut rng);
+        let prover_setup: ProverSetup = (&pp).into();
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+
+        let C = Pairing::multi_pairing(&v1, &v2);
+        let D_1 = Pairing::multi_pairing(&v1, prover_setup.Gamma_2[nu]);
+        let D_2 = Pairing::multi_pairing(prover_setup.Gamma_1[nu], &v2);
+
+        let verifier_state = VerifierState::new(C.into(), D_1.into(), D_2.into(), nu);
+
+        assert_eq!(verifier_state.C, C);
+        assert_eq!(verifier_state.D_1, D_1);
+        assert_eq!(verifier_state.D_2, D_2);
+        assert_eq!(verifier_state.nu, nu);
+    }
+}
