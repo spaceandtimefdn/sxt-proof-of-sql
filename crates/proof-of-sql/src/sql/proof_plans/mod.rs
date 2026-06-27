@@ -9,6 +9,8 @@ mod table_exec_test;
 
 mod projection_exec;
 pub(crate) use projection_exec::ProjectionExec;
+#[cfg(test)]
+mod projection_exec_no_blitzar_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod projection_exec_test;
 
