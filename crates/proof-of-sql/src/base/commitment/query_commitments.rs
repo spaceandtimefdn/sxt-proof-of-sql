@@ -122,18 +122,21 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        base::{
-            commitment::{naive_commitment::NaiveCommitment, Bounds, ColumnBounds},
-            database::{
-                owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor,
-                TestAccessor,
-            },
-            scalar::test_scalar::TestScalar,
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
         },
+        database::{
+            owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableTestAccessor, TestAccessor,
+        },
+        scalar::test_scalar::TestScalar,
+    };
+    #[cfg(feature = "blitzar")]
+    use crate::{
+        base::commitment::{Bounds, ColumnBounds},
         proof_primitive::dory::{
             test_rng, DoryCommitment, DoryEvaluationProof, DoryProverPublicSetup, ProverSetup,
             PublicParameters,
@@ -318,6 +321,76 @@ mod tests {
 
     #[expect(clippy::similar_names)]
     #[test]
+    fn we_can_get_query_commitments_from_naive_accessor() {
+        let column_a_id: Ident = "column_a".into();
+        let column_b_id: Ident = "column_b".into();
+        let column_c_id: Ident = "column_c".into();
+
+        let table_a_id = TableRef::new("table", "a");
+        let table_b_id = TableRef::new("table", "b");
+
+        let table_a = owned_table([
+            bigint(column_a_id.value.as_str(), [1, 2, 3]),
+            varchar(column_b_id.value.as_str(), ["Space", "and", "Time"]),
+            scalar(column_c_id.value.as_str(), [11, 22, 33]),
+        ]);
+        let table_b = owned_table([
+            scalar(column_a_id.value.as_str(), [5, 6]),
+            int128(column_c_id.value.as_str(), [100, 200]),
+        ]);
+
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(table_a_id.clone(), table_a, 7);
+        accessor.add_table(table_b_id.clone(), table_b, 2);
+
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_a_id.clone(), column_b_id.clone(), ColumnType::VarChar),
+                ColumnRef::new(table_b_id.clone(), column_c_id.clone(), ColumnType::Int128),
+                ColumnRef::new(table_a_id.clone(), column_a_id.clone(), ColumnType::BigInt),
+            ],
+            &accessor,
+        );
+
+        assert_eq!(query_commitments.len(), 2);
+        assert_eq!(query_commitments.get_offset(&table_a_id), 7);
+        assert_eq!(query_commitments.get_length(&table_a_id), 3);
+        assert_eq!(query_commitments.get_offset(&table_b_id), 2);
+        assert_eq!(query_commitments.get_length(&table_b_id), 2);
+
+        assert_eq!(
+            query_commitments.lookup_schema(&table_a_id),
+            vec![
+                (column_a_id.clone(), ColumnType::BigInt),
+                (column_b_id.clone(), ColumnType::VarChar),
+            ]
+        );
+        assert_eq!(
+            query_commitments.lookup_schema(&table_b_id),
+            vec![(column_c_id.clone(), ColumnType::Int128)]
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_a_id, &column_c_id),
+            None
+        );
+
+        assert_eq!(
+            query_commitments.get_commitment(&table_a_id, &column_a_id),
+            accessor.get_commitment(&table_a_id, &column_a_id)
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_a_id, &column_b_id),
+            accessor.get_commitment(&table_a_id, &column_b_id)
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_b_id, &column_c_id),
+            accessor.get_commitment(&table_b_id, &column_c_id)
+        );
+    }
+
+    #[expect(clippy::similar_names)]
+    #[test]
+    #[cfg(feature = "blitzar")]
     fn we_can_get_query_commitments_from_accessor() {
         let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
         let prover_setup = ProverSetup::from(&public_parameters);
