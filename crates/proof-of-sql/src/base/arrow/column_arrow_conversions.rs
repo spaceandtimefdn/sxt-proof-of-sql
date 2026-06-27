@@ -96,4 +96,31 @@ mod tests {
             prop_assert_eq!(actual, column_type);
         }
     }
+
+    #[test]
+    fn we_can_convert_timestamp_types_between_column_type_and_arrow() {
+        // The proptest above does not generate the `TimestampTZ` variant, so cover
+        // the timestamp conversion arms (in both directions) explicitly.
+        for (posql_unit, arrow_unit) in [
+            (PoSQLTimeUnit::Second, ArrowTimeUnit::Second),
+            (PoSQLTimeUnit::Millisecond, ArrowTimeUnit::Millisecond),
+            (PoSQLTimeUnit::Microsecond, ArrowTimeUnit::Microsecond),
+            (PoSQLTimeUnit::Nanosecond, ArrowTimeUnit::Nanosecond),
+        ] {
+            // ColumnType -> arrow DataType
+            let data_type =
+                DataType::from(&ColumnType::TimestampTZ(posql_unit, PoSQLTimeZone::utc()));
+            assert!(
+                matches!(&data_type, DataType::Timestamp(unit, Some(_)) if *unit == arrow_unit)
+            );
+            // arrow DataType -> ColumnType
+            let column_type = ColumnType::try_from(DataType::Timestamp(arrow_unit, None)).unwrap();
+            assert!(matches!(column_type, ColumnType::TimestampTZ(unit, _) if unit == posql_unit));
+        }
+    }
+
+    #[test]
+    fn we_cannot_convert_unsupported_arrow_data_type_to_column_type() {
+        assert!(ColumnType::try_from(DataType::Float32).is_err());
+    }
 }
