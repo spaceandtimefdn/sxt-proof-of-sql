@@ -864,4 +864,98 @@ mod test {
             OwnedColumn::<TestScalar>::Decimal75(Precision::new(13).unwrap(), 6, expected_scalars)
         );
     }
+
+    #[test]
+    fn we_can_do_arithmetic_with_decimal_lhs_and_integer_rhs() {
+        let lhs_scalars = [100, -250, 375].iter().map(TestScalar::from).collect();
+        let lhs = OwnedColumn::<TestScalar>::Decimal75(Precision::new(5).unwrap(), 2, lhs_scalars);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![2, -3, 4]);
+
+        let result = lhs.element_wise_add(&rhs).unwrap();
+        let expected_scalars = [300, -550, 775].iter().map(TestScalar::from).collect();
+        assert_eq!(
+            result,
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(6).unwrap(), 2, expected_scalars)
+        );
+
+        let result = lhs.element_wise_sub(&rhs).unwrap();
+        let expected_scalars = [-100, 50, -25].iter().map(TestScalar::from).collect();
+        assert_eq!(
+            result,
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(6).unwrap(), 2, expected_scalars)
+        );
+
+        let result = lhs.element_wise_mul(&rhs).unwrap();
+        let expected_scalars = [200, 750, 1500].iter().map(TestScalar::from).collect();
+        assert_eq!(
+            result,
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(9).unwrap(), 2, expected_scalars)
+        );
+
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![2, -5, 3]);
+        let result = lhs.element_wise_div(&rhs).unwrap();
+        let expected_scalars = [500_000, 500_000, 1_250_000]
+            .iter()
+            .map(TestScalar::from)
+            .collect();
+        assert_eq!(
+            result,
+            OwnedColumn::<TestScalar>::Decimal75(Precision::new(9).unwrap(), 6, expected_scalars)
+        );
+    }
+
+    #[test]
+    fn we_cannot_mix_uint8_with_signed_columns() {
+        let uint8_column = OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]);
+        let tinyint_column = OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3]);
+
+        assert!(matches!(
+            uint8_column.element_wise_add(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_add(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8_column.element_wise_sub(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_sub(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8_column.element_wise_mul(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_mul(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8_column.element_wise_div(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_div(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8_column.element_wise_eq(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_eq(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8_column.element_wise_lt(&tinyint_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint_column.element_wise_gt(&uint8_column),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
 }
