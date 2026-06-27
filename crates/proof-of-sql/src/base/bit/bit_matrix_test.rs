@@ -33,6 +33,24 @@ fn we_can_compute_the_bit_matrix_for_data_with_a_single_varying_bit() {
 }
 
 #[test]
+fn we_can_compute_the_bit_matrix_for_multiple_rows_and_varying_bits() {
+    let data: Vec<TestScalar> = vec![
+        TestScalar::zero(),
+        TestScalar::one(),
+        TestScalar::from(2),
+        TestScalar::from(3),
+    ];
+    let dist = BitDistribution::new::<TestScalar, _>(&data);
+    let alloc = Bump::new();
+    let matrix = compute_varying_bit_matrix(&alloc, &data, &dist);
+    assert_eq!(matrix.len(), 2);
+    let least_significant_bit = vec![false, true, false, true];
+    let second_least_significant_bit = vec![false, false, true, true];
+    assert_eq!(matrix[0], least_significant_bit);
+    assert_eq!(matrix[1], second_least_significant_bit);
+}
+
+#[test]
 fn we_can_compute_the_bit_matrix_for_data_with_a_varying_sign_bit() {
     let data: Vec<TestScalar> = vec![TestScalar::one(), -TestScalar::one()];
     let dist = BitDistribution::new::<TestScalar, _>(&data);
