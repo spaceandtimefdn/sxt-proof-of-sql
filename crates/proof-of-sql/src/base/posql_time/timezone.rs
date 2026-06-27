@@ -37,7 +37,8 @@ impl TryFrom<&Option<Arc<str>>> for PoSQLTimeZone {
                 match tz.as_str() {
                     "Z" | "UTC" | "00:00" | "+00:00" | "0:00" | "+0:00" => Ok(PoSQLTimeZone::utc()),
                     tz if tz.chars().count() == 6
-                        && (tz.starts_with('+') || tz.starts_with('-')) =>
+                        && (tz.starts_with('+') || tz.starts_with('-'))
+                        && tz.chars().nth(3) == Some(':') =>
                     {
                         let sign = if tz.starts_with('-') { -1 } else { 1 };
                         let hours = tz[1..3]
@@ -111,6 +112,14 @@ mod timezone_parsing_tests {
     }
 
     #[test]
+    fn we_can_parse_utc_time_zone_aliases() {
+        for timezone_as_str in ["Z", "z", "UTC", "utc", "00:00", "+00:00", "0:00", "+0:00"] {
+            let timezone = PoSQLTimeZone::try_from(&Some(timezone_as_str.into())).unwrap();
+            assert_eq!(timezone, PoSQLTimeZone::utc());
+        }
+    }
+
+    #[test]
     fn we_cannot_parse_invalid_time_zone() {
         let timezone_as_str: Option<Arc<str>> = Some("111111111".into());
         let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
@@ -118,5 +127,16 @@ mod timezone_parsing_tests {
             timezone_err,
             PoSQLTimestampError::InvalidTimezone { timezone: _ }
         ));
+    }
+
+    #[test]
+    fn we_cannot_parse_time_zone_offsets_without_colon_separator() {
+        for timezone_as_str in ["+0103", "-0103", "+01x03", "-01 03"] {
+            let timezone_err = PoSQLTimeZone::try_from(&Some(timezone_as_str.into())).unwrap_err();
+            assert!(matches!(
+                timezone_err,
+                PoSQLTimestampError::InvalidTimezone { timezone: _ }
+            ));
+        }
     }
 }
