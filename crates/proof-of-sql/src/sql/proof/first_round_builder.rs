@@ -139,3 +139,31 @@ impl<'a, S: Scalar> FirstRoundBuilder<'a, S> {
         self.num_post_result_challenges += cnt;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FirstRoundBuilder;
+    use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+
+    #[test]
+    fn we_can_track_range_and_evaluation_lengths() {
+        let mut builder = FirstRoundBuilder::<Curve25519Scalar>::new(4);
+
+        assert_eq!(builder.range_length(), 4);
+        assert!(builder.chi_evaluation_lengths().is_empty());
+        assert!(builder.rho_evaluation_lengths().is_empty());
+
+        builder.update_range_length(3);
+        assert_eq!(builder.range_length(), 4);
+
+        builder.produce_chi_evaluation_length(6);
+        builder.produce_chi_evaluation_length(5);
+        assert_eq!(builder.range_length(), 6);
+        assert_eq!(builder.chi_evaluation_lengths(), &[6, 5]);
+
+        builder.produce_rho_evaluation_length(9);
+        builder.produce_rho_evaluation_length(2);
+        assert_eq!(builder.range_length(), 6);
+        assert_eq!(builder.rho_evaluation_lengths(), &[9, 2]);
+    }
+}
