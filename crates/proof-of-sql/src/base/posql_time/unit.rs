@@ -69,6 +69,31 @@ mod time_unit_tests {
     }
 
     #[test]
+    fn we_can_convert_time_units_to_precision_values() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn we_can_display_time_units_with_precision_values() {
+        assert_eq!(PoSQLTimeUnit::Second.to_string(), "seconds (precision: 0)");
+        assert_eq!(
+            PoSQLTimeUnit::Millisecond.to_string(),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Microsecond.to_string(),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Nanosecond.to_string(),
+            "nanoseconds (precision: 9)"
+        );
+    }
+
+    #[test]
     fn test_invalid_precision() {
         let invalid_precisions = [
             "1", "2", "4", "5", "7", "8", "10", "zero", "three", "cat", "-1", "-2",
