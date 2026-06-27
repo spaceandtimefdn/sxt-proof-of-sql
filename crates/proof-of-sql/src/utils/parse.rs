@@ -92,4 +92,28 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn test_find_bigdecimals_ignores_non_create_table_statements() {
+        let sql = "CREATE VIEW ETHEREUM.BIG_DECIMALS AS SELECT 1 AS VALUE;";
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert!(bigdecimals.is_empty());
+    }
+
+    #[test]
+    fn test_find_bigdecimals_requires_precision_scale_and_precision_threshold() {
+        let sql = "CREATE TABLE IF NOT EXISTS ANALYTICS.AMOUNTS(
+            THRESHOLD DECIMAL(38, 2),
+            OVERSIZED DECIMAL(39, 2),
+            PRECISION_ONLY DECIMAL(80),
+            UNBOUNDED DECIMAL
+        );";
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(
+            bigdecimals.get("ANALYTICS.AMOUNTS").unwrap(),
+            &[("OVERSIZED".to_string(), 39, 2)]
+        );
+    }
 }
