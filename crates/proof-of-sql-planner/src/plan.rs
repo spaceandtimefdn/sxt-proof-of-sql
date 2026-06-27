@@ -1299,6 +1299,95 @@ mod tests {
     }
 
     #[test]
+    fn we_cannot_aggregate_if_aggregate_alias_is_missing() {
+        let group_expr = vec![df_column("table", "a")];
+        let aggr_expr = vec![SUM_B(), COUNT_1()];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                TABLE_SOURCE(),
+                Some(vec![0, 1, 2, 3]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let alias_map = indexmap! {
+            "table.a".to_string() => "a".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+        };
+
+        let result =
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_aggregate_with_non_aggregate_expression_after_group_alias_resolution() {
+        let group_expr = vec![df_column("table", "a")];
+        let aggr_expr = vec![Expr::BinaryExpr(BinaryExpr::new(
+            Box::new(df_column("table", "b")),
+            Operator::Plus,
+            Box::new(df_column("table", "b")),
+        ))];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                TABLE_SOURCE(),
+                Some(vec![0, 1, 2, 3]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let alias_map = indexmap! {
+            "table.a".to_string() => "a".to_string(),
+        };
+
+        let result =
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_aggregate_with_multiple_group_columns_after_alias_resolution() {
+        let group_expr = vec![df_column("table", "a"), df_column("table", "c")];
+        let aggr_expr = vec![SUM_B(), COUNT_1()];
+        let input_plan = LogicalPlan::TableScan(
+            TableScan::try_new(
+                "table",
+                TABLE_SOURCE(),
+                Some(vec![0, 1, 2, 3]),
+                vec![],
+                None,
+            )
+            .unwrap(),
+        );
+        let alias_map = indexmap! {
+            "table.a".to_string() => "a".to_string(),
+            "table.c".to_string() => "c".to_string(),
+            "SUM(table.b)".to_string() => "sum_b".to_string(),
+            "COUNT(Int64(1))".to_string() => "count_1".to_string(),
+        };
+
+        let result =
+            aggregate_to_proof_plan(&input_plan, &group_expr, &aggr_expr, &SCHEMAS(), &alias_map);
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
+    }
+
+    #[test]
     fn we_cannot_aggregate_with_non_sum_aggregate_function() {
         // Setup group expression
         let group_expr = vec![df_column("table", "a")];
@@ -2222,6 +2311,122 @@ mod tests {
         assert!(
             matches!(join_err, PlannerError::UnsupportedLogicalPlan { plan: logical_plan } if *logical_plan == plan )
         );
+    }
+
+    #[test]
+    fn we_can_convert_inner_join_plan_to_proof_plan() {
+        let left_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("left_value".into(), ColumnType::Int),
+        ]));
+        let right_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("right_value".into(), ColumnType::VarChar),
+        ]));
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_source, Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_source, Some(vec![0, 1]), vec![], None)
+                .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left),
+            right: Arc::new(right),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("left_value".into(), ColumnType::Int),
+            ],
+            TableRef::new("", "right_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("right_value".into(), ColumnType::VarChar),
+            ],
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &schemas).unwrap();
+
+        let expected_left = DynProofPlan::new_table(
+            TableRef::new("", "left_table"),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::Int),
+            ],
+        );
+        let expected_right = DynProofPlan::new_table(
+            TableRef::new("", "right_table"),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("right_value".into(), ColumnType::VarChar),
+            ],
+        );
+        let expected = DynProofPlan::SortMergeJoin(SortMergeJoinExec::new(
+            Box::new(expected_left),
+            Box::new(expected_right),
+            vec![0],
+            vec![0],
+            vec!["id".into(), "left_value".into(), "right_value".into()],
+        ));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_cannot_convert_inner_join_with_different_join_column_names() {
+        let left_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("id".into(), ColumnType::BigInt),
+            ColumnField::new("left_value".into(), ColumnType::Int),
+        ]));
+        let right_source = Arc::new(PoSqlTableSource::new(vec![
+            ColumnField::new("right_id".into(), ColumnType::BigInt),
+            ColumnField::new("right_value".into(), ColumnType::VarChar),
+        ]));
+        let left = LogicalPlan::TableScan(
+            TableScan::try_new("left_table", left_source, Some(vec![0, 1]), vec![], None).unwrap(),
+        );
+        let right = LogicalPlan::TableScan(
+            TableScan::try_new("right_table", right_source, Some(vec![0, 1]), vec![], None)
+                .unwrap(),
+        );
+        let plan = LogicalPlan::Join(Join {
+            left: Arc::new(left),
+            right: Arc::new(right),
+            on: vec![(
+                df_column("left_table", "id"),
+                df_column("right_table", "right_id"),
+            )],
+            filter: None,
+            join_type: JoinType::Inner,
+            join_constraint: JoinConstraint::On,
+            schema: Arc::new(DFSchema::empty()),
+            null_equals_null: false,
+        });
+        let schemas = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
+            TableRef::new("", "left_table") => vec![
+                ("id".into(), ColumnType::BigInt),
+                ("left_value".into(), ColumnType::Int),
+            ],
+            TableRef::new("", "right_table") => vec![
+                ("right_id".into(), ColumnType::BigInt),
+                ("right_value".into(), ColumnType::VarChar),
+            ],
+        });
+
+        let result = logical_plan_to_proof_plan(&plan, &schemas);
+
+        assert!(matches!(
+            result,
+            Err(PlannerError::UnsupportedLogicalPlan { .. })
+        ));
     }
 
     // Filter (LogicalPlan::Filter) tests - Happy paths
