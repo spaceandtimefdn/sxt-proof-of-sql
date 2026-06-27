@@ -60,3 +60,34 @@ impl OffsetToBytes<32> for [u64; 4] {
         bytemuck::cast(*self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::OffsetToBytes;
+
+    #[test]
+    fn we_offset_signed_integers_before_serializing() {
+        assert_eq!(i8::MIN.offset_to_bytes(), [0]);
+        assert_eq!(0_i8.offset_to_bytes(), [128]);
+        assert_eq!(i8::MAX.offset_to_bytes(), [255]);
+
+        assert_eq!(i16::MIN.offset_to_bytes(), 0_u16.to_le_bytes());
+        assert_eq!(0_i16.offset_to_bytes(), 32768_u16.to_le_bytes());
+        assert_eq!(i16::MAX.offset_to_bytes(), u16::MAX.to_le_bytes());
+    }
+
+    #[test]
+    fn we_serialize_unsigned_bool_and_limb_arrays_without_offsets() {
+        assert_eq!(false.offset_to_bytes(), [0]);
+        assert_eq!(true.offset_to_bytes(), [1]);
+        assert_eq!(7_u8.offset_to_bytes(), [7]);
+        assert_eq!(11_u64.offset_to_bytes(), 11_u64.to_le_bytes());
+
+        let limbs = [1_u64, 2, 3, 4];
+        let mut expected = [0_u8; 32];
+        for (index, limb) in limbs.iter().enumerate() {
+            expected[index * 8..(index + 1) * 8].copy_from_slice(&limb.to_le_bytes());
+        }
+        assert_eq!(limbs.offset_to_bytes(), expected);
+    }
+}
