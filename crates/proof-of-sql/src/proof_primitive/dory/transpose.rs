@@ -108,6 +108,32 @@ mod tests {
     }
 
     #[test]
+    fn we_can_transpose_u64_column_with_trailing_padding() {
+        type T = u64;
+        let column: Vec<T> = vec![1, 2, 3, 4];
+        let offset = 0;
+        let rows = 2;
+        let cols = 3;
+        let data_size = mem::size_of::<T>();
+
+        let transpose = transpose_for_fixed_msm(&column, offset, rows, cols, data_size);
+
+        assert_eq!(transpose.len(), data_size * rows * cols);
+        assert_eq!(&transpose[0..data_size], column[0].as_bytes());
+        assert_eq!(&transpose[data_size..2 * data_size], column[3].as_bytes());
+        assert_eq!(
+            &transpose[2 * data_size..3 * data_size],
+            column[1].as_bytes()
+        );
+        assert_eq!(&transpose[3 * data_size..4 * data_size], 0_u64.as_bytes());
+        assert_eq!(
+            &transpose[4 * data_size..5 * data_size],
+            column[2].as_bytes()
+        );
+        assert_eq!(&transpose[5 * data_size..6 * data_size], 0_u64.as_bytes());
+    }
+
+    #[test]
     fn we_can_transpose_boolean_column_with_offset() {
         type T = bool;
         let column: Vec<T> = vec![true, false, true];
