@@ -302,17 +302,21 @@ impl<'a, S: Scalar> Column<'a, S> {
     ///
     /// Note that if index is out of bounds, this function will return None
     pub(crate) fn scalar_at(&self, index: usize) -> Option<S> {
-        (index < self.len()).then_some(match self {
-            Self::Boolean(col) => S::from(col[index]),
-            Self::Uint8(col) => S::from(col[index]),
-            Self::TinyInt(col) => S::from(col[index]),
-            Self::SmallInt(col) => S::from(col[index]),
-            Self::Int(col) => S::from(col[index]),
-            Self::BigInt(col) | Self::TimestampTZ(_, _, col) => S::from(col[index]),
-            Self::Int128(col) => S::from(col[index]),
-            Self::Scalar(col) | Self::Decimal75(_, _, col) => col[index],
-            Self::VarChar((_, scals)) | Self::VarBinary((_, scals)) => scals[index],
-        })
+        if index < self.len() {
+            Some(match self {
+                Self::Boolean(col) => S::from(col[index]),
+                Self::Uint8(col) => S::from(col[index]),
+                Self::TinyInt(col) => S::from(col[index]),
+                Self::SmallInt(col) => S::from(col[index]),
+                Self::Int(col) => S::from(col[index]),
+                Self::BigInt(col) | Self::TimestampTZ(_, _, col) => S::from(col[index]),
+                Self::Int128(col) => S::from(col[index]),
+                Self::Scalar(col) | Self::Decimal75(_, _, col) => col[index],
+                Self::VarChar((_, scals)) | Self::VarBinary((_, scals)) => scals[index],
+            })
+        } else {
+            None
+        }
     }
 
     /// Convert a column to a vector of Scalar values
@@ -577,5 +581,47 @@ mod tests {
 
         let round_trip_owned: OwnedColumn<TestScalar> = (&column).into();
         assert_eq!(owned_varbinary, round_trip_owned);
+    }
+
+    #[test]
+    fn we_can_use_column_accessors_and_scalar_at_for_supported_types() {
+        let decimal_scalars = [TestScalar::from(7), TestScalar::from(11)];
+        let decimal_column = Column::Decimal75(Precision::new(12).unwrap(), 3, &decimal_scalars);
+        assert_eq!(
+            decimal_column.as_decimal75(),
+            Some(decimal_scalars.as_slice())
+        );
+        assert_eq!(decimal_column.scalar_at(1), Some(TestScalar::from(11)));
+        assert_eq!(decimal_column.scalar_at(2), None);
+
+        let scalar_values = [TestScalar::from(13), TestScalar::from(17)];
+        let scalar_column = Column::Scalar(&scalar_values);
+        assert_eq!(scalar_column.as_scalar(), Some(scalar_values.as_slice()));
+        assert_eq!(scalar_column.scalar_at(0), Some(TestScalar::from(13)));
+
+        let timestamps = [42_i64, 84];
+        let timestamp_column = Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::new(0),
+            &timestamps,
+        );
+        assert_eq!(
+            timestamp_column.as_timestamptz(),
+            Some(timestamps.as_slice())
+        );
+        assert_eq!(timestamp_column.scalar_at(1), Some(TestScalar::from(84)));
+
+        let bytes: &[&[u8]] = &[b"a", b"bc"];
+        let byte_scalars = [
+            TestScalar::from_byte_slice_via_hash(b"a"),
+            TestScalar::from_byte_slice_via_hash(b"bc"),
+        ];
+        let varbinary_column = Column::VarBinary((bytes, &byte_scalars));
+        assert_eq!(
+            varbinary_column.as_varbinary(),
+            Some((bytes, byte_scalars.as_slice()))
+        );
+        assert_eq!(varbinary_column.scalar_at(0), Some(byte_scalars[0]));
+        assert_eq!(varbinary_column.as_varchar(), None);
     }
 }
