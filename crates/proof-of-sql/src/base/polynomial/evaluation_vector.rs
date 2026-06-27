@@ -67,3 +67,17 @@ where
 
     log::log_memory_usage("End");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_evaluation_vector;
+
+    #[test]
+    fn truncated_evaluation_vector_scales_unpaired_left_values() {
+        let mut evaluation = [0_i64; 3];
+
+        compute_evaluation_vector(&mut evaluation, &[2, 3]);
+
+        assert_eq!(evaluation, [2, -4, -3]);
+    }
+}
