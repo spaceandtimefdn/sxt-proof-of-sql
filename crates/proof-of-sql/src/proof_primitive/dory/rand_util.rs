@@ -142,3 +142,28 @@ fn we_can_create_different_rand_F_vecs_from_different_seeds() {
         assert_ne!(s2, s2_2);
     }
 }
+
+#[test]
+fn we_can_create_rand_F_tensors() {
+    let mut rng = test_rng();
+    for nu in 0..5 {
+        let (s1, s2) = rand_F_tensors(nu, &mut rng);
+        assert_eq!(s1.len(), nu);
+        assert_eq!(s2.len(), nu);
+        if nu > 0 {
+            assert_ne!(s1, s2);
+        }
+    }
+}
+
+#[test]
+fn we_can_create_the_same_rand_F_tensors_from_the_same_seed() {
+    let mut rng = test_seed_rng([1; 32]);
+    let mut rng_2 = test_seed_rng([1; 32]);
+    for nu in 0..5 {
+        let (s1, s2) = rand_F_tensors(nu, &mut rng);
+        let (s1_2, s2_2) = rand_F_tensors(nu, &mut rng_2);
+        assert_eq!(s1, s1_2);
+        assert_eq!(s2, s2_2);
+    }
+}
