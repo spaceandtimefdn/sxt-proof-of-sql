@@ -30,8 +30,9 @@ type E = Bn256EngineKZG;
 ///
 /// This function returns an error if the arguments are invalid.
 fn parse_args(args: &[String]) -> Result<(&str, &str, usize), String> {
+    let program = args.first().map_or("program", String::as_str);
     if args.len() < 4 {
-        return Err(format!("Usage: {} <ptau_path> <binary_path> <n>", args[0]));
+        return Err(format!("Usage: {program} <ptau_path> <binary_path> <n>"));
     }
 
     let ptau_path = &args[1];
@@ -228,6 +229,18 @@ mod tests {
 
         // Clean up
         fs::remove_file(file_name).unwrap();
+    }
+
+    #[test]
+    fn we_can_parse_args_with_no_args() {
+        let args = Vec::new();
+        let result = parse_args(&args);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Usage: program <ptau_path> <binary_path> <n>"
+        );
     }
 
     /// # Panics
