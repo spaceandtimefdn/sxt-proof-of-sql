@@ -6,11 +6,15 @@ use crate::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
+        map::{indexmap, IndexSet},
         proof::{PlaceholderError, ProofError},
+        scalar::test_scalar::TestScalar,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{QueryError, VerifiableQueryResult},
+        proof::{
+            mock_verification_builder::MockVerificationBuilder, QueryError, VerifiableQueryResult,
+        },
         proof_exprs::test_utility::*,
         proof_plans::test_utility::*,
     },
@@ -176,6 +180,35 @@ fn we_can_compute_the_correct_output_of_a_placeholder_expr_using_first_round_eva
         .unwrap();
     let expected_res = Column::BigInt(&[504, 504, 504, 504]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_placeholder_expr_directly() {
+    let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+    let mut verifier = MockVerificationBuilder::<TestScalar>::new(
+        Vec::new(),
+        1,
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    let accessor = indexmap! {};
+    let chi_eval = TestScalar::from(7);
+    let res = placeholder_expr
+        .verifier_evaluate(
+            &mut verifier,
+            &accessor,
+            chi_eval,
+            &[LiteralValue::BigInt(6)],
+        )
+        .unwrap();
+    assert_eq!(res, TestScalar::from(42));
+
+    let mut columns = IndexSet::default();
+    placeholder_expr.get_column_references(&mut columns);
+    assert!(columns.is_empty());
 }
 
 #[test]
