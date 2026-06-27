@@ -2,13 +2,18 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
-            TableRef, TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
+            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor, TestAccessor,
         },
+        map::indexmap,
+        polynomial::MultilinearExtension,
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::{or_expr::OrExpr, test_utility::*, DynProofExpr, ProofExpr},
+        proof::{
+            exercise_verification, mock_verification_builder::run_verify_for_each_row,
+            FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
+        },
+        proof_exprs::{or_expr::OrExpr, test_utility::*, ColumnExpr, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
     },
@@ -20,6 +25,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+use sqlparser::ast::Ident;
+use std::collections::VecDeque;
 
 #[test]
 fn we_can_prove_a_simple_or_query() {
@@ -235,6 +242,58 @@ fn we_can_compute_the_correct_output_of_an_or_expr_using_first_round_evaluate() 
     let res = and_expr.first_round_evaluate(&alloc, &data, &[]).unwrap();
     let expected_res = Column::Boolean(&[false, true, true, true]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_simple_or_proof() {
+    let alloc = Bump::new();
+    let t: TableRef = "sxt.t".parse().unwrap();
+    let lhs = &[true, true, false, false];
+    let rhs = &[true, false, true, false];
+    let table = Table::try_new(indexmap! {
+        "a".into() => Column::Boolean::<TestScalar>(lhs),
+        "b".into() => Column::Boolean::<TestScalar>(rhs),
+    })
+    .unwrap();
+    let a = ColumnRef::new(t.clone(), Ident::from("a"), ColumnType::Boolean);
+    let b = ColumnRef::new(t, Ident::from("b"), ColumnType::Boolean);
+    let or_expr = OrExpr::try_new(
+        Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone()))),
+        Box::new(DynProofExpr::Column(ColumnExpr::new(b.clone()))),
+    )
+    .unwrap();
+
+    let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(4);
+    let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+        FinalRoundBuilder::new(4, VecDeque::new());
+
+    or_expr
+        .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+        .unwrap();
+
+    let verification_builder = run_verify_for_each_row(
+        4,
+        &first_round_builder,
+        &final_round_builder,
+        Vec::new(),
+        3,
+        |verification_builder, _chi_eval, evaluation_point| {
+            let lhs_eval = lhs.inner_product(evaluation_point);
+            let rhs_eval = rhs.inner_product(evaluation_point);
+            let accessor = indexmap! {
+                a.clone().column_id() => lhs_eval,
+                b.clone().column_id() => rhs_eval,
+            };
+            let res = or_expr
+                .verifier_evaluate(verification_builder, &accessor, TestScalar::ONE, &[])
+                .unwrap();
+            assert_eq!(res, lhs_eval + rhs_eval - lhs_eval * rhs_eval);
+        },
+    );
+    assert_eq!(
+        verification_builder.get_identity_results(),
+        vec![vec![true]; 4]
+    );
 }
 
 #[test]
