@@ -1,6 +1,7 @@
 use crate::base::{
-    database::{table_utility::*, Column, Table, TableError, TableOptions},
+    database::{table_utility::*, Column, ColumnType, Table, TableError, TableOptions},
     map::{indexmap, IndexMap},
+    math::decimal::Precision,
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
@@ -192,6 +193,65 @@ fn we_can_create_a_table_with_data() {
     expected_table.insert(Ident::new("boolean"), Column::Boolean(boolean_data));
 
     assert_eq!(borrowed_table.into_inner(), expected_table);
+}
+
+#[test]
+fn we_can_create_a_table_with_all_borrowed_column_helpers() {
+    let alloc = Bump::new();
+
+    let table = table_with_row_count::<TestScalar>(
+        [
+            borrowed_uint8("uint8", [1_u8, 2], &alloc),
+            borrowed_tinyint("tinyint", [-1_i8, 2], &alloc),
+            borrowed_smallint("smallint", [-3_i16, 4], &alloc),
+            borrowed_int("int", [-5_i32, 6], &alloc),
+            borrowed_decimal75("decimal75", 12, -2, [7, 8], &alloc),
+        ],
+        2,
+    );
+
+    assert_eq!(table.num_columns(), 5);
+    assert_eq!(table.num_rows(), 2);
+    assert!(!table.is_empty());
+
+    let column_names = table
+        .column_names()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        column_names,
+        ["uint8", "tinyint", "smallint", "int", "decimal75"]
+    );
+
+    let column_types = table.columns().map(Column::column_type).collect::<Vec<_>>();
+    assert_eq!(
+        column_types,
+        [
+            ColumnType::Uint8,
+            ColumnType::TinyInt,
+            ColumnType::SmallInt,
+            ColumnType::Int,
+            ColumnType::Decimal75(Precision::new(12).unwrap(), -2),
+        ]
+    );
+
+    let expected_decimal = [TestScalar::from(7), TestScalar::from(8)];
+    assert_eq!(
+        table["decimal75"],
+        Column::Decimal75(Precision::new(12).unwrap(), -2, &expected_decimal)
+    );
+
+    let schema = table.schema();
+    assert_eq!(schema[0].name(), Ident::new("uint8"));
+    assert_eq!(schema[0].data_type(), ColumnType::Uint8);
+    assert_eq!(
+        schema[4].data_type(),
+        ColumnType::Decimal75(Precision::new(12).unwrap(), -2)
+    );
+
+    let table_with_rho = table.clone().add_rho_column(&alloc);
+    assert_eq!(table_with_rho.num_columns(), 6);
+    assert_eq!(table_with_rho.column(5), Some(&Column::Int128(&[0, 1])));
 }
 
 #[test]
