@@ -8,6 +8,15 @@ fn test_slice_map_to_vec() {
     assert_eq!(a, b);
 }
 
+#[test]
+fn test_slice_cast_empty_slice() {
+    let a: Vec<u32> = vec![];
+    let b: Vec<u64> = slice_cast_with(&a, |&x| u64::from(x));
+    let c: Vec<TestScalar> = slice_cast(&a);
+    assert!(b.is_empty());
+    assert!(c.is_empty());
+}
+
 /// random test for [`slice_cast_with`]
 #[test]
 fn test_slice_cast_with_random() {
@@ -48,6 +57,17 @@ fn test_slice_cast_mut() {
     let mut b: Vec<u64> = vec![0, 0, 0, 0];
     slice_cast_mut_with(&a, &mut b, |&x| u64::from(x));
     assert_eq!(b, slice_cast_with(&a, |&x| u64::from(x)));
+}
+
+#[test]
+fn test_slice_cast_mut_empty_slice() {
+    let a: Vec<u32> = vec![];
+    let mut b: Vec<u64> = vec![];
+    let mut c: Vec<TestScalar> = vec![];
+    slice_cast_mut_with(&a, &mut b, |&x| u64::from(x));
+    slice_cast_mut(&a, &mut c);
+    assert!(b.is_empty());
+    assert!(c.is_empty());
 }
 
 /// random test for [`slice_cast_mut_with`]
