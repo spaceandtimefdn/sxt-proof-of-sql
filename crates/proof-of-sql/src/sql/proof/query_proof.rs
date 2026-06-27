@@ -553,3 +553,54 @@ impl<CP: CommitmentEvaluationProof> QueryProof<CP> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::get_index_range;
+    use crate::base::{
+        database::{MetadataAccessor, TableRef},
+        map::{indexmap, IndexMap},
+    };
+
+    struct RangeAccessor {
+        spans: IndexMap<TableRef, (usize, usize)>,
+    }
+
+    impl MetadataAccessor for RangeAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            self.spans[table_ref].0
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            self.spans[table_ref].1
+        }
+    }
+
+    #[test]
+    fn index_range_covers_all_referenced_table_spans() {
+        let first = TableRef::new("s", "first");
+        let second = TableRef::new("s", "second");
+        let third = TableRef::new("s", "third");
+        let accessor = RangeAccessor {
+            spans: indexmap! {
+                first.clone() => (3, 10),
+                second.clone() => (8, 4),
+                third.clone() => (2, 20),
+            },
+        };
+
+        assert_eq!(
+            get_index_range(&accessor, [&first, &second, &third]),
+            (4, 22)
+        );
+    }
+
+    #[test]
+    fn index_range_defaults_to_single_row_for_empty_inputs() {
+        let accessor = RangeAccessor {
+            spans: IndexMap::default(),
+        };
+
+        assert_eq!(get_index_range(&accessor, core::iter::empty()), (0, 1));
+    }
+}
