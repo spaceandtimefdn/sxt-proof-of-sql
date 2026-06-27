@@ -69,3 +69,28 @@ fn test_composite_polynomial_hypercube_sum() {
         TestScalar::from(3 * ((-7) * 2 + 2 * (-8) + (-6) * 4 + 17 * 1) + 2 * (1 + 3 + (-5) + (-9)))
     );
 }
+
+#[test]
+fn add_product_reuses_indices_for_shared_multilinear_extensions() {
+    let shared = Rc::new(vec![
+        TestScalar::from(1u32),
+        TestScalar::from(2u32),
+        TestScalar::from(3u32),
+        TestScalar::from(4u32),
+    ]);
+    let other = Rc::new(vec![
+        TestScalar::from(10u32),
+        TestScalar::from(20u32),
+        TestScalar::from(30u32),
+        TestScalar::from(40u32),
+    ]);
+
+    let mut prod = CompositePolynomial::new(2);
+    prod.add_product([shared.clone(), other], TestScalar::from(5u32));
+    prod.add_product([shared.clone(), shared], TestScalar::from(7u32));
+
+    assert_eq!(prod.max_multiplicands, 2);
+    assert_eq!(prod.flattened_ml_extensions.len(), 2);
+    assert_eq!(prod.products[0].1, [0, 1]);
+    assert_eq!(prod.products[1].1, [0, 0]);
+}
