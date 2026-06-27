@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -117,4 +118,62 @@ fn we_can_filter_columns_with_varbinary() {
             Column::BigInt(&[10, 30, 40]),
         ]
     );
+}
+
+#[test]
+fn we_can_filter_primitive_and_timestamp_columns() {
+    let selection = vec![false, true, true, false, true];
+    let columns = vec![
+        Column::<TestScalar>::Boolean(&[true, false, true, false, true]),
+        Column::Uint8(&[1, 2, 3, 4, 5]),
+        Column::TinyInt(&[-1, -2, -3, -4, -5]),
+        Column::SmallInt(&[10, 20, 30, 40, 50]),
+        Column::Int(&[100, 200, 300, 400, 500]),
+        Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &[1_000, 2_000, 3_000, 4_000, 5_000],
+        ),
+    ];
+    let alloc = Bump::new();
+
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+
+    assert_eq!(len, 3);
+    assert_eq!(
+        result,
+        vec![
+            Column::Boolean(&[false, true, true]),
+            Column::Uint8(&[2, 3, 5]),
+            Column::TinyInt(&[-2, -3, -5]),
+            Column::SmallInt(&[20, 30, 50]),
+            Column::Int(&[200, 300, 500]),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &[2_000, 3_000, 5_000],
+            ),
+        ]
+    );
+}
+
+#[test]
+fn we_can_filter_column_by_reordered_and_repeated_indexes() {
+    let alloc = Bump::new();
+    let column = Column::<TestScalar>::SmallInt(&[10, 20, 30, 40]);
+    let indexes = [3, 1, 3, 0];
+
+    let result = filter_column_by_index(&alloc, &column, &indexes);
+
+    assert_eq!(result, Column::SmallInt(&[40, 20, 40, 10]));
+}
+
+#[test]
+#[should_panic]
+fn we_cannot_filter_columns_with_mismatched_selection_length() {
+    let alloc = Bump::new();
+    let columns = vec![Column::<TestScalar>::Int(&[1, 2, 3])];
+    let selection = [true, false];
+
+    let _ = filter_columns(&alloc, &columns, &selection);
 }
