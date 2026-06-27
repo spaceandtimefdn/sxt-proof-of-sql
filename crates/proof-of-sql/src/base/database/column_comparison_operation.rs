@@ -414,3 +414,141 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn bigint_col(vals: Vec<i64>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::BigInt(vals)
+    }
+
+    fn int_col(vals: Vec<i32>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Int(vals)
+    }
+
+    fn boolean_col(vals: Vec<bool>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Boolean(vals)
+    }
+
+    fn varchar_col(vals: Vec<&str>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::VarChar(vals.into_iter().map(String::from).collect())
+    }
+
+    // --- EqualOp tests ---
+
+    #[test]
+    fn equal_bigint_same() {
+        let lhs = bigint_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, true, true]));
+    }
+
+    #[test]
+    fn equal_bigint_different() {
+        let lhs = bigint_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![1, 5, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, false, true]));
+    }
+
+    #[test]
+    fn equal_varchar() {
+        let lhs = varchar_col(vec!["abc", "def", "ghi"]);
+        let rhs = varchar_col(vec!["abc", "xyz", "ghi"]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, false, true]));
+    }
+
+    #[test]
+    fn equal_boolean() {
+        let lhs = boolean_col(vec![true, false, true]);
+        let rhs = boolean_col(vec![true, true, false]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, false, false]));
+    }
+
+    #[test]
+    fn equal_int_upcast_to_bigint() {
+        let lhs = int_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![1, 2, 4]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, true, false]));
+    }
+
+    // --- GreaterThanOp tests ---
+
+    #[test]
+    fn greater_than_bigint() {
+        let lhs = bigint_col(vec![5, 1, 3]);
+        let rhs = bigint_col(vec![3, 2, 3]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, false, false]));
+    }
+
+    #[test]
+    fn greater_than_varchar_errors() {
+        let lhs = varchar_col(vec!["a"]);
+        let rhs = varchar_col(vec!["b"]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+
+    // --- LessThanOp tests ---
+
+    #[test]
+    fn less_than_bigint() {
+        let lhs = bigint_col(vec![1, 5, 3]);
+        let rhs = bigint_col(vec![3, 2, 3]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![true, false, false]));
+    }
+
+    #[test]
+    fn less_than_varchar_errors() {
+        let lhs = varchar_col(vec!["a"]);
+        let rhs = varchar_col(vec!["b"]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+    }
+
+    // --- Error cases ---
+
+    #[test]
+    fn different_length_errors() {
+        let lhs = bigint_col(vec![1, 2]);
+        let rhs = bigint_col(vec![1]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn signed_casting_error_uint8_tinyint() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![1u8]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![1i8]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn signed_casting_error_tinyint_uint8() {
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![1i8]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1u8]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn incompatible_types_boolean_bigint() {
+        let lhs = boolean_col(vec![true]);
+        let rhs = bigint_col(vec![1]);
+        assert!(EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn equal_empty_columns() {
+        let lhs = bigint_col(vec![]);
+        let rhs = bigint_col(vec![]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        assert_eq!(result, boolean_col(vec![]));
+    }
+}

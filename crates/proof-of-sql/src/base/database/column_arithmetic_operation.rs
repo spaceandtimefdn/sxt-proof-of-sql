@@ -323,3 +323,254 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn bigint_col(vals: Vec<i64>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::BigInt(vals)
+    }
+
+    fn int_col(vals: Vec<i32>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Int(vals)
+    }
+
+    fn tinyint_col(vals: Vec<i8>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::TinyInt(vals)
+    }
+
+    fn smallint_col(vals: Vec<i16>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::SmallInt(vals)
+    }
+
+    fn int128_col(vals: Vec<i128>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Int128(vals)
+    }
+
+    fn uint8_col(vals: Vec<u8>) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Uint8(vals)
+    }
+
+    // --- AddOp tests ---
+
+    #[test]
+    fn add_bigint() {
+        let lhs = bigint_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_int() {
+        let lhs = int_col(vec![1, 2, 3]);
+        let rhs = int_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_tinyint() {
+        let lhs = tinyint_col(vec![1, 2, 3]);
+        let rhs = tinyint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, tinyint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_uint8() {
+        let lhs = uint8_col(vec![1, 2, 3]);
+        let rhs = uint8_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, uint8_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_int128() {
+        let lhs = int128_col(vec![1, 2, 3]);
+        let rhs = int128_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int128_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_smallint() {
+        let lhs = smallint_col(vec![1, 2, 3]);
+        let rhs = smallint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, smallint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_int_to_bigint() {
+        let lhs = int_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_tinyint_to_bigint() {
+        let lhs = tinyint_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_smallint_to_int() {
+        let lhs = smallint_col(vec![1, 2, 3]);
+        let rhs = int_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_uint8_to_smallint() {
+        let lhs = uint8_col(vec![1, 2, 3]);
+        let rhs = smallint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, smallint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_uint8_to_int() {
+        let lhs = uint8_col(vec![1, 2, 3]);
+        let rhs = int_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn add_upcast_uint8_to_int128() {
+        let lhs = uint8_col(vec![1, 2, 3]);
+        let rhs = int128_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int128_col(vec![11, 22, 33]));
+    }
+
+    // --- SubOp tests ---
+
+    #[test]
+    fn sub_bigint() {
+        let lhs = bigint_col(vec![10, 20, 30]);
+        let rhs = bigint_col(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![9, 18, 27]));
+    }
+
+    #[test]
+    fn sub_int() {
+        let lhs = int_col(vec![10, 20, 30]);
+        let rhs = int_col(vec![1, 2, 3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![9, 18, 27]));
+    }
+
+    // --- MulOp tests ---
+
+    #[test]
+    fn mul_bigint() {
+        let lhs = bigint_col(vec![2, 3, 4]);
+        let rhs = bigint_col(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![10, 18, 28]));
+    }
+
+    #[test]
+    fn mul_int() {
+        let lhs = int_col(vec![2, 3, 4]);
+        let rhs = int_col(vec![5, 6, 7]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![10, 18, 28]));
+    }
+
+    // --- DivOp tests ---
+
+    #[test]
+    fn div_bigint() {
+        let lhs = bigint_col(vec![10, 20, 30]);
+        let rhs = bigint_col(vec![2, 5, 3]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![5, 4, 10]));
+    }
+
+    #[test]
+    fn div_by_zero_errors() {
+        let lhs = bigint_col(vec![10]);
+        let rhs = bigint_col(vec![0]);
+        assert!(DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+
+    // --- Error cases ---
+
+    #[test]
+    fn different_length_errors() {
+        let lhs = bigint_col(vec![1, 2]);
+        let rhs = bigint_col(vec![1]);
+        assert!(AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn signed_casting_error_uint8_tinyint() {
+        let lhs = uint8_col(vec![1]);
+        let rhs = tinyint_col(vec![1]);
+        assert!(AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn signed_casting_error_tinyint_uint8() {
+        let lhs = tinyint_col(vec![1]);
+        let rhs = uint8_col(vec![1]);
+        assert!(AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn incompatible_types_boolean_bigint() {
+        let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true]);
+        let rhs = bigint_col(vec![1]);
+        assert!(AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).is_err());
+    }
+
+    #[test]
+    fn add_empty_columns() {
+        let lhs = bigint_col(vec![]);
+        let rhs = bigint_col(vec![]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![]));
+    }
+
+    #[test]
+    fn right_upcast_bigint_to_int128() {
+        let lhs = int128_col(vec![1, 2, 3]);
+        let rhs = bigint_col(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int128_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn right_upcast_tinyint_to_smallint() {
+        let lhs = smallint_col(vec![10, 20, 30]);
+        let rhs = tinyint_col(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, smallint_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn right_upcast_tinyint_to_int() {
+        let lhs = int_col(vec![10, 20, 30]);
+        let rhs = tinyint_col(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, int_col(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn right_upcast_smallint_to_bigint() {
+        let lhs = bigint_col(vec![10, 20, 30]);
+        let rhs = smallint_col(vec![1, 2, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, bigint_col(vec![11, 22, 33]));
+    }
+}
