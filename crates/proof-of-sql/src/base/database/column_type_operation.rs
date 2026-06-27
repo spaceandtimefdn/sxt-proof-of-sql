@@ -1378,6 +1378,83 @@ mod test {
     }
 
     #[test]
+    fn we_can_scale_cast_timestamps_to_equal_or_finer_units() {
+        let utc = PoSQLTimeZone::new(0);
+        let second = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, utc);
+        let millisecond = ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, utc);
+        let microsecond = ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, utc);
+
+        try_scale_cast_types(second, second).unwrap();
+        try_scale_cast_types(second, millisecond).unwrap();
+        try_scale_cast_types(second, microsecond).unwrap();
+        try_scale_cast_types(millisecond, microsecond).unwrap();
+
+        assert!(matches!(
+            try_scale_cast_types(millisecond, second),
+            Err(ColumnOperationError::ScaleCastingError { .. })
+        ));
+        assert!(matches!(
+            try_scale_cast_types(microsecond, millisecond),
+            Err(ColumnOperationError::ScaleCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_compare_timestamp_types_when_units_match() {
+        let utc = PoSQLTimeZone::new(0);
+        let east = PoSQLTimeZone::new(60);
+        let second_utc = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, utc);
+        let second_east = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, east);
+        let millisecond_utc = ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, utc);
+
+        try_equals_types(second_utc, second_east).unwrap();
+        try_inequality_types(second_utc, second_east).unwrap();
+
+        assert!(matches!(
+            try_equals_types(second_utc, millisecond_utc),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
+            try_inequality_types(second_utc, millisecond_utc),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+    }
+
+    #[test]
+    fn scaling_comparisons_allow_numeric_and_timestamp_unit_changes() {
+        let precision_20 = Precision::new(20).unwrap();
+        let precision_40 = Precision::new(40).unwrap();
+        let decimal_low_scale = ColumnType::Decimal75(precision_20, 1);
+        let decimal_high_scale = ColumnType::Decimal75(precision_20, 8);
+        let decimal_too_precise = ColumnType::Decimal75(precision_40, 1);
+        let second = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::new(0));
+        let microsecond =
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::new(0));
+
+        try_equals_types_with_scaling(decimal_low_scale, decimal_high_scale).unwrap();
+        try_equals_types_with_scaling(second, microsecond).unwrap();
+        try_equals_types_with_scaling(ColumnType::VarChar, ColumnType::VarChar).unwrap();
+        try_equals_types_with_scaling(ColumnType::Scalar, ColumnType::Boolean).unwrap();
+
+        try_inequality_types_with_scaling(decimal_low_scale, decimal_high_scale).unwrap();
+        try_inequality_types_with_scaling(second, microsecond).unwrap();
+        try_inequality_types_with_scaling(ColumnType::Boolean, ColumnType::Boolean).unwrap();
+
+        assert!(matches!(
+            try_equals_types_with_scaling(ColumnType::VarChar, ColumnType::VarBinary),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
+            try_inequality_types_with_scaling(ColumnType::VarChar, ColumnType::VarChar),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
+            try_inequality_types_with_scaling(decimal_too_precise, decimal_low_scale),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+    }
+
+    #[test]
     fn we_can_try_neg_type() {
         for (input_type, precision) in [
             (ColumnType::Uint8, 3u8),
