@@ -38,3 +38,46 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PoSQLTimestampError;
+    use alloc::{string::String, vec};
+
+    #[test]
+    fn we_display_invalid_timezone_with_the_original_input() {
+        let error = PoSQLTimestampError::InvalidTimezone {
+            timezone: "Mars/Olympus".into(),
+        };
+
+        assert_eq!(error.to_string(), "invalid timezone string: Mars/Olympus");
+    }
+
+    #[test]
+    fn we_convert_timestamp_errors_into_their_display_strings() {
+        let converted =
+            String::from(PoSQLTimestampError::UnsupportedPrecision { error: "7".into() });
+
+        assert_eq!(converted, "Unsupported precision for timestamp: 7");
+    }
+
+    #[test]
+    fn timestamp_error_variants_round_trip_through_json() {
+        let errors = vec![
+            PoSQLTimestampError::InvalidTimezone {
+                timezone: "Local/WallClock".into(),
+            },
+            PoSQLTimestampError::InvalidTimezoneOffset,
+            PoSQLTimestampError::InvalidTimeUnit {
+                error: "fortnight".into(),
+            },
+            PoSQLTimestampError::UnsupportedPrecision { error: "12".into() },
+        ];
+
+        for error in errors {
+            let serialized = serde_json::to_string(&error).unwrap();
+            let deserialized: PoSQLTimestampError = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(deserialized, error);
+        }
+    }
+}
