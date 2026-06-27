@@ -2,14 +2,19 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
-            TableRef, TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
+            OwnedTableTestAccessor, Table, TableRef, TableTestAccessor, TestAccessor,
         },
+        map::indexmap,
+        polynomial::MultilinearExtension,
         scalar::test_scalar::TestScalar,
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::{not_expr::NotExpr, test_utility::*, DynProofExpr, ProofExpr},
+        proof::{
+            exercise_verification, mock_verification_builder::run_verify_for_each_row,
+            FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
+        },
+        proof_exprs::{not_expr::NotExpr, test_utility::*, ColumnExpr, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
     },
@@ -21,6 +26,8 @@ use rand::{
     rngs::StdRng,
 };
 use rand_core::SeedableRng;
+use sqlparser::ast::Ident;
+use std::collections::VecDeque;
 
 #[test]
 fn we_can_prove_a_not_equals_query_with_a_single_selected_row() {
@@ -146,6 +153,46 @@ fn we_can_compute_the_correct_output_of_a_not_expr_using_first_round_evaluate() 
     let res = not_expr.first_round_evaluate(&alloc, &data, &[]).unwrap();
     let expected_res = Column::Boolean(&[true, false]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_verify_a_simple_not_proof() {
+    let alloc = Bump::new();
+    let t: TableRef = "sxt.t".parse().unwrap();
+    let values = &[true, false, true, false];
+    let table = Table::try_new(indexmap! {
+        "a".into() => Column::Boolean::<TestScalar>(values),
+    })
+    .unwrap();
+    let a = ColumnRef::new(t, Ident::from("a"), ColumnType::Boolean);
+    let not_expr =
+        NotExpr::try_new(Box::new(DynProofExpr::Column(ColumnExpr::new(a.clone())))).unwrap();
+
+    let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(4);
+    let mut final_round_builder: FinalRoundBuilder<'_, TestScalar> =
+        FinalRoundBuilder::new(4, VecDeque::new());
+
+    not_expr
+        .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+        .unwrap();
+
+    let verification_builder = run_verify_for_each_row(
+        4,
+        &first_round_builder,
+        &final_round_builder,
+        Vec::new(),
+        2,
+        |verification_builder, chi_eval, evaluation_point| {
+            let accessor = indexmap! {
+                a.clone().column_id() => values.inner_product(evaluation_point),
+            };
+            let res = not_expr
+                .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
+                .unwrap();
+            assert_eq!(res, chi_eval - values.inner_product(evaluation_point));
+        },
+    );
+    assert!(verification_builder.get_identity_results().is_empty());
 }
 
 #[test]
