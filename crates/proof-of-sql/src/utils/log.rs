@@ -30,3 +30,13 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::log_memory_usage;
+
+    #[test]
+    fn log_memory_usage_is_callable() {
+        log_memory_usage("test");
+    }
+}

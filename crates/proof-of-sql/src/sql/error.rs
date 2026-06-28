@@ -71,3 +71,34 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::IntermediateDecimalError;
+
+    #[test]
+    fn analyze_error_displays_expected_message() {
+        let error = AnalyzeError::DifferentColumnLength { len_a: 1, len_b: 2 };
+        assert_eq!(error.to_string(), "Columns have different lengths: 1 != 2");
+    }
+
+    #[test]
+    fn analyze_error_converts_from_intermediate_decimal_error() {
+        let error: AnalyzeError = IntermediateDecimalError::ConversionFailure.into();
+        assert!(matches!(
+            error,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::ConversionFailure
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn analyze_error_into_string_uses_display() {
+        let error: String = AnalyzeError::NotEnoughInputPlans.into();
+        assert_eq!(error, "Not enough input plans");
+    }
+}
