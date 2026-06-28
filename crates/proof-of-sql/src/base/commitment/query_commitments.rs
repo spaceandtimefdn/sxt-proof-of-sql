@@ -122,6 +122,66 @@ impl<C: Commitment> SchemaAccessor for QueryCommitments<C> {
     }
 }
 
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::*;
+    use crate::base::{
+        commitment::{
+            naive_commitment::NaiveCommitment, naive_evaluation_proof::NaiveEvaluationProof,
+        },
+        database::{owned_table_utility::*, OwnedTableTestAccessor, SchemaAccessor, TestAccessor},
+    };
+
+    #[test]
+    fn we_can_build_query_commitments_from_selected_columns_without_blitzar() {
+        let table_ref = TableRef::new("sxt", "query_commitments");
+        let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+        accessor.add_table(
+            table_ref.clone(),
+            owned_table([
+                bigint("a", [1, 2, 3]),
+                varchar("b", ["x", "y", "z"]),
+                int("c", [4, 5, 6]),
+            ]),
+            7,
+        );
+
+        let column_a_id: Ident = "a".into();
+        let column_b_id: Ident = "b".into();
+        let column_c_id: Ident = "c".into();
+        let query_commitments = QueryCommitments::<NaiveCommitment>::from_accessor_with_max_bounds(
+            [
+                ColumnRef::new(table_ref.clone(), column_c_id.clone(), ColumnType::Int),
+                ColumnRef::new(table_ref.clone(), column_a_id.clone(), ColumnType::BigInt),
+            ],
+            &accessor,
+        );
+
+        assert_eq!(query_commitments.len(), 1);
+        assert_eq!(query_commitments.get_offset(&table_ref), 7);
+        assert_eq!(query_commitments.get_length(&table_ref), 3);
+        assert_eq!(
+            query_commitments.lookup_schema(&table_ref),
+            vec![
+                (column_a_id.clone(), ColumnType::BigInt),
+                (column_c_id.clone(), ColumnType::Int),
+            ]
+        );
+        assert_eq!(
+            query_commitments.lookup_column(&table_ref, &column_b_id),
+            None
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_ref, &column_a_id),
+            accessor.get_commitment(&table_ref, &column_a_id)
+        );
+        assert_eq!(
+            query_commitments.get_commitment(&table_ref, &column_c_id),
+            accessor.get_commitment(&table_ref, &column_c_id)
+        );
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
