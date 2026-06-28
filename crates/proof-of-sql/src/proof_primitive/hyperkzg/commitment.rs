@@ -218,18 +218,49 @@ mod tests {
     use super::*;
     #[cfg(feature = "hyperkzg_proof")]
     use crate::base::database::OwnedColumn;
+    use crate::base::math::decimal::Precision;
+    use crate::base::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
     use crate::base::{try_standard_binary_deserialization, try_standard_binary_serialization};
     #[cfg(feature = "hyperkzg_proof")]
     use crate::proof_primitive::hyperkzg::nova_commitment_key_to_hyperkzg_public_setup;
     #[cfg(feature = "hyperkzg_proof")]
     use crate::proof_primitive::hyperkzg::HyperKZGEngine;
-    use ark_ec::AffineRepr;
+    use ark_ec::{AffineRepr, CurveGroup};
     #[cfg(feature = "hyperkzg_proof")]
     use nova_snark::provider::hyperkzg::{CommitmentEngine, CommitmentKey};
     #[cfg(feature = "hyperkzg_proof")]
     use nova_snark::traits::commitment::CommitmentEngineTrait;
     #[cfg(feature = "hyperkzg_proof")]
     use proptest::prelude::*;
+
+    fn setup_points() -> [G1Affine; 3] {
+        let generator = G1Affine::generator();
+        [
+            generator,
+            (generator * BNScalar::from(2_u64).0).into_affine(),
+            (generator * BNScalar::from(3_u64).0).into_affine(),
+        ]
+    }
+
+    fn expected_commitment(
+        setup: &[G1Affine],
+        offset: usize,
+        scalars: &[BNScalar],
+    ) -> HyperKZGCommitment {
+        let commitment: G1Projective = scalars
+            .iter()
+            .enumerate()
+            .map(|(index, scalar)| setup[offset + index] * scalar.0)
+            .sum();
+        HyperKZGCommitment { commitment }
+    }
+
+    fn limbs(values: &[u64]) -> Vec<[u64; 4]> {
+        values
+            .iter()
+            .map(|&value| BNScalar::from(value).into())
+            .collect()
+    }
 
     #[test]
     fn we_can_convert_default_point_to_a_hyperkzg_commitment_from_ark_bn254_g1_affine() {
@@ -242,6 +273,60 @@ mod tests {
         let commitment: HyperKZGCommitment = (&G1Affine::generator()).into();
         let expected: HyperKZGCommitment = HyperKZGCommitment::from(&G1Affine::generator());
         assert_eq!(commitment.commitment, expected.commitment);
+    }
+
+    #[test]
+    fn we_can_compute_hyperkzg_commitments_for_column_variants() {
+        let setup = setup_points();
+        let bools = [true, false];
+        let uints = [2_u8, 3];
+        let tinyints = [4_i8, 5];
+        let smallints = [6_i16, 7];
+        let ints = [8_i32, 9];
+        let bigints = [10_i64, 11];
+        let int128s = [12_i128, 13];
+        let timestamps = [14_i64, 15];
+        let decimal_limbs = limbs(&[16, 17]);
+        let scalar_limbs = limbs(&[18, 19]);
+        let varchar_limbs = limbs(&[20, 21]);
+        let varbinary_limbs = limbs(&[22, 23]);
+
+        let columns = [
+            CommittableColumn::Boolean(&bools),
+            CommittableColumn::Uint8(&uints),
+            CommittableColumn::TinyInt(&tinyints),
+            CommittableColumn::SmallInt(&smallints),
+            CommittableColumn::Int(&ints),
+            CommittableColumn::BigInt(&bigints),
+            CommittableColumn::Int128(&int128s),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &timestamps,
+            ),
+            CommittableColumn::Decimal75(Precision::new(10).unwrap(), 0, decimal_limbs),
+            CommittableColumn::Scalar(scalar_limbs),
+            CommittableColumn::VarChar(varchar_limbs),
+            CommittableColumn::VarBinary(varbinary_limbs),
+        ];
+
+        let commitments = compute_commitments_impl(&columns, 1, &&setup[..]);
+        let expected = [
+            expected_commitment(&setup, 1, &[BNScalar::ONE, BNScalar::ZERO]),
+            expected_commitment(&setup, 1, &[BNScalar::from(2_u64), BNScalar::from(3_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(4_u64), BNScalar::from(5_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(6_u64), BNScalar::from(7_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(8_u64), BNScalar::from(9_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(10_u64), BNScalar::from(11_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(12_u64), BNScalar::from(13_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(14_u64), BNScalar::from(15_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(16_u64), BNScalar::from(17_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(18_u64), BNScalar::from(19_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(20_u64), BNScalar::from(21_u64)]),
+            expected_commitment(&setup, 1, &[BNScalar::from(22_u64), BNScalar::from(23_u64)]),
+        ];
+
+        assert_eq!(commitments, expected);
     }
 
     #[cfg(feature = "hyperkzg_proof")]
