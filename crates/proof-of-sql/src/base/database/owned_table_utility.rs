@@ -320,3 +320,109 @@ pub fn timestamptz<S: Scalar>(
         OwnedColumn::TimestampTZ(time_unit, timezone, data.into_iter().collect()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn test_bigint_column_name_and_values() {
+        let (ident, col) = bigint::<TestScalar>("count", [1i64, 2, 3]);
+        assert_eq!(ident.value, "count");
+        assert_eq!(col, OwnedColumn::BigInt(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_boolean_column() {
+        let (ident, col) = boolean::<TestScalar>("flag", [true, false, true]);
+        assert_eq!(ident.value, "flag");
+        assert_eq!(col, OwnedColumn::Boolean(vec![true, false, true]));
+    }
+
+    #[test]
+    fn test_int128_column() {
+        let (ident, col) = int128::<TestScalar>("big", [100i128, 200, 300]);
+        assert_eq!(ident.value, "big");
+        assert_eq!(col, OwnedColumn::Int128(vec![100, 200, 300]));
+    }
+
+    #[test]
+    fn test_varchar_column() {
+        let (ident, col) = varchar::<TestScalar>("name", ["alice", "bob"]);
+        assert_eq!(ident.value, "name");
+        assert_eq!(
+            col,
+            OwnedColumn::VarChar(vec!["alice".to_string(), "bob".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_tinyint_column() {
+        let (ident, col) = tinyint::<TestScalar>("tiny", [1i8, -2, 3]);
+        assert_eq!(ident.value, "tiny");
+        assert_eq!(col, OwnedColumn::TinyInt(vec![1, -2, 3]));
+    }
+
+    #[test]
+    fn test_smallint_column() {
+        let (ident, col) = smallint::<TestScalar>("small", [10i16, 20, 30]);
+        assert_eq!(ident.value, "small");
+        assert_eq!(col, OwnedColumn::SmallInt(vec![10, 20, 30]));
+    }
+
+    #[test]
+    fn test_int_column() {
+        let (ident, col) = int::<TestScalar>("mid", [100i32, 200, 300]);
+        assert_eq!(ident.value, "mid");
+        assert_eq!(col, OwnedColumn::Int(vec![100, 200, 300]));
+    }
+
+    #[test]
+    fn test_uint8_column() {
+        let (ident, col) = uint8::<TestScalar>("ubyte", [0u8, 128, 255]);
+        assert_eq!(ident.value, "ubyte");
+        assert_eq!(col, OwnedColumn::Uint8(vec![0, 128, 255]));
+    }
+
+    #[test]
+    fn test_timestamptz_column() {
+        let (ident, col) = timestamptz::<TestScalar>(
+            "ts",
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![1_000_000i64, 2_000_000],
+        );
+        assert_eq!(ident.value, "ts");
+        assert_eq!(
+            col,
+            OwnedColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![1_000_000, 2_000_000]
+            )
+        );
+    }
+
+    #[test]
+    fn test_owned_table_round_trip() {
+        let table = owned_table::<TestScalar>([
+            bigint("a", [1i64, 2, 3]),
+            boolean("b", [true, false, true]),
+            varchar("c", ["x", "y", "z"]),
+        ]);
+        assert_eq!(table.num_rows(), 3);
+        assert!(table.inner_table().contains_key(&"a".into()));
+        assert!(table.inner_table().contains_key(&"b".into()));
+        assert!(table.inner_table().contains_key(&"c".into()));
+    }
+
+    #[test]
+    fn test_owned_table_empty() {
+        let table = owned_table::<TestScalar>([bigint::<TestScalar>("x", [] as [i64; 0])]);
+        assert_eq!(table.num_rows(), 0);
+    }
+}
