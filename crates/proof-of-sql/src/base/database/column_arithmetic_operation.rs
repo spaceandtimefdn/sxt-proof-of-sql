@@ -323,3 +323,149 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{database::ColumnOperationError, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn test_add_bigint() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![10, 20, 30]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![11, 22, 33]));
+    }
+
+    #[test]
+    fn test_add_length_mismatch() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 1 })
+        ));
+    }
+
+    #[test]
+    fn test_add_int() {
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![5, -3]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![3, 3]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![8, 0]));
+    }
+
+    #[test]
+    fn test_add_smallint() {
+        let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![100, 200]);
+        let rhs = OwnedColumn::<TestScalar>::SmallInt(vec![1, 2]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::SmallInt(vec![101, 202]));
+    }
+
+    #[test]
+    fn test_add_empty() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![]));
+    }
+
+    #[test]
+    fn test_sub_bigint() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![10, 20, 30]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 5, 10]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![9, 15, 20]));
+    }
+
+    #[test]
+    fn test_sub_length_mismatch() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { len_a: 1, len_b: 2 })
+        ));
+    }
+
+    #[test]
+    fn test_sub_int_negatives() {
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![10, 0, -5]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![3, 0, -3]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![7, 0, -2]));
+    }
+
+    #[test]
+    fn test_sub_empty() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let result = SubOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![]));
+    }
+
+    #[test]
+    fn test_mul_bigint() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![2, 3, 4]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![5, 0, -1]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![10, 0, -4]));
+    }
+
+    #[test]
+    fn test_mul_length_mismatch() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![1, 2]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 2 })
+        ));
+    }
+
+    #[test]
+    fn test_mul_int_negatives() {
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![3, -2]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![4, 5]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::Int(vec![12, -10]));
+    }
+
+    #[test]
+    fn test_mul_empty() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let result = MulOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![]));
+    }
+
+    #[test]
+    fn test_div_bigint() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![10, 9, 8]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![2, 3, 4]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![5, 3, 2]));
+    }
+
+    #[test]
+    fn test_div_length_mismatch() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![10, 20]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![2]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 1 })
+        ));
+    }
+
+    #[test]
+    fn test_div_empty() {
+        let lhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let rhs = OwnedColumn::<TestScalar>::BigInt(vec![]);
+        let result = DivOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        assert_eq!(result, OwnedColumn::BigInt(vec![]));
+    }
+}
