@@ -34,6 +34,11 @@ pub fn find_bigdecimals(queries: &str) -> IndexMap<String, Vec<(String, u8, i8)>
                         {
                             Some((column_def.name.to_string(), precision as u8, scale as i8))
                         }
+                        DataType::Decimal(ExactNumberInfo::Precision(precision))
+                            if precision > 38 =>
+                        {
+                            Some((column_def.name.to_string(), precision as u8, 0))
+                        }
                         _ => None,
                     })
                     .collect();
@@ -90,6 +95,42 @@ mod tests {
         assert_eq!(
             bigdecimals.get("ETHEREUM.BLOCK_DETAILS").unwrap(),
             &empty_vec
+        );
+    }
+
+    #[test]
+    fn we_ignore_non_create_table_statements() {
+        let sql = "
+            CREATE VIEW ETHEREUM.REWARDS AS SELECT REWARD FROM ETHEREUM.BLOCKS;
+            CREATE INDEX BLOCKS_REWARD_IDX ON ETHEREUM.BLOCKS(REWARD);
+        ";
+
+        assert!(find_bigdecimals(sql).is_empty());
+    }
+
+    #[test]
+    fn we_ignore_decimal_precision_at_or_below_38() {
+        let sql = "CREATE TABLE ETHEREUM.TRANSFERS(
+            VALUE DECIMAL(38, 0),
+            FEE DECIMAL(37, 2)
+        );";
+
+        assert_eq!(
+            find_bigdecimals(sql).get("ETHEREUM.TRANSFERS").unwrap(),
+            &Vec::<(String, u8, i8)>::new()
+        );
+    }
+
+    #[test]
+    fn we_find_bigdecimal_columns_without_explicit_scale() {
+        let sql = "CREATE TABLE ETHEREUM.BALANCES(
+            ADDRESS VARCHAR,
+            BALANCE DECIMAL(39)
+        );";
+
+        assert_eq!(
+            find_bigdecimals(sql).get("ETHEREUM.BALANCES").unwrap(),
+            &[("BALANCE".to_string(), 39, 0)]
         );
     }
 }
