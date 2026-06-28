@@ -53,3 +53,67 @@ where
 {
     slice_cast_mut_with(value, result, Into::into);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_slice_cast_with_i32_to_i64() {
+        let src: Vec<i32> = vec![1, 2, 3];
+        let result: Vec<i64> = slice_cast_with(&src, |x| i64::from(*x));
+        assert_eq!(result, vec![1i64, 2, 3]);
+    }
+
+    #[test]
+    fn test_slice_cast_with_empty() {
+        let src: Vec<i32> = vec![];
+        let result: Vec<i64> = slice_cast_with(&src, |x| i64::from(*x));
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_slice_cast_with_custom_fn() {
+        let src = vec![1u32, 2, 3, 4];
+        let result: Vec<u32> = slice_cast_with(&src, |x| x * 2);
+        assert_eq!(result, vec![2, 4, 6, 8]);
+    }
+
+    #[test]
+    fn test_slice_cast_mut_with_i32_to_i64() {
+        let src: Vec<i32> = vec![10, 20, 30];
+        let mut dst = vec![0i64; 3];
+        slice_cast_mut_with(&src, &mut dst, |x| i64::from(*x));
+        assert_eq!(dst, vec![10i64, 20, 30]);
+    }
+
+    #[test]
+    fn test_slice_cast_mut_with_empty() {
+        let src: Vec<i32> = vec![];
+        let mut dst: Vec<i64> = vec![];
+        slice_cast_mut_with(&src, &mut dst, |x| i64::from(*x));
+        assert!(dst.is_empty());
+    }
+
+    #[test]
+    fn test_slice_cast_i32_to_i64_via_into() {
+        let src: Vec<i32> = vec![5, 10, 15];
+        let result: Vec<i64> = slice_cast(&src);
+        assert_eq!(result, vec![5i64, 10, 15]);
+    }
+
+    #[test]
+    fn test_slice_cast_empty_via_into() {
+        let src: Vec<i32> = vec![];
+        let result: Vec<i64> = slice_cast(&src);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_slice_cast_mut_i32_to_i64_via_into() {
+        let src: Vec<i32> = vec![1, 2, 3];
+        let mut dst = vec![0i64; 3];
+        slice_cast_mut(&src, &mut dst);
+        assert_eq!(dst, vec![1i64, 2, 3]);
+    }
+}
