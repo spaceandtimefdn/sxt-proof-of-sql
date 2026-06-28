@@ -17,3 +17,15 @@ where
         *res_i += to_add.into();
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_const() {
+        let mut data = vec![1, 2, 3];
+        add_const(&mut data, 5);
+        assert_eq!(data, vec![6, 7, 8]);
+    }
+}
