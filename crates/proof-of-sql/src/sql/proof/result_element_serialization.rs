@@ -206,6 +206,18 @@ mod tests {
     }
 
     #[test]
+    fn owned_strings_are_correctly_encoded_and_decoded() {
+        let value = String::from("owned test string");
+        let mut out = vec![0_u8; value.required_bytes()];
+        let written_bytes = value.encode(&mut out[..]);
+        let (decoded_value, read_bytes) = String::decode(&out[..]).unwrap();
+
+        assert_eq!(written_bytes, out.len());
+        assert_eq!(read_bytes, out.len());
+        assert_eq!(decoded_value, value);
+    }
+
+    #[test]
     fn we_can_encode_and_decode_a_simple_array() {
         let value = &[1_u8, 3_u8, 5_u8][..];
         let mut out = vec![0_u8; value.required_bytes()];
