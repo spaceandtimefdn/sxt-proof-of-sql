@@ -349,6 +349,123 @@ impl<C> FromIterator<(Ident, ColumnCommitmentMetadata, C)> for ColumnCommitments
     }
 }
 
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::*;
+    use crate::base::{
+        commitment::{naive_commitment::NaiveCommitment, ColumnBounds},
+        database::{ColumnType, OwnedColumn},
+        scalar::test_scalar::TestScalar,
+    };
+    use alloc::{string::String, vec, vec::Vec};
+
+    #[test]
+    fn we_can_construct_access_and_iterate_column_commitments_without_blitzar() {
+        let bigint_id: Ident = "bigint_column".into();
+        let varchar_id: Ident = "varchar_column".into();
+        let missing_id: Ident = "missing_column".into();
+        let bigint_column = OwnedColumn::<TestScalar>::BigInt(vec![1, 5, -5, 0]);
+        let varchar_column = OwnedColumn::<TestScalar>::VarChar(
+            ["Lorem", "ipsum", "dolor", "sit"]
+                .map(String::from)
+                .to_vec(),
+        );
+
+        let column_commitments =
+            ColumnCommitments::<NaiveCommitment>::try_from_columns_with_offset(
+                [(&bigint_id, &bigint_column), (&varchar_id, &varchar_column)],
+                2,
+                &(),
+            )
+            .unwrap();
+
+        let expected_commitments = Vec::<NaiveCommitment>::from_columns_with_offset(
+            [
+                CommittableColumn::from(&bigint_column),
+                CommittableColumn::from(&varchar_column),
+            ],
+            2,
+            &(),
+        );
+
+        assert_eq!(column_commitments.len(), 2);
+        assert!(!column_commitments.is_empty());
+        assert_eq!(column_commitments.commitments(), &expected_commitments);
+        assert_eq!(
+            column_commitments.get_commitment(&bigint_id).unwrap(),
+            expected_commitments[0]
+        );
+        assert_eq!(
+            column_commitments.get_commitment(&varchar_id).unwrap(),
+            expected_commitments[1]
+        );
+        assert_eq!(column_commitments.get_commitment(&missing_id), None);
+
+        let bigint_metadata = column_commitments.get_metadata(&bigint_id).unwrap();
+        assert_eq!(bigint_metadata.column_type(), &ColumnType::BigInt);
+        assert!(matches!(
+            bigint_metadata.bounds(),
+            ColumnBounds::BigInt(super::super::Bounds::Sharp(_))
+        ));
+        assert_eq!(
+            column_commitments
+                .get_metadata(&varchar_id)
+                .unwrap()
+                .column_type(),
+            &ColumnType::VarChar
+        );
+        assert_eq!(column_commitments.get_metadata(&missing_id), None);
+
+        let iterated = column_commitments
+            .iter()
+            .map(|(identifier, metadata, commitment)| {
+                (
+                    identifier.clone(),
+                    *metadata.column_type(),
+                    commitment.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            iterated,
+            vec![
+                (
+                    bigint_id.clone(),
+                    ColumnType::BigInt,
+                    expected_commitments[0].clone()
+                ),
+                (
+                    varchar_id.clone(),
+                    ColumnType::VarChar,
+                    expected_commitments[1].clone()
+                )
+            ]
+        );
+
+        let from_iter = ColumnCommitments::from_iter(column_commitments.clone());
+        assert_eq!(from_iter, column_commitments);
+    }
+
+    #[test]
+    fn we_reject_duplicate_identifiers_without_blitzar() {
+        let duplicate_id: Ident = "duplicate_column".into();
+        let unique_id: Ident = "unique_column".into();
+        let empty_column = OwnedColumn::<TestScalar>::BigInt(vec![]);
+
+        let result = ColumnCommitments::<NaiveCommitment>::try_from_columns_with_offset(
+            [
+                (&duplicate_id, &empty_column),
+                (&unique_id, &empty_column),
+                (&duplicate_id, &empty_column),
+            ],
+            0,
+            &(),
+        );
+
+        assert!(matches!(result, Err(DuplicateIdents { .. })));
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
