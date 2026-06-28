@@ -348,6 +348,67 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_non_second_timestamp_arrays() {
+        let alloc = Bump::new();
+
+        let millisecond_data = vec![1_625_072_400_000, 1_625_076_000_000, 1_625_083_200_000];
+        let millisecond_array: ArrayRef = Arc::new(TimestampMillisecondArray::with_timezone_opt(
+            millisecond_data.clone().into(),
+            Some("Z"),
+        ));
+        assert_eq!(
+            millisecond_array
+                .to_column::<TestScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &millisecond_data[1..3]
+            )
+        );
+
+        let microsecond_data = vec![
+            1_625_072_400_000_000,
+            1_625_076_000_000_000,
+            1_625_083_200_000_000,
+        ];
+        let microsecond_array: ArrayRef = Arc::new(TimestampMicrosecondArray::with_timezone_opt(
+            microsecond_data.clone().into(),
+            Some("Z"),
+        ));
+        assert_eq!(
+            microsecond_array
+                .to_column::<TestScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                PoSQLTimeZone::utc(),
+                &microsecond_data[..2]
+            )
+        );
+
+        let nanosecond_data = vec![
+            1_625_072_400_000_000_000,
+            1_625_076_000_000_000_000,
+            1_625_083_200_000_000_000,
+        ];
+        let nanosecond_array: ArrayRef = Arc::new(TimestampNanosecondArray::with_timezone_opt(
+            nanosecond_data.clone().into(),
+            Some("Z"),
+        ));
+        assert_eq!(
+            nanosecond_array
+                .to_column::<TestScalar>(&alloc, &(1..2), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Nanosecond,
+                PoSQLTimeZone::utc(),
+                &nanosecond_data[1..2]
+            )
+        );
+    }
+
+    #[test]
     fn we_can_build_an_empty_column_from_an_empty_range_timestamp() {
         let alloc = Bump::new();
         let data = vec![1_625_072_400, 1_625_076_000]; // Example Unix timestamps
