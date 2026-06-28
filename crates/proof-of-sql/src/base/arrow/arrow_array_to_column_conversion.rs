@@ -331,6 +331,96 @@ mod tests {
     use core::str::FromStr;
     use proptest::prelude::*;
 
+    #[derive(Debug)]
+    struct DataTypeOnlyArray {
+        data_type: DataType,
+        len: usize,
+    }
+
+    impl Array for DataTypeOnlyArray {
+        fn as_any(&self) -> &dyn core::any::Any {
+            self
+        }
+
+        fn to_data(&self) -> arrow::array::ArrayData {
+            unreachable!("test-only array is never converted back to ArrayData")
+        }
+
+        fn into_data(self) -> arrow::array::ArrayData {
+            unreachable!("test-only array is never converted back to ArrayData")
+        }
+
+        fn data_type(&self) -> &DataType {
+            &self.data_type
+        }
+
+        fn slice(&self, _offset: usize, length: usize) -> ArrayRef {
+            Arc::new(Self {
+                data_type: self.data_type.clone(),
+                len: length,
+            })
+        }
+
+        fn len(&self) -> usize {
+            self.len
+        }
+
+        fn is_empty(&self) -> bool {
+            self.len == 0
+        }
+
+        fn offset(&self) -> usize {
+            0
+        }
+
+        fn nulls(&self) -> Option<&arrow::buffer::NullBuffer> {
+            None
+        }
+
+        fn get_buffer_memory_size(&self) -> usize {
+            0
+        }
+
+        fn get_array_memory_size(&self) -> usize {
+            core::mem::size_of::<Self>()
+        }
+    }
+
+    fn datatype_only_array(data_type: DataType) -> ArrayRef {
+        Arc::new(DataTypeOnlyArray { data_type, len: 0 })
+    }
+
+    #[test]
+    fn we_return_unsupported_type_for_mismatched_array_implementations() {
+        let alloc = Bump::new();
+
+        for data_type in [
+            DataType::Boolean,
+            DataType::UInt8,
+            DataType::Int8,
+            DataType::Int16,
+            DataType::Int32,
+            DataType::Int64,
+            DataType::Decimal128(38, 0),
+            DataType::Decimal256(75, 0),
+            DataType::Timestamp(ArrowTimeUnit::Second, Some("UTC".into())),
+            DataType::Timestamp(ArrowTimeUnit::Millisecond, Some("UTC".into())),
+            DataType::Timestamp(ArrowTimeUnit::Microsecond, Some("UTC".into())),
+            DataType::Timestamp(ArrowTimeUnit::Nanosecond, Some("UTC".into())),
+            DataType::Utf8,
+            DataType::LargeBinary,
+        ] {
+            let array = datatype_only_array(data_type.clone());
+
+            assert_eq!(
+                array.to_column::<TestScalar>(&alloc, &(0..0), None),
+                Err(ArrowArrayToColumnConversionError::UnsupportedType {
+                    datatype: data_type
+                })
+            );
+        }
+    }
+
     #[test]
     fn we_can_convert_timestamp_array_normal_range() {
         let alloc = Bump::new();
@@ -344,6 +434,53 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &data[1..3])
+        );
+    }
+
+    #[test]
+    fn we_can_convert_timestamp_array_for_non_second_units() {
+        let alloc = Bump::new();
+        let data = vec![1_625_072_400_000, 1_625_076_000_000, 1_625_083_200_000];
+
+        let array: ArrayRef = Arc::new(TimestampMillisecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("UTC"),
+        ));
+        assert_eq!(
+            array
+                .to_column::<TestScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &data[1..3]
+            )
+        );
+
+        let array: ArrayRef = Arc::new(TimestampMicrosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("UTC"),
+        ));
+        assert_eq!(
+            array
+                .to_column::<TestScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                PoSQLTimeZone::utc(),
+                &data[1..3]
+            )
+        );
+
+        let array: ArrayRef = Arc::new(TimestampNanosecondArray::with_timezone_opt(
+            data.clone().into(),
+            Some("UTC"),
+        ));
+        assert_eq!(
+            array
+                .to_column::<TestScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc(), &data[1..3])
         );
     }
 
