@@ -363,3 +363,116 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn test_table_round_trip() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([
+            borrowed_bigint("a", [1i64, 2, 3], &alloc),
+            borrowed_boolean("b", [true, false, true], &alloc),
+        ]);
+        assert_eq!(t.num_rows(), 3);
+        assert!(t.inner_table().contains_key(&"a".into()));
+        assert!(t.inner_table().contains_key(&"b".into()));
+    }
+
+    #[test]
+    fn test_table_with_row_count_empty() {
+        let alloc = Bump::new();
+        let t = table_with_row_count::<TestScalar>([], 5);
+        assert_eq!(t.num_rows(), 5);
+        let _ = alloc; // suppress unused
+    }
+
+    #[test]
+    fn test_borrowed_bigint_name_and_values() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_bigint::<TestScalar>("count", [10i64, 20, 30], &alloc);
+        assert_eq!(ident.value, "count");
+        assert!(matches!(col, Column::BigInt(s) if s == &[10, 20, 30]));
+    }
+
+    #[test]
+    fn test_borrowed_boolean() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_boolean::<TestScalar>("flag", [true, false], &alloc);
+        assert_eq!(ident.value, "flag");
+        assert!(matches!(col, Column::Boolean(s) if s == &[true, false]));
+    }
+
+    #[test]
+    fn test_borrowed_int128() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_int128::<TestScalar>("big", [100i128, 200], &alloc);
+        assert_eq!(ident.value, "big");
+        assert!(matches!(col, Column::Int128(s) if s == &[100, 200]));
+    }
+
+    #[test]
+    fn test_borrowed_tinyint() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_tinyint::<TestScalar>("tiny", [1i8, -2], &alloc);
+        assert_eq!(ident.value, "tiny");
+        assert!(matches!(col, Column::TinyInt(s) if s == &[1, -2]));
+    }
+
+    #[test]
+    fn test_borrowed_smallint() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_smallint::<TestScalar>("small", [10i16, 20], &alloc);
+        assert_eq!(ident.value, "small");
+        assert!(matches!(col, Column::SmallInt(s) if s == &[10, 20]));
+    }
+
+    #[test]
+    fn test_borrowed_int() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_int::<TestScalar>("mid", [100i32, 200], &alloc);
+        assert_eq!(ident.value, "mid");
+        assert!(matches!(col, Column::Int(s) if s == &[100, 200]));
+    }
+
+    #[test]
+    fn test_borrowed_uint8() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_uint8::<TestScalar>("ubyte", [0u8, 255], &alloc);
+        assert_eq!(ident.value, "ubyte");
+        assert!(matches!(col, Column::Uint8(s) if s == &[0, 255]));
+    }
+
+    #[test]
+    fn test_borrowed_varchar() {
+        let alloc = Bump::new();
+        let (ident, _col) = borrowed_varchar::<TestScalar>("name", ["alice", "bob"], &alloc);
+        assert_eq!(ident.value, "name");
+    }
+
+    #[test]
+    fn test_borrowed_timestamptz() {
+        let alloc = Bump::new();
+        let (ident, col) = borrowed_timestamptz::<TestScalar>(
+            "ts", PoSQLTimeUnit::Second, PoSQLTimeZone::utc(),
+            [1_000_000i64, 2_000_000], &alloc,
+        );
+        assert_eq!(ident.value, "ts");
+        assert!(matches!(col, Column::TimestampTZ(PoSQLTimeUnit::Second, _, s) if s == &[1_000_000, 2_000_000]));
+    }
+
+    #[test]
+    fn test_table_multi_column() {
+        let alloc = Bump::new();
+        let t = table::<TestScalar>([
+            borrowed_bigint("x", [1i64, 2], &alloc),
+            borrowed_boolean("y", [true, false], &alloc),
+            borrowed_varchar("z", ["a", "b"], &alloc),
+        ]);
+        assert_eq!(t.num_rows(), 2);
+        assert_eq!(t.inner_table().len(), 3);
+    }
+}
+
