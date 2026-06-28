@@ -159,6 +159,41 @@ mod tests {
     }
 
     #[test]
+    fn we_can_construct_metadata_map_from_column_fields_with_max_bounds() {
+        let columns = [
+            ColumnField::new("int_column".into(), ColumnType::Int),
+            ColumnField::new("varchar_column".into(), ColumnType::VarChar),
+            ColumnField::new("int128_column".into(), ColumnType::Int128),
+        ];
+
+        let metadata_map =
+            ColumnCommitmentMetadataMap::from_column_fields_with_max_bounds(&columns);
+
+        assert_eq!(metadata_map.len(), 3);
+
+        let (index_0, metadata_0) = metadata_map.get_index(0).unwrap();
+        assert_eq!(index_0.value.as_str(), "int_column");
+        assert_eq!(metadata_0.column_type(), &ColumnType::Int);
+        assert_eq!(
+            metadata_0.bounds(),
+            &ColumnBounds::Int(Bounds::bounded(i32::MIN, i32::MAX).unwrap())
+        );
+
+        let (index_1, metadata_1) = metadata_map.get_index(1).unwrap();
+        assert_eq!(index_1.value.as_str(), "varchar_column");
+        assert_eq!(metadata_1.column_type(), &ColumnType::VarChar);
+        assert_eq!(metadata_1.bounds(), &ColumnBounds::NoOrder);
+
+        let (index_2, metadata_2) = metadata_map.get_index(2).unwrap();
+        assert_eq!(index_2.value.as_str(), "int128_column");
+        assert_eq!(metadata_2.column_type(), &ColumnType::Int128);
+        assert_eq!(
+            metadata_2.bounds(),
+            &ColumnBounds::Int128(Bounds::bounded(i128::MIN, i128::MAX).unwrap())
+        );
+    }
+
+    #[test]
     fn we_can_construct_metadata_map_from_columns() {
         // No-columns case
         let empty_metadata_map = ColumnCommitmentMetadataMap::from_columns([]);
