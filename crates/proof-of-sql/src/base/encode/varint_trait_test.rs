@@ -314,6 +314,121 @@ fn we_can_encode_and_decode_u32_and_u64_the_same() {
 }
 
 #[test]
+fn we_can_encode_and_decode_bool_values() {
+    test_encode_decode(false, [0]);
+    test_encode_decode(true, [1]);
+    assert_eq!(bool::decode_var(&[2]), None);
+}
+
+#[test]
+fn we_can_encode_and_decode_small_u8_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u8>();
+}
+
+#[test]
+fn we_can_encode_and_decode_large_u8_values() {
+    test_encode_decode(u8::MAX, [0xFF, 0x01]);
+    assert!(u8::decode_var(&[0x80, 0x02]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_small_i8_values() {
+    test_small_signed_values_encode_and_decode_properly::<i8>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_large_i8_values() {
+    test_encode_decode(i8::MAX, [0xFE, 0x01]);
+    test_encode_decode(i8::MIN, [0xFF, 0x01]);
+    assert!(i8::decode_var(&[0x80, 0x02]).is_none());
+    assert!(i8::decode_var(&[0x81, 0x02]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_u8_and_u16_the_same() {
+    let mut rng = rand::thread_rng();
+    test_encode_and_decode_types_align::<u8, u16>(
+        &rng.gen::<[_; 32]>(),
+        &[u16::from(u8::MAX) + 1, u16::from(u8::MAX) * 100],
+        100,
+    );
+}
+
+#[test]
+fn we_can_encode_and_decode_i8_and_i16_the_same() {
+    let mut rng = rand::thread_rng();
+    test_encode_and_decode_types_align::<i8, i16>(
+        &rng.gen::<[_; 32]>(),
+        &[
+            i16::from(i8::MAX) + 1,
+            i16::from(i8::MIN) - 1,
+            i16::from(i8::MAX) * 100,
+            i16::from(i8::MIN) * 100,
+        ],
+        100,
+    );
+}
+
+#[test]
+fn we_can_encode_and_decode_small_u16_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<u16>();
+}
+
+#[test]
+fn we_can_encode_and_decode_large_u16_values() {
+    test_encode_decode(u16::MAX, [0xFF, 0xFF, 0x03]);
+    assert!(u16::decode_var(&[0x80, 0x80, 0x04]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_small_i16_values() {
+    test_small_signed_values_encode_and_decode_properly::<i16>(1);
+}
+
+#[test]
+fn we_can_encode_and_decode_large_i16_values() {
+    test_encode_decode(i16::MAX, [0xFE, 0xFF, 0x03]);
+    test_encode_decode(i16::MIN, [0xFF, 0xFF, 0x03]);
+    assert!(i16::decode_var(&[0x80, 0x80, 0x04]).is_none());
+    assert!(i16::decode_var(&[0x81, 0x80, 0x04]).is_none());
+}
+
+#[test]
+fn we_can_encode_and_decode_u16_and_u32_the_same() {
+    let mut rng = rand::thread_rng();
+    test_encode_and_decode_types_align::<u16, u32>(
+        &rng.gen::<[_; 32]>(),
+        &[u32::from(u16::MAX) + 1, u32::from(u16::MAX) * 100],
+        100,
+    );
+}
+
+#[test]
+fn we_can_encode_and_decode_i16_and_i32_the_same() {
+    let mut rng = rand::thread_rng();
+    test_encode_and_decode_types_align::<i16, i32>(
+        &rng.gen::<[_; 32]>(),
+        &[
+            i32::from(i16::MAX) + 1,
+            i32::from(i16::MIN) - 1,
+            i32::from(i16::MAX) * 100,
+            i32::from(i16::MIN) * 100,
+        ],
+        100,
+    );
+}
+
+#[test]
+fn we_can_encode_and_decode_small_usize_values() {
+    test_small_unsigned_values_encode_and_decode_properly::<usize>();
+}
+
+#[test]
+fn we_can_encode_and_decode_small_isize_values() {
+    test_small_signed_values_encode_and_decode_properly::<isize>(1);
+}
+
+#[test]
 fn we_can_encode_and_decode_large_positive_u128() {
     let value: u128 =
         0b110_0010101_1111111_1111111_1111111_1111111_1111111_1111111_1111111_1111111_0011100;
