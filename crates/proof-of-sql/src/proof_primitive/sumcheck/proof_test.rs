@@ -7,7 +7,7 @@ use super::test_cases::sumcheck_test_cases;
 use crate::{
     base::{
         polynomial::CompositePolynomial,
-        proof::Transcript as _,
+        proof::{ProofError, Transcript as _},
         scalar::{test_scalar::TestScalar, MontScalar, Scalar},
     },
     proof_primitive::{
@@ -234,6 +234,22 @@ fn we_can_verify_many_random_test_cases() {
             "verification should fail when the proof is modified"
         );
     }
+}
+
+#[test]
+fn we_cannot_verify_sumcheck_proof_with_invalid_size() {
+    let proof = SumcheckProof {
+        coefficients: vec![TestScalar::ONE],
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+    let actual = proof.verify_without_evaluation(&mut transcript, 2, &TestScalar::ONE);
+
+    assert!(matches!(
+        actual,
+        Err(ProofError::VerificationError {
+            error: "invalid proof size"
+        })
+    ));
 }
 
 #[test]
