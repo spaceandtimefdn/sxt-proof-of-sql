@@ -31,3 +31,27 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_preserves_name_and_data_type() {
+        let field = ColumnField::new(Ident::new("customer_id"), ColumnType::Int128);
+
+        assert_eq!(field.name().value, "customer_id");
+        assert_eq!(field.data_type(), ColumnType::Int128);
+    }
+
+    #[test]
+    fn name_returns_an_owned_identifier() {
+        let field = ColumnField::new(Ident::with_quote('"', "CustomerID"), ColumnType::BigInt);
+
+        let mut name = field.name();
+        name.value = "changed".into();
+
+        assert_eq!(field.name().value, "CustomerID");
+        assert_eq!(field.name().quote_style, Some('"'));
+    }
+}
