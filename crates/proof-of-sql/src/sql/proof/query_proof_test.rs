@@ -2,7 +2,7 @@ use super::{FinalRoundBuilder, ProofPlan, ProverEvaluate, QueryProof, Verificati
 use crate::{
     base::{
         bit::BitDistribution,
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::{bigint, owned_table},
             table_utility::*,
@@ -11,9 +11,8 @@ use crate::{
         },
         map::{indexset, IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{test_scalar::TestScalar, Scalar},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::proof::{FirstRoundBuilder, QueryData, SumcheckSubpolynomialType},
 };
 use bumpalo::Bump;
@@ -126,13 +125,14 @@ fn verify_a_trivial_query_proof_with_given_offset(n: usize, offset_generators: u
         ..Default::default()
     };
     let column: Vec<i64> = vec![0_i64; n];
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", column.clone())]),
         offset_generators,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash,
         table,
@@ -166,13 +166,14 @@ fn verify_fails_if_the_summation_in_sumcheck_isnt_zero() {
         column_fill_value: 123,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [123_i64; 2])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -184,13 +185,14 @@ fn verify_fails_if_the_sumcheck_evaluation_isnt_correct() {
         evaluation: 123,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [123_i64; 2])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -202,13 +204,14 @@ fn verify_fails_if_counts_dont_match() {
         produce_length: false,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [0_i64; 2])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -218,13 +221,14 @@ fn verify_fails_if_the_number_of_bit_distributions_is_not_enough() {
         bit_distribution: None,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [0_i64; 2])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -237,13 +241,14 @@ fn verify_fails_if_a_bit_distribution_is_invalid() {
         }),
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("a1", [0_i64; 2])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -347,13 +352,14 @@ fn verify_a_proof_with_an_anchored_commitment_and_given_offset(offset_generators
     let expr = SquareTestProofPlan {
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash,
         table,
@@ -366,7 +372,7 @@ fn verify_a_proof_with_an_anchored_commitment_and_given_offset(offset_generators
     assert_eq!(table, expected_result);
 
     // invalid offset will fail to verify
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators + 1,
@@ -396,13 +402,14 @@ fn verify_fails_if_the_result_doesnt_satisfy_an_anchored_equation() {
         res: [9, 26],
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -415,13 +422,14 @@ fn verify_fails_if_the_anchored_commitment_doesnt_match() {
         anchored_commit_multiplier: 2,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -549,13 +557,14 @@ fn verify_a_proof_with_an_intermediate_commitment_and_given_offset(offset_genera
     let expr = DoubleSquareTestProofPlan {
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash,
         table,
@@ -568,7 +577,7 @@ fn verify_a_proof_with_an_intermediate_commitment_and_given_offset(offset_genera
     assert_eq!(table, expected_result);
 
     // invalid offset will fail to verify
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators + 1,
@@ -596,16 +605,16 @@ fn verify_fails_if_an_intermediate_commitment_doesnt_match() {
     let expr = DoubleSquareTestProofPlan {
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
     let (mut proof, result) =
-        QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     proof.final_round_message.round_commitments[0] =
-        proof.final_round_message.round_commitments[0] * Curve25519Scalar::from(2u64);
+        proof.final_round_message.round_commitments[0].clone() * TestScalar::from(2u64);
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -620,13 +629,14 @@ fn verify_fails_if_an_intermediate_equation_isnt_satified() {
     let expr = DoubleSquareTestProofPlan {
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 4])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -642,13 +652,14 @@ fn verify_fails_the_result_doesnt_satisfy_an_intermediate_equation() {
         res: [81, 624],
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -741,13 +752,14 @@ fn verify_a_proof_with_a_post_result_challenge_and_given_offset(offset_generator
     // where the commitment for x is known and alpha depends on res
     // additionally, we will have a second challenge beta, that is unused
     let expr = ChallengeTestProofPlan {};
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash,
         table,
@@ -760,7 +772,7 @@ fn verify_a_proof_with_a_post_result_challenge_and_given_offset(offset_generator
     assert_eq!(table, expected_result);
 
     // invalid offset will fail to verify
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators + 1,
@@ -883,13 +895,14 @@ fn verify_a_proof_with_a_commitment_and_given_offset(offset_generators: usize) {
     let expr = FirstRoundSquareTestProofPlan {
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let QueryData {
         verification_hash,
         table,
@@ -902,7 +915,7 @@ fn verify_a_proof_with_a_commitment_and_given_offset(offset_generators: usize) {
     assert_eq!(table, expected_result);
 
     // invalid offset will fail to verify
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         offset_generators + 1,
@@ -932,13 +945,14 @@ fn verify_fails_if_the_result_doesnt_satisfy_an_equation() {
         res: [9, 26],
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
 
@@ -951,12 +965,13 @@ fn verify_fails_if_the_commitment_doesnt_match() {
         anchored_commit_multiplier: 2,
         ..Default::default()
     };
-    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
         TableRef::new("sxt", "test"),
         owned_table([bigint("x", [3, 5])]),
         0,
         (),
     );
-    let (proof, result) = QueryProof::<InnerProductProof>::new(&expr, &accessor, &(), &[]).unwrap();
+    let (proof, result) =
+        QueryProof::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     assert!(proof.verify(&expr, &accessor, result, &(), &[]).is_err());
 }
