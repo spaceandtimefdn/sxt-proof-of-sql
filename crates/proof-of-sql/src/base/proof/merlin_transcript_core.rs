@@ -14,7 +14,7 @@ impl super::transcript_core::TranscriptCore for merlin::Transcript {
 
 #[cfg(test)]
 mod tests {
-    use super::super::transcript_core::test_util::*;
+    use super::super::transcript_core::{test_util::*, TranscriptCore};
     #[test]
     fn we_get_equivalent_challenges_with_equivalent_merlin_transcripts() {
         we_get_equivalent_challenges_with_equivalent_transcripts::<merlin::Transcript>();
@@ -26,5 +26,18 @@ mod tests {
     #[test]
     fn we_get_different_nontrivial_consecutive_challenges_from_keccak256_transcript() {
         we_get_different_nontrivial_consecutive_challenges_from_transcript::<merlin::Transcript>();
+    }
+
+    #[test]
+    fn we_get_different_challenges_when_merlin_message_order_changes() {
+        let mut transcript1 = <merlin::Transcript as TranscriptCore>::new();
+        transcript1.raw_append(b"first");
+        transcript1.raw_append(b"second");
+
+        let mut transcript2 = <merlin::Transcript as TranscriptCore>::new();
+        transcript2.raw_append(b"second");
+        transcript2.raw_append(b"first");
+
+        assert_ne!(transcript1.raw_challenge(), transcript2.raw_challenge());
     }
 }
