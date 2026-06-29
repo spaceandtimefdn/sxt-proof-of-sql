@@ -29,7 +29,7 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
@@ -103,6 +103,29 @@ mod test {
     }
 
     #[test]
+    fn test_apply_empty_permutation() {
+        let permutation = Permutation::try_new(vec![]).unwrap();
+        assert_eq!(permutation.size(), 0);
+        assert_eq!(
+            permutation.try_apply(&Vec::<&str>::new()).unwrap(),
+            Vec::<&str>::new()
+        );
+    }
+
+    #[test]
+    fn test_unchecked_new_from_cmp() {
+        let values = [3, 1, 2, 1];
+        let permutation = Permutation::unchecked_new_from_cmp(values.len(), |left, right| {
+            values[*left]
+                .cmp(&values[*right])
+                .then_with(|| left.cmp(right))
+        });
+
+        assert_eq!(permutation.size(), 4);
+        assert_eq!(permutation.try_apply(&values).unwrap(), vec![1, 1, 2, 3]);
+    }
+
+    #[test]
     fn test_invalid_permutation() {
         assert!(matches!(
             Permutation::try_new(vec![1, 0, 0]),
@@ -112,6 +135,27 @@ mod test {
             Permutation::try_new(vec![1, 0, 3]),
             Err(PermutationError::InvalidPermutation { .. })
         ));
+    }
+
+    #[test]
+    fn test_permutation_error_display() {
+        assert_eq!(
+            Permutation::try_new(vec![1, 0, 0]).unwrap_err().to_string(),
+            "Permutation is invalid Permutation can not have duplicate elements: [1, 0, 0]"
+        );
+        assert_eq!(
+            Permutation::try_new(vec![1, 0, 3]).unwrap_err().to_string(),
+            "Permutation is invalid Permutation can not have elements out of bounds: [1, 0, 3]"
+        );
+
+        let permutation = Permutation::try_new(vec![1, 0, 2]).unwrap();
+        assert_eq!(
+            permutation
+                .try_apply(&["Space", "Time"])
+                .unwrap_err()
+                .to_string(),
+            "Application of a permutation to a slice with a different length 3 != 2"
+        );
     }
 
     #[test]
