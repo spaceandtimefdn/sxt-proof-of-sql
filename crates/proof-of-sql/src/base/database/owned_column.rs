@@ -464,10 +464,349 @@ mod test {
     use super::*;
     use crate::base::{
         math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::{test_scalar::TestScalar, ScalarExt},
     };
     use alloc::vec;
     use bumpalo::Bump;
+
+    #[test]
+    fn we_can_inspect_all_owned_column_variants() {
+        let precision = Precision::new(10).unwrap();
+        let time_unit = PoSQLTimeUnit::Second;
+        let time_zone = PoSQLTimeZone::utc();
+        let scalar_values = vec![TestScalar::from(1), TestScalar::from(2)];
+
+        let cases = vec![
+            (
+                OwnedColumn::<TestScalar>::Boolean(vec![true, false]),
+                ColumnType::Boolean,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Uint8(vec![1, 2]),
+                ColumnType::Uint8,
+            ),
+            (
+                OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2]),
+                ColumnType::TinyInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::SmallInt(vec![-10, 20]),
+                ColumnType::SmallInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int(vec![-100, 200]),
+                ColumnType::Int,
+            ),
+            (
+                OwnedColumn::<TestScalar>::BigInt(vec![-1_000, 2_000]),
+                ColumnType::BigInt,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int128(vec![-10_000, 20_000]),
+                ColumnType::Int128,
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarChar(vec!["space".to_string(), "time".to_string()]),
+                ColumnType::VarChar,
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarBinary(vec![b"space".to_vec(), b"time".to_vec()]),
+                ColumnType::VarBinary,
+            ),
+            (
+                OwnedColumn::<TestScalar>::Decimal75(precision, 2, scalar_values.clone()),
+                ColumnType::Decimal75(precision, 2),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![1, 2]),
+                ColumnType::TimestampTZ(time_unit, time_zone),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Scalar(scalar_values),
+                ColumnType::Scalar,
+            ),
+        ];
+
+        for (column, column_type) in cases {
+            assert_eq!(column.len(), 2);
+            assert!(!column.is_empty());
+            assert_eq!(column.column_type(), column_type);
+        }
+    }
+
+    #[test]
+    fn we_can_slice_and_permute_each_owned_column_variant() {
+        let precision = Precision::new(12).unwrap();
+        let time_unit = PoSQLTimeUnit::Millisecond;
+        let time_zone = PoSQLTimeZone::utc();
+        let permutation = Permutation::try_new(vec![2, 0, 1]).unwrap();
+        let scalars = vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+        ];
+
+        let cases = vec![
+            (
+                OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]),
+                OwnedColumn::<TestScalar>::Boolean(vec![false, true]),
+                OwnedColumn::<TestScalar>::Boolean(vec![true, true, false]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3]),
+                OwnedColumn::<TestScalar>::Uint8(vec![2, 3]),
+                OwnedColumn::<TestScalar>::Uint8(vec![3, 1, 2]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2, -3]),
+                OwnedColumn::<TestScalar>::TinyInt(vec![2, -3]),
+                OwnedColumn::<TestScalar>::TinyInt(vec![-3, -1, 2]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::SmallInt(vec![-10, 20, -30]),
+                OwnedColumn::<TestScalar>::SmallInt(vec![20, -30]),
+                OwnedColumn::<TestScalar>::SmallInt(vec![-30, -10, 20]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int(vec![-100, 200, -300]),
+                OwnedColumn::<TestScalar>::Int(vec![200, -300]),
+                OwnedColumn::<TestScalar>::Int(vec![-300, -100, 200]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::BigInt(vec![-1_000, 2_000, -3_000]),
+                OwnedColumn::<TestScalar>::BigInt(vec![2_000, -3_000]),
+                OwnedColumn::<TestScalar>::BigInt(vec![-3_000, -1_000, 2_000]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int128(vec![-10_000, 20_000, -30_000]),
+                OwnedColumn::<TestScalar>::Int128(vec![20_000, -30_000]),
+                OwnedColumn::<TestScalar>::Int128(vec![-30_000, -10_000, 20_000]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarChar(vec![
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "gamma".to_string(),
+                ]),
+                OwnedColumn::<TestScalar>::VarChar(vec!["beta".to_string(), "gamma".to_string()]),
+                OwnedColumn::<TestScalar>::VarChar(vec![
+                    "gamma".to_string(),
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                ]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Decimal75(precision, 3, scalars.clone()),
+                OwnedColumn::<TestScalar>::Decimal75(precision, 3, scalars[1..].to_vec()),
+                OwnedColumn::<TestScalar>::Decimal75(
+                    precision,
+                    3,
+                    vec![scalars[2], scalars[0], scalars[1]],
+                ),
+            ),
+            (
+                OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![100, 200, 300]),
+                OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![200, 300]),
+                OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![300, 100, 200]),
+            ),
+            (
+                OwnedColumn::<TestScalar>::Scalar(scalars.clone()),
+                OwnedColumn::<TestScalar>::Scalar(scalars[1..].to_vec()),
+                OwnedColumn::<TestScalar>::Scalar(vec![scalars[2], scalars[0], scalars[1]]),
+            ),
+        ];
+
+        for (column, expected_slice, expected_permutation) in cases {
+            assert_eq!(column.slice(1, 3), expected_slice);
+            assert_eq!(
+                column.try_permute(&permutation).unwrap(),
+                expected_permutation
+            );
+        }
+    }
+
+    #[test]
+    fn we_can_compute_inner_products_for_nonbinary_owned_column_variants() {
+        let precision = Precision::new(8).unwrap();
+        let weights = vec![TestScalar::from(2), TestScalar::from(3)];
+        let scalar_values = vec![TestScalar::from(4), TestScalar::from(5)];
+        let time_unit = PoSQLTimeUnit::Second;
+        let time_zone = PoSQLTimeZone::utc();
+
+        let cases = vec![
+            (
+                OwnedColumn::<TestScalar>::Boolean(vec![true, false]),
+                TestScalar::from(true) * weights[0] + TestScalar::from(false) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::Uint8(vec![1, 2]),
+                TestScalar::from(1_u8) * weights[0] + TestScalar::from(2_u8) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2]),
+                TestScalar::from(-1_i8) * weights[0] + TestScalar::from(2_i8) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::SmallInt(vec![-3, 4]),
+                TestScalar::from(-3_i16) * weights[0] + TestScalar::from(4_i16) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int(vec![-5, 6]),
+                TestScalar::from(-5_i32) * weights[0] + TestScalar::from(6_i32) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::BigInt(vec![-7, 8]),
+                TestScalar::from(-7_i64) * weights[0] + TestScalar::from(8_i64) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::Int128(vec![-9, 10]),
+                TestScalar::from(-9_i128) * weights[0] + TestScalar::from(10_i128) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::VarChar(vec!["left".to_string(), "right".to_string()]),
+                TestScalar::from("left") * weights[0] + TestScalar::from("right") * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::Decimal75(precision, 2, scalar_values.clone()),
+                scalar_values[0] * weights[0] + scalar_values[1] * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![11, 12]),
+                TestScalar::from(11_i64) * weights[0] + TestScalar::from(12_i64) * weights[1],
+            ),
+            (
+                OwnedColumn::<TestScalar>::Scalar(scalar_values.clone()),
+                scalar_values[0] * weights[0] + scalar_values[1] * weights[1],
+            ),
+        ];
+
+        for (column, expected) in cases {
+            assert_eq!(column.inner_product(&weights), expected);
+        }
+    }
+
+    #[test]
+    fn we_can_convert_scalars_to_each_supported_numeric_owned_column() {
+        let scalars = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+        let time_unit = PoSQLTimeUnit::Second;
+        let time_zone = PoSQLTimeZone::utc();
+
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::Uint8).unwrap(),
+            OwnedColumn::<TestScalar>::Uint8(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::TinyInt).unwrap(),
+            OwnedColumn::<TestScalar>::TinyInt(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::SmallInt).unwrap(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::Int).unwrap(),
+            OwnedColumn::<TestScalar>::Int(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::BigInt).unwrap(),
+            OwnedColumn::<TestScalar>::BigInt(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::Scalar).unwrap(),
+            OwnedColumn::<TestScalar>::Scalar(scalars.clone())
+        );
+        assert_eq!(
+            OwnedColumn::try_from_scalars(&scalars, ColumnType::TimestampTZ(time_unit, time_zone),)
+                .unwrap(),
+            OwnedColumn::<TestScalar>::TimestampTZ(time_unit, time_zone, vec![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn we_can_iterate_over_raw_owned_column_values_in_tests() {
+        let precision = Precision::new(9).unwrap();
+        let scalars = vec![TestScalar::from(1), TestScalar::from(2)];
+
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Uint8(vec![1, 2])
+                .u8_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::TinyInt(vec![-1, 2])
+                .i8_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![-1, 2]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::SmallInt(vec![-3, 4])
+                .i16_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![-3, 4]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int(vec![-5, 6])
+                .i32_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![-5, 6]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::BigInt(vec![-7, 8])
+                .i64_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![-7, 8]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Int128(vec![-9, 10])
+                .i128_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![-9, 10]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Boolean(vec![true, false])
+                .bool_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![true, false]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Scalar(scalars.clone())
+                .scalar_iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            scalars
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::VarChar(vec!["space".to_string(), "time".to_string()])
+                .string_iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            vec!["space", "time"]
+        );
+        assert_eq!(
+            OwnedColumn::<TestScalar>::Decimal75(
+                precision,
+                2,
+                vec![TestScalar::from(3), TestScalar::from(4)],
+            )
+            .scalar_iter()
+            .copied()
+            .collect::<Vec<_>>(),
+            vec![TestScalar::from(3), TestScalar::from(4)]
+        );
+    }
 
     #[test]
     fn we_can_slice_a_column() {
