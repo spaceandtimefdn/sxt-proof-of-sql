@@ -84,11 +84,32 @@ jobs:
         run: |
           rustup target add thumbv7em-none-eabi
           cargo check -p proof-of-sql --target thumbv7em-none-eabi --no-default-features
+
+  wasm:
+    name: WebAssembly Build
+    runs-on: large-8-core-32gb-22-04
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup target add wasm32-unknown-unknown
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-${{ matrix.rust }}
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Check that we can compile `proof-of-sql-planner` to WebAssembly
         working-directory: ./crates/proof-of-sql-planner
-        run: |
-          cargo install wasm-pack
-          wasm-pack build --target deno
+        run: wasm-pack build --target deno
 
   test:
     name: Test Suite (${{ matrix.rust }})
@@ -374,12 +395,12 @@ jobs:
   check-aggregate:
     name: Check Package
     runs-on: ubuntu-latest
-    needs: [check]
+    needs: [check, wasm]
     if: always()
     steps:
       - name: Check matrix status
         run: |
-          if [[ "${{ needs.check.result }}" != "success" ]]; then
+          if [[ "${{ needs.check.result }}" != "success" || "${{ needs.wasm.result }}" != "success" ]]; then
             echo "Check matrix failed"
             exit 1
           fi
