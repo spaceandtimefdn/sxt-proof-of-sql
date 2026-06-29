@@ -18,6 +18,13 @@ pub use column_ref::ColumnRef;
 mod column_field;
 pub use column_field::ColumnField;
 
+mod nullable_schema;
+pub use nullable_schema::{
+    is_generated_presence_field, logical_column_fields_from_physical_schema,
+    physical_column_fields_from_logical_schema, presence_column_id, value_column_id_from_presence,
+    NullableSchemaError, NullableSchemaResult, PRESENCE_COLUMN_SUFFIX,
+};
+
 mod data_accessor_impl;
 pub use data_accessor_impl::{DataAccessorImpl, TableDataAccessor};
 

@@ -137,9 +137,12 @@ pub fn column_fields_to_schema(column_fields: Vec<ColumnField>) -> Schema {
         column_fields
             .into_iter()
             .map(|column_field| {
-                //TODO: Make columns nullable
                 let data_type = (&column_field.data_type()).into();
-                Field::new(column_field.name().value.as_str(), data_type, false)
+                Field::new(
+                    column_field.name().value.as_str(),
+                    data_type,
+                    column_field.is_nullable(),
+                )
             })
             .collect::<Vec<_>>(),
     )
