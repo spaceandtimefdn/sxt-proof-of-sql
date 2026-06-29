@@ -5,65 +5,80 @@ use super::{
 use crate::base::commitment::{commitment_evaluation_proof_test::*, CommitmentEvaluationProof};
 use ark_std::UniformRand;
 use merlin::Transcript;
+use std::sync::LazyLock;
+
+static PUBLIC_PARAMETERS_4: LazyLock<PublicParameters> =
+    LazyLock::new(|| PublicParameters::test_rand(4, &mut test_rng()));
+static PROVER_SETUP_4: LazyLock<ProverSetup<'static>> =
+    LazyLock::new(|| ProverSetup::from(&*PUBLIC_PARAMETERS_4));
+static VERIFIER_SETUP_4: LazyLock<VerifierSetup> =
+    LazyLock::new(|| VerifierSetup::from(&*PUBLIC_PARAMETERS_4));
+static PUBLIC_PARAMETERS_6: LazyLock<PublicParameters> =
+    LazyLock::new(|| PublicParameters::test_rand(6, &mut test_rng()));
+static PROVER_SETUP_6: LazyLock<ProverSetup<'static>> =
+    LazyLock::new(|| ProverSetup::from(&*PUBLIC_PARAMETERS_6));
+static VERIFIER_SETUP_6: LazyLock<VerifierSetup> =
+    LazyLock::new(|| VerifierSetup::from(&*PUBLIC_PARAMETERS_6));
+
+fn dory_setup_4() -> (&'static ProverSetup<'static>, &'static VerifierSetup) {
+    (&PROVER_SETUP_4, &VERIFIER_SETUP_4)
+}
+
+fn dory_setup_6() -> (&'static ProverSetup<'static>, &'static VerifierSetup) {
+    (&PROVER_SETUP_6, &VERIFIER_SETUP_6)
+}
 
 #[test]
 fn test_simple_ipa() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let (prover_setup, verifier_setup) = dory_setup_4();
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 4),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 4),
+        &DoryProverPublicSetup::new(prover_setup, 4),
+        &DoryVerifierPublicSetup::new(verifier_setup, 4),
     );
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 3),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 3),
+        &DoryProverPublicSetup::new(prover_setup, 3),
+        &DoryVerifierPublicSetup::new(verifier_setup, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let (prover_setup, verifier_setup) = dory_setup_6();
     test_simple_commitment_evaluation_proof::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 2),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 2),
+        &DoryProverPublicSetup::new(prover_setup, 2),
+        &DoryVerifierPublicSetup::new(verifier_setup, 2),
     );
 }
 
 #[test]
 fn test_random_ipa_with_length_1() {
-    let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let (prover_setup, verifier_setup) = dory_setup_4();
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 4),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 4),
+        &DoryProverPublicSetup::new(prover_setup, 4),
+        &DoryVerifierPublicSetup::new(verifier_setup, 4),
     );
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 3),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 3),
+        &DoryProverPublicSetup::new(prover_setup, 3),
+        &DoryVerifierPublicSetup::new(verifier_setup, 3),
     );
-    let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
-    let prover_setup = ProverSetup::from(&public_parameters);
-    let verifier_setup = VerifierSetup::from(&public_parameters);
+    let (prover_setup, verifier_setup) = dory_setup_6();
     test_commitment_evaluation_proof_with_length_1::<DoryEvaluationProof>(
-        &DoryProverPublicSetup::new(&prover_setup, 2),
-        &DoryVerifierPublicSetup::new(&verifier_setup, 2),
+        &DoryProverPublicSetup::new(prover_setup, 2),
+        &DoryVerifierPublicSetup::new(verifier_setup, 2),
     );
 }
 
 #[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
-    let setup_setup = [(4, 4), (4, 3), (6, 2)];
-    for setup_p in setup_setup {
-        let public_parameters = PublicParameters::test_rand(setup_p.0, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
-        let verifier_setup = VerifierSetup::from(&public_parameters);
+    let setup_setup = [
+        (dory_setup_4(), 4),
+        (dory_setup_4(), 3),
+        (dory_setup_6(), 2),
+    ];
+    for ((prover_setup, verifier_setup), sigma) in setup_setup {
         for length in lengths {
             test_random_commitment_evaluation_proof::<DoryEvaluationProof>(
                 length,
                 0,
-                &DoryProverPublicSetup::new(&prover_setup, setup_p.1),
-                &DoryVerifierPublicSetup::new(&verifier_setup, setup_p.1),
+                &DoryProverPublicSetup::new(prover_setup, sigma),
+                &DoryVerifierPublicSetup::new(verifier_setup, sigma),
             );
         }
     }
@@ -72,8 +87,7 @@ fn test_random_ipa_with_various_lengths() {
 #[test]
 fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let mut rng = test_rng();
-    let public_parameters = PublicParameters::test_rand(4, &mut rng);
-    let prover_setup = ProverSetup::from(&public_parameters);
+    let (prover_setup, _) = dory_setup_4();
     let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
         .take(30)
         .collect::<Vec<_>>();
@@ -86,7 +100,7 @@ fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
         &a,
         &b_point,
         0,
-        &DoryProverPublicSetup::new(&prover_setup, 3),
+        &DoryProverPublicSetup::new(prover_setup, 3),
     );
     let encoded = postcard::to_allocvec(&proof).unwrap();
     let decoded: DoryEvaluationProof = postcard::from_bytes(&encoded).unwrap();
