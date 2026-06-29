@@ -78,3 +78,63 @@ pub(crate) trait DecimalProofExpr: ProofExpr {
         self.data_type().scale().expect("Scale should be valid")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestDecimalProofExpr {
+        data_type: ColumnType,
+    }
+
+    impl ProofExpr for TestDecimalProofExpr {
+        fn data_type(&self) -> ColumnType {
+            self.data_type
+        }
+
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unimplemented!("only decimal metadata helpers are exercised in this test")
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            _builder: &mut FinalRoundBuilder<'a, S>,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unimplemented!("only decimal metadata helpers are exercised in this test")
+        }
+
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            _builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<Ident, S>,
+            _chi_eval: S,
+            _params: &[LiteralValue],
+        ) -> Result<S, ProofError> {
+            unimplemented!("only decimal metadata helpers are exercised in this test")
+        }
+
+        fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
+    }
+
+    impl DecimalProofExpr for TestDecimalProofExpr {}
+
+    #[test]
+    fn decimal_proof_expr_reads_precision_and_scale_from_data_type() {
+        let precision = Precision::new(38).unwrap();
+        let expr = TestDecimalProofExpr {
+            data_type: ColumnType::Decimal75(precision, -7),
+        };
+
+        assert_eq!(expr.precision(), precision);
+        assert_eq!(expr.scale(), -7);
+    }
+}
