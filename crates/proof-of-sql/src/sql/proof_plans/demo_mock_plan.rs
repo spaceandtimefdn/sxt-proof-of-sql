@@ -77,17 +77,97 @@ impl ProverEvaluate for DemoMockPlan {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::DemoMockPlan;
+    #[cfg(feature = "blitzar")]
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            OwnedTableTestAccessor,
         },
         sql::proof::VerifiableQueryResult,
     };
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_bigint, table},
+                ColumnField, ColumnRef, ColumnType, TableRef,
+            },
+            map::{indexmap, indexset},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{
+            mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+            FirstRoundBuilder, ProofPlan, ProverEvaluate,
+        },
+    };
+    use alloc::{collections::VecDeque, vec};
     #[cfg(feature = "blitzar")]
     use blitzar::proof::InnerProductProof;
+    use bumpalo::Bump;
+
+    #[test]
+    fn demo_mock_plan_reports_selected_column_metadata_and_refs() {
+        let table_ref = TableRef::new("namespace", "table_name");
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
+        let plan = DemoMockPlan {
+            column: column_ref.clone(),
+        };
+
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![ColumnField::new("column_name".into(), ColumnType::BigInt)]
+        );
+        assert_eq!(plan.get_column_references(), indexset! {column_ref});
+        assert_eq!(plan.get_table_references(), indexset! {table_ref});
+    }
+
+    #[test]
+    fn demo_mock_plan_evaluates_selected_column_for_verifier_and_prover() {
+        let alloc = Bump::new();
+        let table_ref = TableRef::new("namespace", "table_name");
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
+        let plan = DemoMockPlan {
+            column: column_ref.clone(),
+        };
+        let table = table::<TestScalar>([
+            borrowed_bigint("column_name", [10_i64, 20, 30], &alloc),
+            borrowed_bigint("other", [1_i64, 2, 3], &alloc),
+        ]);
+        let table_map = indexmap! {table_ref.clone() => table.clone()};
+
+        let mut first_round_builder = FirstRoundBuilder::new(table.num_rows());
+        assert_eq!(
+            plan.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[]),
+            Ok(table.clone())
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+        assert_eq!(
+            plan.final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[]),
+            Ok(table)
+        );
+
+        let accessor = indexmap! {
+            table_ref.clone() => indexmap! {
+                "column_name".into() => TestScalar::from(77_u64),
+                "other".into() => TestScalar::from(12_u64),
+            },
+        };
+        let chi_eval_map = indexmap! {table_ref => (TestScalar::from(5_u64), 3_usize)};
+        let mut verification_builder =
+            MockVerificationBuilder::new(vec![], 0, vec![], vec![], vec![], vec![], vec![]);
+
+        let evaluation = plan
+            .verifier_evaluate(&mut verification_builder, &accessor, &chi_eval_map, &[])
+            .unwrap();
+
+        assert_eq!(evaluation.column_evals(), &[TestScalar::from(77_u64)]);
+        assert_eq!(evaluation.chi(), (TestScalar::from(5_u64), 3));
+    }
 
     #[test]
     #[cfg(feature = "blitzar")]
