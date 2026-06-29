@@ -76,6 +76,7 @@ impl fmt::Display for PoSQLTimeZone {
 mod timezone_parsing_tests {
     use super::*;
     use alloc::format;
+    use proptest::prelude::*;
 
     #[test]
     fn test_display_fixed_offset_positive() {
@@ -111,6 +112,24 @@ mod timezone_parsing_tests {
     }
 
     #[test]
+    fn we_can_parse_utc_aliases() {
+        for alias in ["Z", "UTC", "00:00", "+00:00", "0:00", "+0:00"] {
+            let timezone_as_str: Option<Arc<str>> = Some(alias.into());
+            let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+
+            assert_eq!(timezone, PoSQLTimeZone::utc());
+        }
+    }
+
+    #[test]
+    fn we_can_parse_positive_time_zone() {
+        let timezone_as_str: Option<Arc<str>> = Some("+02:30".into());
+        let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+
+        assert_eq!(timezone, PoSQLTimeZone::new(9000));
+    }
+
+    #[test]
     fn we_cannot_parse_invalid_time_zone() {
         let timezone_as_str: Option<Arc<str>> = Some("111111111".into());
         let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
@@ -118,5 +137,50 @@ mod timezone_parsing_tests {
             timezone_err,
             PoSQLTimestampError::InvalidTimezone { timezone: _ }
         ));
+    }
+
+    #[test]
+    fn we_cannot_parse_invalid_time_zone_offsets() {
+        for offset in ["+0X:00", "+02:YY"] {
+            let timezone_as_str: Option<Arc<str>> = Some(offset.into());
+            let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+
+            assert!(matches!(
+                timezone_err,
+                PoSQLTimestampError::InvalidTimezoneOffset
+            ));
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn prop_fixed_offsets_parse_to_seconds(sign in "[-+]", hours in 0i32..24, minutes in 0i32..60) {
+            let timezone_as_str: Option<Arc<str>> = Some(format!("{sign}{hours:02}:{minutes:02}").into());
+            let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+            let expected_sign = if sign == "-" { -1 } else { 1 };
+
+            prop_assert_eq!(timezone.offset(), expected_sign * (hours * 3600 + minutes * 60));
+        }
+
+        #[test]
+        fn prop_utc_aliases_parse_to_zero(alias in prop::sample::select(alloc::vec!["Z", "UTC", "00:00", "+00:00", "0:00", "+0:00"])) {
+            let timezone_as_str: Option<Arc<str>> = Some(alias.into());
+            let timezone = PoSQLTimeZone::try_from(&timezone_as_str).unwrap();
+
+            prop_assert_eq!(timezone, PoSQLTimeZone::utc());
+        }
+
+        #[test]
+        fn prop_non_offset_names_are_rejected(name in "[A-Za-z_]+/[A-Za-z_]+") {
+            let timezone_as_str: Option<Arc<str>> = Some(name.clone().into());
+            let timezone_err = PoSQLTimeZone::try_from(&timezone_as_str).unwrap_err();
+
+            match timezone_err {
+                PoSQLTimestampError::InvalidTimezone { timezone } => {
+                    prop_assert_eq!(timezone, name.to_uppercase());
+                }
+                other => prop_assert!(false, "unexpected timezone error: {other:?}"),
+            }
+        }
     }
 }
