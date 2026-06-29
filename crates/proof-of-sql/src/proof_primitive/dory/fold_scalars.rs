@@ -57,3 +57,48 @@ pub fn fold_scalars_0_verify(
 
     state.base_state
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters};
+    use merlin::Transcript;
+
+    #[test]
+    fn we_keep_verifier_state_unchanged_for_zero_folded_scalars() {
+        let public_parameters = PublicParameters::test_rand(0, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let expected_state = VerifierState::new(
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            0,
+        );
+        let state = ExtendedVerifierState {
+            base_state: VerifierState::new(
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                0,
+            ),
+            E_1: DeferredMSM::new([], []),
+            E_2: DeferredMSM::new([], []),
+            s1_tensor: vec![F::from(5)],
+            s2_tensor: vec![F::from(7)],
+            alphas: vec![F::from(0)],
+            alpha_invs: vec![F::from(0)],
+        };
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"fold_scalars_test");
+
+        let folded_state = fold_scalars_0_verify(
+            &mut messages,
+            &mut transcript,
+            state,
+            &verifier_setup,
+            |_| (F::from(0), F::from(0)),
+        );
+
+        assert_eq!(folded_state, expected_state);
+    }
+}
