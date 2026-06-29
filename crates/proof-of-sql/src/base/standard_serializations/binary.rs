@@ -51,4 +51,16 @@ mod tests {
         let reserialized = try_standard_binary_serialization(deserialized).unwrap();
         assert_eq!(serialized, reserialized);
     }
+
+    #[test]
+    fn integer_encoding_is_fixed_width_big_endian() {
+        let serialized = try_standard_binary_serialization((0x1234_u16, 0x5678_9abc_u32)).unwrap();
+
+        assert_eq!(serialized, [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc]);
+
+        let (deserialized, bytes_read): ((u16, u32), _) =
+            try_standard_binary_deserialization(&serialized).unwrap();
+        assert_eq!(deserialized, (0x1234, 0x5678_9abc));
+        assert_eq!(bytes_read, serialized.len());
+    }
 }
