@@ -105,3 +105,58 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::PlannerError;
+    use arrow::datatypes::DataType;
+    use datafusion::{common::DataFusionError, logical_expr::Operator, physical_plan};
+    use proof_of_sql::base::math::decimal::DecimalError;
+    use sqlparser::parser::ParserError;
+
+    #[test]
+    fn we_format_core_planner_error_variants() {
+        let table_not_found = PlannerError::TableNotFound {
+            table_name: "orders".to_string(),
+        };
+        assert_eq!(table_not_found.to_string(), "Table not found: orders");
+
+        let placeholder = PlannerError::InvalidPlaceholderId {
+            id: "$foo".to_string(),
+        };
+        assert_eq!(placeholder.to_string(), "Placeholder id \"$foo\" is invalid");
+
+        let data_type = PlannerError::UnsupportedDataType {
+            data_type: DataType::Utf8,
+        };
+        assert_eq!(data_type.to_string(), "Unsupported datatype: Utf8");
+
+        let binary_op = PlannerError::UnsupportedBinaryOperator { op: Operator::StringConcat };
+        assert_eq!(binary_op.to_string(), "Binary operator || is not supported");
+
+        let agg_op = PlannerError::UnsupportedAggregateOperation {
+            op: physical_plan::aggregates::AggregateFunction::RegrIntercept,
+        };
+        assert_eq!(
+            agg_op.to_string(),
+            "Aggregate operation RegrIntercept is not supported"
+        );
+    }
+
+    #[test]
+    fn we_preserve_transparent_source_errors() {
+        let parse_error = PlannerError::from(ParserError::ParserError("bad sql".to_string()));
+        assert!(matches!(parse_error, PlannerError::SqlParserError { .. }));
+        assert!(parse_error.to_string().contains("bad sql"));
+
+        let datafusion_error = PlannerError::from(DataFusionError::Plan("bad plan".to_string()));
+        assert!(matches!(datafusion_error, PlannerError::DataFusionError { .. }));
+        assert!(datafusion_error.to_string().contains("bad plan"));
+
+        let decimal_error = PlannerError::from(DecimalError::InvalidPrecision {
+            error: "oops".to_string(),
+        });
+        assert!(matches!(decimal_error, PlannerError::DecimalError { .. }));
+        assert!(decimal_error.to_string().contains("oops"));
+    }
+}
