@@ -51,6 +51,9 @@ mod dory_reduce_helper;
 mod scalar_product;
 
 #[cfg(test)]
+mod scalar_product_test;
+
+#[cfg(test)]
 use dory_reduce::{dory_reduce_prove, dory_reduce_verify};
 use scalar_product::{scalar_product_prove, scalar_product_verify};
 
