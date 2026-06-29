@@ -83,3 +83,65 @@ impl<S: Scalar> FoldLogExpr<S> {
         self.final_round_evaluate_with_chi(builder, alloc, columns, length, chi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::sql::proof::mock_verification_builder::MockVerificationBuilder;
+    use alloc::collections::VecDeque;
+    use num_traits::Inv;
+
+    #[test]
+    fn verifier_consumes_star_and_records_identity_constraint() {
+        let fold = FoldLogExpr::new(TestScalar::from(2), TestScalar::from(3));
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(5)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let (star_eval, fold_eval) = fold
+            .verify_evaluate(
+                &mut builder,
+                &[TestScalar::from(7), TestScalar::from(11)],
+                TestScalar::from(97),
+            )
+            .unwrap();
+
+        assert_eq!(star_eval, TestScalar::from(5));
+        assert_eq!(fold_eval, TestScalar::from(64));
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![TestScalar::from(5 + 64 * 5 - 97)]]
+        );
+    }
+
+    #[test]
+    fn final_round_evaluate_produces_star_and_fold_mles() {
+        let alloc = Bump::new();
+        let fold = FoldLogExpr::new(TestScalar::from(2), TestScalar::from(3));
+        let columns = [
+            Column::Scalar(&[TestScalar::from(7), TestScalar::from(13)]),
+            Column::Scalar(&[TestScalar::from(11), TestScalar::from(17)]),
+        ];
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        let (star, folded) = fold.final_round_evaluate(&mut builder, &alloc, &columns, 2);
+
+        assert_eq!(folded, &[TestScalar::from(64), TestScalar::from(112)]);
+        assert_eq!(
+            star,
+            &[
+                TestScalar::from(65).inv().unwrap(),
+                TestScalar::from(113).inv().unwrap()
+            ]
+        );
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    }
+}
