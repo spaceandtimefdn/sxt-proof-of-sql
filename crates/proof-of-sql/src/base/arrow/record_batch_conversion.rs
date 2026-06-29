@@ -99,6 +99,90 @@ impl<C: Commitment> TableCommitment<C> {
     }
 }
 
+#[cfg(test)]
+mod batch_to_columns_tests {
+    use super::*;
+    use crate::base::{
+        arrow::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError,
+        scalar::test_scalar::TestScalar,
+    };
+    use arrow::{
+        array::{BooleanArray, Int32Array, UInt16Array},
+        datatypes::{DataType, Field, Schema},
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn we_can_convert_record_batch_columns_without_commitment_setup() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("flag", DataType::Boolean, false),
+            Field::new("amount", DataType::Int32, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(BooleanArray::from(vec![true, false, true])),
+                Arc::new(Int32Array::from(vec![10, 20, 30])),
+            ],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+
+        assert_eq!(columns.len(), 2);
+        assert_eq!(columns[0].0, "flag".into());
+        assert_eq!(columns[0].1, Column::Boolean(&[true, false, true]));
+        assert_eq!(columns[1].0, "amount".into());
+        assert_eq!(columns[1].1, Column::Int(&[10, 20, 30]));
+    }
+
+    #[test]
+    fn batch_to_columns_rejects_arrays_with_nulls() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "flag",
+            DataType::Boolean,
+            true,
+        )]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(BooleanArray::from(vec![Some(true), None]))],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let err = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap_err();
+
+        assert!(matches!(
+            err,
+            RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                source: ArrowArrayToColumnConversionError::ArrayContainsNulls
+            }
+        ));
+    }
+
+    #[test]
+    fn batch_to_columns_rejects_unsupported_arrow_types() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "unsupported",
+            DataType::UInt16,
+            false,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(UInt16Array::from(vec![1_u16, 2]))])
+            .unwrap();
+        let alloc = Bump::new();
+
+        let err = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap_err();
+
+        assert!(matches!(
+            err,
+            RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                source: ArrowArrayToColumnConversionError::UnsupportedType { datatype }
+            } if datatype == DataType::UInt16
+        ));
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
