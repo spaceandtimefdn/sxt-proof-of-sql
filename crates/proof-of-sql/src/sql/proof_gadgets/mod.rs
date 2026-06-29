@@ -3,6 +3,8 @@
 mod divide_and_modulo_expr;
 mod filter_base;
 pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter};
+#[cfg(test)]
+mod filter_base_test;
 pub(crate) mod fold_log_expr;
 mod membership_check;
 mod monotonic;
@@ -20,6 +22,8 @@ use permutation_check::{final_round_evaluate_permutation_check, verify_permutati
 #[cfg(test)]
 mod permutation_check_test;
 use shift::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
+#[cfg(test)]
+mod shift_test;
 mod sign_expr;
 pub(crate) use sign_expr::{
     final_round_evaluate_sign, first_round_evaluate_sign, verifier_evaluate_sign,
