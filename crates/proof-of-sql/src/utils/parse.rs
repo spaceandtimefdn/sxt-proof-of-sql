@@ -92,4 +92,13 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn test_find_bigdecimals_skips_non_create_table_statements() {
+        // SELECT and other non-CREATE TABLE statements hit the `_ => None` arm
+        let sql = "SELECT 1; CREATE TABLE sxt.test (val DECIMAL(78, 0));";
+        let result = find_bigdecimals(sql);
+        assert_eq!(result.get("sxt.test").unwrap(), &[("val".to_string(), 78, 0)]);
+        assert_eq!(result.len(), 1);
+    }
 }
