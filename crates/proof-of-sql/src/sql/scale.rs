@@ -235,4 +235,19 @@ mod tests {
         let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
         assert_eq!(proof_exprs, (left, right));
     }
+
+    #[test]
+    fn we_can_scale_cast_timestamp_tz_upcast_to_match_decimal_scale() {
+        use crate::base::posql_time::{PoSQLTimeUnit, PoSQLTimeZone};
+        // TimestampTZ has scale = None (→ 0); Decimal75 with scale 5 → Ordering::Less,
+        // which triggers the `if matches!(left_type, ColumnType::TimestampTZ(_, _))` branch.
+        let ts = DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "ts".into(),
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()),
+        ));
+        let decimal = COLUMN1_DECIMAL_10_5();
+        let result = scale_cast_binary_op(ts, decimal);
+        assert!(result.is_ok());
+    }
 }
