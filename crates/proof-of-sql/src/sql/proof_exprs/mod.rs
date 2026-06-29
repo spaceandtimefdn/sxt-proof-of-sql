@@ -2,7 +2,7 @@
 mod proof_expr;
 pub(crate) use proof_expr::DecimalProofExpr;
 pub use proof_expr::ProofExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod proof_expr_test;
 
 mod aliased_dyn_proof_expr;
