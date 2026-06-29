@@ -29,7 +29,7 @@ pub(crate) use sign_expr::{
 mod range_check;
 #[cfg(all(test, feature = "blitzar"))]
 mod range_check_test;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod sign_expr_test;
 pub(crate) use monotonic::{
     final_round_evaluate_monotonic, first_round_evaluate_monotonic, verify_monotonic,
