@@ -62,7 +62,7 @@ where
                 );
 
         // This handles the (-1)^(d-i) sign.
-        if (degree - i).is_multiple_of(2) {
+        if crate::base::math::is_multiple_of(degree - i, 2) {
             sum += new_term;
         } else {
             sum -= new_term;

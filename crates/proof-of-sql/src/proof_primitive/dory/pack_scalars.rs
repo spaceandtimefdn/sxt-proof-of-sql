@@ -1,6 +1,7 @@
 use super::{blitzar_metadata_table::min_as_f, G1Affine, G1Projective};
 use crate::{
-    base::commitment::CommittableColumn, proof_primitive::dory::offset_to_bytes::OffsetToBytes,
+    base::{commitment::CommittableColumn, math::is_multiple_of},
+    proof_primitive::dory::offset_to_bytes::OffsetToBytes,
     utils::log,
 };
 use alloc::{vec, vec::Vec};
@@ -218,7 +219,7 @@ fn offset_column(
                     0
                 };
 
-                let last_value = if total_length.is_multiple_of(num_matrix_commitment_columns) {
+                let last_value = if is_multiple_of(total_length, num_matrix_commitment_columns) {
                     num_matrix_commitment_columns
                 } else {
                     total_length % num_matrix_commitment_columns

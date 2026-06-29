@@ -1,5 +1,6 @@
 use crate::{
     base::{
+        math::is_multiple_of,
         polynomial::interpolate_evaluations_to_reverse_coefficients,
         proof::{ProofError, Transcript},
         scalar::Scalar,
@@ -69,7 +70,7 @@ impl<S: Scalar> SumcheckProof<S> {
         log::log_memory_usage("Start");
 
         let coefficients_len = self.coefficients.len();
-        if !coefficients_len.is_multiple_of(num_variables) {
+        if !is_multiple_of(coefficients_len, num_variables) {
             return Err(ProofError::VerificationError {
                 error: "invalid proof size",
             });
