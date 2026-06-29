@@ -119,4 +119,20 @@ mod tests {
 
         assert!(iter.next().is_none());
     }
+
+    #[test]
+    fn we_iter_mul_by_preserves_zerosum_terms() {
+        let mle = vec![TestScalar::from(1), TestScalar::from(2)];
+        let terms: Vec<SumcheckSubpolynomialTerm<_>> =
+            vec![(TestScalar::from(7), vec![Box::new(&mle)])];
+        let subpoly = SumcheckSubpolynomial::new(SumcheckSubpolynomialType::ZeroSum, terms);
+
+        let mut iter = subpoly.iter_mul_by(TestScalar::from(3));
+
+        let (subpoly_type, coeff, extensions) = iter.next().unwrap();
+        assert_eq!(subpoly_type, SumcheckSubpolynomialType::ZeroSum);
+        assert_eq!(coeff, TestScalar::from(21));
+        assert_eq!(extensions.len(), 1);
+        assert!(iter.next().is_none());
+    }
 }
