@@ -4,12 +4,12 @@ pub use empty_exec::EmptyExec;
 
 mod table_exec;
 pub use table_exec::TableExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod table_exec_test;
 
 mod projection_exec;
 pub(crate) use projection_exec::ProjectionExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod projection_exec_test;
 
 #[cfg(test)]
@@ -19,7 +19,7 @@ mod legacy_filter_exec;
 pub(crate) use legacy_filter_exec::LegacyFilterExec;
 #[cfg(test)]
 pub(crate) use legacy_filter_exec::OstensibleLegacyFilterExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod legacy_filter_exec_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod legacy_filter_exec_test_dishonest_prover;
@@ -32,34 +32,34 @@ mod fold_util_test;
 mod group_by_exec;
 pub(crate) use group_by_exec::GroupByExec;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod group_by_exec_test;
 
 mod filter_exec;
 pub(crate) use filter_exec::FilterExec;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod filter_exec_test;
 
 mod aggregate_exec;
 pub(crate) use aggregate_exec::AggregateExec;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod aggregate_exec_test;
 
 mod slice_exec;
 pub(crate) use slice_exec::SliceExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod slice_exec_test;
 
 mod union_exec;
 pub(crate) use union_exec::UnionExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod union_exec_test;
 
 mod sort_merge_join_exec;
 pub use sort_merge_join_exec::SortMergeJoinExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod sort_merge_join_exec_test;
 
 mod dyn_proof_plan;
