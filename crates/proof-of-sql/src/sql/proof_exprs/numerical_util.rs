@@ -662,8 +662,8 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::{
-        cast_bool_column_to_signed_int_column, cast_column, cast_int_slice_to_int_column,
-        divide_columns, divide_integer_columns,
+        add_subtract_columns, cast_bool_column_to_signed_int_column, cast_column,
+        cast_int_slice_to_int_column, divide_columns, divide_integer_columns, multiply_columns,
     };
     use crate::{
         base::{
@@ -1363,6 +1363,80 @@ mod tests {
                 ColumnType::BigInt
             ),
             Column::BigInt(&[1, 10, supported_bigint])
+        );
+    }
+
+    #[test]
+    fn we_can_add_subtract_and_multiply_numeric_columns() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::Int(&[10, -2, 0]);
+        let rhs = Column::<TestScalar>::Int(&[3, 4, -5]);
+
+        let added = add_subtract_columns(lhs, rhs, &alloc, false);
+        let expected_added = [
+            TestScalar::from(13_i64),
+            TestScalar::from(2_i64),
+            TestScalar::from(-5_i64),
+        ];
+        assert_eq!(added, expected_added.as_slice());
+
+        let subtracted = add_subtract_columns(lhs, rhs, &alloc, true);
+        let expected_subtracted = [
+            TestScalar::from(7_i64),
+            TestScalar::from(-6_i64),
+            TestScalar::from(5_i64),
+        ];
+        assert_eq!(subtracted, expected_subtracted.as_slice());
+
+        let multiplied = multiply_columns(&lhs, &rhs, &alloc);
+        let expected_multiplied = [
+            TestScalar::from(30_i64),
+            TestScalar::from(-8_i64),
+            TestScalar::ZERO,
+        ];
+        assert_eq!(multiplied, expected_multiplied.as_slice());
+    }
+
+    #[test]
+    fn we_can_cast_integer_columns_to_decimal_columns_without_scaling() {
+        let alloc = Bump::new();
+        let int_values = [123, -456, 0];
+        let precision = Precision::new(10).unwrap();
+        let int_column = Column::<TestScalar>::Int(&int_values);
+        let decimal_values = int_values.map(TestScalar::from);
+
+        assert_eq!(
+            cast_column(
+                &alloc,
+                int_column,
+                ColumnType::Int,
+                ColumnType::Decimal75(precision, 0),
+            ),
+            Column::Decimal75(precision, 0, &decimal_values)
+        );
+    }
+
+    #[test]
+    fn we_can_scale_cast_timestamp_to_finer_unit() {
+        let alloc = Bump::new();
+        let timestamp_values = [2_i64, -3_i64, 0_i64];
+        let timestamp_column = Column::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            &timestamp_values,
+        );
+
+        assert_eq!(
+            cast_column_with_scaling(
+                &alloc,
+                timestamp_column,
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::utc()),
+            ),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                PoSQLTimeZone::utc(),
+                &[2_000, -3_000, 0]
+            )
         );
     }
 }
