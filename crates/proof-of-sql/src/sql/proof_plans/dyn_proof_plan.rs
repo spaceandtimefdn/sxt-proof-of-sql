@@ -184,3 +184,188 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DynProofPlan;
+    use crate::{
+        base::{
+            database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+            map::indexset,
+        },
+        sql::{
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr, TableExpr},
+            AnalyzeError,
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    fn table_ref() -> TableRef {
+        TableRef::new("sxt", "t")
+    }
+
+    fn column_field(name: &str, column_type: ColumnType) -> ColumnField {
+        ColumnField::new(Ident::from(name), column_type)
+    }
+
+    fn column_ref(name: &str, column_type: ColumnType) -> ColumnRef {
+        ColumnRef::new(table_ref(), Ident::from(name), column_type)
+    }
+
+    fn aliased_column(name: &str, column_type: ColumnType) -> AliasedDynProofExpr {
+        AliasedDynProofExpr {
+            expr: DynProofExpr::new_column(column_ref(name, column_type)),
+            alias: Ident::from(name),
+        }
+    }
+
+    fn table_expr() -> TableExpr {
+        TableExpr {
+            table_ref: table_ref(),
+        }
+    }
+
+    fn true_expr() -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Boolean(true))
+    }
+
+    #[test]
+    fn constructors_wrap_expected_plan_variants() {
+        let schema = vec![
+            column_field("a", ColumnType::BigInt),
+            column_field("b", ColumnType::Boolean),
+        ];
+        let table = DynProofPlan::new_table(table_ref(), schema.clone());
+        match &table {
+            DynProofPlan::Table(plan) => {
+                assert_eq!(plan.table_ref(), &table_ref());
+                assert_eq!(plan.schema(), schema);
+            }
+            _ => panic!("expected table plan"),
+        }
+
+        assert!(matches!(DynProofPlan::new_empty(), DynProofPlan::Empty(_)));
+
+        let aliased = aliased_column("a", ColumnType::BigInt);
+        let projection = DynProofPlan::new_projection(vec![aliased.clone()], table.clone());
+        match &projection {
+            DynProofPlan::Projection(plan) => {
+                assert_eq!(plan.aliased_results(), &[aliased.clone()]);
+                assert!(matches!(plan.input(), DynProofPlan::Table(_)));
+            }
+            _ => panic!("expected projection plan"),
+        }
+
+        let where_clause = true_expr();
+        let legacy_filter = DynProofPlan::new_legacy_filter(
+            vec![aliased.clone()],
+            table_expr(),
+            where_clause.clone(),
+        );
+        match &legacy_filter {
+            DynProofPlan::LegacyFilter(plan) => {
+                assert_eq!(plan.aliased_results(), &[aliased.clone()]);
+                assert_eq!(plan.table(), &table_expr());
+                assert_eq!(plan.where_clause(), &where_clause);
+            }
+            _ => panic!("expected legacy filter plan"),
+        }
+
+        let filter =
+            DynProofPlan::new_filter(vec![aliased.clone()], table.clone(), where_clause.clone());
+        match &filter {
+            DynProofPlan::Filter(plan) => {
+                assert_eq!(plan.aliased_results(), &[aliased.clone()]);
+                assert!(matches!(plan.input(), DynProofPlan::Table(_)));
+                assert_eq!(plan.where_clause(), &where_clause);
+            }
+            _ => panic!("expected filter plan"),
+        }
+
+        let slice = DynProofPlan::new_slice(table.clone(), 2, Some(3));
+        match &slice {
+            DynProofPlan::Slice(plan) => {
+                assert!(matches!(plan.input(), DynProofPlan::Table(_)));
+                assert_eq!(plan.skip(), 2);
+                assert_eq!(plan.fetch(), Some(3));
+            }
+            _ => panic!("expected slice plan"),
+        }
+    }
+
+    #[test]
+    fn try_constructors_return_expected_success_and_error_variants() {
+        let table =
+            DynProofPlan::new_table(table_ref(), vec![column_field("a", ColumnType::BigInt)]);
+        let where_clause = true_expr();
+
+        let group_by = DynProofPlan::try_new_group_by(
+            Vec::new(),
+            Vec::new(),
+            Ident::from("count"),
+            table_expr(),
+            where_clause.clone(),
+        )
+        .unwrap();
+        match &group_by {
+            DynProofPlan::GroupBy(plan) => {
+                assert_eq!(plan.group_by_exprs(), &[]);
+                assert_eq!(plan.sum_expr(), &[]);
+                assert_eq!(plan.count_alias(), &Ident::from("count"));
+                assert_eq!(plan.table(), &table_expr());
+                assert_eq!(plan.where_clause(), &where_clause);
+            }
+            _ => panic!("expected group-by plan"),
+        }
+
+        let aggregate = DynProofPlan::try_new_aggregate(
+            Vec::new(),
+            Vec::new(),
+            Ident::from("count"),
+            table.clone(),
+            where_clause.clone(),
+        )
+        .unwrap();
+        match &aggregate {
+            DynProofPlan::Aggregate(plan) => {
+                assert_eq!(plan.group_by_exprs(), &[]);
+                assert_eq!(plan.sum_expr(), &[]);
+                assert_eq!(plan.count_alias(), &Ident::from("count"));
+                assert!(matches!(plan.input(), DynProofPlan::Table(_)));
+                assert_eq!(plan.where_clause(), &where_clause);
+            }
+            _ => panic!("expected aggregate plan"),
+        }
+
+        let union =
+            DynProofPlan::try_new_union(vec![table.clone(), DynProofPlan::new_empty()]).unwrap();
+        match &union {
+            DynProofPlan::Union(plan) => assert_eq!(plan.input_plans().len(), 2),
+            _ => panic!("expected union plan"),
+        }
+
+        assert!(matches!(
+            DynProofPlan::try_new_union(vec![table]),
+            Err(AnalyzeError::NotEnoughInputPlans)
+        ));
+    }
+
+    #[test]
+    fn result_fields_can_be_returned_as_column_references() {
+        let plan = DynProofPlan::new_table(
+            table_ref(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::Boolean),
+            ],
+        );
+
+        assert_eq!(
+            plan.get_column_result_fields_as_references(),
+            indexset! {
+                ColumnRef::new(TableRef::from_names(None, ""), Ident::from("a"), ColumnType::BigInt),
+                ColumnRef::new(TableRef::from_names(None, ""), Ident::from("b"), ColumnType::Boolean),
+            }
+        );
+    }
+}
