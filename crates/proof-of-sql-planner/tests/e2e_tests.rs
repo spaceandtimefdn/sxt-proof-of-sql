@@ -707,3 +707,135 @@ fn test_implicit_casts() {
         &[],
     );
 }
+
+#[test]
+fn test_in_list() {
+    let alloc = Bump::new();
+    // Numeric `IN`/`NOT IN`/single-value, plus varchar `IN`/`NOT IN` (which lowers to an
+    // OR-chain of equalities rather than the product form).
+    let sql = "SELECT id, name FROM sxt.cats WHERE id IN (1, 3, 5);
+        SELECT id FROM sxt.cats WHERE id NOT IN (1, 3, 5);
+        SELECT name FROM sxt.cats WHERE id IN (4);
+        SELECT id FROM sxt.cats WHERE name IN ('Chloe', 'Katy');
+        SELECT id FROM sxt.cats WHERE name NOT IN ('Chloe', 'Katy', 'Lucy');";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(Some("sxt"), "cats") => table(
+            vec![
+                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
+                borrowed_varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
+            ]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([
+            int("id", [1, 3, 5]),
+            varchar("name", ["Chloe", "Katy", "Prudence"]),
+        ]),
+        owned_table([int("id", [2, 4])]),
+        owned_table([varchar("name", ["Lucy"])]),
+        owned_table([int("id", [1, 3])]),
+        owned_table([int("id", [2, 5])]),
+    ];
+    // Create public parameters for DynamicDoryEvaluationProof
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+/// `IN` with no matches (empty result), `IN` composed with another predicate (two `IN`s
+/// `AND`ed), and a longer list.
+#[test]
+fn test_in_list_more_cases() {
+    let alloc = Bump::new();
+    let sql = "SELECT id FROM sxt.cats WHERE id IN (100, 200);
+        SELECT id FROM sxt.cats WHERE id IN (1, 3, 5) AND name IN ('Chloe', 'Katy');
+        SELECT id FROM sxt.cats WHERE id IN (1, 2, 3, 4, 5, 6);";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(Some("sxt"), "cats") => table(
+            vec![
+                borrowed_int("id", [1, 2, 3, 4, 5], &alloc),
+                borrowed_varchar("name", ["Chloe", "Margaret", "Katy", "Lucy", "Prudence"], &alloc),
+            ]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![
+        owned_table([int("id", [0; 0])]),          // no match -> empty
+        owned_table([int("id", [1, 3])]),          // id IN (1,3,5) AND name IN ('Chloe','Katy')
+        owned_table([int("id", [1, 2, 3, 4, 5])]), // 6-element list -> all rows match
+    ];
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+/// `IN` over a decimal column, exercising the scale-cast / product path with a non-integer type.
+#[test]
+fn test_in_list_decimal() {
+    let alloc = Bump::new();
+    let sql = "SELECT id FROM sxt.items WHERE amount IN (1.5, 3.0);";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(Some("sxt"), "items") => table(
+            vec![
+                borrowed_int("id", [1, 2, 3, 4], &alloc),
+                // amount = 1.5, 2.5, 1.5, 3.0  (decimal with scale 1)
+                borrowed_decimal75("amount", 3, 1, [15, 25, 15, 30], &alloc),
+            ]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([int("id", [1, 3, 4])])];
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
+
+/// A long numeric `IN` list proves and verifies fine. In the product form the result type's
+/// precision saturates at 75 (`(p1 + p2 + 1).min(75)`, so it never errors), and integer factors
+/// keep scale 0, so there is no practical length limit for numeric lists. The membership zero-test
+/// stays correct regardless of the precision metadata. (Only very long *decimal* lists could hit
+/// `i8` scale accumulation.)
+#[test]
+fn test_in_list_long_numeric_list() {
+    let alloc = Bump::new();
+    let sql = "SELECT id FROM sxt.cats WHERE id IN (2, 4, 6, 8, 10, 12, 14, 16, 18, 20);";
+    let tables: IndexMap<TableRef, Table<DoryScalar>> = indexmap! {
+        TableRef::from_names(Some("sxt"), "cats") => table(
+            vec![borrowed_int("id", [1, 2, 3, 4, 5], &alloc)]
+        ),
+    };
+    let expected_results: Vec<OwnedTable<DoryScalar>> = vec![owned_table([int("id", [2, 4])])];
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let verifier_setup = VerifierSetup::from(&public_parameters);
+    posql_end_to_end_test::<DynamicDoryEvaluationProof>(
+        sql,
+        &tables,
+        &expected_results,
+        &prover_setup,
+        &verifier_setup,
+        &[],
+    );
+}
