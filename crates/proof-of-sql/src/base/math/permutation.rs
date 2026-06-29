@@ -90,6 +90,7 @@ impl Permutation {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::string::ToString;
     use alloc::vec;
 
     #[test]
@@ -123,6 +124,29 @@ mod test {
                 permutation_size: 3,
                 slice_length: 2
             })
+        );
+    }
+
+    #[test]
+    fn test_invalid_permutation_display_includes_reason() {
+        let error = Permutation::try_new(vec![1, 0, 0]).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Permutation is invalid Permutation can not have duplicate elements: [1, 0, 0]"
+        );
+    }
+
+    #[test]
+    fn test_permutation_size_mismatch_display_includes_sizes() {
+        let error = PermutationError::PermutationSizeMismatch {
+            permutation_size: 3,
+            slice_length: 2,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Application of a permutation to a slice with a different length 3 != 2"
         );
     }
 }
