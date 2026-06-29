@@ -87,3 +87,21 @@ fn we_can_compute_the_bit_matrix_for_data_entries_bigger_than_64_bit_integers() 
     assert_eq!(matrix[0], slice1);
     assert_eq!(matrix[1], slice2);
 }
+
+#[test]
+fn we_can_compute_bit_matrix_columns_for_multiple_varying_rows() {
+    let data: Vec<TestScalar> = vec![
+        TestScalar::from(0),
+        TestScalar::from(1),
+        TestScalar::from(2),
+        TestScalar::from(-3),
+    ];
+    let dist = BitDistribution::new::<TestScalar, _>(&data);
+    let alloc = Bump::new();
+    let matrix = compute_varying_bit_matrix(&alloc, &data, &dist);
+
+    assert_eq!(matrix.len(), 3);
+    assert_eq!(matrix[0], vec![false, true, false, true]);
+    assert_eq!(matrix[1], vec![false, false, true, false]);
+    assert_eq!(matrix[2], vec![true, true, true, false]);
+}
