@@ -86,3 +86,30 @@ fn we_can_convert_u256_to_test_scalar_with_wrapping_of_random_u256() {
     // ASSERT
     assert_eq!(test_scalar, expected_scalar);
 }
+
+#[test]
+fn we_can_display_test_scalar_as_full_width_hex() {
+    assert_eq!(
+        format!("{}", TestScalar::TWO),
+        "0000000000000000000000000000000000000000000000000000000000000002"
+    );
+}
+
+#[test]
+fn we_can_display_test_scalar_with_explicit_sign() {
+    assert_eq!(
+        format!("{:+}", TestScalar::TWO),
+        "+0000000000000000000000000000000000000000000000000000000000000002"
+    );
+    assert_eq!(
+        format!("{:+}", -TestScalar::TWO),
+        "-0000000000000000000000000000000000000000000000000000000000000002"
+    );
+}
+
+#[test]
+fn we_can_display_test_scalar_as_compact_alternate_hex() {
+    assert_eq!(format!("{:#}", TestScalar::TWO), "0x0000...0002");
+    assert_eq!(format!("{:+#}", TestScalar::TWO), "+0x0000...0002");
+    assert_eq!(format!("{:+#}", -TestScalar::TWO), "-0x0000...0002");
+}
