@@ -35,3 +35,43 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn from_words_preserves_low_and_high_halves() {
+        let value = U256::from_words(0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210);
+
+        assert_eq!(value.low, 0x0123_4567_89ab_cdef);
+        assert_eq!(value.high, 0xfedc_ba98_7654_3210);
+    }
+
+    #[test]
+    fn mont_scalar_to_u256_combines_little_endian_limbs() {
+        let scalar = TestScalar::from([0x0123_4567_89ab_cdef, 0x1111_2222_3333_4444, 0, 0]);
+
+        let value = U256::from(&scalar);
+
+        assert_eq!(
+            value.low,
+            0x0123_4567_89ab_cdef | (0x1111_2222_3333_4444_u128 << 64)
+        );
+        assert_eq!(value.high, 0);
+    }
+
+    #[test]
+    fn u256_to_mont_scalar_uses_low_then_high_little_endian_bytes() {
+        let value = U256::from_words(
+            0x0123_4567_89ab_cdef_1111_2222_3333_4444,
+            0x5555_6666_7777_8888_9999_aaaa_bbbb_cccc,
+        );
+        let bytes = [value.low.to_le_bytes(), value.high.to_le_bytes()].concat();
+
+        let scalar = TestScalar::from(&value);
+
+        assert_eq!(scalar, TestScalar::from_le_bytes_mod_order(&bytes));
+    }
+}
