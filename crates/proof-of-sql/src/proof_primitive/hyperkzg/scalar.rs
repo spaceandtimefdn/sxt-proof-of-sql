@@ -6,9 +6,7 @@ pub type BNScalar = MontScalar<ark_bn254::FrConfig>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar_constants;
-    #[cfg(feature = "hyperkzg_proof")]
-    use crate::base::scalar::Scalar;
+    use crate::base::scalar::{test_scalar_constants, Scalar};
     #[cfg(feature = "hyperkzg_proof")]
     use ark_std::UniformRand;
     #[cfg(feature = "hyperkzg_proof")]
@@ -17,6 +15,13 @@ mod tests {
     #[test]
     fn we_have_correct_constants_for_bn_scalar() {
         test_scalar_constants::<BNScalar>();
+    }
+
+    #[test]
+    fn we_can_use_bn_scalar_basic_arithmetic_constants() {
+        assert_eq!(BNScalar::ONE + BNScalar::ONE, BNScalar::TWO);
+        assert_eq!(BNScalar::TEN - BNScalar::ONE, BNScalar::from(9_u64));
+        assert_eq!(BNScalar::TWO * BNScalar::from(5_u64), BNScalar::TEN);
     }
 
     #[test]
