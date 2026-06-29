@@ -82,12 +82,69 @@ mod tests {
     use crate::{
         base::database::{
             owned_table_utility::{bigint, owned_table},
-            ColumnRef, ColumnType, OwnedTableTestAccessor, TableRef,
+            table_utility::{borrowed_bigint, table},
+            ColumnRef, ColumnType, OwnedTable, OwnedTableTestAccessor, TableRef,
         },
+        base::{map::indexmap, scalar::test_scalar::TestScalar},
         sql::proof::VerifiableQueryResult,
+        sql::proof::{FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate},
     };
+    use alloc::collections::VecDeque;
     #[cfg(feature = "blitzar")]
     use blitzar::proof::InnerProductProof;
+    use bumpalo::Bump;
+
+    #[test]
+    fn demo_mock_plan_reports_its_single_column_and_table_reference() {
+        let table_ref = "namespace.table_name".parse::<TableRef>().unwrap();
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
+        let plan = DemoMockPlan {
+            column: column_ref.clone(),
+        };
+
+        let fields = plan.get_column_result_fields();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name().value, "column_name");
+        assert_eq!(fields[0].data_type(), ColumnType::BigInt);
+
+        let column_refs = plan.get_column_references();
+        assert_eq!(column_refs.len(), 1);
+        assert!(column_refs.contains(&column_ref));
+
+        let table_refs = plan.get_table_references();
+        assert_eq!(table_refs.len(), 1);
+        assert!(table_refs.contains(&table_ref));
+    }
+
+    #[test]
+    fn demo_mock_plan_prover_rounds_forward_the_source_table() {
+        let alloc = Bump::new();
+        let table_ref = "namespace.table_name".parse::<TableRef>().unwrap();
+        let column_ref =
+            ColumnRef::new(table_ref.clone(), "column_name".into(), ColumnType::BigInt);
+        let plan = DemoMockPlan { column: column_ref };
+        let source_table = table::<TestScalar>([borrowed_bigint("column_name", [7, 11], &alloc)]);
+        let table_map = indexmap! { table_ref => source_table.clone() };
+
+        let mut first_round_builder = FirstRoundBuilder::new(source_table.num_rows());
+        let first_round_table = plan
+            .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(
+            OwnedTable::from(&first_round_table),
+            OwnedTable::from(&source_table)
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(1, VecDeque::new());
+        let final_round_table = plan
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(
+            OwnedTable::from(&final_round_table),
+            OwnedTable::from(&source_table)
+        );
+    }
 
     #[test]
     #[cfg(feature = "blitzar")]
