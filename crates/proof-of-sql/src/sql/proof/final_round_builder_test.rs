@@ -1,21 +1,25 @@
-use super::{FinalRoundBuilder, ProvableQueryResult};
-use crate::{
-    base::{
-        commitment::{Commitment, CommittableColumn},
-        database::{Column, ColumnField, ColumnType},
-    },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
-};
-use alloc::{collections::VecDeque, sync::Arc};
+use super::FinalRoundBuilder;
+#[cfg(feature = "arrow")]
+use super::ProvableQueryResult;
+#[cfg(feature = "blitzar")]
+use crate::base::commitment::{Commitment, CommittableColumn};
+#[cfg(feature = "arrow")]
+use crate::base::database::{Column, ColumnField, ColumnType};
+use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+use alloc::collections::VecDeque;
+#[cfg(feature = "arrow")]
+use alloc::sync::Arc;
 #[cfg(feature = "arrow")]
 use arrow::{
     array::Int64Array,
     datatypes::{Field, Schema},
     record_batch::RecordBatch,
 };
+#[cfg(feature = "blitzar")]
 use curve25519_dalek::RistrettoPoint;
 
 #[test]
+#[cfg(feature = "blitzar")]
 fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
     let mle1 = [1, 2];
     let mle2 = [10i64, 20];
@@ -35,6 +39,7 @@ fn we_can_compute_commitments_for_intermediate_mles_using_a_zero_offset() {
 }
 
 #[test]
+#[cfg(feature = "blitzar")]
 fn we_can_compute_commitments_for_intermediate_mles_using_a_non_zero_offset() {
     let mle1 = [1, 2];
     let mle2 = [10i64, 20];

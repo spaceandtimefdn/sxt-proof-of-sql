@@ -7,7 +7,7 @@ mod final_round_builder;
 #[cfg(test)]
 pub(crate) mod mock_verification_builder;
 pub(crate) use final_round_builder::FinalRoundBuilder;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod final_round_builder_test;
 
 mod composite_polynomial_builder;
@@ -68,7 +68,7 @@ pub(crate) use result_element_serialization::{
 
 mod first_round_builder;
 pub(crate) use first_round_builder::FirstRoundBuilder;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod first_round_builder_test;
 
 #[cfg(all(test, feature = "arrow"))]
