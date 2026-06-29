@@ -73,3 +73,28 @@ fn we_can_add_post_result_challenges() {
     builder.request_post_result_challenges(2);
     assert_eq!(builder.num_post_result_challenges(), 3);
 }
+
+#[test]
+fn we_can_track_evaluation_lengths_and_range_length() {
+    let mut builder = FirstRoundBuilder::<Curve25519Scalar>::new(4);
+
+    assert_eq!(builder.range_length(), 4);
+    assert!(builder.chi_evaluation_lengths().is_empty());
+    assert!(builder.rho_evaluation_lengths().is_empty());
+
+    builder.produce_chi_evaluation_length(2);
+    assert_eq!(builder.range_length(), 4);
+
+    builder.produce_chi_evaluation_length(9);
+    builder.produce_rho_evaluation_length(3);
+
+    assert_eq!(builder.chi_evaluation_lengths(), &[2, 9]);
+    assert_eq!(builder.rho_evaluation_lengths(), &[3]);
+    assert_eq!(builder.range_length(), 9);
+
+    builder.update_range_length(5);
+    assert_eq!(builder.range_length(), 9);
+
+    builder.update_range_length(12);
+    assert_eq!(builder.range_length(), 12);
+}
