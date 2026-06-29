@@ -1,4 +1,4 @@
-use super::{transcript_core::TranscriptCore, Keccak256Transcript as T, Transcript};
+use super::{transcript_core::{test_util, TranscriptCore}, Keccak256Transcript as T, Transcript};
 use crate::base::scalar::{test_scalar::TestScalar as S, Scalar, ScalarExt};
 use bnum::types::U256;
 #[test]
@@ -81,4 +81,14 @@ fn we_can_get_challenge_as_little_endian() {
     let mut transcript2: T = TranscriptCore::new();
 
     assert_eq!(transcript1.raw_challenge(), transcript2.challenge_as_le());
+}
+
+#[test]
+fn we_get_different_challenges_with_different_transcripts() {
+    test_util::we_get_different_challenges_with_different_transcripts::<T>();
+}
+
+#[test]
+fn we_get_different_nontrivial_consecutive_challenges_from_transcript() {
+    test_util::we_get_different_nontrivial_consecutive_challenges_from_transcript::<T>();
 }
