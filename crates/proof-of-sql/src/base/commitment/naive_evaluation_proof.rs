@@ -7,6 +7,7 @@ use crate::base::{
 use core::ops::Add;
 
 /// This should only be used for the purpose of unit testing.
+#[derive(Clone)]
 pub struct NaiveEvaluationProof {
     a: NaiveCommitment,
     b_point: Vec<TestScalar>,
