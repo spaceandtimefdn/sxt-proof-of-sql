@@ -108,7 +108,9 @@ mod tests {
         },
         proof_primitive::dory::{test_rng, DoryScalar, ProverSetup, PublicParameters},
     };
+    use ark_ec::pairing::PairingOutput;
     use ark_ff::UniformRand;
+    use num_traits::One;
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
@@ -120,6 +122,26 @@ mod tests {
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
         );
+    }
+
+    #[test]
+    fn we_can_get_default_dynamic_dory_commitment_identity() {
+        let expected: GT = PairingOutput(One::one());
+        assert_eq!(
+            DynamicDoryCommitment::default(),
+            DynamicDoryCommitment(expected)
+        );
+    }
+
+    #[test]
+    fn we_can_multiply_dynamic_dory_commitments_by_scalars() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let scalar = DoryScalar::rand(&mut rng);
+        let commitment = DynamicDoryCommitment(GT::rand(&mut rng));
+        let expected = DynamicDoryCommitment(commitment.0 * scalar.0);
+
+        assert_eq!(scalar * commitment, expected);
+        assert_eq!(scalar * &commitment, expected);
     }
 
     /// Under no circumstances should this test be modified. Unless you know what you're doing.
