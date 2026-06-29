@@ -92,4 +92,28 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn find_bigdecimals_ignores_non_table_statements_and_decimal_38() {
+        let sql = "
+            CREATE SCHEMA ETHEREUM;
+            CREATE TABLE ETHEREUM.TRANSFERS(
+                AMOUNT DECIMAL(38, 2),
+                VALUE DECIMAL(39, 3),
+                GAS_PRICE DECIMAL(75, 0)
+            );
+            CREATE VIEW ETHEREUM.TRANSFER_VALUES AS SELECT VALUE FROM ETHEREUM.TRANSFERS;
+        ";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.TRANSFERS").unwrap(),
+            &[
+                ("VALUE".to_string(), 39, 3),
+                ("GAS_PRICE".to_string(), 75, 0)
+            ]
+        );
+    }
 }
