@@ -31,3 +31,17 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnField, ColumnType};
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn column_field_exposes_name_and_data_type() {
+        let field = ColumnField::new(Ident::new("total"), ColumnType::BigInt);
+
+        assert_eq!(field.name(), Ident::new("total"));
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+    }
+}

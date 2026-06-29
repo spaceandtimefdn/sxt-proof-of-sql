@@ -23,3 +23,24 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    struct Counter(usize);
+
+    impl From<&Counter> for usize {
+        fn from(value: &Counter) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn ref_into_uses_reference_based_conversion() {
+        let counter = Counter(7);
+        let converted: usize = counter.ref_into();
+
+        assert_eq!(converted, 7);
+    }
+}
