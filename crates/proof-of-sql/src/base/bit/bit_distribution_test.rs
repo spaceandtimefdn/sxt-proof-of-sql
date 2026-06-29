@@ -347,6 +347,14 @@ fn we_can_compute_the_bit_distribution_of_values_with_different_signs() {
 }
 
 #[test]
+fn varying_signs_include_the_leading_bit_in_vary_mask_iter() {
+    let data: Vec<i64> = vec![-1, 1];
+    let dist = BitDistribution::new::<TestScalar, _>(&data);
+
+    assert_eq!(dist.vary_mask_iter().collect::<Vec<_>>(), vec![0, 255]);
+}
+
+#[test]
 fn we_can_compute_the_bit_distribution_of_values_with_different_signs_and_values() {
     let data: Vec<i64> = vec![4, -1, 1];
     let dist = BitDistribution::new::<TestScalar, _>(&data);
