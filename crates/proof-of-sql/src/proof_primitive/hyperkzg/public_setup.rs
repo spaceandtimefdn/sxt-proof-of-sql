@@ -57,6 +57,22 @@ pub fn deserialize_flat_compressed_hyperkzg_public_setup_from_slice(
         .collect()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_reject_incomplete_compressed_setup_chunks_from_slice() {
+        let err = deserialize_flat_compressed_hyperkzg_public_setup_from_slice(
+            &[0; COMPRESSED_SIZE - 1],
+            Validate::Yes,
+        )
+        .unwrap_err();
+
+        assert!(matches!(err, SerializationError::IoError(_)));
+    }
+}
+
 #[cfg(feature = "hyperkzg_proof")]
 #[cfg(test)]
 #[must_use]
