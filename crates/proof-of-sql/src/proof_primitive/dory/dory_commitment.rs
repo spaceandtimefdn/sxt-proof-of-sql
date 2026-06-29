@@ -108,6 +108,16 @@ mod tests {
     use ark_ec::pairing::Pairing;
     use ark_ff::UniformRand;
     use rand::{rngs::StdRng, SeedableRng};
+    use std::sync::LazyLock;
+
+    static PUBLIC_PARAMETERS_5: LazyLock<PublicParameters> =
+        LazyLock::new(|| PublicParameters::test_rand(5, &mut test_rng()));
+    static PROVER_SETUP_5: LazyLock<ProverSetup<'static>> =
+        LazyLock::new(|| ProverSetup::from(&*PUBLIC_PARAMETERS_5));
+
+    fn dory_setup_5() -> (&'static PublicParameters, &'static ProverSetup<'static>) {
+        (&PUBLIC_PARAMETERS_5, &PROVER_SETUP_5)
+    }
 
     #[test]
     fn we_have_correct_constants_for_dory_scalar() {
@@ -116,8 +126,7 @@ mod tests {
 
     #[test]
     fn we_can_convert_from_columns() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (public_parameters, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
@@ -161,8 +170,7 @@ mod tests {
 
     #[test]
     fn we_can_append_rows() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (public_parameters, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
@@ -211,8 +219,7 @@ mod tests {
 
     #[test]
     fn we_cannot_append_rows_with_different_column_count() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (_, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
@@ -250,8 +257,7 @@ mod tests {
 
     #[test]
     fn we_can_extend_columns() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (public_parameters, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
@@ -307,8 +313,7 @@ mod tests {
 
     #[test]
     fn we_can_add_commitment_collections() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (public_parameters, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
@@ -358,8 +363,7 @@ mod tests {
 
     #[test]
     fn we_cannot_add_commitment_collections_of_mixed_column_counts() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (_, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
@@ -403,8 +407,7 @@ mod tests {
 
     #[test]
     fn we_can_sub_commitment_collections() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (public_parameters, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
         let Gamma_1 = &public_parameters.Gamma_1;
         let Gamma_2 = &public_parameters.Gamma_2;
@@ -446,8 +449,7 @@ mod tests {
 
     #[test]
     fn we_cannot_sub_commitment_collections_of_mixed_column_counts() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let (_, prover_setup) = dory_setup_5();
         let setup = DoryProverPublicSetup::new(&prover_setup, 2);
 
         let column_a = [12i64, 34, 56, 78, 90];
