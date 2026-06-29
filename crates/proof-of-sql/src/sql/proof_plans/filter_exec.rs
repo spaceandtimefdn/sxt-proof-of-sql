@@ -269,3 +269,33 @@ impl ProverEvaluate for FilterExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FilterExec;
+    use crate::{
+        base::{database::LiteralValue, map::IndexMap, scalar::test_scalar::TestScalar},
+        sql::{
+            proof::mock_verification_builder::MockVerificationBuilder,
+            proof_exprs::DynProofExpr,
+            proof_plans::DynProofPlan,
+        },
+    };
+
+    #[test]
+    fn we_get_error_when_post_result_challenges_are_exhausted() {
+        let exec = FilterExec::new(
+            vec![],
+            Box::new(DynProofPlan::new_empty()),
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+        // No post_result_challenges → first try_consume_post_result_challenge returns Err
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![], vec![], vec![],
+        );
+        let accessor = IndexMap::default();
+        let chi_eval_map = IndexMap::default();
+        let result = exec.verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[]);
+        assert!(result.is_err());
+    }
+}
