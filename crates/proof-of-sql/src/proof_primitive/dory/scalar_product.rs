@@ -79,3 +79,35 @@ pub fn scalar_product_verify(
 
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{rand_G_vecs, test_rng, PublicParameters, GT};
+    use ark_std::UniformRand;
+    use merlin::Transcript;
+
+    #[test]
+    fn we_reject_scalar_product_verification_with_extra_gt_messages() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(0, &mut rng);
+        let prover_setup = (&public_parameters).into();
+        let verifier_setup = (&public_parameters).into();
+        let (v1, v2) = rand_G_vecs(0, &mut rng);
+        let prover_state = ProverState::new(v1, v2, 0);
+        let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+        scalar_product_prove(&mut messages, &mut transcript, &prover_state);
+        messages.GT_messages.push(GT::rand(&mut rng));
+
+        let mut transcript = Transcript::new(b"scalar_product_test");
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+    }
+}
