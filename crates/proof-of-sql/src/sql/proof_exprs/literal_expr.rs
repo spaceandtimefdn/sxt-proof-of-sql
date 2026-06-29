@@ -92,3 +92,75 @@ impl ProofExpr for LiteralExpr {
 
     fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{database::TableOptions, scalar::test_scalar::TestScalar},
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::{collections::VecDeque, vec::Vec};
+
+    fn empty_table_with_rows<'a>(rows: usize) -> Table<'a, TestScalar> {
+        Table::try_new_with_options(IndexMap::default(), TableOptions::new(Some(rows))).unwrap()
+    }
+
+    #[test]
+    fn literal_expr_reports_type_and_keeps_value() {
+        let value = LiteralValue::Int(42);
+        let expr = LiteralExpr::new(value.clone());
+
+        assert_eq!(expr.value(), &value);
+        assert_eq!(expr.data_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn literal_expr_evaluates_to_constant_columns() {
+        let expr = LiteralExpr::new(LiteralValue::BigInt(-7));
+        let alloc = Bump::new();
+        let table = empty_table_with_rows(3);
+
+        let first_round = expr
+            .first_round_evaluate(&alloc, &table, &[])
+            .expect("literal first round evaluation should succeed");
+        assert_eq!(first_round, Column::BigInt(&[-7, -7, -7]));
+
+        let mut builder = FinalRoundBuilder::new(0, VecDeque::new());
+        let final_round = expr
+            .final_round_evaluate(&mut builder, &alloc, &table, &[])
+            .expect("literal final round evaluation should succeed");
+        assert_eq!(final_round, Column::BigInt(&[-7, -7, -7]));
+    }
+
+    #[test]
+    fn literal_expr_verifier_multiplies_chi_by_literal_scalar() {
+        let expr = LiteralExpr::new(LiteralValue::Int(6));
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let chi_eval = TestScalar::from(7_u8);
+
+        let result = expr
+            .verifier_evaluate(&mut builder, &IndexMap::default(), chi_eval, &[])
+            .unwrap();
+
+        assert_eq!(result, TestScalar::from(42_u8));
+    }
+
+    #[test]
+    fn literal_expr_does_not_reference_columns() {
+        let expr = LiteralExpr::new(LiteralValue::Boolean(true));
+        let mut columns = IndexSet::default();
+
+        expr.get_column_references(&mut columns);
+
+        assert!(columns.is_empty());
+    }
+}
