@@ -406,6 +406,16 @@ mod tests {
     }
 
     #[test]
+    fn zero_requested_rows_decode_without_consuming_bytes() {
+        let data = [121_i64, -345_i64];
+        let out = encode_multiple_rows(&data);
+        let (decoded_data, decoded_bytes) = decode_multiple_elements::<i64>(&out[..], 0).unwrap();
+
+        assert!(decoded_data.is_empty());
+        assert_eq!(decoded_bytes, 0);
+    }
+
+    #[test]
     fn empty_buffers_will_fail_to_decode_to_integers() {
         let value = 123_i64;
         let mut out = vec![0_u8; value.required_bytes()];
