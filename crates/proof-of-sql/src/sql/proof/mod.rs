@@ -71,7 +71,7 @@ pub(crate) use first_round_builder::FirstRoundBuilder;
 #[cfg(all(test, feature = "blitzar"))]
 mod first_round_builder_test;
 
-#[cfg(all(test, feature = "arrow"))]
+#[cfg(test)]
 mod provable_query_result_test;
 
 mod make_sumcheck_state;
