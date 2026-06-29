@@ -30,3 +30,46 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::log_memory_usage;
+    use tracing::{
+        span::{Attributes, Id, Record},
+        subscriber::{with_default, Interest},
+        Event, Metadata, Subscriber,
+    };
+
+    struct TraceSubscriber;
+
+    impl Subscriber for TraceSubscriber {
+        fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
+            true
+        }
+
+        fn new_span(&self, _attrs: &Attributes<'_>) -> Id {
+            Id::from_u64(1)
+        }
+
+        fn record(&self, _span: &Id, _values: &Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &Id, _follows: &Id) {}
+
+        fn event(&self, _event: &Event<'_>) {}
+
+        fn enter(&self, _span: &Id) {}
+
+        fn exit(&self, _span: &Id) {}
+
+        fn register_callsite(&self, _metadata: &'static Metadata<'static>) -> Interest {
+            Interest::always()
+        }
+    }
+
+    #[test]
+    fn we_can_log_memory_usage_when_trace_enabled() {
+        with_default(TraceSubscriber, || {
+            log_memory_usage("coverage");
+        });
+    }
+}
