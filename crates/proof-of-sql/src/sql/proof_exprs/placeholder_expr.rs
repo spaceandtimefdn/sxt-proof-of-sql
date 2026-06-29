@@ -151,6 +151,11 @@ impl ProofExpr for PlaceholderExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        base::database::table_utility::{borrowed_bigint, table},
+        proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
+    };
+
     // new
     #[test]
     fn we_cannot_create_a_placeholder_with_zero_id() {
@@ -204,5 +209,46 @@ mod tests {
         let params = vec![LiteralValue::Boolean(true)];
         let res = placeholder_expr.interpolate(&params);
         assert_eq!(res.unwrap(), &LiteralValue::Boolean(true));
+    }
+
+    #[test]
+    fn we_can_evaluate_placeholder_to_repeated_literal_column() {
+        let alloc = Bump::new();
+        let table = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+        let placeholder_expr = PlaceholderExpr::try_new(2, ColumnType::BigInt).unwrap();
+        let params = vec![LiteralValue::Boolean(false), LiteralValue::BigInt(42)];
+
+        let res = placeholder_expr
+            .first_round_evaluate::<Curve25519Scalar>(&alloc, &table, &params)
+            .unwrap();
+
+        assert_eq!(res, Column::BigInt(&[42, 42, 42]));
+    }
+
+    #[test]
+    fn verifier_evaluate_scales_placeholder_by_chi_eval() {
+        let placeholder_expr = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = vec![LiteralValue::BigInt(7)];
+        let mut builder =
+            crate::sql::proof::mock_verification_builder::MockVerificationBuilder::new(
+                Vec::new(),
+                0,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        let res = placeholder_expr
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                Curve25519Scalar::from(3),
+                &params,
+            )
+            .unwrap();
+
+        assert_eq!(res, Curve25519Scalar::from(21));
     }
 }
