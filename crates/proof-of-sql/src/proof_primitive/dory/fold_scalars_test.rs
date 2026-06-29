@@ -4,14 +4,22 @@ use super::{
     ExtendedProverState, PublicParameters,
 };
 use merlin::Transcript;
+use std::sync::LazyLock;
+
+static PUBLIC_PARAMETERS_0: LazyLock<PublicParameters> =
+    LazyLock::new(|| PublicParameters::test_rand(0, &mut test_rng()));
+
+fn public_parameters_0() -> &'static PublicParameters {
+    &PUBLIC_PARAMETERS_0
+}
 
 #[test]
 fn we_can_fold_scalars() {
     let mut rng = test_rng();
     let nu = 0;
-    let pp = PublicParameters::test_rand(nu, &mut rng);
-    let prover_setup = (&pp).into();
-    let verifier_setup = (&pp).into();
+    let pp = public_parameters_0();
+    let prover_setup = pp.into();
+    let verifier_setup = pp.into();
     let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
     let (v1, v2) = rand_G_vecs(nu, &mut rng);
     let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);

@@ -5,13 +5,21 @@ use super::{
 use crate::base::polynomial::compute_evaluation_vector;
 use ark_ec::{pairing::Pairing, VariableBaseMSM};
 use ark_ff::Fp;
+use std::sync::LazyLock;
+
+static PUBLIC_PARAMETERS_5: LazyLock<PublicParameters> =
+    LazyLock::new(|| PublicParameters::test_rand(5, &mut test_rng()));
+
+fn public_parameters_5() -> &'static PublicParameters {
+    &PUBLIC_PARAMETERS_5
+}
 
 #[test]
 pub fn we_can_create_an_extended_verifier_state_from_an_extended_prover_state() {
     let mut rng = test_rng();
     let max_nu = 5;
-    let pp = PublicParameters::test_rand(max_nu, &mut rng);
-    let prover_setup = (&pp).into();
+    let pp = public_parameters_5();
+    let prover_setup = pp.into();
     for nu in 0..max_nu {
         let (v1, v2) = rand_G_vecs(nu, &mut rng);
         let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
