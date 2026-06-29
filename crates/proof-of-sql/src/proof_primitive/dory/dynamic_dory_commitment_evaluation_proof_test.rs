@@ -59,6 +59,42 @@ fn test_random_ipa_with_various_lengths() {
 }
 
 #[test]
+fn new_returns_default_for_unsupported_generators_offset() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(4, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(8)
+        .collect::<Vec<_>>();
+    let b_point = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(3)
+        .collect::<Vec<_>>();
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &a, &b_point, 1, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
+fn new_returns_default_when_the_prover_setup_is_too_small() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(1, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(8)
+        .collect::<Vec<_>>();
+    let b_point = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(8)
+        .collect::<Vec<_>>();
+    let mut transcript = Transcript::new(b"evaluation_proof");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &a, &b_point, 0, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
 fn we_can_serialize_and_deserialize_dory_evaluation_proofs() {
     let mut rng = test_rng();
     let public_parameters = PublicParameters::test_rand(4, &mut rng);

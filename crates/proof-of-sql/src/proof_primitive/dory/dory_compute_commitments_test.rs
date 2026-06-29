@@ -47,6 +47,30 @@ fn we_can_compute_a_dory_commitment_with_int128_values() {
 }
 
 #[test]
+fn we_can_compute_dory_commitments_with_byte_integer_columns() {
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+    let res = compute_dory_commitments(
+        &[
+            CommittableColumn::Uint8(&[1, 2]),
+            CommittableColumn::TinyInt(&[-3, 4]),
+        ],
+        0,
+        &setup,
+    );
+    let Gamma_1 = public_parameters.Gamma_1;
+    let Gamma_2 = public_parameters.Gamma_2;
+    let expected_uint8: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(1_u8)
+        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(2_u8);
+    let expected_tinyint: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(-3_i8)
+        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(4_i8);
+
+    assert_eq!(res[0].0, expected_uint8);
+    assert_eq!(res[1].0, expected_tinyint);
+}
+
+#[test]
 fn we_can_compute_a_dory_commitment_with_boolean_values() {
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);

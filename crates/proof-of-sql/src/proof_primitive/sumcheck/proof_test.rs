@@ -86,6 +86,19 @@ fn test_create_verify_proof() {
     assert!(subclaim.is_err());
 }
 
+#[test]
+fn verify_without_evaluation_rejects_invalid_proof_size() {
+    let proof = SumcheckProof {
+        coefficients: vec![Curve25519Scalar::from(1_u64), Curve25519Scalar::from(2_u64)],
+    };
+    let mut transcript = Transcript::new(b"sumchecktest");
+
+    let subclaim =
+        proof.verify_without_evaluation(&mut transcript, 3, &Curve25519Scalar::from(3_u64));
+
+    assert!(subclaim.is_err());
+}
+
 fn random_product(
     nv: usize,
     num_multiplicands: usize,
