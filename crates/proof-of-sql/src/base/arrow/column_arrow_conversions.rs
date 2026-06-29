@@ -87,6 +87,41 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[test]
+    #[should_panic(expected = "Cannot convert Scalar type to arrow type")]
+    fn we_cannot_convert_scalar_column_type_to_arrow() {
+        let _ = DataType::from(&ColumnType::Scalar);
+    }
+
+    #[test]
+    fn we_can_convert_all_timestamp_time_units_to_arrow_and_back() {
+        let timezone = PoSQLTimeZone::new(5 * 60 * 60 + 30 * 60);
+        let cases = [
+            (PoSQLTimeUnit::Second, ArrowTimeUnit::Second),
+            (PoSQLTimeUnit::Millisecond, ArrowTimeUnit::Millisecond),
+            (PoSQLTimeUnit::Microsecond, ArrowTimeUnit::Microsecond),
+            (PoSQLTimeUnit::Nanosecond, ArrowTimeUnit::Nanosecond),
+        ];
+
+        for (posql_time_unit, arrow_time_unit) in cases {
+            let column_type = ColumnType::TimestampTZ(posql_time_unit, timezone);
+            let arrow = DataType::from(&column_type);
+
+            assert_eq!(
+                arrow,
+                DataType::Timestamp(arrow_time_unit, Some(Arc::from("+05:30")))
+            );
+            assert_eq!(ColumnType::try_from(arrow).unwrap(), column_type);
+        }
+    }
+
+    #[test]
+    fn we_report_unsupported_arrow_data_types() {
+        let err = ColumnType::try_from(DataType::Float32).unwrap_err();
+
+        assert_eq!(err, "Unsupported arrow data type Float32");
+    }
+
     proptest! {
         #[test]
         fn we_can_roundtrip_arbitrary_column_type(column_type: ColumnType) {
