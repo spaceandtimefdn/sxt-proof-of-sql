@@ -135,11 +135,12 @@ mod tests {
         base::{
             database::table_utility::borrowed_bigint,
             polynomial::MultilinearExtension,
+            proof::ProofError,
             scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::proof::{
-            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-            FirstRoundBuilder,
+            mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+            FinalRoundBuilder, FirstRoundBuilder,
         },
     };
     use bumpalo::Bump;
@@ -188,5 +189,32 @@ mod tests {
             .get_zero_sum_results()
             .iter()
             .all(|v| *v));
+    }
+
+    #[test]
+    fn we_reject_permutation_checks_with_mismatched_eval_lengths() {
+        let mut verification_builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let err = verify_permutation_check(
+            &mut verification_builder,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            TestScalar::ONE,
+            &[TestScalar::ONE, TestScalar::TWO],
+            &[TestScalar::ONE],
+        )
+        .unwrap_err();
+
+        let ProofError::VerificationError { error } = err else {
+            panic!("expected verification error for mismatched permutation eval lengths");
+        };
+        assert!(error.contains("source and candidate"));
     }
 }
