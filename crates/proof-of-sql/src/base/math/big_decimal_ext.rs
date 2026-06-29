@@ -52,6 +52,7 @@ impl BigDecimalExt for BigDecimal {
 mod tests {
     use super::*;
     use alloc::string::ToString;
+    use num_bigint::BigInt;
 
     #[test]
     fn test_valid_decimal_simple() {
@@ -88,5 +89,49 @@ mod tests {
             .try_into_bigint_with_precision_and_scale(2, 1)
             .unwrap_err();
         assert!(matches!(err, IntermediateDecimalError::ConversionFailure));
+    }
+
+    #[test]
+    fn we_can_convert_decimal_with_matching_scale_to_bigint() {
+        let big_decimal: BigDecimal = "123.456".parse::<BigDecimal>().unwrap().normalized();
+
+        let actual = big_decimal
+            .try_into_bigint_with_precision_and_scale(6, 3)
+            .unwrap();
+
+        assert_eq!(actual, BigInt::from(123_456));
+    }
+
+    #[test]
+    fn we_can_convert_decimal_with_larger_target_scale_to_bigint() {
+        let big_decimal: BigDecimal = "123.45".parse::<BigDecimal>().unwrap().normalized();
+
+        let actual = big_decimal
+            .try_into_bigint_with_precision_and_scale(7, 4)
+            .unwrap();
+
+        assert_eq!(actual, BigInt::from(1_234_500));
+    }
+
+    #[test]
+    fn we_can_convert_integer_decimal_with_negative_scale_to_bigint() {
+        let big_decimal: BigDecimal = "12300".parse::<BigDecimal>().unwrap().normalized();
+
+        let actual = big_decimal
+            .try_into_bigint_with_precision_and_scale(5, -2)
+            .unwrap();
+
+        assert_eq!(actual, BigInt::from(123));
+    }
+
+    #[test]
+    fn we_can_catch_lossy_cast_when_scaled_digits_exceed_precision() {
+        let big_decimal: BigDecimal = "123.45".parse::<BigDecimal>().unwrap().normalized();
+
+        let err = big_decimal
+            .try_into_bigint_with_precision_and_scale(4, 2)
+            .unwrap_err();
+
+        assert!(matches!(err, IntermediateDecimalError::LossyCast));
     }
 }
