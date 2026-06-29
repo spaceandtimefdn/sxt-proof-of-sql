@@ -31,3 +31,21 @@ impl ColumnField {
         self.data_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_field_preserves_name_and_type() {
+        let name: Ident = "revenue_cents".into();
+        let field = ColumnField::new(name.clone(), ColumnType::BigInt);
+
+        assert_eq!(field.name(), name);
+        assert_eq!(field.data_type(), ColumnType::BigInt);
+
+        let renamed = field.name();
+        assert_eq!(renamed.value, "revenue_cents");
+        assert_eq!(field.name().value, "revenue_cents");
+    }
+}

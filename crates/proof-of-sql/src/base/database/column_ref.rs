@@ -39,3 +39,23 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn column_ref_preserves_table_column_and_type() {
+        let table_ref = TableRef::from_names(Some("analytics"), "sales");
+        let column_id: Ident = "amount".into();
+        let column_ref = ColumnRef::new(table_ref.clone(), column_id.clone(), ColumnType::Int);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), column_id);
+        assert_eq!(column_ref.column_type(), &ColumnType::Int);
+
+        let returned_column_id = column_ref.column_id();
+        assert_eq!(returned_column_id.value, "amount");
+        assert_eq!(column_ref.column_id().value, "amount");
+    }
+}
