@@ -15,6 +15,7 @@ pub fn datafusion_config_no_normalization() -> ConfigOptions {
 #[cfg(test)]
 mod tests {
     use crate::datafusion_config_no_normalization;
+    use datafusion::config::ConfigOptions;
 
     #[test]
     fn get_config() {
@@ -22,6 +23,21 @@ mod tests {
             !datafusion_config_no_normalization()
                 .sql_parser
                 .enable_ident_normalization
+        );
+    }
+
+    #[test]
+    fn only_identifier_normalization_is_overridden() {
+        let config = datafusion_config_no_normalization();
+        let default_config = ConfigOptions::new();
+
+        assert_eq!(
+            config.sql_parser.parse_float_as_decimal,
+            default_config.sql_parser.parse_float_as_decimal
+        );
+        assert_eq!(
+            config.sql_parser.dialect,
+            default_config.sql_parser.dialect
         );
     }
 }
