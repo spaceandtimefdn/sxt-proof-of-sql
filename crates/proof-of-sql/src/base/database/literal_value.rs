@@ -95,8 +95,9 @@ impl LiteralValue {
 mod tests {
     use crate::base::{
         database::LiteralValue,
-        math::decimal::Precision,
+        math::{decimal::Precision, i256::I256},
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::{test_scalar::TestScalar, ScalarExt},
         try_standard_binary_serialization,
     };
 
@@ -125,5 +126,65 @@ mod tests {
                 hex::encode(try_standard_binary_serialization(literal_value).unwrap());
             assert!(serialized_literal_value.starts_with(&serialized_column_type));
         }
+    }
+
+    #[test]
+    fn literal_values_convert_to_scalars_for_each_variant() {
+        let decimal_value = I256::from(1234);
+        let varchar_value = "proof".to_string();
+        let binary_value = vec![1, 2, 3, 4];
+        let scalar_limbs = [1, 2, 3, 4];
+        let timestamp = 1_716_000_123_i64;
+
+        assert_eq!(
+            LiteralValue::Boolean(true).to_scalar::<TestScalar>(),
+            true.into()
+        );
+        assert_eq!(
+            LiteralValue::Uint8(7).to_scalar::<TestScalar>(),
+            7_u8.into()
+        );
+        assert_eq!(
+            LiteralValue::TinyInt(-8).to_scalar::<TestScalar>(),
+            (-8_i8).into()
+        );
+        assert_eq!(
+            LiteralValue::SmallInt(-16).to_scalar::<TestScalar>(),
+            (-16_i16).into()
+        );
+        assert_eq!(
+            LiteralValue::Int(-32).to_scalar::<TestScalar>(),
+            (-32_i32).into()
+        );
+        assert_eq!(
+            LiteralValue::BigInt(-64).to_scalar::<TestScalar>(),
+            (-64_i64).into()
+        );
+        assert_eq!(
+            LiteralValue::VarChar(varchar_value.clone()).to_scalar::<TestScalar>(),
+            varchar_value.into()
+        );
+        assert_eq!(
+            LiteralValue::VarBinary(binary_value.clone()).to_scalar::<TestScalar>(),
+            TestScalar::from_byte_slice_via_hash(&binary_value)
+        );
+        assert_eq!(
+            LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, decimal_value)
+                .to_scalar::<TestScalar>(),
+            decimal_value.into_scalar()
+        );
+        assert_eq!(
+            LiteralValue::Int128(-128).to_scalar::<TestScalar>(),
+            (-128_i128).into()
+        );
+        assert_eq!(
+            LiteralValue::Scalar(scalar_limbs).to_scalar::<TestScalar>(),
+            scalar_limbs.into()
+        );
+        assert_eq!(
+            LiteralValue::TimeStampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), timestamp)
+                .to_scalar::<TestScalar>(),
+            timestamp.into()
+        );
     }
 }
