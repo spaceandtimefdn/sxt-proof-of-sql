@@ -63,6 +63,8 @@ mod error;
 pub use error::ParseError;
 
 mod table_ref;
+#[cfg(test)]
+mod table_ref_test;
 #[cfg(feature = "arrow")]
 pub use crate::base::arrow::{
     arrow_array_to_column_conversion::{ArrayRefExt, ArrowArrayToColumnConversionError},

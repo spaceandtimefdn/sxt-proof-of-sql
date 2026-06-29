@@ -90,13 +90,17 @@ impl TryFrom<&str> for TableRef {
     type Error = ParseError;
 
     fn try_from(s: &str) -> Result<Self, <Self as TryFrom<&str>>::Error> {
-        let components: Vec<_> = s.split('.').map(ToString::to_string).collect();
-        match components.len() {
-            1 => Ok(Self::from_names(None, &components[0])),
-            2 => Ok(Self::from_names(Some(&components[0]), &components[1])),
-            _ => Err(ParseError::InvalidTableReference {
-                table_reference: s.to_string(),
-            }),
+        let components: Vec<_> = s.split('.').collect();
+        let invalid = || ParseError::InvalidTableReference {
+            table_reference: s.to_string(),
+        };
+        if components.iter().any(|c| c.is_empty()) {
+            return Err(invalid());
+        }
+        match components[..] {
+            [table] => Ok(Self::from_names(None, table)),
+            [schema, table] => Ok(Self::from_names(Some(schema), table)),
+            _ => Err(invalid()),
         }
     }
 }
