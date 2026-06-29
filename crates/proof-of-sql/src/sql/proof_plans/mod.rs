@@ -32,7 +32,7 @@ mod fold_util_test;
 mod group_by_exec;
 pub(crate) use group_by_exec::GroupByExec;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod group_by_exec_test;
 
 mod filter_exec;
