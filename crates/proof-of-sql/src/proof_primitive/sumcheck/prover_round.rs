@@ -124,3 +124,118 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{base::scalar::test_scalar::TestScalar, proof_primitive::sumcheck::ProverState};
+    use alloc::vec;
+
+    fn sample_prover_state() -> ProverState<TestScalar> {
+        ProverState::new(
+            vec![(TestScalar::ONE, vec![0]), (TestScalar::TWO, vec![1, 0])],
+            vec![
+                vec![
+                    TestScalar::from(1),
+                    TestScalar::from(3),
+                    TestScalar::from(5),
+                    TestScalar::from(7),
+                ],
+                vec![
+                    TestScalar::from(2),
+                    TestScalar::from(4),
+                    TestScalar::from(6),
+                    TestScalar::from(8),
+                ],
+            ],
+            2,
+            2,
+        )
+    }
+
+    #[test]
+    fn we_can_compute_the_first_prover_round_without_a_verifier_message() {
+        let mut state = sample_prover_state();
+
+        let round_evaluations = prove_round(&mut state, &None);
+
+        assert_eq!(
+            round_evaluations,
+            vec![
+                TestScalar::from(70),
+                TestScalar::from(146),
+                TestScalar::from(254),
+            ]
+        );
+        assert_eq!(state.round, 1);
+        assert_eq!(
+            state.flattened_ml_extensions,
+            vec![
+                vec![
+                    TestScalar::from(1),
+                    TestScalar::from(3),
+                    TestScalar::from(5),
+                    TestScalar::from(7),
+                ],
+                vec![
+                    TestScalar::from(2),
+                    TestScalar::from(4),
+                    TestScalar::from(6),
+                    TestScalar::from(8),
+                ],
+            ]
+        );
+    }
+
+    #[test]
+    fn verifier_messages_fix_the_next_prover_round_variable() {
+        let mut state = sample_prover_state();
+        let _first_round = prove_round(&mut state, &None);
+
+        let round_evaluations = prove_round(&mut state, &Some(TestScalar::from(10)));
+
+        assert_eq!(
+            round_evaluations,
+            vec![
+                TestScalar::from(945),
+                TestScalar::from(1325),
+                TestScalar::from(1769),
+            ]
+        );
+        assert_eq!(state.round, 2);
+        assert_eq!(
+            state.flattened_ml_extensions,
+            vec![
+                vec![
+                    TestScalar::from(21),
+                    TestScalar::from(25),
+                    TestScalar::from(5),
+                    TestScalar::from(7),
+                ],
+                vec![
+                    TestScalar::from(22),
+                    TestScalar::from(26),
+                    TestScalar::from(6),
+                    TestScalar::from(8),
+                ],
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "first round should be prover first.")]
+    fn verifier_message_is_rejected_before_the_first_prover_round() {
+        let mut state = sample_prover_state();
+
+        let _round_evaluations = prove_round(&mut state, &Some(TestScalar::from(10)));
+    }
+
+    #[test]
+    #[should_panic(expected = "verifier message is empty")]
+    fn missing_verifier_message_is_rejected_after_the_first_round() {
+        let mut state = sample_prover_state();
+        let _first_round = prove_round(&mut state, &None);
+
+        let _second_round = prove_round(&mut state, &None);
+    }
+}
