@@ -219,6 +219,31 @@ mod tests {
     }
 
     #[test]
+    fn we_can_compute_v_vec_from_weighted_rows() {
+        let a = vec![
+            F::from(1),
+            F::from(2),
+            F::from(3),
+            F::from(4),
+            F::from(5),
+            F::from(6),
+        ];
+        let L_vec = vec![F::from(2), F::from(3), F::from(7), F::from(11)];
+
+        let v_vec = compute_v_vec(&a, &L_vec, 1, 2);
+
+        assert_eq!(
+            v_vec,
+            vec![
+                F::from(2 * 1 + 3 * 3 + 7 * 5),
+                F::from(2 * 2 + 3 * 4 + 7 * 6),
+                F::from(0),
+                F::from(0),
+            ]
+        );
+    }
+
+    #[test]
     fn we_can_compute_l_and_r_when_num_vars_is_positive_and_less_than_sigma() {
         let b_point = vec![F::from(10)];
         let sigma = 2;
