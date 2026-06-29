@@ -245,7 +245,12 @@ pub fn table_union<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        map::IndexMap,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn we_can_union_no_columns() {
@@ -278,6 +283,72 @@ mod tests {
         assert_eq!(
             result,
             Column::VarChar((&doubled_strings, &doubled_scalars))
+        );
+    }
+
+    #[test]
+    fn we_can_union_remaining_column_variants() {
+        let alloc = Bump::new();
+
+        let col0: Column<TestScalar> = Column::Uint8(&[1, 2]);
+        let col1: Column<TestScalar> = Column::Uint8(&[3, 4]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Uint8).unwrap();
+        assert_eq!(result, Column::Uint8(&[1, 2, 3, 4]));
+
+        let col0: Column<TestScalar> = Column::TinyInt(&[-1, 2]);
+        let col1: Column<TestScalar> = Column::TinyInt(&[3, -4]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::TinyInt).unwrap();
+        assert_eq!(result, Column::TinyInt(&[-1, 2, 3, -4]));
+
+        let col0: Column<TestScalar> = Column::Int128(&[-1, 2]);
+        let col1: Column<TestScalar> = Column::Int128(&[3, -4]);
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Int128).unwrap();
+        assert_eq!(result, Column::Int128(&[-1, 2, 3, -4]));
+
+        let scalar0 = [TestScalar::from(1_u64), TestScalar::from(2_u64)];
+        let scalar1 = [TestScalar::from(3_u64), TestScalar::from(4_u64)];
+        let col0 = Column::Scalar(scalar0.as_slice());
+        let col1 = Column::Scalar(scalar1.as_slice());
+        let result = column_union(&[&col0, &col1], &alloc, ColumnType::Scalar).unwrap();
+        let expected_scalars = [
+            TestScalar::from(1_u64),
+            TestScalar::from(2_u64),
+            TestScalar::from(3_u64),
+            TestScalar::from(4_u64),
+        ];
+        assert_eq!(result, Column::Scalar(expected_scalars.as_slice()));
+
+        let precision = Precision::new(6).unwrap();
+        let decimal0 = [TestScalar::from(123_u64), TestScalar::from(456_u64)];
+        let decimal1 = [TestScalar::from(789_u64), TestScalar::from(101_112_u64)];
+        let col0 = Column::Decimal75(precision, 2, decimal0.as_slice());
+        let col1 = Column::Decimal75(precision, 2, decimal1.as_slice());
+        let result =
+            column_union(&[&col0, &col1], &alloc, ColumnType::Decimal75(precision, 2)).unwrap();
+        let expected_decimals = [
+            TestScalar::from(123_u64),
+            TestScalar::from(456_u64),
+            TestScalar::from(789_u64),
+            TestScalar::from(101_112_u64),
+        ];
+        assert_eq!(
+            result,
+            Column::Decimal75(precision, 2, expected_decimals.as_slice())
+        );
+
+        let time_unit = PoSQLTimeUnit::Millisecond;
+        let time_zone = PoSQLTimeZone::new(3_600);
+        let col0: Column<TestScalar> = Column::TimestampTZ(time_unit, time_zone, &[10, 20]);
+        let col1: Column<TestScalar> = Column::TimestampTZ(time_unit, time_zone, &[30, 40]);
+        let result = column_union(
+            &[&col0, &col1],
+            &alloc,
+            ColumnType::TimestampTZ(time_unit, time_zone),
+        )
+        .unwrap();
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, time_zone, &[10, 20, 30, 40])
         );
     }
 
