@@ -97,7 +97,8 @@ impl GroupByExec {
     }
 
     /// Checks if the group by expression can prove uniqueness
-    /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
+    /// This is true if there is only one group by column and its type is not `VarChar`, `VarBinary`,
+    /// or `FixedSizeBinary`
     pub fn try_get_is_uniqueness_provable(&self) -> Option<bool> {
         match (
             self.group_by_exprs.len(),
@@ -105,7 +106,10 @@ impl GroupByExec {
         ) {
             (0, _) => Some(false),
             (1, Some(data_type))
-                if !matches!(data_type, ColumnType::VarChar | ColumnType::VarBinary) =>
+                if !matches!(
+                    data_type,
+                    ColumnType::VarChar | ColumnType::VarBinary | ColumnType::FixedSizeBinary(_)
+                ) =>
             {
                 Some(true)
             }
