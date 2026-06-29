@@ -135,11 +135,12 @@ mod tests {
         base::{
             database::table_utility::borrowed_bigint,
             polynomial::MultilinearExtension,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::proof::{
             mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-            FirstRoundBuilder,
+            FirstRoundBuilder, SumcheckMleEvaluations, VerificationBuilderImpl,
         },
     };
     use bumpalo::Bump;
@@ -188,5 +189,106 @@ mod tests {
             .get_zero_sum_results()
             .iter()
             .all(|v| *v));
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source and candidate columns should be equal")]
+    fn we_cannot_evaluate_permutation_check_with_mismatched_column_counts() {
+        let alloc = Bump::new();
+        let column = borrowed_bigint::<TestScalar>("a", [1, 2, 3], &alloc).1;
+        let mut final_round_builder: FinalRoundBuilder<TestScalar> =
+            FinalRoundBuilder::new(3, VecDeque::new());
+
+        final_round_evaluate_permutation_check(
+            &mut final_round_builder,
+            &alloc,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            &[true, true, true],
+            &[column],
+            &[],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "The number of source columns should be greater than 0")]
+    fn we_cannot_evaluate_permutation_check_without_columns() {
+        let alloc = Bump::new();
+        let mut final_round_builder: FinalRoundBuilder<TestScalar> =
+            FinalRoundBuilder::new(3, VecDeque::new());
+
+        final_round_evaluate_permutation_check(
+            &mut final_round_builder,
+            &alloc,
+            TestScalar::TWO,
+            TestScalar::TEN,
+            &[true, true, true],
+            &[],
+            &[],
+        );
+    }
+
+    #[test]
+    fn we_cannot_verify_permutation_check_with_mismatched_column_counts() {
+        let mut builder = verification_builder_with_multipliers(&[], &[]);
+
+        assert!(matches!(
+            verify_permutation_check(
+                &mut builder,
+                TestScalar::TWO,
+                TestScalar::TEN,
+                TestScalar::ONE,
+                &[TestScalar::ONE],
+                &[],
+            ),
+            Err(ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            })
+        ));
+    }
+
+    #[test]
+    fn we_return_builder_errors_from_each_permutation_check_constraint() {
+        assert_constraint_count_mismatch_with_multipliers(&[]);
+        assert_constraint_count_mismatch_with_multipliers(&[TestScalar::ONE]);
+        assert_constraint_count_mismatch_with_multipliers(&[TestScalar::ONE, TestScalar::ONE]);
+    }
+
+    fn assert_constraint_count_mismatch_with_multipliers(multipliers: &[TestScalar]) {
+        let mut builder =
+            verification_builder_with_multipliers(multipliers, &[TestScalar::ONE, TestScalar::ONE]);
+
+        assert!(matches!(
+            verify_permutation_check(
+                &mut builder,
+                TestScalar::TWO,
+                TestScalar::TEN,
+                TestScalar::ONE,
+                &[TestScalar::ONE],
+                &[TestScalar::ONE],
+            ),
+            Err(ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::ConstraintCountMismatch
+            })
+        ));
+    }
+
+    fn verification_builder_with_multipliers<'a>(
+        multipliers: &'a [TestScalar],
+        final_round_evals: &'a [TestScalar],
+    ) -> VerificationBuilderImpl<'a, TestScalar> {
+        VerificationBuilderImpl::new(
+            SumcheckMleEvaluations {
+                random_evaluation: TestScalar::ONE,
+                final_round_pcs_proof_evaluations: final_round_evals,
+                ..Default::default()
+            },
+            &[],
+            multipliers,
+            VecDeque::new(),
+            Vec::new(),
+            Vec::new(),
+            3,
+        )
     }
 }
