@@ -108,3 +108,95 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_format_column_length_and_index_errors() {
+        assert_eq!(
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }.to_string(),
+            "Columns have different lengths: 2 != 3"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 4, len: 4 }.to_string(),
+            "Index out of bounds: 4 >= 4"
+        );
+    }
+
+    #[test]
+    fn we_can_format_invalid_column_type_errors() {
+        let binary_error = ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "+".to_string(),
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::VarChar,
+        };
+        let unary_error = ColumnOperationError::UnaryOperationInvalidColumnType {
+            operator: "NOT".to_string(),
+            operand_type: ColumnType::Int,
+        };
+
+        assert_eq!(
+            binary_error.to_string(),
+            "\"+\"(lhs: BigInt, rhs: VarChar) is not supported"
+        );
+        assert_eq!(
+            unary_error.to_string(),
+            "\"NOT\"(operand: Int) is not supported"
+        );
+    }
+
+    #[test]
+    fn we_can_format_arithmetic_and_union_errors() {
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: "overflow while adding".to_string()
+            }
+            .to_string(),
+            "Overflow in integer operation: overflow while adding"
+        );
+        assert_eq!(
+            ColumnOperationError::DivisionByZero.to_string(),
+            "Division by zero"
+        );
+        assert_eq!(
+            ColumnOperationError::UnionDifferentTypes {
+                correct_type: ColumnType::BigInt,
+                actual_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot union columns of different types: BigInt and Int"
+        );
+    }
+
+    #[test]
+    fn we_can_format_casting_errors() {
+        let signed_casting_error = ColumnOperationError::SignedCastingError {
+            left_type: ColumnType::TinyInt,
+            right_type: ColumnType::Uint8,
+        };
+        let casting_error = ColumnOperationError::CastingError {
+            left_type: ColumnType::BigInt,
+            right_type: ColumnType::SmallInt,
+        };
+        let scale_casting_error = ColumnOperationError::ScaleCastingError {
+            left_type: ColumnType::Int128,
+            right_type: ColumnType::Int,
+        };
+
+        assert_eq!(
+            signed_casting_error.to_string(),
+            "Cannot fit TINYINT into UINT8 without losing data"
+        );
+        assert_eq!(
+            casting_error.to_string(),
+            "Cannot fit BIGINT into SMALLINT without losing data"
+        );
+        assert_eq!(
+            scale_casting_error.to_string(),
+            "Cannot fit DECIMAL into INT without losing data"
+        );
+    }
+}
