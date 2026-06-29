@@ -2,9 +2,10 @@ use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
-            TableRef, TableTestAccessor, TestAccessor,
+            owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
+            OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
+        map::IndexSet,
         scalar::test_scalar::TestScalar,
     },
     sql::{
@@ -146,6 +147,25 @@ fn we_can_compute_the_correct_output_of_a_not_expr_using_first_round_evaluate() 
     let res = not_expr.first_round_evaluate(&alloc, &data, &[]).unwrap();
     let expected_res = Column::Boolean(&[true, false]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_access_the_input_and_column_references_of_a_not_expr() {
+    let alloc = Bump::new();
+    let data = table([borrowed_boolean("is_active", [true, false, true], &alloc)]);
+    let t = TableRef::new("sxt", "users");
+    let accessor =
+        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+    let input = column(&t, "is_active", &accessor);
+    let not_expr = NotExpr::try_new(Box::new(input.clone())).unwrap();
+
+    assert_eq!(not_expr.input(), &input);
+    assert_eq!(not_expr.input().data_type(), ColumnType::Boolean);
+
+    let mut column_refs = IndexSet::default();
+    not_expr.get_column_references(&mut column_refs);
+    assert_eq!(column_refs.len(), 1);
+    assert!(column_refs.contains(&ColumnRef::new(t, "is_active".into(), ColumnType::Boolean,)));
 }
 
 #[test]
