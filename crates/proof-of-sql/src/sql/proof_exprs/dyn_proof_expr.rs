@@ -122,3 +122,29 @@ impl DynProofExpr {
         ScalingCastExpr::try_new(Box::new(from_expr), to_datatype).map(DynProofExpr::ScalingCast)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{base::proof::PlaceholderError, sql::AnalyzeError};
+
+    #[test]
+    fn try_new_placeholder_wraps_placeholder_expression() {
+        assert_eq!(
+            DynProofExpr::try_new_placeholder(1, ColumnType::BigInt).unwrap(),
+            DynProofExpr::Placeholder(PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap())
+        );
+    }
+
+    #[test]
+    fn try_new_placeholder_forwards_placeholder_errors() {
+        let err = DynProofExpr::try_new_placeholder(0, ColumnType::Boolean).unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::PlaceholderError {
+                source: PlaceholderError::ZeroPlaceholderId
+            }
+        ));
+    }
+}
