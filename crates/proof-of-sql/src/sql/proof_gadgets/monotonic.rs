@@ -134,3 +134,117 @@ pub(crate) fn verify_monotonic<S: Scalar, const STRICT: bool, const ASC: bool>(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::scalar::{test_scalar::TestScalar, Scalar},
+        sql::proof::{FinalRoundBuilder, FirstRoundBuilder},
+    };
+    use alloc::{collections::VecDeque, vec, vec::Vec};
+    use num_traits::Inv;
+
+    fn shift_star_columns(
+        alpha: TestScalar,
+        beta: TestScalar,
+        column: &[TestScalar],
+    ) -> (Vec<TestScalar>, Vec<TestScalar>) {
+        let mut c_star = Vec::with_capacity(column.len() + 1);
+        let mut d_star = Vec::with_capacity(column.len() + 1);
+        let mut shifted = vec![TestScalar::ZERO];
+        shifted.extend_from_slice(column);
+
+        for row in 0..=column.len() {
+            let c_fold = if row < column.len() {
+                alpha * (TestScalar::from(row as u64 + 1) * beta + column[row])
+            } else {
+                TestScalar::ZERO
+            };
+            let d_fold = alpha * (TestScalar::from(row as u64) * beta + shifted[row]);
+            c_star.push((TestScalar::ONE + c_fold).inv().unwrap());
+            d_star.push((TestScalar::ONE + d_fold).inv().unwrap());
+        }
+
+        (c_star, d_star)
+    }
+
+    #[test]
+    fn first_round_evaluate_monotonic_produces_the_shift_witness() {
+        let alloc = Bump::new();
+        let column = [
+            TestScalar::from(4),
+            TestScalar::from(9),
+            TestScalar::from(16),
+        ];
+        let mut builder = FirstRoundBuilder::new(column.len());
+
+        first_round_evaluate_monotonic(&mut builder, &alloc, &column);
+
+        assert_eq!(builder.range_length(), 4);
+        assert_eq!(builder.chi_evaluation_lengths(), &[4]);
+        assert_eq!(builder.rho_evaluation_lengths(), &[3, 4]);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+
+        let expected_shifted = [TestScalar::ZERO, column[0], column[1], column[2]];
+        for (row, expected) in expected_shifted.into_iter().enumerate() {
+            let mut evaluation_vec = vec![TestScalar::ZERO; expected_shifted.len()];
+            evaluation_vec[row] = TestScalar::ONE;
+            assert_eq!(
+                builder.evaluate_pcs_proof_mles(&evaluation_vec),
+                vec![expected]
+            );
+        }
+    }
+
+    #[test]
+    fn final_round_evaluate_monotonic_handles_strict_ascending_columns() {
+        let alloc = Bump::new();
+        let alpha = TestScalar::from(2);
+        let beta = TestScalar::from(3);
+        let column = [
+            TestScalar::from(1),
+            TestScalar::from(3),
+            TestScalar::from(6),
+        ];
+        let mut builder = FinalRoundBuilder::new(column.len() + 1, VecDeque::new());
+
+        final_round_evaluate_monotonic::<_, true, true>(&mut builder, &alloc, alpha, beta, &column);
+
+        let (expected_c_star, expected_d_star) = shift_star_columns(alpha, beta, &column);
+        assert_eq!(builder.bit_distributions().len(), 1);
+        assert!(builder.num_sumcheck_subpolynomials() >= 3);
+
+        for row in [0, column.len()] {
+            let mut evaluation_vec = vec![TestScalar::ZERO; column.len() + 1];
+            evaluation_vec[row] = TestScalar::ONE;
+            let evals = builder.evaluate_pcs_proof_mles(&evaluation_vec);
+            assert_eq!(evals[0], expected_c_star[row]);
+            assert_eq!(evals[1], expected_d_star[row]);
+        }
+    }
+
+    #[test]
+    fn final_round_evaluate_monotonic_handles_empty_nonstrict_ascending_columns() {
+        let alloc = Bump::new();
+        let alpha = TestScalar::from(2);
+        let beta = TestScalar::from(3);
+        let column = [];
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        final_round_evaluate_monotonic::<_, false, true>(
+            &mut builder,
+            &alloc,
+            alpha,
+            beta,
+            &column,
+        );
+
+        assert_eq!(builder.bit_distributions().len(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 3);
+        assert_eq!(
+            builder.evaluate_pcs_proof_mles(&[TestScalar::ONE])[..2],
+            [TestScalar::ONE, TestScalar::ONE]
+        );
+    }
+}
