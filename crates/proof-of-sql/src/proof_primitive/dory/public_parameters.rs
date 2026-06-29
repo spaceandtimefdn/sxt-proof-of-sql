@@ -267,6 +267,24 @@ mod tests {
             .expect("Deserialized parameters are not valid");
     }
 
+    #[test]
+    fn serialized_size_matches_serialized_byte_length() {
+        let mut rng = thread_rng();
+        let public_parameters = PublicParameters::rand(2, &mut rng);
+
+        for compress in [Compress::No, Compress::Yes] {
+            let mut serialized_data = Vec::new();
+            public_parameters
+                .serialize_with_mode(&mut serialized_data, compress)
+                .expect("Failed to serialize PublicParameters");
+
+            assert_eq!(
+                public_parameters.serialized_size(compress),
+                serialized_data.len()
+            );
+        }
+    }
+
     // 13th Gen Intel® Core™ i9-13900H × 20
     // nu vs proof size & time:
     // nu = 4  |  0.005 MB  | 287.972567ms
