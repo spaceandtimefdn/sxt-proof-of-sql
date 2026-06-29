@@ -201,6 +201,40 @@ pub(crate) fn verify_shift<S: Scalar>(
     Ok((shifted_column_eval, chi_n_plus_1_eval))
 }
 
+#[cfg(test)]
+mod first_round_tests {
+    use super::first_round_evaluate_shift;
+    use crate::{base::scalar::test_scalar::TestScalar, sql::proof::FirstRoundBuilder};
+    use bumpalo::Bump;
+
+    #[test]
+    fn first_round_shift_registers_shifted_mle_and_evaluation_lengths() {
+        let alloc = Bump::new();
+        let column = [
+            TestScalar::from(4),
+            TestScalar::from(5),
+            TestScalar::from(6),
+        ];
+        let mut builder = FirstRoundBuilder::<TestScalar>::new(0);
+
+        first_round_evaluate_shift(&mut builder, &alloc, &column);
+
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+        assert_eq!(builder.chi_evaluation_lengths(), &[4]);
+        assert_eq!(builder.rho_evaluation_lengths(), &[3, 4]);
+        assert_eq!(builder.range_length(), 4);
+
+        let evaluation_vec = [
+            TestScalar::from(1),
+            TestScalar::from(10),
+            TestScalar::from(100),
+            TestScalar::from(1000),
+        ];
+        let evals = builder.evaluate_pcs_proof_mles(&evaluation_vec);
+        assert_eq!(evals, [TestScalar::from(4 * 10 + 5 * 100 + 6 * 1000)]);
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::{final_round_evaluate_shift_base, verify_shift};
