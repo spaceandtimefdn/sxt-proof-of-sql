@@ -174,3 +174,23 @@ where
         rho
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_truncated_lagrange_basis_sum;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn truncated_lagrange_basis_sum_saturates_when_length_exceeds_domain() {
+        let point = [
+            TestScalar::from(2u8),
+            TestScalar::from(5u8),
+            TestScalar::from(7u8),
+        ];
+
+        assert_eq!(
+            compute_truncated_lagrange_basis_sum(9, &point),
+            TestScalar::from(1u8)
+        );
+    }
+}
