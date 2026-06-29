@@ -141,6 +141,7 @@ mod tests {
     use crate::base::{
         commitment::{column_bounds::Bounds, ColumnBounds},
         database::{owned_table_utility::*, ColumnType, OwnedTable},
+        math::decimal::Precision,
         scalar::test_scalar::TestScalar,
     };
     use alloc::vec::Vec;
@@ -156,6 +157,49 @@ mod tests {
             .unzip();
 
         ColumnCommitmentMetadataMap::from_columns(identifiers.into_iter().zip(columns.iter()))
+    }
+
+    #[test]
+    fn we_can_construct_metadata_map_from_column_fields_with_max_bounds() {
+        let decimal_type = ColumnType::Decimal75(Precision::new(12).unwrap(), 4);
+        let metadata_map = ColumnCommitmentMetadataMap::from_column_fields_with_max_bounds(&[
+            ColumnField::new("bigint_column".into(), ColumnType::BigInt),
+            ColumnField::new("smallint_column".into(), ColumnType::SmallInt),
+            ColumnField::new("varchar_column".into(), ColumnType::VarChar),
+            ColumnField::new("decimal_column".into(), decimal_type),
+        ]);
+
+        assert_eq!(metadata_map.len(), 4);
+
+        let (bigint_ident, bigint_metadata) = metadata_map.get_index(0).unwrap();
+        assert_eq!(bigint_ident.value.as_str(), "bigint_column");
+        assert_eq!(bigint_metadata.column_type(), &ColumnType::BigInt);
+        if let ColumnBounds::BigInt(Bounds::Bounded(bounds)) = bigint_metadata.bounds() {
+            assert_eq!(bounds.min(), &i64::MIN);
+            assert_eq!(bounds.max(), &i64::MAX);
+        } else {
+            panic!("BigInt field should receive maximum BigInt bounds");
+        }
+
+        let (smallint_ident, smallint_metadata) = metadata_map.get_index(1).unwrap();
+        assert_eq!(smallint_ident.value.as_str(), "smallint_column");
+        assert_eq!(smallint_metadata.column_type(), &ColumnType::SmallInt);
+        if let ColumnBounds::SmallInt(Bounds::Bounded(bounds)) = smallint_metadata.bounds() {
+            assert_eq!(bounds.min(), &i16::MIN);
+            assert_eq!(bounds.max(), &i16::MAX);
+        } else {
+            panic!("SmallInt field should receive maximum SmallInt bounds");
+        }
+
+        let (varchar_ident, varchar_metadata) = metadata_map.get_index(2).unwrap();
+        assert_eq!(varchar_ident.value.as_str(), "varchar_column");
+        assert_eq!(varchar_metadata.column_type(), &ColumnType::VarChar);
+        assert_eq!(varchar_metadata.bounds(), &ColumnBounds::NoOrder);
+
+        let (decimal_ident, decimal_metadata) = metadata_map.get_index(3).unwrap();
+        assert_eq!(decimal_ident.value.as_str(), "decimal_column");
+        assert_eq!(decimal_metadata.column_type(), &decimal_type);
+        assert_eq!(decimal_metadata.bounds(), &ColumnBounds::NoOrder);
     }
 
     #[test]
