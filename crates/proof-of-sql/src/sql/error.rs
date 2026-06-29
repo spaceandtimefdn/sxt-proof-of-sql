@@ -71,3 +71,18 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyzeError;
+    use alloc::string::String;
+
+    #[test]
+    fn we_can_convert_analyze_error_into_string() {
+        // `String::from` delegates to the error's `Display` impl.
+        assert_eq!(
+            String::from(AnalyzeError::NotEnoughInputPlans),
+            "Not enough input plans"
+        );
+    }
+}
