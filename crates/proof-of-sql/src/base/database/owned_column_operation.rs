@@ -112,6 +112,12 @@ mod test {
             Err(ColumnOperationError::DifferentColumnLength { .. })
         ));
 
+        let result = lhs.element_wise_or(&rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::DifferentColumnLength { .. })
+        ));
+
         let result = lhs.element_wise_eq(&rhs);
         assert!(matches!(
             result,
