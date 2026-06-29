@@ -130,6 +130,16 @@ mod tests {
         dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters, VerifierState},
         dynamic_matrix_utils::standard_basis_helper::{compute_dynamic_vecs, tests::naive_fold},
     };
+    use std::sync::LazyLock;
+
+    static PUBLIC_PARAMETERS_5: LazyLock<PublicParameters> =
+        LazyLock::new(|| PublicParameters::test_rand(5, &mut test_rng()));
+    static PROVER_SETUP_5: LazyLock<ProverSetup<'static>> =
+        LazyLock::new(|| ProverSetup::from(&*PUBLIC_PARAMETERS_5));
+
+    fn dynamic_dory_setup_5() -> &'static ProverSetup<'static> {
+        &PROVER_SETUP_5
+    }
 
     #[test]
     fn we_can_fold_dynamic_tensors() {
@@ -213,8 +223,7 @@ mod tests {
 
     #[test]
     fn we_can_compute_dynamic_T_vec_prime() {
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let prover_setup = ProverSetup::from(&public_parameters);
+        let prover_setup = dynamic_dory_setup_5();
 
         let a: Vec<F> = (100..109).map(Into::into).collect();
         let nu = 3;

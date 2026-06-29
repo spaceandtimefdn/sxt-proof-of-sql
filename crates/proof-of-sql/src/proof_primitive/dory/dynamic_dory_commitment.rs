@@ -110,6 +110,16 @@ mod tests {
     };
     use ark_ff::UniformRand;
     use rand::{rngs::StdRng, SeedableRng};
+    use std::sync::LazyLock;
+
+    static PUBLIC_PARAMETERS_5: LazyLock<PublicParameters> =
+        LazyLock::new(|| PublicParameters::test_rand(5, &mut test_rng()));
+    static PROVER_SETUP_5: LazyLock<ProverSetup<'static>> =
+        LazyLock::new(|| ProverSetup::from(&*PUBLIC_PARAMETERS_5));
+
+    fn dynamic_dory_setup_5() -> &'static ProverSetup<'static> {
+        &PROVER_SETUP_5
+    }
 
     #[test]
     fn we_get_different_transcript_bytes_from_different_dynamic_dory_commitments() {
@@ -128,8 +138,7 @@ mod tests {
     fn commitment_serialization_does_not_change() {
         let expected_serialization =
             include_bytes!("./test_table_commitmet_do_not_modify.bin").to_vec();
-        let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
-        let setup = ProverSetup::from(&public_parameters);
+        let setup = dynamic_dory_setup_5();
 
         let base_table: OwnedTable<DoryScalar> = owned_table([
             uint8("uint8_column", [1, 2, 3, 4]),
@@ -162,7 +171,7 @@ mod tests {
             ColumnCommitments::<DynamicDoryCommitment>::try_from_columns_with_offset(
                 base_table.inner_table(),
                 0,
-                &&setup,
+                &setup,
             )
             .unwrap();
         let table_commitment = TableCommitment::try_new(base_commitments, 0..4).unwrap();
