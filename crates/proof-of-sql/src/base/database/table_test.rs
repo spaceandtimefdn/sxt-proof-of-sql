@@ -1,5 +1,7 @@
 use crate::base::{
-    database::{table_utility::*, Column, Table, TableError, TableOptions},
+    database::{
+        table_utility::*, Column, ColumnField, ColumnType, Table, TableError, TableOptions,
+    },
     map::{indexmap, IndexMap},
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
@@ -63,6 +65,45 @@ fn we_can_create_a_table_with_specified_row_count() {
     .unwrap();
     assert_eq!(table.num_columns(), 2);
     assert_eq!(table.num_rows(), 0);
+}
+
+#[test]
+fn we_can_inspect_table_schema_and_columns_in_order() {
+    let name_scalars = [TestScalar::from("x"), TestScalar::from("y")];
+    let table = Table::<TestScalar>::try_new(indexmap! {
+        "a".into() => Column::BigInt(&[1, 2]),
+        "flag".into() => Column::Boolean(&[true, false]),
+        "name".into() => Column::VarChar((&["x", "y"], &name_scalars)),
+    })
+    .unwrap();
+
+    assert!(!table.is_empty());
+    assert_eq!(
+        table.schema(),
+        vec![
+            ColumnField::new("a".into(), ColumnType::BigInt),
+            ColumnField::new("flag".into(), ColumnType::Boolean),
+            ColumnField::new("name".into(), ColumnType::VarChar),
+        ]
+    );
+    assert_eq!(
+        table.column_names().cloned().collect::<Vec<_>>(),
+        vec![Ident::new("a"), Ident::new("flag"), Ident::new("name")]
+    );
+    assert_eq!(
+        table.columns().cloned().collect::<Vec<_>>(),
+        vec![
+            Column::BigInt(&[1, 2]),
+            Column::Boolean(&[true, false]),
+            Column::VarChar((&["x", "y"], &name_scalars)),
+        ]
+    );
+    assert_eq!(table.column(0), Some(&Column::BigInt(&[1, 2])));
+    assert_eq!(
+        table.column(2),
+        Some(&Column::VarChar((&["x", "y"], &name_scalars)))
+    );
+    assert_eq!(table.column(3), None);
 }
 
 #[test]
