@@ -107,3 +107,22 @@ pub(super) fn compute_dynamic_dory_commitments(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compute_dory_commitment_impl;
+    use crate::proof_primitive::dory::{
+        test_rng, DoryScalar, DynamicDoryCommitment, ProverSetup, PublicParameters,
+    };
+
+    #[test]
+    fn we_can_compute_default_commitment_for_empty_cpu_impl_column() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let setup = ProverSetup::from(&public_parameters);
+        let column: &[DoryScalar] = &[];
+
+        let commitment = compute_dory_commitment_impl(column, 0, &setup);
+
+        assert_eq!(commitment, DynamicDoryCommitment::default());
+    }
+}
