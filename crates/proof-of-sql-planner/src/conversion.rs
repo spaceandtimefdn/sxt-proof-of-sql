@@ -112,8 +112,8 @@ pub fn get_table_refs_from_statement(
 
 #[cfg(test)]
 mod tests {
-    use super::get_table_refs_from_statement;
-    use crate::{conversion::sql_to_posql_plans, PlannerResult};
+    use super::{get_table_refs_from_statement, optimizer};
+    use crate::{conversion::sql_to_posql_plans, sql_to_proof_plans, PlannerResult};
     use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
     use indexmap::IndexSet;
     use proof_of_sql::{
@@ -165,6 +165,24 @@ AND s.salary > (
     }
 
     #[test]
+    fn we_do_not_get_table_references_from_tableless_statement() {
+        let statement =
+            Parser::parse_sql(&GenericDialect {}, "SELECT ABS(-1-1);").unwrap()[0].clone();
+        let table_refs = get_table_refs_from_statement(&statement).unwrap();
+        assert!(table_refs.is_empty());
+    }
+
+    #[test]
+    fn optimizer_excludes_common_subexpression_eliminate_rule() {
+        let optimizer = optimizer();
+        assert!(!optimizer.rules.is_empty());
+        assert!(optimizer
+            .rules
+            .iter()
+            .all(|rule| rule.name() != "common_sub_expression_eliminate"));
+    }
+
+    #[test]
     fn we_can_use_abs() {
         let statements = Parser::parse_sql(&GenericDialect {}, "SELECT ABS(-1-1);").unwrap();
         sql_to_posql_plans(
@@ -174,5 +192,18 @@ AND s.salary > (
             |a, _| -> PlannerResult<LogicalPlan> { Ok(a.clone()) },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn we_can_convert_multiple_sql_statements_to_proof_plans() {
+        let statements =
+            Parser::parse_sql(&GenericDialect {}, "SELECT 1; SELECT ABS(-1-1);").unwrap();
+        let plans = sql_to_proof_plans(
+            &statements,
+            &TableTestAccessor::<DynamicDoryEvaluationProof>::default(),
+            &ConfigOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(plans.len(), 2);
     }
 }
