@@ -11,18 +11,18 @@ fn test_dory_scalar_to_bool() {
 
 #[test]
 fn test_dory_scalar_to_bool_overflow() {
-    matches!(
+    assert!(matches!(
         bool::try_from(DoryScalar::from(2)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         bool::try_from(DoryScalar::from(-1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         bool::try_from(DoryScalar::from(-2)),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
@@ -36,14 +36,14 @@ fn test_dory_scalar_to_i8() {
 
 #[test]
 fn test_dory_scalar_to_i8_overflow() {
-    matches!(
+    assert!(matches!(
         i8::try_from(DoryScalar::from(i128::from(i8::MAX) + 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         i8::try_from(DoryScalar::from(i128::from(i8::MIN) - 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
@@ -57,14 +57,14 @@ fn test_dory_scalar_to_i16() {
 
 #[test]
 fn test_dory_scalar_to_i16_overflow() {
-    matches!(
+    assert!(matches!(
         i16::try_from(DoryScalar::from(i128::from(i16::MAX) + 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         i16::try_from(DoryScalar::from(i128::from(i16::MIN) - 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
@@ -78,14 +78,14 @@ fn test_dory_scalar_to_i32() {
 
 #[test]
 fn test_dory_scalar_to_i32_overflow() {
-    matches!(
+    assert!(matches!(
         i32::try_from(DoryScalar::from(i128::from(i32::MAX) + 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         i32::try_from(DoryScalar::from(i128::from(i32::MIN) - 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
@@ -99,14 +99,14 @@ fn test_dory_scalar_to_i64() {
 
 #[test]
 fn test_dory_scalar_to_i64_overflow() {
-    matches!(
+    assert!(matches!(
         i64::try_from(DoryScalar::from(i128::from(i64::MAX) + 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         i64::try_from(DoryScalar::from(i128::from(i64::MIN) - 1)),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
@@ -126,14 +126,14 @@ fn test_dory_scalar_to_i128() {
 
 #[test]
 fn test_dory_scalar_to_i128_overflow() {
-    matches!(
+    assert!(matches!(
         i128::try_from(DoryScalar::from(i128::MAX) + DoryScalar::ONE),
         Err(ScalarConversionError::Overflow { .. })
-    );
-    matches!(
+    ));
+    assert!(matches!(
         i128::try_from(DoryScalar::from(i128::MIN) - DoryScalar::ONE),
         Err(ScalarConversionError::Overflow { .. })
-    );
+    ));
 }
 
 #[test]
