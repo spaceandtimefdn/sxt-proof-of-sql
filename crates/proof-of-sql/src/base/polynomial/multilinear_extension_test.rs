@@ -114,3 +114,94 @@ fn we_can_use_multilinear_extension_methods_for_i64_vec() {
         MultilinearExtension::<TestScalar>::id(&&evaluation_vec)
     );
 }
+
+#[test]
+fn we_can_get_sumcheck_terms_for_remaining_column_variants() {
+    let bools = [true, false];
+    assert_eq!(
+        Column::<TestScalar>::Boolean(&bools).to_sumcheck_term(2),
+        vec![true.into(), false.into(), 0.into(), 0.into()]
+    );
+
+    let scalars = [TestScalar::from(7), TestScalar::from(8)];
+    assert_eq!(
+        Column::Scalar(&scalars).to_sumcheck_term(2),
+        vec![7.into(), 8.into(), 0.into(), 0.into()]
+    );
+
+    let strings = ["alpha", "beta"];
+    let string_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
+    assert_eq!(
+        Column::VarChar((&strings, &string_scalars)).to_sumcheck_term(2),
+        vec![
+            TestScalar::from("alpha"),
+            TestScalar::from("beta"),
+            0.into(),
+            0.into()
+        ]
+    );
+
+    let alpha_bytes = b"alpha".as_slice();
+    let beta_bytes = b"beta".as_slice();
+    let binaries = [alpha_bytes, beta_bytes];
+    let binary_scalars = [TestScalar::from(11), TestScalar::from(12)];
+    assert_eq!(
+        Column::VarBinary((&binaries, &binary_scalars)).to_sumcheck_term(2),
+        vec![11.into(), 12.into(), 0.into(), 0.into()]
+    );
+
+    let uints = [2_u8, 3];
+    assert_eq!(
+        Column::<TestScalar>::Uint8(&uints).to_sumcheck_term(2),
+        vec![2.into(), 3.into(), 0.into(), 0.into()]
+    );
+
+    let tiny_ints = [-2_i8, 3];
+    assert_eq!(
+        Column::<TestScalar>::TinyInt(&tiny_ints).to_sumcheck_term(2),
+        vec![(-2).into(), 3.into(), 0.into(), 0.into()]
+    );
+}
+
+#[test]
+fn we_can_get_ids_for_remaining_column_variants() {
+    let bools = [true, false];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::Boolean(&bools)).1,
+        bools.len()
+    );
+
+    let scalars = [TestScalar::from(7), TestScalar::from(8)];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::Scalar(&scalars)).1,
+        scalars.len()
+    );
+
+    let strings = ["alpha", "beta"];
+    let string_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::VarChar((&strings, &string_scalars))).1,
+        string_scalars.len()
+    );
+
+    let alpha_bytes = b"alpha".as_slice();
+    let beta_bytes = b"beta".as_slice();
+    let binaries = [alpha_bytes, beta_bytes];
+    let binary_scalars = [TestScalar::from(11), TestScalar::from(12)];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::VarBinary((&binaries, &binary_scalars))).1,
+        binary_scalars.len()
+    );
+
+    let uints = [2_u8, 3];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::Uint8(&uints)).1,
+        uints.len()
+    );
+
+    let tiny_ints = [-2_i8, 3];
+    assert_eq!(
+        MultilinearExtension::<TestScalar>::id(&Column::TinyInt(&tiny_ints)).1,
+        tiny_ints.len()
+    );
+}
