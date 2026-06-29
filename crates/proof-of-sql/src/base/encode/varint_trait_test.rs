@@ -154,6 +154,13 @@ fn test_regression_22() {
     assert!(i8::decode_var(&encoded).is_none());
 }
 
+#[test]
+fn we_can_encode_and_decode_bool_values() {
+    test_encode_decode(false, [0]);
+    test_encode_decode(true, [1]);
+    assert!(bool::decode_var(&2_u8.encode_var_vec()).is_none());
+}
+
 // ------------------------------------------------------------------------------
 // End of tests taken directly from integer-encoding-rs with minimal modification
 // ------------------------------------------------------------------------------
