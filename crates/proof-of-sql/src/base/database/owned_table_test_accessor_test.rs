@@ -45,9 +45,14 @@ fn we_can_access_the_columns_of_a_table() {
     }
 
     let data2 = owned_table([
+        uint8("u8", [1_u8, 2, 3, 4]),
+        tinyint("tiny", [-1_i8, 2, -3, 4]),
+        smallint("small", [-10_i16, 20, -30, 40]),
+        int("int", [-100_i32, 200, -300, 400]),
         bigint("a", [1, 2, 3, 4]),
         bigint("b", [4, 5, 6, 5]),
         int128("c128", [1, 2, 3, 4]),
+        decimal75("decimal", 12, 2, [10, 20, 30, 40]),
         varchar("varchar", ["a", "bc", "d", "e"]),
         scalar("scalar", [1, 2, 3, 4]),
         boolean("boolean", [true, false, true, false]),
@@ -65,6 +70,26 @@ fn we_can_access_the_columns_of_a_table() {
         _ => panic!("Invalid column type"),
     }
 
+    match accessor.get_column(&table_ref_2, &"u8".into()) {
+        Column::Uint8(col) => assert_eq!(col.to_vec(), vec![1, 2, 3, 4]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"tiny".into()) {
+        Column::TinyInt(col) => assert_eq!(col.to_vec(), vec![-1, 2, -3, 4]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"small".into()) {
+        Column::SmallInt(col) => assert_eq!(col.to_vec(), vec![-10, 20, -30, 40]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"int".into()) {
+        Column::Int(col) => assert_eq!(col.to_vec(), vec![-100, 200, -300, 400]),
+        _ => panic!("Invalid column type"),
+    }
+
     match accessor.get_column(&table_ref_2, &"b".into()) {
         Column::BigInt(col) => assert_eq!(col.to_vec(), vec![4, 5, 6, 5]),
         _ => panic!("Invalid column type"),
@@ -72,6 +97,23 @@ fn we_can_access_the_columns_of_a_table() {
 
     match accessor.get_column(&table_ref_2, &"c128".into()) {
         Column::Int128(col) => assert_eq!(col.to_vec(), vec![1, 2, 3, 4]),
+        _ => panic!("Invalid column type"),
+    }
+
+    match accessor.get_column(&table_ref_2, &"decimal".into()) {
+        Column::Decimal75(precision, scale, col) => {
+            assert_eq!(precision.value(), 12);
+            assert_eq!(scale, 2);
+            assert_eq!(
+                col.to_vec(),
+                vec![
+                    TestScalar::from(10),
+                    TestScalar::from(20),
+                    TestScalar::from(30),
+                    TestScalar::from(40)
+                ]
+            );
+        }
         _ => panic!("Invalid column type"),
     }
 
@@ -240,4 +282,53 @@ fn we_can_correctly_update_offsets() {
 
     assert_eq!(accessor1.get_offset(&table_ref), offset);
     assert_eq!(accessor2.get_offset(&table_ref), offset);
+}
+
+#[test]
+fn new_from_table_sets_up_metadata_and_commitments() {
+    let table_ref = TableRef::new("sxt", "owned_from_table");
+    let offset = 7;
+    let data = owned_table([
+        bigint("id", [11, 12, 13]),
+        varchar("label", ["a", "b", "c"]),
+    ]);
+
+    let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
+        table_ref.clone(),
+        data,
+        offset,
+        (),
+    );
+
+    assert_eq!(accessor.get_length(&table_ref), 3);
+    assert_eq!(accessor.get_offset(&table_ref), offset);
+    assert_eq!(accessor.get_column_names(&table_ref), vec!["id", "label"]);
+    assert_eq!(
+        accessor.lookup_column(&table_ref, &"id".into()),
+        Some(ColumnType::BigInt)
+    );
+    assert_eq!(
+        accessor.get_commitment(&table_ref, &"id".into()),
+        NaiveCommitment::compute_commitments(
+            &[CommittableColumn::from(&[11i64, 12, 13][..])],
+            offset,
+            &()
+        )[0]
+    );
+}
+
+#[test]
+fn owned_accessor_returns_varbinary_columns() {
+    let table_ref = TableRef::new("sxt", "binary_payloads");
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
+    let data = owned_table([varbinary("payload", [vec![1_u8, 2], vec![3, 4, 5]])]);
+    accessor.add_table(table_ref.clone(), data, 0_usize);
+
+    match accessor.get_column(&table_ref, &"payload".into()) {
+        Column::VarBinary((bytes, scalars)) => {
+            assert_eq!(bytes, [&[1_u8, 2][..], &[3_u8, 4, 5][..]]);
+            assert_eq!(scalars.len(), 2);
+        }
+        _ => panic!("Invalid column type"),
+    }
 }
