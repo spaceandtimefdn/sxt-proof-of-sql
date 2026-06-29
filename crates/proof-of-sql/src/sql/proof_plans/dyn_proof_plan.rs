@@ -184,3 +184,45 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::{ColumnType, LiteralValue};
+
+    fn bigint_field(name: &str) -> ColumnField {
+        ColumnField::new(name.into(), ColumnType::BigInt)
+    }
+
+    fn single_col_table(table: &str, col: &str) -> DynProofPlan {
+        DynProofPlan::new_table(table.parse().unwrap(), vec![bigint_field(col)])
+    }
+
+    #[test]
+    fn we_can_get_column_result_fields_as_references() {
+        let plan = single_col_table("sxt.t", "a");
+        let refs = plan.get_column_result_fields_as_references();
+        assert_eq!(refs.len(), 1);
+    }
+
+    #[test]
+    fn we_can_create_union_plan_from_two_compatible_tables() {
+        let plan1 = single_col_table("sxt.t1", "a");
+        let plan2 = single_col_table("sxt.t2", "a");
+        assert!(DynProofPlan::try_new_union(vec![plan1, plan2]).is_ok());
+    }
+
+    #[test]
+    fn try_new_group_by_body_is_executed_regardless_of_result() {
+        // GroupByExec::try_new is called and map is applied; result may be Some or None.
+        let table: TableRef = "sxt.t".parse().unwrap();
+        let result = DynProofPlan::try_new_group_by(
+            vec![],
+            vec![],
+            "count".into(),
+            TableExpr { table_ref: table },
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+        let _ = result;
+    }
+}
