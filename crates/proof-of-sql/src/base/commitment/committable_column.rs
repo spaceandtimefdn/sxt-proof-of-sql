@@ -247,6 +247,173 @@ impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
     }
 }
 
+#[cfg(all(test, not(feature = "blitzar")))]
+mod tests_without_blitzar {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::{string::String, vec};
+
+    #[test]
+    fn we_can_get_type_and_length_without_blitzar() {
+        let bools = [true, false, true];
+        let uint8s = [1_u8, 2, 3];
+        let tinyints = [-1_i8, 0, 1];
+        let smallints = [-2_i16, 0, 2];
+        let ints = [-3_i32, 0, 3];
+        let bigints = [-4_i64, 0, 4];
+        let int128s = [-5_i128, 0, 5];
+        let limbs = vec![[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+        let timestamps = [1_625_072_400_i64, 1_625_076_000, 1_625_083_200];
+
+        let columns = [
+            (CommittableColumn::Boolean(&bools), ColumnType::Boolean),
+            (CommittableColumn::Uint8(&uint8s), ColumnType::Uint8),
+            (CommittableColumn::TinyInt(&tinyints), ColumnType::TinyInt),
+            (
+                CommittableColumn::SmallInt(&smallints),
+                ColumnType::SmallInt,
+            ),
+            (CommittableColumn::Int(&ints), ColumnType::Int),
+            (CommittableColumn::BigInt(&bigints), ColumnType::BigInt),
+            (CommittableColumn::Int128(&int128s), ColumnType::Int128),
+            (
+                CommittableColumn::Decimal75(Precision::new(4).unwrap(), 2, limbs.clone()),
+                ColumnType::Decimal75(Precision::new(4).unwrap(), 2),
+            ),
+            (CommittableColumn::Scalar(limbs.clone()), ColumnType::Scalar),
+            (
+                CommittableColumn::VarChar(limbs.clone()),
+                ColumnType::VarChar,
+            ),
+            (
+                CommittableColumn::VarBinary(limbs.clone()),
+                ColumnType::VarBinary,
+            ),
+            (
+                CommittableColumn::TimestampTZ(
+                    PoSQLTimeUnit::Microsecond,
+                    PoSQLTimeZone::new(3600),
+                    &timestamps,
+                ),
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::new(3600)),
+            ),
+        ];
+
+        for (column, column_type) in columns {
+            assert_eq!(column.len(), 3);
+            assert!(!column.is_empty());
+            assert_eq!(column.column_type(), column_type);
+        }
+
+        let empty_column = CommittableColumn::Scalar(Vec::new());
+        assert_eq!(empty_column.len(), 0);
+        assert!(empty_column.is_empty());
+    }
+
+    #[test]
+    fn we_can_convert_borrowed_columns_without_blitzar() {
+        let bools = [true, false];
+        let uint8s = [7_u8, 9];
+        let tinyints = [-7_i8, 9];
+        let smallints = [-70_i16, 90];
+        let ints = [-700_i32, 900];
+        let bigints = [-7000_i64, 9000];
+        let int128s = [-70000_i128, 90000];
+        let decimals = [TestScalar::from(-1), TestScalar::from(2)];
+        let scalars = [TestScalar::from(3), TestScalar::from(4)];
+        let strings = ["left", "right"];
+        let string_scalars = strings.map(TestScalar::from);
+        let bytes = [b"left".as_slice(), b"right".as_slice()];
+        let byte_scalars = [TestScalar::from(5), TestScalar::from(6)];
+        let timestamps = [1_625_072_400_i64, 1_625_076_000];
+
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Boolean(&bools)),
+            CommittableColumn::Boolean(&bools)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Uint8(&uint8s)),
+            CommittableColumn::Uint8(&uint8s)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TinyInt(&tinyints)),
+            CommittableColumn::TinyInt(&tinyints)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::SmallInt(&smallints)),
+            CommittableColumn::SmallInt(&smallints)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int(&ints)),
+            CommittableColumn::Int(&ints)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::BigInt(&bigints)),
+            CommittableColumn::BigInt(&bigints)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int128(&int128s)),
+            CommittableColumn::Int128(&int128s)
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::Decimal75(
+                Precision::new(8).unwrap(),
+                -2,
+                &decimals,
+            )),
+            CommittableColumn::Decimal75(
+                Precision::new(8).unwrap(),
+                -2,
+                decimals.map(<[u64; 4]>::from).into()
+            )
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::Scalar(&scalars)),
+            CommittableColumn::Scalar(scalars.map(<[u64; 4]>::from).into())
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::VarChar((&strings, &string_scalars))),
+            CommittableColumn::VarChar(string_scalars.map(<[u64; 4]>::from).into())
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::VarBinary((&bytes, &byte_scalars))),
+            CommittableColumn::VarBinary(byte_scalars.map(<[u64; 4]>::from).into())
+        );
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Nanosecond,
+                PoSQLTimeZone::new(-18_000),
+                &timestamps,
+            )),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Nanosecond,
+                PoSQLTimeZone::new(-18_000),
+                &timestamps,
+            )
+        );
+    }
+
+    #[test]
+    fn we_can_convert_owned_columns_without_blitzar() {
+        let strings = ["alpha", "beta"].map(String::from);
+        let bytes = [b"alpha".to_vec(), b"beta".to_vec()];
+
+        assert_eq!(
+            CommittableColumn::from(&OwnedColumn::<TestScalar>::Uint8(vec![1, 2])),
+            CommittableColumn::Uint8(&[1, 2])
+        );
+        assert_eq!(
+            CommittableColumn::from(&OwnedColumn::<TestScalar>::VarChar(strings.to_vec())),
+            CommittableColumn::VarChar(strings.map(TestScalar::from).map(<[u64; 4]>::from).into())
+        );
+
+        match CommittableColumn::from(&OwnedColumn::<TestScalar>::VarBinary(bytes.to_vec())) {
+            CommittableColumn::VarBinary(limbs) => assert_eq!(limbs.len(), bytes.len()),
+            other => panic!("expected VarBinary committable column, got {other:?}"),
+        }
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::*;
