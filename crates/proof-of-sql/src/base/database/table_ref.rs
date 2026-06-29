@@ -142,3 +142,107 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_construct_table_refs_from_schema_and_table_names() {
+        let scoped = TableRef::new("schema", "table");
+        assert_eq!(scoped.schema_id().unwrap().value, "schema");
+        assert_eq!(scoped.table_id().value, "table");
+        assert_eq!(scoped.to_string(), "schema.table");
+
+        let unscoped = TableRef::new("", "table");
+        assert!(unscoped.schema_id().is_none());
+        assert_eq!(unscoped.table_id().value, "table");
+        assert_eq!(unscoped.to_string(), "table");
+    }
+
+    #[test]
+    fn we_can_construct_table_refs_from_optional_names_and_idents() {
+        let from_names = TableRef::from_names(Some("schema"), "table");
+        let from_idents = TableRef::from_idents(Some(Ident::new("schema")), Ident::new("table"));
+        assert_eq!(from_names, from_idents);
+
+        let unscoped = TableRef::from_names(None, "table");
+        assert!(unscoped.schema_id().is_none());
+        assert_eq!(unscoped.table_id().value, "table");
+    }
+
+    #[test]
+    fn we_can_parse_table_refs_from_component_slices() {
+        assert_eq!(
+            TableRef::from_strs(&["table"]).unwrap(),
+            TableRef::from_names(None, "table")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["schema", "table"]).unwrap(),
+            TableRef::from_names(Some("schema"), "table")
+        );
+
+        assert_eq!(
+            TableRef::from_strs(&["catalog", "schema", "table"]).unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "catalog,schema,table".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn we_can_parse_table_refs_from_dot_separated_strings() {
+        assert_eq!(
+            TableRef::try_from("table").unwrap(),
+            TableRef::from_names(None, "table")
+        );
+        assert_eq!(
+            "schema.table".parse::<TableRef>().unwrap(),
+            TableRef::from_names(Some("schema"), "table")
+        );
+
+        assert_eq!(
+            TableRef::try_from("catalog.schema.table").unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "catalog.schema.table".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn we_can_compare_borrowed_table_refs_as_equivalent_keys() {
+        let table_ref = TableRef::from_names(Some("schema"), "table");
+        let same = TableRef::new("schema", "table");
+        let different_table = TableRef::new("schema", "other");
+        let different_schema = TableRef::new("other", "table");
+
+        assert!(<&TableRef as Equivalent<TableRef>>::equivalent(
+            &&same, &table_ref
+        ));
+        assert!(!<&TableRef as Equivalent<TableRef>>::equivalent(
+            &&different_table,
+            &table_ref
+        ));
+        assert!(!<&TableRef as Equivalent<TableRef>>::equivalent(
+            &&different_schema,
+            &table_ref
+        ));
+    }
+
+    #[test]
+    fn we_can_serde_round_trip_table_refs() {
+        let table_ref = TableRef::new("schema", "table");
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, "\"schema.table\"");
+
+        let deserialized: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized, table_ref);
+    }
+
+    #[test]
+    fn we_cannot_deserialize_invalid_table_refs() {
+        let error = serde_json::from_str::<TableRef>("\"catalog.schema.table\"").unwrap_err();
+        assert!(error.to_string().contains("Invalid table reference"));
+    }
+}
