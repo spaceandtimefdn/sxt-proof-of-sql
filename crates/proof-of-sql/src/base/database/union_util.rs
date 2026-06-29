@@ -245,7 +245,11 @@ pub fn table_union<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        map::IndexMap,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn we_can_union_no_columns() {
@@ -278,6 +282,27 @@ mod tests {
         assert_eq!(
             result,
             Column::VarChar((&doubled_strings, &doubled_scalars))
+        );
+    }
+
+    #[test]
+    fn we_can_union_timestamptz_columns() {
+        let alloc = Bump::new();
+        let time_unit = PoSQLTimeUnit::Second;
+        let timezone = PoSQLTimeZone::utc();
+        let col0: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[1, 2]);
+        let col1: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[3, 4, 5]);
+
+        let result = column_union(
+            &[&col0, &col1],
+            &alloc,
+            ColumnType::TimestampTZ(time_unit, timezone),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, timezone, &[1, 2, 3, 4, 5])
         );
     }
 
