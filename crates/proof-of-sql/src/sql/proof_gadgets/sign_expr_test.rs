@@ -71,6 +71,40 @@ fn we_can_verify_a_constant_decomposition() {
 }
 
 #[test]
+fn we_can_verify_a_negative_constant_decomposition() {
+    let data = [-123_i64, -123, -123];
+
+    let dists = [BitDistribution::new::<TestScalar, _>(&data)];
+    let scalars = [TestScalar::from(97), TestScalar::from(3432)];
+    let sumcheck_random_scalars = SumcheckRandomScalars::new(&scalars, data.len(), 2);
+    let evaluation_point = [TestScalar::from(324), TestScalar::from(97)];
+    let sumcheck_evaluations = SumcheckMleEvaluations::new(
+        data.len(),
+        [data.len()],
+        [],
+        &evaluation_point,
+        &sumcheck_random_scalars,
+        &[],
+        &[],
+    );
+    let chi_evals = sumcheck_evaluations.chi_evaluations.clone();
+    let chi_eval = chi_evals.values().next().unwrap();
+
+    let mut builder = VerificationBuilderImpl::new(
+        sumcheck_evaluations,
+        &dists,
+        &[],
+        VecDeque::new(),
+        Vec::new(),
+        Vec::new(),
+        3,
+    );
+    let data_eval = (&data).evaluate_at_point(&evaluation_point);
+    let eval = verifier_evaluate_sign(&mut builder, data_eval, *chi_eval, Some(8)).unwrap();
+    assert_eq!(eval, *chi_eval);
+}
+
+#[test]
 fn verification_of_constant_data_fails_if_the_commitment_doesnt_match_the_bit_distribution() {
     let data = [123_i64, 123, 123];
 
