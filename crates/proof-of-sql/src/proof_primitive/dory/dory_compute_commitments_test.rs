@@ -47,6 +47,34 @@ fn we_can_compute_a_dory_commitment_with_int128_values() {
 }
 
 #[test]
+fn we_can_compute_dory_commitments_with_uint8_and_tinyint_values() {
+    let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let setup = DoryProverPublicSetup::new(&prover_setup, 2);
+    let uint8_values = [2_u8, 3, 4];
+    let tinyint_values = [-2_i8, -1, 2];
+    let res = compute_dory_commitments(
+        &[
+            CommittableColumn::Uint8(&uint8_values),
+            CommittableColumn::TinyInt(&tinyint_values),
+        ],
+        0,
+        &setup,
+    );
+    let Gamma_1 = public_parameters.Gamma_1;
+    let Gamma_2 = public_parameters.Gamma_2;
+    let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(2_u64)
+        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(3_u64)
+        + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(4_u64);
+    assert_eq!(res[0].0, expected);
+
+    let expected: GT = Pairing::pairing(Gamma_1[0], Gamma_2[0]) * F::from(-2_i128)
+        + Pairing::pairing(Gamma_1[1], Gamma_2[0]) * F::from(-1_i128)
+        + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * F::from(2_i128);
+    assert_eq!(res[1].0, expected);
+}
+
+#[test]
 fn we_can_compute_a_dory_commitment_with_boolean_values() {
     let public_parameters = PublicParameters::test_rand(5, &mut test_rng());
     let prover_setup = ProverSetup::from(&public_parameters);
