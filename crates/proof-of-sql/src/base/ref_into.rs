@@ -23,3 +23,25 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RefInto;
+
+    #[derive(Debug, Eq, PartialEq)]
+    struct Wrapper(u64);
+
+    impl From<&Wrapper> for u64 {
+        fn from(value: &Wrapper) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn we_can_convert_from_a_reference_without_consuming_the_value() {
+        let value = Wrapper(42);
+
+        assert_eq!(RefInto::<u64>::ref_into(&value), 42);
+        assert_eq!(value, Wrapper(42));
+    }
+}
