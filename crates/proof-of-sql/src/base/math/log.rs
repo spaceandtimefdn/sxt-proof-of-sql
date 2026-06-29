@@ -71,6 +71,40 @@ mod tests {
         assert_eq!(log2_up(4u32), 2);
     }
 
+    #[test]
+    fn test_is_pow2_for_unsigned_integers() {
+        for value in [1u64, 2, 4, 8, 16, 1024, 1 << 31] {
+            assert!(is_pow2(value), "{value} should be a power of two");
+        }
+        for value in [3u64, 5, 6, 7, 9, 1023, 1025] {
+            assert!(!is_pow2(value), "{value} should not be a power of two");
+        }
+    }
+
+    #[test]
+    fn test_is_pow2_bytes() {
+        assert!(is_pow2_bytes(&[0, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[1, 0, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 1, 0, 0]));
+        assert!(is_pow2_bytes(&[0, 0, 128, 0]));
+
+        assert!(!is_pow2_bytes(&[3, 0, 0, 0]));
+        assert!(!is_pow2_bytes(&[1, 1, 0, 0]));
+        assert!(!is_pow2_bytes(&[0, 128, 1, 0]));
+    }
+
+    #[test]
+    fn test_log2_bytes_floor() {
+        assert_eq!(log2_down_bytes(&[0, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[1, 0, 0, 0]), 0);
+        assert_eq!(log2_down_bytes(&[2, 0, 0, 0]), 1);
+        assert_eq!(log2_down_bytes(&[3, 0, 0, 0]), 1);
+        assert_eq!(log2_down_bytes(&[0, 1, 0, 0]), 8);
+        assert_eq!(log2_down_bytes(&[0, 255, 0, 0]), 15);
+        assert_eq!(log2_down_bytes(&[0, 0, 0, 128]), 31);
+        assert_eq!(log2_down_bytes(&[255, 255, 255, 255]), 31);
+    }
+
     #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     #[test]
     fn test_log2_bytes_ceil() {
