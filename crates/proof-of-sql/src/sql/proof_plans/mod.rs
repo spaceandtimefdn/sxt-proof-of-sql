@@ -19,6 +19,8 @@ mod legacy_filter_exec;
 pub(crate) use legacy_filter_exec::LegacyFilterExec;
 #[cfg(test)]
 pub(crate) use legacy_filter_exec::OstensibleLegacyFilterExec;
+#[cfg(test)]
+mod legacy_filter_exec_accessor_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod legacy_filter_exec_test;
 #[cfg(all(test, feature = "blitzar"))]
