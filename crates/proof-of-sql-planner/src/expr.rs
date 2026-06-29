@@ -626,6 +626,41 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn we_cannot_convert_invalid_binary_expr_operands_to_proof_expr() {
+        let schema = vec![
+            ("column1".into(), ColumnType::SmallInt),
+            ("column2".into(), ColumnType::Boolean),
+            ("column3".into(), ColumnType::VarChar),
+        ];
+        let invalid_pairs = [
+            (Operator::And, "column1", "column2"),
+            (Operator::Or, "column1", "column2"),
+            (Operator::Multiply, "column2", "column1"),
+            (Operator::Eq, "column1", "column3"),
+            (Operator::NotEq, "column1", "column3"),
+            (Operator::Lt, "column2", "column1"),
+            (Operator::Gt, "column2", "column1"),
+            (Operator::LtEq, "column2", "column1"),
+            (Operator::GtEq, "column2", "column1"),
+            (Operator::Plus, "column2", "column1"),
+            (Operator::Minus, "column2", "column1"),
+        ];
+
+        for (op, left_column, right_column) in invalid_pairs {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(df_column("namespace.table_name", left_column)),
+                right: Box::new(df_column("namespace.table_name", right_column)),
+                op,
+            });
+
+            assert!(
+                expr_to_proof_expr(&expr, &schema).is_err(),
+                "expected {op:?} with invalid operands to fail"
+            );
+        }
+    }
+
     // Literal
     #[test]
     fn we_can_convert_literal_expr_to_proof_expr() {
