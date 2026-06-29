@@ -323,3 +323,251 @@ impl ArithmeticOp for DivOp {
         try_divide_decimal_columns(lhs, rhs, left_column_type, right_column_type)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AddOp, ArithmeticOp};
+    use crate::base::{
+        database::{ColumnOperationError, OwnedColumn},
+        math::decimal::Precision,
+        scalar::test_scalar::TestScalar,
+    };
+    use alloc::{string::ToString, vec, vec::Vec};
+
+    type TestColumn = OwnedColumn<TestScalar>;
+
+    fn scalars(values: [i128; 2]) -> Vec<TestScalar> {
+        values.into_iter().map(TestScalar::from).collect()
+    }
+
+    fn decimal(values: [i128; 2]) -> TestColumn {
+        OwnedColumn::Decimal75(Precision::new(5).unwrap(), 2, scalars(values))
+    }
+
+    fn assert_adds(lhs: TestColumn, rhs: TestColumn, expected: TestColumn) {
+        assert_eq!(
+            AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap(),
+            expected
+        );
+    }
+
+    fn assert_decimal_adds(lhs: TestColumn, rhs: TestColumn, expected_values: [i128; 2]) {
+        let result = AddOp::owned_column_element_wise_arithmetic(&lhs, &rhs).unwrap();
+        let OwnedColumn::Decimal75(_, scale, values) = result else {
+            panic!("expected Decimal75 result");
+        };
+        assert_eq!(scale, 2);
+        assert_eq!(values, scalars(expected_values));
+    }
+
+    #[test]
+    fn we_can_add_integer_columns_across_supported_upcasts() {
+        let cases = vec![
+            (
+                OwnedColumn::Uint8(vec![1_u8, 2]),
+                OwnedColumn::Uint8(vec![3_u8, 4]),
+                OwnedColumn::Uint8(vec![4_u8, 6]),
+            ),
+            (
+                OwnedColumn::Uint8(vec![1_u8, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::SmallInt(vec![4_i16, 6]),
+            ),
+            (
+                OwnedColumn::Uint8(vec![1_u8, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::Uint8(vec![1_u8, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::Uint8(vec![1_u8, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::TinyInt(vec![1_i8, 2]),
+                OwnedColumn::TinyInt(vec![3_i8, 4]),
+                OwnedColumn::TinyInt(vec![4_i8, 6]),
+            ),
+            (
+                OwnedColumn::TinyInt(vec![1_i8, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::SmallInt(vec![4_i16, 6]),
+            ),
+            (
+                OwnedColumn::TinyInt(vec![1_i8, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::TinyInt(vec![1_i8, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::TinyInt(vec![1_i8, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::SmallInt(vec![1_i16, 2]),
+                OwnedColumn::TinyInt(vec![3_i8, 4]),
+                OwnedColumn::SmallInt(vec![4_i16, 6]),
+            ),
+            (
+                OwnedColumn::SmallInt(vec![1_i16, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::SmallInt(vec![4_i16, 6]),
+            ),
+            (
+                OwnedColumn::SmallInt(vec![1_i16, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::SmallInt(vec![1_i16, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::SmallInt(vec![1_i16, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int(vec![1_i32, 2]),
+                OwnedColumn::TinyInt(vec![3_i8, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::Int(vec![1_i32, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::Int(vec![1_i32, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::Int(vec![4_i32, 6]),
+            ),
+            (
+                OwnedColumn::Int(vec![1_i32, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::Int(vec![1_i32, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::BigInt(vec![1_i64, 2]),
+                OwnedColumn::TinyInt(vec![3_i8, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::BigInt(vec![1_i64, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::BigInt(vec![1_i64, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::BigInt(vec![1_i64, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::BigInt(vec![4_i64, 6]),
+            ),
+            (
+                OwnedColumn::BigInt(vec![1_i64, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int128(vec![1_i128, 2]),
+                OwnedColumn::TinyInt(vec![3_i8, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int128(vec![1_i128, 2]),
+                OwnedColumn::SmallInt(vec![3_i16, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int128(vec![1_i128, 2]),
+                OwnedColumn::Int(vec![3_i32, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int128(vec![1_i128, 2]),
+                OwnedColumn::BigInt(vec![3_i64, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+            (
+                OwnedColumn::Int128(vec![1_i128, 2]),
+                OwnedColumn::Int128(vec![3_i128, 4]),
+                OwnedColumn::Int128(vec![4_i128, 6]),
+            ),
+        ];
+
+        for (lhs, rhs, expected) in cases {
+            assert_adds(lhs, rhs, expected);
+        }
+    }
+
+    #[test]
+    fn we_can_add_decimal_columns_across_integer_upcasts() {
+        let integer_columns = vec![
+            OwnedColumn::Uint8(vec![1_u8, 2]),
+            OwnedColumn::TinyInt(vec![1_i8, 2]),
+            OwnedColumn::SmallInt(vec![1_i16, 2]),
+            OwnedColumn::Int(vec![1_i32, 2]),
+            OwnedColumn::BigInt(vec![1_i64, 2]),
+            OwnedColumn::Int128(vec![1_i128, 2]),
+        ];
+
+        for integer_column in integer_columns {
+            assert_decimal_adds(integer_column.clone(), decimal([3, 4]), [103, 204]);
+            if !matches!(integer_column, OwnedColumn::Uint8(_)) {
+                assert_decimal_adds(decimal([3, 4]), integer_column, [103, 204]);
+            }
+        }
+
+        assert_decimal_adds(decimal([3, 4]), decimal([5, 6]), [8, 10]);
+    }
+
+    #[test]
+    fn arithmetic_reports_signed_casting_and_invalid_type_errors() {
+        assert!(matches!(
+            AddOp::owned_column_element_wise_arithmetic(
+                &OwnedColumn::<TestScalar>::Uint8(vec![1_u8]),
+                &OwnedColumn::<TestScalar>::Uint8(vec![2_u8, 3])
+            ),
+            Err(ColumnOperationError::DifferentColumnLength { .. })
+        ));
+
+        let uint8 = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2]);
+        let tinyint = OwnedColumn::<TestScalar>::TinyInt(vec![3_i8, 4]);
+
+        assert!(matches!(
+            AddOp::owned_column_element_wise_arithmetic(&uint8, &tinyint),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            AddOp::owned_column_element_wise_arithmetic(&tinyint, &uint8),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+
+        let strings = OwnedColumn::<TestScalar>::VarChar(vec!["1".to_string(), "2".to_string()]);
+        let bigint = OwnedColumn::<TestScalar>::BigInt(vec![1_i64, 2]);
+        assert!(matches!(
+            AddOp::owned_column_element_wise_arithmetic(&strings, &bigint),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+    }
+}
