@@ -12,9 +12,13 @@ pub use committable_column::CommittableColumn;
 
 mod vec_commitment_ext;
 pub use vec_commitment_ext::{NumColumnsMismatch, VecCommitmentExt};
+#[cfg(test)]
+mod vec_commitment_ext_test;
 
 mod column_bounds;
 pub use column_bounds::{Bounds, ColumnBounds, NegativeBounds};
+#[cfg(test)]
+mod column_bounds_test;
 
 mod column_commitment_metadata;
 pub use column_commitment_metadata::ColumnCommitmentMetadata;
@@ -23,18 +27,26 @@ mod column_commitment_metadata_map;
 pub use column_commitment_metadata_map::{
     ColumnCommitmentMetadataMap, ColumnCommitmentMetadataMapExt, ColumnCommitmentsMismatch,
 };
+#[cfg(test)]
+mod column_commitment_metadata_map_test;
 
 mod column_commitments;
 pub use column_commitments::{AppendColumnCommitmentsError, ColumnCommitments, DuplicateIdents};
+#[cfg(test)]
+mod column_commitments_test;
 
 mod table_commitment;
 pub use table_commitment::{
     AppendTableCommitmentError, MixedLengthColumns, NegativeRange, TableCommitment,
     TableCommitmentArithmeticError, TableCommitmentFromColumnsError,
 };
+#[cfg(test)]
+mod table_commitment_test;
 
 mod query_commitments;
 pub use query_commitments::{QueryCommitments, QueryCommitmentsExt};
+#[cfg(test)]
+mod query_commitments_test;
 
 /// Module for providing a mock commitment.
 #[cfg(test)]
@@ -43,6 +55,8 @@ pub mod naive_commitment;
 /// Module for providing a test commitment evaluation proof.
 #[cfg(test)]
 pub mod naive_evaluation_proof;
+#[cfg(test)]
+mod naive_evaluation_proof_test;
 
 #[cfg(test)]
 mod naive_commitment_test;
@@ -96,3 +110,16 @@ pub use commitment_evaluation_proof::CommitmentEvaluationProof;
 
 #[cfg(test)]
 pub(crate) mod commitment_evaluation_proof_test;
+
+#[cfg(test)]
+mod commitment_error_test;
+#[cfg(test)]
+mod bounds_error_test;
+#[cfg(test)]
+mod table_commitment_error_test;
+#[cfg(test)]
+mod column_commitments_mismatch_test;
+#[cfg(test)]
+mod column_commitment_metadata_error_test;
+#[cfg(test)]
+mod mod_test;

@@ -4,3 +4,7 @@ pub mod parse;
 
 /// This module provides logging utilities for the library, including functions to log system memory usage.
 pub mod log;
+#[cfg(test)]
+mod log_test;
+#[cfg(test)]
+mod mod_test;

@@ -11,3 +11,5 @@ mod bit_matrix;
 pub use bit_matrix::*;
 #[cfg(test)]
 mod bit_matrix_test;
+#[cfg(test)]
+mod mod_test;

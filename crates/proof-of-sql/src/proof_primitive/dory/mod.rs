@@ -47,8 +47,15 @@ mod state_test;
 
 #[cfg(test)]
 mod dory_reduce;
+#[cfg(test)]
+mod dory_reduce_test;
 mod dory_reduce_helper;
+#[cfg(test)]
+mod dory_reduce_helper_test;
+
 mod scalar_product;
+#[cfg(test)]
+mod scalar_product_test;
 
 #[cfg(test)]
 use dory_reduce::{dory_reduce_prove, dory_reduce_verify};
@@ -68,7 +75,13 @@ pub(crate) use extended_state::{ExtendedProverState, ExtendedVerifierState};
 mod extended_state_test;
 
 mod extended_dory_reduce;
+#[cfg(test)]
+mod extended_dory_reduce_test;
+
 mod extended_dory_reduce_helper;
+#[cfg(test)]
+mod extended_dory_reduce_helper_test;
+
 mod fold_scalars;
 
 pub(crate) use extended_dory_reduce::{extended_dory_reduce_prove, extended_dory_reduce_verify};
@@ -87,6 +100,8 @@ mod extended_dory_inner_product_test;
 
 mod public_parameters;
 pub use public_parameters::PublicParameters;
+#[cfg(test)]
+mod public_parameters_test;
 
 mod eval_vmv_re;
 pub(crate) use eval_vmv_re::{eval_vmv_re_prove, eval_vmv_re_verify};
@@ -111,6 +126,9 @@ mod dory_commitment_test;
 
 #[cfg(not(feature = "blitzar"))]
 mod dory_commitment_helper_cpu;
+#[cfg(all(test, not(feature = "blitzar")))]
+mod dory_commitment_helper_cpu_test;
+
 #[cfg(not(feature = "blitzar"))]
 use dory_commitment_helper_cpu::compute_dory_commitments;
 #[cfg(feature = "blitzar")]
@@ -122,16 +140,22 @@ use dory_commitment_helper_gpu::compute_dory_commitments;
 mod dory_compute_commitments_test;
 
 mod dory_vmv_helper;
+#[cfg(test)]
+mod dory_vmv_helper_test;
 use dory_vmv_helper::{
     compute_L_R_vec, compute_T_vec_prime, compute_l_r_tensors, compute_nu, compute_v_vec,
 };
 mod build_vmv_state;
+#[cfg(test)]
+mod build_vmv_state_test;
 use build_vmv_state::{build_vmv_prover_state, build_vmv_verifier_state};
 
 mod dory_commitment_evaluation_proof;
 pub use dory_commitment_evaluation_proof::DoryEvaluationProof;
 #[cfg(test)]
 mod dory_commitment_evaluation_proof_test;
+#[cfg(test)]
+mod dory_error_test;
 
 mod deferred_msm;
 type DeferredGT = deferred_msm::DeferredMSM<GT, F>;
@@ -140,16 +164,29 @@ type DeferredG2 = deferred_msm::DeferredMSM<G2Affine, F>;
 
 mod blitzar_metadata_table;
 mod offset_to_bytes;
+#[cfg(test)]
+mod offset_to_bytes_test;
 mod pack_scalars;
 mod pairings;
+#[cfg(test)]
+mod pairings_test;
 mod transpose;
+#[cfg(test)]
+mod transpose_test;
 
 mod dynamic_build_vmv_state;
+#[cfg(test)]
+mod dynamic_build_vmv_state_test;
 #[cfg(not(feature = "blitzar"))]
 mod dynamic_dory_commitment_helper_cpu;
+#[cfg(all(test, not(feature = "blitzar")))]
+mod dynamic_dory_commitment_helper_cpu_test;
+
 #[cfg(feature = "blitzar")]
 mod dynamic_dory_commitment_helper_gpu;
 mod dynamic_dory_helper;
+#[cfg(test)]
+mod dynamic_dory_helper_test;
 #[cfg(not(feature = "blitzar"))]
 use dynamic_dory_commitment_helper_cpu::compute_dynamic_dory_commitments;
 #[cfg(feature = "blitzar")]
@@ -162,3 +199,5 @@ pub use dynamic_dory_commitment::DynamicDoryCommitment;
 #[cfg(test)]
 mod dynamic_dory_commitment_evaluation_proof_test;
 pub use dynamic_dory_commitment_evaluation_proof::DynamicDoryEvaluationProof;
+#[cfg(test)]
+mod mod_test;
