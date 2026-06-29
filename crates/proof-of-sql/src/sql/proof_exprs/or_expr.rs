@@ -184,3 +184,98 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                table_utility::{borrowed_boolean, table},
+                TableRef,
+            },
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::{collections::VecDeque, vec};
+
+    fn boolean_column_ref(name: &str) -> ColumnRef {
+        ColumnRef::new(
+            TableRef::new("sxt", "or_inputs"),
+            Ident::new(name),
+            ColumnType::Boolean,
+        )
+    }
+
+    #[test]
+    fn or_expr_evaluates_rounds_without_blitzar() {
+        let alloc = Bump::new();
+        let table = table::<TestScalar>([
+            borrowed_boolean("lhs", [false, false, true, true], &alloc),
+            borrowed_boolean("rhs", [false, true, false, true], &alloc),
+        ]);
+        let lhs_ref = boolean_column_ref("lhs");
+        let rhs_ref = boolean_column_ref("rhs");
+        let or_expr = OrExpr::try_new(
+            Box::new(DynProofExpr::new_column(lhs_ref.clone())),
+            Box::new(DynProofExpr::new_column(rhs_ref.clone())),
+        )
+        .unwrap();
+
+        assert_eq!(or_expr.data_type(), ColumnType::Boolean);
+        assert_eq!(or_expr.lhs().data_type(), ColumnType::Boolean);
+        assert_eq!(or_expr.rhs().data_type(), ColumnType::Boolean);
+
+        let first_round = or_expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(first_round, Column::Boolean(&[false, true, true, true]));
+
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+        let final_round = or_expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(final_round, Column::Boolean(&[false, true, true, true]));
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 1);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 1);
+
+        let mut column_refs = IndexSet::default();
+        or_expr.get_column_references(&mut column_refs);
+        assert_eq!(column_refs.len(), 2);
+        assert!(column_refs.contains(&lhs_ref));
+        assert!(column_refs.contains(&rhs_ref));
+    }
+
+    #[test]
+    fn verifier_evaluate_or_consumes_intermediate_mle_without_blitzar() {
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(0u64)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let result = verifier_evaluate_or(
+            &mut builder,
+            &TestScalar::from(1u64),
+            &TestScalar::from(0u64),
+        )
+        .unwrap();
+
+        assert_eq!(result, TestScalar::from(1u64));
+        assert_eq!(builder.get_identity_results(), vec![vec![true]]);
+    }
+
+    #[test]
+    fn or_expr_rejects_non_boolean_operands_without_blitzar() {
+        let error = OrExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::Boolean(true))),
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, AnalyzeError::DataTypeMismatch { .. }));
+    }
+}
