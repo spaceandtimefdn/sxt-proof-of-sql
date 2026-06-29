@@ -47,8 +47,12 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
 #[cfg(test)]
 mod tests {
-    use super::statement_with_uppercase_identifiers;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use super::{statement_with_uppercase_identifiers, uppercase_identifier};
+    use sqlparser::{
+        ast::Ident,
+        dialect::GenericDialect,
+        parser::Parser,
+    };
 
     #[test]
     fn we_can_capitalize_statement_idents() {
@@ -56,5 +60,27 @@ mod tests {
         let statement = statement_with_uppercase_identifiers(statement);
         let expected_statement = Parser::parse_sql(&GenericDialect{}, "SELECT A.THISSUM from (SELECT Sum(UPPERCASE_VALUE) as thissum, COUNT(PUPPIES) as coUNT fRoM NONSENSE) as a").unwrap()[0].clone();
         assert_eq!(statement, expected_statement);
+    }
+
+    #[test]
+    fn uppercase_identifier_preserves_quote_style() {
+        let ident = Ident::with_quote('"', "mixedCase");
+        let uppercased = uppercase_identifier(ident);
+        assert_eq!(uppercased.value, "MIXEDCASE");
+        assert_eq!(uppercased.quote_style, Some('"'));
+    }
+
+    #[test]
+    fn we_can_capitalize_join_and_qualified_table_idents() {
+        let sql = "SELECT t.col_a FROM Catalog.Schema.table_name AS t JOIN other_schema.second_table s ON t.id = s.id";
+        let statement = Parser::parse_sql(&GenericDialect {}, sql).unwrap()[0].clone();
+        let statement = statement_with_uppercase_identifiers(statement);
+        let expected = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT T.COL_A FROM CATALOG.SCHEMA.TABLE_NAME AS t JOIN OTHER_SCHEMA.SECOND_TABLE s ON T.ID = S.ID",
+        )
+        .unwrap()[0]
+            .clone();
+        assert_eq!(statement, expected);
     }
 }
