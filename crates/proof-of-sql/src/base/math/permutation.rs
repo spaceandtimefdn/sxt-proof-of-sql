@@ -29,7 +29,9 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
-    #[expect(dead_code)]
+    // Tests exercise this constructor directly, so the dead-code expectation only
+    // applies to non-test builds.
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
@@ -99,6 +101,24 @@ mod test {
         assert_eq!(
             permutation.try_apply(&["and", "Space", "Time"]).unwrap(),
             vec!["Space", "and", "Time"]
+        );
+    }
+
+    #[test]
+    fn test_unchecked_new_from_cmp_orders_indexes_by_comparator() {
+        let priorities = [30, 10, 20, 10];
+        let permutation = Permutation::unchecked_new_from_cmp(priorities.len(), |left, right| {
+            priorities[*left]
+                .cmp(&priorities[*right])
+                .then_with(|| left.cmp(right))
+        });
+
+        assert_eq!(permutation.size(), priorities.len());
+        assert_eq!(
+            permutation
+                .try_apply(&["thirty", "ten-a", "twenty", "ten-b"])
+                .unwrap(),
+            vec!["ten-a", "ten-b", "twenty", "thirty"]
         );
     }
 
