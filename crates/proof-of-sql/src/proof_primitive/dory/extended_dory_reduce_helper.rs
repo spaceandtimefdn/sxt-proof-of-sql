@@ -135,3 +135,46 @@ pub fn extended_dory_reduce_verify_fold_s_vecs(state: &ExtendedVerifierState) ->
             .product(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{deferred_msm::DeferredMSM, VerifierState};
+
+    #[test]
+    fn we_can_fold_extended_dory_verifier_tensors() {
+        let s1_tensor = vec![F::from(2), F::from(3)];
+        let s2_tensor = vec![F::from(5), F::from(7)];
+        let alphas = vec![F::from(11), F::from(13)];
+        let alpha_invs = vec![F::from(17), F::from(19)];
+        let state = ExtendedVerifierState {
+            base_state: VerifierState::new(
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                2,
+            ),
+            E_1: DeferredMSM::new([], []),
+            E_2: DeferredMSM::new([], []),
+            s1_tensor: s1_tensor.clone(),
+            s2_tensor: s2_tensor.clone(),
+            alphas: alphas.clone(),
+            alpha_invs: alpha_invs.clone(),
+        };
+
+        let (s1_fold, s2_fold) = extended_dory_reduce_verify_fold_s_vecs(&state);
+
+        let expected_s1_fold: F = s1_tensor
+            .iter()
+            .zip(alphas.iter())
+            .map(|(s, alpha)| (F::ONE - s) * alpha + s)
+            .product();
+        let expected_s2_fold: F = s2_tensor
+            .iter()
+            .zip(alpha_invs.iter())
+            .map(|(s, alpha_inv)| (F::ONE - s) * alpha_inv + s)
+            .product();
+        assert_eq!(s1_fold, expected_s1_fold);
+        assert_eq!(s2_fold, expected_s2_fold);
+    }
+}
