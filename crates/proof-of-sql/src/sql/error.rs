@@ -71,3 +71,37 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_convert_analyze_errors_to_strings() {
+        let error = AnalyzeError::DataTypeMismatch {
+            left_type: "INT".to_string(),
+            right_type: "BOOLEAN".to_string(),
+        };
+
+        let error_string: String = error.into();
+
+        assert_eq!(
+            error_string,
+            "Left side has 'INT' type but right side has 'BOOLEAN' type"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_intermediate_decimal_errors_to_analyze_errors() {
+        let error = AnalyzeError::from(IntermediateDecimalError::LossyCast);
+
+        assert!(matches!(
+            error,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::LossyCast
+                }
+            }
+        ));
+    }
+}
