@@ -620,3 +620,18 @@ fn we_cannot_equals_mismatching_types() {
         }
     ));
 }
+
+#[test]
+fn we_can_access_equals_expr_operands() {
+    let alloc = Bump::new();
+    let data = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+    let t = TableRef::new("sxt", "t");
+    let accessor =
+        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+    let lhs = Box::new(column(&t, "a", &accessor));
+    let rhs = Box::new(const_bigint(2_i64));
+
+    let equals_expr = EqualsExpr::try_new(lhs.clone(), rhs.clone()).unwrap();
+    assert_eq!(equals_expr.lhs(), lhs.as_ref());
+    assert_eq!(equals_expr.rhs(), rhs.as_ref());
+}
