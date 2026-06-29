@@ -118,3 +118,80 @@ impl ProofExpr for SubtractExpr {
 }
 
 impl DecimalProofExpr for SubtractExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{ColumnRef, TableRef},
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{proof::mock_verification_builder::MockVerificationBuilder, AnalyzeError},
+    };
+
+    fn boxed_literal(value: LiteralValue) -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(value))
+    }
+
+    #[test]
+    fn we_reject_subtracting_mismatched_types() {
+        let err = SubtractExpr::try_new(
+            boxed_literal(LiteralValue::BigInt(5)),
+            boxed_literal(LiteralValue::VarChar("not numeric".into())),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: _,
+                right_type: _
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_read_rhs_and_verify_literal_subtractions() {
+        let expr = SubtractExpr::try_new(
+            boxed_literal(LiteralValue::BigInt(9)),
+            boxed_literal(LiteralValue::BigInt(4)),
+        )
+        .unwrap();
+        assert!(matches!(expr.rhs(), DynProofExpr::Literal(_)));
+
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        let actual = expr
+            .verifier_evaluate(&mut builder, &IndexMap::default(), TestScalar::ONE, &[])
+            .unwrap();
+
+        assert_eq!(actual, TestScalar::from(5));
+    }
+
+    #[test]
+    fn we_collect_column_references_from_both_sides() {
+        let table_ref = TableRef::new("sxt", "numbers");
+        let left_ref = ColumnRef::new(table_ref.clone(), "left_col".into(), ColumnType::BigInt);
+        let right_ref = ColumnRef::new(table_ref, "right_col".into(), ColumnType::BigInt);
+        let expr = SubtractExpr::try_new(
+            Box::new(DynProofExpr::new_column(left_ref.clone())),
+            Box::new(DynProofExpr::new_column(right_ref.clone())),
+        )
+        .unwrap();
+        let mut refs = IndexSet::default();
+
+        expr.get_column_references(&mut refs);
+
+        assert_eq!(refs.len(), 2);
+        assert!(refs.contains(&left_ref));
+        assert!(refs.contains(&right_ref));
+    }
+}
