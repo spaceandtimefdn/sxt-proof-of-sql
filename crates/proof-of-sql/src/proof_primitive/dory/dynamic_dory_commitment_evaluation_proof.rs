@@ -131,3 +131,30 @@ impl CommitmentEvaluationProof for DynamicDoryEvaluationProof {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{test_rng, ProverSetup, PublicParameters};
+    use super::*;
+    use crate::base::{commitment::CommitmentEvaluationProof, scalar::Scalar};
+    use alloc::vec;
+    use merlin::Transcript;
+
+    #[test]
+    fn invalid_generators_offset_creates_default_dynamic_dory_evaluation_proof() {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(2, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let mut transcript = Transcript::new(b"dynamic_dory_invalid_generators_offset");
+
+        let proof = DynamicDoryEvaluationProof::new(
+            &mut transcript,
+            &vec![DoryScalar::ZERO],
+            &vec![DoryScalar::ZERO],
+            1,
+            &&prover_setup,
+        );
+
+        assert_eq!(proof, DynamicDoryEvaluationProof::default());
+    }
+}
