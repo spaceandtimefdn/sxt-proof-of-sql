@@ -227,6 +227,161 @@ impl<'a> From<&'a [bool]> for CommittableColumn<'a> {
     }
 }
 
+#[cfg(test)]
+mod conversion_tests {
+    use super::CommittableColumn;
+    use crate::base::{
+        database::Column,
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        ref_into::RefInto,
+        scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
+    };
+    use alloc::vec::Vec;
+
+    fn limbs<S: Scalar>(values: &[S]) -> Vec<[u64; 4]> {
+        values.iter().map(RefInto::<[u64; 4]>::ref_into).collect()
+    }
+
+    #[test]
+    fn we_can_convert_borrowed_columns_to_committable_columns() {
+        let bools = [true, false];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Boolean(&bools)),
+            CommittableColumn::Boolean(&bools)
+        );
+
+        let uints = [1_u8, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Uint8(&uints)),
+            CommittableColumn::Uint8(&uints)
+        );
+
+        let tiny_ints = [-1_i8, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TinyInt(&tiny_ints)),
+            CommittableColumn::TinyInt(&tiny_ints)
+        );
+
+        let small_ints = [-1_i16, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::SmallInt(&small_ints)),
+            CommittableColumn::SmallInt(&small_ints)
+        );
+
+        let ints = [-1_i32, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int(&ints)),
+            CommittableColumn::Int(&ints)
+        );
+
+        let big_ints = [-1_i64, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::BigInt(&big_ints)),
+            CommittableColumn::BigInt(&big_ints)
+        );
+
+        let int128s = [-1_i128, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::Int128(&int128s)),
+            CommittableColumn::Int128(&int128s)
+        );
+
+        let precision = Precision::new(10).unwrap();
+        let decimals = [TestScalar::from(11_u64), TestScalar::from(12_u64)];
+        assert_eq!(
+            CommittableColumn::from(&Column::Decimal75(precision, -2, &decimals)),
+            CommittableColumn::Decimal75(precision, -2, limbs(&decimals))
+        );
+
+        let scalars = [TestScalar::from(21_u64), TestScalar::from(22_u64)];
+        assert_eq!(
+            CommittableColumn::from(&Column::Scalar(&scalars)),
+            CommittableColumn::Scalar(limbs(&scalars))
+        );
+
+        let strings: &[&str] = &["alpha", "beta"];
+        let string_scalars = [TestScalar::from("alpha"), TestScalar::from("beta")];
+        assert_eq!(
+            CommittableColumn::from(&Column::VarChar((strings, &string_scalars))),
+            CommittableColumn::VarChar(limbs(&string_scalars))
+        );
+
+        let bytes: &[&[u8]] = &[b"alpha".as_slice(), b"beta".as_slice()];
+        let byte_scalars = [
+            TestScalar::from_byte_slice_via_hash(bytes[0]),
+            TestScalar::from_byte_slice_via_hash(bytes[1]),
+        ];
+        assert_eq!(
+            CommittableColumn::from(&Column::VarBinary((bytes, &byte_scalars))),
+            CommittableColumn::VarBinary(limbs(&byte_scalars))
+        );
+
+        let time_unit = PoSQLTimeUnit::Millisecond;
+        let time_zone = PoSQLTimeZone::new(3600);
+        let timestamps = [1_i64, 2];
+        assert_eq!(
+            CommittableColumn::from(&Column::<TestScalar>::TimestampTZ(
+                time_unit,
+                time_zone,
+                &timestamps
+            )),
+            CommittableColumn::TimestampTZ(time_unit, time_zone, &timestamps)
+        );
+    }
+
+    #[test]
+    fn we_can_convert_borrowed_slices_to_committable_columns() {
+        let uints = [1_u8, 2];
+        assert_eq!(
+            CommittableColumn::from(uints.as_slice()),
+            CommittableColumn::Uint8(&uints)
+        );
+
+        let tiny_ints = [-1_i8, 2];
+        assert_eq!(
+            CommittableColumn::from(tiny_ints.as_slice()),
+            CommittableColumn::TinyInt(&tiny_ints)
+        );
+
+        let small_ints = [-1_i16, 2];
+        assert_eq!(
+            CommittableColumn::from(small_ints.as_slice()),
+            CommittableColumn::SmallInt(&small_ints)
+        );
+
+        let ints = [-1_i32, 2];
+        assert_eq!(
+            CommittableColumn::from(ints.as_slice()),
+            CommittableColumn::Int(&ints)
+        );
+
+        let big_ints = [-1_i64, 2];
+        assert_eq!(
+            CommittableColumn::from(big_ints.as_slice()),
+            CommittableColumn::BigInt(&big_ints)
+        );
+
+        let int128s = [-1_i128, 2];
+        assert_eq!(
+            CommittableColumn::from(int128s.as_slice()),
+            CommittableColumn::Int128(&int128s)
+        );
+
+        let scalars = [TestScalar::from(31_u64), TestScalar::from(32_u64)];
+        assert_eq!(
+            CommittableColumn::from(scalars.as_slice()),
+            CommittableColumn::Scalar(limbs(&scalars))
+        );
+
+        let bools = [true, false];
+        assert_eq!(
+            CommittableColumn::from(bools.as_slice()),
+            CommittableColumn::Boolean(&bools)
+        );
+    }
+}
+
 #[cfg(feature = "blitzar")]
 impl<'a, 'b> From<&'a CommittableColumn<'b>> for Sequence<'a> {
     fn from(value: &'a CommittableColumn<'b>) -> Self {
