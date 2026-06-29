@@ -71,3 +71,84 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn analyze_errors_display_actionable_messages() {
+        assert_eq!(
+            AnalyzeError::InvalidDataType {
+                expr_type: ColumnType::Boolean
+            }
+            .to_string(),
+            "Expression has datatype BOOLEAN, which was not valid"
+        );
+        assert_eq!(
+            AnalyzeError::DataTypeMismatch {
+                left_type: "INT".into(),
+                right_type: "VARCHAR".into(),
+            }
+            .to_string(),
+            "Left side has 'INT' type but right side has 'VARCHAR' type"
+        );
+        assert_eq!(
+            AnalyzeError::DifferentColumnLength { len_a: 3, len_b: 5 }.to_string(),
+            "Columns have different lengths: 3 != 5"
+        );
+        assert_eq!(
+            AnalyzeError::NotEnoughInputPlans.to_string(),
+            "Not enough input plans"
+        );
+    }
+
+    #[test]
+    fn analyze_error_converts_into_string() {
+        let error = AnalyzeError::DataTypeMismatch {
+            left_type: "BOOLEAN".into(),
+            right_type: "BIGINT".into(),
+        };
+
+        let message: String = error.into();
+
+        assert_eq!(
+            message,
+            "Left side has 'BOOLEAN' type but right side has 'BIGINT' type"
+        );
+    }
+
+    #[test]
+    fn analyze_error_wraps_intermediate_decimal_errors() {
+        let error = AnalyzeError::from(IntermediateDecimalError::OutOfRange);
+
+        assert!(matches!(
+            error,
+            AnalyzeError::DecimalConversionError {
+                source: DecimalError::IntermediateDecimalConversionError {
+                    source: IntermediateDecimalError::OutOfRange
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn analyze_error_wraps_placeholder_errors() {
+        let error = AnalyzeError::PlaceholderError {
+            source: PlaceholderError::InvalidPlaceholderIndex {
+                index: 4,
+                num_params: 2,
+            },
+        };
+
+        assert!(matches!(
+            error,
+            AnalyzeError::PlaceholderError {
+                source: PlaceholderError::InvalidPlaceholderIndex {
+                    index: 4,
+                    num_params: 2
+                }
+            }
+        ));
+    }
+}
