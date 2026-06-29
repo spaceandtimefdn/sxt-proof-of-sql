@@ -810,6 +810,70 @@ mod test {
         assert_eq!(expected, actual);
     }
 
+    #[test]
+    fn slice_decimal_edge_comparisons_cover_equal_and_rhs_extreme_scaling() {
+        let left_column_type = ColumnType::Decimal75(Precision::new(1).unwrap(), 50);
+        let right_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 0);
+
+        let lhs = [0_i64, 1, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i64, 0, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let actual = eq_decimal_columns(&lhs, &rhs, left_column_type, right_column_type);
+        let expected = vec![true, false, false];
+        assert_eq!(expected, actual);
+
+        let lhs = [-1_i64, 0, 1, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i64, 0, 0, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let actual = le_decimal_columns(&lhs, &rhs, left_column_type, right_column_type);
+        let expected = vec![true, true, false, true];
+        assert_eq!(expected, actual);
+
+        let lhs = [-1_i64, 0, 1, 1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i64, 0, 0, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let actual = ge_decimal_columns(&lhs, &rhs, left_column_type, right_column_type);
+        let expected = vec![false, true, true, true];
+        assert_eq!(expected, actual);
+
+        let lhs = [1_i64, 2, 3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [1_i64, 3, 2]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+        assert_eq!(
+            vec![true, false, false],
+            eq_decimal_columns(&lhs, &rhs, column_type, column_type)
+        );
+        assert_eq!(
+            vec![true, true, false],
+            le_decimal_columns(&lhs, &rhs, column_type, column_type)
+        );
+        assert_eq!(
+            vec![true, false, true],
+            ge_decimal_columns(&lhs, &rhs, column_type, column_type)
+        );
+    }
+
     #[expect(clippy::too_many_lines)]
     #[test]
     fn we_can_try_add_decimal_columns() {
@@ -929,6 +993,35 @@ mod test {
             TestScalar::from(21),
         ];
         let expected = (Precision::new(75).unwrap(), -128, expected_scalars);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn slice_decimal_edge_add_and_subtract_cover_rhs_upscaling() {
+        let lhs = [123_i64, -50]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [2_i64, -3];
+        let left_column_type = ColumnType::Decimal75(Precision::new(5).unwrap(), 2);
+        let right_column_type = ColumnType::BigInt;
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_add_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected = (
+            Precision::new(22).unwrap(),
+            2,
+            vec![TestScalar::from(323), TestScalar::from(-350)],
+        );
+        assert_eq!(expected, actual);
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_subtract_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected = (
+            Precision::new(22).unwrap(),
+            2,
+            vec![TestScalar::from(-77), TestScalar::from(250)],
+        );
         assert_eq!(expected, actual);
     }
 
@@ -1311,6 +1404,28 @@ mod test {
             TestScalar::from(-869_565),
         ];
         let expected = (Precision::new(9).unwrap(), 6, expected_scalars);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn slice_decimal_edge_divide_covers_zero_and_negative_applied_scale() {
+        let lhs = [1_i64];
+        let rhs = [0_i64];
+        let actual = try_divide_decimal_columns::<TestScalar, _, _>(
+            &lhs,
+            &rhs,
+            ColumnType::BigInt,
+            ColumnType::BigInt,
+        );
+        assert!(matches!(actual, Err(ColumnOperationError::DivisionByZero)));
+
+        let lhs = [1_000_000_i64];
+        let rhs = [2_i64];
+        let left_column_type = ColumnType::BigInt;
+        let right_column_type = ColumnType::Decimal75(Precision::new(1).unwrap(), -10);
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_divide_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected = (Precision::new(15).unwrap(), 6, vec![TestScalar::from(50)]);
         assert_eq!(expected, actual);
     }
 }
