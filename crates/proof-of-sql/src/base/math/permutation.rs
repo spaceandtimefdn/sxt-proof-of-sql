@@ -29,7 +29,7 @@ pub struct Permutation {
 
 impl Permutation {
     /// Create a new permutation from a comparison function with the given length
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn unchecked_new_from_cmp<F>(length: usize, cmp: F) -> Self
     where
         F: Fn(&usize, &usize) -> Ordering + Sync,
@@ -99,6 +99,23 @@ mod test {
         assert_eq!(
             permutation.try_apply(&["and", "Space", "Time"]).unwrap(),
             vec!["Space", "and", "Time"]
+        );
+    }
+
+    #[test]
+    fn test_unchecked_new_from_cmp_orders_indexes_by_comparator() {
+        let words = ["ccc", "a", "bb", "dd"];
+        let permutation = Permutation::unchecked_new_from_cmp(words.len(), |left, right| {
+            words[*left]
+                .len()
+                .cmp(&words[*right].len())
+                .then_with(|| words[*left].cmp(words[*right]))
+        });
+
+        assert_eq!(permutation.size(), words.len());
+        assert_eq!(
+            permutation.try_apply(&words).unwrap(),
+            vec!["a", "bb", "dd", "ccc"]
         );
     }
 
