@@ -1,17 +1,16 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue, OwnedTable,
             OwnedTableTestAccessor, TableRef, TableTestAccessor, TestAccessor,
         },
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-        scalar::{Scalar, ScalarExt},
+        scalar::{test_scalar::TestScalar, Scalar, ScalarExt},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{inequality_expr::InequalityExpr, test_utility::*, DynProofExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
@@ -27,7 +26,7 @@ use rand_core::SeedableRng;
 
 #[test]
 fn we_can_compare_columns_with_small_timestamp_values_gte() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([timestamptz(
+    let data: OwnedTable<TestScalar> = owned_table([timestamptz(
         "a",
         PoSQLTimeUnit::Second,
         PoSQLTimeZone::utc(),
@@ -35,7 +34,7 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
     )]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
         table_exec(
@@ -60,7 +59,7 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
     );
 
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -76,7 +75,7 @@ fn we_can_compare_columns_with_small_timestamp_values_gte() {
 
 #[test]
 fn we_can_compare_columns_with_small_timestamp_values_lte() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([timestamptz(
+    let data: OwnedTable<TestScalar> = owned_table([timestamptz(
         "a",
         PoSQLTimeUnit::Second,
         PoSQLTimeZone::utc(),
@@ -84,7 +83,7 @@ fn we_can_compare_columns_with_small_timestamp_values_lte() {
     )]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a"], &accessor),
         table_exec(
@@ -108,7 +107,7 @@ fn we_can_compare_columns_with_small_timestamp_values_lte() {
     );
 
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -127,7 +126,7 @@ fn we_can_compare_a_constant_column() {
     let data = owned_table([bigint("a", [123_i64, 123, 123]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -139,8 +138,8 @@ fn we_can_compare_a_constant_column() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -154,7 +153,7 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
     let data = owned_table([bigint("a", [123_i64, 567, 8]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -166,8 +165,8 @@ fn we_can_compare_a_varying_column_with_constant_sign() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -187,7 +186,7 @@ fn we_can_compare_columns_with_extreme_values() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["bigint_b"], &accessor),
         table_exec(
@@ -214,8 +213,8 @@ fn we_can_compare_columns_with_extreme_values() {
             column(&t, "boolean", &accessor),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -226,9 +225,9 @@ fn we_can_compare_columns_with_extreme_values() {
 
 #[test]
 fn we_can_compare_columns_with_small_decimal_values_without_scale() {
-    let scalar_pos = Curve25519Scalar::pow10(38) - Curve25519Scalar::ONE;
+    let scalar_pos = TestScalar::pow10(38) - TestScalar::ONE;
     let scalar_neg = -scalar_pos;
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 25]),
         bigint("b", [55, -53]),
         varchar("d", ["abc", "de"]),
@@ -236,7 +235,7 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
         table_exec(
@@ -250,8 +249,8 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
         ),
         lte(column(&t, "e", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -266,9 +265,9 @@ fn we_can_compare_columns_with_small_decimal_values_without_scale() {
 
 #[test]
 fn we_can_compare_columns_with_small_decimal_values_with_scale() {
-    let scalar_pos = Curve25519Scalar::pow10(38) - Curve25519Scalar::ONE;
+    let scalar_pos = TestScalar::pow10(38) - TestScalar::ONE;
     let scalar_neg = -scalar_pos;
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 25]),
         bigint("b", [55, -53]),
         varchar("d", ["abc", "de"]),
@@ -277,7 +276,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
         table_exec(
@@ -299,8 +298,8 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
             .unwrap(),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -316,9 +315,9 @@ fn we_can_compare_columns_with_small_decimal_values_with_scale() {
 
 #[test]
 fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
-    let scalar_pos = Curve25519Scalar::pow10(38) - Curve25519Scalar::ONE;
+    let scalar_pos = TestScalar::pow10(38) - TestScalar::ONE;
     let scalar_neg = -scalar_pos;
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 25]),
         bigint("b", [55, -53]),
         varchar("d", ["abc", "de"]),
@@ -327,7 +326,7 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e", "f"], &accessor),
         table_exec(
@@ -349,8 +348,8 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
             .unwrap(),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -366,21 +365,16 @@ fn we_can_compare_columns_with_small_decimal_values_with_differing_scale_gte() {
 
 #[test]
 fn we_can_compare_columns_returning_extreme_decimal_values() {
-    let scalar_min_signed = -Curve25519Scalar::MAX_SIGNED - Curve25519Scalar::ONE;
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let scalar_min_signed = -TestScalar::MAX_SIGNED - TestScalar::ONE;
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 25]),
         bigint("b", [55, -53]),
         varchar("d", ["abc", "de"]),
-        decimal75(
-            "e",
-            75,
-            0,
-            [Curve25519Scalar::MAX_SIGNED, scalar_min_signed],
-        ),
+        decimal75("e", 75, 0, [TestScalar::MAX_SIGNED, scalar_min_signed]),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
         table_exec(
@@ -394,8 +388,8 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
         ),
         lte(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -410,25 +404,20 @@ fn we_can_compare_columns_returning_extreme_decimal_values() {
 
 #[test]
 fn we_cannot_compare_columns_filtering_on_extreme_decimal_values() {
-    let scalar_min_signed = -Curve25519Scalar::MAX_SIGNED - Curve25519Scalar::ONE;
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let scalar_min_signed = -TestScalar::MAX_SIGNED - TestScalar::ONE;
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 25]),
         bigint("b", [55, -53]),
         varchar("d", ["abc", "de"]),
-        decimal75(
-            "e",
-            75,
-            0,
-            [Curve25519Scalar::MAX_SIGNED, scalar_min_signed],
-        ),
+        decimal75("e", 75, 0, [TestScalar::MAX_SIGNED, scalar_min_signed]),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     assert!(matches!(
         DynProofExpr::try_new_inequality(
             column(&t, "e", &accessor),
-            const_scalar::<Curve25519Scalar, _>(Curve25519Scalar::ONE),
+            const_scalar::<TestScalar, _>(TestScalar::ONE),
             false
         ),
         Err(AnalyzeError::DataTypeMismatch { .. })
@@ -440,7 +429,7 @@ fn we_can_compare_two_columns() {
     let data = owned_table([bigint("a", [1_i64, 5, 8]), bigint("b", [1_i64, 7, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -452,8 +441,8 @@ fn we_can_compare_two_columns() {
         ),
         lte(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -470,7 +459,7 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -482,8 +471,8 @@ fn we_can_compare_a_varying_column_with_constant_absolute_value() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -500,7 +489,7 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -512,8 +501,8 @@ fn we_can_compare_a_constant_column_of_negative_columns() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -530,7 +519,7 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -542,8 +531,8 @@ fn we_can_compare_a_varying_column_with_negative_only_signs() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(5)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -557,7 +546,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
     let data = owned_table([bigint("a", [-1_i64, 9, 0]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -569,8 +558,8 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(1)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -584,7 +573,7 @@ fn we_can_compare_column_with_greater_than_or_equal() {
     let data = owned_table([bigint("a", [-1_i64, 9, 0]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -596,8 +585,8 @@ fn we_can_compare_column_with_greater_than_or_equal() {
         ),
         gte(column(&t, "a", &accessor), const_bigint(1)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -615,7 +604,7 @@ fn we_can_run_nested_comparison() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -631,8 +620,8 @@ fn we_can_run_nested_comparison() {
             column(&t, "boolean", &accessor),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -646,7 +635,7 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
     let data = owned_table([bigint("a", [-2_i64, 3, 2]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -658,8 +647,8 @@ fn we_can_compare_a_column_with_varying_absolute_values_and_signs_and_a_constant
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -673,7 +662,7 @@ fn we_can_compare_a_constant_column_of_zeros() {
     let data = owned_table([bigint("a", [0_i64, 0, 0]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -685,8 +674,8 @@ fn we_can_compare_a_constant_column_of_zeros() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -700,7 +689,7 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
     let data = owned_table([bigint("a", [0_i64, 0, 0]), bigint("b", [1_i64, 2, 3])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b"], &accessor),
         table_exec(
@@ -712,8 +701,8 @@ fn the_sign_can_be_0_or_1_for_a_constant_column_of_zeros() {
         ),
         lte(column(&t, "a", &accessor), const_bigint(0)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -741,7 +730,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -758,8 +747,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
             lte(column(&t, "a", &accessor), const_bigint(filter_val)),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -799,7 +788,7 @@ fn we_can_compute_the_correct_output_of_a_lte_inequality_expr_using_first_round_
         borrowed_bigint("a", [-1, 9, 1], &alloc),
         borrowed_bigint("b", [1, 2, 3], &alloc),
     ]);
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
     accessor.add_table(t.clone(), data.clone(), 0);
     let lhs_expr: DynProofExpr = column(&t, "a", &accessor);
@@ -817,7 +806,7 @@ fn we_can_compute_the_correct_output_of_a_gte_inequality_expr_using_first_round_
         borrowed_bigint("a", [-1, 9, 1], &alloc),
         borrowed_bigint("b", [1, 2, 3], &alloc),
     ]);
-    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = TableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     let t = TableRef::new("sxt", "t");
     accessor.add_table(t.clone(), data.clone(), 0);
     let col_expr: DynProofExpr = column(&t, "a", &accessor);
@@ -837,7 +826,7 @@ fn we_cannot_inequality_mismatching_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let rhs = Box::new(column(&t, "b", &accessor));
     let inequality_err = InequalityExpr::try_new(lhs.clone(), rhs.clone(), true).unwrap_err();
