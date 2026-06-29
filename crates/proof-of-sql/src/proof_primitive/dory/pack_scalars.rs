@@ -470,9 +470,17 @@ pub fn bit_table_and_scalars_for_packed_msm(
 mod tests {
     use super::*;
     use crate::base::{
+        database::ColumnType,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+
+    fn g1_multiple(multiplier: u64) -> G1Affine {
+        G1Affine::generator()
+            .mul(super::super::F::from(multiplier))
+            .into_affine()
+    }
 
     #[test]
     fn we_can_get_a_bit_table() {
@@ -799,6 +807,72 @@ mod tests {
     }
 
     #[test]
+    fn we_can_modify_signed_sub_commits_for_all_span_lengths() {
+        let committable_columns = [
+            CommittableColumn::BigInt(&[10, 11, 12, 13, 14]),
+            CommittableColumn::BigInt(&[20, 21, 22]),
+            CommittableColumn::BigInt(&[30]),
+            CommittableColumn::Uint8(&[1, 2, 3]),
+        ];
+
+        let offset = 1;
+        let num_columns = 2;
+        let signed_sub_commits = (1..=8).map(g1_multiple).collect::<Vec<_>>();
+        let offset_sub_commits = (101..=106).map(g1_multiple).collect::<Vec<_>>();
+        let mut sub_commits = signed_sub_commits.clone();
+        sub_commits.extend_from_slice(&offset_sub_commits);
+        let bit_table = vec![8; sub_commits.len()];
+
+        let modified_commits = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_columns,
+        );
+
+        let min = min_as_f(ColumnType::BigInt);
+        let expected = [
+            (signed_sub_commits[0] + offset_sub_commits[0].mul(min)).into_affine(),
+            (signed_sub_commits[1] + offset_sub_commits[1].mul(min)).into_affine(),
+            (signed_sub_commits[2] + offset_sub_commits[2].mul(min)).into_affine(),
+            (signed_sub_commits[3] + offset_sub_commits[0].mul(min)).into_affine(),
+            (signed_sub_commits[4] + offset_sub_commits[3].mul(min)).into_affine(),
+            (signed_sub_commits[5] + offset_sub_commits[4].mul(min)).into_affine(),
+            signed_sub_commits[6],
+            signed_sub_commits[7],
+        ];
+
+        assert_eq!(modified_commits, expected);
+    }
+
+    #[test]
+    fn we_can_modify_an_empty_signed_column_without_output_commitments() {
+        let committable_columns = [
+            CommittableColumn::BigInt(&[]),
+            CommittableColumn::Uint8(&[1]),
+        ];
+
+        let offset = 0;
+        let num_columns = 2;
+        let signed_sub_commits = vec![g1_multiple(1)];
+        let offset_sub_commits = (101..=104).map(g1_multiple).collect::<Vec<_>>();
+        let mut sub_commits = signed_sub_commits.clone();
+        sub_commits.extend_from_slice(&offset_sub_commits);
+        let bit_table = vec![8; sub_commits.len()];
+
+        let modified_commits = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_columns,
+        );
+
+        assert_eq!(modified_commits, signed_sub_commits);
+    }
+
+    #[test]
     fn we_can_create_a_mixed_packed_scalar_with_more_rows_than_columns() {
         let committable_columns = [
             CommittableColumn::SmallInt(&[
@@ -1002,6 +1076,16 @@ mod tests {
         let num_columns = 1;
         let mut buffer = vec![0_u8; (OFFSET_SIZE + committable_columns.len()) * num_columns];
         offset_column(&committable_columns, offset, num_columns, &mut buffer);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "buffer length 1 must be equal to the offset size 2 plus the number of committable columns 1 times the number of columns 2"
+    )]
+    fn we_can_panic_when_offset_buffer_length_is_invalid() {
+        let committable_columns = [CommittableColumn::BigInt(&[1])];
+        let mut buffer = vec![0_u8; 1];
+        offset_column(&committable_columns, 0, 2, &mut buffer);
     }
 
     #[test]
