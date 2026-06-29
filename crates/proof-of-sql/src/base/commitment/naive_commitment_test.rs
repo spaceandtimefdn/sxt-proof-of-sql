@@ -1,5 +1,5 @@
 use crate::base::{
-    commitment::naive_commitment::NaiveCommitment,
+    commitment::{naive_commitment::NaiveCommitment, Commitment},
     scalar::{test_scalar::TestScalar, Scalar},
 };
 use alloc::vec::Vec;
@@ -60,6 +60,22 @@ fn we_can_compare_columns_with_at_least_one_empty() {
     let commitment_c = NaiveCommitment(column_b);
     assert_ne!(commitment_a, commitment_b);
     assert_eq!(commitment_b, commitment_c);
+}
+
+#[test]
+fn default_and_trailing_zero_commitments_keep_distinct_transcript_bytes() {
+    let empty = NaiveCommitment(Vec::new());
+    let default_commitment = NaiveCommitment::default();
+    assert_eq!(default_commitment, empty);
+    assert_eq!(
+        default_commitment.to_transcript_bytes(),
+        empty.to_transcript_bytes()
+    );
+
+    let compact = NaiveCommitment(vec![TestScalar::from(7)]);
+    let padded = NaiveCommitment(vec![TestScalar::from(7), TestScalar::ZERO]);
+    assert_eq!(compact, padded);
+    assert_ne!(compact.to_transcript_bytes(), padded.to_transcript_bytes());
 }
 
 // PartialEq Tests End
