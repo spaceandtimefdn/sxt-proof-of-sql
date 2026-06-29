@@ -35,7 +35,7 @@ mod placeholder_expr_test;
 
 mod and_expr;
 pub(crate) use and_expr::AndExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod and_expr_test;
 
 mod inequality_expr;
@@ -45,12 +45,12 @@ mod inequality_expr_test;
 
 mod or_expr;
 pub(crate) use or_expr::OrExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod or_expr_test;
 
 mod not_expr;
 pub(crate) use not_expr::NotExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod not_expr_test;
 
 mod numerical_util;
