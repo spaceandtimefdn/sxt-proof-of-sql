@@ -78,3 +78,58 @@ pub(crate) trait DecimalProofExpr: ProofExpr {
         self.data_type().scale().expect("Scale should be valid")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestDecimalExpr(ColumnType);
+
+    impl ProofExpr for TestDecimalExpr {
+        fn data_type(&self) -> ColumnType {
+            self.0
+        }
+
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unreachable!("decimal accessor tests do not evaluate columns")
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            _builder: &mut FinalRoundBuilder<'a, S>,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unreachable!("decimal accessor tests do not evaluate columns")
+        }
+
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            _builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<Ident, S>,
+            _chi_eval: S,
+            _params: &[LiteralValue],
+        ) -> Result<S, ProofError> {
+            unreachable!("decimal accessor tests do not verify expressions")
+        }
+
+        fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
+    }
+
+    impl DecimalProofExpr for TestDecimalExpr {}
+
+    #[test]
+    fn we_can_read_decimal_precision_and_scale_from_proof_expr() {
+        let expr = TestDecimalExpr(ColumnType::Decimal75(Precision::new(12).unwrap(), -3));
+
+        assert_eq!(expr.precision(), Precision::new(12).unwrap());
+        assert_eq!(expr.scale(), -3);
+    }
+}
