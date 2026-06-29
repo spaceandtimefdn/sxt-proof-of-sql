@@ -150,3 +150,131 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::sql::proof::mock_verification_builder::MockVerificationBuilder;
+    use alloc::collections::VecDeque;
+    use num_traits::Inv;
+
+    #[test]
+    fn verifier_records_filter_constraints() {
+        let mut builder = MockVerificationBuilder::new(
+            vec![],
+            3,
+            vec![],
+            vec![vec![TestScalar::from(7), TestScalar::from(11)]],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        verify_evaluate_filter(
+            &mut builder,
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(5),
+            TestScalar::from(13),
+            TestScalar::from(17),
+        )
+        .unwrap();
+
+        assert_eq!(
+            builder.identity_subpolynomial_evaluations,
+            vec![vec![
+                TestScalar::from(7 + 2 * 7 - 5),
+                TestScalar::from(11 + 3 * 11 - 13),
+                TestScalar::from(3 * (13 - 1)),
+            ]]
+        );
+        assert_eq!(
+            builder.zerosum_subpolynomial_evaluations,
+            vec![vec![TestScalar::from(7 * 17 - 11)]]
+        );
+    }
+
+    #[test]
+    fn final_round_evaluate_filter_produces_star_mles_and_constraints() {
+        let alloc = Bump::new();
+        let columns = [
+            Column::Scalar(&[TestScalar::from(7), TestScalar::from(13)]),
+            Column::Scalar(&[TestScalar::from(11), TestScalar::from(17)]),
+        ];
+        let filtered_columns = [
+            Column::Scalar(&[TestScalar::from(7)]),
+            Column::Scalar(&[TestScalar::from(11)]),
+        ];
+        let selection = &[true, false];
+        let mut builder = FinalRoundBuilder::new(1, VecDeque::new());
+
+        final_round_evaluate_filter(
+            &mut builder,
+            &alloc,
+            TestScalar::from(2),
+            TestScalar::from(3),
+            &columns,
+            selection,
+            &filtered_columns,
+            2,
+            1,
+        );
+
+        let expected_c_star = [
+            TestScalar::from(65).inv().unwrap(),
+            TestScalar::from(113).inv().unwrap(),
+        ];
+        let expected_d_star = [TestScalar::from(65).inv().unwrap()];
+
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(
+            builder.pcs_proof_mles()[0].to_sumcheck_term(1),
+            expected_c_star
+        );
+        assert_eq!(
+            builder.pcs_proof_mles()[1].to_sumcheck_term(0),
+            expected_d_star
+        );
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 4);
+        assert_eq!(
+            builder
+                .sumcheck_subpolynomials()
+                .iter()
+                .map(|subpolynomial| subpolynomial.subpolynomial_type())
+                .collect::<Vec<_>>(),
+            vec![
+                SumcheckSubpolynomialType::Identity,
+                SumcheckSubpolynomialType::Identity,
+                SumcheckSubpolynomialType::ZeroSum,
+                SumcheckSubpolynomialType::Identity,
+            ]
+        );
+        assert_eq!(
+            builder
+                .sumcheck_subpolynomials()
+                .iter()
+                .map(|subpolynomial| {
+                    subpolynomial
+                        .iter_mul_by(TestScalar::from(1))
+                        .map(|(_, coeff, multiplicands)| (coeff, multiplicands.len()))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                vec![
+                    (TestScalar::from(1), 1),
+                    (TestScalar::from(1), 2),
+                    (-TestScalar::from(1), 1),
+                ],
+                vec![
+                    (TestScalar::from(1), 1),
+                    (TestScalar::from(1), 2),
+                    (-TestScalar::from(1), 1),
+                ],
+                vec![(TestScalar::from(1), 2), (-TestScalar::from(1), 1)],
+                vec![(TestScalar::from(1), 2), (-TestScalar::from(1), 1)],
+            ]
+        );
+    }
+}
