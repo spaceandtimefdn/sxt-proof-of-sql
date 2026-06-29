@@ -7,6 +7,7 @@ use crate::{
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
 use byte_slice_cast::AsByteSlice;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use num_bigint::BigInt;
 use num_traits::{Inv, One, Zero};
 use rand::{
@@ -36,6 +37,18 @@ fn test_dalek_interop_m1() {
     let mxp = -xp;
     assert_eq!(mxp, Curve25519Scalar::from(-123i64));
     assert_eq!(curve25519_dalek::scalar::Scalar::from(mxp), mx);
+}
+
+#[test]
+fn test_curve25519_scalar_ristretto_multiplication_interop() {
+    let scalar = Curve25519Scalar::from(7u64);
+    let point = RISTRETTO_BASEPOINT_POINT;
+    let expected = curve25519_dalek::scalar::Scalar::from(scalar) * point;
+
+    assert_eq!(scalar * point, expected);
+    assert_eq!(scalar * &point, expected);
+    assert_eq!(point * scalar, expected);
+    assert_eq!(&point * scalar, expected);
 }
 
 #[test]
