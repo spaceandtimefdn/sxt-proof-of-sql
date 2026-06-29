@@ -322,6 +322,13 @@ mod tests {
             LiteralValue::VarBinary(vec![72, 97, 108, 108, 101, 108, 117, 106, 97, 104])
         );
 
+        // LargeBinary
+        let value = ScalarValue::LargeBinary(Some(vec![0, 1, 2, 255]));
+        assert_eq!(
+            scalar_value_to_literal_value(value).unwrap(),
+            LiteralValue::VarBinary(vec![0, 1, 2, 255])
+        );
+
         // TimestampSecond
         // Thu Mar 06 2025 04:43:12 GMT+0000
         let value = ScalarValue::TimestampSecond(Some(1_741_236_192_i64), None);
@@ -465,6 +472,22 @@ mod tests {
         let value = ScalarValue::Float32(Some(1.0));
         assert!(matches!(
             scalar_value_to_literal_value(value),
+            Err(PlannerError::UnsupportedDataType { .. })
+        ));
+    }
+
+    #[test]
+    fn we_cannot_convert_null_or_timezone_scalar_value_to_literal_value() {
+        let null_int = ScalarValue::Int32(None);
+        assert!(matches!(
+            scalar_value_to_literal_value(null_int),
+            Err(PlannerError::UnsupportedDataType { .. })
+        ));
+
+        let timestamp_with_timezone =
+            ScalarValue::TimestampSecond(Some(1_741_236_192_i64), Some("Asia/Seoul".into()));
+        assert!(matches!(
+            scalar_value_to_literal_value(timestamp_with_timezone),
             Err(PlannerError::UnsupportedDataType { .. })
         ));
     }
