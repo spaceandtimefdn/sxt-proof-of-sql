@@ -9,6 +9,12 @@ use ark_std::UniformRand;
 use core::iter;
 use num_traits::{Inv, Zero};
 
+fn eval_reverse_coefficients(coefficients: &[S], x: S) -> S {
+    coefficients
+        .iter()
+        .fold(S::zero(), |acc, &coefficient| acc * x + coefficient)
+}
+
 #[test]
 fn test_interpolate_uni_poly_for_random_polynomials() {
     let mut prng = ark_std::test_rng();
@@ -160,4 +166,23 @@ fn we_can_interpolate_evaluations_to_reverse_coefficients_with_degree_3_degenera
         ]),
         vec![S::from(0), S::from(0), S::from(2), S::from(1)]
     );
+}
+
+#[test]
+fn reverse_coefficients_reproduce_original_evaluations() {
+    let evaluations = [
+        S::from(4),
+        S::from(9),
+        S::from(15),
+        S::from(28),
+        S::from(55),
+    ];
+    let coefficients = interpolate_evaluations_to_reverse_coefficients(&evaluations);
+
+    for (x, expected) in evaluations.into_iter().enumerate() {
+        assert_eq!(
+            eval_reverse_coefficients(&coefficients, S::from(i32::try_from(x).unwrap())),
+            expected
+        );
+    }
 }
