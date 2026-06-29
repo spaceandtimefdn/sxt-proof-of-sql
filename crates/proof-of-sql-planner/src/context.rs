@@ -127,6 +127,7 @@ mod tests {
     use ahash::AHasher;
     use alloc::vec;
     use core::any::TypeId;
+    use datafusion::common::ScalarValue;
     use indexmap::indexmap_with_default;
     use proof_of_sql::base::database::{ColumnType, SchemaAccessorImpl, TableRef};
 
@@ -157,6 +158,27 @@ mod tests {
         assert_eq!(
             table_source.as_any().type_id(),
             TypeId::of::<PoSqlTableSource>()
+        );
+    }
+
+    #[test]
+    fn we_can_report_exact_filter_pushdown_support() {
+        let table_source = PoSqlTableSource::new(vec![]);
+        assert_eq!(
+            table_source.supports_filters_pushdown(&[]).unwrap(),
+            Vec::<TableProviderFilterPushDown>::new()
+        );
+
+        let is_active = Expr::Literal(ScalarValue::Boolean(Some(true)));
+        let is_verified = Expr::Literal(ScalarValue::Boolean(Some(false)));
+        assert_eq!(
+            table_source
+                .supports_filters_pushdown(&[&is_active, &is_verified])
+                .unwrap(),
+            vec![
+                TableProviderFilterPushDown::Exact,
+                TableProviderFilterPushDown::Exact
+            ]
         );
     }
 
