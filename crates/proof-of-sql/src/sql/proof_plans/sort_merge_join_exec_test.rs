@@ -1,11 +1,19 @@
 use super::test_utility::*;
 use crate::{
-    base::database::{
-        owned_table_utility::*, table_utility::*, ColumnType, TableRef, TableTestAccessor,
-        TestAccessor,
+    base::{
+        database::{
+            owned_table_utility::*, table_utility::*, ColumnType, TableRef, TableTestAccessor,
+            TestAccessor,
+        },
+        map::IndexMap,
+        proof::ProofError,
+        scalar::test_scalar::TestScalar,
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::{
+            exercise_verification, mock_verification_builder::MockVerificationBuilder, ProofPlan,
+            VerifiableQueryResult,
+        },
         proof_exprs::test_utility::*,
     },
 };
@@ -495,4 +503,131 @@ fn we_can_prove_and_get_the_correct_empty_result_from_a_sort_merge_join_if_one_o
         varchar("human", [""; 0]),
     ]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+#[should_panic(expected = "Join column index out of bounds")]
+fn we_cannot_create_sort_merge_join_exec_with_out_of_bounds_join_column_index() {
+    sort_merge_join(
+        table_exec(
+            "sxt.left".parse().unwrap(),
+            vec![column_field("a", ColumnType::BigInt)],
+        ),
+        table_exec(
+            "sxt.right".parse().unwrap(),
+            vec![column_field("b", ColumnType::BigInt)],
+        ),
+        vec![1], // index 1 is out of bounds for a 1-column table
+        vec![0],
+        vec![Ident::new("b")],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Join columns should have the same number of columns")]
+fn we_cannot_create_sort_merge_join_exec_with_mismatched_join_column_counts() {
+    sort_merge_join(
+        table_exec(
+            "sxt.left".parse().unwrap(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(
+            "sxt.right".parse().unwrap(),
+            vec![
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::BigInt),
+            ],
+        ),
+        vec![0],     // 1 join column on left
+        vec![0, 1],  // 2 join columns on right — mismatch
+        vec![Ident::new("a"), Ident::new("c"), Ident::new("d")],
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "The amount of result idents should be the same as the expected number of columns"
+)]
+fn we_cannot_create_sort_merge_join_exec_with_wrong_result_ident_count() {
+    sort_merge_join(
+        table_exec(
+            "sxt.left".parse().unwrap(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(
+            "sxt.right".parse().unwrap(),
+            vec![
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::BigInt),
+            ],
+        ),
+        vec![0],
+        vec![0],
+        vec![], // expected 2+2-1=3 idents, providing 0
+    );
+}
+
+#[test]
+fn we_get_error_when_verifying_sort_merge_join_with_multiple_join_columns() {
+    let table_left: TableRef = "sxt.left".parse().unwrap();
+    let table_right: TableRef = "sxt.right".parse().unwrap();
+    let plan = sort_merge_join(
+        table_exec(
+            table_left.clone(),
+            vec![
+                column_field("a", ColumnType::BigInt),
+                column_field("b", ColumnType::BigInt),
+            ],
+        ),
+        table_exec(
+            table_right.clone(),
+            vec![
+                column_field("c", ColumnType::BigInt),
+                column_field("d", ColumnType::BigInt),
+            ],
+        ),
+        vec![0, 1], // 2 join columns triggers "not supported yet" guard
+        vec![0, 1],
+        vec![Ident::new("a"), Ident::new("b")],
+    );
+
+    let mut left_cols: IndexMap<Ident, TestScalar> = IndexMap::default();
+    left_cols.insert(Ident::new("a"), TestScalar::ONE);
+    left_cols.insert(Ident::new("b"), TestScalar::ONE);
+    let mut right_cols: IndexMap<Ident, TestScalar> = IndexMap::default();
+    right_cols.insert(Ident::new("c"), TestScalar::ONE);
+    right_cols.insert(Ident::new("d"), TestScalar::ONE);
+    let mut accessor: IndexMap<TableRef, IndexMap<Ident, TestScalar>> = IndexMap::default();
+    accessor.insert(table_left.clone(), left_cols);
+    accessor.insert(table_right.clone(), right_cols);
+
+    let mut chi_eval_map: IndexMap<TableRef, (TestScalar, usize)> = IndexMap::default();
+    chi_eval_map.insert(table_left, (TestScalar::ONE, 1));
+    chi_eval_map.insert(table_right, (TestScalar::ONE, 1));
+
+    let mut builder = MockVerificationBuilder::<TestScalar>::new(
+        vec![],
+        2,
+        vec![],
+        vec![],
+        vec![TestScalar::ONE, TestScalar::ONE], // alpha, beta post-result challenges
+        vec![1],                                 // result chi evaluation length
+        vec![1],                                 // left rho evaluation length
+    );
+
+    let err = plan
+        .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        ProofError::VerificationError {
+            error: "Join on multiple columns not supported yet"
+        }
+    ));
 }
