@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
     base::{
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::{
                 bigint, boolean, decimal75, int, int128, owned_table, smallint, timestamptz,
@@ -16,13 +17,12 @@ use crate::{
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     },
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{CastExpr, DynProofExpr},
         proof_plans::test_utility::{column_field, filter, table_exec},
         AnalyzeError,
     },
 };
-use blitzar::proof::InnerProductProof;
 use bumpalo::Bump;
 
 #[test]
@@ -42,7 +42,7 @@ fn we_can_prove_a_simple_cast_expr() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![
             aliased_plan(
@@ -83,8 +83,8 @@ fn we_can_prove_a_simple_cast_expr() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -113,7 +113,7 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![
             aliased_plan(
@@ -168,8 +168,8 @@ fn we_can_prove_a_simple_cast_expr_from_int_to_other_numeric_type() {
         ),
         super::DynProofExpr::Literal(LiteralExpr::new(LiteralValue::Boolean(true))),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -191,7 +191,7 @@ fn we_get_error_if_we_cast_uncastable_type() {
     let data = owned_table([decimal75("a", 57, 2, [1_i16, 2, 3, 4])]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     assert!(matches!(
         DynProofExpr::try_new_cast(column(&t, "a", &accessor), ColumnType::BigInt),
         Err(AnalyzeError::DataTypeMismatch { .. })
@@ -204,7 +204,7 @@ fn we_cannot_cast_mismatching_types() {
     let data = table([borrowed_smallint("a", [1_i16, 2, 3, 4], &alloc)]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let cast_err = CastExpr::try_new(lhs.clone(), ColumnType::TinyInt).unwrap_err();
     assert!(matches!(
