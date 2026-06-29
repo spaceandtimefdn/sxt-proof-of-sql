@@ -104,3 +104,15 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EmptyExec;
+
+    #[test]
+    fn we_can_create_empty_exec_via_default() {
+        let a = EmptyExec::default();
+        let b = EmptyExec::new();
+        assert_eq!(a, b);
+    }
+}
