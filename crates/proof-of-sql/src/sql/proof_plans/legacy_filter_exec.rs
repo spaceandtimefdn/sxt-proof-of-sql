@@ -287,3 +287,137 @@ impl ProverEvaluate for LegacyFilterExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{
+                owned_table_utility::{bigint, boolean, owned_table},
+                table_utility::{borrowed_bigint, borrowed_boolean, table},
+                ColumnType, OwnedTable,
+            },
+            map::{indexmap, IndexSet},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::ProvableQueryResult,
+            proof_exprs::{ColumnExpr, LiteralExpr},
+        },
+    };
+    use alloc::{collections::VecDeque, vec};
+
+    fn table_ref() -> TableRef {
+        TableRef::new("sxt", "orders")
+    }
+
+    fn column_expr(table_ref: &TableRef, name: &str, data_type: ColumnType) -> DynProofExpr {
+        DynProofExpr::Column(ColumnExpr::new(ColumnRef::new(
+            table_ref.clone(),
+            name.into(),
+            data_type,
+        )))
+    }
+
+    fn aliased_column(
+        table_ref: &TableRef,
+        name: &str,
+        data_type: ColumnType,
+    ) -> AliasedDynProofExpr {
+        AliasedDynProofExpr {
+            expr: column_expr(table_ref, name, data_type),
+            alias: name.into(),
+        }
+    }
+
+    fn plan(table_ref: &TableRef) -> LegacyFilterExec {
+        LegacyFilterExec::new(
+            vec![
+                aliased_column(table_ref, "amount", ColumnType::BigInt),
+                aliased_column(table_ref, "flag", ColumnType::Boolean),
+            ],
+            TableExpr {
+                table_ref: table_ref.clone(),
+            },
+            DynProofExpr::try_new_equals(
+                column_expr(table_ref, "amount", ColumnType::BigInt),
+                DynProofExpr::Literal(LiteralExpr::new(LiteralValue::BigInt(5))),
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn we_can_read_legacy_filter_metadata_without_blitzar() {
+        let table_ref = table_ref();
+        let plan = plan(&table_ref);
+
+        assert_eq!(plan.aliased_results().len(), 2);
+        assert_eq!(plan.aliased_results()[0].alias.value, "amount");
+        assert_eq!(plan.table().table_ref, table_ref);
+        assert_eq!(plan.where_clause().data_type(), ColumnType::Boolean);
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![
+                ColumnField::new("amount".into(), ColumnType::BigInt),
+                ColumnField::new("flag".into(), ColumnType::Boolean),
+            ]
+        );
+        assert_eq!(
+            plan.get_column_references(),
+            IndexSet::from_iter([
+                ColumnRef::new(table_ref.clone(), "amount".into(), ColumnType::BigInt),
+                ColumnRef::new(table_ref.clone(), "flag".into(), ColumnType::Boolean),
+            ])
+        );
+        assert_eq!(
+            plan.get_table_references(),
+            IndexSet::from_iter([table_ref])
+        );
+    }
+
+    #[test]
+    fn we_can_evaluate_legacy_filter_rounds_without_blitzar() {
+        let alloc = Bump::new();
+        let table_ref = table_ref();
+        let data = table::<TestScalar>([
+            borrowed_bigint("amount", [1_i64, 5, 5, 9], &alloc),
+            borrowed_boolean("flag", [true, false, true, false], &alloc),
+        ]);
+        let table_map = indexmap! {
+            table_ref.clone() => data
+        };
+        let plan = plan(&table_ref);
+        let fields = plan.get_column_result_fields();
+
+        let mut first_round_builder = FirstRoundBuilder::new(4);
+        let first_round_result: OwnedTable<TestScalar> = ProvableQueryResult::from(
+            plan.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+                .unwrap(),
+        )
+        .to_owned_table(&fields)
+        .unwrap();
+        let expected = owned_table::<TestScalar>([
+            bigint("amount", [5_i64, 5]),
+            boolean("flag", [false, true]),
+        ]);
+        assert_eq!(first_round_result, expected);
+        assert_eq!(first_round_builder.pcs_proof_mles().len(), 2);
+
+        let mut final_round_builder = FinalRoundBuilder::new(
+            4,
+            VecDeque::from([TestScalar::from(7_u64), TestScalar::from(13_u64)]),
+        );
+        let final_round_result: OwnedTable<TestScalar> = ProvableQueryResult::from(
+            plan.final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+                .unwrap(),
+        )
+        .to_owned_table(&fields)
+        .unwrap();
+
+        assert_eq!(final_round_result, expected);
+        assert!(final_round_builder.num_sumcheck_subpolynomials() >= 3);
+        assert!(final_round_builder.pcs_proof_mles().len() >= 2);
+    }
+}
