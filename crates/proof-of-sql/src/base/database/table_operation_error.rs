@@ -65,3 +65,78 @@ pub enum TableOperationError {
 
 /// Result type for table operations
 pub type TableOperationResult<T> = Result<T, TableOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn we_can_display_table_operation_errors() {
+        let id = Ident::new("id");
+        let left_schema = vec![ColumnField::new(id.clone(), ColumnType::Int)];
+        let right_schema = vec![ColumnField::new(id.clone(), ColumnType::BigInt)];
+
+        let cases = [
+            (
+                TableOperationError::UnionIncompatibleSchemas {
+                    correct_schema: left_schema.clone(),
+                    actual_schema: right_schema,
+                },
+                "Cannot union tables with incompatible schemas: [ColumnField { name: Ident { value: \"id\", quote_style: None }, data_type: Int }] and [ColumnField { name: Ident { value: \"id\", quote_style: None }, data_type: BigInt }]".to_string(),
+            ),
+            (
+                TableOperationError::UnionNotEnoughTables,
+                "Cannot union fewer than 2 tables".to_string(),
+            ),
+            (
+                TableOperationError::JoinWithDifferentNumberOfColumns {
+                    left_num_columns: 2,
+                    right_num_columns: 3,
+                },
+                "Cannot join tables with different numbers of columns: 2 and 3".to_string(),
+            ),
+            (
+                TableOperationError::JoinIncompatibleTypes {
+                    left_type: ColumnType::VarChar,
+                    right_type: ColumnType::VarBinary,
+                },
+                "Cannot join tables on columns with incompatible types: VarChar and VarBinary"
+                    .to_string(),
+            ),
+            (
+                TableOperationError::ColumnDoesNotExist { column_ident: id },
+                "Column Ident { value: \"id\", quote_style: None } does not exist in table"
+                    .to_string(),
+            ),
+            (
+                TableOperationError::DuplicateColumn,
+                "Some column is duplicated in table".to_string(),
+            ),
+            (
+                TableOperationError::ColumnIndexOutOfBounds { column_index: 5 },
+                "Column index out of bounds: 5".to_string(),
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn we_can_display_transparent_column_operation_error() {
+        let error = TableOperationError::ColumnOperationError {
+            source: ColumnOperationError::DifferentColumnLength { len_a: 1, len_b: 2 },
+        };
+
+        assert_eq!(error.to_string(), "Columns have different lengths: 1 != 2");
+    }
+
+    #[test]
+    fn we_can_use_table_operation_result_alias() {
+        let result: TableOperationResult<()> = Err(TableOperationError::DuplicateColumn);
+
+        assert!(matches!(result, Err(TableOperationError::DuplicateColumn)));
+    }
+}
