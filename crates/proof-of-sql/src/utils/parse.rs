@@ -92,4 +92,26 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn we_can_ignore_non_bigdecimal_columns_and_non_create_statements() {
+        let sql = "SELECT 1;
+
+        CREATE TABLE IF NOT EXISTS ETHEREUM.TRACES(
+            TRACE_ID BIGINT NOT NULL,
+            STANDARD_DECIMAL DECIMAL(38, 2),
+            UNSCALED_DECIMAL DECIMAL(78),
+            BIG_DECIMAL DECIMAL(39, 4),
+            PRIMARY KEY(TRACE_ID)
+        );
+
+        INSERT INTO ETHEREUM.TRACES VALUES (1, 2, 3, 4);";
+
+        let bigdecimals = find_bigdecimals(sql);
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ETHEREUM.TRACES").unwrap(),
+            &[("BIG_DECIMAL".to_string(), 39, 4)]
+        );
+    }
 }
