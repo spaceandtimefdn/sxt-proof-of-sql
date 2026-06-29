@@ -245,7 +245,11 @@ pub fn table_union<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{map::IndexMap, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        map::IndexMap,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn we_can_union_no_columns() {
@@ -427,6 +431,28 @@ mod tests {
     }
 
     #[test]
+    fn we_can_union_timestamptz_columns() {
+        let alloc = Bump::new();
+        let time_unit = PoSQLTimeUnit::Microsecond;
+        let timezone = PoSQLTimeZone::new(7200);
+        let col0: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[]);
+        let col1: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[10, 20]);
+        let col2: Column<TestScalar> = Column::TimestampTZ(time_unit, timezone, &[30]);
+
+        let result = column_union(
+            &[&col0, &col1, &col2],
+            &alloc,
+            ColumnType::TimestampTZ(time_unit, timezone),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, timezone, &[10, 20, 30])
+        );
+    }
+
+    #[test]
     fn we_can_union_tables_with_varbinary_columns() {
         let alloc = Bump::new();
         let binary_binding = [b"foo".as_ref(), b"bar".as_ref()];
@@ -476,6 +502,42 @@ mod tests {
                 Column::VarBinary((expected_raw.as_slice(), expected_scalars.as_slice())),
             )]),
             TableOptions::new(Some(4)),
+        )
+        .unwrap();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn we_can_union_tables_with_timestamptz_columns() {
+        let alloc = Bump::new();
+        let time_unit = PoSQLTimeUnit::Nanosecond;
+        let timezone = PoSQLTimeZone::new(-18_000);
+        let table0 = Table::<'_, TestScalar>::try_new_with_options(
+            IndexMap::from_iter(vec![(
+                "event_time".into(),
+                Column::TimestampTZ(time_unit, timezone, &[100, 200]),
+            )]),
+            TableOptions::new(Some(2)),
+        )
+        .unwrap();
+        let table1 = Table::<'_, TestScalar>::try_new_with_options(
+            IndexMap::from_iter(vec![(
+                "renamed_event_time".into(),
+                Column::TimestampTZ(time_unit, timezone, &[300, 400, 500]),
+            )]),
+            TableOptions::new(Some(3)),
+        )
+        .unwrap();
+
+        let result = table_union(&[table0, table1], &alloc).unwrap();
+
+        let expected = Table::try_new_with_options(
+            IndexMap::from_iter(vec![(
+                "event_time".into(),
+                Column::TimestampTZ(time_unit, timezone, &[100, 200, 300, 400, 500]),
+            )]),
+            TableOptions::new(Some(5)),
         )
         .unwrap();
 
