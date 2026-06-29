@@ -201,6 +201,141 @@ pub(crate) fn verify_shift<S: Scalar>(
     Ok((shifted_column_eval, chi_n_plus_1_eval))
 }
 
+#[cfg(test)]
+mod no_blitzar_tests {
+    use super::{final_round_evaluate_shift, first_round_evaluate_shift, verify_shift};
+    use crate::{
+        base::{
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder, SumcheckSubpolynomialType,
+        },
+    };
+    use alloc::{collections::VecDeque, vec};
+    use bumpalo::Bump;
+
+    #[test]
+    fn first_round_shift_produces_shifted_witness_and_evaluation_lengths() {
+        let alloc = Bump::new();
+        let column = alloc.alloc_slice_copy(&[
+            TestScalar::from(5),
+            TestScalar::from(7),
+            TestScalar::from(11),
+        ]);
+        let mut builder = FirstRoundBuilder::new(column.len());
+
+        first_round_evaluate_shift(&mut builder, &alloc, column);
+
+        assert_eq!(builder.chi_evaluation_lengths(), &[column.len() + 1]);
+        assert_eq!(
+            builder.rho_evaluation_lengths(),
+            &[column.len(), column.len() + 1]
+        );
+        assert_eq!(builder.range_length(), column.len() + 1);
+        assert_eq!(builder.pcs_proof_mles().len(), 1);
+
+        let row_evaluations = (0..=column.len())
+            .map(|row| {
+                let mut evaluation_vec = vec![TestScalar::ZERO; column.len() + 1];
+                evaluation_vec[row] = TestScalar::ONE;
+                builder.evaluate_pcs_proof_mles(&evaluation_vec)[0]
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            row_evaluations,
+            vec![
+                TestScalar::ZERO,
+                TestScalar::from(5),
+                TestScalar::from(7),
+                TestScalar::from(11)
+            ]
+        );
+    }
+
+    #[test]
+    fn final_round_shift_builds_shift_witness_and_constraints() {
+        let alloc = Bump::new();
+        let column = alloc.alloc_slice_copy(&[
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(5),
+        ]);
+        let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        let shifted_column = final_round_evaluate_shift(
+            &mut builder,
+            &alloc,
+            TestScalar::from(7),
+            TestScalar::from(13),
+            column,
+        );
+
+        assert_eq!(
+            shifted_column,
+            &[
+                TestScalar::ZERO,
+                TestScalar::from(2),
+                TestScalar::from(3),
+                TestScalar::from(5)
+            ]
+        );
+        assert_eq!(builder.pcs_proof_mles().len(), 2);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 3);
+        assert_eq!(
+            builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+            SumcheckSubpolynomialType::ZeroSum
+        );
+        assert!(builder.sumcheck_subpolynomials()[1..]
+            .iter()
+            .all(|subpolynomial| subpolynomial.subpolynomial_type()
+                == SumcheckSubpolynomialType::Identity));
+    }
+
+    #[test]
+    fn verify_shift_accepts_matching_first_and_final_round_outputs() {
+        let alloc = Bump::new();
+        let column = alloc.alloc_slice_copy(&[
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(5),
+        ]);
+        let alpha = TestScalar::from(7);
+        let beta = TestScalar::from(13);
+        let mut first_round_builder = FirstRoundBuilder::new(column.len());
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+
+        first_round_evaluate_shift(&mut first_round_builder, &alloc, column);
+        final_round_evaluate_shift(&mut final_round_builder, &alloc, alpha, beta, column);
+
+        let verification_builder = run_verify_for_each_row(
+            column.len(),
+            &first_round_builder,
+            &final_round_builder,
+            vec![],
+            3,
+            |builder, chi_n_eval, evaluation_point| {
+                let column_eval = (&column[..]).inner_product(evaluation_point);
+                verify_shift(builder, alpha, beta, column_eval, chi_n_eval).unwrap();
+            },
+        );
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![
+                vec![true, true],
+                vec![true, true],
+                vec![true, true],
+                vec![true, true]
+            ]
+        );
+        assert_eq!(verification_builder.get_zero_sum_results(), vec![true]);
+    }
+}
+
 #[cfg(all(test, feature = "blitzar"))]
 mod tests {
     use super::{final_round_evaluate_shift_base, verify_shift};
