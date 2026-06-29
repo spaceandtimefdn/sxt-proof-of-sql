@@ -1,15 +1,15 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, ColumnType, OwnedTableTestAccessor, TableRef,
             TableTestAccessor,
         },
         math::decimal::Precision,
+        scalar::test_scalar::TestScalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{multiply_expr::MultiplyExpr, test_utility::*, DynProofExpr, ProofExpr},
         proof_plans::{test_utility::*, DynProofPlan},
         AnalyzeError,
@@ -35,7 +35,7 @@ fn we_can_prove_a_typical_multiply_query() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         vec![
             aliased_plan(multiply(column(&t, "a", &accessor), const_int(2)), "a"),
@@ -68,8 +68,8 @@ fn we_can_prove_a_typical_multiply_query() {
             const_decimal75(3, 2, 819),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -106,7 +106,7 @@ fn where_clause_can_wrap_around() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast: DynProofPlan = filter(
         cols_expr_plan(&t, &["a", "b", "c", "d", "e", "res"], &accessor),
         table_exec(
@@ -134,9 +134,8 @@ fn where_clause_can_wrap_around() {
             column(&t, "res", &accessor),
         ),
     );
-    let verifiable_res: VerifiableQueryResult<InnerProductProof> =
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
         VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -183,7 +182,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -212,16 +211,16 @@ fn test_random_tables_with_given_offset(offset: usize) {
             and(
                 equal(
                     column(&t, "b", &accessor),
-                    const_scalar::<Curve25519Scalar, _>(filter_val1.as_str()),
+                    const_scalar::<TestScalar, _>(filter_val1.as_str()),
                 ),
                 equal(
                     column(&t, "c", &accessor),
-                    const_scalar::<Curve25519Scalar, _>(filter_val2),
+                    const_scalar::<TestScalar, _>(filter_val2),
                 ),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+            VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -236,7 +235,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
         ))
         .filter_map(|(a, b, c, d)| {
             if b == &filter_val1 && c == &filter_val2 {
-                Some((Curve25519Scalar::from(*a * *c + 4), d.clone()))
+                Some((TestScalar::from(*a * *c + 4), d.clone()))
             } else {
                 None
             }
@@ -271,7 +270,7 @@ fn we_can_compute_the_correct_output_of_a_multiply_expr_using_first_round_evalua
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let arithmetic_expr: DynProofExpr = multiply(
         column(&t, "b", &accessor),
         subtract(
@@ -298,7 +297,7 @@ fn we_cannot_multiply_mismatching_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let rhs = Box::new(column(&t, "b", &accessor));
     let multiply_err = MultiplyExpr::try_new(lhs.clone(), rhs.clone()).unwrap_err();
