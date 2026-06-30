@@ -164,39 +164,42 @@ pub fn expr_to_proof_expr(
             //     fall back to `a = v_1 OR ... OR a = v_k`. Equality subtracts the embedded
             //     hashes internally, which is exactly what a membership zero-test needs.
             let needle = expr_to_proof_expr(expr, schema)?;
-            let comparison = if list.is_empty() {
+            // Keep the empty case inside `comparison` (not an early return) so the
+            // `negated` wrap below still applies: `a NOT IN ()` must be `true`.
+            let comparison = match list.split_first() {
                 // `a IN ()` is always false.
-                DynProofExpr::new_literal(LiteralValue::Boolean(false))
-            } else if needle.data_type().is_numeric() {
-                let mut product: Option<DynProofExpr> = None;
-                for value in list {
-                    let value_proof_expr = expr_to_proof_expr(value, schema)?;
-                    // Align operand types/scales the same way `-` does before subtracting.
-                    let (needle_cast, value_cast) =
-                        scale_cast_binary_op(needle.clone(), value_proof_expr)?;
-                    let factor = DynProofExpr::try_new_subtract(needle_cast, value_cast)?;
-                    product = Some(match product {
-                        None => factor,
-                        Some(acc) => DynProofExpr::try_new_multiply(acc, factor)?,
-                    });
+                None => DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                Some((first, rest)) if needle.data_type().is_numeric() => {
+                    // Lower each `v_i` into the factor `a - v_i`, aligning operand
+                    // types/scales the same way `-` does before subtracting.
+                    let factor = |value| {
+                        let value_proof_expr = expr_to_proof_expr(value, schema)?;
+                        let (needle_cast, value_cast) =
+                            scale_cast_binary_op(needle.clone(), value_proof_expr)?;
+                        DynProofExpr::try_new_subtract(needle_cast, value_cast)
+                            .map_err(PlannerError::from)
+                    };
+                    // (a - v_1) * ... * (a - v_k)
+                    let product = rest.iter().try_fold(factor(first)?, |acc, value| {
+                        Ok::<_, PlannerError>(DynProofExpr::try_new_multiply(acc, factor(value)?)?)
+                    })?;
+                    let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
+                    let (product, zero) = scale_cast_binary_op(product, zero)?;
+                    DynProofExpr::try_new_equals(product, zero)?
                 }
-                let product = product.expect("list is non-empty");
-                let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
-                let (product, zero) = scale_cast_binary_op(product, zero)?;
-                DynProofExpr::try_new_equals(product, zero)?
-            } else {
-                let mut disjunction: Option<DynProofExpr> = None;
-                for value in list {
-                    let value_proof_expr = expr_to_proof_expr(value, schema)?;
-                    let (needle_cast, value_cast) =
-                        scale_cast_binary_op(needle.clone(), value_proof_expr)?;
-                    let eq = DynProofExpr::try_new_equals(needle_cast, value_cast)?;
-                    disjunction = Some(match disjunction {
-                        None => eq,
-                        Some(acc) => DynProofExpr::try_new_or(acc, eq)?,
-                    });
+                Some((first, rest)) => {
+                    // a = v_1 OR ... OR a = v_k
+                    let eq = |value| {
+                        let value_proof_expr = expr_to_proof_expr(value, schema)?;
+                        let (needle_cast, value_cast) =
+                            scale_cast_binary_op(needle.clone(), value_proof_expr)?;
+                        DynProofExpr::try_new_equals(needle_cast, value_cast)
+                            .map_err(PlannerError::from)
+                    };
+                    rest.iter().try_fold(eq(first)?, |acc, value| {
+                        Ok::<_, PlannerError>(DynProofExpr::try_new_or(acc, eq(value)?)?)
+                    })?
                 }
-                disjunction.expect("list is non-empty")
             };
             if *negated {
                 Ok(DynProofExpr::try_new_not(comparison)?)
@@ -369,6 +372,19 @@ mod tests {
         assert_eq!(
             expr_to_proof_expr(&expr, &schema).unwrap(),
             DynProofExpr::new_literal(LiteralValue::Boolean(false))
+        );
+    }
+
+    #[test]
+    fn we_convert_an_empty_not_in_list_to_a_true_literal() {
+        // `a NOT IN ()` is always true: the empty-list `false` must still flow
+        // through the `negated` NOT wrap rather than short-circuiting.
+        let expr = df_column("namespace.table_name", "column").in_list(vec![], true);
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_not(DynProofExpr::new_literal(LiteralValue::Boolean(false)))
+                .unwrap()
         );
     }
 
