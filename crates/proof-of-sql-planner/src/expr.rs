@@ -164,24 +164,28 @@ pub fn expr_to_proof_expr(
             //     fall back to `a = v_1 OR ... OR a = v_k`. Equality subtracts the embedded
             //     hashes internally, which is exactly what a membership zero-test needs.
             let needle = expr_to_proof_expr(expr, schema)?;
+            // Lower each `v_i` once, aligning its type/scale to the needle the same
+            // way `-`/`=` do. Both branches below consume these `(needle, v_i)` pairs.
+            let operands = list
+                .iter()
+                .map(|value| -> PlannerResult<_> {
+                    let value_proof_expr = expr_to_proof_expr(value, schema)?;
+                    Ok(scale_cast_binary_op(needle.clone(), value_proof_expr)?)
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
             // Keep the empty case inside `comparison` (not an early return) so the
             // `negated` wrap below still applies: `a NOT IN ()` must be `true`.
-            let comparison = match list.split_first() {
+            let comparison = match operands.split_first() {
                 // `a IN ()` is always false.
                 None => DynProofExpr::new_literal(LiteralValue::Boolean(false)),
                 Some((first, rest)) if needle.data_type().is_numeric() => {
-                    // Lower each `v_i` into the factor `a - v_i`, aligning operand
-                    // types/scales the same way `-` does before subtracting.
-                    let factor = |value| {
-                        let value_proof_expr = expr_to_proof_expr(value, schema)?;
-                        let (needle_cast, value_cast) =
-                            scale_cast_binary_op(needle.clone(), value_proof_expr)?;
-                        DynProofExpr::try_new_subtract(needle_cast, value_cast)
+                    // product form: (a - v_1) * ... * (a - v_k) = 0
+                    let subtract = |(n, v): &(DynProofExpr, DynProofExpr)| {
+                        DynProofExpr::try_new_subtract(n.clone(), v.clone())
                             .map_err(PlannerError::from)
                     };
-                    // (a - v_1) * ... * (a - v_k)
-                    let product = rest.iter().try_fold(factor(first)?, |acc, value| {
-                        Ok::<_, PlannerError>(DynProofExpr::try_new_multiply(acc, factor(value)?)?)
+                    let product = rest.iter().try_fold(subtract(first)?, |acc, pair| {
+                        Ok::<_, PlannerError>(DynProofExpr::try_new_multiply(acc, subtract(pair)?)?)
                     })?;
                     let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
                     let (product, zero) = scale_cast_binary_op(product, zero)?;
@@ -189,15 +193,12 @@ pub fn expr_to_proof_expr(
                 }
                 Some((first, rest)) => {
                     // a = v_1 OR ... OR a = v_k
-                    let eq = |value| {
-                        let value_proof_expr = expr_to_proof_expr(value, schema)?;
-                        let (needle_cast, value_cast) =
-                            scale_cast_binary_op(needle.clone(), value_proof_expr)?;
-                        DynProofExpr::try_new_equals(needle_cast, value_cast)
+                    let eq = |(n, v): &(DynProofExpr, DynProofExpr)| {
+                        DynProofExpr::try_new_equals(n.clone(), v.clone())
                             .map_err(PlannerError::from)
                     };
-                    rest.iter().try_fold(eq(first)?, |acc, value| {
-                        Ok::<_, PlannerError>(DynProofExpr::try_new_or(acc, eq(value)?)?)
+                    rest.iter().try_fold(eq(first)?, |acc, pair| {
+                        Ok::<_, PlannerError>(DynProofExpr::try_new_or(acc, eq(pair)?)?)
                     })?
                 }
             };
