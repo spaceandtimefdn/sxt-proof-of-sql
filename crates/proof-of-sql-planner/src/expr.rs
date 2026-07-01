@@ -148,6 +148,12 @@ fn reduce_terms<E>(
     terms.try_fold(first, |acc, term| combine(acc, term?))
 }
 
+/// Convert a `DataFusion` [`Expr`] into a provable [`DynProofExpr`], using `schema`
+/// to resolve column references and their types.
+///
+/// # Errors
+/// Returns a [`PlannerError`] if the expression (or any subexpression) is unsupported,
+/// references an unknown column, or cannot be lowered to a `DynProofExpr`.
 pub fn expr_to_proof_expr(
     expr: &Expr,
     schema: &[(Ident, ColumnType)],
