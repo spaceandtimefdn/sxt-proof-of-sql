@@ -129,21 +129,22 @@ fn binary_expr_to_proof_expr(
     }
 }
 
-/// Left-fold a non-empty iterator of fallible `terms` with a fallible binary `combine`.
+/// Left-fold `rest` onto `first` with a fallible binary `combine`.
 ///
 /// Used to chain the `IN`-list terms: e.g. multiply the `a - v_i` factors, or `OR`
-/// the `a = v_i` equalities.
-///
-/// # Panics
-/// Panics if `terms` is empty; callers must guarantee at least one term.
+/// the `a = v_i` equalities. Taking `first` as a separate argument keeps the fold
+/// total — non-emptiness is encoded in the signature, so there is no empty-iterator
+/// panic to guard against.
 fn reduce_terms<E>(
-    mut terms: impl Iterator<Item = Result<DynProofExpr, E>>,
+    first: DynProofExpr,
+    rest: impl Iterator<Item = Result<DynProofExpr, E>>,
     combine: impl Fn(DynProofExpr, DynProofExpr) -> Result<DynProofExpr, E>,
 ) -> Result<DynProofExpr, E> {
-    let first = terms
-        .next()
-        .expect("reduce_terms requires at least one term")?;
-    terms.try_fold(first, |acc, term| combine(acc, term?))
+    let mut acc = first;
+    for term in rest {
+        acc = combine(acc, term?)?;
+    }
+    Ok(acc)
 }
 
 /// Convert a `DataFusion` [`Expr`] into a provable [`DynProofExpr`], using `schema`
@@ -192,30 +193,30 @@ pub fn expr_to_proof_expr(
                     Ok(scale_cast_binary_op(needle.clone(), value_proof_expr)?)
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
-            // Keep the empty case here (not an early return) so the `negated` wrap
-            // below still applies: `a NOT IN ()` must be `true`.
-            let comparison = if operands.is_empty() {
-                // `a IN ()` is always false.
-                DynProofExpr::new_literal(LiteralValue::Boolean(false))
-            } else if needle.data_type().is_numeric() {
-                // product form: (a - v_1) * ... * (a - v_k) = 0
-                let product = reduce_terms(
-                    operands
-                        .into_iter()
-                        .map(|(n, v)| DynProofExpr::try_new_subtract(n, v)),
-                    DynProofExpr::try_new_multiply,
-                )?;
-                let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
-                let (product, zero) = scale_cast_binary_op(product, zero)?;
-                DynProofExpr::try_new_equals(product, zero)?
-            } else {
-                // a = v_1 OR ... OR a = v_k
-                reduce_terms(
-                    operands
-                        .into_iter()
-                        .map(|(n, v)| DynProofExpr::try_new_equals(n, v)),
-                    DynProofExpr::try_new_or,
-                )?
+            // Split off the first pair. `None` means `a IN ()`, which is always false;
+            // keeping that here (not an early return) lets the `negated` wrap below
+            // still apply, so `a NOT IN ()` correctly negates to `true`.
+            let comparison = match operands.split_first() {
+                None => DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                Some(((n, v), rest)) if needle.data_type().is_numeric() => {
+                    // product form: (a - v_1) * ... * (a - v_k) = 0
+                    let first = DynProofExpr::try_new_subtract(n.clone(), v.clone())?;
+                    let rest = rest
+                        .iter()
+                        .map(|(n, v)| DynProofExpr::try_new_subtract(n.clone(), v.clone()));
+                    let product = reduce_terms(first, rest, DynProofExpr::try_new_multiply)?;
+                    let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
+                    let (product, zero) = scale_cast_binary_op(product, zero)?;
+                    DynProofExpr::try_new_equals(product, zero)?
+                }
+                Some(((n, v), rest)) => {
+                    // a = v_1 OR ... OR a = v_k
+                    let first = DynProofExpr::try_new_equals(n.clone(), v.clone())?;
+                    let rest = rest
+                        .iter()
+                        .map(|(n, v)| DynProofExpr::try_new_equals(n.clone(), v.clone()));
+                    reduce_terms(first, rest, DynProofExpr::try_new_or)?
+                }
             };
             if *negated {
                 Ok(DynProofExpr::try_new_not(comparison)?)
