@@ -129,10 +129,6 @@ fn binary_expr_to_proof_expr(
     }
 }
 
-/// Convert an [`datafusion::expr::Expr`] to [`DynProofExpr`]
-///
-/// # Panics
-/// The function should not panic if Proof of SQL is working correctly
 /// Left-fold a non-empty iterator of fallible `terms` with a fallible binary `combine`.
 ///
 /// Used to chain the `IN`-list terms: e.g. multiply the `a - v_i` factors, or `OR`
@@ -144,7 +140,9 @@ fn reduce_terms<E>(
     mut terms: impl Iterator<Item = Result<DynProofExpr, E>>,
     combine: impl Fn(DynProofExpr, DynProofExpr) -> Result<DynProofExpr, E>,
 ) -> Result<DynProofExpr, E> {
-    let first = terms.next().expect("reduce_terms requires at least one term")?;
+    let first = terms
+        .next()
+        .expect("reduce_terms requires at least one term")?;
     terms.try_fold(first, |acc, term| combine(acc, term?))
 }
 
