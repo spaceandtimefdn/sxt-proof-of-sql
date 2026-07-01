@@ -133,6 +133,21 @@ fn binary_expr_to_proof_expr(
 ///
 /// # Panics
 /// The function should not panic if Proof of SQL is working correctly
+/// Left-fold a non-empty iterator of fallible `terms` with a fallible binary `combine`.
+///
+/// Used to chain the `IN`-list terms: e.g. multiply the `a - v_i` factors, or `OR`
+/// the `a = v_i` equalities.
+///
+/// # Panics
+/// Panics if `terms` is empty; callers must guarantee at least one term.
+fn reduce_terms<E>(
+    mut terms: impl Iterator<Item = Result<DynProofExpr, E>>,
+    combine: impl Fn(DynProofExpr, DynProofExpr) -> Result<DynProofExpr, E>,
+) -> Result<DynProofExpr, E> {
+    let first = terms.next().expect("reduce_terms requires at least one term")?;
+    terms.try_fold(first, |acc, term| combine(acc, term?))
+}
+
 pub fn expr_to_proof_expr(
     expr: &Expr,
     schema: &[(Ident, ColumnType)],
@@ -173,34 +188,30 @@ pub fn expr_to_proof_expr(
                     Ok(scale_cast_binary_op(needle.clone(), value_proof_expr)?)
                 })
                 .collect::<PlannerResult<Vec<_>>>()?;
-            // Keep the empty case inside `comparison` (not an early return) so the
-            // `negated` wrap below still applies: `a NOT IN ()` must be `true`.
-            let comparison = match operands.split_first() {
+            // Keep the empty case here (not an early return) so the `negated` wrap
+            // below still applies: `a NOT IN ()` must be `true`.
+            let comparison = if operands.is_empty() {
                 // `a IN ()` is always false.
-                None => DynProofExpr::new_literal(LiteralValue::Boolean(false)),
-                Some((first, rest)) if needle.data_type().is_numeric() => {
-                    // product form: (a - v_1) * ... * (a - v_k) = 0
-                    let subtract = |(n, v): &(DynProofExpr, DynProofExpr)| {
-                        DynProofExpr::try_new_subtract(n.clone(), v.clone())
-                            .map_err(PlannerError::from)
-                    };
-                    let product = rest.iter().try_fold(subtract(first)?, |acc, pair| {
-                        Ok::<_, PlannerError>(DynProofExpr::try_new_multiply(acc, subtract(pair)?)?)
-                    })?;
-                    let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
-                    let (product, zero) = scale_cast_binary_op(product, zero)?;
-                    DynProofExpr::try_new_equals(product, zero)?
-                }
-                Some((first, rest)) => {
-                    // a = v_1 OR ... OR a = v_k
-                    let eq = |(n, v): &(DynProofExpr, DynProofExpr)| {
-                        DynProofExpr::try_new_equals(n.clone(), v.clone())
-                            .map_err(PlannerError::from)
-                    };
-                    rest.iter().try_fold(eq(first)?, |acc, pair| {
-                        Ok::<_, PlannerError>(DynProofExpr::try_new_or(acc, eq(pair)?)?)
-                    })?
-                }
+                DynProofExpr::new_literal(LiteralValue::Boolean(false))
+            } else if needle.data_type().is_numeric() {
+                // product form: (a - v_1) * ... * (a - v_k) = 0
+                let product = reduce_terms(
+                    operands
+                        .into_iter()
+                        .map(|(n, v)| DynProofExpr::try_new_subtract(n, v)),
+                    DynProofExpr::try_new_multiply,
+                )?;
+                let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
+                let (product, zero) = scale_cast_binary_op(product, zero)?;
+                DynProofExpr::try_new_equals(product, zero)?
+            } else {
+                // a = v_1 OR ... OR a = v_k
+                reduce_terms(
+                    operands
+                        .into_iter()
+                        .map(|(n, v)| DynProofExpr::try_new_equals(n, v)),
+                    DynProofExpr::try_new_or,
+                )?
             };
             if *negated {
                 Ok(DynProofExpr::try_new_not(comparison)?)
