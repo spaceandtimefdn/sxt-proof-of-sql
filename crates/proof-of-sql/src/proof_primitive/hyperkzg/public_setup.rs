@@ -105,7 +105,8 @@ pub fn load_small_setup_for_testing() -> (
         vec![],
         G1Affine::generator(),
         tau_h,
-    ));
+    ))
+    .expect("HyperKZG setup is infallible");
 
     let mut ps = super::deserialize_flat_compressed_hyperkzg_public_setup_from_reader(
         &std::fs::File::open("test_assets/ppot_0080_10.bin").unwrap(),
