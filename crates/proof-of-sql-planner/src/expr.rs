@@ -3,7 +3,7 @@ use super::{
     PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
-    expr::{Alias, Cast, Placeholder},
+    expr::{Alias, Between, Cast, Placeholder},
     BinaryExpr, Expr, Operator,
 };
 use indexmap::IndexSet;
@@ -35,15 +35,69 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             .iter()
             .flat_map(get_column_idents_from_expr)
             .collect(),
+        Expr::Between(Between {
+            expr, low, high, ..
+        }) => {
+            let mut idents = get_column_idents_from_expr(expr);
+            idents.extend(get_column_idents_from_expr(low));
+            idents.extend(get_column_idents_from_expr(high));
+            idents
+        }
         _ => IndexSet::new(),
     }
 }
 
-/// Convert a [`BinaryExpr`] to [`DynProofExpr`]
+/// Apply a binary [`Operator`] to two already-converted [`DynProofExpr`]s.
+///
+/// Scale-casting is performed here for operators that require it, so callers
+/// that already hold `DynProofExpr`s can skip the `Expr` conversion step.
 #[expect(
     clippy::missing_panics_doc,
     reason = "Output of comparisons is always boolean"
 )]
+fn binary_proof_exprs_to_proof_expr(
+    left: DynProofExpr,
+    right: DynProofExpr,
+    op: Operator,
+) -> PlannerResult<DynProofExpr> {
+    let (left, right) = match op {
+        Operator::Eq
+        | Operator::NotEq
+        | Operator::Lt
+        | Operator::Gt
+        | Operator::LtEq
+        | Operator::GtEq
+        | Operator::Plus
+        | Operator::Minus => scale_cast_binary_op(left, right)?,
+        _ => (left, right),
+    };
+
+    match op {
+        Operator::And => Ok(DynProofExpr::try_new_and(left, right)?),
+        Operator::Or => Ok(DynProofExpr::try_new_or(left, right)?),
+        Operator::Multiply => Ok(DynProofExpr::try_new_multiply(left, right)?),
+        Operator::Eq => Ok(DynProofExpr::try_new_equals(left, right)?),
+        Operator::NotEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_equals(
+            left, right,
+        )?)
+        .expect("An equality expression must have a boolean data type...")),
+        Operator::Lt => Ok(DynProofExpr::try_new_inequality(left, right, true)?),
+        Operator::Gt => Ok(DynProofExpr::try_new_inequality(left, right, false)?),
+        Operator::LtEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_inequality(
+            left, right, false,
+        )?)
+        .expect("An inequality expression must have a boolean data type...")),
+        Operator::GtEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_inequality(
+            left, right, true,
+        )?)
+        .expect("An inequality expression must have a boolean data type...")),
+        Operator::Plus => Ok(DynProofExpr::try_new_add(left, right)?),
+        Operator::Minus => Ok(DynProofExpr::try_new_subtract(left, right)?),
+        _ => Err(PlannerError::UnsupportedBinaryOperator { op }),
+    }
+}
+
+/// Convert a [`BinaryExpr`] to [`DynProofExpr`]
 fn binary_expr_to_proof_expr(
     left: &Expr,
     right: &Expr,
@@ -52,74 +106,16 @@ fn binary_expr_to_proof_expr(
 ) -> PlannerResult<DynProofExpr> {
     let left_proof_expr = expr_to_proof_expr(left, schema)?;
     let right_proof_expr = expr_to_proof_expr(right, schema)?;
-
-    let (left_proof_expr, right_proof_expr) = match op {
-        Operator::Eq
-        | Operator::NotEq
-        | Operator::Lt
-        | Operator::Gt
-        | Operator::LtEq
-        | Operator::GtEq
-        | Operator::Plus
-        | Operator::Minus => scale_cast_binary_op(left_proof_expr, right_proof_expr)?,
-        _ => (left_proof_expr, right_proof_expr),
-    };
-
-    match op {
-        Operator::And => Ok(DynProofExpr::try_new_and(
-            left_proof_expr,
-            right_proof_expr,
-        )?),
-        Operator::Or => Ok(DynProofExpr::try_new_or(left_proof_expr, right_proof_expr)?),
-        Operator::Multiply => Ok(DynProofExpr::try_new_multiply(
-            left_proof_expr,
-            right_proof_expr,
-        )?),
-        Operator::Eq => Ok(DynProofExpr::try_new_equals(
-            left_proof_expr,
-            right_proof_expr,
-        )?),
-        Operator::NotEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_equals(
-            left_proof_expr,
-            right_proof_expr,
-        )?)
-        .expect("An equality expression must have a boolean data type...")),
-        Operator::Lt => Ok(DynProofExpr::try_new_inequality(
-            left_proof_expr,
-            right_proof_expr,
-            true,
-        )?),
-        Operator::Gt => Ok(DynProofExpr::try_new_inequality(
-            left_proof_expr,
-            right_proof_expr,
-            false,
-        )?),
-        Operator::LtEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_inequality(
-            left_proof_expr,
-            right_proof_expr,
-            false,
-        )?)
-        .expect("An inequality expression must have a boolean data type...")),
-        Operator::GtEq => Ok(DynProofExpr::try_new_not(DynProofExpr::try_new_inequality(
-            left_proof_expr,
-            right_proof_expr,
-            true,
-        )?)
-        .expect("An inequality expression must have a boolean data type...")),
-        Operator::Plus => Ok(DynProofExpr::try_new_add(
-            left_proof_expr,
-            right_proof_expr,
-        )?),
-        Operator::Minus => Ok(DynProofExpr::try_new_subtract(
-            left_proof_expr,
-            right_proof_expr,
-        )?),
-        // Any other operator is unsupported
-        _ => Err(PlannerError::UnsupportedBinaryOperator { op }),
-    }
+    binary_proof_exprs_to_proof_expr(left_proof_expr, right_proof_expr, op)
 }
 
-/// Convert an [`datafusion::expr::Expr`] to [`DynProofExpr`]
+/// Convert a [`datafusion::logical_expr::Expr`] to [`DynProofExpr`].
+///
+/// `BETWEEN low AND high` is implemented as `NOT(expr < low OR expr > high)`
+/// since the proof layer only exposes strict-inequality primitives.
+/// `NOT BETWEEN` becomes `expr < low OR expr > high`. Both bounds are
+/// scale-cast against `expr` independently so that mixed decimal precisions
+/// are aligned correctly.
 ///
 /// # Panics
 /// The function should not panic if Proof of SQL is working correctly
@@ -163,6 +159,29 @@ pub fn expr_to_proof_expr(
                         )?,
                     )
                 }
+            }
+        }
+        Expr::Between(Between {
+            expr,
+            negated,
+            low,
+            high,
+        }) => {
+            let expr_proof = expr_to_proof_expr(expr, schema)?;
+            let low_proof = expr_to_proof_expr(low, schema)?;
+            let high_proof = expr_to_proof_expr(high, schema)?;
+
+            // expr < low OR expr > high
+            let out_of_range = binary_proof_exprs_to_proof_expr(
+                binary_proof_exprs_to_proof_expr(expr_proof.clone(), low_proof, Operator::Lt)?,
+                binary_proof_exprs_to_proof_expr(expr_proof, high_proof, Operator::Gt)?,
+                Operator::Or,
+            )?;
+
+            if *negated {
+                Ok(out_of_range)
+            } else {
+                Ok(DynProofExpr::try_new_not(out_of_range)?)
             }
         }
         _ => Err(PlannerError::UnsupportedLogicalExpression {
@@ -755,6 +774,73 @@ mod tests {
             expr_to_proof_expr(&expr, &Vec::new()),
             Err(PlannerError::UnsupportedLogicalExpression { .. })
         ));
+    }
+
+    // Between
+    #[test]
+    fn we_can_convert_between_expr_to_proof_expr() {
+        let schema = vec![("column1".into(), ColumnType::BigInt)];
+
+        let col = df_column("namespace.table_name", "column1");
+        let low = Expr::Literal(ScalarValue::Int64(Some(10)));
+        let high = Expr::Literal(ScalarValue::Int64(Some(20)));
+        let expr = col.between(low, high);
+
+        let col_expr = DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column1".into(),
+            ColumnType::BigInt,
+        ));
+        let low_expr = DynProofExpr::new_literal(LiteralValue::BigInt(10));
+        let high_expr = DynProofExpr::new_literal(LiteralValue::BigInt(20));
+
+        let expected = DynProofExpr::try_new_not(
+            DynProofExpr::try_new_or(
+                DynProofExpr::try_new_inequality(col_expr.clone(), low_expr, true).unwrap(),
+                DynProofExpr::try_new_inequality(col_expr, high_expr, false).unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), expected);
+    }
+
+    #[test]
+    fn we_can_convert_not_between_expr_to_proof_expr() {
+        let schema = vec![("column1".into(), ColumnType::BigInt)];
+
+        let col = df_column("namespace.table_name", "column1");
+        let low = Expr::Literal(ScalarValue::Int64(Some(10)));
+        let high = Expr::Literal(ScalarValue::Int64(Some(20)));
+        let expr = col.not_between(low, high);
+
+        let col_expr = DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column1".into(),
+            ColumnType::BigInt,
+        ));
+        let low_expr = DynProofExpr::new_literal(LiteralValue::BigInt(10));
+        let high_expr = DynProofExpr::new_literal(LiteralValue::BigInt(20));
+
+        let expected = DynProofExpr::try_new_or(
+            DynProofExpr::try_new_inequality(col_expr.clone(), low_expr, true).unwrap(),
+            DynProofExpr::try_new_inequality(col_expr, high_expr, false).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), expected);
+    }
+
+    #[test]
+    fn we_can_extract_column_idents_from_between_expr() {
+        let col = df_column("table", "val");
+        let low = Expr::Literal(ScalarValue::Int64(Some(1)));
+        let high = Expr::Literal(ScalarValue::Int64(Some(100)));
+        let expr = col.between(low, high);
+        let result = get_column_idents_from_expr(&expr);
+        let expected: IndexSet<Ident> = ["val".into()].into_iter().collect();
+        assert_eq!(result, expected);
     }
 
     #[test]
