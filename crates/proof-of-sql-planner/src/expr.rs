@@ -129,24 +129,6 @@ fn binary_expr_to_proof_expr(
     }
 }
 
-/// Left-fold `rest` onto `first` with a fallible binary `combine`.
-///
-/// Used to chain the `IN`-list terms: e.g. multiply the `a - v_i` factors, or `OR`
-/// the `a = v_i` equalities. Taking `first` as a separate argument keeps the fold
-/// total — non-emptiness is encoded in the signature, so there is no empty-iterator
-/// panic to guard against.
-fn reduce_terms<E>(
-    first: DynProofExpr,
-    rest: impl Iterator<Item = Result<DynProofExpr, E>>,
-    combine: impl Fn(DynProofExpr, DynProofExpr) -> Result<DynProofExpr, E>,
-) -> Result<DynProofExpr, E> {
-    let mut acc = first;
-    for term in rest {
-        acc = combine(acc, term?)?;
-    }
-    Ok(acc)
-}
-
 /// Convert a `DataFusion` [`Expr`] into a provable [`DynProofExpr`], using `schema`
 /// to resolve column references and their types.
 ///
@@ -201,10 +183,12 @@ pub fn expr_to_proof_expr(
                 Some(((n, v), rest)) if needle.data_type().is_numeric() => {
                     // product form: (a - v_1) * ... * (a - v_k) = 0
                     let first = DynProofExpr::try_new_subtract(n.clone(), v.clone())?;
-                    let rest = rest
+                    let product = rest
                         .iter()
-                        .map(|(n, v)| DynProofExpr::try_new_subtract(n.clone(), v.clone()));
-                    let product = reduce_terms(first, rest, DynProofExpr::try_new_multiply)?;
+                        .map(|(n, v)| DynProofExpr::try_new_subtract(n.clone(), v.clone()))
+                        .try_fold(first, |acc, term| {
+                            DynProofExpr::try_new_multiply(acc, term?)
+                        })?;
                     let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
                     let (product, zero) = scale_cast_binary_op(product, zero)?;
                     DynProofExpr::try_new_equals(product, zero)?
@@ -212,10 +196,9 @@ pub fn expr_to_proof_expr(
                 Some(((n, v), rest)) => {
                     // a = v_1 OR ... OR a = v_k
                     let first = DynProofExpr::try_new_equals(n.clone(), v.clone())?;
-                    let rest = rest
-                        .iter()
-                        .map(|(n, v)| DynProofExpr::try_new_equals(n.clone(), v.clone()));
-                    reduce_terms(first, rest, DynProofExpr::try_new_or)?
+                    rest.iter()
+                        .map(|(n, v)| DynProofExpr::try_new_equals(n.clone(), v.clone()))
+                        .try_fold(first, |acc, term| DynProofExpr::try_new_or(acc, term?))?
                 }
             };
             if *negated {
