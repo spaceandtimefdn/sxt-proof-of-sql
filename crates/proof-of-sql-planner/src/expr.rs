@@ -3,13 +3,16 @@ use super::{
     PlannerError, PlannerResult,
 };
 use datafusion::logical_expr::{
-    expr::{Alias, Cast, Placeholder},
+    expr::{Alias, Cast, InList, Placeholder},
     BinaryExpr, Expr, Operator,
 };
 use indexmap::IndexSet;
 use proof_of_sql::{
-    base::database::ColumnType,
-    sql::{proof_exprs::DynProofExpr, scale_cast_binary_op},
+    base::database::{ColumnType, LiteralValue},
+    sql::{
+        proof_exprs::{DynProofExpr, ProofExpr},
+        scale_cast_binary_op,
+    },
 };
 use sqlparser::ast::Ident;
 
@@ -27,6 +30,13 @@ pub(crate) fn get_column_idents_from_expr(expr: &Expr) -> IndexSet<Ident> {
             left_idents
         }
         Expr::Not(inner) => get_column_idents_from_expr(inner),
+        Expr::InList(InList { expr, list, .. }) => {
+            let mut idents = get_column_idents_from_expr(expr);
+            for value in list {
+                idents.extend(get_column_idents_from_expr(value));
+            }
+            idents
+        }
         Expr::Alias(Alias { expr, .. }) | Expr::Cast(Cast { expr, .. }) => {
             get_column_idents_from_expr(expr)
         }
@@ -119,10 +129,12 @@ fn binary_expr_to_proof_expr(
     }
 }
 
-/// Convert an [`datafusion::expr::Expr`] to [`DynProofExpr`]
+/// Convert a `DataFusion` [`Expr`] into a provable [`DynProofExpr`], using `schema`
+/// to resolve column references and their types.
 ///
-/// # Panics
-/// The function should not panic if Proof of SQL is working correctly
+/// # Errors
+/// Returns a [`PlannerError`] if the expression (or any subexpression) is unsupported,
+/// references an unknown column, or cannot be lowered to a `DynProofExpr`.
 pub fn expr_to_proof_expr(
     expr: &Expr,
     schema: &[(Ident, ColumnType)],
@@ -140,6 +152,60 @@ pub fn expr_to_proof_expr(
         Expr::Not(expr) => {
             let proof_expr = expr_to_proof_expr(expr, schema)?;
             Ok(DynProofExpr::try_new_not(proof_expr)?)
+        }
+        Expr::InList(InList {
+            expr,
+            list,
+            negated,
+        }) => {
+            // Lower `a IN (v_1, ..., v_k)`. The list length is uncapped in both branches.
+            //
+            //   - numeric `a`: use the product form `(a - v_1) * ... * (a - v_k) = 0`.
+            //     A field is an integral domain, so the product is zero iff some factor is.
+            //   - non-numeric `a` (e.g. varchar): the typed `-` operator rejects these, so
+            //     fall back to `a = v_1 OR ... OR a = v_k`. Equality subtracts the embedded
+            //     hashes internally, which is exactly what a membership zero-test needs.
+            let needle = expr_to_proof_expr(expr, schema)?;
+            // Lower each `v_i` once, aligning its type/scale to the needle the same
+            // way `-`/`=` do. Both branches below consume these `(needle, v_i)` pairs.
+            let operands = list
+                .iter()
+                .map(|value| -> PlannerResult<_> {
+                    let value_proof_expr = expr_to_proof_expr(value, schema)?;
+                    Ok(scale_cast_binary_op(needle.clone(), value_proof_expr)?)
+                })
+                .collect::<PlannerResult<Vec<_>>>()?;
+            // Split off the first pair. `None` means `a IN ()`, which is always false;
+            // keeping that here (not an early return) lets the `negated` wrap below
+            // still apply, so `a NOT IN ()` correctly negates to `true`.
+            let comparison = match operands.split_first() {
+                None => DynProofExpr::new_literal(LiteralValue::Boolean(false)),
+                Some(((n, v), rest)) if needle.data_type().is_numeric() => {
+                    // product form: (a - v_1) * ... * (a - v_k) = 0
+                    let first = DynProofExpr::try_new_subtract(n.clone(), v.clone())?;
+                    let product = rest
+                        .iter()
+                        .map(|(n, v)| DynProofExpr::try_new_subtract(n.clone(), v.clone()))
+                        .try_fold(first, |acc, term| {
+                            DynProofExpr::try_new_multiply(acc, term?)
+                        })?;
+                    let zero = DynProofExpr::new_literal(LiteralValue::BigInt(0));
+                    let (product, zero) = scale_cast_binary_op(product, zero)?;
+                    DynProofExpr::try_new_equals(product, zero)?
+                }
+                Some(((n, v), rest)) => {
+                    // a = v_1 OR ... OR a = v_k
+                    let first = DynProofExpr::try_new_equals(n.clone(), v.clone())?;
+                    rest.iter()
+                        .map(|(n, v)| DynProofExpr::try_new_equals(n.clone(), v.clone()))
+                        .try_fold(first, |acc, term| DynProofExpr::try_new_or(acc, term?))?
+                }
+            };
+            if *negated {
+                Ok(DynProofExpr::try_new_not(comparison)?)
+            } else {
+                Ok(comparison)
+            }
         }
         Expr::Cast(cast) => {
             match &*cast.expr {
@@ -180,7 +246,7 @@ mod tests {
     use datafusion::{
         catalog::TableReference,
         common::{Column, ScalarValue},
-        logical_expr::{expr::Placeholder, Cast},
+        logical_expr::{expr::Placeholder, lit, Cast},
     };
     use proof_of_sql::base::{
         database::{ColumnRef, ColumnType, LiteralValue, TableRef},
@@ -272,6 +338,66 @@ mod tests {
         let expr = df_column("namespace.table_name", "column");
         let schema = vec![("column".into(), ColumnType::Int)];
         assert_eq!(expr_to_proof_expr(&expr, &schema).unwrap(), COLUMN_INT());
+    }
+
+    // IN
+    #[test]
+    fn we_can_convert_in_list_to_proof_expr() {
+        // `a IN (...)` lowers to `(product of differences) = 0`, i.e. a top-level equals.
+        let expr = df_column("namespace.table_name", "column")
+            .in_list(vec![lit(1_i64), lit(2_i64), lit(3_i64)], false);
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert!(matches!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::Equals(_)
+        ));
+    }
+
+    #[test]
+    fn we_can_convert_not_in_list_to_proof_expr() {
+        // `NOT IN` wraps the lowered `IN` expression in a `NOT`.
+        let expr = df_column("namespace.table_name", "column").in_list(vec![lit(1_i64)], true);
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert!(matches!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::Not(_)
+        ));
+    }
+
+    #[test]
+    fn we_convert_an_empty_in_list_to_a_false_literal() {
+        // `a IN ()` is always false.
+        let expr = df_column("namespace.table_name", "column").in_list(vec![], false);
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::new_literal(LiteralValue::Boolean(false))
+        );
+    }
+
+    #[test]
+    fn we_convert_an_empty_not_in_list_to_a_true_literal() {
+        // `a NOT IN ()` is always true: the empty-list `false` must still flow
+        // through the `negated` NOT wrap rather than short-circuiting.
+        let expr = df_column("namespace.table_name", "column").in_list(vec![], true);
+        let schema = vec![("column".into(), ColumnType::BigInt)];
+        assert_eq!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::try_new_not(DynProofExpr::new_literal(LiteralValue::Boolean(false)))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn we_convert_a_varchar_in_list_to_an_or_chain() {
+        // `-` rejects varchar, so non-numeric `IN` falls back to `a = v_1 OR a = v_2`.
+        let expr =
+            df_column("namespace.table_name", "column").in_list(vec![lit("a"), lit("b")], false);
+        let schema = vec![("column".into(), ColumnType::VarChar)];
+        assert!(matches!(
+            expr_to_proof_expr(&expr, &schema).unwrap(),
+            DynProofExpr::Or(_)
+        ));
     }
 
     // BinaryExpr
