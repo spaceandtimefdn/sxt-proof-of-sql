@@ -27,7 +27,7 @@ arrow = { version = "51.0.0" }
 bincode = { version = "2.0.0-rc.3", default-features = false }
 bit-iter = { version = "1.1.1" }
 bigdecimal = { version = "0.4.5", default-features = false, features = ["serde"] }
-blitzar = { version = "4.3.0" }
+blitzar = { version = "5.0.1" }
 bnum = { version = "0.3.0" }
 bumpalo = { version = "3.11.0" }
 bytemuck = {version = "1.16.3", features = ["derive"]}
@@ -42,13 +42,13 @@ derive_more = { version = "0.99" }
 enum_dispatch = { version = "0.3.13" }
 getrandom = { version = "0.2.15", default-features = false }
 ff = { version = "0.13.0"}
-halo2curves = { version = "0.8.0", default-features = false }
+halo2curves = { version = "0.9.0", default-features = false }
 hex = { version = "0.4.3" }
 indexmap = { version = "2.8", default-features = false }
 indicatif = { version = "0.17.8", default-features = false }
 itertools = { version = "0.13.0", default-features = false, features = ["use_alloc"] }
 merlin = { version = "2" }
-nova-snark = { version = "0.41.0", default-features = false }
+nova-snark = { version = "0.53.0", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 num-bigint = { version = "0.4.4", default-features = false }
 opentelemetry = { version = "0.23.0" }

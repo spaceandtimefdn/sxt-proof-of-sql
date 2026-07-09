@@ -92,7 +92,9 @@ impl CommitmentEvaluationProof for HyperKZGCommitmentEvaluationProof {
                 let span = span!(Level::DEBUG, "EvaluationEngine::prove").entered();
                 let eval_eng = EvaluationEngine::prove(
                     &nova_ck,
-                    &EvaluationEngine::setup(&nova_ck).0, // This parameter is unused
+                    &EvaluationEngine::setup(&nova_ck)
+                        .expect("HyperKZG setup is infallible")
+                        .0, // This parameter is unused
                     keccak_transcript,
                     &NovaCommitment::default(), // This parameter is unused
                     &nova_a,
@@ -171,8 +173,8 @@ mod tests {
 
     #[test]
     fn we_can_create_small_hyperkzg_evaluation_proofs() {
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 32);
-        let (_, vk) = EvaluationEngine::setup(&ck);
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 32).unwrap();
+        let (_, vk) = EvaluationEngine::setup(&ck).unwrap();
         test_simple_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
             &&vk,
@@ -185,8 +187,8 @@ mod tests {
 
     #[test]
     fn we_can_create_hyperkzg_evaluation_proofs_with_various_lengths() {
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 128);
-        let (_, vk) = EvaluationEngine::setup(&ck);
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 128).unwrap();
+        let (_, vk) = EvaluationEngine::setup(&ck).unwrap();
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             2,
             0,

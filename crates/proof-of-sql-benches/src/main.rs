@@ -440,12 +440,15 @@ fn bench_hyperkzg(cli: &Cli, queries: &[QueryEntry]) {
             Affine::default(),
             G2Affine::default(),
         );
-        let (_, vk) = EvaluationEngine::setup(&ck);
+        let (_, vk) = EvaluationEngine::setup(&ck).expect("HyperKZG setup is infallible");
 
         (prover_setup, vk)
     } else {
-        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", cli.table_size);
-        let (_, vk) = EvaluationEngine::setup(&ck);
+        let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"bench", cli.table_size)
+            .expect(
+                "HyperKZG CommitmentKey setup is infallible if nova-snark/test-utils is enabled",
+            );
+        let (_, vk) = EvaluationEngine::setup(&ck).expect("HyperKZG setup is infallible");
         let prover_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         (prover_setup, vk)
     };

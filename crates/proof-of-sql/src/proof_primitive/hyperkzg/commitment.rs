@@ -248,7 +248,7 @@ mod tests {
     proptest! {
         #[test]
         fn blitzar_and_non_blitzar_commitments_are_equal(owned_column: OwnedColumn<BNScalar>) {
-            let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", owned_column.len());
+            let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", owned_column.len()).unwrap();
 
             let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
 
