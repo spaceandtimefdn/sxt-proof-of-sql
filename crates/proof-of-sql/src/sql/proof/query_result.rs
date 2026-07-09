@@ -69,3 +69,55 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::database::TableCoercionError;
+
+    #[test]
+    fn direct_query_errors_have_expected_display_messages() {
+        assert_eq!(QueryError::Overflow.to_string(), "Overflow error");
+        assert_eq!(QueryError::InvalidString.to_string(), "String decode error");
+        assert_eq!(
+            QueryError::MiscellaneousDecodingError.to_string(),
+            "Miscellaneous decoding error"
+        );
+        assert_eq!(
+            QueryError::MiscellaneousEvaluationError.to_string(),
+            "Miscellaneous evaluation error"
+        );
+        assert_eq!(
+            QueryError::InvalidColumnCount.to_string(),
+            "Invalid number of columns"
+        );
+    }
+
+    #[test]
+    fn table_coercion_errors_map_to_query_errors() {
+        let overflow = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        });
+        assert_eq!(overflow.to_string(), "Overflow error");
+
+        let invalid_type = QueryError::from(TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        });
+        assert_eq!(
+            invalid_type.to_string(),
+            "Result does not match query: type mismatch"
+        );
+
+        let name_mismatch = QueryError::from(TableCoercionError::NameMismatch);
+        assert_eq!(
+            name_mismatch.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+
+        let count_mismatch = QueryError::from(TableCoercionError::ColumnCountMismatch);
+        assert_eq!(
+            count_mismatch.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+}
