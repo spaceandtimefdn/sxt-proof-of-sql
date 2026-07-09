@@ -69,3 +69,51 @@ pub struct QueryData<S: Scalar> {
 
 /// The result of a query -- either an error or a table.
 pub type QueryResult<S> = Result<QueryData<S>, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_convert_column_overflow_to_query_overflow() {
+        let error = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::Overflow,
+        };
+
+        assert!(matches!(QueryError::from(error), QueryError::Overflow));
+    }
+
+    #[test]
+    fn we_can_convert_invalid_type_coercion_to_proof_error() {
+        let error = TableCoercionError::ColumnCoercionError {
+            source: ColumnCoercionError::InvalidTypeCoercion,
+        };
+
+        assert!(matches!(
+            QueryError::from(error),
+            QueryError::ProofError {
+                source: ProofError::InvalidTypeCoercion
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_convert_name_mismatch_to_proof_error() {
+        assert!(matches!(
+            QueryError::from(TableCoercionError::NameMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldNamesMismatch
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_convert_column_count_mismatch_to_proof_error() {
+        assert!(matches!(
+            QueryError::from(TableCoercionError::ColumnCountMismatch),
+            QueryError::ProofError {
+                source: ProofError::FieldCountMismatch
+            }
+        ));
+    }
+}
