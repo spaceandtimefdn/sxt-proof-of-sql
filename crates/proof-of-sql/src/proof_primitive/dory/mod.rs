@@ -39,6 +39,8 @@ mod setup;
 pub use setup::{ProverSetup, VerifierSetup};
 #[cfg(test)]
 mod setup_test;
+#[cfg(test)]
+mod test_setup_cache;
 
 mod state;
 pub(crate) use state::{ProverState, VerifierState};
