@@ -108,3 +108,98 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn column_operation_errors_display_context() {
+        assert_eq!(
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }.to_string(),
+            "Columns have different lengths: 2 != 3"
+        );
+        assert_eq!(
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: "add".to_string(),
+                left_type: ColumnType::Int,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "\"add\"(lhs: Int, rhs: VarChar) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::UnaryOperationInvalidColumnType {
+                operator: "not".to_string(),
+                operand_type: ColumnType::Int,
+            }
+            .to_string(),
+            "\"not\"(operand: Int) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: "too large".to_string(),
+            }
+            .to_string(),
+            "Overflow in integer operation: too large"
+        );
+        assert_eq!(
+            ColumnOperationError::DivisionByZero.to_string(),
+            "Division by zero"
+        );
+        assert_eq!(
+            ColumnOperationError::DecimalConversionError {
+                source: DecimalError::InvalidScale {
+                    scale: "bad".to_string(),
+                },
+            }
+            .to_string(),
+            "Decimal scale is not valid: bad"
+        );
+        assert_eq!(
+            ColumnOperationError::UnionDifferentTypes {
+                correct_type: ColumnType::Boolean,
+                actual_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot union columns of different types: Boolean and Int"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 4, len: 4 }.to_string(),
+            "Index out of bounds: 4 >= 4"
+        );
+    }
+
+    #[test]
+    fn casting_errors_display_column_types() {
+        assert_eq!(
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+            .to_string(),
+            "Cannot fit TINYINT into UINT8 without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::CastingError {
+                left_type: ColumnType::VarChar,
+                right_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot fit VARCHAR into INT without losing data"
+        );
+        assert_eq!(ColumnType::Int128.to_string(), "DECIMAL");
+        assert_eq!(
+            ColumnOperationError::ScaleCastingError {
+                left_type: ColumnType::Int128,
+                right_type: ColumnType::Decimal75(
+                    crate::base::math::decimal::Precision::new(10).unwrap(),
+                    2,
+                ),
+            }
+            .to_string(),
+            "Cannot fit DECIMAL into DECIMAL75(PRECISION: 10, SCALE: 2) without losing data"
+        );
+    }
+}
