@@ -39,3 +39,33 @@ impl ColumnRef {
         &self.column_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_create_column_ref_and_read_its_parts() {
+        let table_ref = TableRef::new("ethereum", "blocks");
+        let column_id = Ident::new("block_number");
+        let column_ref = ColumnRef::new(table_ref.clone(), column_id.clone(), ColumnType::BigInt);
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), column_id);
+        assert_eq!(column_ref.column_type(), &ColumnType::BigInt);
+    }
+
+    #[test]
+    fn we_can_create_column_ref_without_schema() {
+        let table_ref = TableRef::new("", "blocks");
+        let column_ref = ColumnRef::new(
+            table_ref.clone(),
+            Ident::new("is_canonical"),
+            ColumnType::Boolean,
+        );
+
+        assert_eq!(column_ref.table_ref(), table_ref);
+        assert_eq!(column_ref.column_id(), Ident::new("is_canonical"));
+        assert_eq!(column_ref.column_type(), &ColumnType::Boolean);
+    }
+}
