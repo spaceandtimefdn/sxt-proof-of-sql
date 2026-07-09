@@ -11,3 +11,21 @@ pub enum ScalarConversionError {
         error: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_display_scalar_conversion_overflow_errors() {
+        let error = ScalarConversionError::Overflow {
+            error: "value exceeds scalar modulus".to_string(),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Overflow error: value exceeds scalar modulus"
+        );
+    }
+}
