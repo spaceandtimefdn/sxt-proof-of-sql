@@ -16,6 +16,7 @@ use sqlparser::ast::Ident;
 
 /// This function will return an error if:
 /// - The field name cannot be parsed into an [`Identifier`].
+/// - A field is marked nullable, which is not represented in [`Column`] yet.
 /// - The conversion of an Arrow array to a [`Column`] fails.
 pub fn batch_to_columns<'a, S: Scalar + 'a>(
     batch: &'a RecordBatch,
@@ -28,6 +29,11 @@ pub fn batch_to_columns<'a, S: Scalar + 'a>(
         .zip(batch.columns())
         .map(|(field, array)| {
             let identifier: Ident = field.name().as_str().into();
+            if field.is_nullable() {
+                return Err(RecordBatchToColumnsError::NullableFieldNotSupportedYet {
+                    field_name: field.name().clone(),
+                });
+            }
             let column: Column<S> = array.to_column(alloc, &(0..array.len()), None)?;
             Ok((identifier, column))
         })
@@ -96,6 +102,35 @@ impl<C: Commitment> TableCommitment<C> {
                 panic!("RecordBatches cannot have duplicate identifiers")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod batch_to_columns_tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::sync::Arc;
+    use arrow::{
+        array::Int64Array,
+        datatypes::{DataType, Field, Schema},
+    };
+
+    #[test]
+    fn we_reject_nullable_record_batch_fields_when_converting_to_columns() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "nullable_int64",
+            DataType::Int64,
+            true,
+        )]));
+        let batch =
+            RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1, 2, 3]))]).unwrap();
+        let alloc = Bump::new();
+
+        assert!(matches!(
+            batch_to_columns::<TestScalar>(&batch, &alloc),
+            Err(RecordBatchToColumnsError::NullableFieldNotSupportedYet { field_name })
+                if field_name == "nullable_int64"
+        ));
     }
 }
 
