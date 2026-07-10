@@ -807,6 +807,60 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn we_cannot_convert_binary_expr_with_invalid_operand_types() {
+        let boolean_expr = Expr::Literal(ScalarValue::Boolean(Some(true)));
+        let int_expr = Expr::Literal(ScalarValue::Int32(Some(1)));
+
+        for op in [Operator::And, Operator::Or] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(int_expr.clone()),
+                right: Box::new(int_expr.clone()),
+                op,
+            });
+            assert!(matches!(
+                expr_to_proof_expr(&expr, &Vec::new()),
+                Err(PlannerError::AnalyzeError { .. })
+            ));
+        }
+
+        for op in [Operator::Multiply, Operator::Plus, Operator::Minus] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(boolean_expr.clone()),
+                right: Box::new(boolean_expr.clone()),
+                op,
+            });
+            assert!(matches!(
+                expr_to_proof_expr(&expr, &Vec::new()),
+                Err(PlannerError::AnalyzeError { .. })
+            ));
+        }
+
+        for op in [Operator::Eq, Operator::NotEq] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(boolean_expr.clone()),
+                right: Box::new(int_expr.clone()),
+                op,
+            });
+            assert!(matches!(
+                expr_to_proof_expr(&expr, &Vec::new()),
+                Err(PlannerError::AnalyzeError { .. })
+            ));
+        }
+
+        for op in [Operator::Lt, Operator::Gt, Operator::LtEq, Operator::GtEq] {
+            let expr = Expr::BinaryExpr(BinaryExpr {
+                left: Box::new(boolean_expr.clone()),
+                right: Box::new(int_expr.clone()),
+                op,
+            });
+            assert!(matches!(
+                expr_to_proof_expr(&expr, &Vec::new()),
+                Err(PlannerError::AnalyzeError { .. })
+            ));
+        }
+    }
+
     // Literal
     #[test]
     fn we_can_convert_literal_expr_to_proof_expr() {
