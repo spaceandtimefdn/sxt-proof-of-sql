@@ -120,3 +120,39 @@ fn read_digests_from_file(digests_path: &str) -> std::collections::HashMap<Strin
     }
     digests
 }
+
+#[test]
+fn we_can_generate_save_load_and_digest_verifier_setup() {
+    let temp_dir = tempdir().expect("Failed to create a temporary directory");
+    let target = temp_dir.path().to_str().unwrap();
+    let mut rng = ark_std::test_rng();
+    let public_parameters = PublicParameters::test_rand(2, &mut rng);
+
+    super::generate_verifier_setup(&public_parameters, 2, target);
+
+    let verifier_setup_path = format!("{target}/verifier_setup_nu_2.bin");
+    let digests_path = format!("{target}/digests_nu_2.txt");
+    assert!(
+        Path::new(&verifier_setup_path).exists(),
+        "Verifier setup file is missing"
+    );
+    assert!(
+        File::open(&verifier_setup_path)
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len()
+            > 0,
+        "Verifier setup file is empty"
+    );
+    VerifierSetup::load_from_file(Path::new(&verifier_setup_path))
+        .expect("Failed to reload verifier setup");
+
+    let expected_digest = super::compute_sha256(&verifier_setup_path).unwrap();
+    let actual_digests = read_digests_from_file(&digests_path);
+    assert_eq!(
+        actual_digests.get(&verifier_setup_path),
+        Some(&expected_digest),
+        "Digest mismatch for {verifier_setup_path}"
+    );
+}
