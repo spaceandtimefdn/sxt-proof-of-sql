@@ -81,4 +81,42 @@ mod time_unit_tests {
             ));
         }
     }
+
+    #[test]
+    fn we_can_convert_time_units_to_precision_values() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn we_can_display_time_units_with_precision_context() {
+        assert_eq!(
+            PoSQLTimeUnit::Second.to_string(),
+            "seconds (precision: 0)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Millisecond.to_string(),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Microsecond.to_string(),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            PoSQLTimeUnit::Nanosecond.to_string(),
+            "nanoseconds (precision: 9)"
+        );
+    }
+
+    #[test]
+    fn invalid_precision_error_preserves_the_input_value() {
+        let result = PoSQLTimeUnit::try_from("12");
+
+        assert!(matches!(
+            result,
+            Err(PoSQLTimestampError::UnsupportedPrecision { error }) if error == "12"
+        ));
+    }
 }
