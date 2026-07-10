@@ -54,6 +54,8 @@ mod slice_exec_test;
 
 mod union_exec;
 pub(crate) use union_exec::UnionExec;
+#[cfg(test)]
+mod union_exec_no_blitzar_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod union_exec_test;
 
