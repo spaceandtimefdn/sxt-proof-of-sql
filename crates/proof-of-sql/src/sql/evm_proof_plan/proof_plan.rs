@@ -191,3 +191,135 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::*, ColumnField},
+            map::{indexmap, indexset},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            evm_proof_plan::plans::EVMEmptyExec,
+            proof::{
+                mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder,
+                FirstRoundBuilder,
+            },
+            proof_plans::{EmptyExec, TableExec},
+        },
+    };
+    use alloc::collections::VecDeque;
+
+    fn test_table_plan() -> (TableRef, EVMProofPlan) {
+        let table_ref = TableRef::new("namespace", "table");
+        let plan = DynProofPlan::Table(TableExec::new(
+            table_ref.clone(),
+            vec![ColumnField::new("a".into(), ColumnType::BigInt)],
+        ));
+        (table_ref, EVMProofPlan::new(plan))
+    }
+
+    #[test]
+    fn evm_proof_plan_exposes_and_consumes_inner_plan() {
+        let plan = DynProofPlan::Empty(EmptyExec::new());
+        let evm_plan = EVMProofPlan::new(plan.clone());
+
+        assert_eq!(evm_plan.inner(), &plan);
+        assert_eq!(evm_plan.into_inner(), plan);
+    }
+
+    #[test]
+    fn compact_plan_rejects_invalid_table_names() {
+        let compact_plan = CompactPlan {
+            tables: vec!["too.many.parts".to_string()],
+            columns: Vec::new(),
+            output_column_names: Vec::new(),
+            plan: EVMDynProofPlan::Empty(EVMEmptyExec {}),
+        };
+
+        assert_eq!(
+            EVMProofPlan::try_from(compact_plan).unwrap_err(),
+            EVMProofPlanError::InvalidTableName
+        );
+    }
+
+    #[test]
+    fn compact_plan_rejects_columns_with_missing_table_indexes() {
+        let compact_plan = CompactPlan {
+            tables: vec![TableRef::new("namespace", "table").to_string()],
+            columns: vec![(1, "a".to_string(), ColumnType::BigInt)],
+            output_column_names: Vec::new(),
+            plan: EVMDynProofPlan::Empty(EVMEmptyExec {}),
+        };
+
+        assert_eq!(
+            EVMProofPlan::try_from(compact_plan).unwrap_err(),
+            EVMProofPlanError::TableNotFound
+        );
+    }
+
+    #[test]
+    fn evm_proof_plan_delegates_metadata_and_verifier_evaluation() {
+        let (table_ref, evm_plan) = test_table_plan();
+        let column_ref = ColumnRef::new(table_ref.clone(), "a".into(), ColumnType::BigInt);
+
+        assert_eq!(
+            evm_plan.get_column_result_fields(),
+            vec![ColumnField::new("a".into(), ColumnType::BigInt)]
+        );
+        assert_eq!(evm_plan.get_column_references(), indexset! { column_ref });
+        assert_eq!(
+            evm_plan.get_table_references(),
+            indexset! { table_ref.clone() }
+        );
+
+        let accessor = indexmap! {
+            table_ref.clone() => indexmap! {
+                "a".into() => TestScalar::from(7),
+            },
+        };
+        let chi_eval_map = indexmap! {
+            table_ref => (TestScalar::from(11), 2),
+        };
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            Vec::new(),
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let result = evm_plan
+            .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+            .unwrap();
+
+        assert_eq!(result.column_evals(), &[TestScalar::from(7)]);
+        assert_eq!(result.chi(), (TestScalar::from(11), 2));
+    }
+
+    #[test]
+    fn evm_proof_plan_delegates_prover_evaluation_rounds() {
+        let (table_ref, evm_plan) = test_table_plan();
+        let alloc = Bump::new();
+        let input_table = table::<TestScalar>([borrowed_bigint("a", [1_i64, 2], &alloc)]);
+        let table_map = indexmap! {
+            table_ref => input_table.clone(),
+        };
+
+        let mut first_round_builder = FirstRoundBuilder::new(0);
+        let first_round_result = evm_plan
+            .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(first_round_result, input_table);
+
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+        let final_round_result = evm_plan
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+            .unwrap();
+        assert_eq!(final_round_result, input_table);
+    }
+}
