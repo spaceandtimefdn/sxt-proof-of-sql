@@ -148,6 +148,10 @@ impl<S: Scalar> TryFrom<&ArrayRef> for OwnedColumn<S> {
     /// - `Decimal256Array` when converting from `DataType::Decimal256` if precision is less than or equal to 75.
     /// - `StringArray` when converting from `DataType::Utf8`.
     fn try_from(value: &ArrayRef) -> Result<Self, Self::Error> {
+        if value.null_count() > 0 {
+            return Err(OwnedArrowConversionError::NullNotSupportedYet);
+        }
+
         match &value.data_type() {
             // Arrow uses a bit-packed representation for booleans.
             // Hence we need to unpack the bits to get the actual boolean values.

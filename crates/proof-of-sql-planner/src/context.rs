@@ -95,7 +95,7 @@ impl PoSqlTableSource {
                     Field::new(
                         column_field.name().value.as_str(),
                         (&column_field.data_type()).into(),
-                        false,
+                        column_field.is_nullable(),
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -144,14 +144,14 @@ mod tests {
         // Non-empty
         let column_fields = vec![
             ColumnField::new("a".into(), ColumnType::SmallInt),
-            ColumnField::new("b".into(), ColumnType::VarChar),
+            ColumnField::new_nullable("b".into(), ColumnType::VarChar),
         ];
         let table_source = PoSqlTableSource::new(column_fields);
         assert_eq!(
             table_source.schema().all_fields(),
             vec![
                 &Field::new("a", DataType::Int16, false),
-                &Field::new("b", DataType::Utf8, false),
+                &Field::new("b", DataType::Utf8, true),
             ]
         );
         assert_eq!(
