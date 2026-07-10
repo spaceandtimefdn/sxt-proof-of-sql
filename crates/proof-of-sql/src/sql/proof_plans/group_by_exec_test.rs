@@ -31,8 +31,7 @@ fn we_can_prove_aggregation_without_group_by() {
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("sum_c", [101 + 104 + 102 + 103]),
         bigint("__count__", [4]),
@@ -59,8 +58,7 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("a", [1, 2]),
         bigint("sum_c", [101 + 104, 102 + 103]),
@@ -94,8 +92,7 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("a", [1, 2]),
         decimal75("sum_c", 40, 0, [(101 + 104) * 2 + 2, (102 + 103) * 2 + 2]),
@@ -252,8 +249,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
         ),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("sum_int", [1406 + 927 + 637]),
         decimal75("sum_128", 59, 0, [(1342 + 1262 + 513) * 4]),

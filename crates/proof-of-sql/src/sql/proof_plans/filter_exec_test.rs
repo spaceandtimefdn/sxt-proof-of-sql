@@ -81,8 +81,7 @@ fn we_can_correctly_filter_data_with_filter() {
     );
 
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected_res = owned_table([bigint("b", [3_i64, 5])]);
     assert_eq!(res, expected_res);
 }
@@ -121,8 +120,7 @@ fn we_can_correctly_filter_with_complex_condition() {
     );
 
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [4_i64, 5]),
         bigint("b", [2, 3]),
@@ -168,8 +166,7 @@ fn we_can_compose_multiple_filters() {
     );
 
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected_res = owned_table([
         bigint("a", [4_i64, 5]),
         bigint("b", [2, 3]),
@@ -238,8 +235,7 @@ fn we_can_compose_complex_filters() {
         ),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected_res = owned_table([
         decimal75("sum", 11, 0, [15, 19]), // a+b values for rows 3,4
         int("a", [7, 9]),                  // a values for rows 3,4

@@ -47,11 +47,7 @@ fn we_can_prove_a_simple_or_query() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("a", [2_i64, 3]), varchar("d", ["t", "g"])]);
     assert_eq!(res, expected_res);
 }
@@ -82,11 +78,7 @@ fn we_can_prove_a_simple_or_query_with_variable_integer_types() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([int128("a", [2_i64, 3]), varchar("d", ["t", "g"])]);
     assert_eq!(res, expected_res);
 }
@@ -119,11 +111,7 @@ fn we_can_prove_an_or_query_where_both_lhs_and_rhs_are_true() {
         ),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("a", [2_i64, 3, 4]), varchar("d", ["t", "g", "efg"])]);
     assert_eq!(res, expected_res);
 }
@@ -179,11 +167,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
             ),
         );
         let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
-        let res = verifiable_res
-            .verify(&ast, &accessor, &(), &[])
-            .unwrap()
-            .table;
+        let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
 
         // Calculate/compare expected result
         let (expected_a, expected_d): (Vec<_>, Vec<_>) = multizip((

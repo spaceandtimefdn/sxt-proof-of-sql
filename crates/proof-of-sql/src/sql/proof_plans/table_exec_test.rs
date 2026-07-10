@@ -69,11 +69,7 @@ fn we_can_create_and_prove_a_table_exec() {
         (),
     );
     let verifiable_res = VerifiableQueryResult::new(&plan, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
-    let res = verifiable_res
-        .verify(&plan, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &plan, &accessor, &table_ref);
     let expected = owned_table([
         bigint("language_rank", [0, 1, 2, 3]),
         varchar(

@@ -164,11 +164,7 @@ fn we_can_prove_and_get_the_correct_result_from_a_basic_filter() {
     let where_clause = equal(column(&t, "a", &accessor), const_int128(5_i128));
     let ast = legacy_filter(cols_expr_plan(&t, &["b"], &accessor), tab(&t), where_clause);
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
-    let res = verifiable_res
-        .verify(&ast, &accessor, &(), &[])
-        .unwrap()
-        .table;
+    let res = exercise_verification(&verifiable_res, &ast, &accessor, &t);
     let expected_res = owned_table([bigint("b", [3_i64, 5])]);
     assert_eq!(res, expected_res);
 }
@@ -396,8 +392,7 @@ fn we_can_prove_a_filter_with_empty_results() {
         equal(column(&t, "a", &accessor), const_int128(106)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [3; 0]),
         int128("c", [3; 0]),
@@ -435,8 +430,7 @@ fn we_can_prove_a_filter() {
         equal(column(&t, "a", &accessor), const_int128(105)),
     );
     let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
-    let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
+    let res = exercise_verification(&res, &expr, &accessor, &t);
     let expected = owned_table([
         bigint("b", [3, 7]),
         int128("c", [3, 5]),
