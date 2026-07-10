@@ -41,6 +41,20 @@ fn we_can_add_values_to_the_transcript_in_little_endian_form_from_refs() {
 }
 
 #[test]
+fn we_can_add_unsized_byte_slices_to_the_transcript_in_little_endian_form_from_refs() {
+    let chunks: [&[u8]; 3] = [b"alpha".as_slice(), b"", &[0, 1, 2, 255]];
+    let mut transcript1: T = TranscriptCore::new();
+    transcript1.extend_as_le_from_refs(chunks);
+
+    let mut transcript2: T = TranscriptCore::new();
+    transcript2.raw_append(b"alpha");
+    transcript2.raw_append(b"");
+    transcript2.raw_append(&[0, 1, 2, 255]);
+
+    assert_eq!(transcript1.raw_challenge(), transcript2.raw_challenge());
+}
+
+#[test]
 fn we_can_add_scalars_to_the_transcript_in_big_endian_form() {
     let mut transcript1: T = TranscriptCore::new();
     transcript1.extend_scalars_as_be(&[S::from(1), S::from(1000), S::from(2)]);
