@@ -40,3 +40,50 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnCoercionError, OwnedColumnError};
+    use crate::base::database::ColumnType;
+    use alloc::{string::String, string::ToString};
+
+    #[test]
+    fn we_can_display_owned_column_errors() {
+        let type_cast_error = OwnedColumnError::TypeCastError {
+            from_type: ColumnType::VarChar,
+            to_type: ColumnType::Int,
+        };
+        assert_eq!(
+            type_cast_error.to_string(),
+            "Can not perform type casting from VarChar to Int"
+        );
+
+        let scalar_conversion_error = OwnedColumnError::ScalarConversionError {
+            error: String::from("value is out of range"),
+        };
+        assert_eq!(
+            scalar_conversion_error.to_string(),
+            "Error in converting scalars to a given column type: value is out of range"
+        );
+
+        let unsupported_error = OwnedColumnError::Unsupported {
+            error: String::from("VarBinary aggregation"),
+        };
+        assert_eq!(
+            unsupported_error.to_string(),
+            "Unsupported operation: VarBinary aggregation"
+        );
+    }
+
+    #[test]
+    fn we_can_display_column_coercion_errors() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}
