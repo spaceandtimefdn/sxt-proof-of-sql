@@ -116,7 +116,7 @@ jobs:
           key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo test --all-features
+      - run: cargo test --workspace --exclude proof-of-sql-benches --all-features
 
   testnorayon:
     name: Test Suite without rayon (${{ matrix.rust }})
@@ -144,7 +144,7 @@ jobs:
           key: ${{ matrix.rust }}
       - name: Install Dependencies
         run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
-      - run: cargo test --no-default-features --features="arrow blitzar"
+      - run: cargo test --workspace --exclude proof-of-sql-benches --no-default-features --features="arrow blitzar"
 
   testother:
     name: Test Suite other (${{ matrix.rust }})
