@@ -142,3 +142,73 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ParseError, TableRef};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn new_omits_empty_schema_names() {
+        let table_ref = TableRef::new("", "orders");
+
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "orders");
+        assert_eq!(table_ref.to_string(), "orders");
+    }
+
+    #[test]
+    fn from_names_preserves_optional_schema() {
+        let table_ref = TableRef::from_names(Some("sxt"), "orders");
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "sxt");
+        assert_eq!(table_ref.table_id().value, "orders");
+        assert_eq!(table_ref.to_string(), "sxt.orders");
+    }
+
+    #[test]
+    fn try_from_accepts_bare_and_schema_qualified_names() {
+        assert_eq!(
+            TableRef::try_from("orders").unwrap(),
+            TableRef::new("", "orders")
+        );
+        assert_eq!(
+            TableRef::try_from("sxt.orders").unwrap(),
+            TableRef::new("sxt", "orders")
+        );
+    }
+
+    #[test]
+    fn from_strs_rejects_references_with_too_many_components() {
+        let components = vec!["database", "schema", "orders"];
+
+        assert_eq!(
+            TableRef::from_strs(&components),
+            Err(ParseError::InvalidTableReference {
+                table_reference: "database,schema,orders".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn try_from_rejects_dot_separated_references_with_too_many_components() {
+        assert_eq!(
+            TableRef::try_from("database.schema.orders"),
+            Err(ParseError::InvalidTableReference {
+                table_reference: "database.schema.orders".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn serde_round_trips_through_display_form() {
+        let table_ref = TableRef::new("sxt", "orders");
+
+        let serialized = serde_json::to_string(&table_ref).unwrap();
+        assert_eq!(serialized, r#""sxt.orders""#);
+        assert_eq!(
+            serde_json::from_str::<TableRef>(&serialized).unwrap(),
+            table_ref
+        );
+    }
+}

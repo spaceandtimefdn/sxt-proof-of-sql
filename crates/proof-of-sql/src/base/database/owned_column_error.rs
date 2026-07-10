@@ -13,7 +13,7 @@ pub enum OwnedColumnError {
         /// The type to which we are trying to cast.
         to_type: ColumnType,
     },
-    /// Error in converting scalars to a given column type.   
+    /// Error in converting scalars to a given column type.
     #[snafu(display("Error in converting scalars to a given column type: {error}"))]
     ScalarConversionError {
         /// The underlying error
@@ -40,3 +40,50 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnCoercionError, OwnedColumnError};
+    use crate::base::database::ColumnType;
+    use alloc::string::ToString;
+
+    #[test]
+    fn owned_column_errors_render_context() {
+        assert_eq!(
+            OwnedColumnError::TypeCastError {
+                from_type: ColumnType::Scalar,
+                to_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "Can not perform type casting from Scalar to VarChar"
+        );
+
+        assert_eq!(
+            OwnedColumnError::ScalarConversionError {
+                error: "Overflow in scalar conversions".into(),
+            }
+            .to_string(),
+            "Error in converting scalars to a given column type: Overflow in scalar conversions"
+        );
+
+        assert_eq!(
+            OwnedColumnError::Unsupported {
+                error: "Null values are not supported".into(),
+            }
+            .to_string(),
+            "Unsupported operation: Null values are not supported"
+        );
+    }
+
+    #[test]
+    fn column_coercion_errors_render_cause() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}
