@@ -140,18 +140,19 @@ impl DivideAndModuloExpr {
 
 #[cfg(test)]
 mod tests {
-    use super::DivideAndModuloExpr;
+    use super::{DivideAndModuloExpr, DivideAndModuloExprUtilities};
     use crate::{
         base::{
             database::{Column, ColumnRef, ColumnType, Table, TableRef},
             map::indexmap,
             polynomial::MultilinearExtension,
+            proof::{ProofError, ProofSizeMismatch},
             scalar::test_scalar::TestScalar,
         },
         sql::{
             proof::{
-                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-                FirstRoundBuilder,
+                mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+                FinalRoundBuilder, FirstRoundBuilder,
             },
             proof_exprs::{ColumnExpr, DynProofExpr},
         },
@@ -160,18 +161,155 @@ mod tests {
     use sqlparser::ast::Ident;
     use std::collections::VecDeque;
 
-    #[test]
-    fn we_can_verify_simple_expr() {
-        let alloc = Bump::new();
+    struct StubDivideAndModuloUtilities;
+
+    impl DivideAndModuloExprUtilities<TestScalar> for StubDivideAndModuloUtilities {
+        fn divide_columns<'a>(
+            &self,
+            lhs: &Column<'a, TestScalar>,
+            rhs: &Column<'a, TestScalar>,
+            alloc: &'a Bump,
+        ) -> (Column<'a, TestScalar>, &'a [TestScalar]) {
+            assert_eq!(*lhs, Column::Int128(&[10i128, 20]));
+            assert_eq!(*rhs, Column::Int128(&[2i128, 3]));
+            let quotient =
+                alloc.alloc_slice_copy(&[TestScalar::from(5u64), TestScalar::from(6u64)]);
+            (Column::Scalar(quotient), quotient)
+        }
+
+        fn modulo_columns<'a>(
+            &self,
+            lhs: &Column<'a, TestScalar>,
+            rhs: &Column<'a, TestScalar>,
+            alloc: &'a Bump,
+        ) -> Column<'a, TestScalar> {
+            assert_eq!(*lhs, Column::Int128(&[10i128, 20]));
+            assert_eq!(*rhs, Column::Int128(&[2i128, 3]));
+            Column::Scalar(
+                alloc.alloc_slice_copy(&[TestScalar::from(7u64), TestScalar::from(8u64)]),
+            )
+        }
+    }
+
+    fn divide_and_modulo_column_expr() -> (DivideAndModuloExpr, ColumnRef, ColumnRef, Ident, Ident)
+    {
         let table_ref: TableRef = "sxt.t".parse().unwrap();
         let lhs_ident = Ident::from("lhs");
         let rhs_ident = Ident::from("rhs");
         let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
         let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
-        let divide_and_modulo_expr = DivideAndModuloExpr::new(
-            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
-            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+        (
+            DivideAndModuloExpr::new(
+                Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
+                Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+            ),
+            lhs_ref,
+            rhs_ref,
+            lhs_ident,
+            rhs_ident,
+        )
+    }
+
+    #[test]
+    fn final_round_evaluate_base_uses_utilities_and_produces_intermediate_mles() {
+        let alloc = Bump::new();
+        let (divide_and_modulo_expr, _, _, lhs_ident, rhs_ident) = divide_and_modulo_column_expr();
+        let mut final_round_builder = FinalRoundBuilder::new(2, VecDeque::new());
+        let table = Table::try_new(indexmap! {
+            lhs_ident => Column::Int128::<TestScalar>(&[10, 20]),
+            rhs_ident => Column::Int128::<TestScalar>(&[2, 3]),
+        })
+        .unwrap();
+
+        let (quotient, remainder) = divide_and_modulo_expr
+            .final_round_evaluate_base(
+                &mut final_round_builder,
+                &alloc,
+                &table,
+                &StubDivideAndModuloUtilities,
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(
+            quotient,
+            Column::Scalar(&[TestScalar::from(5u64), TestScalar::from(6u64)])
         );
+        assert_eq!(
+            remainder,
+            Column::Scalar(&[TestScalar::from(7u64), TestScalar::from(8u64)])
+        );
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 2);
+    }
+
+    #[test]
+    fn verifier_evaluate_returns_intermediate_evaluations_in_order() {
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, _, _) = divide_and_modulo_column_expr();
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            2,
+            Vec::new(),
+            vec![vec![TestScalar::from(11u64), TestScalar::from(13u64)]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let accessor = indexmap! {
+            lhs_ref.column_id() => TestScalar::from(17u64),
+            rhs_ref.column_id() => TestScalar::from(19u64),
+        };
+
+        let result = divide_and_modulo_expr
+            .verifier_evaluate(
+                &mut verification_builder,
+                &accessor,
+                TestScalar::from(1u64),
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(result, (TestScalar::from(11u64), TestScalar::from(13u64)));
+    }
+
+    #[test]
+    fn verifier_evaluate_errors_when_final_round_evaluations_are_missing() {
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, _, _) = divide_and_modulo_column_expr();
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            2,
+            Vec::new(),
+            vec![vec![TestScalar::from(11u64)]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let accessor = indexmap! {
+            lhs_ref.column_id() => TestScalar::from(17u64),
+            rhs_ref.column_id() => TestScalar::from(19u64),
+        };
+
+        let error = divide_and_modulo_expr
+            .verifier_evaluate(
+                &mut verification_builder,
+                &accessor,
+                TestScalar::from(1u64),
+                &[],
+            )
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_verify_simple_expr() {
+        let alloc = Bump::new();
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, lhs_ident, rhs_ident) =
+            divide_and_modulo_column_expr();
         let lhs = &[i128::MAX, i128::MIN, 2];
         let rhs = &[3i128, 3, -4];
         let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(lhs.len());
