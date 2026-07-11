@@ -93,69 +93,49 @@ fn we_can_create_save_load_and_manually_check_a_small_verifier_setup() {
 }
 
 #[test]
-fn we_can_create_prover_setups_with_various_sizes() {
+fn we_can_create_and_serialize_setups_with_various_sizes() {
     let mut rng = test_rng();
     for nu in 0..5 {
         let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = ProverSetup::from(&pp);
-        assert_eq!(setup.Gamma_1.len(), nu + 1);
-        assert_eq!(setup.Gamma_2.len(), nu + 1);
+        let prover_setup = ProverSetup::from(&pp);
+        assert_eq!(prover_setup.Gamma_1.len(), nu + 1);
+        assert_eq!(prover_setup.Gamma_2.len(), nu + 1);
         for k in 0..=nu {
-            assert_eq!(setup.Gamma_1[k].len(), 1 << k);
-            assert_eq!(setup.Gamma_2[k].len(), 1 << k);
+            assert_eq!(prover_setup.Gamma_1[k].len(), 1 << k);
+            assert_eq!(prover_setup.Gamma_2[k].len(), 1 << k);
         }
-        assert_eq!(setup.max_nu, nu);
-        assert_eq!(setup.H_1, pp.H_1);
-        assert_eq!(setup.H_2, pp.H_2);
-        assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
-    }
-}
+        assert_eq!(prover_setup.max_nu, nu);
+        assert_eq!(prover_setup.H_1, pp.H_1);
+        assert_eq!(prover_setup.H_2, pp.H_2);
+        assert_eq!(prover_setup.Gamma_2_fin, pp.Gamma_2_fin);
 
-#[test]
-fn we_can_create_verifier_setups_with_various_sizes() {
-    let mut rng = test_rng();
-    for nu in 0..5 {
-        let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
-        assert_eq!(setup.Delta_1L.len(), nu + 1);
-        assert_eq!(setup.Delta_1R.len(), nu + 1);
-        assert_eq!(setup.Delta_2L.len(), nu + 1);
-        assert_eq!(setup.Delta_2R.len(), nu + 1);
-        assert_eq!(setup.chi.len(), nu + 1);
+        let verifier_setup = VerifierSetup::from(&pp);
+        assert_eq!(verifier_setup.Delta_1L.len(), nu + 1);
+        assert_eq!(verifier_setup.Delta_1R.len(), nu + 1);
+        assert_eq!(verifier_setup.Delta_2L.len(), nu + 1);
+        assert_eq!(verifier_setup.Delta_2R.len(), nu + 1);
+        assert_eq!(verifier_setup.chi.len(), nu + 1);
         for k in 1..=nu {
-            assert_eq!(setup.Delta_1L[k], setup.Delta_2L[k]);
-            assert_ne!(setup.Delta_1L[k], setup.Delta_1R[k]);
-            assert_ne!(setup.Delta_2L[k], setup.Delta_2R[k]);
-            assert_ne!(setup.Delta_1R[k], setup.Delta_2R[k]);
-            assert_ne!(setup.chi[k], setup.Delta_1L[k]);
-            assert_ne!(setup.chi[k], setup.Delta_2L[k]);
-            assert_ne!(setup.chi[k], setup.Delta_1R[k]);
-            assert_ne!(setup.chi[k], setup.Delta_2R[k]);
+            assert_eq!(verifier_setup.Delta_1L[k], verifier_setup.Delta_2L[k]);
+            assert_ne!(verifier_setup.Delta_1L[k], verifier_setup.Delta_1R[k]);
+            assert_ne!(verifier_setup.Delta_2L[k], verifier_setup.Delta_2R[k]);
+            assert_ne!(verifier_setup.Delta_1R[k], verifier_setup.Delta_2R[k]);
+            assert_ne!(verifier_setup.chi[k], verifier_setup.Delta_1L[k]);
+            assert_ne!(verifier_setup.chi[k], verifier_setup.Delta_2L[k]);
+            assert_ne!(verifier_setup.chi[k], verifier_setup.Delta_1R[k]);
+            assert_ne!(verifier_setup.chi[k], verifier_setup.Delta_2R[k]);
         }
         assert_eq!(
-            setup.chi[0],
-            Pairing::pairing(setup.Gamma_1_0, setup.Gamma_2_0)
+            verifier_setup.chi[0],
+            Pairing::pairing(verifier_setup.Gamma_1_0, verifier_setup.Gamma_2_0)
         );
-        assert_eq!(setup.H_1, pp.H_1);
-        assert_eq!(setup.H_2, pp.H_2);
-        assert_eq!(setup.H_T, Pairing::pairing(pp.H_1, pp.H_2));
-        assert_eq!(setup.Gamma_2_fin, pp.Gamma_2_fin);
-    }
-}
+        assert_eq!(verifier_setup.H_1, pp.H_1);
+        assert_eq!(verifier_setup.H_2, pp.H_2);
+        assert_eq!(verifier_setup.H_T, Pairing::pairing(pp.H_1, pp.H_2));
+        assert_eq!(verifier_setup.Gamma_2_fin, pp.Gamma_2_fin);
 
-// nu size 1 = 3890 bytes
-// nu size 2 = 6770 bytes
-// nu size 3 = 9650 bytes
-// nu size 4 = 12530 bytes
-// nu size 5 = 15410 bytes
-#[test]
-fn we_can_serialize_and_deserialize_verifier_setups() {
-    let mut rng = test_rng();
-    for nu in 0..5 {
-        let pp = PublicParameters::test_rand(nu, &mut rng);
-        let setup = VerifierSetup::from(&pp);
-        let serialized = postcard::to_allocvec(&setup).unwrap();
+        let serialized = postcard::to_allocvec(&verifier_setup).unwrap();
         let deserialized: VerifierSetup = postcard::from_bytes(&serialized).unwrap();
-        assert_eq!(setup, deserialized);
+        assert_eq!(verifier_setup, deserialized);
     }
 }
