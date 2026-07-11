@@ -153,7 +153,11 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -212,6 +216,126 @@ mod tests {
         let column: Column<TestScalar> = Column::Uint8(&[3u8, 5u8, 2u8]);
         let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
         assert_eq!(result.as_uint8().unwrap(), &[3u8, 3u8, 5u8, 5u8, 2u8, 2u8]);
+    }
+
+    #[test]
+    fn test_column_repetition_op_for_remaining_scalar_numeric_and_time_types() {
+        let bump = Bump::new();
+        let precision = Precision::new(9).unwrap();
+        let timezone = PoSQLTimeZone::new(3600);
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-3, 5]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 3);
+        assert_eq!(result, Column::TinyInt(&[-3, 5, -3, 5, -3, 5]));
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-300, 500]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::SmallInt(&[-300, 500, -300, 500]));
+
+        let column: Column<TestScalar> = Column::BigInt(&[-3_000, 5_000]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::BigInt(&[-3_000, 5_000, -3_000, 5_000]));
+
+        let column: Column<TestScalar> = Column::Int128(&[-30_000, 50_000]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::Int128(&[-30_000, 50_000, -30_000, 50_000]));
+
+        let scalar_values = [TestScalar::from(3u64), TestScalar::from(5u64)];
+        let expected_scalar_values = [
+            TestScalar::from(3u64),
+            TestScalar::from(5u64),
+            TestScalar::from(3u64),
+            TestScalar::from(5u64),
+        ];
+        let column: Column<TestScalar> = Column::Scalar(&scalar_values);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::Scalar(&expected_scalar_values));
+
+        let decimal_values = [TestScalar::from(11i64), TestScalar::from(-22i64)];
+        let expected_decimal_values = [
+            TestScalar::from(11i64),
+            TestScalar::from(-22i64),
+            TestScalar::from(11i64),
+            TestScalar::from(-22i64),
+        ];
+        let column: Column<TestScalar> = Column::Decimal75(precision, -2, &decimal_values);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::Decimal75(precision, -2, &expected_decimal_values)
+        );
+
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Microsecond, timezone, &[1_000, 2_000]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                timezone,
+                &[1_000, 2_000, 1_000, 2_000]
+            )
+        );
+    }
+
+    #[test]
+    fn test_elementwise_repetition_op_for_remaining_scalar_numeric_and_time_types() {
+        let bump = Bump::new();
+        let precision = Precision::new(9).unwrap();
+        let timezone = PoSQLTimeZone::new(-3600);
+
+        let column: Column<TestScalar> = Column::TinyInt(&[-3, 5]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 3);
+        assert_eq!(result, Column::TinyInt(&[-3, -3, -3, 5, 5, 5]));
+
+        let column: Column<TestScalar> = Column::SmallInt(&[-300, 500]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::SmallInt(&[-300, -300, 500, 500]));
+
+        let column: Column<TestScalar> = Column::BigInt(&[-3_000, 5_000]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::BigInt(&[-3_000, -3_000, 5_000, 5_000]));
+
+        let column: Column<TestScalar> = Column::Int128(&[-30_000, 50_000]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::Int128(&[-30_000, -30_000, 50_000, 50_000]));
+
+        let scalar_values = [TestScalar::from(3u64), TestScalar::from(5u64)];
+        let expected_scalar_values = [
+            TestScalar::from(3u64),
+            TestScalar::from(3u64),
+            TestScalar::from(5u64),
+            TestScalar::from(5u64),
+        ];
+        let column: Column<TestScalar> = Column::Scalar(&scalar_values);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(result, Column::Scalar(&expected_scalar_values));
+
+        let decimal_values = [TestScalar::from(11i64), TestScalar::from(-22i64)];
+        let expected_decimal_values = [
+            TestScalar::from(11i64),
+            TestScalar::from(11i64),
+            TestScalar::from(-22i64),
+            TestScalar::from(-22i64),
+        ];
+        let column: Column<TestScalar> = Column::Decimal75(precision, -2, &decimal_values);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::Decimal75(precision, -2, &expected_decimal_values)
+        );
+
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(PoSQLTimeUnit::Microsecond, timezone, &[1_000, 2_000]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Microsecond,
+                timezone,
+                &[1_000, 1_000, 2_000, 2_000]
+            )
+        );
     }
 
     #[test]
