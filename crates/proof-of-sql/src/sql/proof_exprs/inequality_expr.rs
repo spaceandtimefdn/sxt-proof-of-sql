@@ -158,3 +158,73 @@ impl ProofExpr for InequalityExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(0),
+        )))
+    }
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(false),
+        )))
+    }
+
+    #[test]
+    fn try_new_numeric_lt_succeeds() {
+        assert!(InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).is_ok());
+    }
+
+    #[test]
+    fn try_new_numeric_gt_succeeds() {
+        assert!(InequalityExpr::try_new(bigint_literal(), bigint_literal(), false).is_ok());
+    }
+
+    #[test]
+    fn try_new_mismatched_types_fails() {
+        let result = InequalityExpr::try_new(bigint_literal(), bool_literal(), true);
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn lhs_rhs_accessors_preserved() {
+        let expr = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+        assert_eq!(expr.rhs().data_type(), ColumnType::BigInt);
+    }
+
+    #[test]
+    fn is_lt_flag_distinguishes_lt_from_gt() {
+        let lt = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        let gt = InequalityExpr::try_new(bigint_literal(), bigint_literal(), false).unwrap();
+        assert_ne!(lt, gt);
+    }
+
+    #[test]
+    fn equal_exprs_compare_equal() {
+        let a = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        let b = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = InequalityExpr::try_new(bigint_literal(), bigint_literal(), true).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
