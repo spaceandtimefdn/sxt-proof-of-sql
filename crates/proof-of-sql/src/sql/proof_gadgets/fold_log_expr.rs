@@ -88,7 +88,9 @@ impl<S: Scalar> FoldLogExpr<S> {
 mod tests {
     use super::*;
     use crate::{
-        base::{database::Column, scalar::test_scalar::TestScalar},
+        base::{
+            database::Column, proof::ProofSizeMismatch, scalar::test_scalar::TestScalar,
+        },
         sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
     };
     use alloc::{collections::VecDeque, vec, vec::Vec};
@@ -188,5 +190,34 @@ mod tests {
             verification_builder.get_identity_results(),
             vec![vec![true], vec![true], vec![true], vec![true]]
         );
+    }
+
+    #[test]
+    fn verify_evaluate_reports_missing_final_round_mle() {
+        let expr = FoldLogExpr::new(TestScalar::from(2), TestScalar::from(3));
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            vec![Vec::new()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let error = expr
+            .verify_evaluate(
+                &mut verification_builder,
+                &[TestScalar::from(1), TestScalar::from(10)],
+                TestScalar::one(),
+            )
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
     }
 }
