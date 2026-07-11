@@ -184,3 +184,111 @@ impl DynProofPlan {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnField, ColumnType, TableRef},
+        sql::proof::ProofPlan,
+    };
+    use sqlparser::ast::Ident;
+
+    fn bigint_field(name: &str) -> ColumnField {
+        ColumnField::new(Ident::new(name), ColumnType::BigInt)
+    }
+
+    fn table_ref() -> TableRef {
+        "namespace.table".parse().unwrap()
+    }
+
+    // ── Constructors ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn new_empty_returns_empty_variant() {
+        let plan = DynProofPlan::new_empty();
+        assert!(matches!(plan, DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn new_table_returns_table_variant() {
+        let schema = vec![bigint_field("a"), bigint_field("b")];
+        let plan = DynProofPlan::new_table(table_ref(), schema);
+        assert!(matches!(plan, DynProofPlan::Table(_)));
+    }
+
+    #[test]
+    fn new_slice_returns_slice_variant() {
+        let input = DynProofPlan::new_empty();
+        let plan = DynProofPlan::new_slice(input, 10, Some(5));
+        assert!(matches!(plan, DynProofPlan::Slice(_)));
+    }
+
+    #[test]
+    fn new_slice_no_fetch_returns_slice_variant() {
+        let input = DynProofPlan::new_empty();
+        let plan = DynProofPlan::new_slice(input, 0, None);
+        assert!(matches!(plan, DynProofPlan::Slice(_)));
+    }
+
+    #[test]
+    fn new_projection_returns_projection_variant() {
+        let input = DynProofPlan::new_empty();
+        let plan = DynProofPlan::new_projection(vec![], input);
+        assert!(matches!(plan, DynProofPlan::Projection(_)));
+    }
+
+    #[test]
+    fn table_plan_schema_roundtrip() {
+        let schema = vec![bigint_field("x"), bigint_field("y")];
+        let plan = DynProofPlan::new_table(table_ref(), schema);
+        // column_fields() from ProofPlan trait should return the schema we set
+        let fields = plan.get_column_result_fields();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].name(), &Ident::new("x"));
+        assert_eq!(fields[1].name(), &Ident::new("y"));
+    }
+
+    // ── get_table_references / get_column_references ──────────────────────────
+
+    #[test]
+    fn empty_plan_has_no_table_references() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn empty_plan_has_no_column_references() {
+        let plan = DynProofPlan::new_empty();
+        assert!(plan.get_column_references().is_empty());
+    }
+
+    #[test]
+    fn table_plan_returns_its_table_reference() {
+        let schema = vec![bigint_field("x")];
+        let tref = table_ref();
+        let plan = DynProofPlan::new_table(tref.clone(), schema);
+        let refs = plan.get_table_references();
+        assert!(refs.contains(&tref));
+    }
+
+    // ── PartialEq / Clone ────────────────────────────────────────────────────
+
+    #[test]
+    fn two_empty_plans_are_equal() {
+        assert_eq!(DynProofPlan::new_empty(), DynProofPlan::new_empty());
+    }
+
+    #[test]
+    fn empty_and_table_plans_are_not_equal() {
+        let table = DynProofPlan::new_table(table_ref(), vec![]);
+        let empty = DynProofPlan::new_empty();
+        assert_ne!(table, empty);
+    }
+
+    #[test]
+    fn clone_of_empty_plan_equals_original() {
+        let plan = DynProofPlan::new_empty();
+        assert_eq!(plan.clone(), plan);
+    }
+}
