@@ -151,6 +151,14 @@ impl ProofExpr for PlaceholderExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        base::{
+            database::table_utility::{borrowed_bigint, table},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+    };
+    use alloc::collections::VecDeque;
     // new
     #[test]
     fn we_cannot_create_a_placeholder_with_zero_id() {
@@ -204,5 +212,72 @@ mod tests {
         let params = vec![LiteralValue::Boolean(true)];
         let res = placeholder_expr.interpolate(&params);
         assert_eq!(res.unwrap(), &LiteralValue::Boolean(true));
+    }
+
+    #[test]
+    fn we_can_first_round_evaluate_placeholder_as_repeated_column() {
+        let alloc = Bump::new();
+        let table = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+        let placeholder = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(7)];
+
+        let res = placeholder
+            .first_round_evaluate::<TestScalar>(&alloc, &table, &params)
+            .unwrap();
+
+        assert_eq!(res, Column::BigInt(&[7, 7, 7]));
+    }
+
+    #[test]
+    fn we_can_final_round_evaluate_placeholder_as_repeated_column() {
+        let alloc = Bump::new();
+        let table = table([borrowed_bigint("a", [1_i64, 2, 3], &alloc)]);
+        let placeholder = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(11)];
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(2, VecDeque::new());
+
+        let res = placeholder
+            .final_round_evaluate(&mut builder, &alloc, &table, &params)
+            .unwrap();
+
+        assert_eq!(res, Column::BigInt(&[11, 11, 11]));
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+        assert!(builder.pcs_proof_mles().is_empty());
+    }
+
+    #[test]
+    fn we_can_verifier_evaluate_placeholder_with_chi_scaling() {
+        let placeholder = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let params = [LiteralValue::BigInt(7)];
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![],
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let res = placeholder
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                TestScalar::from(3_i64),
+                &params,
+            )
+            .unwrap();
+
+        assert_eq!(res, TestScalar::from(21_i64));
+    }
+
+    #[test]
+    fn placeholder_expr_does_not_add_column_references() {
+        let placeholder = PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap();
+        let mut columns = IndexSet::default();
+
+        placeholder.get_column_references(&mut columns);
+
+        assert!(columns.is_empty());
     }
 }
