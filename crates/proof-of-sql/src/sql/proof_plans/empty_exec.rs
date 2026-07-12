@@ -104,3 +104,63 @@ impl ProverEvaluate for EmptyExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::scalar::test_scalar::TestScalar,
+        sql::proof::{ProofPlan, ProverEvaluate},
+    };
+    use alloc::collections::VecDeque;
+
+    #[test]
+    fn we_can_create_default_empty_exec_with_no_references() {
+        let plan = EmptyExec::default();
+
+        assert_eq!(plan, EmptyExec::new());
+        assert!(plan.get_column_result_fields().is_empty());
+        assert!(plan.get_column_references().is_empty());
+        assert!(plan.get_table_references().is_empty());
+    }
+
+    #[test]
+    fn empty_exec_first_round_returns_single_empty_row_without_builder_outputs() {
+        let plan = EmptyExec::new();
+        let alloc = Bump::new();
+        let table_map = IndexMap::<TableRef, Table<'_, TestScalar>>::default();
+        let mut builder = FirstRoundBuilder::<TestScalar>::new(1);
+
+        let result = plan
+            .first_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert!(result.is_empty());
+        assert_eq!(result.num_columns(), 0);
+        assert_eq!(result.num_rows(), 1);
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert!(builder.chi_evaluation_lengths().is_empty());
+        assert!(builder.rho_evaluation_lengths().is_empty());
+    }
+
+    #[test]
+    fn empty_exec_final_round_returns_single_empty_row_without_builder_outputs() {
+        let plan = EmptyExec::new();
+        let alloc = Bump::new();
+        let table_map = IndexMap::<TableRef, Table<'_, TestScalar>>::default();
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(1, VecDeque::new());
+
+        let result = plan
+            .final_round_evaluate(&mut builder, &alloc, &table_map, &[])
+            .unwrap();
+
+        assert!(result.is_empty());
+        assert_eq!(result.num_columns(), 0);
+        assert_eq!(result.num_rows(), 1);
+        assert_eq!(builder.num_sumcheck_variables(), 1);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert!(builder.bit_distributions().is_empty());
+        assert!(builder.sumcheck_subpolynomials().is_empty());
+    }
+}
