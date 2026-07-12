@@ -20,6 +20,9 @@ use std::{
     io::{stdout, Write},
     time::Instant,
 };
+
+const DORY_SETUP_MAX_NU: usize = 3;
+
 /// # Panics
 ///
 /// Will panic if flushing the output fails, which can happen due to issues with the underlying output stream.
@@ -45,7 +48,7 @@ fn main() {
     let timer = start_timer("Loading data");
     // Use a fixed seed for deterministic results
     let mut rng = StdRng::from_seed([0u8; 32]);
-    let public_parameters = PublicParameters::rand(5, &mut rng);
+    let public_parameters = PublicParameters::rand(DORY_SETUP_MAX_NU, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     let mut accessor =
