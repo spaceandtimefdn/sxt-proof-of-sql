@@ -707,6 +707,13 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Values in point cannot be 1.")]
+    fn we_cannot_compute_dynamic_vecs_from_point_with_one() {
+        let point = vec![DoryScalar::from(1)];
+        compute_dynamic_vecs(&point);
+    }
+
+    #[test]
     fn we_can_compute_dynamic_vecs_that_matches_evaluation_vec() {
         use ark_std::UniformRand;
         let mut rng = ark_std::test_rng();
