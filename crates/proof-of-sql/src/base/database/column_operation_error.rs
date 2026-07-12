@@ -108,3 +108,89 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::Precision;
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn column_operation_errors_render_their_context() {
+        let cases = vec![
+            (
+                ColumnOperationError::DifferentColumnLength { len_a: 3, len_b: 2 },
+                "Columns have different lengths: 3 != 2",
+            ),
+            (
+                ColumnOperationError::BinaryOperationInvalidColumnType {
+                    operator: "ADD".to_string(),
+                    left_type: ColumnType::Int,
+                    right_type: ColumnType::VarChar,
+                },
+                "\"ADD\"(lhs: Int, rhs: VarChar) is not supported",
+            ),
+            (
+                ColumnOperationError::UnaryOperationInvalidColumnType {
+                    operator: "NOT".to_string(),
+                    operand_type: ColumnType::BigInt,
+                },
+                "\"NOT\"(operand: BigInt) is not supported",
+            ),
+            (
+                ColumnOperationError::IntegerOverflow {
+                    error: "checked add failed".to_string(),
+                },
+                "Overflow in integer operation: checked add failed",
+            ),
+            (ColumnOperationError::DivisionByZero, "Division by zero"),
+            (
+                ColumnOperationError::UnionDifferentTypes {
+                    correct_type: ColumnType::SmallInt,
+                    actual_type: ColumnType::Boolean,
+                },
+                "Cannot union columns of different types: SmallInt and Boolean",
+            ),
+            (
+                ColumnOperationError::IndexOutOfBounds { index: 5, len: 4 },
+                "Index out of bounds: 5 >= 4",
+            ),
+            (
+                ColumnOperationError::SignedCastingError {
+                    left_type: ColumnType::TinyInt,
+                    right_type: ColumnType::Uint8,
+                },
+                "Cannot fit TINYINT into UINT8 without losing data",
+            ),
+            (
+                ColumnOperationError::CastingError {
+                    left_type: ColumnType::BigInt,
+                    right_type: ColumnType::SmallInt,
+                },
+                "Cannot fit BIGINT into SMALLINT without losing data",
+            ),
+            (
+                ColumnOperationError::ScaleCastingError {
+                    left_type: ColumnType::Decimal75(Precision::new(5).unwrap(), 2),
+                    right_type: ColumnType::Decimal75(Precision::new(4).unwrap(), 3),
+                },
+                "Cannot fit DECIMAL75(PRECISION: 5, SCALE: 2) into DECIMAL75(PRECISION: 4, SCALE: 3) without losing data",
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn decimal_conversion_error_is_transparent() {
+        let error = ColumnOperationError::DecimalConversionError {
+            source: DecimalError::InvalidPrecision {
+                error: "76".to_string(),
+            },
+        };
+
+        assert_eq!(error.to_string(), "Decimal precision is not valid: 76");
+    }
+}
