@@ -304,9 +304,14 @@ jobs:
         run: solidity/scripts/check_coverage.sh
       - name: Check fmt
         run: solidity/scripts/pre_forge.sh fmt --check
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: solhint-npm-${{ runner.os }}
       - name: Run solhint
         run: |
-          npm install -g solhint
+          npm install -g solhint --prefer-offline --no-audit --no-fund
           cd solidity
           solhint '**/*.sol' -w 0
           cd ..
