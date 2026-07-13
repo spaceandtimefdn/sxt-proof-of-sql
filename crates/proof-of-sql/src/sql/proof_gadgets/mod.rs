@@ -3,6 +3,8 @@
 mod divide_and_modulo_expr;
 mod filter_base;
 pub(crate) use filter_base::{final_round_evaluate_filter, verify_evaluate_filter};
+#[cfg(test)]
+mod filter_base_test;
 pub(crate) mod fold_log_expr;
 mod membership_check;
 mod monotonic;
