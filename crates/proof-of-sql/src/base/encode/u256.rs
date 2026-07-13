@@ -35,3 +35,38 @@ impl<T: MontConfig<4>> From<&U256> for MontScalar<T> {
         MontScalar::<T>::from_le_bytes_mod_order(&bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::U256;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    fn assert_u256_eq(actual: U256, expected: U256) {
+        assert_eq!(actual.low, expected.low);
+        assert_eq!(actual.high, expected.high);
+    }
+
+    #[test]
+    fn from_words_preserves_low_and_high_halves() {
+        let value = U256::from_words(
+            0x0123_4567_89ab_cdef_fedc_ba98_7654_3210,
+            0x1111_2222_3333_4444_5555_6666_7777_8888,
+        );
+
+        assert_eq!(value.low, 0x0123_4567_89ab_cdef_fedc_ba98_7654_3210);
+        assert_eq!(value.high, 0x1111_2222_3333_4444_5555_6666_7777_8888);
+    }
+
+    #[test]
+    fn scalar_round_trip_preserves_u256_word_order() {
+        let value = U256::from_words(
+            0x0123_4567_89ab_cdef_fedc_ba98_7654_3210,
+            0x0000_0000_0000_0007_0123_4567_89ab_cdef,
+        );
+
+        let scalar: TestScalar = (&value).into();
+        let round_tripped = U256::from(&scalar);
+
+        assert_u256_eq(round_tripped, value);
+    }
+}
