@@ -226,6 +226,16 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
+
+    fn values_with_offset<T: Copy + Into<TestScalar>>(values: &[T]) -> Vec<TestScalar> {
+        core::iter::once(TestScalar::ZERO)
+            .chain(values.iter().copied().map(Into::into))
+            .collect()
+    }
 
     #[test]
     fn we_get_different_transcript_bytes_from_different_naive_commitments() {
@@ -234,6 +244,51 @@ mod tests {
         assert_ne!(
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
+        );
+    }
+
+    #[test]
+    fn we_can_compute_commitments_from_all_numeric_committable_variants() {
+        let bools = [true, false, true];
+        let uint8s = [1_u8, 2, 3];
+        let tinyints = [-1_i8, 0, 1];
+        let smallints = [-10_i16, 0, 10];
+        let ints = [-100_i32, 0, 100];
+        let int128s = [-1_000_i128, 0, 1_000];
+        let decimals = vec![[1_u64, 0, 0, 0], [2, 0, 0, 0], [3, 0, 0, 0]];
+        let timestamps = [-1_700_000_000_i64, 0, 1_700_000_000];
+
+        let commitments = NaiveCommitment::compute_commitments(
+            &[
+                CommittableColumn::Boolean(&bools),
+                CommittableColumn::Uint8(&uint8s),
+                CommittableColumn::TinyInt(&tinyints),
+                CommittableColumn::SmallInt(&smallints),
+                CommittableColumn::Int(&ints),
+                CommittableColumn::Int128(&int128s),
+                CommittableColumn::Decimal75(Precision::new(10).unwrap(), 2, decimals.clone()),
+                CommittableColumn::TimestampTZ(
+                    PoSQLTimeUnit::Second,
+                    PoSQLTimeZone::utc(),
+                    &timestamps,
+                ),
+            ],
+            1,
+            &(),
+        );
+
+        assert_eq!(
+            commitments,
+            vec![
+                NaiveCommitment(values_with_offset(&bools)),
+                NaiveCommitment(values_with_offset(&uint8s)),
+                NaiveCommitment(values_with_offset(&tinyints)),
+                NaiveCommitment(values_with_offset(&smallints)),
+                NaiveCommitment(values_with_offset(&ints)),
+                NaiveCommitment(values_with_offset(&int128s)),
+                NaiveCommitment(values_with_offset(&decimals)),
+                NaiveCommitment(values_with_offset(&timestamps)),
+            ]
         );
     }
 }
