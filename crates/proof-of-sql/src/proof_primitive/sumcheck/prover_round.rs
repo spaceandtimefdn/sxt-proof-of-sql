@@ -124,3 +124,19 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::in_place_fix_variable;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn fix_variable_updates_each_pair_in_place() {
+        let mut multiplicand = [2, 6, 10, 18].map(TestScalar::from);
+
+        in_place_fix_variable(&mut multiplicand, TestScalar::from(3), 1);
+
+        assert_eq!(multiplicand[0], TestScalar::from(14));
+        assert_eq!(multiplicand[1], TestScalar::from(34));
+    }
+}
