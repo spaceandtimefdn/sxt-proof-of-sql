@@ -99,3 +99,36 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
     );
 }
+
+#[test]
+fn u256_zigzag_values_decode_back_to_scalars() {
+    let zero: TestScalar = U256::from_words(0, 0).zigzag();
+    assert_eq!(zero, TestScalar::from(0_u64));
+
+    let positive_one: TestScalar = U256::from_words(2, 0).zigzag();
+    assert_eq!(positive_one, TestScalar::from(1_u64));
+
+    let positive_large: TestScalar = U256::from_words(0, 1).zigzag();
+    assert_eq!(
+        positive_large,
+        (&U256::from_words(0x8000_0000_0000_0000_0000_0000_0000_0000, 0)).into()
+    );
+
+    let negative_one: TestScalar = U256::from_words(1, 0).zigzag();
+    assert_eq!(negative_one, -TestScalar::from(1_u64));
+
+    let negative_with_low_carry: TestScalar =
+        U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff, 1).zigzag();
+    let expected_magnitude: TestScalar = (&U256::from_words(0, 1)).into();
+    assert_eq!(negative_with_low_carry, -expected_magnitude);
+
+    for value in 1..1000_u128 {
+        let positive = TestScalar::from(value);
+        let positive_roundtrip: TestScalar = positive.zigzag().zigzag();
+        assert_eq!(positive_roundtrip, positive);
+
+        let negative = -TestScalar::from(value);
+        let negative_roundtrip: TestScalar = negative.zigzag().zigzag();
+        assert_eq!(negative_roundtrip, negative);
+    }
+}
