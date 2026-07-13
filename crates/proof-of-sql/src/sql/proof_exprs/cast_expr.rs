@@ -99,3 +99,88 @@ impl ProofExpr for CastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::*, TableRef},
+            map::{indexmap, indexset},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_exprs::ColumnExpr,
+        },
+    };
+    use alloc::{boxed::Box, collections::VecDeque};
+
+    #[test]
+    fn try_new_reports_cast_type_mismatch() {
+        let err = CastExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+            ColumnType::Boolean,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: "BIGINT".into(),
+                right_type: "BOOLEAN".into()
+            }
+        );
+    }
+
+    #[test]
+    fn cast_expr_casts_columns_and_forwards_verifier_evaluation() {
+        let alloc = Bump::new();
+        let table = table::<TestScalar>([borrowed_uint8("a", [1_u8, 2, 255], &alloc)]);
+        let table_ref = TableRef::new("sxt", "t");
+        let column_ref = ColumnRef::new(table_ref, "a".into(), ColumnType::Uint8);
+        let cast_expr = CastExpr::try_new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(column_ref.clone()))),
+            ColumnType::BigInt,
+        )
+        .unwrap();
+
+        assert_eq!(cast_expr.get_from_expr().data_type(), ColumnType::Uint8);
+        assert_eq!(cast_expr.to_type(), &ColumnType::BigInt);
+        assert_eq!(cast_expr.data_type(), ColumnType::BigInt);
+        assert_eq!(
+            cast_expr.first_round_evaluate(&alloc, &table, &[]).unwrap(),
+            Column::BigInt(&[1_i64, 2, 255])
+        );
+
+        let mut builder = FinalRoundBuilder::new(3, VecDeque::new());
+        assert_eq!(
+            cast_expr
+                .final_round_evaluate(&mut builder, &alloc, &table, &[])
+                .unwrap(),
+            Column::BigInt(&[1_i64, 2, 255])
+        );
+
+        let mut verifier = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let expected_eval = TestScalar::from(42);
+        let accessor = indexmap! { column_ref.column_id() => expected_eval };
+        assert_eq!(
+            cast_expr
+                .verifier_evaluate(&mut verifier, &accessor, TestScalar::from(3), &[])
+                .unwrap(),
+            expected_eval
+        );
+
+        let mut columns = IndexSet::default();
+        cast_expr.get_column_references(&mut columns);
+        assert_eq!(columns, indexset! { column_ref });
+    }
+}
