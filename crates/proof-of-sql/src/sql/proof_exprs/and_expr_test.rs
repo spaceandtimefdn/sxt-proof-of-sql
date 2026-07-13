@@ -5,7 +5,7 @@ use crate::{
             owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
-        map::indexmap,
+        map::{indexmap, IndexSet},
         polynomial::MultilinearExtension,
         scalar::{test_scalar::TestScalar, Scalar},
     },
@@ -196,6 +196,24 @@ fn we_can_query_random_tables_using_a_zero_offset() {
 #[test]
 fn we_can_query_random_tables_using_a_non_zero_offset() {
     test_random_tables_with_given_offset(123);
+}
+
+#[test]
+fn we_can_inspect_and_expr_operands_and_column_references() {
+    let t: TableRef = "sxt.t".parse().unwrap();
+    let lhs_ref = ColumnRef::new(t.clone(), Ident::from("lhs"), ColumnType::Boolean);
+    let rhs_ref = ColumnRef::new(t, Ident::from("rhs"), ColumnType::Boolean);
+    let lhs = DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()));
+    let rhs = DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()));
+
+    let and_expr = AndExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap();
+
+    assert_eq!(and_expr.lhs(), &lhs);
+    assert_eq!(and_expr.rhs(), &rhs);
+
+    let mut referenced_columns = IndexSet::default();
+    and_expr.get_column_references(&mut referenced_columns);
+    assert_eq!(referenced_columns, IndexSet::from_iter([lhs_ref, rhs_ref]));
 }
 
 #[test]
