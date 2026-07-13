@@ -662,8 +662,9 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::{
-        cast_bool_column_to_signed_int_column, cast_column, cast_int_slice_to_int_column,
-        divide_columns, divide_integer_columns,
+        add_subtract_columns, cast_bool_column_to_signed_int_column, cast_column,
+        cast_int_column_to_int_column, cast_int_slice_to_int_column,
+        cast_scalar_slice_to_int_column, divide_columns, divide_integer_columns, multiply_columns,
     };
     use crate::{
         base::{
@@ -712,6 +713,49 @@ mod tests {
         let remainder_ba: &[i128] = modulo_integer_columns(b, a, &alloc, false);
         assert_eq!(quotient_ba.0, &[0i128, 42, 0, 0]);
         assert_eq!(remainder_ba, &[-1i128, 6, 6, 0]);
+    }
+
+    #[test]
+    fn we_can_add_subtract_and_multiply_columns_directly() {
+        let alloc = Bump::new();
+        let lhs: Column<'_, TestScalar> = Column::Int(&[2, -3, 5]);
+        let rhs: Column<'_, TestScalar> = Column::SmallInt(&[4, 7, -2]);
+
+        assert_eq!(
+            add_subtract_columns(lhs, rhs, &alloc, false),
+            [6, 4, 3].map(TestScalar::from)
+        );
+        assert_eq!(
+            add_subtract_columns(lhs, rhs, &alloc, true),
+            [-2, -10, 7].map(TestScalar::from)
+        );
+        assert_eq!(
+            multiply_columns(&lhs, &rhs, &alloc),
+            [8, -21, -10].map(TestScalar::from)
+        );
+    }
+
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    #[test]
+    fn we_cannot_add_columns_of_different_lengths() {
+        let alloc = Bump::new();
+        add_subtract_columns(
+            Column::<TestScalar>::Int(&[1, 2]),
+            Column::<TestScalar>::Int(&[3]),
+            &alloc,
+            false,
+        );
+    }
+
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    #[test]
+    fn we_cannot_multiply_columns_of_different_lengths() {
+        let alloc = Bump::new();
+        multiply_columns(
+            &Column::<TestScalar>::Int(&[1, 2]),
+            &Column::<TestScalar>::Int(&[3]),
+            &alloc,
+        );
     }
 
     #[test]
@@ -1013,6 +1057,52 @@ mod tests {
     }
 
     #[test]
+    fn we_can_cast_integer_columns_to_zero_scale_decimal_column() {
+        let alloc = Bump::new();
+        let precision = Precision::new(10).unwrap();
+        let int_column = Column::<TestScalar>::Int(&[7, -2]);
+        let expected_scalars = [7, -2].map(TestScalar::from);
+
+        assert_eq!(
+            cast_column(
+                &alloc,
+                int_column,
+                ColumnType::Int,
+                ColumnType::Decimal75(precision, 0),
+            ),
+            Column::Decimal75(precision, 0, &expected_scalars)
+        );
+    }
+
+    #[should_panic(expected = "Casting not supported")]
+    #[test]
+    fn we_cannot_cast_decimal_column_when_column_scale_disagrees_with_from_type() {
+        let alloc = Bump::new();
+        let decimal_column =
+            Column::<TestScalar>::Decimal75(Precision::new(5).unwrap(), 1, &[TestScalar::ONE]);
+
+        cast_column(
+            &alloc,
+            decimal_column,
+            ColumnType::Decimal75(Precision::new(5).unwrap(), 0),
+            ColumnType::Decimal75(Precision::new(6).unwrap(), 0),
+        );
+    }
+
+    #[should_panic(expected = "Casting not supported")]
+    #[test]
+    fn we_cannot_cast_column_when_column_kind_disagrees_with_from_type() {
+        let alloc = Bump::new();
+
+        cast_column(
+            &alloc,
+            Column::<TestScalar>::VarBinary((&[], &[])),
+            ColumnType::TinyInt,
+            ColumnType::SmallInt,
+        );
+    }
+
+    #[test]
     fn we_can_cast_timestamp_column_to_bigint_column() {
         let alloc = Bump::new();
         let timestamp_column = Column::<TestScalar>::TimestampTZ(
@@ -1028,6 +1118,34 @@ mod tests {
             ColumnType::BigInt,
         );
         assert_eq!(big_int_column, expected_big_int_column);
+    }
+
+    #[test]
+    fn we_can_scale_cast_timestamp_column_to_finer_unit() {
+        let alloc = Bump::new();
+        let timezone = PoSQLTimeZone::new(0);
+        let timestamp_column =
+            Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, &[2, -3]);
+
+        assert_eq!(
+            cast_column_with_scaling(
+                &alloc,
+                timestamp_column,
+                ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, timezone),
+            ),
+            Column::TimestampTZ(PoSQLTimeUnit::Microsecond, timezone, &[2_000, -3_000])
+        );
+    }
+
+    #[should_panic(expected = "Unable to get scaling factor between types BOOLEAN and BIGINT")]
+    #[test]
+    fn we_cannot_scale_cast_column_to_non_scaling_type() {
+        let alloc = Bump::new();
+        cast_column_with_scaling(
+            &alloc,
+            Column::<TestScalar>::Boolean(&[true]),
+            ColumnType::BigInt,
+        );
     }
 
     #[should_panic(expected = "Unable to cast between types BOOLEAN and BINARY")]
@@ -1055,12 +1173,30 @@ mod tests {
         );
     }
 
+    #[should_panic(expected = "Unsupported cast from BOOLEAN to BIGINT")]
+    #[test]
+    fn we_cannot_cast_non_integer_column_with_integer_helper() {
+        let alloc = Bump::new();
+        cast_int_column_to_int_column(
+            &alloc,
+            Column::<TestScalar>::Boolean(&[true]),
+            ColumnType::BigInt,
+        );
+    }
+
     #[should_panic(expected = "Unsupported cast from int type to BINARY")]
     #[test]
     fn we_cannot_cast_int_slice_to_uncastable_type() {
         let alloc = Bump::new();
         let int_column = &[1];
         cast_int_slice_to_int_column::<TestScalar, _>(&alloc, int_column, ColumnType::VarBinary);
+    }
+
+    #[should_panic(expected = "Unsupported cast from int type to BINARY")]
+    #[test]
+    fn we_cannot_cast_scalar_slice_to_uncastable_int_column() {
+        let alloc = Bump::new();
+        cast_scalar_slice_to_int_column(&alloc, &[TestScalar::ONE], ColumnType::VarBinary);
     }
 
     #[test]
