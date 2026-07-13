@@ -180,6 +180,19 @@ fn compute_truncated_lagrange_basis_sum_gives_correct_values_with_3_variables_us
 }
 
 #[test]
+fn compute_truncated_lagrange_basis_sum_returns_one_when_length_exceeds_basis_size() {
+    let point = vec![TestScalar::from(2u8), TestScalar::from(5u8)];
+    assert_eq!(
+        compute_truncated_lagrange_basis_sum(5, &point),
+        TestScalar::from(1u8)
+    );
+    assert_eq!(
+        compute_truncated_lagrange_basis_sum(7, &point),
+        TestScalar::from(1u8)
+    );
+}
+
+#[test]
 fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_0_variables() {
     let a: Vec<TestScalar> = vec![];
     let b = vec![];
@@ -349,6 +362,22 @@ fn compute_truncated_lagrange_basis_inner_product_gives_correct_values_with_3_va
         5760
     );
     assert_eq!(compute_truncated_lagrange_basis_inner_product(0, &a, &b), 0);
+}
+
+#[test]
+#[should_panic]
+fn compute_truncated_lagrange_basis_inner_product_panics_for_mismatched_point_lengths() {
+    let a = vec![TestScalar::from(2u8), TestScalar::from(5u8)];
+    let b = vec![TestScalar::from(3u8)];
+    let _ = compute_truncated_lagrange_basis_inner_product(1, &a, &b);
+}
+
+#[test]
+#[should_panic]
+fn compute_truncated_lagrange_basis_inner_product_panics_when_length_exceeds_basis_size() {
+    let a = vec![TestScalar::from(2u8), TestScalar::from(5u8)];
+    let b = vec![TestScalar::from(3u8), TestScalar::from(11u8)];
+    let _ = compute_truncated_lagrange_basis_inner_product(5, &a, &b);
 }
 
 #[test]
