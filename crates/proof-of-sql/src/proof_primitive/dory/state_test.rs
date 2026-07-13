@@ -2,6 +2,28 @@ use super::{rand_G_vecs, test_rng, ProverState, PublicParameters};
 use ark_ec::pairing::Pairing;
 
 #[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn prover_state_rejects_v1_with_wrong_length() {
+    let mut rng = test_rng();
+    let nu = 2;
+    let (mut v1, v2) = rand_G_vecs(nu, &mut rng);
+    v1.pop();
+
+    ProverState::new(v1, v2, nu);
+}
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn prover_state_rejects_v2_with_wrong_length() {
+    let mut rng = test_rng();
+    let nu = 2;
+    let (v1, mut v2) = rand_G_vecs(nu, &mut rng);
+    v2.pop();
+
+    ProverState::new(v1, v2, nu);
+}
+
+#[test]
 pub fn we_can_create_a_verifier_state_from_a_prover_state() {
     let mut rng = test_rng();
     let max_nu = 5;
