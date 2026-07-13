@@ -62,4 +62,14 @@ mod tests {
             commitment2.to_transcript_bytes()
         );
     }
+
+    #[test]
+    fn we_serialize_ristretto_point_commitments_as_compressed_bytes() {
+        let commitment = RISTRETTO_BASEPOINT_POINT;
+
+        let transcript_bytes = commitment.to_transcript_bytes();
+
+        assert_eq!(transcript_bytes.len(), 32);
+        assert_eq!(transcript_bytes, commitment.compress().as_bytes());
+    }
 }
