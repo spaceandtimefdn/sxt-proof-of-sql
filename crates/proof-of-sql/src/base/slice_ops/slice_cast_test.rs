@@ -50,6 +50,22 @@ fn test_slice_cast_mut() {
     assert_eq!(b, slice_cast_with(&a, |&x| u64::from(x)));
 }
 
+#[test]
+fn test_slice_cast_mut_with_shorter_result() {
+    let a: Vec<u32> = vec![1, 2, 3, 4];
+    let mut b: Vec<u64> = vec![0, 0];
+    slice_cast_mut_with(&a, &mut b, |&x| u64::from(x * 2));
+    assert_eq!(b, vec![2, 4]);
+}
+
+#[test]
+fn test_slice_cast_mut_with_longer_result() {
+    let a: Vec<u32> = vec![1, 2];
+    let mut b: Vec<u64> = vec![9, 9, 9, 9];
+    slice_cast_mut_with(&a, &mut b, |&x| u64::from(x * 2));
+    assert_eq!(b, vec![2, 4, 9, 9]);
+}
+
 /// random test for [`slice_cast_mut_with`]
 #[test]
 fn test_slice_cast_mut_with_random() {
