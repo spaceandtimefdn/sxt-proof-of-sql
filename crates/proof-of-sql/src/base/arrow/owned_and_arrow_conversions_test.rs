@@ -2,15 +2,18 @@ use super::owned_and_arrow_conversions::OwnedArrowConversionError;
 use crate::base::{
     database::{owned_table_utility::*, OwnedColumn, OwnedTable},
     map::IndexMap,
+    math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use alloc::sync::Arc;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Float32Array, Int64Array,
+        LargeBinaryArray, StringArray, TimestampMicrosecondArray, TimestampMillisecondArray,
+        TimestampNanosecondArray, TimestampSecondArray,
     },
-    datatypes::{DataType, Field, Schema},
+    datatypes::{i256, DataType, Field, Schema},
     record_batch::RecordBatch,
 };
 use proptest::prelude::*;
@@ -64,12 +67,36 @@ fn we_can_convert_between_varchar_owned_column_and_array_ref_impl(data: Vec<Stri
         Arc::new(StringArray::from(data)),
     );
 }
+
+fn we_can_convert_between_decimal75_owned_column_and_array_ref_impl(data: Vec<TestScalar>) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::Decimal75(Precision::new(12).unwrap(), 2, data.clone()),
+        Arc::new(
+            Decimal256Array::from(data.into_iter().map(i256::from).collect::<Vec<_>>())
+                .with_precision_and_scale(12, 2)
+                .unwrap(),
+        ),
+    );
+}
+
+fn we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+    time_unit: PoSQLTimeUnit,
+    data: Vec<i64>,
+    array_ref: ArrayRef,
+) {
+    we_can_convert_between_owned_column_and_array_ref_impl(
+        &OwnedColumn::<TestScalar>::TimestampTZ(time_unit, PoSQLTimeZone::utc(), data),
+        array_ref,
+    );
+}
+
 #[test]
 fn we_can_convert_between_owned_column_and_array_ref() {
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_bigint_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_int128_owned_column_and_array_ref_impl(vec![]);
     we_can_convert_between_varchar_owned_column_and_array_ref_impl(vec![]);
+    we_can_convert_between_decimal75_owned_column_and_array_ref_impl(vec![]);
     let data = vec![true, false, true, false, true, false, true, false, true];
     we_can_convert_between_boolean_owned_column_and_array_ref_impl(data);
     let data = vec![0, 1, 2, 3, 4, 5, 6, i64::MIN, i64::MAX];
@@ -89,6 +116,40 @@ fn we_can_convert_between_owned_column_and_array_ref() {
         b"some bytes".to_vec(),
     ];
     we_can_convert_between_varbinary_owned_column_and_array_ref_impl(&varbin_data);
+}
+
+#[test]
+fn we_can_convert_between_decimal75_owned_column_and_array_ref() {
+    we_can_convert_between_decimal75_owned_column_and_array_ref_impl(vec![
+        TestScalar::from(0),
+        TestScalar::from(12345),
+        TestScalar::from(67890),
+    ]);
+}
+
+#[test]
+fn we_can_convert_between_timestamptz_owned_column_and_array_ref() {
+    let data = vec![0, 1_695_000_000, i64::MAX / 1_000_000_000];
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Second,
+        data.clone(),
+        Arc::new(TimestampSecondArray::from(data.clone())),
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Millisecond,
+        data.clone(),
+        Arc::new(TimestampMillisecondArray::from(data.clone())),
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Microsecond,
+        data.clone(),
+        Arc::new(TimestampMicrosecondArray::from(data.clone())),
+    );
+    we_can_convert_between_timestamp_owned_column_and_array_ref_impl(
+        PoSQLTimeUnit::Nanosecond,
+        data.clone(),
+        Arc::new(TimestampNanosecondArray::from(data)),
+    );
 }
 
 #[test]
@@ -191,6 +252,27 @@ fn we_can_convert_between_owned_table_and_record_batch() {
         ]),
         &batch2,
     );
+}
+
+#[test]
+fn we_get_a_duplicate_idents_error_when_record_batch_fields_repeat() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("dup", DataType::Int64, false),
+        Field::new("dup", DataType::Int64, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![1_i64, 2])),
+            Arc::new(Int64Array::from(vec![3_i64, 4])),
+        ],
+    )
+    .unwrap();
+
+    assert!(matches!(
+        OwnedTable::<TestScalar>::try_from(batch),
+        Err(OwnedArrowConversionError::DuplicateIdents)
+    ));
 }
 
 #[test]
