@@ -156,3 +156,59 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         self.post_result_challenges.pop_front().unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::{boxed::Box, collections::VecDeque, vec};
+
+    #[test]
+    fn we_can_track_final_round_builder_state() {
+        let mle = [TestScalar::from(1), TestScalar::from(2)];
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(
+            3,
+            VecDeque::from([TestScalar::from(7), TestScalar::from(11)]),
+        );
+
+        assert_eq!(builder.num_sumcheck_variables(), 3);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+        assert!(builder.bit_distributions().is_empty());
+        assert!(builder.sumcheck_subpolynomials().is_empty());
+        assert!(builder.pcs_proof_mles().is_empty());
+
+        let bit_distribution = BitDistribution::new::<TestScalar, _>(&[0_i64, 1, 2]);
+        builder.produce_bit_distribution(bit_distribution.clone());
+        assert_eq!(builder.bit_distributions(), &[bit_distribution]);
+
+        let terms: Vec<SumcheckSubpolynomialTerm<'_, TestScalar>> =
+            vec![(TestScalar::from(5), vec![Box::new(&mle)])];
+        builder.produce_sumcheck_subpolynomial(SumcheckSubpolynomialType::ZeroSum, terms);
+
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+        {
+            let mut subpolynomial_terms =
+                builder.sumcheck_subpolynomials()[0].iter_mul_by(TestScalar::from(3));
+            let (subpolynomial_type, coefficient, multiplicands) =
+                subpolynomial_terms.next().unwrap();
+            assert_eq!(subpolynomial_type, SumcheckSubpolynomialType::ZeroSum);
+            assert_eq!(coefficient, TestScalar::from(15));
+            assert_eq!(multiplicands.len(), 1);
+            assert!(subpolynomial_terms.next().is_none());
+        }
+
+        assert_eq!(builder.consume_post_result_challenge(), TestScalar::from(7));
+        assert_eq!(
+            builder.consume_post_result_challenge(),
+            TestScalar::from(11)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn we_panic_when_consuming_missing_post_result_challenge() {
+        let mut builder = FinalRoundBuilder::<TestScalar>::new(0, VecDeque::new());
+
+        builder.consume_post_result_challenge();
+    }
+}
