@@ -146,12 +146,13 @@ mod tests {
             database::{Column, ColumnRef, ColumnType, Table, TableRef},
             map::indexmap,
             polynomial::MultilinearExtension,
-            scalar::test_scalar::TestScalar,
+            proof::{ProofError, ProofSizeMismatch},
+            scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::{
             proof::{
-                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-                FirstRoundBuilder,
+                mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+                FinalRoundBuilder, FirstRoundBuilder,
             },
             proof_exprs::{ColumnExpr, DynProofExpr},
         },
@@ -160,9 +161,7 @@ mod tests {
     use sqlparser::ast::Ident;
     use std::collections::VecDeque;
 
-    #[test]
-    fn we_can_verify_simple_expr() {
-        let alloc = Bump::new();
+    fn divide_and_modulo_expr() -> (DivideAndModuloExpr, ColumnRef, ColumnRef, Ident, Ident) {
         let table_ref: TableRef = "sxt.t".parse().unwrap();
         let lhs_ident = Ident::from("lhs");
         let rhs_ident = Ident::from("rhs");
@@ -172,6 +171,34 @@ mod tests {
             Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
             Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
         );
+        (
+            divide_and_modulo_expr,
+            lhs_ref,
+            rhs_ref,
+            lhs_ident,
+            rhs_ident,
+        )
+    }
+
+    fn mock_verification_builder(
+        final_round_mles: Vec<Vec<TestScalar>>,
+    ) -> MockVerificationBuilder<TestScalar> {
+        MockVerificationBuilder::new(
+            Vec::new(),
+            2,
+            Vec::new(),
+            final_round_mles,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    fn we_can_verify_simple_expr() {
+        let alloc = Bump::new();
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, lhs_ident, rhs_ident) =
+            divide_and_modulo_expr();
         let lhs = &[i128::MAX, i128::MIN, 2];
         let rhs = &[3i128, 3, -4];
         let first_round_builder: FirstRoundBuilder<'_, _> = FirstRoundBuilder::new(lhs.len());
@@ -202,5 +229,106 @@ mod tests {
         );
         let matrix = mock_verification_builder.get_identity_results();
         assert!(matrix.into_iter().all(|v| v.into_iter().all(|b| b)));
+    }
+
+    #[test]
+    fn we_can_return_wrapped_quotient_and_remainder_columns() {
+        let alloc = Bump::new();
+        let (divide_and_modulo_expr, _lhs_ref, _rhs_ref, lhs_ident, rhs_ident) =
+            divide_and_modulo_expr();
+        let lhs = &[i128::MIN, 7, -7, 2];
+        let rhs = &[-1i128, 0, 3, -4];
+        let mut final_round_builder = FinalRoundBuilder::new(lhs.len(), VecDeque::new());
+        let table = Table::try_new(indexmap! {
+            lhs_ident => Column::Int128::<TestScalar>(lhs),
+            rhs_ident => Column::Int128::<TestScalar>(rhs),
+        })
+        .unwrap();
+
+        let (quotient_wrapped, remainder) = divide_and_modulo_expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+
+        let expected_quotient = [i128::MIN, 0, -2, 0];
+        let expected_remainder = [0, 7, -1, 2];
+        assert_eq!(quotient_wrapped, Column::Int128(&expected_quotient));
+        assert_eq!(remainder, Column::Int128(&expected_remainder));
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 2);
+    }
+
+    #[test]
+    fn we_can_return_verifier_quotient_and_remainder_evaluations() {
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, _lhs_ident, _rhs_ident) =
+            divide_and_modulo_expr();
+        let mut verification_builder =
+            mock_verification_builder(vec![vec![TestScalar::ONE, TestScalar::TWO]]);
+        let accessor = indexmap! {
+            lhs_ref.column_id() => TestScalar::from(7u64),
+            rhs_ref.column_id() => TestScalar::from(3u64),
+        };
+
+        let (quotient_wrapped, remainder) = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap();
+
+        assert_eq!(quotient_wrapped, TestScalar::ONE);
+        assert_eq!(remainder, TestScalar::TWO);
+    }
+
+    #[test]
+    fn we_can_error_if_verifier_accessor_is_missing_a_column() {
+        let (divide_and_modulo_expr, lhs_ref, _rhs_ref, _lhs_ident, _rhs_ident) =
+            divide_and_modulo_expr();
+        let mut verification_builder = mock_verification_builder(Vec::new());
+        let err = divide_and_modulo_expr
+            .verifier_evaluate(
+                &mut verification_builder,
+                &indexmap! {},
+                TestScalar::ONE,
+                &[],
+            )
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "Column Not Found"
+            }
+        ));
+
+        let mut verification_builder = mock_verification_builder(Vec::new());
+        let accessor = indexmap! {
+            lhs_ref.column_id() => TestScalar::from(7u64),
+        };
+        let err = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "Column Not Found"
+            }
+        ));
+    }
+
+    #[test]
+    fn we_can_error_if_verifier_has_too_few_final_round_evaluations() {
+        let (divide_and_modulo_expr, lhs_ref, rhs_ref, _lhs_ident, _rhs_ident) =
+            divide_and_modulo_expr();
+        let mut verification_builder = mock_verification_builder(vec![vec![TestScalar::ONE]]);
+        let accessor = indexmap! {
+            lhs_ref.column_id() => TestScalar::from(7u64),
+            rhs_ref.column_id() => TestScalar::from(3u64),
+        };
+
+        let err = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations
+            }
+        ));
     }
 }
