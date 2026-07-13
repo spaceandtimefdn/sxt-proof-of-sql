@@ -177,3 +177,43 @@ mod tests {
         assert_eq!(commitment, expected_commitment);
     }
 }
+
+#[cfg(test)]
+mod batch_to_columns_tests {
+    use super::batch_to_columns;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use arrow::{
+        array::{Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use bumpalo::Bump;
+    use std::sync::Arc;
+
+    #[test]
+    fn batch_to_columns_preserves_field_names_and_values() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("amount", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![10, -20, 30])),
+                Arc::new(StringArray::from(vec!["alpha", "beta", "gamma"])),
+            ],
+        )
+        .unwrap();
+        let alloc = Bump::new();
+
+        let columns = batch_to_columns::<TestScalar>(&batch, &alloc).unwrap();
+
+        assert_eq!(columns[0].0.value, "amount");
+        assert_eq!(columns[0].1.as_bigint().unwrap(), &[10, -20, 30]);
+        assert_eq!(columns[1].0.value, "label");
+        let (strings, scalars) = columns[1].1.as_varchar().unwrap();
+        assert_eq!(strings, &["alpha", "beta", "gamma"]);
+        assert_eq!(scalars.len(), 3);
+        assert_eq!(columns[1].1.scalar_at(1), Some(scalars[1]));
+    }
+}
