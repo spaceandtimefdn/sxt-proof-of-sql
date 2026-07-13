@@ -158,3 +158,150 @@ impl ProofExpr for InequalityExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{table_utility::*, TableRef},
+            map::{indexmap, indexset},
+            polynomial::MultilinearExtension,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::{
+                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+                FirstRoundBuilder,
+            },
+            proof_exprs::ColumnExpr,
+        },
+    };
+    use alloc::{boxed::Box, collections::VecDeque};
+
+    fn bigint_column(table_ref: &TableRef, name: &str) -> (ColumnRef, DynProofExpr) {
+        let column_ref = ColumnRef::new(table_ref.clone(), name.into(), ColumnType::BigInt);
+        (
+            column_ref.clone(),
+            DynProofExpr::Column(ColumnExpr::new(column_ref)),
+        )
+    }
+
+    #[test]
+    fn try_new_reports_inequality_type_mismatch() {
+        let err = InequalityExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(1))),
+            Box::new(DynProofExpr::new_literal(LiteralValue::VarChar(
+                "one".into(),
+            ))),
+            true,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: "BIGINT".into(),
+                right_type: "VARCHAR".into()
+            }
+        );
+    }
+
+    #[test]
+    fn inequality_expr_evaluates_and_verifies_column_comparison() {
+        let alloc = Bump::new();
+        let lhs_values = [1_i64, 2, 3, 4];
+        let rhs_values = [2_i64, 1, 3, 5];
+        let table = table::<TestScalar>([
+            borrowed_bigint("a", lhs_values, &alloc),
+            borrowed_bigint("b", rhs_values, &alloc),
+        ]);
+        let table_ref = TableRef::new("sxt", "t");
+        let (lhs_ref, lhs) = bigint_column(&table_ref, "a");
+        let (rhs_ref, rhs) = bigint_column(&table_ref, "b");
+        let lt_expr = InequalityExpr::try_new(Box::new(lhs), Box::new(rhs), true).unwrap();
+
+        assert_eq!(lt_expr.data_type(), ColumnType::Boolean);
+        assert!(lt_expr.is_lt());
+        assert_eq!(lt_expr.lhs().data_type(), ColumnType::BigInt);
+        assert_eq!(lt_expr.rhs().data_type(), ColumnType::BigInt);
+        assert_eq!(
+            lt_expr.first_round_evaluate(&alloc, &table, &[]).unwrap(),
+            Column::Boolean(&[true, false, false, true])
+        );
+
+        let (_, lhs_for_gt) = bigint_column(&table_ref, "a");
+        let (_, rhs_for_gt) = bigint_column(&table_ref, "b");
+        let gt_expr =
+            InequalityExpr::try_new(Box::new(lhs_for_gt), Box::new(rhs_for_gt), false).unwrap();
+        assert_eq!(
+            gt_expr.first_round_evaluate(&alloc, &table, &[]).unwrap(),
+            Column::Boolean(&[false, true, false, false])
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(4, VecDeque::new());
+        assert_eq!(
+            lt_expr
+                .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+                .unwrap(),
+            Column::Boolean(&[true, false, false, true])
+        );
+        assert_eq!(final_round_builder.bit_distributions().len(), 1);
+
+        let first_round_builder: FirstRoundBuilder<'_, TestScalar> = FirstRoundBuilder::new(4);
+        let verification_builder = run_verify_for_each_row(
+            4,
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                let accessor = indexmap! {
+                    lhs_ref.clone().column_id() => lhs_values.as_slice().inner_product(evaluation_point),
+                    rhs_ref.clone().column_id() => rhs_values.as_slice().inner_product(evaluation_point),
+                };
+                lt_expr
+                    .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
+                    .unwrap();
+            },
+        );
+        assert!(verification_builder
+            .get_identity_results()
+            .iter()
+            .flatten()
+            .all(|is_valid| *is_valid));
+
+        let mut gt_final_round_builder = FinalRoundBuilder::new(4, VecDeque::new());
+        assert_eq!(
+            gt_expr
+                .final_round_evaluate(&mut gt_final_round_builder, &alloc, &table, &[])
+                .unwrap(),
+            Column::Boolean(&[false, true, false, false])
+        );
+        let gt_verification_builder = run_verify_for_each_row(
+            4,
+            &first_round_builder,
+            &gt_final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, chi_eval, evaluation_point| {
+                let accessor = indexmap! {
+                    lhs_ref.clone().column_id() => lhs_values.as_slice().inner_product(evaluation_point),
+                    rhs_ref.clone().column_id() => rhs_values.as_slice().inner_product(evaluation_point),
+                };
+                gt_expr
+                    .verifier_evaluate(verification_builder, &accessor, chi_eval, &[])
+                    .unwrap();
+            },
+        );
+        assert!(gt_verification_builder
+            .get_identity_results()
+            .iter()
+            .flatten()
+            .all(|is_valid| *is_valid));
+
+        let mut columns = IndexSet::default();
+        lt_expr.get_column_references(&mut columns);
+        assert_eq!(columns, indexset! { lhs_ref, rhs_ref });
+    }
+}
