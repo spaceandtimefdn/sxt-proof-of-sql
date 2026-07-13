@@ -117,3 +117,105 @@ impl ProofExpr for AddExpr {
 }
 
 impl DecimalProofExpr for AddExpr {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::table_utility::{borrowed_int, table},
+            math::decimal::Precision,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::collections::VecDeque;
+
+    fn literal(value: LiteralValue) -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::new_literal(value))
+    }
+
+    #[test]
+    fn add_expr_rejects_non_numeric_operands() {
+        let err = AddExpr::try_new(
+            literal(LiteralValue::Boolean(true)),
+            literal(LiteralValue::Int(7)),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type,
+                right_type
+            } if left_type == "BOOLEAN" && right_type == "INT"
+        ));
+    }
+
+    #[test]
+    fn add_expr_exposes_operands_and_decimal_result_type() {
+        let expr = AddExpr::try_new(
+            literal(LiteralValue::SmallInt(2)),
+            literal(LiteralValue::Int(5)),
+        )
+        .unwrap();
+
+        assert_eq!(expr.lhs().data_type(), ColumnType::SmallInt);
+        assert_eq!(expr.rhs().data_type(), ColumnType::Int);
+        assert_eq!(
+            expr.data_type(),
+            ColumnType::Decimal75(Precision::new(11).unwrap(), 0)
+        );
+    }
+
+    #[test]
+    fn add_expr_evaluates_literal_sum_in_first_and_final_rounds() {
+        let alloc = Bump::new();
+        let data = table([borrowed_int::<TestScalar>("rows", [0, 1, 2], &alloc)]);
+        let expr = AddExpr::try_new(
+            literal(LiteralValue::BigInt(5)),
+            literal(LiteralValue::Int(2)),
+        )
+        .unwrap();
+
+        for result in [
+            expr.first_round_evaluate(&alloc, &data, &[]).unwrap(),
+            expr.final_round_evaluate(
+                &mut FinalRoundBuilder::new(2, VecDeque::new()),
+                &alloc,
+                &data,
+                &[],
+            )
+            .unwrap(),
+        ] {
+            let Column::Decimal75(precision, scale, values) = result else {
+                panic!("expected Decimal75 result");
+            };
+            assert_eq!(precision, Precision::new(20).unwrap());
+            assert_eq!(scale, 0);
+            assert_eq!(values, [TestScalar::from(7_u64); 3]);
+        }
+    }
+
+    #[test]
+    fn add_expr_verifier_adds_child_evaluations() {
+        let expr = AddExpr::try_new(
+            literal(LiteralValue::BigInt(5)),
+            literal(LiteralValue::Int(2)),
+        )
+        .unwrap();
+        let mut builder =
+            MockVerificationBuilder::new(vec![], 2, vec![], vec![], vec![], vec![], vec![]);
+
+        let result = expr
+            .verifier_evaluate(
+                &mut builder,
+                &IndexMap::default(),
+                TestScalar::from(3_u64),
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(result, TestScalar::from(21_u64));
+    }
+}
