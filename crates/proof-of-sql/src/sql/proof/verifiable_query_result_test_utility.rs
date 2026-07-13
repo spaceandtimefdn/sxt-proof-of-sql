@@ -153,3 +153,143 @@ pub fn tamper_first_row_of_column<S: Scalar>(column: &OwnedColumn<S>) -> OwnedCo
     }
     column
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
+
+    #[test]
+    fn tampered_table_adds_empty_column_for_zero_column_result() {
+        let table = owned_table::<TestScalar>([]);
+        let tampered = tampered_table(&table);
+
+        assert_eq!(tampered.num_columns(), 1);
+        assert_eq!(tampered.num_rows(), 0);
+        assert_eq!(tampered["col"], OwnedColumn::BigInt(vec![]));
+    }
+
+    #[test]
+    fn tampered_table_appends_default_row_to_empty_columns() {
+        let table = owned_table::<TestScalar>([
+            boolean("boolean", Vec::<bool>::new()),
+            uint8("uint8", Vec::<u8>::new()),
+            tinyint("tinyint", Vec::<i8>::new()),
+            smallint("smallint", Vec::<i16>::new()),
+            int("int", Vec::<i32>::new()),
+            bigint("bigint", Vec::<i64>::new()),
+            int128("int128", Vec::<i128>::new()),
+            scalar("scalar", Vec::<TestScalar>::new()),
+            varchar("varchar", Vec::<String>::new()),
+            varbinary("varbinary", Vec::<Vec<u8>>::new()),
+            decimal75("decimal", 12, 2, Vec::<TestScalar>::new()),
+            timestamptz(
+                "timestamp",
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                Vec::<i64>::new(),
+            ),
+        ]);
+
+        let tampered = tampered_table(&table);
+
+        assert_eq!(tampered.num_rows(), 1);
+        assert_eq!(tampered["boolean"], OwnedColumn::Boolean(vec![false]));
+        assert_eq!(tampered["uint8"], OwnedColumn::Uint8(vec![0]));
+        assert_eq!(tampered["tinyint"], OwnedColumn::TinyInt(vec![0]));
+        assert_eq!(tampered["smallint"], OwnedColumn::SmallInt(vec![0]));
+        assert_eq!(tampered["int"], OwnedColumn::Int(vec![0]));
+        assert_eq!(tampered["bigint"], OwnedColumn::BigInt(vec![0]));
+        assert_eq!(tampered["int128"], OwnedColumn::Int128(vec![0]));
+        assert_eq!(
+            tampered["scalar"],
+            OwnedColumn::Scalar(vec![TestScalar::ZERO])
+        );
+        assert_eq!(
+            tampered["varchar"],
+            OwnedColumn::VarChar(vec![String::new()])
+        );
+        assert_eq!(tampered["varbinary"], OwnedColumn::VarBinary(vec![vec![0]]));
+        assert_eq!(
+            tampered["decimal"],
+            OwnedColumn::Decimal75(
+                crate::base::math::decimal::Precision::new(12).unwrap(),
+                2,
+                vec![TestScalar::ZERO],
+            )
+        );
+        assert_eq!(
+            tampered["timestamp"],
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![0])
+        );
+    }
+
+    #[test]
+    fn tamper_first_row_of_column_mutates_each_column_variant() {
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Boolean(vec![false])),
+            OwnedColumn::Boolean(vec![true])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Uint8(vec![u8::MAX])),
+            OwnedColumn::Uint8(vec![0])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::TinyInt(vec![i8::MAX])),
+            OwnedColumn::TinyInt(vec![i8::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::SmallInt(vec![i16::MAX])),
+            OwnedColumn::SmallInt(vec![i16::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Int(vec![i32::MAX])),
+            OwnedColumn::Int(vec![i32::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::BigInt(vec![i64::MAX])),
+            OwnedColumn::BigInt(vec![i64::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Int128(vec![i128::MAX])),
+            OwnedColumn::Int128(vec![i128::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::VarChar(vec![
+                "value".to_string()
+            ])),
+            OwnedColumn::VarChar(vec!["value1".to_string()])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::VarBinary(vec![vec![2, 3]])),
+            OwnedColumn::VarBinary(vec![vec![2, 3, 1]])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Decimal75(
+                crate::base::math::decimal::Precision::new(12).unwrap(),
+                2,
+                vec![TestScalar::ZERO],
+            )),
+            OwnedColumn::Decimal75(
+                crate::base::math::decimal::Precision::new(12).unwrap(),
+                2,
+                vec![TestScalar::ONE],
+            )
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                vec![i64::MAX],
+            )),
+            OwnedColumn::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![i64::MIN])
+        );
+        assert_eq!(
+            tamper_first_row_of_column(&OwnedColumn::<TestScalar>::Scalar(vec![TestScalar::ZERO])),
+            OwnedColumn::Scalar(vec![TestScalar::ONE])
+        );
+    }
+}
