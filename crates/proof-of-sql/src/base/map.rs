@@ -18,3 +18,30 @@ macro_rules! indexset {
 #[cfg(test)]
 pub(crate) use indexmap;
 pub(crate) use indexset;
+
+#[cfg(test)]
+mod tests {
+    use super::IndexSet;
+
+    #[test]
+    fn indexset_macro_preserves_insertion_order() {
+        let values = super::indexset![3_u8, 1_u8, 2_u8];
+        let collected: Vec<_> = values.into_iter().collect();
+        assert_eq!(collected, vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn indexset_macro_deduplicates_values() {
+        let values = super::indexset!["a", "b", "a"];
+        assert_eq!(values.len(), 2);
+        assert!(values.contains("a"));
+        assert!(values.contains("b"));
+    }
+
+    #[test]
+    fn indexset_alias_uses_default_hasher_type() {
+        let values: IndexSet<u32> = super::indexset![10_u32, 20_u32];
+        assert_eq!(values.get_index(0), Some(&10));
+        assert_eq!(values.get_index(1), Some(&20));
+    }
+}
