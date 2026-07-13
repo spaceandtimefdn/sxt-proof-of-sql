@@ -71,3 +71,76 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AnalyzeError;
+    use crate::base::{
+        database::ColumnType, math::decimal::IntermediateDecimalError, proof::PlaceholderError,
+    };
+    use alloc::string::String;
+
+    #[test]
+    fn we_display_basic_analyze_errors() {
+        assert_eq!(
+            AnalyzeError::InvalidDataType {
+                expr_type: ColumnType::Boolean
+            }
+            .to_string(),
+            "Expression has datatype BOOLEAN, which was not valid"
+        );
+        assert_eq!(
+            AnalyzeError::DataTypeMismatch {
+                left_type: "BIGINT".into(),
+                right_type: "VARCHAR".into(),
+            }
+            .to_string(),
+            "Left side has 'BIGINT' type but right side has 'VARCHAR' type"
+        );
+        assert_eq!(
+            AnalyzeError::DifferentColumnLength { len_a: 7, len_b: 8 }.to_string(),
+            "Columns have different lengths: 7 != 8"
+        );
+        assert_eq!(
+            AnalyzeError::NotEnoughInputPlans.to_string(),
+            "Not enough input plans"
+        );
+    }
+
+    #[test]
+    fn we_convert_analyze_errors_to_strings() {
+        let message: String = AnalyzeError::DataTypeMismatch {
+            left_type: "INT".into(),
+            right_type: "SCALAR".into(),
+        }
+        .into();
+
+        assert_eq!(
+            message,
+            "Left side has 'INT' type but right side has 'SCALAR' type"
+        );
+    }
+
+    #[test]
+    fn we_transparently_display_placeholder_errors() {
+        let error = AnalyzeError::PlaceholderError {
+            source: PlaceholderError::InvalidPlaceholderType {
+                index: 2,
+                expected: ColumnType::Int,
+                actual: ColumnType::VarChar,
+            },
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid placeholder type: 2, expected: INT, actual: VARCHAR"
+        );
+    }
+
+    #[test]
+    fn we_convert_intermediate_decimal_errors_into_analyze_errors() {
+        let error: AnalyzeError = IntermediateDecimalError::LossyCast.into();
+
+        assert_eq!(error.to_string(), "Fractional part of decimal is non-zero");
+    }
+}
