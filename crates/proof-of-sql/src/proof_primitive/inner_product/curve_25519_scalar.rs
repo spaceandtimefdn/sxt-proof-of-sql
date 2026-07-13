@@ -50,3 +50,31 @@ impl core::ops::Mul<Curve25519Scalar> for &curve25519_dalek::ristretto::Ristrett
         self * curve25519_dalek::scalar::Scalar::from(rhs)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+
+    #[test]
+    fn multiplies_ristretto_points_from_each_supported_side() {
+        let expected = curve25519_dalek::scalar::Scalar::from(5u64) * RISTRETTO_BASEPOINT_POINT;
+
+        assert_eq!(
+            Curve25519Scalar::from(5u64) * RISTRETTO_BASEPOINT_POINT,
+            expected
+        );
+        assert_eq!(
+            Curve25519Scalar::from(5u64) * &RISTRETTO_BASEPOINT_POINT,
+            expected
+        );
+        assert_eq!(
+            RISTRETTO_BASEPOINT_POINT * Curve25519Scalar::from(5u64),
+            expected
+        );
+        assert_eq!(
+            &RISTRETTO_BASEPOINT_POINT * Curve25519Scalar::from(5u64),
+            expected
+        );
+    }
+}
