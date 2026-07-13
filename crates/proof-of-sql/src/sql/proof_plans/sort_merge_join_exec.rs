@@ -584,3 +584,69 @@ impl ProverEvaluate for SortMergeJoinExec {
         .expect("Can not create table"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SortMergeJoinExec;
+    use crate::{
+        base::database::{ColumnField, ColumnType, TableRef},
+        sql::{
+            proof::ProofPlan,
+            proof_plans::{DynProofPlan, TableExec},
+        },
+    };
+    use alloc::{boxed::Box, vec};
+    use sqlparser::ast::Ident;
+
+    fn field(name: &str, column_type: ColumnType) -> ColumnField {
+        ColumnField::new(Ident::new(name), column_type)
+    }
+
+    #[test]
+    fn constructor_preserves_join_inputs_and_result_field_order() {
+        let left = DynProofPlan::Table(TableExec::new(
+            TableRef::new("", "left_table"),
+            vec![
+                field("id", ColumnType::BigInt),
+                field("left_value", ColumnType::VarChar),
+            ],
+        ));
+        let right = DynProofPlan::Table(TableExec::new(
+            TableRef::new("", "right_table"),
+            vec![
+                field("flag", ColumnType::Boolean),
+                field("id", ColumnType::BigInt),
+            ],
+        ));
+        let result_idents = vec![
+            Ident::new("joined_id"),
+            Ident::new("left_value"),
+            Ident::new("flag"),
+        ];
+
+        let join = SortMergeJoinExec::new(
+            Box::new(left.clone()),
+            Box::new(right.clone()),
+            vec![0],
+            vec![1],
+            result_idents.clone(),
+        );
+
+        assert_eq!(join.left_plan(), &left);
+        assert_eq!(join.right_plan(), &right);
+        assert_eq!(join.left_join_column_indexes(), &vec![0]);
+        assert_eq!(join.right_join_column_indexes(), &vec![1]);
+        assert_eq!(join.result_idents(), &result_idents);
+
+        let fields = join.get_column_result_fields();
+        assert_eq!(fields[0].name().value, "joined_id");
+        assert_eq!(fields[0].data_type(), ColumnType::BigInt);
+        assert_eq!(fields[1].name().value, "left_value");
+        assert_eq!(fields[1].data_type(), ColumnType::VarChar);
+        assert_eq!(fields[2].name().value, "flag");
+        assert_eq!(fields[2].data_type(), ColumnType::Boolean);
+
+        assert_eq!(join.get_table_references().len(), 2);
+        assert_eq!(join.get_column_references().len(), 4);
+    }
+}
