@@ -50,3 +50,31 @@ impl core::ops::Mul<Curve25519Scalar> for &curve25519_dalek::ristretto::Ristrett
         self * curve25519_dalek::scalar::Scalar::from(rhs)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Curve25519Scalar;
+    use crate::base::scalar::Scalar;
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+
+    #[test]
+    fn we_can_multiply_curve25519_scalar_with_ristretto_point() {
+        let scalar = Curve25519Scalar::from(3u64);
+        let point = RISTRETTO_BASEPOINT_POINT;
+
+        // scalar * owned_point
+        let _ = scalar * point;
+        // scalar * &point
+        let _ = scalar * &point;
+        // owned_point * scalar
+        let _ = point * scalar;
+        // &point * scalar
+        let _ = &point * scalar;
+    }
+
+    #[test]
+    fn we_can_convert_curve25519_scalar_to_dalek_scalar_by_value() {
+        let scalar = Curve25519Scalar::from(7u64);
+        let _dalek: curve25519_dalek::scalar::Scalar = scalar.into();
+    }
+}
