@@ -124,3 +124,124 @@ fn in_place_fix_variable<S: Scalar>(multiplicand: &mut [S], r_as_field: S, num_v
 fn vec_elementwise_add<S: Scalar>(a: Vec<S>, b: Vec<S>) -> Vec<S> {
     a.into_iter().zip(b).map(|(x, y)| x + y).collect::<Vec<S>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn vec_elementwise_add_basic() {
+        let a = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+        ];
+        let b = vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+        ];
+        let result = vec_elementwise_add(a, b);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], TestScalar::from(11));
+        assert_eq!(result[1], TestScalar::from(22));
+        assert_eq!(result[2], TestScalar::from(33));
+    }
+
+    #[test]
+    fn vec_elementwise_add_empty() {
+        let a: Vec<TestScalar> = vec![];
+        let b: Vec<TestScalar> = vec![];
+        let result = vec_elementwise_add(a, b);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn in_place_fix_variable_simple() {
+        // num_vars=1: iterates b in 0..2, reads multiplicand[2*b] and multiplicand[2*b+1]
+        // So data needs to be at least 2 * (1 << 1) = 4 entries long
+        let mut data = vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+            TestScalar::from(40),
+        ];
+        let r = TestScalar::from(0); // r=0 means we get left
+        in_place_fix_variable(&mut data, r, 1);
+        // b=0: left=10, right=20, result = 10 + 0*(20-10) = 10
+        // b=1: left=30, right=40, result = 30 + 0*(40-30) = 30
+        assert_eq!(data[0], TestScalar::from(10));
+        assert_eq!(data[1], TestScalar::from(30));
+    }
+
+    #[test]
+    fn in_place_fix_variable_r_equals_one() {
+        // r=1 means we get right
+        let mut data = vec![
+            TestScalar::from(10),
+            TestScalar::from(20),
+            TestScalar::from(30),
+            TestScalar::from(40),
+        ];
+        let r = TestScalar::from(1);
+        in_place_fix_variable(&mut data, r, 1);
+        // b=0: 10 + 1*(20-10) = 20
+        // b=1: 30 + 1*(40-30) = 40
+        assert_eq!(data[0], TestScalar::from(20));
+        assert_eq!(data[1], TestScalar::from(40));
+    }
+
+    #[test]
+    fn in_place_fix_variable_two_vars() {
+        // num_vars=2: iterates b in 0..4, reads multiplicand[2*b] and multiplicand[2*b+1]
+        // So data needs to be at least 2 * (1 << 2) = 8 entries long
+        let mut data = vec![
+            TestScalar::from(0),
+            TestScalar::from(4),
+            TestScalar::from(10),
+            TestScalar::from(14),
+            TestScalar::from(20),
+            TestScalar::from(24),
+            TestScalar::from(30),
+            TestScalar::from(34),
+        ];
+        let r = TestScalar::from(2);
+        in_place_fix_variable(&mut data, r, 2);
+        // b=0: 0 + 2*(4-0) = 8
+        // b=1: 10 + 2*(14-10) = 18
+        // b=2: 20 + 2*(24-20) = 28
+        // b=3: 30 + 2*(34-30) = 38
+        assert_eq!(data[0], TestScalar::from(8));
+        assert_eq!(data[1], TestScalar::from(18));
+        assert_eq!(data[2], TestScalar::from(28));
+        assert_eq!(data[3], TestScalar::from(38));
+    }
+
+    #[test]
+    fn in_place_fix_variable_halves_length() {
+        let mut data = vec![
+            TestScalar::from(1),
+            TestScalar::from(2),
+            TestScalar::from(3),
+            TestScalar::from(4),
+            TestScalar::from(5),
+            TestScalar::from(6),
+            TestScalar::from(7),
+            TestScalar::from(8),
+        ];
+        in_place_fix_variable(&mut data, TestScalar::from(0), 2);
+        // r=0: just takes left values
+        assert_eq!(data[0], TestScalar::from(1));
+        assert_eq!(data[1], TestScalar::from(3));
+        assert_eq!(data[2], TestScalar::from(5));
+        assert_eq!(data[3], TestScalar::from(7));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid size of partial point")]
+    fn in_place_fix_variable_zero_vars_panics() {
+        let mut data = vec![TestScalar::from(1)];
+        in_place_fix_variable(&mut data, TestScalar::from(0), 0);
+    }
+}
