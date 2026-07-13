@@ -397,6 +397,12 @@ mod test {
         let actual = slice_binary_op_left_upcast(&lhs, &rhs, PartialEq::eq);
         let expected = vec![true, false, true];
         assert_eq!(expected, actual);
+
+        let lhs = [1_i32, 2, 3];
+        let rhs = [1_i16, 3, 3];
+        let actual = slice_binary_op_right_upcast(&lhs, &rhs, PartialEq::eq);
+        let expected = vec![true, false, true];
+        assert_eq!(expected, actual);
     }
 
     // <=
