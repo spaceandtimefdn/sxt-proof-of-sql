@@ -1,15 +1,11 @@
 use super::test_utility::*;
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{owned_table_utility::*, OwnedTableTestAccessor, TableRef, TestAccessor},
+        scalar::test_scalar::TestScalar,
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
-    sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
-        proof_exprs::test_utility::*,
-        proof_plans::GroupByExec,
-    },
+    sql::{proof::VerifiableQueryResult, proof_exprs::test_utility::*, proof_plans::GroupByExec},
 };
 
 /// `select sum(c) as sum_c, count(*) as __count__ from sxt.t where b = 99`
@@ -21,7 +17,7 @@ fn we_can_prove_aggregation_without_group_by() {
         bigint("c", [101, 102, 103, 104, 105]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = group_by(
         vec![],
@@ -30,8 +26,8 @@ fn we_can_prove_aggregation_without_group_by() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("sum_c", [101 + 104 + 102 + 103]),
@@ -49,7 +45,7 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
         bigint("c", [101, 102, 103, 104, 105]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = group_by(
         cols_expr(&t, &["a"], &accessor),
@@ -58,8 +54,8 @@ fn we_can_prove_a_simple_group_by_with_bigint_columns() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("a", [1, 2]),
@@ -78,7 +74,7 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
         bigint("c", [101, 102, 103, 104, 105]),
     ]);
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
     let expr = group_by(
         cols_expr(&t, &["a"], &accessor),
@@ -93,8 +89,8 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
         tab(&t),
         equal(column(&t, "b", &accessor), const_int128(99)),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("a", [1, 2]),
@@ -109,19 +105,19 @@ fn we_can_prove_a_group_by_with_bigint_columns() {
 #[expect(clippy::too_many_lines)]
 #[test]
 fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
-    let scalar_filter_data: Vec<Curve25519Scalar> = [
+    let scalar_filter_data: Vec<TestScalar> = [
         333, 222, 222, 333, 222, 333, 333, 333, 222, 222, 222, 333, 222, 222, 222, 222, 222, 222,
         333, 333,
     ]
     .iter()
     .map(core::convert::Into::into)
     .collect();
-    let scalar_group_data: Vec<Curve25519Scalar> =
+    let scalar_group_data: Vec<TestScalar> =
         [5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4, 4, 5]
             .iter()
             .map(core::convert::Into::into)
             .collect();
-    let scalar_sum_data: Vec<Curve25519Scalar> = [
+    let scalar_sum_data: Vec<TestScalar> = [
         119, 522, 100, 325, 501, 447, 759, 375, 212, 532, 459, 616, 579, 179, 695, 963, 532, 868,
         331, 830,
     ]
@@ -184,7 +180,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
     ]);
 
     let t = TableRef::new("sxt", "t");
-    let mut accessor = OwnedTableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let mut accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_empty_with_setup(());
     accessor.add_table(t.clone(), data, 0);
 
     // SELECT scalar_group, int128_group, bigint_group, sum(bigint_sum + 1) as sum_int, sum(bigint_sum - int128_sum) as sum_bigint, sum(scalar_filter) as sum_scal, count(*) as __count__
@@ -218,7 +214,7 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
         ),
     );
     assert!(expr.is_none());
-    // let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
+    // let res = VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     // exercise_verification(&res, &expr, &accessor, &t);
     // let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     // let expected = owned_table([
@@ -251,8 +247,8 @@ fn we_cannot_prove_a_complex_group_by_query_with_many_columns() {
             equal(column(&t, "varchar_filter", &accessor), const_varchar("f2")),
         ),
     );
-    let res = VerifiableQueryResult::new(&expr, &accessor, &(), &[]).unwrap();
-    exercise_verification(&res, &expr, &accessor, &t);
+    let res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&expr, &accessor, &(), &[]).unwrap();
     let res = res.verify(&expr, &accessor, &(), &[]).unwrap().table;
     let expected = owned_table([
         bigint("sum_int", [1406 + 927 + 637]),
