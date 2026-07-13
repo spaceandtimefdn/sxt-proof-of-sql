@@ -145,3 +145,26 @@ pub fn dory_reduce_verify_update_Ds(
         + DeferredGT::from(setup.Delta_2L[state.nu]) * beta_inv * alpha_inv
         + DeferredGT::from(setup.Delta_2R[state.nu]) * beta_inv;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{rand_G_vecs, test_rng, ProverState};
+    use ark_ec::pairing::Pairing;
+
+    #[test]
+    fn we_can_compute_cross_pairings_for_dory_reduce() {
+        let mut rng = test_rng();
+        let nu = 2;
+        let half_n = 1 << (nu - 1);
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let expected_c_plus = Pairing::multi_pairing(&v1[..half_n], &v2[half_n..]);
+        let expected_c_minus = Pairing::multi_pairing(&v1[half_n..], &v2[..half_n]);
+        let state = ProverState::new(v1, v2, nu);
+
+        let (c_plus, c_minus) = dory_reduce_prove_compute_Cs(&state, half_n);
+
+        assert_eq!(c_plus, expected_c_plus);
+        assert_eq!(c_minus, expected_c_minus);
+    }
+}
