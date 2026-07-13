@@ -126,6 +126,16 @@ impl<CP: CommitmentEvaluationProof> DataAccessor<CP::Scalar> for OwnedTableTestA
 
                 Column::VarBinary((col_as_slices, scals))
             }
+            OwnedColumn::FixedSizeBinary(byte_width, col) => {
+                let col_as_slices: &mut [&[u8]] = self
+                    .alloc
+                    .alloc_slice_fill_iter(col.iter().map(Vec::as_slice));
+                let scals: &mut [CP::Scalar] = self.alloc.alloc_slice_fill_iter(
+                    col.iter()
+                        .map(|b| CP::Scalar::from_fixed_size_byte_slice(b.as_slice())),
+                );
+                Column::FixedSizeBinary(*byte_width, (col_as_slices, scals))
+            }
             OwnedColumn::TimestampTZ(tu, tz, col) => Column::TimestampTZ(*tu, *tz, col),
         }
     }
