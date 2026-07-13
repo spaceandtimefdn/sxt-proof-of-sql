@@ -62,3 +62,17 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar;
+
+    #[test]
+    #[should_panic(expected = "Attempt to prove a constant.")]
+    fn we_cannot_create_prover_state_for_constant_polynomial() {
+        let polynomial = CompositePolynomial::<Curve25519Scalar>::new(0);
+
+        ProverState::create(&polynomial);
+    }
+}
