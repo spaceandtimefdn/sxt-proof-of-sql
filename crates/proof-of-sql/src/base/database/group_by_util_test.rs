@@ -1,6 +1,7 @@
 use crate::{
     base::{
         database::{group_by_util::*, Column},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -493,6 +494,69 @@ fn we_can_max_aggregate_columns_by_counts() {
     assert_eq!(result, expected);
     let result = max_aggregate_column_by_index_counts(&alloc, &columns_c, counts, indexes);
     assert_eq!(result, expected);
+}
+
+#[test]
+fn we_can_min_and_max_aggregate_boolean_uint8_and_timestamp_columns_by_counts() {
+    let bools = &[false, true, false, true, false];
+    let uint8s = &[5_u8, 1, 9, 2, 7];
+    let timestamps = &[50_i64, 10, 90, 20, 70];
+    let indexes = &[1, 3, 0, 2, 4];
+    let counts = &[2, 3, 0];
+    let bool_column = Column::<TestScalar>::Boolean(bools);
+    let uint8_column = Column::<TestScalar>::Uint8(uint8s);
+    let timestamp_column =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), timestamps);
+    let alloc = Bump::new();
+
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &bool_column, counts, indexes),
+        &[
+            Some(TestScalar::from(true)),
+            Some(TestScalar::from(false)),
+            None
+        ]
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &bool_column, counts, indexes),
+        &[
+            Some(TestScalar::from(true)),
+            Some(TestScalar::from(false)),
+            None
+        ]
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &uint8_column, counts, indexes),
+        &[
+            Some(TestScalar::from(2_u8)),
+            Some(TestScalar::from(9_u8)),
+            None
+        ]
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &uint8_column, counts, indexes),
+        &[
+            Some(TestScalar::from(1_u8)),
+            Some(TestScalar::from(5_u8)),
+            None
+        ]
+    );
+    assert_eq!(
+        max_aggregate_column_by_index_counts(&alloc, &timestamp_column, counts, indexes),
+        &[
+            Some(TestScalar::from(20_i64)),
+            Some(TestScalar::from(90_i64)),
+            None
+        ]
+    );
+    assert_eq!(
+        min_aggregate_column_by_index_counts(&alloc, &timestamp_column, counts, indexes),
+        &[
+            Some(TestScalar::from(10_i64)),
+            Some(TestScalar::from(50_i64)),
+            None
+        ]
+    );
 }
 
 // MIN slices
