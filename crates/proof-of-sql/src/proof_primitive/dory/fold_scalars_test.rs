@@ -35,3 +35,43 @@ fn we_can_fold_scalars() {
         verifier_folded_state
     );
 }
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn we_cannot_fold_scalars_with_nonzero_nu_on_prover_side() {
+    let mut rng = test_rng();
+    let nu = 1;
+    let pp = PublicParameters::test_rand(nu, &mut rng);
+    let prover_setup = (&pp).into();
+    let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+    let mut transcript = Transcript::new(b"fold_scalars_nonzero_nu_prover_test");
+    let mut messages = DoryMessages::default();
+
+    fold_scalars_0_prove(&mut messages, &mut transcript, prover_state, &prover_setup);
+}
+
+#[test]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn we_cannot_fold_scalars_with_nonzero_nu_on_verifier_side() {
+    let mut rng = test_rng();
+    let nu = 1;
+    let pp = PublicParameters::test_rand(nu, &mut rng);
+    let prover_setup = (&pp).into();
+    let verifier_setup = (&pp).into();
+    let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+    let (v1, v2) = rand_G_vecs(nu, &mut rng);
+    let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+    let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+    let mut transcript = Transcript::new(b"fold_scalars_nonzero_nu_verifier_test");
+    let mut messages = DoryMessages::default();
+
+    fold_scalars_0_verify(
+        &mut messages,
+        &mut transcript,
+        verifier_state,
+        &verifier_setup,
+        extended_dory_reduce_verify_fold_s_vecs,
+    );
+}
