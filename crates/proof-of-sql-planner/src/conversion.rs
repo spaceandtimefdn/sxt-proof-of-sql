@@ -165,6 +165,18 @@ AND s.salary > (
     }
 
     #[test]
+    fn we_cannot_get_table_references_with_catalog_qualified_table() {
+        let statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT employee_id FROM catalog.namespace.employees;",
+        )
+        .unwrap()[0]
+            .clone();
+
+        assert!(get_table_refs_from_statement(&statement).is_err());
+    }
+
+    #[test]
     fn we_can_use_abs() {
         let statements = Parser::parse_sql(&GenericDialect {}, "SELECT ABS(-1-1);").unwrap();
         sql_to_posql_plans(
