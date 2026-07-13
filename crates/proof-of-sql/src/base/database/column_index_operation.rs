@@ -120,7 +120,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{database::ColumnOperationError, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        database::ColumnOperationError,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_apply_index_op() {
@@ -188,5 +192,22 @@ mod tests {
         let expected = Column::VarBinary((expected_bytes.as_slice(), expected_scalars.as_slice()));
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_apply_index_op_timestamptz_preserves_metadata() {
+        let bump = Bump::new();
+        let time_unit = PoSQLTimeUnit::Microsecond;
+        let timezone = PoSQLTimeZone::new(5400);
+        let column: Column<TestScalar> =
+            Column::TimestampTZ(time_unit, timezone, &[100, 200, 300, 400]);
+        let indexes = [3, 0, 3, 2];
+
+        let result = apply_column_to_indexes(&column, &bump, &indexes).unwrap();
+
+        assert_eq!(
+            result,
+            Column::TimestampTZ(time_unit, timezone, &[400, 100, 400, 300])
+        );
     }
 }
