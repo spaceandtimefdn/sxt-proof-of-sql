@@ -201,6 +201,19 @@ mod tests {
     }
 
     #[test]
+    fn low_byte_variation_keeps_the_positive_sign_byte_constant() {
+        let column = [0u8, 1, 255].map(TestScalar::from);
+        let byte_distribution = ByteDistribution::new::<TestScalar, _>(&column);
+        assert_eq!(byte_distribution.vary_mask, 1);
+        assert_eq!(byte_distribution.constant_mask(), U256::ONE.shl(255));
+        assert_eq!(byte_distribution.varying_byte_count(), 1);
+        assert_eq!(
+            byte_distribution.varying_byte_indices().collect_vec(),
+            [0u8].into_iter().collect_vec()
+        );
+    }
+
+    #[test]
     fn we_can_get_byte_distribution_from_variable_negative_column() {
         let column = [
             1_974_179_073u32,
