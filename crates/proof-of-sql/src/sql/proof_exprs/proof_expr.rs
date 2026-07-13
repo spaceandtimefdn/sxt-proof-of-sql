@@ -78,3 +78,60 @@ pub(crate) trait DecimalProofExpr: ProofExpr {
         self.data_type().scale().expect("Scale should be valid")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestDecimalProofExpr(ColumnType);
+
+    impl ProofExpr for TestDecimalProofExpr {
+        fn data_type(&self) -> ColumnType {
+            self.0
+        }
+
+        fn first_round_evaluate<'a, S: Scalar>(
+            &self,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unreachable!()
+        }
+
+        fn final_round_evaluate<'a, S: Scalar>(
+            &self,
+            _builder: &mut FinalRoundBuilder<'a, S>,
+            _alloc: &'a Bump,
+            _table: &Table<'a, S>,
+            _params: &[LiteralValue],
+        ) -> PlaceholderResult<Column<'a, S>> {
+            unreachable!()
+        }
+
+        fn verifier_evaluate<S: Scalar>(
+            &self,
+            _builder: &mut impl VerificationBuilder<S>,
+            _accessor: &IndexMap<Ident, S>,
+            _chi_eval: S,
+            _params: &[LiteralValue],
+        ) -> Result<S, ProofError> {
+            unreachable!()
+        }
+
+        fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {
+            unreachable!()
+        }
+    }
+
+    impl DecimalProofExpr for TestDecimalProofExpr {}
+
+    #[test]
+    fn decimal_proof_expr_exposes_precision_and_scale() {
+        let expr = TestDecimalProofExpr(ColumnType::Decimal75(Precision::new(12).unwrap(), -3));
+
+        assert_eq!(expr.precision(), Precision::new(12).unwrap());
+        assert_eq!(expr.scale(), -3);
+    }
+}
