@@ -106,6 +106,24 @@ fn we_can_fold_empty_columns() {
 }
 
 #[test]
+fn fold_columns_leaves_result_unchanged_without_columns() {
+    let alloc = Bump::new();
+    let result = alloc.alloc_slice_fill_copy(3, Curve25519Scalar::from(77));
+    let columns: Vec<Column<Curve25519Scalar>> = vec![];
+
+    fold_columns(result, 33.into(), 10.into(), &columns);
+
+    assert_eq!(
+        result,
+        vec![
+            Curve25519Scalar::from(77),
+            Curve25519Scalar::from(77),
+            Curve25519Scalar::from(77)
+        ]
+    );
+}
+
+#[test]
 fn we_can_fold_vals() {
     assert_eq!(fold_vals(Curve25519Scalar::from(10), &[]), Zero::zero());
     assert_eq!(
@@ -120,5 +138,13 @@ fn we_can_fold_vals() {
             ]
         ),
         (12345).into()
+    );
+}
+
+#[test]
+fn fold_vals_returns_single_value_without_using_beta() {
+    assert_eq!(
+        fold_vals(Curve25519Scalar::from(10), &[Curve25519Scalar::from(7)]),
+        Curve25519Scalar::from(7)
     );
 }
