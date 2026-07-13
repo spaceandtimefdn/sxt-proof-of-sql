@@ -173,12 +173,13 @@ mod tests {
     fn we_can_create_small_hyperkzg_evaluation_proofs() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 32);
         let (_, vk) = EvaluationEngine::setup(&ck);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         test_simple_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_commitment_evaluation_proof_with_length_1::<HyperKZGCommitmentEvaluationProof>(
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
     }
@@ -187,82 +188,83 @@ mod tests {
     fn we_can_create_hyperkzg_evaluation_proofs_with_various_lengths() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 128);
         let (_, vk) = EvaluationEngine::setup(&ck);
+        let public_setup = nova_commitment_key_to_hyperkzg_public_setup(&ck);
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             2,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             3,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             4,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             5,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             8,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             10,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             16,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             20,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             32,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             50,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             64,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             100,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
         test_random_commitment_evaluation_proof::<HyperKZGCommitmentEvaluationProof>(
             128,
             0,
-            &&nova_commitment_key_to_hyperkzg_public_setup(&ck)[..],
+            &&public_setup[..],
             &&vk,
         );
     }
