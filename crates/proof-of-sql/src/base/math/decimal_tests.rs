@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod precision_tests {
-    use crate::base::math::decimal::Precision;
+    use crate::base::math::decimal::{DecimalError, Precision};
+    use alloc::string::{String, ToString};
     use serde_json;
 
     #[test]
@@ -32,5 +33,28 @@ mod precision_tests {
         let json = "\"not a number\"";
         let precision: Result<Precision, _> = serde_json::from_str(json);
         assert!(precision.is_err());
+    }
+
+    #[test]
+    fn we_can_try_convert_u64_to_precision() {
+        assert_eq!(Precision::try_from(75_u64).unwrap().value(), 75);
+        assert!(matches!(
+            Precision::try_from(76_u64),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
+        assert!(matches!(
+            Precision::try_from(u64::MAX),
+            Err(DecimalError::InvalidPrecision { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_convert_decimal_errors_to_strings() {
+        assert_eq!(
+            String::from(DecimalError::InvalidPrecision {
+                error: 0_u8.to_string()
+            }),
+            "Decimal precision is not valid: 0"
+        );
     }
 }
