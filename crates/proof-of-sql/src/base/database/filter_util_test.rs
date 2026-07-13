@@ -1,6 +1,7 @@
 use crate::base::{
     database::{filter_util::*, Column},
     math::decimal::Precision,
+    posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::test_scalar::TestScalar,
 };
 use bumpalo::Bump;
@@ -117,4 +118,42 @@ fn we_can_filter_columns_with_varbinary() {
             Column::BigInt(&[10, 30, 40]),
         ]
     );
+}
+
+#[test]
+fn we_can_filter_columns_with_timestamptz() {
+    let selection = vec![true, false, true, false, true];
+    let time_unit = PoSQLTimeUnit::Millisecond;
+    let timezone = PoSQLTimeZone::new(19_800);
+    let columns = vec![
+        Column::<TestScalar>::TimestampTZ(time_unit, timezone, &[100, 200, 300, 400, 500]),
+        Column::BigInt(&[10, 20, 30, 40, 50]),
+    ];
+    let alloc = Bump::new();
+
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+
+    assert_eq!(len, 3);
+    assert_eq!(
+        result,
+        vec![
+            Column::TimestampTZ(time_unit, timezone, &[100, 300, 500]),
+            Column::BigInt(&[10, 30, 50]),
+        ]
+    );
+}
+
+#[test]
+fn we_can_filter_timestamptz_to_empty_result() {
+    let selection = vec![false, false, false];
+    let time_unit = PoSQLTimeUnit::Nanosecond;
+    let timezone = PoSQLTimeZone::new(-25_200);
+    let columns =
+        vec![Column::<TestScalar>::TimestampTZ(time_unit, timezone, &[10, 20, 30])];
+    let alloc = Bump::new();
+
+    let (result, len) = filter_columns(&alloc, &columns, &selection);
+
+    assert_eq!(len, 0);
+    assert_eq!(result, vec![Column::TimestampTZ(time_unit, timezone, &[])]);
 }
