@@ -89,4 +89,31 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, IntermediateDecimalError::ConversionFailure));
     }
+
+    #[test]
+    fn we_can_convert_decimal_to_bigint_with_exact_scale() {
+        let big_decimal: BigDecimal = "123.45".parse::<BigDecimal>().unwrap().normalized();
+        let bigint = big_decimal
+            .try_into_bigint_with_precision_and_scale(5, 2)
+            .unwrap();
+        assert_eq!(bigint.to_string(), "12345");
+    }
+
+    #[test]
+    fn we_can_convert_decimal_to_bigint_with_padded_scale() {
+        let big_decimal: BigDecimal = "123.4".parse::<BigDecimal>().unwrap().normalized();
+        let bigint = big_decimal
+            .try_into_bigint_with_precision_and_scale(5, 2)
+            .unwrap();
+        assert_eq!(bigint.to_string(), "12340");
+    }
+
+    #[test]
+    fn we_can_catch_lossy_cast_when_scaled_decimal_exceeds_precision() {
+        let big_decimal: BigDecimal = "12345".parse::<BigDecimal>().unwrap().normalized();
+        let err = big_decimal
+            .try_into_bigint_with_precision_and_scale(4, 0)
+            .unwrap_err();
+        assert!(matches!(err, IntermediateDecimalError::LossyCast));
+    }
 }
