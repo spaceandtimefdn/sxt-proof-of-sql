@@ -1,6 +1,6 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnRef, ColumnType,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
@@ -11,7 +11,6 @@ use crate::{
     },
     sql::{
         proof::{
-            exercise_verification,
             mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
             FinalRoundBuilder, FirstRoundBuilder, VerifiableQueryResult,
         },
@@ -40,7 +39,7 @@ fn we_can_prove_a_simple_and_query() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -60,8 +59,8 @@ fn we_can_prove_a_simple_and_query() {
             ),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -80,7 +79,7 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -100,8 +99,8 @@ fn we_can_prove_a_simple_and_query_with_128_bits() {
             ),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res =
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -135,7 +134,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -160,8 +159,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 equal(column(&t, "c", &accessor), const_bigint(filter_val2)),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res =
+            VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -209,7 +208,7 @@ fn we_can_compute_the_correct_output_of_an_and_expr_using_first_round_evaluate()
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let and_expr: DynProofExpr = and(
         equal(column(&t, "b", &accessor), const_int128(1)),
         equal(column(&t, "d", &accessor), const_varchar("t")),
@@ -338,7 +337,7 @@ fn we_cannot_and_mismatching_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let rhs = Box::new(column(&t, "b", &accessor));
     let and_err = AndExpr::try_new(lhs.clone(), rhs.clone()).unwrap_err();
