@@ -99,3 +99,41 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
     );
 }
+
+#[test]
+fn even_zigzag_values_decode_to_positive_scalars() {
+    assert_eq!(U256::from_words(0, 0).zigzag(), TestScalar::from(0_u64));
+    assert_eq!(U256::from_words(2, 0).zigzag(), TestScalar::from(1_u8));
+    assert_eq!(U256::from_words(4, 0).zigzag(), TestScalar::from(2_u32));
+    assert_eq!(
+        U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_fffe, 0x1).zigzag(),
+        TestScalar::from(u128::MAX)
+    );
+
+    for x in 0..1000_u128 {
+        assert_eq!(U256::from_words(2 * x, 0).zigzag(), TestScalar::from(x));
+    }
+}
+
+#[test]
+fn odd_zigzag_values_decode_to_negative_scalars() {
+    assert_eq!(U256::from_words(1, 0).zigzag(), -TestScalar::from(1_u32));
+    assert_eq!(U256::from_words(3, 0).zigzag(), -TestScalar::from(2_u32));
+
+    for y in 1..1000_u128 {
+        assert_eq!(
+            U256::from_words(2 * y - 1, 0).zigzag(),
+            -TestScalar::from(y)
+        );
+    }
+}
+
+#[test]
+fn odd_zigzag_values_with_low_word_carry_round_trip() {
+    let encoded = U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128);
+    let magnitude: TestScalar = (&U256::from_words(0, 1)).into();
+    let decoded: TestScalar = encoded.zigzag();
+
+    assert_eq!(decoded, -magnitude);
+    assert!(decoded.zigzag() == encoded);
+}
