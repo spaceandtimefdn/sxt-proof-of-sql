@@ -8,7 +8,7 @@ use alloc::sync::Arc;
 use arrow::{
     array::{
         ArrayRef, BooleanArray, Decimal128Array, Float32Array, Int64Array, LargeBinaryArray,
-        StringArray,
+        StringArray, UInt8Array,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -99,6 +99,24 @@ fn we_get_an_unsupported_type_error_when_trying_to_convert_from_a_float32_array_
         OwnedColumn::<TestScalar>::try_from(array_ref),
         Err(OwnedArrowConversionError::UnsupportedType { .. })
     ));
+}
+
+#[test]
+fn we_reject_nullable_numeric_arrow_arrays() {
+    let array_ref: ArrayRef = Arc::new(UInt8Array::from(vec![Some(1), None, Some(3)]));
+    assert!(matches!(
+        OwnedColumn::<TestScalar>::try_from(array_ref),
+        Err(OwnedArrowConversionError::NullNotSupportedYet)
+    ));
+}
+
+#[test]
+fn we_can_convert_dense_numeric_arrow_arrays() {
+    let array_ref: ArrayRef = Arc::new(UInt8Array::from(vec![1, 2, 3]));
+    assert_eq!(
+        OwnedColumn::<TestScalar>::try_from(array_ref).unwrap(),
+        OwnedColumn::Uint8(vec![1, 2, 3])
+    );
 }
 
 fn we_can_convert_between_owned_table_and_record_batch_impl(
