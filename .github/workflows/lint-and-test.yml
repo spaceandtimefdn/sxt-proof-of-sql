@@ -42,8 +42,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.rust }}
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld     
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - name: Run cargo check (no features, exclude examples)
         run: cargo check --no-default-features
       - name: Run cargo check (default features)
@@ -114,8 +117,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.rust }}
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - run: cargo test --all-features
 
   testnorayon:
@@ -142,8 +148,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.rust }}
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - run: cargo test --no-default-features --features="arrow blitzar"
 
   testother:
@@ -170,8 +179,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.rust }}
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - name: Dry run cargo test (proof-of-sql) (test feature only)
         run: cargo test -p proof-of-sql --no-run --no-default-features --features="test"
       - name: Dry run cargo test (proof-of-sql) (arrow feature only)
@@ -209,8 +221,11 @@ jobs:
           uses: Swatinem/rust-cache@v2
           with:
             key: ${{ matrix.rust }}
-        - name: Install Dependencies
-          run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+        - name: Install cached apt dependencies
+          uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+          with:
+            packages: clang lld
+            version: 1.0
         - name: Run hello_world example (With Blitzar)
           run: cargo run --example hello_world --features="proof-of-sql/test"
         - name: Run hello_world example (Without Blitzar and With Rayon)
@@ -240,8 +255,11 @@ jobs:
           rustup component add clippy
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - name: Run clippy
         run: cargo cl -- -D warnings
         
@@ -298,8 +316,11 @@ jobs:
         run: solidity/scripts/pre_forge.sh test --via-ir --optimize
       - name: Remove preprocessor test files (for they are already tested in the check-yul-preprocessor job)
         run: rm -rf solidity/preprocessor/test_files
-      - name: Install lcov
-        run: sudo apt-get update && sudo apt-get install -y lcov
+      - name: Install cached lcov
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: lcov
+          version: 1.0
       - name: Check code coverage
         run: solidity/scripts/check_coverage.sh
       - name: Check fmt
@@ -333,8 +354,11 @@ jobs:
         run: curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal && source ~/.cargo/env && rustup toolchain install
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Install Dependencies
-        run: export DEBIAN_FRONTEND=non-interactive && sudo apt-get update && sudo apt-get install -y clang lld
+      - name: Install cached apt dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+        with:
+          packages: clang lld
+          version: 1.0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
