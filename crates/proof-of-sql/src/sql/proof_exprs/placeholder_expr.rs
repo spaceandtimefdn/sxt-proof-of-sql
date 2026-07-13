@@ -205,4 +205,20 @@ mod tests {
         let res = placeholder_expr.interpolate(&params);
         assert_eq!(res.unwrap(), &LiteralValue::Boolean(true));
     }
+
+    #[test]
+    fn we_propagate_interpolation_error_through_verifier_evaluate() {
+        use crate::{
+            base::{map::indexmap, scalar::test_scalar::TestScalar},
+            sql::proof::mock_verification_builder::MockVerificationBuilder,
+        };
+        let expr = PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap();
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![], vec![], vec![],
+        );
+        let accessor = indexmap! {};
+        // No params supplied → interpolate fails → ? propagates into ProofError
+        let result = expr.verifier_evaluate(&mut builder, &accessor, TestScalar::ONE, &[]);
+        assert!(result.is_err());
+    }
 }

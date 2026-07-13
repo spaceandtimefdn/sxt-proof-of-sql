@@ -287,3 +287,32 @@ impl ProverEvaluate for LegacyFilterExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LegacyFilterExec;
+    use crate::{
+        base::{database::LiteralValue, map::IndexMap, scalar::test_scalar::TestScalar},
+        sql::{
+            proof::mock_verification_builder::MockVerificationBuilder,
+            proof_exprs::{DynProofExpr, TableExpr},
+        },
+    };
+
+    #[test]
+    fn we_get_error_when_post_result_challenges_are_exhausted() {
+        let exec = LegacyFilterExec::new(
+            vec![],
+            TableExpr { table_ref: "sxt.t".parse().unwrap() },
+            DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+        );
+        // No post_result_challenges → first try_consume_post_result_challenge returns Err
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![], vec![], vec![],
+        );
+        let accessor = IndexMap::default();
+        let chi_eval_map = IndexMap::default();
+        let result = exec.verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[]);
+        assert!(result.is_err());
+    }
+}
