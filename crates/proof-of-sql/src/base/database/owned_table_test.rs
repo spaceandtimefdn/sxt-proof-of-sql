@@ -2,6 +2,7 @@ use crate::{
     base::{
         database::{owned_table_utility::*, OwnedColumn, OwnedTable, OwnedTableError},
         map::IndexMap,
+        math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
@@ -100,6 +101,60 @@ fn we_can_create_an_owned_table_with_data() {
         ]),
     );
     assert_eq!(owned_table.into_inner(), table);
+}
+
+#[test]
+fn we_can_create_an_owned_table_with_all_column_helpers() {
+    let owned_table = owned_table::<TestScalar>([
+        uint8("uint8", [1_u8, 2]),
+        tinyint("tinyint", [-1_i8, 2]),
+        smallint("smallint", [-3_i16, 4]),
+        int("int", [-5_i32, 6]),
+        decimal75("decimal75", 12, -2, [7, 8]),
+        varbinary("varbinary", [vec![1_u8, 2], vec![3, 4, 5]]),
+    ]);
+
+    assert_eq!(owned_table.num_columns(), 6);
+    assert_eq!(owned_table.num_rows(), 2);
+    assert!(!owned_table.is_empty());
+
+    let column_names = owned_table
+        .column_names()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        column_names,
+        [
+            "uint8",
+            "tinyint",
+            "smallint",
+            "int",
+            "decimal75",
+            "varbinary"
+        ]
+    );
+
+    assert_eq!(
+        owned_table.column_by_index(0),
+        Some(&OwnedColumn::Uint8(vec![1, 2]))
+    );
+    assert_eq!(
+        owned_table.column_by_index(3),
+        Some(&OwnedColumn::Int(vec![-5, 6]))
+    );
+    assert_eq!(
+        owned_table.column_by_index(4),
+        Some(&OwnedColumn::Decimal75(
+            Precision::new(12).unwrap(),
+            -2,
+            vec![TestScalar::from(7), TestScalar::from(8)]
+        ))
+    );
+    assert_eq!(
+        owned_table.inner_table().get(&Ident::new("varbinary")),
+        Some(&OwnedColumn::VarBinary(vec![vec![1, 2], vec![3, 4, 5]]))
+    );
+    assert_eq!(owned_table.column_by_index(6), None);
 }
 #[test]
 fn we_get_inequality_between_tables_with_differing_column_order() {
