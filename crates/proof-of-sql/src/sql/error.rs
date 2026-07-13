@@ -71,3 +71,71 @@ impl From<IntermediateDecimalError> for AnalyzeError {
 
 /// Result type for analyze errors
 pub type AnalyzeResult<T> = Result<T, AnalyzeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn we_can_display_analyze_errors() {
+        let cases = [
+            (
+                AnalyzeError::InvalidDataType {
+                    expr_type: ColumnType::VarChar,
+                },
+                "Expression has datatype VARCHAR, which was not valid",
+            ),
+            (
+                AnalyzeError::DataTypeMismatch {
+                    left_type: "BIGINT".to_string(),
+                    right_type: "BOOLEAN".to_string(),
+                },
+                "Left side has 'BIGINT' type but right side has 'BOOLEAN' type",
+            ),
+            (
+                AnalyzeError::DifferentColumnLength { len_a: 2, len_b: 5 },
+                "Columns have different lengths: 2 != 5",
+            ),
+            (
+                AnalyzeError::DecimalConversionError {
+                    source: DecimalError::InvalidScale {
+                        scale: "129".to_string(),
+                    },
+                },
+                "Decimal scale is not valid: 129",
+            ),
+            (
+                AnalyzeError::PlaceholderError {
+                    source: PlaceholderError::ZeroPlaceholderId,
+                },
+                "Placeholder id must be greater than 0",
+            ),
+            (AnalyzeError::NotEnoughInputPlans, "Not enough input plans"),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn we_can_convert_analyze_errors_into_strings() {
+        let message = String::from(AnalyzeError::DataTypeMismatch {
+            left_type: "INT".to_string(),
+            right_type: "VARCHAR".to_string(),
+        });
+
+        assert_eq!(
+            message,
+            "Left side has 'INT' type but right side has 'VARCHAR' type"
+        );
+    }
+
+    #[test]
+    fn we_can_convert_intermediate_decimal_errors_into_analyze_errors() {
+        let error = AnalyzeError::from(IntermediateDecimalError::OutOfRange);
+
+        assert_eq!(error.to_string(), "Value out of range for target type");
+    }
+}
