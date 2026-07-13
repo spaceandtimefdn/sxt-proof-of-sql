@@ -149,3 +149,37 @@ impl<S: Scalar> CompositePolynomial<S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CompositePolynomial;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::rc::Rc;
+
+    #[test]
+    fn we_can_annotate_trace_on_a_nonempty_polynomial() {
+        let ext = Rc::new(vec![TestScalar::from(1u64), TestScalar::from(2u64)]);
+        let mut poly = CompositePolynomial::<TestScalar>::new(1);
+        poly.add_product([ext], TestScalar::from(1u64));
+        poly.annotate_trace();
+    }
+
+    #[test]
+    fn we_can_sum_hypercube_beyond_extension_length() {
+        let ext = Rc::new(vec![TestScalar::from(3u64), TestScalar::from(5u64)]);
+        let mut poly = CompositePolynomial::<TestScalar>::new(2);
+        poly.add_product([ext], TestScalar::from(1u64));
+        // Requests indices 0..4; indices 2 and 3 exceed the extension length of 2,
+        // exercising the unwrap_or(&S::ZERO) None branch in term_product.
+        let _ = poly.hypercube_sum(4);
+    }
+
+    #[test]
+    fn we_deduplicate_shared_extensions_in_add_product() {
+        let ext = Rc::new(vec![TestScalar::from(1u64)]);
+        let mut poly = CompositePolynomial::<TestScalar>::new(0);
+        // Using the same Rc twice triggers the cached-lookup branch in add_product.
+        poly.add_product([ext.clone(), ext.clone()], TestScalar::from(1u64));
+        assert_eq!(poly.flattened_ml_extensions.len(), 1);
+    }
+}
