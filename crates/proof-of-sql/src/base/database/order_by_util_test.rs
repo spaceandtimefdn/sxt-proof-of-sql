@@ -1,6 +1,7 @@
 use crate::{
     base::{
         database::{order_by_util::*, Column, ColumnType, TableOperationError},
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -187,4 +188,72 @@ fn we_can_compare_indexes_by_columns_for_varbinary_columns() {
     assert_eq!(compare_indexes_by_columns(columns, 2, 3), Ordering::Equal); // "baz" vs "baz"
     assert_eq!(compare_indexes_by_columns(columns, 3, 4), Ordering::Greater); // "baz" vs "bar"
     assert_eq!(compare_indexes_by_columns(columns, 1, 4), Ordering::Equal); // "bar" vs "bar"
+}
+
+#[test]
+fn we_can_compare_indexes_by_columns_for_timestamptz_columns() {
+    let timestamps = &[1_000, 2_000, 2_000, 500, 3_000];
+    let tie_breakers = &[3, 1, 2, 9, 0];
+    let timezone = PoSQLTimeZone::new(3600);
+    let col_timestamptz =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Millisecond, timezone, timestamps);
+    let col_tie_breaker = Column::BigInt(tie_breakers);
+
+    let columns = &[col_timestamptz];
+    assert_eq!(compare_indexes_by_columns(columns, 0, 1), Ordering::Less);
+    assert_eq!(compare_indexes_by_columns(columns, 1, 2), Ordering::Equal);
+    assert_eq!(compare_indexes_by_columns(columns, 3, 0), Ordering::Less);
+    assert_eq!(compare_indexes_by_columns(columns, 4, 2), Ordering::Greater);
+
+    let columns = &[col_timestamptz, col_tie_breaker];
+    assert_eq!(compare_indexes_by_columns(columns, 1, 2), Ordering::Less);
+    assert_eq!(compare_indexes_by_columns(columns, 2, 1), Ordering::Greater);
+}
+
+#[test]
+fn we_can_compare_single_row_of_tables_for_timestamptz_columns() {
+    let timezone = PoSQLTimeZone::new(-18_000);
+    let left_timestamp =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Nanosecond, timezone, &[100, 500]);
+    let right_timestamp =
+        Column::<TestScalar>::TimestampTZ(PoSQLTimeUnit::Nanosecond, timezone, &[200, 500]);
+    let left = &[left_timestamp];
+    let right = &[right_timestamp];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 1).unwrap(),
+        Ordering::Equal
+    );
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 1, 0).unwrap(),
+        Ordering::Greater
+    );
+}
+
+#[test]
+fn we_cannot_compare_timestamptz_rows_with_different_metadata() {
+    let left_timestamp = Column::<TestScalar>::TimestampTZ(
+        PoSQLTimeUnit::Microsecond,
+        PoSQLTimeZone::new(0),
+        &[100],
+    );
+    let right_timestamp = Column::<TestScalar>::TimestampTZ(
+        PoSQLTimeUnit::Millisecond,
+        PoSQLTimeZone::new(0),
+        &[100],
+    );
+    let left = &[left_timestamp];
+    let right = &[right_timestamp];
+
+    assert_eq!(
+        compare_single_row_of_tables(left, right, 0, 0),
+        Err(TableOperationError::JoinIncompatibleTypes {
+            left_type: ColumnType::TimestampTZ(PoSQLTimeUnit::Microsecond, PoSQLTimeZone::new(0)),
+            right_type: ColumnType::TimestampTZ(PoSQLTimeUnit::Millisecond, PoSQLTimeZone::new(0)),
+        })
+    );
 }
