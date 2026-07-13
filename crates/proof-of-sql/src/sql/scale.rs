@@ -24,7 +24,7 @@ fn decimal_scale_cast_expr(
     }
     let from_precision_value = from_proof_expr.data_type().precision_value().unwrap_or(0);
     let to_precision_value = u8::try_from(
-        i16::from(from_precision_value) + i16::from(to_scale - from_scale).min(75_i16),
+        (i16::from(from_precision_value) + i16::from(to_scale) - i16::from(from_scale)).min(75_i16),
     )
     .expect("Precision is definitely valid");
     DynProofExpr::try_new_scaling_cast(
@@ -125,6 +125,18 @@ mod tests {
             ColumnType::Decimal75(
                 Precision::new(75).expect("Precision is definitely valid"),
                 10,
+            ),
+        ))
+    }
+
+    #[expect(non_snake_case)]
+    fn COLUMN4_DECIMAL_75_0() -> DynProofExpr {
+        DynProofExpr::new_column(ColumnRef::new(
+            TableRef::from_names(Some("namespace"), "table_name"),
+            "column4".into(),
+            ColumnType::Decimal75(
+                Precision::new(75).expect("Precision is definitely valid"),
+                0,
             ),
         ))
     }
@@ -234,5 +246,16 @@ mod tests {
         let right = COLUMN2_DECIMAL_25_5();
         let proof_exprs = scale_cast_binary_op(left.clone(), right.clone()).unwrap();
         assert_eq!(proof_exprs, (left, right));
+    }
+
+    #[test]
+    fn scale_cast_binary_op_errors_instead_of_panicking_at_max_decimal_precision() {
+        let left = COLUMN4_DECIMAL_75_0();
+        let right = COLUMN3_DECIMAL_75_10();
+        let proof_exprs = scale_cast_binary_op(left, right);
+        assert!(matches!(
+            proof_exprs,
+            Err(AnalyzeError::DataTypeMismatch { .. })
+        ));
     }
 }
