@@ -130,3 +130,105 @@ impl ProverEvaluate for TableExec {
         Ok(final_round_table)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::{
+            database::{Column, ColumnType},
+            scalar::test_scalar::TestScalar,
+        },
+        sql::proof::mock_verification_builder::MockVerificationBuilder,
+    };
+    use alloc::collections::VecDeque;
+
+    fn schema() -> Vec<ColumnField> {
+        vec![
+            ColumnField::new("height".into(), ColumnType::BigInt),
+            ColumnField::new("score".into(), ColumnType::Int),
+        ]
+    }
+
+    fn table_ref() -> TableRef {
+        TableRef::new("sxt", "players")
+    }
+
+    #[test]
+    fn table_exec_exposes_schema_and_references() {
+        let table_ref = table_ref();
+        let plan = TableExec::new(table_ref.clone(), schema());
+
+        assert_eq!(plan.table_ref(), &table_ref);
+        assert_eq!(plan.schema(), schema());
+        assert_eq!(plan.get_column_result_fields(), schema());
+        assert_eq!(plan.get_table_references(), indexset! {table_ref.clone()});
+        assert_eq!(
+            plan.get_column_references(),
+            indexset! {
+                ColumnRef::new(table_ref.clone(), Ident::new("height"), ColumnType::BigInt),
+                ColumnRef::new(table_ref, Ident::new("score"), ColumnType::Int),
+            }
+        );
+    }
+
+    #[test]
+    fn table_exec_verifier_uses_schema_order_and_table_chi() {
+        let table_ref = table_ref();
+        let plan = TableExec::new(table_ref.clone(), schema());
+        let mut table_accessors = IndexMap::default();
+        table_accessors.insert(Ident::new("score"), TestScalar::from(12_u8));
+        table_accessors.insert(Ident::new("height"), TestScalar::from(42_u8));
+        let mut accessor = IndexMap::default();
+        accessor.insert(table_ref.clone(), table_accessors);
+        let mut chi_eval_map = IndexMap::default();
+        chi_eval_map.insert(table_ref, (TestScalar::from(7_u8), 3));
+        let mut builder = MockVerificationBuilder::new(
+            Vec::new(),
+            0,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let evaluation = plan
+            .verifier_evaluate(&mut builder, &accessor, &chi_eval_map, &[])
+            .unwrap();
+
+        assert_eq!(
+            evaluation.column_evals(),
+            &[TestScalar::from(42_u8), TestScalar::from(12_u8)]
+        );
+        assert_eq!(evaluation.chi(), (TestScalar::from(7_u8), 3));
+    }
+
+    #[test]
+    fn table_exec_prover_rounds_return_the_referenced_table() {
+        let table_ref = table_ref();
+        let plan = TableExec::new(table_ref.clone(), schema());
+        let table: Table<TestScalar> = Table::try_from_iter([
+            (Ident::new("height"), Column::BigInt(&[10, 20, 30])),
+            (Ident::new("score"), Column::Int(&[1, 2, 3])),
+        ])
+        .unwrap();
+        let mut table_map = IndexMap::default();
+        table_map.insert(table_ref, table.clone());
+        let alloc = Bump::new();
+
+        let mut first_round_builder = FirstRoundBuilder::new(0);
+        assert_eq!(
+            plan.first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+                .unwrap(),
+            table
+        );
+
+        let mut final_round_builder = FinalRoundBuilder::new(0, VecDeque::new());
+        assert_eq!(
+            plan.final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+                .unwrap(),
+            table
+        );
+    }
+}
