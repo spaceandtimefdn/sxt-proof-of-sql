@@ -132,3 +132,34 @@ pub(crate) fn verify_membership_check<S: Scalar>(
 
     Ok(multiplicity_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::verify_membership_check;
+    use crate::base::proof::ProofError;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::sql::proof::mock_verification_builder::MockVerificationBuilder;
+
+    #[test]
+    fn we_get_error_when_column_and_candidate_counts_differ() {
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 0, vec![], vec![], vec![], vec![], vec![],
+        );
+        let err = verify_membership_check(
+            &mut builder,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            TestScalar::ONE,
+            &[TestScalar::ONE],
+            &[],
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "The number of source and candidate columns should be equal"
+            }
+        ));
+    }
+}

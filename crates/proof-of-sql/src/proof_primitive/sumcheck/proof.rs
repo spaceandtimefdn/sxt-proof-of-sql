@@ -113,3 +113,45 @@ impl<S: Scalar> SumcheckProof<S> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SumcheckProof;
+    use crate::base::proof::ProofError;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use merlin::Transcript;
+
+    #[test]
+    fn we_get_error_when_coefficients_not_multiple_of_num_variables() {
+        let proof = SumcheckProof::<TestScalar> {
+            coefficients: vec![TestScalar::from(1u64), TestScalar::from(2u64)],
+        };
+        let mut transcript = Transcript::new(b"test");
+        let err = proof
+            .verify_without_evaluation(&mut transcript, 3, &TestScalar::ZERO)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "invalid proof size"
+            }
+        ));
+    }
+
+    #[test]
+    fn we_get_error_when_round_evaluation_does_not_match_claimed_sum() {
+        let proof = SumcheckProof::<TestScalar> {
+            coefficients: vec![TestScalar::ZERO, TestScalar::ZERO],
+        };
+        let mut transcript = Transcript::new(b"test");
+        let err = proof
+            .verify_without_evaluation(&mut transcript, 1, &TestScalar::ONE)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProofError::VerificationError {
+                error: "round evaluation does not match claimed sum"
+            }
+        ));
+    }
+}
