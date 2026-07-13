@@ -1,6 +1,8 @@
 use crate::{
     base::{
         database::{order_by_util::*, Column, ColumnType, TableOperationError},
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
         scalar::test_scalar::TestScalar,
     },
     proof_primitive::dory::DoryScalar,
@@ -187,4 +189,107 @@ fn we_can_compare_indexes_by_columns_for_varbinary_columns() {
     assert_eq!(compare_indexes_by_columns(columns, 2, 3), Ordering::Equal); // "baz" vs "baz"
     assert_eq!(compare_indexes_by_columns(columns, 3, 4), Ordering::Greater); // "baz" vs "bar"
     assert_eq!(compare_indexes_by_columns(columns, 1, 4), Ordering::Equal); // "bar" vs "bar"
+}
+
+#[test]
+fn we_can_compare_indexes_by_columns_for_small_integer_and_decimal_columns() {
+    let uint8_column = Column::Uint8::<TestScalar>(&[2, 1, 2]);
+    let tinyint_column = Column::TinyInt::<TestScalar>(&[-1, 3, -4]);
+    let smallint_column = Column::SmallInt::<TestScalar>(&[10, 10, 12]);
+    let decimal_column = Column::Decimal75(
+        Precision::new(75).unwrap(),
+        0,
+        &[
+            TestScalar::from(1),
+            -TestScalar::from(2),
+            TestScalar::from(3),
+        ],
+    );
+
+    assert_eq!(
+        compare_indexes_by_columns(&[uint8_column], 0, 1),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_indexes_by_columns(&[tinyint_column], 1, 2),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_indexes_by_columns(&[smallint_column], 0, 2),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_indexes_by_columns(&[decimal_column], 0, 1),
+        Ordering::Greater
+    );
+}
+
+#[test]
+fn we_can_compare_single_row_of_tables_for_additional_column_variants() {
+    let scalars_a = [TestScalar::from(4), TestScalar::from(9)];
+    let scalars_b = [TestScalar::from(5), TestScalar::from(9)];
+    let strings_a = ["alpha", "beta"];
+    let strings_b = ["alpha", "gamma"];
+
+    let left = [
+        Column::Uint8::<TestScalar>(&[2, 7]),
+        Column::TinyInt::<TestScalar>(&[-1, 5]),
+        Column::SmallInt::<TestScalar>(&[10, 20]),
+        Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[100, 200]),
+        Column::Int128::<TestScalar>(&[300, 400]),
+        Column::Decimal75(
+            Precision::new(75).unwrap(),
+            0,
+            &[TestScalar::from(6), -TestScalar::from(8)],
+        ),
+        Column::Scalar(&scalars_a),
+        Column::VarChar((&strings_a, &scalars_a)),
+    ];
+    let right = [
+        Column::Uint8::<TestScalar>(&[2, 7]),
+        Column::TinyInt::<TestScalar>(&[-1, 5]),
+        Column::SmallInt::<TestScalar>(&[10, 20]),
+        Column::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), &[100, 200]),
+        Column::Int128::<TestScalar>(&[300, 400]),
+        Column::Decimal75(
+            Precision::new(75).unwrap(),
+            0,
+            &[TestScalar::from(6), -TestScalar::from(8)],
+        ),
+        Column::Scalar(&scalars_b),
+        Column::VarChar((&strings_b, &scalars_b)),
+    ];
+
+    assert_eq!(
+        compare_single_row_of_tables(&left[..1], &right[..1], 0, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[1..2], &right[1..2], 1, 0).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[2..3], &right[2..3], 0, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[3..4], &right[3..4], 1, 0).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[4..5], &right[4..5], 0, 1).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[5..6], &right[5..6], 0, 1).unwrap(),
+        Ordering::Greater
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[6..7], &right[6..7], 0, 0).unwrap(),
+        Ordering::Less
+    );
+    assert_eq!(
+        compare_single_row_of_tables(&left[7..8], &right[7..8], 1, 1).unwrap(),
+        Ordering::Less
+    );
 }
