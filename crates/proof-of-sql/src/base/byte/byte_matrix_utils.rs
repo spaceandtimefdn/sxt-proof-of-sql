@@ -103,4 +103,30 @@ mod tests {
 
         assert_eq!(varying_columns, expected_word_columns);
     }
+
+    #[test]
+    fn constant_columns_produce_no_varying_byte_matrix() {
+        let alloc = Bump::new();
+        let scalars = vec![TestScalar::from(0x1234u64); 4];
+        let expected_byte_distribution = ByteDistribution::new::<TestScalar, TestScalar>(&scalars);
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert_eq!(byte_distribution, expected_byte_distribution);
+        assert!(varying_columns.is_empty());
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
+
+    #[test]
+    fn empty_columns_produce_no_varying_byte_matrix() {
+        let alloc = Bump::new();
+        let scalars = Vec::<TestScalar>::new();
+        let expected_byte_distribution = ByteDistribution::new::<TestScalar, TestScalar>(&scalars);
+        let (varying_columns, byte_distribution) =
+            compute_varying_byte_matrix::<TestScalar>(&scalars, &alloc);
+
+        assert_eq!(byte_distribution, expected_byte_distribution);
+        assert!(varying_columns.is_empty());
+        assert_eq!(byte_distribution.varying_byte_count(), 0);
+    }
 }
