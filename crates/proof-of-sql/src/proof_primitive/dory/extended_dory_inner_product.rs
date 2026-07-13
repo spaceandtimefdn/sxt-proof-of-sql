@@ -60,3 +60,42 @@ pub fn extended_dory_inner_product_verify(
 
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{
+        deferred_msm::DeferredMSM, test_rng, PublicParameters, VerifierState,
+    };
+    use merlin::Transcript;
+
+    #[test]
+    fn we_reject_extended_dory_inner_product_when_messages_are_empty() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let verifier_state = ExtendedVerifierState {
+            base_state: VerifierState::new(
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                DeferredMSM::new([], []),
+                1,
+            ),
+            E_1: DeferredMSM::new([], []),
+            E_2: DeferredMSM::new([], []),
+            s1_tensor: vec![F::from(2)],
+            s2_tensor: vec![F::from(3)],
+            alphas: vec![F::from(0)],
+            alpha_invs: vec![F::from(0)],
+        };
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"extended_dory_inner_product_test");
+
+        assert!(!extended_dory_inner_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup,
+            |_| panic!("folding should not run when reduction messages are empty")
+        ));
+    }
+}
