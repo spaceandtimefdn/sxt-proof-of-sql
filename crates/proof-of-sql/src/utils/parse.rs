@@ -92,4 +92,13 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn we_skip_non_create_table_statements() {
+        // A SELECT statement mixed in with CREATE TABLE exercises the `_ => None` arm.
+        let sql = "SELECT 1; CREATE TABLE T (A DECIMAL(78, 0));";
+        let bigdecimals = find_bigdecimals(sql);
+        assert_eq!(bigdecimals.len(), 1);
+        assert!(bigdecimals.contains_key("T"));
+    }
 }
