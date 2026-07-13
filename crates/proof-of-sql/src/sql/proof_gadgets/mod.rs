@@ -24,10 +24,10 @@ mod sign_expr;
 pub(crate) use sign_expr::{
     final_round_evaluate_sign, first_round_evaluate_sign, verifier_evaluate_sign,
 };
-#[cfg(feature = "blitzar")]
+#[cfg(any(test, feature = "blitzar"))]
 #[cfg_attr(not(test), expect(dead_code))]
 mod range_check;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod range_check_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod sign_expr_test;
