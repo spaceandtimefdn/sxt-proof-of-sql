@@ -1,15 +1,22 @@
 use crate::{
     base::{
         database::{ColumnField, ColumnRef, ColumnType, LiteralValue, TableRef},
+        map::IndexMap,
+        scalar::test_scalar::TestScalar,
         try_standard_binary_deserialization, try_standard_binary_serialization,
     },
     sql::{
         evm_proof_plan::EVMProofPlan,
+        proof::{
+            FinalRoundBuilder, FirstRoundBuilder, ProofPlan, ProverEvaluate,
+            SumcheckMleEvaluations, VerificationBuilderImpl,
+        },
         proof_exprs::{AliasedDynProofExpr, ColumnExpr, DynProofExpr, EqualsExpr, LiteralExpr},
-        proof_plans::{DynProofPlan, FilterExec, TableExec},
+        proof_plans::{DynProofPlan, EmptyExec, FilterExec, TableExec},
     },
 };
-use alloc::boxed::Box;
+use alloc::{boxed::Box, collections::VecDeque};
+use bumpalo::Bump;
 use core::iter;
 use sqlparser::ast::Ident;
 use std::sync::LazyLock;
@@ -140,4 +147,53 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
             .unwrap();
     let plan = deserialized.0.inner();
     assert_eq!(plan, &expected_plan);
+}
+
+#[test]
+fn we_can_unwrap_an_evm_proof_plan() {
+    let plan = DynProofPlan::Empty(EmptyExec::new());
+    assert_eq!(EVMProofPlan::new(plan.clone()).into_inner(), plan);
+}
+
+#[test]
+fn evm_proof_plan_forwards_empty_plan_evaluation() {
+    let evm_plan = EVMProofPlan::new(DynProofPlan::Empty(EmptyExec::new()));
+
+    assert!(evm_plan.get_column_result_fields().is_empty());
+    assert!(evm_plan.get_column_references().is_empty());
+    assert!(evm_plan.get_table_references().is_empty());
+
+    let mle_evaluations = SumcheckMleEvaluations::<TestScalar>::default();
+    let mut verification_builder = VerificationBuilderImpl::new(
+        mle_evaluations,
+        &[],
+        &[],
+        VecDeque::new(),
+        Vec::new(),
+        Vec::new(),
+        0,
+    );
+    let verifier_table = evm_plan
+        .verifier_evaluate(
+            &mut verification_builder,
+            &IndexMap::default(),
+            &IndexMap::default(),
+            &[],
+        )
+        .unwrap();
+    assert!(verifier_table.column_evals().is_empty());
+
+    let alloc = Bump::new();
+    let table_map = IndexMap::default();
+    let mut first_round_builder = FirstRoundBuilder::<TestScalar>::new(1);
+    let first_round_table = evm_plan
+        .first_round_evaluate(&mut first_round_builder, &alloc, &table_map, &[])
+        .unwrap();
+    assert!(first_round_table.inner_table().is_empty());
+
+    let mut final_round_builder = FinalRoundBuilder::<TestScalar>::new(1, VecDeque::new());
+    let final_round_table = evm_plan
+        .final_round_evaluate(&mut final_round_builder, &alloc, &table_map, &[])
+        .unwrap();
+    assert!(final_round_table.inner_table().is_empty());
 }
