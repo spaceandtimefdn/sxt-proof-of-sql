@@ -35,3 +35,55 @@ impl<S: Scalar> TableEvaluation<S> {
         self.chi
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn test_new_and_accessors() {
+        let evals: Vec<TestScalar> = vec![TestScalar::from(1u64), TestScalar::from(2u64)];
+        let chi = (TestScalar::from(3u64), 4usize);
+        let te = TableEvaluation::new(evals.clone(), chi);
+        assert_eq!(te.column_evals(), evals.as_slice());
+        assert_eq!(te.chi_eval(), TestScalar::from(3u64));
+        assert_eq!(te.chi(), chi);
+    }
+
+    #[test]
+    fn test_equality() {
+        let a = TableEvaluation::new(
+            vec![TestScalar::from(1u64)],
+            (TestScalar::from(2u64), 3usize),
+        );
+        let b = TableEvaluation::new(
+            vec![TestScalar::from(1u64)],
+            (TestScalar::from(2u64), 3usize),
+        );
+        let c = TableEvaluation::new(
+            vec![TestScalar::from(9u64)],
+            (TestScalar::from(2u64), 3usize),
+        );
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_clone() {
+        let original = TableEvaluation::new(
+            vec![TestScalar::from(5u64)],
+            (TestScalar::from(6u64), 7usize),
+        );
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_empty_column_evals() {
+        let te: TableEvaluation<TestScalar> =
+            TableEvaluation::new(vec![], (TestScalar::from(0u64), 0usize));
+        assert!(te.column_evals().is_empty());
+        assert_eq!(te.chi_eval(), TestScalar::from(0u64));
+    }
+}
