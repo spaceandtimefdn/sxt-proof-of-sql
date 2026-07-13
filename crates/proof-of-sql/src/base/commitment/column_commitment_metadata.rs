@@ -1001,4 +1001,84 @@ mod tests {
             .try_difference(timestamp_tz_metadata_a)
             .is_err());
     }
+
+    #[test]
+    fn we_can_construct_metadata_with_max_bounds_for_valid_types() {
+        let smallint_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::SmallInt);
+        assert_eq!(smallint_metadata.column_type(), &ColumnType::SmallInt);
+        if let ColumnBounds::SmallInt(Bounds::Bounded(bounds)) = smallint_metadata.bounds() {
+            assert_eq!(bounds.min(), &i16::MIN);
+            assert_eq!(bounds.max(), &i16::MAX);
+        } else {
+            panic!("SmallInt max bounds should be bounded");
+        }
+
+        let int_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int);
+        assert_eq!(int_metadata.column_type(), &ColumnType::Int);
+        if let ColumnBounds::Int(Bounds::Bounded(bounds)) = int_metadata.bounds() {
+            assert_eq!(bounds.min(), &i32::MIN);
+            assert_eq!(bounds.max(), &i32::MAX);
+        } else {
+            panic!("Int max bounds should be bounded");
+        }
+
+        let bigint_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::BigInt);
+        assert_eq!(bigint_metadata.column_type(), &ColumnType::BigInt);
+        if let ColumnBounds::BigInt(Bounds::Bounded(bounds)) = bigint_metadata.bounds() {
+            assert_eq!(bounds.min(), &i64::MIN);
+            assert_eq!(bounds.max(), &i64::MAX);
+        } else {
+            panic!("BigInt max bounds should be bounded");
+        }
+
+        let timestamp_type = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc());
+        let timestamp_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(timestamp_type);
+        assert_eq!(timestamp_metadata.column_type(), &timestamp_type);
+        if let ColumnBounds::TimestampTZ(Bounds::Bounded(bounds)) = timestamp_metadata.bounds() {
+            assert_eq!(bounds.min(), &i64::MIN);
+            assert_eq!(bounds.max(), &i64::MAX);
+        } else {
+            panic!("TimestampTZ max bounds should be bounded");
+        }
+
+        let int128_metadata =
+            ColumnCommitmentMetadata::from_column_type_with_max_bounds(ColumnType::Int128);
+        assert_eq!(int128_metadata.column_type(), &ColumnType::Int128);
+        if let ColumnBounds::Int128(Bounds::Bounded(bounds)) = int128_metadata.bounds() {
+            assert_eq!(bounds.min(), &i128::MIN);
+            assert_eq!(bounds.max(), &i128::MAX);
+        } else {
+            panic!("Int128 max bounds should be bounded");
+        }
+
+        for column_type in [
+            ColumnType::Boolean,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+            ColumnType::Scalar,
+            ColumnType::Decimal75(Precision::new(10).unwrap(), 2),
+        ] {
+            let metadata = ColumnCommitmentMetadata::from_column_type_with_max_bounds(column_type);
+            assert_eq!(metadata.column_type(), &column_type);
+            assert_eq!(metadata.bounds(), &ColumnBounds::NoOrder);
+        }
+    }
+
+    #[test]
+    fn we_can_mutate_bounds_in_tests() {
+        let mut metadata = ColumnCommitmentMetadata::try_new(
+            ColumnType::BigInt,
+            ColumnBounds::BigInt(Bounds::Empty),
+        )
+        .unwrap();
+        let bounds = ColumnBounds::BigInt(Bounds::sharp(-5, 10).unwrap());
+
+        *metadata.bounds_mut() = bounds;
+
+        assert_eq!(metadata.bounds(), &bounds);
+    }
 }
