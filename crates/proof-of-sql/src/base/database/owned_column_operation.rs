@@ -238,6 +238,115 @@ mod test {
     }
 
     #[test]
+    fn we_can_do_uint8_arithmetic_and_comparison_operations() {
+        let lhs = OwnedColumn::<TestScalar>::Uint8(vec![3_u8, 8, 21]);
+        let rhs = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 4, 7]);
+
+        assert_eq!(
+            lhs.element_wise_add(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Uint8(vec![4_u8, 12, 28]))
+        );
+        assert_eq!(
+            lhs.element_wise_sub(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Uint8(vec![2_u8, 4, 14]))
+        );
+        assert_eq!(
+            lhs.element_wise_mul(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Uint8(vec![3_u8, 32, 147]))
+        );
+        assert_eq!(
+            lhs.element_wise_div(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Uint8(vec![3_u8, 2, 3]))
+        );
+        assert_eq!(
+            lhs.element_wise_gt(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, true, true]))
+        );
+        assert_eq!(
+            lhs.element_wise_lt(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![false, false, false]))
+        );
+        assert_eq!(
+            lhs.element_wise_eq(&rhs),
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![false, false, false]))
+        );
+    }
+
+    #[test]
+    fn we_report_signed_casting_errors_for_uint8_and_tinyint_operations() {
+        let unsigned = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2, 3]);
+        let signed = OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, 2, 3]);
+
+        for result in [
+            unsigned.element_wise_add(&signed),
+            unsigned.element_wise_sub(&signed),
+            unsigned.element_wise_mul(&signed),
+            unsigned.element_wise_div(&signed),
+            signed.element_wise_add(&unsigned),
+            signed.element_wise_sub(&unsigned),
+            signed.element_wise_mul(&unsigned),
+            signed.element_wise_div(&unsigned),
+        ] {
+            assert!(matches!(
+                result,
+                Err(ColumnOperationError::SignedCastingError { .. })
+            ));
+        }
+
+        for result in [
+            unsigned.element_wise_eq(&signed),
+            unsigned.element_wise_lt(&signed),
+            unsigned.element_wise_gt(&signed),
+            signed.element_wise_eq(&unsigned),
+            signed.element_wise_lt(&unsigned),
+            signed.element_wise_gt(&unsigned),
+        ] {
+            assert!(matches!(
+                result,
+                Err(ColumnOperationError::SignedCastingError { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn we_report_integer_overflow_and_division_by_zero_for_owned_columns() {
+        let lhs = OwnedColumn::<TestScalar>::TinyInt(vec![i8::MAX]);
+        let rhs = OwnedColumn::<TestScalar>::TinyInt(vec![1]);
+        assert!(matches!(
+            lhs.element_wise_add(&rhs),
+            Err(ColumnOperationError::IntegerOverflow { .. })
+        ));
+
+        let lhs = OwnedColumn::<TestScalar>::Int(vec![12]);
+        let rhs = OwnedColumn::<TestScalar>::Int(vec![0]);
+        assert_eq!(
+            lhs.element_wise_div(&rhs),
+            Err(ColumnOperationError::DivisionByZero)
+        );
+    }
+
+    #[test]
+    fn we_reject_varbinary_owned_column_operations() {
+        let lhs = OwnedColumn::<TestScalar>::VarBinary(vec![b"alpha".to_vec(), b"beta".to_vec()]);
+        let rhs = OwnedColumn::<TestScalar>::VarBinary(vec![b"alpha".to_vec(), b"gamma".to_vec()]);
+
+        for result in [
+            lhs.element_wise_eq(&rhs),
+            lhs.element_wise_lt(&rhs),
+            lhs.element_wise_gt(&rhs),
+            lhs.element_wise_add(&rhs),
+            lhs.element_wise_sub(&rhs),
+            lhs.element_wise_mul(&rhs),
+            lhs.element_wise_div(&rhs),
+        ] {
+            assert!(matches!(
+                result,
+                Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+            ));
+        }
+    }
+
+    #[test]
     fn we_can_do_eq_operation() {
         // Integers
         let lhs = OwnedColumn::<TestScalar>::SmallInt(vec![1, 3, 2]);
