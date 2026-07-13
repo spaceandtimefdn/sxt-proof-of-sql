@@ -173,6 +173,14 @@ pub(super) fn test_encode_decode<T: VarInt + PartialEq + Debug, const N: usize>(
     assert_eq!((val, N), T::decode_var(result).unwrap());
 }
 
+fn test_encode_preserves_unused_buffer_bytes<T: VarInt + PartialEq + Debug>(val: T) {
+    let required_space = val.required_space();
+    let mut result = vec![0xAA; required_space + 3];
+    assert_eq!(val.encode_var(&mut result), required_space);
+    assert_eq!(T::decode_var(&result).unwrap(), (val, required_space));
+    assert_eq!(&result[required_space..], &[0xAA; 3]);
+}
+
 fn test_small_unsigned_values_encode_and_decode_properly<
     T: VarInt + Zero + One + Add + PartialEq + Debug,
 >() {
@@ -399,6 +407,16 @@ fn we_can_encode_and_decode_small_u128_values() {
 #[test]
 fn we_can_encode_and_decode_small_test_scalar_values() {
     test_small_signed_values_encode_and_decode_properly::<TestScalar>(TestScalar::ONE);
+}
+
+#[test]
+fn encode_var_only_writes_required_bytes_in_oversized_buffers() {
+    test_encode_preserves_unused_buffer_bytes(0_u64);
+    test_encode_preserves_unused_buffer_bytes(300_u64);
+    test_encode_preserves_unused_buffer_bytes(-150_i64);
+    test_encode_preserves_unused_buffer_bytes(u128::MAX);
+    test_encode_preserves_unused_buffer_bytes(true);
+    test_encode_preserves_unused_buffer_bytes(TestScalar::from(i128::MIN));
 }
 
 #[test]
