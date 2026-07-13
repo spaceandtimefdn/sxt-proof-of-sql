@@ -66,6 +66,20 @@ fn we_compute_the_evaluation_vector_for_an_empty_point() {
 }
 
 #[test]
+fn we_compute_the_evaluation_vector_for_an_empty_output() {
+    let mut v = [];
+    compute_evaluation_vector(
+        &mut v,
+        &[
+            TestScalar::from(3u64),
+            TestScalar::from(5u64),
+            TestScalar::from(7u64),
+        ],
+    );
+    assert!(v.is_empty());
+}
+
+#[test]
 fn we_get_the_same_result_using_evaluation_vector_as_direct_evaluation() {
     let xs = [
         TestScalar::from(3u64),
