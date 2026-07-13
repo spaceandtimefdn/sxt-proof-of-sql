@@ -303,6 +303,57 @@ mod tests {
     use crate::base::scalar::test_scalar::TestScalar;
 
     #[test]
+    fn we_can_get_the_max_integer_type_of_two_integer_column_types() {
+        // The larger signed integer type wins, regardless of argument order.
+        assert_eq!(
+            ColumnType::Int.max_integer_type(&ColumnType::BigInt),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::Int),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::TinyInt.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Int128.max_integer_type(&ColumnType::Int),
+            Some(ColumnType::Int128)
+        );
+        // `Uint8` (8 bits) widens to the larger signed type.
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::Int),
+            Some(ColumnType::Int)
+        );
+    }
+
+    #[test]
+    fn we_cannot_get_the_max_integer_type_when_a_column_type_is_not_an_integer() {
+        assert_eq!(ColumnType::Boolean.max_integer_type(&ColumnType::Int), None);
+        assert_eq!(ColumnType::Int.max_integer_type(&ColumnType::VarChar), None);
+    }
+
+    #[test]
+    fn we_can_get_the_max_unsigned_integer_type() {
+        // Both operands are 8-bit, so the unsigned result is `Uint8`.
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::Uint8),
+            Some(ColumnType::Uint8)
+        );
+        // No unsigned integer type wider than 8 bits exists, so this is `None`.
+        assert_eq!(
+            ColumnType::Int.max_unsigned_integer_type(&ColumnType::BigInt),
+            None
+        );
+        // A non-integer operand yields `None`.
+        assert_eq!(
+            ColumnType::Boolean.max_unsigned_integer_type(&ColumnType::Uint8),
+            None
+        );
+    }
+
+    #[test]
     fn column_type_serializes_to_string() {
         let column_type = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc());
         let serialized = serde_json::to_string(&column_type).unwrap();
