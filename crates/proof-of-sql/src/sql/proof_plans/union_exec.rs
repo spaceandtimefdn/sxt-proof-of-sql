@@ -204,3 +204,69 @@ impl ProverEvaluate for UnionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sql::proof_plans::DynProofPlan;
+
+    fn empty() -> DynProofPlan {
+        DynProofPlan::new_empty()
+    }
+
+    // ── try_new error/success ────────────────────────────────────────────────
+
+    #[test]
+    fn try_new_with_empty_inputs_fails() {
+        let result = UnionExec::try_new(vec![]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_new_with_one_input_fails() {
+        let result = UnionExec::try_new(vec![empty()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_new_with_two_inputs_succeeds() {
+        let result = UnionExec::try_new(vec![empty(), empty()]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_with_three_inputs_succeeds() {
+        let result = UnionExec::try_new(vec![empty(), empty(), empty()]);
+        assert!(result.is_ok());
+    }
+
+    // ── input_plans accessor ─────────────────────────────────────────────────
+
+    #[test]
+    fn input_plans_returns_all_inputs() {
+        let exec = UnionExec::try_new(vec![empty(), empty(), empty()]).unwrap();
+        assert_eq!(exec.input_plans().len(), 3);
+    }
+
+    // ── PartialEq / Clone ────────────────────────────────────────────────────
+
+    #[test]
+    fn two_equal_unions_are_equal() {
+        let a = UnionExec::try_new(vec![empty(), empty()]).unwrap();
+        let b = UnionExec::try_new(vec![empty(), empty()]).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn unions_with_different_input_counts_are_not_equal() {
+        let a = UnionExec::try_new(vec![empty(), empty()]).unwrap();
+        let b = UnionExec::try_new(vec![empty(), empty(), empty()]).unwrap();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = UnionExec::try_new(vec![empty(), empty()]).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
