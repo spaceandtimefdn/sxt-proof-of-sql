@@ -40,3 +40,63 @@ pub fn inner_product_with_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
         .map(|(lhs_bytes, &rhs)| S::from_byte_slice_via_hash(lhs_bytes) * rhs)
         .sum()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn test_inner_product_basic() {
+        // [1,2,3] · [4,5,6] = 4 + 10 + 18 = 32
+        let a = [
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+            TestScalar::from(3u64),
+        ];
+        let b = [
+            TestScalar::from(4u64),
+            TestScalar::from(5u64),
+            TestScalar::from(6u64),
+        ];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, TestScalar::from(32u64));
+    }
+
+    #[test]
+    fn test_inner_product_empty() {
+        let a: Vec<TestScalar> = vec![];
+        let b: Vec<TestScalar> = vec![];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, TestScalar::ZERO);
+    }
+
+    #[test]
+    fn test_inner_product_single_element() {
+        let a = [TestScalar::from(7u64)];
+        let b = [TestScalar::from(8u64)];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, TestScalar::from(56u64));
+    }
+
+    #[test]
+    fn test_inner_product_longer_b_truncated() {
+        // a has 2 elements, b has 3; result should only use first 2 pairs
+        let a = [TestScalar::from(1u64), TestScalar::from(2u64)];
+        let b = [
+            TestScalar::from(3u64),
+            TestScalar::from(4u64),
+            TestScalar::from(999u64),
+        ];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, TestScalar::from(1 * 3 + 2 * 4));
+    }
+
+    #[test]
+    fn test_inner_product_zeros() {
+        let a = [TestScalar::ZERO, TestScalar::ZERO];
+        let b = [TestScalar::from(100u64), TestScalar::from(200u64)];
+        let result = inner_product(&a, &b);
+        assert_eq!(result, TestScalar::ZERO);
+    }
+}

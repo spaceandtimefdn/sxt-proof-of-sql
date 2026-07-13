@@ -19,3 +19,38 @@ pub fn make_bit_mask<S: ScalarExt>(x: S) -> U256 {
 pub fn is_bit_mask_negative_representation(bit_mask: U256) -> bool {
     bit_mask & MSB_MASK == U256::ZERO
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+
+    #[test]
+    fn test_is_bit_mask_negative_representation_msb_set() {
+        // MSB set → NOT a negative representation → returns false
+        assert!(!is_bit_mask_negative_representation(MSB_MASK));
+    }
+
+    #[test]
+    fn test_is_bit_mask_negative_representation_msb_clear() {
+        // MSB clear → negative representation → returns true
+        assert!(is_bit_mask_negative_representation(U256::ZERO));
+        assert!(is_bit_mask_negative_representation(U256::ONE));
+    }
+
+    #[test]
+    fn test_make_bit_mask_non_negative_value() {
+        // For a non-negative value (x <= MAX_SIGNED), the bit mask
+        // has the MSB set (i.e. the result is NOT a negative representation).
+        let x = TestScalar::ZERO;
+        let mask = make_bit_mask(x);
+        assert!(!is_bit_mask_negative_representation(mask));
+    }
+
+    #[test]
+    fn test_make_bit_mask_consistency() {
+        // Two identical scalars should produce the same bit mask.
+        let x = TestScalar::from(42u64);
+        assert_eq!(make_bit_mask(x), make_bit_mask(x));
+    }
+}
