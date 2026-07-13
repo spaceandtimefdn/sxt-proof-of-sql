@@ -300,6 +300,16 @@ mod tests {
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_std::ops::Mul;
+
+    fn g1_multiple(value: u64) -> G1Affine {
+        G1Affine::generator().mul(F::from(value)).into_affine()
+    }
+
+    fn shifted_commit(first: G1Affine, second: G1Affine, column_type: ColumnType) -> G1Affine {
+        (first + second.mul(min_as_f(column_type))).into_affine()
+    }
 
     fn assert_blitzar_metadata(
         committable_columns: &[CommittableColumn],
@@ -328,6 +338,74 @@ mod tests {
     #[test]
     fn we_can_handle_empty_committable_columns_in_blitzar_metadata_tables() {
         assert_blitzar_metadata(&[], 0, &[], &[], &[]);
+    }
+
+    #[test]
+    fn we_can_get_column_type_minimums_as_f() {
+        assert_eq!(min_as_f(ColumnType::TinyInt), MontFp!("-128"));
+        assert_eq!(min_as_f(ColumnType::SmallInt), MontFp!("-32768"));
+        assert_eq!(min_as_f(ColumnType::Int), MontFp!("-2147483648"));
+        assert_eq!(
+            min_as_f(ColumnType::BigInt),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Int128),
+            MontFp!("-170141183460469231731687303715884105728")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Decimal75(Precision::new(1).unwrap(), 0)),
+            F::from(0_u64)
+        );
+        assert_eq!(min_as_f(ColumnType::Uint8), F::from(0_u64));
+        assert_eq!(min_as_f(ColumnType::Scalar), F::from(0_u64));
+        assert_eq!(min_as_f(ColumnType::VarChar), F::from(0_u64));
+        assert_eq!(min_as_f(ColumnType::VarBinary), F::from(0_u64));
+        assert_eq!(min_as_f(ColumnType::Boolean), F::from(0_u64));
+    }
+
+    #[test]
+    fn we_can_handle_empty_columns_when_signing_commits() {
+        let all_sub_commits = vec![g1_multiple(1), g1_multiple(2)];
+
+        assert!(signed_commits(&all_sub_commits, &[]).is_empty());
+    }
+
+    #[test]
+    fn we_can_shift_signed_commits_by_column_minimums() {
+        let timestamp_type = ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc());
+        let timestamps = [1_i64];
+        let tinyints = [1_i8];
+        let uints = [1_u8];
+        let committable_columns = [
+            CommittableColumn::TinyInt(&tinyints),
+            CommittableColumn::Uint8(&uints),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &timestamps,
+            ),
+        ];
+        let all_sub_commits: Vec<G1Affine> = (1..=12).map(g1_multiple).collect();
+
+        let signed = signed_commits(&all_sub_commits, &committable_columns);
+
+        let expected = vec![
+            shifted_commit(all_sub_commits[0], all_sub_commits[3], ColumnType::TinyInt),
+            shifted_commit(all_sub_commits[1], all_sub_commits[4], ColumnType::Uint8),
+            shifted_commit(all_sub_commits[2], all_sub_commits[5], timestamp_type),
+            shifted_commit(all_sub_commits[6], all_sub_commits[9], ColumnType::TinyInt),
+            shifted_commit(all_sub_commits[7], all_sub_commits[10], ColumnType::Uint8),
+            shifted_commit(all_sub_commits[8], all_sub_commits[11], timestamp_type),
+        ];
+        assert_eq!(signed, expected);
     }
 
     #[test]
