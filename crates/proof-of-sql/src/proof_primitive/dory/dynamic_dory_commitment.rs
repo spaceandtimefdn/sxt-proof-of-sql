@@ -94,6 +94,7 @@ impl Commitment for DynamicDoryCommitment {
 mod tests {
     use super::{DynamicDoryCommitment, GT};
     use crate::{
+        base::scalar::Scalar,
         base::{
             commitment::{ColumnCommitments, Commitment, TableCommitment},
             database::{
@@ -120,6 +121,14 @@ mod tests {
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
         );
+    }
+
+    #[test]
+    fn default_dynamic_dory_commitment_is_preserved_by_one_scalar() {
+        let default_commitment = DynamicDoryCommitment::default();
+
+        assert_eq!(DoryScalar::ONE * default_commitment, default_commitment);
+        assert_eq!(DoryScalar::ONE * &default_commitment, default_commitment);
     }
 
     /// Under no circumstances should this test be modified. Unless you know what you're doing.
