@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use alloc::boxed::Box;
-use core::iter;
+use core::{iter, mem::size_of};
 use sqlparser::ast::Ident;
 use std::sync::LazyLock;
 
@@ -140,4 +140,19 @@ fn we_can_deserialize_proof_plan_for_simple_filter() {
             .unwrap();
     let plan = deserialized.0.inner();
     assert_eq!(plan, &expected_plan);
+}
+
+#[test]
+fn truncated_simple_filter_proof_plan_bytes_fail_to_deserialize() {
+    for len in [
+        0,
+        size_of::<usize>(),
+        SIMPLE_FILTER_SERIALIZED_BYTES.len() / 2,
+        SIMPLE_FILTER_SERIALIZED_BYTES.len() - 1,
+    ] {
+        assert!(try_standard_binary_deserialization::<EVMProofPlan>(
+            &SIMPLE_FILTER_SERIALIZED_BYTES[..len]
+        )
+        .is_err());
+    }
 }
