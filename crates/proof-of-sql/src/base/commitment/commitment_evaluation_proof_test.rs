@@ -4,6 +4,8 @@ use crate::base::{
         naive_evaluation_proof::NaiveEvaluationProof, vec_commitment_ext::VecCommitmentExt,
     },
     database::Column,
+    polynomial::compute_evaluation_vector,
+    scalar::test_scalar::TestScalar,
 };
 use ark_std::UniformRand;
 use merlin::Transcript;
@@ -148,4 +150,59 @@ fn test_simple_ipa() {
 #[test]
 fn test_random_ipa_with_length_1() {
     test_commitment_evaluation_proof_with_length_1::<NaiveEvaluationProof>(&(), &());
+}
+
+#[test]
+fn test_naive_batched_commitment_evaluation_proof() {
+    let a_1 = [
+        TestScalar::from(2u64),
+        TestScalar::from(3u64),
+        TestScalar::from(5u64),
+        TestScalar::from(7u64),
+    ];
+    let a_2 = [
+        TestScalar::from(11u64),
+        TestScalar::from(13u64),
+        TestScalar::from(17u64),
+        TestScalar::from(19u64),
+    ];
+    let batching_factors = [TestScalar::from(23u64), TestScalar::from(29u64)];
+    let folded_a = a_1
+        .iter()
+        .zip(a_2)
+        .map(|(&lhs, rhs)| lhs * batching_factors[0] + rhs * batching_factors[1])
+        .collect::<Vec<_>>();
+    let b_point = [TestScalar::from(31u64), TestScalar::from(37u64)];
+
+    let mut transcript = Transcript::new(b"evaluation_proof");
+    let proof = NaiveEvaluationProof::new(&mut transcript, &folded_a, &b_point, 0, &());
+
+    let commits =
+        Vec::from_columns_with_offset([Column::Scalar(&a_1), Column::Scalar(&a_2)], 0, &());
+    let mut evaluation_vec = vec![TestScalar::zero(); a_1.len()];
+    compute_evaluation_vector(&mut evaluation_vec, &b_point);
+    let evaluations = [
+        a_1.iter()
+            .zip(&evaluation_vec)
+            .map(|(&value, &weight)| value * weight)
+            .sum(),
+        a_2.iter()
+            .zip(&evaluation_vec)
+            .map(|(&value, &weight)| value * weight)
+            .sum(),
+    ];
+
+    let mut transcript = Transcript::new(b"evaluation_proof");
+    assert!(proof
+        .verify_batched_proof(
+            &mut transcript,
+            &commits,
+            &batching_factors,
+            &evaluations,
+            &b_point,
+            0,
+            a_1.len(),
+            &(),
+        )
+        .is_ok());
 }
