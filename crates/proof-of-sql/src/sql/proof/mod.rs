@@ -40,7 +40,7 @@ pub(crate) use proof_plan::{HonestProver, ProverEvaluate, ProverHonestyMarker};
 
 mod query_proof;
 pub use query_proof::QueryProof;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod query_proof_test;
 
 mod query_result;
