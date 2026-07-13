@@ -108,3 +108,95 @@ pub enum ColumnOperationError {
 
 /// Result type for column operations
 pub type ColumnOperationResult<T> = Result<T, ColumnOperationError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::DecimalError;
+
+    #[test]
+    fn we_can_display_column_operation_errors() {
+        assert_eq!(
+            ColumnOperationError::DifferentColumnLength { len_a: 2, len_b: 3 }.to_string(),
+            "Columns have different lengths: 2 != 3"
+        );
+        assert_eq!(
+            ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator: "add".into(),
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::VarChar,
+            }
+            .to_string(),
+            "\"add\"(lhs: BigInt, rhs: VarChar) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::UnaryOperationInvalidColumnType {
+                operator: "neg".into(),
+                operand_type: ColumnType::Boolean,
+            }
+            .to_string(),
+            "\"neg\"(operand: Boolean) is not supported"
+        );
+        assert_eq!(
+            ColumnOperationError::IntegerOverflow {
+                error: "too large".into(),
+            }
+            .to_string(),
+            "Overflow in integer operation: too large"
+        );
+        assert_eq!(
+            ColumnOperationError::IndexOutOfBounds { index: 7, len: 4 }.to_string(),
+            "Index out of bounds: 7 >= 4"
+        );
+    }
+
+    #[test]
+    fn we_can_display_type_conversion_column_operation_errors() {
+        assert_eq!(
+            ColumnOperationError::UnionDifferentTypes {
+                correct_type: ColumnType::Int,
+                actual_type: ColumnType::BigInt,
+            }
+            .to_string(),
+            "Cannot union columns of different types: Int and BigInt"
+        );
+        assert_eq!(
+            ColumnOperationError::SignedCastingError {
+                left_type: ColumnType::TinyInt,
+                right_type: ColumnType::Uint8,
+            }
+            .to_string(),
+            "Cannot fit TINYINT into UINT8 without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::CastingError {
+                left_type: ColumnType::BigInt,
+                right_type: ColumnType::Int,
+            }
+            .to_string(),
+            "Cannot fit BIGINT into INT without losing data"
+        );
+        assert_eq!(
+            ColumnOperationError::ScaleCastingError {
+                left_type: ColumnType::Int,
+                right_type: ColumnType::Decimal75(
+                    crate::base::math::decimal::Precision::new(10).unwrap(),
+                    2
+                ),
+            }
+            .to_string(),
+            "Cannot fit INT into DECIMAL75(PRECISION: 10, SCALE: 2) without losing data"
+        );
+    }
+
+    #[test]
+    fn we_can_display_transparent_decimal_operation_errors() {
+        let error = ColumnOperationError::DecimalConversionError {
+            source: DecimalError::InvalidScale {
+                scale: "128".into(),
+            },
+        };
+
+        assert_eq!(error.to_string(), "Decimal scale is not valid: 128");
+    }
+}
