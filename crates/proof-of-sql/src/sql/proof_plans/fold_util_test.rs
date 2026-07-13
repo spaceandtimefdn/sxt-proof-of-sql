@@ -1,7 +1,7 @@
 use super::{fold_columns, fold_vals};
 use crate::{
+    base::scalar::test_scalar::TestScalar,
     base::{database::Column, math::decimal::Precision},
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
 use bumpalo::Bump;
 use num_traits::Zero;
@@ -9,20 +9,14 @@ use num_traits::Zero;
 #[test]
 fn we_can_fold_columns_with_scalars() {
     let expected = vec![
-        Curve25519Scalar::from(77 + 1602 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("1"),
-        Curve25519Scalar::from(77 + 2703 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("2"),
-        Curve25519Scalar::from(77 + 3805 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("3"),
-        Curve25519Scalar::from(77 + 4907 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("4"),
-        Curve25519Scalar::from(77 + 5001 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("5"),
+        TestScalar::from(77 + 1602 * 33) + TestScalar::from(10 * 33) * TestScalar::from("1"),
+        TestScalar::from(77 + 2703 * 33) + TestScalar::from(10 * 33) * TestScalar::from("2"),
+        TestScalar::from(77 + 3805 * 33) + TestScalar::from(10 * 33) * TestScalar::from("3"),
+        TestScalar::from(77 + 4907 * 33) + TestScalar::from(10 * 33) * TestScalar::from("4"),
+        TestScalar::from(77 + 5001 * 33) + TestScalar::from(10 * 33) * TestScalar::from("5"),
     ];
 
-    let str_scalars: [Curve25519Scalar; 5] =
-        ["1".into(), "2".into(), "3".into(), "4".into(), "5".into()];
+    let str_scalars: [TestScalar; 5] = ["1".into(), "2".into(), "3".into(), "4".into(), "5".into()];
     let scalars = [2.into(), 3.into(), 5.into(), 7.into(), 1.into()];
     let mut columns = vec![
         Column::BigInt(&[1, 2, 3, 4, 5]),
@@ -50,23 +44,20 @@ fn we_can_fold_columns_with_scalars() {
 #[test]
 fn we_can_fold_columns_with_that_get_padded() {
     let expected = vec![
-        Curve25519Scalar::from(77 + 1602 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("1"),
-        Curve25519Scalar::from(77 + 2703 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("2"),
-        Curve25519Scalar::from(77 + 3800 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("3"),
-        Curve25519Scalar::from(77 + 4900 * 33),
-        Curve25519Scalar::from(77 + 5000 * 33),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
+        TestScalar::from(77 + 1602 * 33) + TestScalar::from(10 * 33) * TestScalar::from("1"),
+        TestScalar::from(77 + 2703 * 33) + TestScalar::from(10 * 33) * TestScalar::from("2"),
+        TestScalar::from(77 + 3800 * 33) + TestScalar::from(10 * 33) * TestScalar::from("3"),
+        TestScalar::from(77 + 4900 * 33),
+        TestScalar::from(77 + 5000 * 33),
+        TestScalar::from(77),
+        TestScalar::from(77),
+        TestScalar::from(77),
+        TestScalar::from(77),
+        TestScalar::from(77),
+        TestScalar::from(77),
     ];
 
-    let str_scalars: [Curve25519Scalar; 3] = ["1".into(), "2".into(), "3".into()];
+    let str_scalars: [TestScalar; 3] = ["1".into(), "2".into(), "3".into()];
     let scalars = [2.into(), 3.into()];
     let mut columns = vec![
         Column::BigInt(&[1, 2, 3, 4, 5]),
@@ -93,7 +84,7 @@ fn we_can_fold_columns_with_that_get_padded() {
 #[test]
 fn we_can_fold_empty_columns() {
     let columns = vec![
-        Column::BigInt::<Curve25519Scalar>(&[]),
+        Column::BigInt::<TestScalar>(&[]),
         Column::Int128(&[]),
         Column::VarChar((&[], &[])),
         Column::Scalar(&[]),
@@ -107,17 +98,11 @@ fn we_can_fold_empty_columns() {
 
 #[test]
 fn we_can_fold_vals() {
-    assert_eq!(fold_vals(Curve25519Scalar::from(10), &[]), Zero::zero());
+    assert_eq!(fold_vals(TestScalar::from(10), &[]), Zero::zero());
     assert_eq!(
         fold_vals(
             10.into(),
-            &[
-                Curve25519Scalar::from(1),
-                2.into(),
-                3.into(),
-                4.into(),
-                5.into()
-            ]
+            &[TestScalar::from(1), 2.into(), 3.into(), 4.into(), 5.into()]
         ),
         (12345).into()
     );
