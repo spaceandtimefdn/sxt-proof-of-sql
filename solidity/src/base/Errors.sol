@@ -162,6 +162,8 @@ library Errors {
     error TooManyParameters();
     /// @notice Error thrown when a plan has a number of join columns other than one.
     error NumberOfJoinColumnsNotOne();
+    /// @notice Error thrown when the reuqested table hash is missing.
+    error MissingTableNameHash();
 
     function __err(uint32 __code) internal pure {
         assembly {
