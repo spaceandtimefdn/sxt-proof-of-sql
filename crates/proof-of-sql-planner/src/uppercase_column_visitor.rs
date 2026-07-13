@@ -47,7 +47,7 @@ pub fn statement_with_uppercase_identifiers(mut statement: Statement) -> Stateme
 
 #[cfg(test)]
 mod tests {
-    use super::statement_with_uppercase_identifiers;
+    use super::{statement_with_uppercase_identifiers, uppercase_identifier};
     use sqlparser::{dialect::GenericDialect, parser::Parser};
 
     #[test]
@@ -55,6 +55,31 @@ mod tests {
         let statement = Parser::parse_sql(&GenericDialect{}, "SELECT a.thissum from (SELECT Sum(uppercase_Value) as thissum, COUNT(puppies) as coUNT fRoM NonSEnSE) as a").unwrap()[0].clone();
         let statement = statement_with_uppercase_identifiers(statement);
         let expected_statement = Parser::parse_sql(&GenericDialect{}, "SELECT A.THISSUM from (SELECT Sum(UPPERCASE_VALUE) as thissum, COUNT(PUPPIES) as coUNT fRoM NONSENSE) as a").unwrap()[0].clone();
+        assert_eq!(statement, expected_statement);
+    }
+
+    #[test]
+    fn we_can_capitalize_a_single_identifier() {
+        let ident = uppercase_identifier("mixed_case".into());
+        assert_eq!(ident.value, "MIXED_CASE");
+        assert_eq!(ident.quote_style, None);
+    }
+
+    #[test]
+    fn we_can_capitalize_quoted_compound_identifiers_and_table_names() {
+        let statement = Parser::parse_sql(
+            &GenericDialect {},
+            r#"SELECT "schema"."columnName" FROM "namespace"."mixedTable""#,
+        )
+        .unwrap()[0]
+            .clone();
+        let statement = statement_with_uppercase_identifiers(statement);
+        let expected_statement = Parser::parse_sql(
+            &GenericDialect {},
+            r#"SELECT "SCHEMA"."COLUMNNAME" FROM "NAMESPACE"."MIXEDTABLE""#,
+        )
+        .unwrap()[0]
+            .clone();
         assert_eq!(statement, expected_statement);
     }
 }
