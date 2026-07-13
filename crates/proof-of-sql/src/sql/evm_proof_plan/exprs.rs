@@ -148,7 +148,7 @@ impl EVMColumnExpr {
     ) -> EVMProofPlanResult<Self> {
         Ok(Self {
             column_number: column_refs
-                .get_index_of(expr.column_ref())
+                .get_index_of(&expr.column_ref())
                 .or_else(|| {
                     column_refs.get_index_of(&ColumnRef::new(
                         TableRef::from_names(None, ""),
@@ -698,7 +698,7 @@ mod tests {
         let roundtripped_column_expr = evm_column_expr
             .try_into_proof_expr(&indexset! {column_ref.clone()})
             .unwrap();
-        assert_eq!(*roundtripped_column_expr.column_ref(), column_ref);
+        assert_eq!(roundtripped_column_expr.column_ref(), column_ref);
     }
 
     #[test]
