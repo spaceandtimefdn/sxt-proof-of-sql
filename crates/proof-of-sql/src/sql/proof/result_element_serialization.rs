@@ -206,6 +206,22 @@ mod tests {
     }
 
     #[test]
+    fn we_can_encode_and_decode_an_owned_string() {
+        let value = String::from("owned test string");
+        let mut out = vec![0_u8; value.required_bytes()];
+        value.encode(&mut out[..]);
+
+        let (decoded_value, read_bytes) = String::decode(&out[..]).unwrap();
+        assert_eq!(read_bytes, out.len());
+        assert_eq!(decoded_value, value);
+
+        let (converted_value, converted_bytes) =
+            decode_and_convert::<&str, String>(&out[..]).unwrap();
+        assert_eq!(converted_bytes, out.len());
+        assert_eq!(converted_value, value);
+    }
+
+    #[test]
     fn we_can_encode_and_decode_a_simple_array() {
         let value = &[1_u8, 3_u8, 5_u8][..];
         let mut out = vec![0_u8; value.required_bytes()];
@@ -392,6 +408,21 @@ mod tests {
     }
 
     #[test]
+    fn multiple_owned_string_rows_are_correctly_encoded_and_decoded() {
+        let data = [
+            String::from("abc1"),
+            String::from("joe123"),
+            String::from("testing435t"),
+        ];
+        let out = encode_multiple_rows(&data);
+        let (decoded_data, decoded_bytes) =
+            decode_multiple_elements::<String>(&out[..], data.len()).unwrap();
+
+        assert_eq!(decoded_data, data);
+        assert_eq!(decoded_bytes, out.len());
+    }
+
+    #[test]
     fn multiple_array_rows_are_correctly_encoded_and_decoded() {
         let data = [
             &[121_u8, 0_u8, 39_u8, 93_u8][..],
@@ -435,10 +466,12 @@ mod tests {
         value.encode(&mut out[..]);
 
         assert!(<&str>::decode(&out[..]).is_ok());
+        assert!(String::decode(&out[..]).is_ok());
 
         let last_element = out.len();
         out[last_element - 3..last_element].clone_from_slice(&[0xed, 0xa0, 0x80]);
         assert!(<&str>::decode(&out[..]).is_err());
+        assert!(String::decode(&out[..]).is_err());
     }
 
     #[test]
