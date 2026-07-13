@@ -191,3 +191,41 @@ impl ProverEvaluate for ProjectionExec {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectionExec;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{
+            proof::ProofPlan,
+            proof_exprs::{AliasedDynProofExpr, DynProofExpr},
+            proof_plans::DynProofPlan,
+        },
+    };
+
+    #[test]
+    fn projection_constructor_preserves_input_results_and_output_fields() {
+        let input = DynProofPlan::new_empty();
+        let aliased_results = vec![
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_literal(LiteralValue::BigInt(7)),
+                alias: "total".into(),
+            },
+            AliasedDynProofExpr {
+                expr: DynProofExpr::new_literal(LiteralValue::Boolean(true)),
+                alias: "flag".into(),
+            },
+        ];
+
+        let projection = ProjectionExec::new(aliased_results.clone(), Box::new(input.clone()));
+
+        assert_eq!(projection.input(), &input);
+        assert_eq!(projection.aliased_results(), aliased_results.as_slice());
+        let fields = projection.get_column_result_fields();
+        assert_eq!(fields[0].name().value, "total");
+        assert_eq!(fields[0].data_type(), ColumnType::BigInt);
+        assert_eq!(fields[1].name().value, "flag");
+        assert_eq!(fields[1].data_type(), ColumnType::Boolean);
+    }
+}
