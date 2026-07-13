@@ -92,4 +92,25 @@ mod tests {
             &empty_vec
         );
     }
+
+    #[test]
+    fn we_only_collect_decimal_columns_with_precision_above_thirty_eight_and_scale() {
+        let sql = "CREATE TABLE ledger.settlements(
+            id BIGINT NOT NULL,
+            exact_value DECIMAL(39, 6),
+            standard_value DECIMAL(38, 6),
+            unscaled_value DECIMAL(60),
+            display_value VARCHAR
+        );
+
+        SELECT * FROM ledger.settlements;";
+
+        let bigdecimals = find_bigdecimals(sql);
+
+        assert_eq!(bigdecimals.len(), 1);
+        assert_eq!(
+            bigdecimals.get("ledger.settlements").unwrap(),
+            &[("exact_value".to_string(), 39, 6)]
+        );
+    }
 }
