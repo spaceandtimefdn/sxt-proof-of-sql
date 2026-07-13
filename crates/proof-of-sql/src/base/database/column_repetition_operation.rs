@@ -153,7 +153,11 @@ impl RepetitionOp for ElementwiseRepeatOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
 
     #[test]
     fn test_column_repetition_op() {
@@ -212,6 +216,110 @@ mod tests {
         let column: Column<TestScalar> = Column::Uint8(&[3u8, 5u8, 2u8]);
         let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 2);
         assert_eq!(result.as_uint8().unwrap(), &[3u8, 3u8, 5u8, 5u8, 2u8, 2u8]);
+    }
+
+    #[test]
+    fn test_column_repetition_op_remaining_integer_columns() {
+        let bump = Bump::new();
+
+        let tinyint_column: Column<TestScalar> = Column::TinyInt(&[-2, 4]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&tinyint_column, &bump, 3);
+        assert_eq!(result.as_tinyint().unwrap(), &[-2, 4, -2, 4, -2, 4]);
+
+        let smallint_column: Column<TestScalar> = Column::SmallInt(&[-300, 700]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&smallint_column, &bump, 2);
+        assert_eq!(result.as_smallint().unwrap(), &[-300, 700, -300, 700]);
+
+        let bigint_column: Column<TestScalar> = Column::BigInt(&[-9_000_000_000, 5]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&bigint_column, &bump, 2);
+        assert_eq!(
+            result.as_bigint().unwrap(),
+            &[-9_000_000_000, 5, -9_000_000_000, 5]
+        );
+
+        let int128_column: Column<TestScalar> =
+            Column::Int128(&[-10_i128.pow(20), 10_i128.pow(20)]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&int128_column, &bump, 2);
+        assert_eq!(
+            result.as_int128().unwrap(),
+            &[
+                -10_i128.pow(20),
+                10_i128.pow(20),
+                -10_i128.pow(20),
+                10_i128.pow(20)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_elementwise_repetition_op_scalar_decimal_and_timestamp_columns() {
+        let bump = Bump::new();
+
+        let scalars = vec![TestScalar::from(7), TestScalar::from(-3)];
+        let scalar_column = Column::Scalar(scalars.as_slice());
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&scalar_column, &bump, 2);
+        assert_eq!(
+            result.as_scalar().unwrap(),
+            &[
+                TestScalar::from(7),
+                TestScalar::from(7),
+                TestScalar::from(-3),
+                TestScalar::from(-3)
+            ]
+        );
+
+        let decimals = vec![TestScalar::from(123), TestScalar::from(-45)];
+        let precision = Precision::new(5).unwrap();
+        let decimal_column = Column::Decimal75(precision, 2, decimals.as_slice());
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&decimal_column, &bump, 2);
+        assert_eq!(
+            result,
+            Column::Decimal75(
+                precision,
+                2,
+                &[
+                    TestScalar::from(123),
+                    TestScalar::from(123),
+                    TestScalar::from(-45),
+                    TestScalar::from(-45)
+                ]
+            )
+        );
+
+        let timestamp_column = Column::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::new(-18_000),
+            &[1_700_000_001, 1_700_000_003],
+        );
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&timestamp_column, &bump, 3);
+        assert_eq!(
+            result,
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::new(-18_000),
+                &[
+                    1_700_000_001,
+                    1_700_000_001,
+                    1_700_000_001,
+                    1_700_000_003,
+                    1_700_000_003,
+                    1_700_000_003
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_column_repetition_ops_can_emit_empty_columns() {
+        let bump = Bump::new();
+
+        let column: Column<TestScalar> = Column::BigInt(&[10, 20]);
+        let result = ColumnRepeatOp::column_op::<TestScalar>(&column, &bump, 0);
+        assert_eq!(result.as_bigint().unwrap(), &[] as &[i64]);
+
+        let column: Column<TestScalar> = Column::TinyInt(&[]);
+        let result = ElementwiseRepeatOp::column_op::<TestScalar>(&column, &bump, 5);
+        assert_eq!(result.as_tinyint().unwrap(), &[] as &[i8]);
     }
 
     #[test]
