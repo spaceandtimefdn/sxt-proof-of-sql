@@ -567,6 +567,104 @@ mod tests {
     }
 
     #[test]
+    fn identity_results_track_each_constraint_for_each_row() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ONE,
+                1,
+            )
+            .unwrap();
+        verification_builder.increment_row_index();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::TWO,
+                1,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::Identity,
+                TestScalar::ZERO,
+                1,
+            )
+            .unwrap();
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![vec![true, false], vec![false, true]]
+        );
+    }
+
+    #[test]
+    fn zero_sum_results_fold_each_constraint_across_rows() {
+        let mut verification_builder: MockVerificationBuilder<TestScalar> =
+            MockVerificationBuilder::new(
+                Vec::new(),
+                2,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                2,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::TWO,
+                2,
+            )
+            .unwrap();
+        verification_builder.increment_row_index();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                -TestScalar::ONE,
+                2,
+            )
+            .unwrap();
+        verification_builder
+            .try_produce_sumcheck_subpolynomial_evaluation(
+                SumcheckSubpolynomialType::ZeroSum,
+                TestScalar::ONE,
+                2,
+            )
+            .unwrap();
+
+        assert_eq!(
+            verification_builder.get_zero_sum_results(),
+            vec![true, false]
+        );
+    }
+
+    #[test]
     fn we_can_get_first_round_mle_evaluations() {
         let mut verification_builder: MockVerificationBuilder<TestScalar> =
             MockVerificationBuilder::new(
