@@ -122,3 +122,15 @@ fn we_can_fold_vals() {
         (12345).into()
     );
 }
+
+#[test]
+fn fold_vals_handles_single_value_and_zero_beta() {
+    let vals = [
+        Curve25519Scalar::from(4),
+        Curve25519Scalar::from(9),
+        Curve25519Scalar::from(16),
+    ];
+
+    assert_eq!(fold_vals(Curve25519Scalar::from(123), &[vals[0]]), vals[0]);
+    assert_eq!(fold_vals(Curve25519Scalar::zero(), &vals), vals[2]);
+}
