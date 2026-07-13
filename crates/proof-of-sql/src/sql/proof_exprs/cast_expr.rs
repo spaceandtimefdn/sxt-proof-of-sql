@@ -99,3 +99,18 @@ impl ProofExpr for CastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn we_can_get_cast_expr_inputs_and_target_type() {
+        let from_expr = DynProofExpr::new_literal(LiteralValue::TinyInt(7));
+        let cast_expr =
+            CastExpr::try_new(Box::new(from_expr.clone()), ColumnType::SmallInt).unwrap();
+
+        assert_eq!(cast_expr.get_from_expr(), &from_expr);
+        assert_eq!(cast_expr.to_type(), &ColumnType::SmallInt);
+    }
+}

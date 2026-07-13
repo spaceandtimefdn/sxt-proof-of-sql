@@ -110,3 +110,21 @@ impl ProofExpr for ScalingCastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::math::decimal::Precision;
+
+    #[test]
+    fn we_can_get_scaling_cast_expr_inputs_target_type_and_factor() {
+        let from_expr = DynProofExpr::new_literal(LiteralValue::SmallInt(3));
+        let to_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 5);
+        let scaling_cast_expr =
+            ScalingCastExpr::try_new(Box::new(from_expr.clone()), to_type).unwrap();
+
+        assert_eq!(scaling_cast_expr.get_from_expr(), &from_expr);
+        assert_eq!(scaling_cast_expr.to_type(), &to_type);
+        assert_eq!(scaling_cast_expr.scaling_factor(), [100000, 0, 0, 0]);
+    }
+}
