@@ -93,6 +93,55 @@ fn we_can_generate_save_and_load_public_setups() {
     }
 }
 
+/// # Panics
+/// because it is a test and is allowed to panic
+#[test]
+fn we_can_compute_sha256_for_existing_files() {
+    let temp_dir = tempdir().expect("Failed to create a temporary directory");
+    let file_path = temp_dir.path().join("payload.bin");
+    std::fs::write(&file_path, b"abc").expect("Failed to write payload file");
+
+    assert_eq!(
+        compute_sha256(file_path.to_str().unwrap()),
+        Some("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string())
+    );
+}
+
+/// # Panics
+/// because it is a test and is allowed to panic
+#[test]
+fn compute_sha256_returns_none_for_missing_files() {
+    let temp_dir = tempdir().expect("Failed to create a temporary directory");
+    let missing_path = temp_dir.path().join("missing.bin");
+
+    assert_eq!(compute_sha256(missing_path.to_str().unwrap()), None);
+}
+
+/// # Panics
+/// because it is a test and is allowed to panic
+#[test]
+fn we_can_read_digest_entries_from_file() {
+    let temp_dir = tempdir().expect("Failed to create a temporary directory");
+    let digests_path = temp_dir.path().join("digests.txt");
+    std::fs::write(
+        &digests_path,
+        "abc123 /tmp/public_parameters.bin\nignored-line\nbad line with extra columns\nfff456 /tmp/verifier_setup.bin\n",
+    )
+    .expect("Failed to write digest file");
+
+    let actual_digests = read_digests_from_file(digests_path.to_str().unwrap());
+
+    assert_eq!(actual_digests.len(), 2);
+    assert_eq!(
+        actual_digests.get("/tmp/public_parameters.bin").unwrap(),
+        "abc123"
+    );
+    assert_eq!(
+        actual_digests.get("/tmp/verifier_setup.bin").unwrap(),
+        "fff456"
+    );
+}
+
 /// Compute SHA-256 hash of a file and return it as a hex string.
 fn compute_sha256(file_path: &str) -> Option<String> {
     let mut file = File::open(file_path).ok()?;
