@@ -184,3 +184,75 @@ pub fn verifier_evaluate_or<S: Scalar>(
     // selection
     Ok(*lhs + *rhs - lhs_and_rhs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::database::{ColumnType, LiteralValue},
+        sql::{proof_exprs::DynProofExpr, AnalyzeError},
+    };
+
+    fn bool_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::Boolean(true),
+        )))
+    }
+
+    fn bigint_literal() -> Box<DynProofExpr> {
+        Box::new(DynProofExpr::Literal(LiteralExpr::new(
+            LiteralValue::BigInt(0),
+        )))
+    }
+
+    // ── try_new ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn try_new_boolean_boolean_succeeds() {
+        let result = OrExpr::try_new(bool_literal(), bool_literal());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn try_new_boolean_bigint_fails() {
+        let result = OrExpr::try_new(bool_literal(), bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn try_new_bigint_bigint_fails() {
+        // OR only valid on booleans
+        let result = OrExpr::try_new(bigint_literal(), bigint_literal());
+        assert!(matches!(result, Err(AnalyzeError::DataTypeMismatch { .. })));
+    }
+
+    // ── accessors ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lhs_rhs_are_boolean() {
+        let expr = OrExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(expr.lhs().data_type(), ColumnType::Boolean);
+        assert_eq!(expr.rhs().data_type(), ColumnType::Boolean);
+    }
+
+    #[test]
+    fn data_type_is_boolean() {
+        let expr = OrExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+    }
+
+    // ── PartialEq / Clone ────────────────────────────────────────────────────
+
+    #[test]
+    fn equal_exprs_compare_equal() {
+        let a = OrExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        let b = OrExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn clone_equals_original() {
+        let a = OrExpr::try_new(bool_literal(), bool_literal()).unwrap();
+        assert_eq!(a.clone(), a);
+    }
+}
