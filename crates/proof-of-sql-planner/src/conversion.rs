@@ -165,6 +165,16 @@ AND s.salary > (
     }
 
     #[test]
+    fn we_cannot_get_table_references_with_a_catalog_qualified_name() {
+        // A catalog-qualified (three-part) table name cannot be parsed into a
+        // `TableRef`, so collecting references must surface the parse error.
+        let statement = Parser::parse_sql(&GenericDialect {}, "SELECT a FROM catalog.schema.table")
+            .unwrap()[0]
+            .clone();
+        assert!(get_table_refs_from_statement(&statement).is_err());
+    }
+
+    #[test]
     fn we_can_use_abs() {
         let statements = Parser::parse_sql(&GenericDialect {}, "SELECT ABS(-1-1);").unwrap();
         sql_to_posql_plans(
