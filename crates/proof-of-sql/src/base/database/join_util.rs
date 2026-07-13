@@ -780,6 +780,17 @@ mod tests {
         assert_eq!(result, &[1, 0, 3, 1], "Expected multiplicities");
     }
 
+    #[test]
+    fn multiplicities_preserve_original_unique_row_order_after_sorting() {
+        let alloc = Bump::new();
+        let data = vec![Column::<TestScalar>::Int(&[4, 2, 4, 1, 2, 2])];
+        let unique = vec![Column::<TestScalar>::Int(&[2, 4, 1, 9])];
+
+        let result = get_multiplicities(&data, &unique, &alloc);
+
+        assert_eq!(result, &[3, 2, 1, 0]);
+    }
+
     // Get Columns of Table
     #[test]
     fn we_can_get_columns_of_table() {
