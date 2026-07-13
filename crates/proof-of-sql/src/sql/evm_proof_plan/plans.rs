@@ -979,6 +979,20 @@ mod tests {
     #[test]
     fn we_can_put_empty_exec_in_evm() {
         let empty_exec = EmptyExec::new();
+        let evm_dyn_empty_exec = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Empty(empty_exec.clone()),
+            &indexset![],
+            &indexset![],
+        )
+        .unwrap();
+
+        assert!(matches!(evm_dyn_empty_exec, EVMDynProofPlan::Empty(_)));
+        assert_eq!(
+            evm_dyn_empty_exec
+                .try_into_proof_plan(&indexset![], &indexset![], None)
+                .unwrap(),
+            DynProofPlan::Empty(empty_exec.clone())
+        );
 
         // Roundtrip
         let roundtripped_empty_exec = EVMEmptyExec::try_into_proof_plan();
@@ -1111,10 +1125,31 @@ mod tests {
             &evm_filter_exec,
             &indexset![table_ref.clone()],
             &indexset![column_ref_a.clone(), column_ref_b.clone()],
-            Some(&indexset![alias]),
+            Some(&indexset![alias.clone()]),
         )
         .unwrap();
         assert_eq!(roundtripped_filter_exec, filter_exec);
+
+        let evm_dyn_filter_exec = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::LegacyFilter(filter_exec.clone()),
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+        assert!(matches!(
+            evm_dyn_filter_exec,
+            EVMDynProofPlan::LegacyFilter(_)
+        ));
+        assert_eq!(
+            evm_dyn_filter_exec
+                .try_into_proof_plan(
+                    &indexset![table_ref.clone()],
+                    &indexset![column_ref_a.clone(), column_ref_b.clone()],
+                    Some(&indexset![alias.clone()]),
+                )
+                .unwrap(),
+            DynProofPlan::LegacyFilter(filter_exec)
+        );
 
         assert!(matches!(
             EVMLegacyFilterExec::try_into_proof_plan(
@@ -1213,6 +1248,24 @@ mod tests {
         assert!(matches!(
             roundtripped_group_by_exec.where_clause(),
             DynProofExpr::Equals(_)
+        ));
+
+        let evm_dyn_group_by_exec = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::GroupBy(group_by_exec.clone()),
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+        assert!(matches!(evm_dyn_group_by_exec, EVMDynProofPlan::GroupBy(_)));
+        assert!(matches!(
+            evm_dyn_group_by_exec
+                .try_into_proof_plan(
+                    &indexset![table_ref],
+                    &indexset![column_ref_a, column_ref_b],
+                    Some(&indexset![ident_a.value, sum_alias, count_alias]),
+                )
+                .unwrap(),
+            DynProofPlan::GroupBy(_)
         ));
     }
 
@@ -1599,6 +1652,20 @@ mod tests {
             union_exec.get_column_result_fields(),
             round_tripped_union_exec.get_column_result_fields()
         );
+
+        let evm_dyn_union_exec = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Union(union_exec),
+            table_refs,
+            column_refs,
+        )
+        .unwrap();
+        assert!(matches!(evm_dyn_union_exec, EVMDynProofPlan::Union(_)));
+        assert!(matches!(
+            evm_dyn_union_exec
+                .try_into_proof_plan(table_refs, column_refs, Some(&output_column_names))
+                .unwrap(),
+            DynProofPlan::Union(_)
+        ));
     }
 
     #[test]
@@ -2206,9 +2273,13 @@ mod tests {
         // Roundtrip
         let roundtripped_aggregate_exec = EVMAggregateExec::try_into_proof_plan(
             &evm_aggregate_exec,
-            &indexset![table_ref],
-            &indexset![column_ref_a, column_ref_b],
-            Some(&indexset![ident_a.value, sum_alias, count_alias]),
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+            Some(&indexset![
+                ident_a.value.clone(),
+                sum_alias.clone(),
+                count_alias.clone()
+            ]),
         )
         .unwrap();
 
@@ -2222,6 +2293,27 @@ mod tests {
         assert!(matches!(
             *roundtripped_aggregate_exec.input(),
             DynProofPlan::Table(_)
+        ));
+
+        let evm_dyn_aggregate_exec = EVMDynProofPlan::try_from_proof_plan(
+            &DynProofPlan::Aggregate(aggregate_exec),
+            &indexset![table_ref.clone()],
+            &indexset![column_ref_a.clone(), column_ref_b.clone()],
+        )
+        .unwrap();
+        assert!(matches!(
+            evm_dyn_aggregate_exec,
+            EVMDynProofPlan::Aggregate(_)
+        ));
+        assert!(matches!(
+            evm_dyn_aggregate_exec
+                .try_into_proof_plan(
+                    &indexset![table_ref],
+                    &indexset![column_ref_a, column_ref_b],
+                    Some(&indexset![ident_a.value, sum_alias, count_alias]),
+                )
+                .unwrap(),
+            DynProofPlan::Aggregate(_)
         ));
     }
 
