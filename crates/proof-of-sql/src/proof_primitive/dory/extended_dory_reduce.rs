@@ -111,3 +111,84 @@ pub fn extended_dory_reduce_verify(
 
     true
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{
+        rand_F_tensors, rand_G_vecs, test_rng, ExtendedProverState, G1Affine, G2Affine,
+        PublicParameters, GT,
+    };
+    use ark_std::UniformRand;
+    use merlin::Transcript;
+
+    fn verifier_state_and_setup(nu: usize) -> (ExtendedVerifierState, VerifierSetup) {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(nu, &mut rng);
+        let prover_setup = (&public_parameters).into();
+        let verifier_setup = (&public_parameters).into();
+        let (s1_tensor, s2_tensor) = rand_F_tensors(nu, &mut rng);
+        let (v1, v2) = rand_G_vecs(nu, &mut rng);
+        let prover_state = ExtendedProverState::new_from_tensors(s1_tensor, s2_tensor, v1, v2, nu);
+
+        (
+            prover_state.calculate_verifier_state(&prover_setup),
+            verifier_setup,
+        )
+    }
+
+    fn messages_with_counts(gt_count: usize, g1_count: usize, g2_count: usize) -> DoryMessages {
+        let mut rng = test_rng();
+        DoryMessages {
+            GT_messages: (0..gt_count).map(|_| GT::rand(&mut rng)).collect(),
+            G1_messages: (0..g1_count).map(|_| G1Affine::rand(&mut rng)).collect(),
+            G2_messages: (0..g2_count).map(|_| G2Affine::rand(&mut rng)).collect(),
+            F_messages: vec![],
+        }
+    }
+
+    #[test]
+    fn we_reject_extended_dory_reduce_with_too_few_gt_messages() {
+        let (mut verifier_state, verifier_setup) = verifier_state_and_setup(1);
+        let mut messages = messages_with_counts(5, 3, 3);
+        let mut transcript = Transcript::new(b"extended_dory_reduce_message_count_test");
+
+        assert!(!extended_dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup,
+        ));
+        assert_eq!(verifier_state.base_state.nu, 1);
+    }
+
+    #[test]
+    fn we_reject_extended_dory_reduce_with_too_few_g1_messages() {
+        let (mut verifier_state, verifier_setup) = verifier_state_and_setup(1);
+        let mut messages = messages_with_counts(6, 2, 3);
+        let mut transcript = Transcript::new(b"extended_dory_reduce_message_count_test");
+
+        assert!(!extended_dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup,
+        ));
+        assert_eq!(verifier_state.base_state.nu, 1);
+    }
+
+    #[test]
+    fn we_reject_extended_dory_reduce_with_too_few_g2_messages() {
+        let (mut verifier_state, verifier_setup) = verifier_state_and_setup(1);
+        let mut messages = messages_with_counts(6, 3, 2);
+        let mut transcript = Transcript::new(b"extended_dory_reduce_message_count_test");
+
+        assert!(!extended_dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut verifier_state,
+            &verifier_setup,
+        ));
+        assert_eq!(verifier_state.base_state.nu, 1);
+    }
+}
