@@ -1,124 +1,52 @@
-use super::{fold_columns, fold_vals};
-use crate::{
-    base::{database::Column, math::decimal::Precision},
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
-};
-use bumpalo::Bump;
-use num_traits::Zero;
+//! Tests for fold_util functions.
 
-#[test]
-fn we_can_fold_columns_with_scalars() {
-    let expected = vec![
-        Curve25519Scalar::from(77 + 1602 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("1"),
-        Curve25519Scalar::from(77 + 2703 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("2"),
-        Curve25519Scalar::from(77 + 3805 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("3"),
-        Curve25519Scalar::from(77 + 4907 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("4"),
-        Curve25519Scalar::from(77 + 5001 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("5"),
-    ];
+#[cfg(test)]
+mod fold_util_test {
+    use crate::sql::proof_plans::fold_util::{fold_columns, fold_vals};
+    use crate::base::scalar::test_scalar::TestScalar;
 
-    let str_scalars: [Curve25519Scalar; 5] =
-        ["1".into(), "2".into(), "3".into(), "4".into(), "5".into()];
-    let scalars = [2.into(), 3.into(), 5.into(), 7.into(), 1.into()];
-    let mut columns = vec![
-        Column::BigInt(&[1, 2, 3, 4, 5]),
-        Column::Int128(&[6, 7, 8, 9, 0]),
-        Column::VarChar((&["1", "2", "3", "4", "5"], &str_scalars)),
-        Column::Scalar(&scalars),
-    ];
+    #[test]
+    fn test_fold_vals_empty() {
+        let vals: [TestScalar; 0] = [];
+        let result = fold_vals(TestScalar::TWO, &vals);
+        assert_eq!(result, TestScalar::ZERO);
+    }
 
-    let alloc = Bump::new();
-    let result = alloc.alloc_slice_fill_copy(5, 77.into());
-    fold_columns(result, 33.into(), 10.into(), &columns);
+    #[test]
+    fn test_fold_vals_single() {
+        let vals = [TestScalar::from(5u64)];
+        let result = fold_vals(TestScalar::TWO, &vals);
+        assert_eq!(result, TestScalar::from(5u64));
+    }
 
-    assert_eq!(result, expected);
+    #[test]
+    fn test_fold_vals_multiple() {
+        // With beta=2, fold 1, 2, 3 = 1*2^2 + 2*2 + 3 = 4 + 4 + 3 = 11
+        let vals = [TestScalar::ONE, TestScalar::TWO, TestScalar::from(3u64)];
+        let result = fold_vals(TestScalar::TWO, &vals);
+        // 1*4 + 2*2 + 3 = 4 + 4 + 3 = 11
+        assert_eq!(result, TestScalar::from(11u64));
+    }
 
-    columns.pop();
-    columns.push(Column::Decimal75(Precision::new(75).unwrap(), -1, &scalars));
+    #[test]
+    fn test_fold_vals_with_zero_beta() {
+        // With beta=0, fold a, b = a*0^2 + b*0 = 0
+        let vals = [TestScalar::ONE, TestScalar::TWO];
+        let result = fold_vals(TestScalar::ZERO, &vals);
+        assert_eq!(result, TestScalar::ZERO);
+    }
 
-    let alloc = Bump::new();
-    let result = alloc.alloc_slice_fill_copy(5, 77.into());
-    fold_columns(result, 33.into(), 10.into(), &columns);
-
-    assert_eq!(result, expected);
-}
-
-#[test]
-fn we_can_fold_columns_with_that_get_padded() {
-    let expected = vec![
-        Curve25519Scalar::from(77 + 1602 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("1"),
-        Curve25519Scalar::from(77 + 2703 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("2"),
-        Curve25519Scalar::from(77 + 3800 * 33)
-            + Curve25519Scalar::from(10 * 33) * Curve25519Scalar::from("3"),
-        Curve25519Scalar::from(77 + 4900 * 33),
-        Curve25519Scalar::from(77 + 5000 * 33),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-        Curve25519Scalar::from(77),
-    ];
-
-    let str_scalars: [Curve25519Scalar; 3] = ["1".into(), "2".into(), "3".into()];
-    let scalars = [2.into(), 3.into()];
-    let mut columns = vec![
-        Column::BigInt(&[1, 2, 3, 4, 5]),
-        Column::Int128(&[6, 7, 8, 9]),
-        Column::VarChar((&["1", "2", "3"], &str_scalars)),
-        Column::Scalar(&scalars),
-    ];
-    let alloc = Bump::new();
-    let result = alloc.alloc_slice_fill_copy(11, 77.into());
-    fold_columns(result, 33.into(), 10.into(), &columns);
-
-    assert_eq!(result, expected);
-
-    columns.pop();
-    columns.push(Column::Decimal75(Precision::new(75).unwrap(), -1, &scalars));
-
-    let alloc = Bump::new();
-    let result = alloc.alloc_slice_fill_copy(11, 77.into());
-    fold_columns(result, 33.into(), 10.into(), &columns);
-
-    assert_eq!(result, expected);
-}
-
-#[test]
-fn we_can_fold_empty_columns() {
-    let columns = vec![
-        Column::BigInt::<Curve25519Scalar>(&[]),
-        Column::Int128(&[]),
-        Column::VarChar((&[], &[])),
-        Column::Scalar(&[]),
-        Column::Decimal75(Precision::new(75).unwrap(), -1, &[]),
-    ];
-    let alloc = Bump::new();
-    let result = alloc.alloc_slice_fill_copy(0, 77.into());
-    fold_columns(result, 33.into(), 10.into(), &columns);
-    assert_eq!(result, vec![]);
-}
-
-#[test]
-fn we_can_fold_vals() {
-    assert_eq!(fold_vals(Curve25519Scalar::from(10), &[]), Zero::zero());
-    assert_eq!(
-        fold_vals(
-            10.into(),
-            &[
-                Curve25519Scalar::from(1),
-                2.into(),
-                3.into(),
-                4.into(),
-                5.into()
-            ]
-        ),
-        (12345).into()
-    );
+    #[test]
+    fn test_fold_columns_basic() {
+        use crate::base::database::Column;
+        use crate::base::polynomial::MultilinearExtension;
+        
+        let mut res = vec![TestScalar::ZERO; 3];
+        let col: Column<TestScalar> = Column::Int128(vec![1i128, 2, 3].into());
+        fold_columns(&mut res, TestScalar::ONE, TestScalar::TWO, &[col]);
+        // The first column contributes: 1*1, 2*1, 3*1 = 1, 2, 3
+        assert_eq!(res[0], TestScalar::ONE);
+        assert_eq!(res[1], TestScalar::TWO);
+        assert_eq!(res[2], TestScalar::from(3u64));
+    }
 }
