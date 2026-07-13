@@ -43,6 +43,38 @@ fn test_random_ipa_fails_with_too_small_of_verifier_setup() {
 }
 
 #[test]
+fn prover_returns_default_proof_for_nonzero_generators_offset() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(2, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = [DoryScalar::rand(&mut rng)];
+    let b_point = [DoryScalar::rand(&mut rng)];
+    let mut transcript = Transcript::new(b"nonzero_generators_offset");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &a, &b_point, 1, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
+fn prover_returns_default_proof_when_setup_is_too_small() {
+    let mut rng = test_rng();
+    let public_parameters = PublicParameters::test_rand(1, &mut rng);
+    let prover_setup = ProverSetup::from(&public_parameters);
+    let a = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(16)
+        .collect::<Vec<_>>();
+    let b_point = core::iter::repeat_with(|| DoryScalar::rand(&mut rng))
+        .take(4)
+        .collect::<Vec<_>>();
+    let mut transcript = Transcript::new(b"small_prover_setup");
+
+    let proof = DynamicDoryEvaluationProof::new(&mut transcript, &a, &b_point, 0, &&prover_setup);
+
+    assert_eq!(proof, DynamicDoryEvaluationProof::default());
+}
+
+#[test]
 fn test_random_ipa_with_various_lengths() {
     let lengths = [128, 100, 64, 50, 32, 20, 16, 10, 8, 5, 4, 3, 2];
     let public_parameters = PublicParameters::test_rand(6, &mut test_rng());
