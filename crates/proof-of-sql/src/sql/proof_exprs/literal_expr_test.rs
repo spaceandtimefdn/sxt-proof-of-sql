@@ -1,15 +1,20 @@
-use super::{DynProofExpr, ProofExpr};
+use super::{literal_expr::LiteralExpr, DynProofExpr, ProofExpr};
 use crate::{
     base::{
         commitment::InnerProductProof,
         database::{
-            owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTableTestAccessor,
-            Table, TableRef,
+            owned_table_utility::*, table_utility::*, Column, ColumnType, LiteralValue,
+            OwnedTableTestAccessor, Table, TableRef,
         },
+        map::IndexMap,
+        scalar::test_scalar::TestScalar,
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::{
+            exercise_verification, mock_verification_builder::MockVerificationBuilder,
+            VerifiableQueryResult,
+        },
         proof_exprs::test_utility::*,
         proof_plans::test_utility::*,
     },
@@ -149,4 +154,43 @@ fn we_can_compute_the_correct_output_of_a_literal_expr_using_first_round_evaluat
         .unwrap();
     let expected_res = Column::Boolean(&[true, true, true, true]);
     assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_read_literal_expr_value_and_data_type() {
+    let literal_expr = LiteralExpr::new(LiteralValue::VarChar("hello".into()));
+
+    assert_eq!(literal_expr.value(), &LiteralValue::VarChar("hello".into()));
+    assert_eq!(literal_expr.data_type(), ColumnType::VarChar);
+}
+
+#[test]
+fn we_can_verify_boolean_literal_expr_values() {
+    let mut verification_builder = MockVerificationBuilder::new(
+        Vec::new(),
+        0,
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    let accessor = IndexMap::default();
+    let chi_eval = TestScalar::from(7_u64);
+
+    let true_expr = LiteralExpr::new(LiteralValue::Boolean(true));
+    assert_eq!(
+        true_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, chi_eval, &[])
+            .unwrap(),
+        chi_eval
+    );
+
+    let false_expr = LiteralExpr::new(LiteralValue::Boolean(false));
+    assert_eq!(
+        false_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, chi_eval, &[])
+            .unwrap(),
+        TestScalar::ZERO
+    );
 }
