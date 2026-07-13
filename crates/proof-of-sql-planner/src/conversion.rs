@@ -112,12 +112,12 @@ pub fn get_table_refs_from_statement(
 
 #[cfg(test)]
 mod tests {
-    use super::get_table_refs_from_statement;
+    use super::{get_table_refs_from_statement, optimizer};
     use crate::{conversion::sql_to_posql_plans, PlannerResult};
     use datafusion::{config::ConfigOptions, logical_expr::LogicalPlan};
     use indexmap::IndexSet;
     use proof_of_sql::{
-        base::database::{TableRef, TableTestAccessor},
+        base::database::{ParseError, TableRef, TableTestAccessor},
         proof_primitive::dory::DynamicDoryEvaluationProof,
     };
     use sqlparser::{dialect::GenericDialect, parser::Parser};
@@ -162,6 +162,34 @@ AND s.salary > (
         .into_iter()
         .collect();
         assert_eq!(table_refs, expected_table_refs);
+    }
+
+    #[test]
+    fn we_cannot_get_table_references_from_full_table_names() {
+        let statement = Parser::parse_sql(
+            &GenericDialect {},
+            "SELECT * FROM catalog.namespace.employees",
+        )
+        .unwrap()[0]
+            .clone();
+
+        assert_eq!(
+            get_table_refs_from_statement(&statement),
+            Err(ParseError::InvalidTableReference {
+                table_reference: "catalog.namespace.employees".into()
+            })
+        );
+    }
+
+    #[test]
+    fn optimizer_excludes_common_subexpression_elimination() {
+        let optimizer = optimizer();
+
+        assert!(!optimizer.rules.is_empty());
+        assert!(optimizer
+            .rules
+            .iter()
+            .all(|rule| rule.name() != "common_sub_expression_eliminate"));
     }
 
     #[test]
