@@ -43,6 +43,9 @@ struct CliArgs {
     /// Path to the directory where the csv files are stored.
     #[arg(short, long, default_value = ".")]
     path: String,
+    /// Maximum nu to use for the Dory setup.
+    #[arg(long, default_value_t = 5)]
+    dory_setup_max_nu: usize,
     #[command(subcommand)]
     /// TODO: add docs
     command: Commands,
@@ -154,7 +157,7 @@ fn main() {
     let args = CliArgs::parse();
 
     let mut rng = <ark_std::rand::rngs::StdRng as ark_std::rand::SeedableRng>::from_seed([0u8; 32]);
-    let public_parameters = PublicParameters::rand(5, &mut rng);
+    let public_parameters = PublicParameters::rand(args.dory_setup_max_nu, &mut rng);
     let prover_setup = ProverSetup::from(&public_parameters);
     let verifier_setup = VerifierSetup::from(&public_parameters);
     match args.command {
