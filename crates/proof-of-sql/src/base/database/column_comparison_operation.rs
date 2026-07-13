@@ -414,3 +414,117 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use alloc::{string::ToString, vec};
+
+    fn decimal(values: &[i64]) -> OwnedColumn<TestScalar> {
+        OwnedColumn::Decimal75(
+            Precision::new(5).unwrap(),
+            0,
+            values.iter().copied().map(TestScalar::from).collect(),
+        )
+    }
+
+    fn assert_equal_comparison(
+        lhs: OwnedColumn<TestScalar>,
+        rhs: OwnedColumn<TestScalar>,
+        expected: [bool; 2],
+    ) {
+        assert_eq!(
+            EqualOp::owned_column_element_wise_comparison(&lhs, &rhs),
+            Ok(OwnedColumn::Boolean(expected.into()))
+        );
+    }
+
+    #[test]
+    fn we_can_compare_numeric_column_variant_pairs() {
+        let tinyint = || OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, 2]);
+        let smallint = || OwnedColumn::<TestScalar>::SmallInt(vec![1_i16, 3]);
+        let int = || OwnedColumn::<TestScalar>::Int(vec![1_i32, 3]);
+        let bigint = || OwnedColumn::<TestScalar>::BigInt(vec![1_i64, 3]);
+        let int128 = || OwnedColumn::<TestScalar>::Int128(vec![1_i128, 3]);
+        let uint8 = || OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2]);
+        let decimal_lhs = || decimal(&[1, 2]);
+        let decimal_rhs = || decimal(&[1, 3]);
+
+        assert_equal_comparison(uint8(), uint8(), [true, true]);
+        assert_equal_comparison(uint8(), smallint(), [true, false]);
+        assert_equal_comparison(uint8(), int(), [true, false]);
+        assert_equal_comparison(uint8(), bigint(), [true, false]);
+        assert_equal_comparison(uint8(), int128(), [true, false]);
+        assert_equal_comparison(uint8(), decimal_rhs(), [true, false]);
+
+        assert_equal_comparison(tinyint(), tinyint(), [true, true]);
+        assert_equal_comparison(tinyint(), smallint(), [true, false]);
+        assert_equal_comparison(tinyint(), int(), [true, false]);
+        assert_equal_comparison(tinyint(), bigint(), [true, false]);
+        assert_equal_comparison(tinyint(), int128(), [true, false]);
+        assert_equal_comparison(tinyint(), decimal_rhs(), [true, false]);
+
+        assert_equal_comparison(smallint(), smallint(), [true, true]);
+        assert_equal_comparison(smallint(), int(), [true, true]);
+        assert_equal_comparison(smallint(), bigint(), [true, true]);
+        assert_equal_comparison(smallint(), int128(), [true, true]);
+        assert_equal_comparison(smallint(), decimal_rhs(), [true, true]);
+
+        assert_equal_comparison(int(), tinyint(), [true, false]);
+        assert_equal_comparison(int(), int(), [true, true]);
+        assert_equal_comparison(int(), bigint(), [true, true]);
+        assert_equal_comparison(int(), int128(), [true, true]);
+        assert_equal_comparison(int(), decimal_rhs(), [true, true]);
+
+        assert_equal_comparison(bigint(), tinyint(), [true, false]);
+        assert_equal_comparison(bigint(), smallint(), [true, true]);
+        assert_equal_comparison(bigint(), int(), [true, true]);
+        assert_equal_comparison(bigint(), bigint(), [true, true]);
+        assert_equal_comparison(bigint(), int128(), [true, true]);
+        assert_equal_comparison(bigint(), decimal_rhs(), [true, true]);
+
+        assert_equal_comparison(int128(), tinyint(), [true, false]);
+        assert_equal_comparison(int128(), smallint(), [true, true]);
+        assert_equal_comparison(int128(), int(), [true, true]);
+        assert_equal_comparison(int128(), bigint(), [true, true]);
+        assert_equal_comparison(int128(), int128(), [true, true]);
+        assert_equal_comparison(int128(), decimal_rhs(), [true, true]);
+
+        assert_equal_comparison(decimal_lhs(), smallint(), [true, false]);
+        assert_equal_comparison(decimal_lhs(), int128(), [true, false]);
+    }
+
+    #[test]
+    fn we_report_unsigned_and_string_comparison_errors() {
+        let uint8 = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2]);
+        let tinyint = OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, 2]);
+        assert!(matches!(
+            EqualOp::owned_column_element_wise_comparison(&uint8, &tinyint),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            EqualOp::owned_column_element_wise_comparison(&tinyint, &uint8),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+
+        let lhs = OwnedColumn::<TestScalar>::VarChar(
+            ["Space", "and"].iter().map(ToString::to_string).collect(),
+        );
+        let rhs = OwnedColumn::<TestScalar>::VarChar(
+            ["space", "and"].iter().map(ToString::to_string).collect(),
+        );
+        assert_eq!(
+            EqualOp::owned_column_element_wise_comparison(&lhs, &rhs),
+            Ok(OwnedColumn::Boolean(vec![false, true]))
+        );
+        assert!(matches!(
+            GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+        assert!(matches!(
+            LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs),
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+    }
+}
