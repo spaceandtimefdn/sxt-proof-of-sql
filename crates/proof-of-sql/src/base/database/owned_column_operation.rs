@@ -64,12 +64,12 @@ impl<S: Scalar> OwnedColumn<S> {
         EqualOp::owned_column_element_wise_comparison(self, rhs)
     }
 
-    /// Element-wise less than or equal to check for two columns
+    /// Element-wise less-than check for two columns
     pub fn element_wise_lt(&self, rhs: &Self) -> ColumnOperationResult<Self> {
         LessThanOp::owned_column_element_wise_comparison(self, rhs)
     }
 
-    /// Element-wise greater than or equal to check for two columns
+    /// Element-wise greater-than check for two columns
     pub fn element_wise_gt(&self, rhs: &Self) -> ColumnOperationResult<Self> {
         GreaterThanOp::owned_column_element_wise_comparison(self, rhs)
     }
@@ -98,7 +98,11 @@ impl<S: Scalar> OwnedColumn<S> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+        scalar::test_scalar::TestScalar,
+    };
     use alloc::vec;
 
     #[test]
@@ -313,6 +317,23 @@ mod test {
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
         );
+
+        // Timestamps
+        let lhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![0, 10, 20],
+        );
+        let rhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::new(3600),
+            vec![0, 9, 21],
+        );
+        let result = lhs.element_wise_eq(&rhs);
+        assert_eq!(
+            result,
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, false]))
+        );
     }
 
     #[test]
@@ -372,10 +393,27 @@ mod test {
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![false, false, true]))
         );
+
+        // Timestamps
+        let lhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![0, 10, 20],
+        );
+        let rhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::new(3600),
+            vec![0, 9, 21],
+        );
+        let result = lhs.element_wise_lt(&rhs);
+        assert_eq!(
+            result,
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![false, false, true]))
+        );
     }
 
     #[test]
-    fn we_can_do_ge_operation_on_numeric_and_boolean_columns() {
+    fn we_can_do_gt_operation_on_numeric_and_boolean_columns() {
         // Booleans
         let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
         let rhs = OwnedColumn::<TestScalar>::Boolean(vec![true, true, false]);
@@ -430,6 +468,23 @@ mod test {
         assert_eq!(
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, false]))
+        );
+
+        // Timestamps
+        let lhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![0, 10, 20],
+        );
+        let rhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::new(3600),
+            vec![0, 9, 21],
+        );
+        let result = lhs.element_wise_gt(&rhs);
+        assert_eq!(
+            result,
+            Ok(OwnedColumn::<TestScalar>::Boolean(vec![false, true, false]))
         );
     }
 
@@ -504,6 +559,36 @@ mod test {
                 .map(ToString::to_string)
                 .collect(),
         );
+        let result = lhs.element_wise_lt(&rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+
+        let result = lhs.element_wise_gt(&rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+
+        // Timestamps with different units are not directly comparable in the
+        // non-scaling postprocessing path.
+        let lhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Second,
+            PoSQLTimeZone::utc(),
+            vec![0, 10, 20],
+        );
+        let rhs = OwnedColumn::<TestScalar>::TimestampTZ(
+            PoSQLTimeUnit::Millisecond,
+            PoSQLTimeZone::utc(),
+            vec![0, 10_000, 20_000],
+        );
+        let result = lhs.element_wise_eq(&rhs);
+        assert!(matches!(
+            result,
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
+        ));
+
         let result = lhs.element_wise_lt(&rhs);
         assert!(matches!(
             result,

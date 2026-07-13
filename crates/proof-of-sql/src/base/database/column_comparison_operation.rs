@@ -264,6 +264,10 @@ pub trait ComparisonOp {
             (OwnedColumn::Boolean(lhs), OwnedColumn::Boolean(rhs)) => {
                 Ok(slice_binary_op(lhs, rhs, Self::op))
             }
+            (
+                OwnedColumn::TimestampTZ(left_tu, _, lhs),
+                OwnedColumn::TimestampTZ(right_tu, _, rhs),
+            ) if left_tu == right_tu => Ok(slice_binary_op(lhs, rhs, Self::op)),
             (OwnedColumn::VarChar(lhs), OwnedColumn::VarChar(rhs)) => Self::string_op(lhs, rhs),
             _ => Err(ColumnOperationError::BinaryOperationInvalidColumnType {
                 operator: "ComparisonOp".to_string(),
