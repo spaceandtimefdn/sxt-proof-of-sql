@@ -1313,4 +1313,107 @@ mod test {
         let expected = (Precision::new(9).unwrap(), 6, expected_scalars);
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn we_can_compare_decimal_columns_with_same_scale_and_rhs_extreme_scaling() {
+        let lhs = [1_i64, -2, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [1_i64, -3, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+
+        assert_eq!(
+            eq_decimal_columns(&lhs, &rhs, column_type, column_type),
+            vec![true, false, true]
+        );
+        assert_eq!(
+            le_decimal_columns(&lhs, &rhs, column_type, column_type),
+            vec![true, false, true]
+        );
+        assert_eq!(
+            ge_decimal_columns(&lhs, &rhs, column_type, column_type),
+            vec![true, true, true]
+        );
+
+        let rhs_extreme_lhs_type = ColumnType::Decimal75(Precision::new(2).unwrap(), 30);
+        let rhs_extreme_rhs_type = ColumnType::Decimal75(Precision::new(2).unwrap(), -10);
+        let lhs = [1_i64, 0, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [1_i64, 0, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            eq_decimal_columns(&lhs, &rhs, rhs_extreme_lhs_type, rhs_extreme_rhs_type),
+            vec![false, true, false]
+        );
+        assert_eq!(
+            le_decimal_columns(&lhs, &rhs, rhs_extreme_lhs_type, rhs_extreme_rhs_type),
+            vec![true, true, false]
+        );
+        assert_eq!(
+            ge_decimal_columns(&lhs, &rhs, rhs_extreme_lhs_type, rhs_extreme_rhs_type),
+            vec![false, true, true]
+        );
+    }
+
+    #[test]
+    fn we_can_try_add_and_subtract_decimal_columns_with_right_upscaling() {
+        let lhs = [100_i64, -250, 0]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [3_i64, -4, 5];
+        let left_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
+        let right_column_type = ColumnType::BigInt;
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_add_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected_scalars = vec![
+            TestScalar::from(400),
+            TestScalar::from(-650),
+            TestScalar::from(500),
+        ];
+        let expected = (Precision::new(22).unwrap(), 2, expected_scalars);
+        assert_eq!(expected, actual);
+
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_subtract_decimal_columns(&lhs, &rhs, left_column_type, right_column_type).unwrap();
+        let expected_scalars = vec![
+            TestScalar::from(-200),
+            TestScalar::from(150),
+            TestScalar::from(-500),
+        ];
+        let expected = (Precision::new(22).unwrap(), 2, expected_scalars);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn we_can_try_divide_decimal_columns_with_error_and_negative_applied_scale() {
+        let division_by_zero = try_divide_decimal_columns::<TestScalar, _, _>(
+            &[1_i64],
+            &[0_i64],
+            ColumnType::BigInt,
+            ColumnType::BigInt,
+        );
+        assert!(matches!(
+            division_by_zero,
+            Err(ColumnOperationError::DivisionByZero)
+        ));
+
+        let left_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), 50);
+        let right_column_type = ColumnType::Decimal75(Precision::new(3).unwrap(), -5);
+        let actual: (Precision, i8, Vec<TestScalar>) =
+            try_divide_decimal_columns(&[200_i64], &[2_i64], left_column_type, right_column_type)
+                .unwrap();
+        let expected = (Precision::new(9).unwrap(), 54, vec![TestScalar::from(10)]);
+        assert_eq!(expected, actual);
+    }
 }
