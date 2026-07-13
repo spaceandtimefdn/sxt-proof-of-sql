@@ -177,3 +177,108 @@ mod tests {
         assert_eq!(commitment, expected_commitment);
     }
 }
+
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+    use crate::base::{
+        arrow::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError,
+        commitment::{naive_commitment::NaiveCommitment, ColumnCommitmentsMismatch},
+        scalar::test_scalar::TestScalar,
+    };
+    use arrow::{
+        array::{ArrayRef, BooleanArray, Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
+        record_batch::RecordBatch,
+    };
+    use std::sync::Arc;
+
+    fn make_record_batch(fields: Vec<Field>, columns: Vec<ArrayRef>) -> RecordBatch {
+        RecordBatch::try_new(Arc::new(Schema::new(fields)), columns).unwrap()
+    }
+
+    #[test]
+    fn batch_to_columns_rejects_null_arrays() {
+        let batch = make_record_batch(
+            vec![Field::new("a", DataType::Int64, true)],
+            vec![Arc::new(Int64Array::from(vec![Some(1), None, Some(3)]))],
+        );
+
+        let error = batch_to_columns::<TestScalar>(&batch, &Bump::new()).unwrap_err();
+
+        assert!(matches!(
+            error,
+            RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                source: ArrowArrayToColumnConversionError::ArrayContainsNulls,
+            }
+        ));
+    }
+
+    #[test]
+    fn append_record_batch_reports_identifier_mismatches() {
+        let batch = make_record_batch(
+            vec![
+                Field::new("a", DataType::Int64, false),
+                Field::new("b", DataType::Utf8, false),
+            ],
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3])),
+                Arc::new(StringArray::from(vec!["1", "2", "3"])),
+            ],
+        );
+        let mismatched_batch = make_record_batch(
+            vec![
+                Field::new("a", DataType::Int64, false),
+                Field::new("c", DataType::Utf8, false),
+            ],
+            vec![
+                Arc::new(Int64Array::from(vec![4, 5, 6])),
+                Arc::new(StringArray::from(vec!["4", "5", "6"])),
+            ],
+        );
+
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch(&batch, &()).unwrap();
+        let error = commitment
+            .try_append_record_batch(&mismatched_batch, &())
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+                source: ColumnCommitmentsMismatch::Ident { .. },
+            }
+        ));
+    }
+
+    #[test]
+    fn append_record_batch_reports_column_count_mismatches() {
+        let batch = make_record_batch(
+            vec![
+                Field::new("a", DataType::Int64, false),
+                Field::new("b", DataType::Boolean, false),
+            ],
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3])),
+                Arc::new(BooleanArray::from(vec![true, false, true])),
+            ],
+        );
+        let mismatched_batch = make_record_batch(
+            vec![Field::new("a", DataType::Int64, false)],
+            vec![Arc::new(Int64Array::from(vec![4, 5, 6]))],
+        );
+
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch(&batch, &()).unwrap();
+        let error = commitment
+            .try_append_record_batch(&mismatched_batch, &())
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+                source: ColumnCommitmentsMismatch::NumColumns,
+            }
+        ));
+    }
+}
