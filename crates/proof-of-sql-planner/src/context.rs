@@ -140,6 +140,14 @@ mod tests {
             table_source.as_any().type_id(),
             TypeId::of::<PoSqlTableSource>()
         );
+        assert_eq!(
+            table_source
+                .supports_filters_pushdown(&[&Expr::Literal(
+                    datafusion::common::ScalarValue::Boolean(Some(true))
+                )])
+                .unwrap(),
+            vec![TableProviderFilterPushDown::Exact]
+        );
 
         // Non-empty
         let column_fields = vec![
@@ -181,6 +189,10 @@ mod tests {
         assert_eq!(context_provider.get_function_meta(""), None);
         assert_eq!(context_provider.get_aggregate_meta(""), None);
         assert_eq!(context_provider.get_window_meta(""), None);
+        assert!(core::ptr::addr_eq(
+            context_provider.options(),
+            &context_provider.options
+        ));
 
         // Non-empty
         let accessor = SchemaAccessorImpl::new(indexmap_with_default! {AHasher;
