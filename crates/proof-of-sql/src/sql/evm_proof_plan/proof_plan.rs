@@ -191,3 +191,72 @@ impl ProverEvaluate for EVMProofPlan {
             .final_round_evaluate(builder, alloc, table_map, params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::plans::{EVMDynProofPlan, EVMEmptyExec};
+    use super::*;
+    use crate::{
+        base::{
+            database::{ColumnType, TableRef},
+            try_standard_binary_deserialization, try_standard_binary_serialization,
+        },
+        sql::proof_plans::DynProofPlan,
+    };
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn evm_proof_plan_exposes_and_returns_inner_plan() {
+        let plan = DynProofPlan::new_empty();
+        let evm_plan = EVMProofPlan::new(plan.clone());
+
+        assert_eq!(evm_plan.inner(), &plan);
+        assert_eq!(evm_plan.into_inner(), plan);
+    }
+
+    #[test]
+    fn empty_evm_proof_plan_roundtrips_through_compact_plan_and_binary_encoding() {
+        let evm_plan = EVMProofPlan::new(DynProofPlan::new_empty());
+        let compact = CompactPlan::try_from(&evm_plan).unwrap();
+
+        assert!(compact.tables.is_empty());
+        assert!(compact.columns.is_empty());
+        assert!(compact.output_column_names.is_empty());
+        assert!(matches!(compact.plan, EVMDynProofPlan::Empty(_)));
+
+        let decoded = EVMProofPlan::try_from(compact).unwrap();
+        assert!(matches!(decoded.inner(), DynProofPlan::Empty(_)));
+
+        let encoded = try_standard_binary_serialization(&evm_plan).unwrap();
+        let (roundtripped, bytes_read): (EVMProofPlan, _) =
+            try_standard_binary_deserialization(&encoded).unwrap();
+
+        assert_eq!(bytes_read, encoded.len());
+        assert!(matches!(roundtripped.into_inner(), DynProofPlan::Empty(_)));
+    }
+
+    #[test]
+    fn compact_plan_rejects_invalid_table_names_and_column_table_indexes() {
+        let invalid_table_name = CompactPlan {
+            tables: vec!["schema.table.extra".to_string()],
+            columns: vec![],
+            output_column_names: vec![],
+            plan: EVMDynProofPlan::Empty(EVMEmptyExec {}),
+        };
+        assert!(matches!(
+            EVMProofPlan::try_from(invalid_table_name),
+            Err(EVMProofPlanError::InvalidTableName)
+        ));
+
+        let missing_table_index = CompactPlan {
+            tables: vec![TableRef::from_names(Some("schema"), "table").to_string()],
+            columns: vec![(1, "column".to_string(), ColumnType::BigInt)],
+            output_column_names: vec![],
+            plan: EVMDynProofPlan::Empty(EVMEmptyExec {}),
+        };
+        assert!(matches!(
+            EVMProofPlan::try_from(missing_table_index),
+            Err(EVMProofPlanError::TableNotFound)
+        ));
+    }
+}
