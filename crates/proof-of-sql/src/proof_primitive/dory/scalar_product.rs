@@ -79,3 +79,88 @@ pub fn scalar_product_verify(
 
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{
+        rand_G_vecs, test_rng, DoryMessages, G1Affine, ProverSetup, ProverState, PublicParameters,
+        VerifierSetup, VerifierState,
+    };
+    use super::{scalar_product_prove, scalar_product_verify};
+    use ark_std::UniformRand;
+    use merlin::Transcript;
+
+    fn prove_scalar_product() -> (DoryMessages, VerifierState, VerifierSetup) {
+        let mut rng = test_rng();
+        let public_parameters = PublicParameters::test_rand(0, &mut rng);
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let (v1, v2) = rand_G_vecs(0, &mut rng);
+        let prover_state = ProverState::new(v1, v2, 0);
+        let verifier_state = prover_state.calculate_verifier_state(&prover_setup);
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        scalar_product_prove(&mut messages, &mut transcript, &prover_state);
+
+        (messages, verifier_state, verifier_setup)
+    }
+
+    #[test]
+    fn scalar_product_verify_accepts_valid_nu_zero_messages() {
+        let (mut messages, verifier_state, verifier_setup) = prove_scalar_product();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+    }
+
+    #[test]
+    fn scalar_product_verify_rejects_unexpected_message_counts() {
+        let (_, verifier_state, verifier_setup) = prove_scalar_product();
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+
+        let (mut messages, verifier_state, verifier_setup) = prove_scalar_product();
+        messages.G1_messages.push(messages.G1_messages[0]);
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+    }
+
+    #[test]
+    fn scalar_product_verify_rejects_tampered_g1_message() {
+        let mut rng = test_rng();
+        let (mut messages, verifier_state, verifier_setup) = prove_scalar_product();
+        let original_message = messages.G1_messages[0];
+        let mut tampered_message = G1Affine::rand(&mut rng);
+        while tampered_message == original_message {
+            tampered_message = G1Affine::rand(&mut rng);
+        }
+        messages.G1_messages[0] = tampered_message;
+        let mut transcript = Transcript::new(b"scalar_product_test");
+
+        assert!(!scalar_product_verify(
+            &mut messages,
+            &mut transcript,
+            verifier_state,
+            &verifier_setup
+        ));
+    }
+}
