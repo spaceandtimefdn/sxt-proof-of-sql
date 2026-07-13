@@ -26,6 +26,25 @@ fn test_dory_scalar_to_bool_overflow() {
 }
 
 #[test]
+fn test_dory_scalar_to_u8() {
+    assert_eq!(u8::try_from(DoryScalar::ZERO).unwrap(), 0);
+    assert_eq!(u8::try_from(DoryScalar::ONE).unwrap(), 1);
+    assert_eq!(u8::try_from(DoryScalar::from(u8::MAX)).unwrap(), u8::MAX);
+}
+
+#[test]
+fn test_dory_scalar_to_u8_overflow() {
+    matches!(
+        u8::try_from(DoryScalar::from(-1)),
+        Err(ScalarConversionError::Overflow { .. })
+    );
+    matches!(
+        u8::try_from(DoryScalar::from(u16::from(u8::MAX) + 1)),
+        Err(ScalarConversionError::Overflow { .. })
+    );
+}
+
+#[test]
 fn test_dory_scalar_to_i8() {
     assert_eq!(i8::try_from(DoryScalar::from(0)).unwrap(), 0);
     assert_eq!(i8::try_from(DoryScalar::ONE).unwrap(), 1);
