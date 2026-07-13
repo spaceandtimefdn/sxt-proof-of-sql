@@ -1,4 +1,5 @@
 use super::{test_rng, DoryMessages, G1Affine, G2Affine, F, GT};
+use crate::base::{try_standard_binary_deserialization, try_standard_binary_serialization};
 use ark_std::UniformRand;
 use merlin::Transcript;
 
@@ -72,6 +73,25 @@ fn we_can_send_and_receive_the_correct_messages_in_the_same_order() {
         messages.prover_receive_F_message(&mut transcript),
         Pmessage9
     );
+}
+
+#[test]
+fn we_can_serialize_and_deserialize_dory_messages() {
+    let mut rng = test_rng();
+    let mut messages = DoryMessages::default();
+    let mut transcript = Transcript::new(b"test");
+
+    messages.prover_send_F_message(&mut transcript, F::rand(&mut rng));
+    messages.prover_send_G1_message(&mut transcript, G1Affine::rand(&mut rng));
+    messages.prover_send_G2_message(&mut transcript, G2Affine::rand(&mut rng));
+    messages.prover_send_GT_message(&mut transcript, GT::rand(&mut rng));
+
+    let serialized = try_standard_binary_serialization(messages.clone()).unwrap();
+    let (deserialized, bytes_read): (DoryMessages, _) =
+        try_standard_binary_deserialization(&serialized).unwrap();
+
+    assert_eq!(bytes_read, serialized.len());
+    assert_eq!(deserialized, messages);
 }
 
 #[test]
