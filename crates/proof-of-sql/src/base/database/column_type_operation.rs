@@ -113,7 +113,8 @@ pub fn try_multiply_column_types(
     } else {
         let left_precision_value = lhs.precision_value().expect("Numeric types have precision");
         let right_precision_value = rhs.precision_value().expect("Numeric types have precision");
-        let precision_value = (left_precision_value + right_precision_value + 1).min(75_u8);
+        let precision_value =
+            (u16::from(left_precision_value) + u16::from(right_precision_value) + 1).min(75) as u8;
         let precision =
             Precision::new(precision_value).expect("Precision value should be in range 0-75");
         let left_scale = lhs.scale().expect("Numeric types have scale");
@@ -934,6 +935,12 @@ mod test {
 
         let lhs = ColumnType::Int;
         let rhs = ColumnType::Decimal75(Precision::new(65).unwrap(), 0);
+        let expected = ColumnType::Decimal75(Precision::new(75).unwrap(), 0);
+        let actual = try_multiply_column_types(lhs, rhs).unwrap();
+        assert_eq!(expected, actual);
+
+        let lhs = ColumnType::Decimal75(Precision::new(75).unwrap(), -1);
+        let rhs = ColumnType::Decimal75(Precision::new(75).unwrap(), 1);
         let expected = ColumnType::Decimal75(Precision::new(75).unwrap(), 0);
         let actual = try_multiply_column_types(lhs, rhs).unwrap();
         assert_eq!(expected, actual);
