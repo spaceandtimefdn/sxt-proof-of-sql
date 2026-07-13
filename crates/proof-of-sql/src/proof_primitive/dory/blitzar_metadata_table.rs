@@ -297,9 +297,15 @@ pub fn create_blitzar_metadata_tables(
 mod tests {
     use super::*;
     use crate::base::{
+        database::ColumnType,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use ark_ec::{AffineRepr, CurveGroup};
+
+    fn g1_multiple(multiplier: u64) -> G1Affine {
+        G1Affine::generator().mul(F::from(multiplier)).into_affine()
+    }
 
     fn assert_blitzar_metadata(
         committable_columns: &[CommittableColumn],
@@ -322,6 +328,86 @@ mod tests {
         assert_eq!(
             scalars, expected_scalars,
             "Scalars mismatch for offset {offset}"
+        );
+    }
+
+    #[test]
+    fn we_can_get_column_minimums_as_scalars() {
+        assert_eq!(min_as_f(ColumnType::TinyInt), MontFp!("-128"));
+        assert_eq!(min_as_f(ColumnType::SmallInt), MontFp!("-32768"));
+        assert_eq!(min_as_f(ColumnType::Int), MontFp!("-2147483648"));
+        assert_eq!(
+            min_as_f(ColumnType::BigInt),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Int128),
+            MontFp!("-170141183460469231731687303715884105728")
+        );
+
+        for column_type in [
+            ColumnType::Decimal75(Precision::new(75).unwrap(), 0),
+            ColumnType::Uint8,
+            ColumnType::Scalar,
+            ColumnType::VarChar,
+            ColumnType::VarBinary,
+            ColumnType::Boolean,
+        ] {
+            assert_eq!(min_as_f(column_type), MontFp!("0"));
+        }
+    }
+
+    #[test]
+    fn we_can_handle_empty_columns_when_signing_commits() {
+        let all_sub_commits = vec![g1_multiple(1), g1_multiple(2)];
+        assert!(signed_commits(&all_sub_commits, &[]).is_empty());
+    }
+
+    #[test]
+    fn we_can_sign_commit_chunks_with_signed_and_unsigned_columns() {
+        let committable_columns = [
+            CommittableColumn::BigInt(&[1]),
+            CommittableColumn::Uint8(&[1]),
+        ];
+        let all_sub_commits = (1..=8).map(g1_multiple).collect::<Vec<_>>();
+
+        let signed = signed_commits(&all_sub_commits, &committable_columns);
+
+        let signed_min = min_as_f(ColumnType::BigInt);
+        let unsigned_min = min_as_f(ColumnType::Uint8);
+        let expected = [
+            (all_sub_commits[0] + all_sub_commits[2].mul(signed_min)).into_affine(),
+            (all_sub_commits[1] + all_sub_commits[3].mul(unsigned_min)).into_affine(),
+            (all_sub_commits[4] + all_sub_commits[6].mul(signed_min)).into_affine(),
+            (all_sub_commits[5] + all_sub_commits[7].mul(unsigned_min)).into_affine(),
+        ];
+
+        assert_eq!(signed, expected);
+    }
+
+    #[test]
+    fn we_can_populate_blitzar_metadata_tables_with_uint8_and_varbinary_columns() {
+        let committable_columns = [
+            CommittableColumn::Uint8(&[7]),
+            CommittableColumn::VarBinary(vec![[9, 0, 0, 0]]),
+        ];
+        let mut expected_scalars = vec![7, 9];
+        expected_scalars.extend([0; 31]);
+        expected_scalars.extend([1, 1]);
+
+        assert_blitzar_metadata(
+            &committable_columns,
+            0,
+            &[8, 256, 8, 8],
+            &[1, 1, 1, 1],
+            &expected_scalars,
         );
     }
 
