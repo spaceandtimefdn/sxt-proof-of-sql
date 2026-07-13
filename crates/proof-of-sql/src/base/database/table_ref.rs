@@ -142,3 +142,88 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::{format, vec};
+    use indexmap::Equivalent;
+
+    #[test]
+    fn table_refs_preserve_schema_and_table_identifiers() {
+        let with_schema = TableRef::new("sxt", "blocks");
+        assert_eq!(with_schema.schema_id().unwrap().value, "sxt");
+        assert_eq!(with_schema.table_id().value, "blocks");
+        assert_eq!(with_schema.to_string(), "sxt.blocks");
+
+        let without_schema = TableRef::new("", "transactions");
+        assert!(without_schema.schema_id().is_none());
+        assert_eq!(without_schema.table_id().value, "transactions");
+        assert_eq!(format!("{without_schema}"), "transactions");
+    }
+
+    #[test]
+    fn table_refs_parse_components_and_dot_separated_names() {
+        assert_eq!(
+            TableRef::from_names(Some("chain"), "events"),
+            TableRef::from_strs(&["chain", "events"]).unwrap()
+        );
+        assert_eq!(
+            TableRef::from_names(None, "events"),
+            TableRef::from_strs(&["events"]).unwrap()
+        );
+        assert_eq!(
+            TableRef::from_names(Some("chain"), "events"),
+            TableRef::try_from("chain.events").unwrap()
+        );
+        assert_eq!(
+            TableRef::from_names(None, "events"),
+            "events".parse::<TableRef>().unwrap()
+        );
+    }
+
+    #[test]
+    fn table_refs_reject_invalid_component_counts() {
+        assert_eq!(
+            TableRef::from_strs::<&str>(&[]).unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "".to_string()
+            }
+        );
+        assert_eq!(
+            TableRef::from_strs(&["too", "many", "parts"]).unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "too,many,parts".to_string()
+            }
+        );
+        assert_eq!(
+            TableRef::try_from("too.many.parts").unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "too.many.parts".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn table_refs_support_ident_construction_equivalence_and_serde() {
+        let table = TableRef::from_idents(Some(Ident::new("public")), Ident::new("balances"));
+        let same = TableRef::new("public", "balances");
+        let different_schema = TableRef::new("archive", "balances");
+        let different_table = TableRef::new("public", "transfers");
+
+        assert!((&table).equivalent(&same));
+        assert!(!(&table).equivalent(&different_schema));
+        assert!(!(&table).equivalent(&different_table));
+
+        let encoded = serde_json::to_string(&table).unwrap();
+        assert_eq!(encoded, "\"public.balances\"");
+        let decoded: TableRef = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, table);
+
+        let invalid = serde_json::from_str::<TableRef>("\"a.b.c\"").unwrap_err();
+        assert!(invalid.to_string().contains("Invalid table reference"));
+
+        let refs = vec![table, same];
+        assert_eq!(refs[0], refs[1]);
+    }
+}
