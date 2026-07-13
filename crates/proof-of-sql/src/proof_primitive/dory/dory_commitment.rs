@@ -105,13 +105,31 @@ mod tests {
         },
         proof_primitive::dory::{rand_util::test_rng, ProverSetup, PublicParameters},
     };
-    use ark_ec::pairing::Pairing;
+    use ark_ec::pairing::{Pairing, PairingOutput};
     use ark_ff::UniformRand;
+    use num_traits::One;
     use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
     fn we_have_correct_constants_for_dory_scalar() {
         test_scalar_constants::<DoryScalar>();
+    }
+
+    #[test]
+    fn we_can_get_default_dory_commitment_identity() {
+        let expected: GT = PairingOutput(One::one());
+        assert_eq!(DoryCommitment::default(), DoryCommitment(expected));
+    }
+
+    #[test]
+    fn we_can_multiply_dory_commitments_by_scalars() {
+        let mut rng = StdRng::seed_from_u64(43);
+        let scalar = DoryScalar::rand(&mut rng);
+        let commitment = DoryCommitment(GT::rand(&mut rng));
+        let expected = DoryCommitment(commitment.0 * scalar.0);
+
+        assert_eq!(scalar * commitment, expected);
+        assert_eq!(scalar * &commitment, expected);
     }
 
     #[test]
