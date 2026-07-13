@@ -645,6 +645,75 @@ mod tests {
     }
 
     #[test]
+    fn we_can_get_max_integer_types() {
+        assert_eq!(
+            ColumnType::Uint8.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::TinyInt)
+        );
+        assert_eq!(
+            ColumnType::SmallInt.max_integer_type(&ColumnType::TinyInt),
+            Some(ColumnType::SmallInt)
+        );
+        assert_eq!(
+            ColumnType::Int.max_integer_type(&ColumnType::SmallInt),
+            Some(ColumnType::Int)
+        );
+        assert_eq!(
+            ColumnType::BigInt.max_integer_type(&ColumnType::Int),
+            Some(ColumnType::BigInt)
+        );
+        assert_eq!(
+            ColumnType::Int128.max_integer_type(&ColumnType::BigInt),
+            Some(ColumnType::Int128)
+        );
+        assert_eq!(
+            ColumnType::Boolean.max_integer_type(&ColumnType::BigInt),
+            None
+        );
+    }
+
+    #[test]
+    fn we_can_get_max_unsigned_integer_types() {
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::Uint8),
+            Some(ColumnType::Uint8)
+        );
+        assert_eq!(
+            ColumnType::Uint8.max_unsigned_integer_type(&ColumnType::SmallInt),
+            None
+        );
+        assert_eq!(
+            ColumnType::VarChar.max_unsigned_integer_type(&ColumnType::Uint8),
+            None
+        );
+    }
+
+    #[test]
+    fn we_can_get_scalar_and_non_numeric_precision_values() {
+        assert_eq!(ColumnType::Scalar.precision_value(), Some(0));
+        assert_eq!(ColumnType::Boolean.precision_value(), None);
+        assert_eq!(ColumnType::VarChar.precision_value(), None);
+        assert_eq!(ColumnType::VarBinary.precision_value(), None);
+    }
+
+    #[test]
+    fn we_can_get_timestamp_scales() {
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Nanosecond, PoSQLTimeZone::utc()).scale(),
+            Some(9)
+        );
+    }
+
+    #[test]
+    fn we_can_display_decimal_and_timestamp_column_types() {
+        assert_eq!(ColumnType::Int128.to_string(), "DECIMAL");
+        assert_eq!(
+            ColumnType::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc()).to_string(),
+            "TIMESTAMP(TIMEUNIT: seconds (precision: 0), TIMEZONE: +00:00)"
+        );
+    }
+
+    #[test]
     fn we_can_get_sqrt_negative_min() {
         for column_type in [
             ColumnType::TinyInt,
