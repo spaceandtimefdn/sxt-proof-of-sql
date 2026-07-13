@@ -172,6 +172,41 @@ mod tests {
     }
 
     #[test]
+    fn zero_sum_only_state_does_not_reserve_entrywise_multiplier_slot() {
+        let mle1 = &[5, 6];
+        let mle2 = &[7, 8];
+
+        let subpolynomials = vec![SumcheckSubpolynomial::new(
+            SumcheckSubpolynomialType::ZeroSum,
+            vec![
+                (TestScalar::from(11), vec![Box::new(mle1)]),
+                (TestScalar::from(13), vec![Box::new(mle2), Box::new(mle1)]),
+            ],
+        )];
+        let scalars = vec![TestScalar::from(17), TestScalar::from(19)];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 1, 1);
+
+        let prover_state = make_sumcheck_prover_state(&subpolynomials, 1, &random_scalars);
+
+        assert_eq!(
+            prover_state.list_of_products,
+            vec![
+                (TestScalar::from(11 * 17), vec![0]),
+                (TestScalar::from(13 * 17), vec![1, 0])
+            ]
+        );
+        assert_eq!(
+            prover_state.flattened_ml_extensions,
+            vec![
+                vec![TestScalar::from(5), TestScalar::from(6)],
+                vec![TestScalar::from(7), TestScalar::from(8)]
+            ]
+        );
+        assert_eq!(prover_state.num_vars, 1);
+        assert_eq!(prover_state.max_multiplicands, 2);
+    }
+
+    #[test]
     #[expect(clippy::too_many_lines)]
     fn we_can_make_complex_sumcheck_prover_state() {
         let mle1 = &[0; 0];
