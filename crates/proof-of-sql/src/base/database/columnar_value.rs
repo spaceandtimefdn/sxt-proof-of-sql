@@ -65,7 +65,7 @@ impl<'a, S: Scalar> ColumnarValue<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::scalar::test_scalar::TestScalar;
+    use crate::base::scalar::{test_scalar::TestScalar, ScalarExt};
     use core::convert::Into;
 
     #[test]
@@ -97,6 +97,44 @@ mod tests {
         let columnar_value = ColumnarValue::Column(Column::<TestScalar>::SmallInt(&[]));
         let column = columnar_value.into_column(0, &bump).unwrap();
         assert_eq!(column, Column::SmallInt(&[]));
+    }
+
+    #[test]
+    fn we_can_transform_var_length_literals_into_columns() {
+        let bump = Bump::new();
+
+        let columnar_value =
+            ColumnarValue::<TestScalar>::Literal(LiteralValue::VarChar("Lorem".into()));
+        let column = columnar_value.into_column(2, &bump).unwrap();
+        let expected_strings = ["Lorem", "Lorem"];
+        let expected_scalars = [TestScalar::from("Lorem"), TestScalar::from("Lorem")];
+        assert_eq!(
+            column,
+            Column::VarChar((&expected_strings, &expected_scalars))
+        );
+
+        let bytes = vec![1, 2, 3, 4];
+        let columnar_value =
+            ColumnarValue::<TestScalar>::Literal(LiteralValue::VarBinary(bytes.clone()));
+        let column = columnar_value.into_column(3, &bump).unwrap();
+        let expected_bytes = [bytes.as_slice(), bytes.as_slice(), bytes.as_slice()];
+        let expected_scalars = [TestScalar::from_byte_slice_via_hash(&bytes); 3];
+        assert_eq!(
+            column,
+            Column::VarBinary((&expected_bytes, &expected_scalars))
+        );
+    }
+
+    #[test]
+    fn we_can_transform_scalar_literals_into_columns() {
+        let bump = Bump::new();
+        let scalar = TestScalar::from(123u64);
+        let limbs = <[u64; 4]>::from(scalar);
+
+        let columnar_value = ColumnarValue::<TestScalar>::Literal(LiteralValue::Scalar(limbs));
+        let column = columnar_value.into_column(3, &bump).unwrap();
+
+        assert_eq!(column, Column::Scalar(&[scalar; 3]));
     }
 
     #[test]

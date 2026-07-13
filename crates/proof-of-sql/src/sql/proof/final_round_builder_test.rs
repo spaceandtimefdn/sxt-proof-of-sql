@@ -1,12 +1,13 @@
-use super::{FinalRoundBuilder, ProvableQueryResult};
+use super::{FinalRoundBuilder, ProvableQueryResult, SumcheckSubpolynomialType};
 use crate::{
     base::{
+        bit::BitDistribution,
         commitment::{Commitment, CommittableColumn},
         database::{Column, ColumnField, ColumnType},
     },
     proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
 };
-use alloc::{collections::VecDeque, sync::Arc};
+use alloc::{boxed::Box, collections::VecDeque, sync::Arc};
 #[cfg(feature = "arrow")]
 use arrow::{
     array::Int64Array,
@@ -70,6 +71,38 @@ fn we_can_evaluate_pcs_proof_mles() {
         Curve25519Scalar::from(1200u64),
     ];
     assert_eq!(evals, expected_evals);
+}
+
+#[test]
+fn we_can_track_final_round_builder_state() {
+    let mle = [5_i64, 6];
+    let mut builder = FinalRoundBuilder::new(2, VecDeque::new());
+    assert_eq!(builder.num_sumcheck_variables(), 2);
+    assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+    assert!(builder.bit_distributions().is_empty());
+    assert!(builder.pcs_proof_mles().is_empty());
+    assert!(builder.sumcheck_subpolynomials().is_empty());
+
+    let bit_distribution = BitDistribution::new::<Curve25519Scalar, _>(&[1_u64, 2, 3]);
+    builder.produce_bit_distribution(bit_distribution.clone());
+    assert_eq!(
+        builder.bit_distributions(),
+        core::slice::from_ref(&bit_distribution)
+    );
+
+    builder.produce_anchored_mle(&mle);
+    assert_eq!(builder.pcs_proof_mles().len(), 1);
+
+    builder.produce_sumcheck_subpolynomial(
+        SumcheckSubpolynomialType::Identity,
+        vec![(Curve25519Scalar::from(7_u64), vec![Box::new(&mle)])],
+    );
+
+    assert_eq!(builder.num_sumcheck_subpolynomials(), 1);
+    assert_eq!(
+        builder.sumcheck_subpolynomials()[0].subpolynomial_type(),
+        SumcheckSubpolynomialType::Identity
+    );
 }
 
 #[cfg(feature = "arrow")]

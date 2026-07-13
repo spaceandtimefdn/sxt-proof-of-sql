@@ -49,6 +49,39 @@ fn big_scalars_with_small_additive_inverses_are_encoded_as_negative_zigzag_value
 }
 
 #[test]
+fn positive_zigzag_values_decode_to_original_scalars() {
+    let test_cases = [0_u128, 1, 2, 123, u128::MAX];
+
+    for x in test_cases {
+        let encoded = TestScalar::from(x).zigzag();
+        let decoded: TestScalar = encoded.zigzag();
+
+        assert_eq!(decoded, TestScalar::from(x));
+    }
+}
+
+#[test]
+fn negative_zigzag_values_decode_to_original_scalars() {
+    let test_cases = [1_u128, 2, 3, 123];
+
+    for y in test_cases {
+        let encoded = U256::from_words(2 * y - 1, 0);
+        let decoded: TestScalar = encoded.zigzag();
+
+        assert_eq!(decoded, -TestScalar::from(y));
+    }
+}
+
+#[test]
+fn odd_zigzag_decoding_handles_low_word_carry() {
+    let encoded = U256::from_words(u128::MAX, 1);
+    let decoded: TestScalar = encoded.zigzag();
+    let expected_positive: TestScalar = (&U256::from_words(0, 1)).into();
+
+    assert_eq!(decoded, -expected_positive);
+}
+
+#[test]
 fn big_scalars_that_are_smaller_than_their_additive_inverses_are_encoded_as_positive_zigzag_values()
 {
     // x = (p - 1) / 2 (p is the ristretto group order)

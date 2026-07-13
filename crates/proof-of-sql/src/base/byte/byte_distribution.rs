@@ -73,7 +73,10 @@ impl ByteDistribution {
 #[cfg(test)]
 mod tests {
     use super::ByteDistribution;
-    use crate::base::scalar::{test_scalar::TestScalar, ScalarExt};
+    use crate::base::{
+        scalar::{test_scalar::TestScalar, ScalarExt},
+        try_standard_binary_deserialization, try_standard_binary_serialization,
+    };
     use bnum::types::U256;
     use core::ops::{Neg, Shl, Shr};
     use itertools::Itertools;
@@ -256,5 +259,20 @@ mod tests {
             byte_distribution.varying_byte_indices().collect_vec(),
             (0u8..32).map(|i| i * 8).collect_vec()
         );
+    }
+
+    #[test]
+    fn we_can_serialize_byte_distribution_round_trip() {
+        let byte_distribution = ByteDistribution {
+            vary_mask: 0b101,
+            constant_mask: U256::from(149u8).shl(8_u32).into(),
+        };
+
+        let serialized = try_standard_binary_serialization(byte_distribution.clone()).unwrap();
+        let deserialized: ByteDistribution =
+            try_standard_binary_deserialization(&serialized).unwrap().0;
+
+        assert_eq!(deserialized, byte_distribution);
+        assert_eq!(deserialized.varying_byte_indices().collect_vec(), [0, 16]);
     }
 }

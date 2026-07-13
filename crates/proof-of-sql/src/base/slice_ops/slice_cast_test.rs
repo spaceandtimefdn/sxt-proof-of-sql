@@ -41,6 +41,14 @@ fn test_slice_cast_random_from_integer_to_testscalar() {
     assert_eq!(a, b);
 }
 
+#[test]
+fn we_can_slice_cast_empty_input() {
+    let values: Vec<u32> = vec![];
+    let casted: Vec<u64> = slice_cast_with(&values, |&value| u64::from(value));
+
+    assert!(casted.is_empty());
+}
+
 /// Test that mut cast does the same as vec cast
 #[test]
 fn test_slice_cast_mut() {
@@ -48,6 +56,16 @@ fn test_slice_cast_mut() {
     let mut b: Vec<u64> = vec![0, 0, 0, 0];
     slice_cast_mut_with(&a, &mut b, |&x| u64::from(x));
     assert_eq!(b, slice_cast_with(&a, |&x| u64::from(x)));
+}
+
+#[test]
+fn we_can_slice_cast_mut_without_overwriting_extra_result_values() {
+    let values = vec![1_u32, 2, 3];
+    let mut result = vec![10_u64, 20, 30, 40, 50];
+
+    slice_cast_mut_with(&values, &mut result, |&value| u64::from(value) * 2);
+
+    assert_eq!(result, [2_u64, 4, 6, 40, 50]);
 }
 
 /// random test for [`slice_cast_mut_with`]

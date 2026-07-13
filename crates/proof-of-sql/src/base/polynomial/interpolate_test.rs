@@ -161,3 +161,24 @@ fn we_can_interpolate_evaluations_to_reverse_coefficients_with_degree_3_degenera
         vec![S::from(0), S::from(0), S::from(2), S::from(1)]
     );
 }
+
+#[test]
+fn interpolated_reverse_coefficients_roundtrip_degree_4_evaluations() {
+    let evals = [
+        S::from(4),
+        S::from(8),
+        S::from(14),
+        S::from(22),
+        S::from(32),
+    ];
+    let coefficients = interpolate_evaluations_to_reverse_coefficients(&evals);
+
+    assert_eq!(coefficients.len(), evals.len());
+    for (i, expected_eval) in evals.into_iter().enumerate() {
+        let x = S::from(i as i32);
+        let actual_eval = coefficients
+            .iter()
+            .fold(S::zero(), |acc, coefficient| acc * x + *coefficient);
+        assert_eq!(actual_eval, expected_eval);
+    }
+}

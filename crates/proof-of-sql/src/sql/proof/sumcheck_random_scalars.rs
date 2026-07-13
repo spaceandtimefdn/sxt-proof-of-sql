@@ -27,3 +27,60 @@ impl<'a, S: Scalar> SumcheckRandomScalars<'a, S> {
         v
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use num_traits::One;
+
+    #[test]
+    fn we_split_sumcheck_scalars_into_multipliers_and_entrywise_point() {
+        let scalars = [
+            TestScalar::from(10u64),
+            TestScalar::from(20u64),
+            TestScalar::from(30u64),
+            TestScalar::from(3u64),
+            TestScalar::from(4u64),
+        ];
+
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 3, 2);
+
+        assert_eq!(random_scalars.subpolynomial_multipliers, &scalars[..3]);
+        assert_eq!(random_scalars.entrywise_point, &scalars[3..]);
+        assert_eq!(random_scalars.table_length, 3);
+    }
+
+    #[test]
+    fn we_compute_entrywise_multipliers_for_the_table_length() {
+        let scalars = [
+            TestScalar::from(10u64),
+            TestScalar::from(3u64),
+            TestScalar::from(4u64),
+        ];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 3, 2);
+
+        let multipliers = random_scalars.compute_entrywise_multipliers();
+
+        assert_eq!(
+            multipliers,
+            vec![
+                (TestScalar::one() - TestScalar::from(4u64))
+                    * (TestScalar::one() - TestScalar::from(3u64)),
+                (TestScalar::one() - TestScalar::from(4u64)) * TestScalar::from(3u64),
+                TestScalar::from(4u64) * (TestScalar::one() - TestScalar::from(3u64)),
+            ]
+        );
+    }
+
+    #[test]
+    fn we_compute_empty_entrywise_multipliers_for_empty_tables() {
+        let scalars = [TestScalar::from(3u64), TestScalar::from(4u64)];
+        let random_scalars = SumcheckRandomScalars::new(&scalars, 0, 2);
+
+        assert_eq!(
+            random_scalars.compute_entrywise_multipliers(),
+            Vec::<TestScalar>::new()
+        );
+    }
+}

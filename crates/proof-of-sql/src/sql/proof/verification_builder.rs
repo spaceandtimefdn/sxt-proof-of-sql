@@ -259,3 +259,60 @@ impl<S: Scalar> VerificationBuilder<S> for VerificationBuilderImpl<'_, S> {
         self.mle_evaluations.rho_256_evaluation
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{SumcheckMleEvaluations, VerificationBuilder, VerificationBuilderImpl};
+    use crate::base::{
+        bit::BitDistribution,
+        scalar::{test_scalar::TestScalar, Scalar},
+    };
+
+    #[test]
+    fn we_can_consume_recorded_evaluations_and_accessors() {
+        let first_round_evaluations = [TestScalar::from(11_u32), TestScalar::from(22_u32)];
+        let final_round_evaluations = [TestScalar::from(33_u32)];
+        let bit_distribution = BitDistribution::new::<TestScalar, _>(&[1_i64, 2, 3]);
+        let mle_evaluations = SumcheckMleEvaluations {
+            chi_evaluations: [(4, TestScalar::from(44_u32))].into_iter().collect(),
+            rho_evaluations: [(8, TestScalar::from(88_u32))].into_iter().collect(),
+            singleton_chi_evaluation: TestScalar::from(55_u32),
+            random_evaluation: TestScalar::ONE,
+            first_round_pcs_proof_evaluations: &first_round_evaluations,
+            final_round_pcs_proof_evaluations: &final_round_evaluations,
+            rho_256_evaluation: Some(TestScalar::from(66_u32)),
+        };
+        let mut builder = VerificationBuilderImpl::new(
+            mle_evaluations,
+            core::slice::from_ref(&bit_distribution),
+            &[],
+            Default::default(),
+            vec![4],
+            vec![8],
+            0,
+        );
+
+        assert_eq!(
+            builder.try_consume_chi_evaluation().unwrap(),
+            (TestScalar::from(44_u32), 4)
+        );
+        assert_eq!(
+            builder.try_consume_rho_evaluation().unwrap(),
+            TestScalar::from(88_u32)
+        );
+        assert_eq!(
+            builder.try_consume_first_round_mle_evaluations(2).unwrap(),
+            first_round_evaluations
+        );
+        assert_eq!(
+            builder.try_consume_final_round_mle_evaluation().unwrap(),
+            final_round_evaluations[0]
+        );
+        assert_eq!(
+            builder.try_consume_bit_distribution().unwrap(),
+            bit_distribution
+        );
+        assert_eq!(builder.singleton_chi_evaluation(), TestScalar::from(55_u32));
+        assert_eq!(builder.rho_256_evaluation(), Some(TestScalar::from(66_u32)));
+    }
+}

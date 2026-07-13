@@ -40,3 +40,47 @@ pub(crate) enum ColumnCoercionError {
 
 /// Result type for operations related to `OwnedColumn`s.
 pub type OwnedColumnResult<T> = core::result::Result<T, OwnedColumnError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+
+    #[test]
+    fn owned_column_errors_display_expected_messages() {
+        assert_eq!(
+            OwnedColumnError::TypeCastError {
+                from_type: ColumnType::Boolean,
+                to_type: ColumnType::BigInt,
+            }
+            .to_string(),
+            "Can not perform type casting from Boolean to BigInt"
+        );
+        assert_eq!(
+            OwnedColumnError::ScalarConversionError {
+                error: "negative value".to_string(),
+            }
+            .to_string(),
+            "Error in converting scalars to a given column type: negative value"
+        );
+        assert_eq!(
+            OwnedColumnError::Unsupported {
+                error: "varchar hashes".to_string(),
+            }
+            .to_string(),
+            "Unsupported operation: varchar hashes"
+        );
+    }
+
+    #[test]
+    fn column_coercion_errors_display_expected_messages() {
+        assert_eq!(
+            ColumnCoercionError::Overflow.to_string(),
+            "Overflow when coercing a column"
+        );
+        assert_eq!(
+            ColumnCoercionError::InvalidTypeCoercion.to_string(),
+            "Invalid type coercion"
+        );
+    }
+}

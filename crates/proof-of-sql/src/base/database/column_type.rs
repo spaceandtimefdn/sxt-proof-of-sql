@@ -54,7 +54,7 @@ pub enum ColumnType {
     #[cfg_attr(test, proptest(skip))]
     Scalar,
     /// Mapped to [u8]
-    #[serde(alias = "BINARY", alias = "BINARY")]
+    #[serde(alias = "BINARY", alias = "binary")]
     VarBinary,
 }
 
@@ -336,6 +336,10 @@ mod tests {
         let serialized = serde_json::to_string(&column_type).unwrap();
         assert_eq!(serialized, r#""VarChar""#);
 
+        let column_type = ColumnType::VarBinary;
+        let serialized = serde_json::to_string(&column_type).unwrap();
+        assert_eq!(serialized, r#""VarBinary""#);
+
         let column_type = ColumnType::Scalar;
         let serialized = serde_json::to_string(&column_type).unwrap();
         assert_eq!(serialized, r#""Scalar""#);
@@ -391,6 +395,10 @@ mod tests {
 
         let expected_column_type = ColumnType::VarChar;
         let deserialized: ColumnType = serde_json::from_str(r#""VarChar""#).unwrap();
+        assert_eq!(deserialized, expected_column_type);
+
+        let expected_column_type = ColumnType::VarBinary;
+        let deserialized: ColumnType = serde_json::from_str(r#""VarBinary""#).unwrap();
         assert_eq!(deserialized, expected_column_type);
 
         let expected_column_type = ColumnType::Scalar;
@@ -470,6 +478,14 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ColumnType>(r#""varchar""#).unwrap(),
             ColumnType::VarChar
+        );
+        assert_eq!(
+            serde_json::from_str::<ColumnType>(r#""BINARY""#).unwrap(),
+            ColumnType::VarBinary
+        );
+        assert_eq!(
+            serde_json::from_str::<ColumnType>(r#""binary""#).unwrap(),
+            ColumnType::VarBinary
         );
 
         assert_eq!(
@@ -587,6 +603,14 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ColumnType>(&varchar_json).unwrap(),
             varchar
+        );
+
+        let varbinary = ColumnType::VarBinary;
+        let varbinary_json = serde_json::to_string(&varbinary).unwrap();
+        assert_eq!(varbinary_json, "\"VarBinary\"");
+        assert_eq!(
+            serde_json::from_str::<ColumnType>(&varbinary_json).unwrap(),
+            varbinary
         );
 
         let scalar = ColumnType::Scalar;

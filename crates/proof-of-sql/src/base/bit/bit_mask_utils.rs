@@ -19,3 +19,19 @@ pub fn make_bit_mask<S: ScalarExt>(x: S) -> U256 {
 pub fn is_bit_mask_negative_representation(bit_mask: U256) -> bool {
     bit_mask & MSB_MASK == U256::ZERO
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{is_bit_mask_negative_representation, make_bit_mask};
+    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+
+    #[test]
+    fn we_can_classify_signed_boundary_bit_masks() {
+        assert!(!is_bit_mask_negative_representation(make_bit_mask(
+            TestScalar::MAX_SIGNED
+        )));
+        assert!(is_bit_mask_negative_representation(make_bit_mask(
+            TestScalar::MAX_SIGNED + TestScalar::ONE
+        )));
+    }
+}

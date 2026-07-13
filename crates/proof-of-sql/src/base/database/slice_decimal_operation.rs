@@ -1313,4 +1313,19 @@ mod test {
         let expected = (Precision::new(9).unwrap(), 6, expected_scalars);
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn we_reject_decimal_column_division_by_zero() {
+        let lhs = [10_i16, 20, 30];
+        let rhs = [2_i16, 0, 5]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let left_column_type = ColumnType::SmallInt;
+        let right_column_type = ColumnType::Decimal75(Precision::new(4).unwrap(), 2);
+        let result: ColumnOperationResult<(Precision, i8, Vec<TestScalar>)> =
+            try_divide_decimal_columns(&lhs, &rhs, left_column_type, right_column_type);
+
+        assert!(matches!(result, Err(ColumnOperationError::DivisionByZero)));
+    }
 }

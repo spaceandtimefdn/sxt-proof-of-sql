@@ -217,6 +217,54 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_from_committable_columns() {
+        let committable_columns = [
+            CommittableColumn::BigInt(&[12i64, 34, 56]),
+            CommittableColumn::VarChar(
+                ["Lorem", "ipsum", "dolor"]
+                    .into_iter()
+                    .map(TestScalar::from)
+                    .map(<[u64; 4]>::from)
+                    .collect(),
+            ),
+        ];
+
+        let commitments = Vec::<NaiveCommitment>::from_committable_columns_with_offset(
+            &committable_columns,
+            1,
+            &(),
+        );
+
+        let expected_commitments =
+            NaiveCommitment::compute_commitments(&committable_columns, 1, &());
+        assert_eq!(commitments, expected_commitments);
+    }
+
+    #[test]
+    fn we_can_convert_from_columns_with_non_zero_offset() {
+        let columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(vec![12i64, 34, 56]),
+            OwnedColumn::VarChar(["Lorem", "ipsum", "dolor"].map(String::from).to_vec()),
+        ];
+
+        let commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&columns, 5, &());
+
+        let committable_columns = [
+            CommittableColumn::BigInt(&[12i64, 34, 56]),
+            CommittableColumn::VarChar(
+                ["Lorem", "ipsum", "dolor"]
+                    .into_iter()
+                    .map(TestScalar::from)
+                    .map(<[u64; 4]>::from)
+                    .collect(),
+            ),
+        ];
+        let expected_commitments =
+            NaiveCommitment::compute_commitments(&committable_columns, 5, &());
+        assert_eq!(commitments, expected_commitments);
+    }
+
+    #[test]
     fn we_can_append_rows() {
         let column_a = [12i64, 34, 56, 78, 90];
         let column_b = ["Lorem", "ipsum", "dolor", "sit", "amet"].map(String::from);
@@ -288,6 +336,16 @@ mod tests {
     }
 
     #[test]
+    fn we_can_append_zero_columns_to_empty_commitments() {
+        let empty: Vec<Column<TestScalar>> = Vec::new();
+        let mut commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&empty, 0, &());
+        commitments
+            .try_append_rows_with_offset(&empty, 10, &())
+            .unwrap();
+        assert!(commitments.is_empty());
+    }
+
+    #[test]
     fn we_can_extend_columns() {
         let column_a = [12i64, 34, 56];
         let column_b = ["Lorem", "ipsum", "dolor"].map(String::from);
@@ -340,6 +398,60 @@ mod tests {
         ];
         let expected_commitments =
             NaiveCommitment::compute_commitments(&committable_columns, 0, &());
+
+        assert_eq!(commitments, expected_commitments);
+    }
+
+    #[test]
+    fn we_can_extend_columns_with_offset() {
+        let columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(vec![12i64, 34, 56]),
+            OwnedColumn::VarChar(["Lorem", "ipsum", "dolor"].map(String::from).to_vec()),
+        ];
+
+        let mut commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&columns, 0, &());
+
+        let new_columns = vec![
+            OwnedColumn::<TestScalar>::VarChar(
+                ["sit", "amet", "consectetur"].map(String::from).to_vec(),
+            ),
+            OwnedColumn::BigInt(vec![78i64, 90, 1112]),
+        ];
+
+        commitments.extend_columns_with_offset(&new_columns, 2, &());
+
+        let existing_commitments = NaiveCommitment::compute_commitments(
+            &[
+                CommittableColumn::BigInt(&[12i64, 34, 56]),
+                CommittableColumn::VarChar(
+                    ["Lorem", "ipsum", "dolor"]
+                        .into_iter()
+                        .map(TestScalar::from)
+                        .map(<[u64; 4]>::from)
+                        .collect(),
+                ),
+            ],
+            0,
+            &(),
+        );
+
+        let new_commitments = NaiveCommitment::compute_commitments(
+            &[
+                CommittableColumn::VarChar(
+                    ["sit", "amet", "consectetur"]
+                        .into_iter()
+                        .map(TestScalar::from)
+                        .map(<[u64; 4]>::from)
+                        .collect(),
+                ),
+                CommittableColumn::BigInt(&[78i64, 90, 1112]),
+            ],
+            2,
+            &(),
+        );
+
+        let mut expected_commitments = existing_commitments;
+        expected_commitments.extend(new_commitments);
 
         assert_eq!(commitments, expected_commitments);
     }
@@ -498,5 +610,79 @@ mod tests {
             full_commitments.try_sub(commitments),
             Err(NumColumnsMismatch)
         ));
+    }
+
+    #[test]
+    fn we_can_append_zero_columns_to_non_empty_commitments() {
+        let column_a = [12i64, 34, 56];
+        let column_b = ["Lorem", "ipsum", "dolor"].map(String::from);
+
+        let columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(column_a.to_vec()),
+            OwnedColumn::VarChar(column_b.to_vec()),
+        ];
+
+        let existing = Vec::<NaiveCommitment>::from_columns_with_offset(&columns, 0, &());
+        let mut commitments = existing.clone();
+
+        let new_columns: Vec<Column<TestScalar>> = Vec::new();
+        commitments.extend_columns_with_offset(&new_columns, 3, &());
+
+        assert_eq!(commitments, existing);
+    }
+
+    #[test]
+    fn we_cannot_append_rows_with_columns_to_empty_commitments() {
+        let new_columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(vec![12i64, 34]),
+            OwnedColumn::VarChar(["Lorem", "ipsum"].map(String::from).to_vec()),
+        ];
+
+        let mut commitments = Vec::<NaiveCommitment>::new();
+        assert!(matches!(
+            commitments.try_append_rows_with_offset(&new_columns, 0, &()),
+            Err(NumColumnsMismatch)
+        ));
+    }
+
+    #[test]
+    fn we_can_add_and_sub_empty_commitment_collections() {
+        let commitments_a: Vec<NaiveCommitment> = Vec::new();
+        let commitments_b: Vec<NaiveCommitment> = Vec::new();
+
+        let added = commitments_a
+            .clone()
+            .try_add(commitments_b.clone())
+            .unwrap();
+        assert_eq!(added, Vec::<NaiveCommitment>::new());
+
+        let subtracted = commitments_a.try_sub(commitments_b).unwrap();
+        assert_eq!(subtracted, Vec::<NaiveCommitment>::new());
+    }
+
+    #[test]
+    fn we_can_report_num_commitments() {
+        let empty: Vec<NaiveCommitment> = Vec::new();
+        assert_eq!(empty.num_commitments(), 0);
+
+        let column_a = [12i64, 34, 56];
+        let column_b = ["Lorem", "ipsum", "dolor"].map(String::from);
+
+        let columns = vec![
+            OwnedColumn::<TestScalar>::BigInt(column_a.to_vec()),
+            OwnedColumn::VarChar(column_b.to_vec()),
+        ];
+
+        let commitments = Vec::<NaiveCommitment>::from_columns_with_offset(&columns, 0, &());
+        assert_eq!(commitments.num_commitments(), 2);
+    }
+
+    #[test]
+    fn num_columns_mismatch_displays_expected_message() {
+        let mismatch = NumColumnsMismatch;
+        assert_eq!(
+            mismatch.to_string(),
+            "cannot update commitment collections with different column counts"
+        );
     }
 }

@@ -59,6 +59,7 @@ impl fmt::Display for PoSQLTimeUnit {
 mod time_unit_tests {
     use super::*;
     use crate::base::posql_time::PoSQLTimestampError;
+    use alloc::format;
 
     #[test]
     fn test_valid_precisions() {
@@ -80,5 +81,44 @@ mod time_unit_tests {
                 Err(PoSQLTimestampError::UnsupportedPrecision { .. })
             ));
         }
+    }
+
+    #[test]
+    fn we_can_convert_time_units_to_precision_values() {
+        assert_eq!(u64::from(PoSQLTimeUnit::Second), 0);
+        assert_eq!(u64::from(PoSQLTimeUnit::Millisecond), 3);
+        assert_eq!(u64::from(PoSQLTimeUnit::Microsecond), 6);
+        assert_eq!(u64::from(PoSQLTimeUnit::Nanosecond), 9);
+    }
+
+    #[test]
+    fn we_can_display_time_units_with_precision() {
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Second),
+            "seconds (precision: 0)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Millisecond),
+            "milliseconds (precision: 3)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Microsecond),
+            "microseconds (precision: 6)"
+        );
+        assert_eq!(
+            format!("{}", PoSQLTimeUnit::Nanosecond),
+            "nanoseconds (precision: 9)"
+        );
+    }
+
+    #[test]
+    fn unsupported_precision_preserves_original_input() {
+        let err = PoSQLTimeUnit::try_from("12").unwrap_err();
+
+        assert_eq!(
+            err,
+            PoSQLTimestampError::UnsupportedPrecision { error: "12".into() }
+        );
+        assert_eq!(format!("{err}"), "Unsupported precision for timestamp: 12");
     }
 }

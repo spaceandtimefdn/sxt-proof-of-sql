@@ -142,3 +142,119 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::IndexMap;
+    use alloc::vec;
+
+    #[test]
+    fn new_treats_empty_schema_as_unqualified_table() {
+        let table_ref = TableRef::new("", "blocks");
+
+        assert!(table_ref.schema_id().is_none());
+        assert_eq!(table_ref.table_id().value, "blocks");
+        assert_eq!(table_ref.to_string(), "blocks");
+    }
+
+    #[test]
+    fn from_names_preserves_schema_and_table() {
+        let table_ref = TableRef::from_names(Some("analytics"), "blocks");
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "analytics");
+        assert_eq!(table_ref.table_id().value, "blocks");
+        assert_eq!(table_ref.to_string(), "analytics.blocks");
+    }
+
+    #[test]
+    fn from_idents_preserves_identifier_values() {
+        let table_ref = TableRef::from_idents(Some("sxt".into()), "proofs".into());
+
+        assert_eq!(table_ref.schema_id().unwrap().value, "sxt");
+        assert_eq!(table_ref.table_id().value, "proofs");
+    }
+
+    #[test]
+    fn from_strs_accepts_one_or_two_components() {
+        let unqualified = TableRef::from_strs(&["blocks"]).unwrap();
+        let qualified = TableRef::from_strs(&["analytics", "blocks"]).unwrap();
+
+        assert_eq!(unqualified.to_string(), "blocks");
+        assert_eq!(qualified.to_string(), "analytics.blocks");
+    }
+
+    #[test]
+    fn from_strs_rejects_invalid_component_counts() {
+        let empty = TableRef::from_strs::<&str>(&[]).unwrap_err();
+        let too_many = TableRef::from_strs(&["a", "b", "c"]).unwrap_err();
+
+        assert_eq!(
+            empty,
+            ParseError::InvalidTableReference {
+                table_reference: "".into(),
+            }
+        );
+        assert_eq!(
+            too_many,
+            ParseError::InvalidTableReference {
+                table_reference: "a,b,c".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn try_from_dot_separated_string_matches_from_str() {
+        let expected = TableRef::from_names(Some("analytics"), "blocks");
+
+        assert_eq!(TableRef::try_from("analytics.blocks").unwrap(), expected);
+        assert_eq!("analytics.blocks".parse::<TableRef>().unwrap(), expected);
+    }
+
+    #[test]
+    fn try_from_rejects_more_than_two_dot_components() {
+        assert_eq!(
+            TableRef::try_from("a.b.c").unwrap_err(),
+            ParseError::InvalidTableReference {
+                table_reference: "a.b.c".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn table_ref_serializes_as_display_string() {
+        let table_ref = TableRef::from_names(Some("analytics"), "blocks");
+
+        assert_eq!(
+            serde_json::to_string(&table_ref).unwrap(),
+            r#""analytics.blocks""#
+        );
+        assert_eq!(
+            serde_json::from_str::<TableRef>(r#""analytics.blocks""#).unwrap(),
+            table_ref
+        );
+    }
+
+    #[test]
+    fn borrowed_table_ref_can_lookup_index_map_entries() {
+        let table_ref = TableRef::from_names(Some("analytics"), "blocks");
+        let mut map: IndexMap<TableRef, i32> = IndexMap::with_hasher(Default::default());
+        map.insert(table_ref.clone(), 7);
+
+        assert_eq!(map.get(&&table_ref), Some(&7));
+    }
+
+    #[test]
+    fn table_refs_keep_insertion_order_in_index_map() {
+        let mut map: IndexMap<TableRef, i32> = IndexMap::with_hasher(Default::default());
+        map.insert(TableRef::from_names(None, "blocks"), 1);
+        map.insert(TableRef::from_names(Some("analytics"), "proofs"), 2);
+
+        assert_eq!(
+            map.keys()
+                .map(ToString::to_string)
+                .collect::<alloc::vec::Vec<_>>(),
+            vec!["blocks", "analytics.proofs"]
+        );
+    }
+}

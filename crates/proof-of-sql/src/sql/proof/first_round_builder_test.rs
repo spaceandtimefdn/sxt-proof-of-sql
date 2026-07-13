@@ -65,6 +65,33 @@ fn we_can_evaluate_pcs_proof_mles() {
 }
 
 #[test]
+fn we_can_track_first_round_builder_state() {
+    let mle = [3_i64, 4];
+    let mut builder = FirstRoundBuilder::<Curve25519Scalar>::new(2);
+
+    assert_eq!(builder.range_length(), 2);
+    assert!(builder.chi_evaluation_lengths().is_empty());
+    assert!(builder.rho_evaluation_lengths().is_empty());
+    assert!(builder.pcs_proof_mles().is_empty());
+
+    builder.update_range_length(1);
+    assert_eq!(builder.range_length(), 2);
+
+    builder.produce_chi_evaluation_length(5);
+    builder.produce_chi_evaluation_length(3);
+    assert_eq!(builder.chi_evaluation_lengths(), &[5, 3]);
+    assert_eq!(builder.range_length(), 5);
+
+    builder.produce_rho_evaluation_length(8);
+    builder.produce_rho_evaluation_length(13);
+    assert_eq!(builder.rho_evaluation_lengths(), &[8, 13]);
+    assert_eq!(builder.range_length(), 5);
+
+    builder.produce_intermediate_mle(&mle[..]);
+    assert_eq!(builder.pcs_proof_mles().len(), 1);
+}
+
+#[test]
 fn we_can_add_post_result_challenges() {
     let mut builder = FirstRoundBuilder::<Curve25519Scalar>::new(0);
     assert_eq!(builder.num_post_result_challenges(), 0);
