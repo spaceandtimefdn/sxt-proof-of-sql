@@ -142,3 +142,102 @@ impl<'d> Deserialize<'d> for TableRef {
         TableRef::from_str(&string).map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+
+    #[test]
+    fn table_ref_constructors_and_accessors_handle_schema_variants() {
+        let unqualified = TableRef::new("", "transactions");
+        assert_eq!(unqualified.schema_id(), None);
+        assert_eq!(unqualified.table_id().value, "transactions");
+        assert_eq!(unqualified.to_string(), "transactions");
+
+        let qualified = TableRef::from_names(Some("sxt"), "blocks");
+        assert_eq!(
+            qualified.schema_id().map(|schema| schema.value.as_str()),
+            Some("sxt")
+        );
+        assert_eq!(qualified.table_id().value, "blocks");
+        assert_eq!(qualified.to_string(), "sxt.blocks");
+
+        let from_idents =
+            TableRef::from_idents(Some(Ident::new("analytics")), Ident::new("events"));
+        assert_eq!(
+            from_idents.schema_id().map(|schema| schema.value.as_str()),
+            Some("analytics")
+        );
+        assert_eq!(from_idents.table_id().value, "events");
+        assert_eq!(from_idents.to_string(), "analytics.events");
+    }
+
+    #[test]
+    fn table_ref_from_strs_accepts_one_or_two_components() {
+        assert_eq!(
+            TableRef::from_strs(&["orders"]).unwrap(),
+            TableRef::from_names(None, "orders")
+        );
+        assert_eq!(
+            TableRef::from_strs(&["warehouse", "inventory"]).unwrap(),
+            TableRef::from_names(Some("warehouse"), "inventory")
+        );
+    }
+
+    #[test]
+    fn table_ref_from_strs_reports_invalid_component_count() {
+        let err = TableRef::from_strs(&["too", "many", "parts"]).unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference: "too,many,parts".into()
+            }
+        );
+    }
+
+    #[test]
+    fn table_ref_try_from_and_serde_reject_nested_paths() {
+        assert_eq!(
+            TableRef::try_from("schema.table").unwrap(),
+            TableRef::from_names(Some("schema"), "table")
+        );
+
+        let err = TableRef::try_from("catalog.schema.table").unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::InvalidTableReference {
+                table_reference: "catalog.schema.table".into()
+            }
+        );
+
+        let serialized = serde_json::to_string(&TableRef::new("public", "receipts")).unwrap();
+        assert_eq!(serialized, "\"public.receipts\"");
+        let round_trip: TableRef = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(round_trip, TableRef::new("public", "receipts"));
+
+        let serde_err = serde_json::from_value::<TableRef>(serde_json::json!("a.b.c")).unwrap_err();
+        assert!(serde_err
+            .to_string()
+            .contains("Invalid table reference: a.b.c"));
+    }
+
+    #[test]
+    fn borrowed_table_ref_equivalence_matches_full_key() {
+        let key = TableRef::new("sxt", "balances");
+        assert!((&key).equivalent(&TableRef::new("sxt", "balances")));
+        assert!(!(&key).equivalent(&TableRef::new("other", "balances")));
+        assert!(!(&key).equivalent(&TableRef::new("sxt", "transfers")));
+
+        let refs = vec![
+            TableRef::new("sxt", "balances"),
+            TableRef::new("sxt", "transfers"),
+        ];
+        assert_eq!(
+            refs.iter()
+                .filter(|candidate| (&key).equivalent(candidate))
+                .count(),
+            1
+        );
+    }
+}
