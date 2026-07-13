@@ -470,9 +470,11 @@ pub fn bit_table_and_scalars_for_packed_msm(
 mod tests {
     use super::*;
     use crate::base::{
+        database::ColumnType,
         math::decimal::Precision,
         posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     };
+    use crate::proof_primitive::dory::{test_rng, PublicParameters};
 
     #[test]
     fn we_can_get_a_bit_table() {
@@ -542,6 +544,130 @@ mod tests {
             256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 8, 8, 8, 64, 64,
         ];
         assert_eq!(bit_table, expected);
+    }
+
+    #[test]
+    fn we_can_modify_signed_and_unsigned_sub_commitments() {
+        let committable_columns = [
+            CommittableColumn::SmallInt(&[1, 2, 3, 4, 5]),
+            CommittableColumn::Int(&[6, 7, 8, 9]),
+            CommittableColumn::TinyInt(&[-1]),
+            CommittableColumn::Uint8(&[10]),
+        ];
+        let offset = 0;
+        let num_columns = 2;
+        let (bit_table, _) =
+            bit_table_and_scalars_for_packed_msm(&committable_columns, offset, num_columns);
+        let public_parameters = PublicParameters::test_rand(4, &mut test_rng());
+        let sub_commits = public_parameters
+            .Gamma_1
+            .into_iter()
+            .take(bit_table.len())
+            .collect::<Vec<_>>();
+
+        let modified = modify_commits(
+            &sub_commits,
+            &bit_table,
+            &committable_columns,
+            offset,
+            num_columns,
+        );
+
+        let num_offset_commits = OFFSET_SIZE + committable_columns.len();
+        let signed_commit_count = bit_table.len() - num_offset_commits;
+        let (signed_sub_commits, offset_sub_commits) = sub_commits.split_at(signed_commit_count);
+        let min_smallint = min_as_f(ColumnType::SmallInt);
+        let min_int = min_as_f(ColumnType::Int);
+        let min_tinyint = min_as_f(ColumnType::TinyInt);
+        let expected = vec![
+            (signed_sub_commits[0] + offset_sub_commits[0].mul(min_smallint)).into(),
+            (signed_sub_commits[1] + offset_sub_commits[1].mul(min_smallint)).into(),
+            (signed_sub_commits[2] + offset_sub_commits[2].mul(min_smallint)).into(),
+            (signed_sub_commits[3] + offset_sub_commits[0].mul(min_int)).into(),
+            (signed_sub_commits[4] + offset_sub_commits[3].mul(min_int)).into(),
+            (signed_sub_commits[5] + offset_sub_commits[4].mul(min_tinyint)).into(),
+            signed_sub_commits[6],
+        ];
+
+        assert_eq!(modified, expected);
+    }
+
+    #[test]
+    fn modify_commits_handles_empty_signed_columns() {
+        let committable_columns = [CommittableColumn::TinyInt(&[])];
+        let (bit_table, _) = bit_table_and_scalars_for_packed_msm(&committable_columns, 0, 2);
+        let public_parameters = PublicParameters::test_rand(2, &mut test_rng());
+        let sub_commits = public_parameters
+            .Gamma_1
+            .into_iter()
+            .take(bit_table.len())
+            .collect::<Vec<_>>();
+
+        let modified = modify_commits(&sub_commits, &bit_table, &committable_columns, 0, 2);
+
+        assert!(modified.is_empty());
+    }
+
+    #[test]
+    fn we_can_pack_unsigned_columns_without_offset_markers() {
+        let committable_columns = [CommittableColumn::Uint8(&[1, 2])];
+
+        let (bit_table, packed_scalars) =
+            bit_table_and_scalars_for_packed_msm(&committable_columns, 0, 2);
+
+        assert_eq!(bit_table, [8, 8, 8, 8]);
+        assert_eq!(packed_scalars, [1, 0, 0, 0, 2, 0, 0, 0]);
+    }
+
+    #[test]
+    fn we_can_pack_byte_sized_and_int128_scalar_columns() {
+        let committable_columns = [
+            CommittableColumn::Uint8(&[5, 6]),
+            CommittableColumn::TinyInt(&[-1, 2]),
+            CommittableColumn::Int128(&[3, -4]),
+            CommittableColumn::Boolean(&[true, false]),
+        ];
+        let num_columns = 2;
+
+        let (bit_table, packed_scalars) =
+            bit_table_and_scalars_for_packed_msm(&committable_columns, 0, num_columns);
+
+        assert_eq!(bit_table, [8, 8, 128, 8, 8, 8, 8, 8, 8, 8]);
+        let row_size = packed_scalars.len() / num_columns;
+        assert_eq!(row_size, 25);
+        assert_eq!(packed_scalars[0], 5);
+        assert_eq!(packed_scalars[row_size], 6);
+        assert_eq!(packed_scalars[1], 127);
+        assert_eq!(packed_scalars[row_size + 1], 130);
+        assert_eq!(packed_scalars[2], 3);
+        assert_eq!(packed_scalars[17], 128);
+        assert_eq!(packed_scalars[row_size + 2], 252);
+        assert_eq!(packed_scalars[row_size + 17], 127);
+        assert_eq!(packed_scalars[18], 1);
+        assert_eq!(packed_scalars[row_size + 18], 0);
+    }
+
+    #[test]
+    fn we_can_pack_decimal_and_string_scalar_columns() {
+        let committable_columns = [
+            CommittableColumn::Decimal75(
+                Precision::new(3).unwrap(),
+                1,
+                vec![[1, 0, 0, 0], [2, 0, 0, 0]],
+            ),
+            CommittableColumn::VarChar(vec![[3, 0, 0, 0], [4, 0, 0, 0]]),
+        ];
+
+        let (bit_table, packed_scalars) =
+            bit_table_and_scalars_for_packed_msm(&committable_columns, 0, 2);
+
+        assert_eq!(bit_table, [256, 256, 8, 8, 8, 8]);
+        let row_size = packed_scalars.len() / 2;
+        assert_eq!(row_size, 68);
+        assert_eq!(packed_scalars[0], 1);
+        assert_eq!(packed_scalars[row_size], 2);
+        assert_eq!(packed_scalars[32], 3);
+        assert_eq!(packed_scalars[row_size + 32], 4);
     }
 
     #[test]
