@@ -38,3 +38,17 @@ impl From<PoSQLTimestampError> for String {
         error.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PoSQLTimestampError;
+    use alloc::string::String;
+
+    #[test]
+    fn we_can_convert_timestamp_error_into_string() {
+        assert_eq!(
+            String::from(PoSQLTimestampError::InvalidTimezoneOffset),
+            "invalid timezone offset"
+        );
+    }
+}
