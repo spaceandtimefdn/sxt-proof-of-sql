@@ -57,3 +57,27 @@ impl<'a> DoryVerifierPublicSetup<'a> {
         self.verifier_setup
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{test_rng, PublicParameters};
+
+    #[test]
+    fn we_can_read_dory_public_setup_accessors() {
+        let public_parameters = PublicParameters::test_rand(2, &mut test_rng());
+        let prover_setup = ProverSetup::from(&public_parameters);
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+
+        let dory_prover_setup = DoryProverPublicSetup::new(&prover_setup, 1);
+        assert_eq!(dory_prover_setup.sigma(), 1);
+        assert_eq!(dory_prover_setup.prover_setup().max_nu, prover_setup.max_nu);
+
+        let dory_verifier_setup = DoryVerifierPublicSetup::new(&verifier_setup, 2);
+        assert_eq!(dory_verifier_setup.sigma(), 2);
+        assert_eq!(
+            dory_verifier_setup.verifier_setup().max_nu,
+            verifier_setup.max_nu
+        );
+    }
+}
