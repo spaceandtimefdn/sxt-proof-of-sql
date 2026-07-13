@@ -23,3 +23,26 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Wrapper(u64);
+
+    impl From<&Wrapper> for u64 {
+        fn from(value: &Wrapper) -> Self {
+            value.0
+        }
+    }
+
+    #[test]
+    fn ref_into_converts_from_reference_without_consuming_value() {
+        let wrapper = Wrapper(42);
+        let converted: u64 = wrapper.ref_into();
+
+        assert_eq!(converted, 42);
+        assert_eq!(wrapper, Wrapper(42));
+    }
+}
