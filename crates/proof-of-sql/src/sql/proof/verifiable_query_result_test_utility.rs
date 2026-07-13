@@ -27,10 +27,12 @@ pub fn exercise_verification(
     expr: &(impl ProofPlan + Serialize),
     accessor: &impl TestAccessor<RistrettoPoint>,
     table_ref: &TableRef,
-) {
-    res.clone()
+) -> OwnedTable<Curve25519Scalar> {
+    let verified_table = res
+        .clone()
         .verify(expr, accessor, &(), &[])
-        .expect("Verification failed");
+        .expect("Verification failed")
+        .table;
 
     // try changing the result
     let mut res_p = res.clone();
@@ -80,6 +82,8 @@ pub fn exercise_verification(
         fake_accessor.update_offset(table_ref, offset_generators + 1);
         assert!(res.clone().verify(expr, &fake_accessor, &(), &[]).is_err());
     }
+
+    verified_table
 }
 
 fn tampered_table<S: Scalar>(table: &OwnedTable<S>) -> OwnedTable<S> {
