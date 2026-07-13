@@ -293,6 +293,28 @@ mod tests {
     }
 
     #[test]
+    fn we_can_read_metadata_accessors_and_roundtrip_serde() {
+        let metadata = ColumnCommitmentMetadata::try_new(
+            ColumnType::Int,
+            ColumnBounds::Int(Bounds::sharp(-7, 42).unwrap()),
+        )
+        .unwrap();
+
+        assert_eq!(metadata.column_type(), &ColumnType::Int);
+        assert_eq!(
+            metadata.bounds(),
+            &ColumnBounds::Int(Bounds::sharp(-7, 42).unwrap())
+        );
+
+        let serialized = serde_json::to_string(&metadata).unwrap();
+        let deserialized: ColumnCommitmentMetadata = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized, metadata);
+        assert_eq!(deserialized.column_type(), metadata.column_type());
+        assert_eq!(deserialized.bounds(), metadata.bounds());
+    }
+
+    #[test]
     fn we_cannot_construct_metadata_with_type_bounds_mismatch() {
         assert!(matches!(
             ColumnCommitmentMetadata::try_new(
