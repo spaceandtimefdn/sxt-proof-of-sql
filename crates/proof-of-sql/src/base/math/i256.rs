@@ -184,6 +184,20 @@ mod tests {
     ]);
 
     #[test]
+    fn we_can_construct_i256_from_limbs() {
+        let limbs = [
+            0x0123_4567_89AB_CDEF,
+            0xFEDC_BA98_7654_3210,
+            0x0F0F_F0F0_55AA_AA55,
+            0x8000_0000_0000_0001,
+        ];
+
+        let value = I256::new(limbs);
+
+        assert_eq!(value.limbs(), limbs);
+    }
+
+    #[test]
     fn we_can_compute_the_negative_of_i256() {
         assert_eq!(ZERO.neg(), ZERO);
         assert_eq!(ONE.neg(), NEG_ONE);
