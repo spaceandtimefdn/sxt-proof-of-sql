@@ -326,6 +326,70 @@ mod tests {
     }
 
     #[test]
+    fn we_can_get_column_type_minimums_as_scalars() {
+        assert_eq!(min_as_f(ColumnType::TinyInt), MontFp!("-128"));
+        assert_eq!(min_as_f(ColumnType::SmallInt), MontFp!("-32768"));
+        assert_eq!(min_as_f(ColumnType::Int), MontFp!("-2147483648"));
+        assert_eq!(
+            min_as_f(ColumnType::BigInt),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc()
+            )),
+            MontFp!("-9223372036854775808")
+        );
+        assert_eq!(
+            min_as_f(ColumnType::Int128),
+            MontFp!("-170141183460469231731687303715884105728")
+        );
+        assert_eq!(min_as_f(ColumnType::Uint8), MontFp!("0"));
+        assert_eq!(min_as_f(ColumnType::Boolean), MontFp!("0"));
+        assert_eq!(min_as_f(ColumnType::VarChar), MontFp!("0"));
+        assert_eq!(min_as_f(ColumnType::VarBinary), MontFp!("0"));
+        assert_eq!(min_as_f(ColumnType::Scalar), MontFp!("0"));
+        assert_eq!(
+            min_as_f(ColumnType::Decimal75(Precision::new(12).unwrap(), 2)),
+            MontFp!("0")
+        );
+    }
+
+    #[test]
+    fn we_can_sign_dynamic_dory_sub_commits() {
+        use ark_ec::AffineRepr;
+
+        let generator = G1Affine::generator();
+        let all_sub_commits = vec![
+            generator,
+            generator.mul(F::from(2_u64)).into_affine(),
+            generator.mul(F::from(3_u64)).into_affine(),
+            generator.mul(F::from(4_u64)).into_affine(),
+        ];
+        let tinyints = [1_i8, 2];
+        let uints = [3_u8, 4];
+        let committable_columns = [
+            CommittableColumn::TinyInt(&tinyints),
+            CommittableColumn::Uint8(&uints),
+        ];
+
+        let signed = signed_commits(&all_sub_commits, &committable_columns);
+
+        assert_eq!(signed.len(), 2);
+        assert_eq!(
+            signed[0],
+            (all_sub_commits[0] + all_sub_commits[2].mul(MontFp!("-128"))).into_affine()
+        );
+        assert_eq!(signed[1], all_sub_commits[1]);
+    }
+
+    #[test]
+    fn we_can_handle_empty_signed_commits() {
+        assert!(signed_commits(&vec![], &[]).is_empty());
+    }
+
+    #[test]
     fn we_can_handle_empty_committable_columns_in_blitzar_metadata_tables() {
         assert_blitzar_metadata(&[], 0, &[], &[], &[]);
     }
