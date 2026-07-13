@@ -585,6 +585,24 @@ mod test {
     }
 
     #[test]
+    fn eq_decimal_columns_handles_extreme_scale_difference_when_rhs_is_upscaled() {
+        let lhs = [0_i64, 9, -3]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let rhs = [0_i16, 1, -1]
+            .into_iter()
+            .map(TestScalar::from)
+            .collect::<Vec<_>>();
+        let left_column_type = ColumnType::Decimal75(Precision::new(40).unwrap(), 26);
+        let right_column_type = ColumnType::Decimal75(Precision::new(10).unwrap(), -50);
+
+        let actual = eq_decimal_columns(&lhs, &rhs, left_column_type, right_column_type);
+
+        assert_eq!(actual, vec![true, false, false]);
+    }
+
+    #[test]
     fn we_can_le_decimal_columns() {
         // lhs is integer and rhs is decimal with nonnegative scale
         let lhs = [1_i8, -2, 3];
