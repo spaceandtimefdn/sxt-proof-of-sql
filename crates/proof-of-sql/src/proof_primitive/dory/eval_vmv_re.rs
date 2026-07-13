@@ -80,3 +80,34 @@ pub fn eval_vmv_re_verify(
         E_1, E_2, s1_tensor, s2_tensor, C, D_1, D_2, nu,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{test_rng, DeferredGT, PublicParameters, VMVVerifierState, F};
+    use super::*;
+    use alloc::vec;
+    use merlin::Transcript;
+
+    #[test]
+    fn we_reject_eval_vmv_re_verification_when_no_messages_are_present() {
+        let mut rng = test_rng();
+        let pp = PublicParameters::test_rand(1, &mut rng);
+        let verifier_setup = (&pp).into();
+        let state = VMVVerifierState {
+            y: F::default(),
+            T: DeferredGT::new([], []),
+            l_tensor: vec![F::default()],
+            r_tensor: vec![F::default()],
+            nu: 1,
+        };
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"eval_vmv_re_empty_messages");
+
+        assert_eq!(
+            eval_vmv_re_verify(&mut messages, &mut transcript, state, &verifier_setup),
+            None
+        );
+        assert!(messages.GT_messages.is_empty());
+        assert!(messages.G1_messages.is_empty());
+    }
+}
