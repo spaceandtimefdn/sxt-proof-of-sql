@@ -53,3 +53,32 @@ pub fn dory_reduce_verify(
     state.nu -= 1;
     true
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proof_primitive::dory::{deferred_msm::DeferredMSM, test_rng, PublicParameters};
+    use merlin::Transcript;
+
+    #[test]
+    fn we_reject_dory_reduce_verification_when_messages_are_empty() {
+        let public_parameters = PublicParameters::test_rand(1, &mut test_rng());
+        let verifier_setup = VerifierSetup::from(&public_parameters);
+        let mut messages = DoryMessages::default();
+        let mut transcript = Transcript::new(b"dory_reduce_test");
+        let mut state = VerifierState::new(
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            DeferredMSM::new([], []),
+            1,
+        );
+
+        assert!(!dory_reduce_verify(
+            &mut messages,
+            &mut transcript,
+            &mut state,
+            &verifier_setup
+        ));
+        assert_eq!(state.nu, 1);
+    }
+}
