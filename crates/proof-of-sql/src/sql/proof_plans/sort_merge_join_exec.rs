@@ -313,6 +313,106 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{base::database::ColumnType, sql::proof::ProofPlan};
+
+    #[test]
+    fn sort_merge_join_accessors_preserve_constructor_inputs() {
+        let left = DynProofPlan::new_table(
+            "sxt.left_table".parse().unwrap(),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::VarChar),
+            ],
+        );
+        let right = DynProofPlan::new_table(
+            "sxt.right_table".parse().unwrap(),
+            vec![
+                ColumnField::new("right_value".into(), ColumnType::Int),
+                ColumnField::new("id".into(), ColumnType::BigInt),
+            ],
+        );
+        let result_idents = vec![
+            Ident::new("joined_id"),
+            Ident::new("left_value"),
+            Ident::new("right_value"),
+        ];
+
+        let plan = SortMergeJoinExec::new(
+            Box::new(left.clone()),
+            Box::new(right.clone()),
+            vec![0],
+            vec![1],
+            result_idents.clone(),
+        );
+
+        assert_eq!(plan.left_plan(), &left);
+        assert_eq!(plan.right_plan(), &right);
+        assert_eq!(plan.left_join_column_indexes(), &vec![0]);
+        assert_eq!(plan.right_join_column_indexes(), &vec![1]);
+        assert_eq!(plan.result_idents(), &result_idents);
+    }
+
+    #[test]
+    fn sort_merge_join_reports_result_fields_and_references() {
+        let left_ref: TableRef = "sxt.left_table".parse().unwrap();
+        let right_ref: TableRef = "sxt.right_table".parse().unwrap();
+        let left = DynProofPlan::new_table(
+            left_ref.clone(),
+            vec![
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::VarChar),
+            ],
+        );
+        let right = DynProofPlan::new_table(
+            right_ref.clone(),
+            vec![
+                ColumnField::new("right_value".into(), ColumnType::Int),
+                ColumnField::new("id".into(), ColumnType::BigInt),
+                ColumnField::new("flag".into(), ColumnType::Boolean),
+            ],
+        );
+        let plan = SortMergeJoinExec::new(
+            Box::new(left),
+            Box::new(right),
+            vec![0],
+            vec![1],
+            vec![
+                Ident::new("joined_id"),
+                Ident::new("left_value"),
+                Ident::new("right_value"),
+                Ident::new("flag"),
+            ],
+        );
+
+        assert_eq!(
+            plan.get_column_result_fields(),
+            vec![
+                ColumnField::new("joined_id".into(), ColumnType::BigInt),
+                ColumnField::new("left_value".into(), ColumnType::VarChar),
+                ColumnField::new("right_value".into(), ColumnType::Int),
+                ColumnField::new("flag".into(), ColumnType::Boolean),
+            ]
+        );
+        assert_eq!(
+            plan.get_column_references(),
+            IndexSet::from_iter([
+                ColumnRef::new(left_ref.clone(), "id".into(), ColumnType::BigInt),
+                ColumnRef::new(left_ref.clone(), "left_value".into(), ColumnType::VarChar),
+                ColumnRef::new(right_ref.clone(), "right_value".into(), ColumnType::Int),
+                ColumnRef::new(right_ref.clone(), "id".into(), ColumnType::BigInt),
+                ColumnRef::new(right_ref.clone(), "flag".into(), ColumnType::Boolean),
+            ])
+        );
+        assert_eq!(
+            plan.get_table_references(),
+            IndexSet::from_iter([left_ref, right_ref])
+        );
+    }
+}
+
 impl ProverEvaluate for SortMergeJoinExec {
     #[tracing::instrument(
         name = "SortMergeJoinExec::first_round_evaluate",
