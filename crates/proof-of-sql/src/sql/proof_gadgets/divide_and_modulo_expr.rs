@@ -146,12 +146,12 @@ mod tests {
             database::{Column, ColumnRef, ColumnType, Table, TableRef},
             map::indexmap,
             polynomial::MultilinearExtension,
-            scalar::test_scalar::TestScalar,
+            scalar::{test_scalar::TestScalar, Scalar},
         },
         sql::{
             proof::{
-                mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
-                FirstRoundBuilder,
+                mock_verification_builder::{run_verify_for_each_row, MockVerificationBuilder},
+                FinalRoundBuilder, FirstRoundBuilder,
             },
             proof_exprs::{ColumnExpr, DynProofExpr},
         },
@@ -202,5 +202,42 @@ mod tests {
         );
         let matrix = mock_verification_builder.get_identity_results();
         assert!(matrix.into_iter().all(|v| v.into_iter().all(|b| b)));
+    }
+
+    #[test]
+    fn we_can_return_quotient_and_remainder_from_verifier_evaluate() {
+        let table_ref: TableRef = "sxt.t".parse().unwrap();
+        let lhs_ident = Ident::from("lhs");
+        let rhs_ident = Ident::from("rhs");
+        let lhs_ref = ColumnRef::new(table_ref.clone(), lhs_ident.clone(), ColumnType::Int128);
+        let rhs_ref = ColumnRef::new(table_ref, rhs_ident.clone(), ColumnType::Int128);
+        let divide_and_modulo_expr = DivideAndModuloExpr::new(
+            Box::new(DynProofExpr::Column(ColumnExpr::new(lhs_ref.clone()))),
+            Box::new(DynProofExpr::Column(ColumnExpr::new(rhs_ref.clone()))),
+        );
+        let quotient_eval = TestScalar::from(7);
+        let remainder_eval = TestScalar::from(2);
+        let lhs_eval = TestScalar::from(23);
+        let rhs_eval = TestScalar::from(3);
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            4,
+            Vec::new(),
+            vec![vec![quotient_eval, remainder_eval]],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let accessor = indexmap! {
+            lhs_ref.column_id() => lhs_eval,
+            rhs_ref.column_id() => rhs_eval
+        };
+
+        let (quotient, remainder) = divide_and_modulo_expr
+            .verifier_evaluate(&mut verification_builder, &accessor, TestScalar::ONE, &[])
+            .unwrap();
+
+        assert_eq!(quotient, quotient_eval);
+        assert_eq!(remainder, remainder_eval);
     }
 }
