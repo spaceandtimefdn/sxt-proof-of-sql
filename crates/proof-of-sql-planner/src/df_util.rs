@@ -25,3 +25,33 @@ pub(crate) fn df_schema(table_name: &str, pairs: Vec<(&str, DataType)>) -> DFSch
     );
     DFSchema::try_from_qualified_schema(table_name, &arrow_schema).unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn df_column_builds_qualified_column_expr() {
+        let expr = df_column("orders", "id");
+        let Expr::Column(column) = expr else {
+            panic!("expected column expression");
+        };
+        assert_eq!(column.name, "id");
+        assert_eq!(column.flat_name(), "orders.id");
+    }
+
+    #[test]
+    fn df_schema_builds_non_nullable_qualified_schema() {
+        let schema = df_schema(
+            "orders",
+            vec![("id", DataType::Int64), ("status", DataType::Utf8)],
+        );
+        assert_eq!(schema.fields().len(), 2);
+        assert_eq!(schema.field(0).name(), "id");
+        assert_eq!(schema.field(1).name(), "status");
+        assert_eq!(schema.field(0).data_type(), &DataType::Int64);
+        assert_eq!(schema.field(1).data_type(), &DataType::Utf8);
+        assert!(!schema.field(0).is_nullable());
+        assert!(!schema.field(1).is_nullable());
+    }
+}
