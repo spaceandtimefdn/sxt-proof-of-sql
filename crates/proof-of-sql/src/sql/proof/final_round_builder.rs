@@ -156,3 +156,33 @@ impl<'a, S: Scalar> FinalRoundBuilder<'a, S> {
         self.post_result_challenges.pop_front().unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FinalRoundBuilder;
+    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+    use alloc::{collections::VecDeque, vec};
+
+    #[test]
+    fn new_builder_preserves_variables_and_consumes_challenges_in_order() {
+        let mut builder = FinalRoundBuilder::new(
+            3,
+            VecDeque::from(vec![
+                TestScalar::ONE,
+                TestScalar::TWO,
+                TestScalar::from(3u64),
+            ]),
+        );
+
+        assert_eq!(builder.num_sumcheck_variables(), 3);
+        assert_eq!(builder.num_sumcheck_subpolynomials(), 0);
+        assert!(builder.pcs_proof_mles().is_empty());
+        assert!(builder.bit_distributions().is_empty());
+        assert_eq!(builder.consume_post_result_challenge(), TestScalar::ONE);
+        assert_eq!(builder.consume_post_result_challenge(), TestScalar::TWO);
+        assert_eq!(
+            builder.consume_post_result_challenge(),
+            TestScalar::from(3u64)
+        );
+    }
+}
