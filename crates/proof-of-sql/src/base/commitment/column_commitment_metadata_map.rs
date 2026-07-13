@@ -311,7 +311,15 @@ mod tests {
             Err(ColumnCommitmentsMismatch::NumColumns)
         ));
         assert!(matches!(
-            metadata_b.try_union(metadata_a.clone()),
+            metadata_b.clone().try_union(metadata_a.clone()),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+        assert!(matches!(
+            metadata_a.clone().try_difference(metadata_b.clone()),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+        assert!(matches!(
+            metadata_b.try_difference(metadata_a.clone()),
             Err(ColumnCommitmentsMismatch::NumColumns)
         ));
 
@@ -322,7 +330,15 @@ mod tests {
             Err(ColumnCommitmentsMismatch::NumColumns)
         ));
         assert!(matches!(
-            empty_metadata.try_union(metadata_a),
+            empty_metadata.clone().try_union(metadata_a.clone()),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+        assert!(matches!(
+            metadata_a.clone().try_difference(empty_metadata.clone()),
+            Err(ColumnCommitmentsMismatch::NumColumns)
+        ));
+        assert!(matches!(
+            empty_metadata.try_difference(metadata_a),
             Err(ColumnCommitmentsMismatch::NumColumns)
         ));
     }
