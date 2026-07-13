@@ -52,3 +52,37 @@ fn we_can_bound_modulus_using_max_bits() {
     assert!(modulus_of_i_max_bits <= modulus_of_test_scalar);
     assert!(modulus_of_i_max_bits_plus_1 > modulus_of_test_scalar);
 }
+
+#[test]
+fn we_can_roundtrip_mont_scalar_le_bytes() {
+    let scalars = [
+        TestScalar::ZERO,
+        TestScalar::ONE,
+        TestScalar::from(255_u64),
+        TestScalar::MAX_SIGNED,
+        -TestScalar::ONE,
+    ];
+
+    for scalar in scalars {
+        assert_eq!(
+            TestScalar::from_le_bytes_mod_order(&scalar.to_bytes_le()),
+            scalar
+        );
+    }
+}
+
+#[test]
+fn we_can_wrap_and_unwrap_mont_scalar_slices() {
+    let scalars = vec![
+        TestScalar::ZERO,
+        TestScalar::from(17_u64),
+        -TestScalar::from(42_u64),
+        TestScalar::MAX_SIGNED,
+    ];
+
+    let raw_scalars = TestScalar::unwrap_slice(&scalars);
+    let wrapped_scalars = TestScalar::wrap_slice(&raw_scalars);
+
+    assert_eq!(wrapped_scalars, scalars);
+    assert_eq!(TestScalar::unwrap_slice(&wrapped_scalars), raw_scalars);
+}
