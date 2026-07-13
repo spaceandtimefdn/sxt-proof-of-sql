@@ -84,7 +84,7 @@ test = ["dep:rand", "std"]
 perf = ["blitzar", "cpu-perf"]
 cpu-perf = ["rayon", "ark-ec/parallel", "ark-poly/parallel", "ark-ff/asm", "halo2curves/asm"]
 rayon = ["dep:rayon", "std"]
-std = ["snafu/std", "ark-serialize/std", "dep:sysinfo" ]
+std = ["snafu/std", "ark-serialize/std", "dep:sysinfo", "tracing/std" ]
 
 [lints]
 workspace = true
