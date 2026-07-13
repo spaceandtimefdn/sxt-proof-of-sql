@@ -153,3 +153,82 @@ pub fn tamper_first_row_of_column<S: Scalar>(column: &OwnedColumn<S>) -> OwnedCo
     }
     column
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
+
+    #[test]
+    fn we_can_tamper_each_owned_column_variant() {
+        type S = Curve25519Scalar;
+
+        let cases = [
+            (
+                OwnedColumn::<S>::Boolean(vec![false]),
+                OwnedColumn::<S>::Boolean(vec![true]),
+            ),
+            (
+                OwnedColumn::<S>::Uint8(vec![1]),
+                OwnedColumn::<S>::Uint8(vec![2]),
+            ),
+            (
+                OwnedColumn::<S>::TinyInt(vec![-1]),
+                OwnedColumn::<S>::TinyInt(vec![0]),
+            ),
+            (
+                OwnedColumn::<S>::SmallInt(vec![2]),
+                OwnedColumn::<S>::SmallInt(vec![3]),
+            ),
+            (
+                OwnedColumn::<S>::Int(vec![3]),
+                OwnedColumn::<S>::Int(vec![4]),
+            ),
+            (
+                OwnedColumn::<S>::BigInt(vec![4]),
+                OwnedColumn::<S>::BigInt(vec![5]),
+            ),
+            (
+                OwnedColumn::<S>::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![5]),
+                OwnedColumn::<S>::TimestampTZ(PoSQLTimeUnit::Second, PoSQLTimeZone::utc(), vec![6]),
+            ),
+            (
+                OwnedColumn::<S>::VarChar(vec!["value".into()]),
+                OwnedColumn::<S>::VarChar(vec!["value1".into()]),
+            ),
+            (
+                OwnedColumn::<S>::VarBinary(vec![vec![7]]),
+                OwnedColumn::<S>::VarBinary(vec![vec![7, 1]]),
+            ),
+            (
+                OwnedColumn::<S>::Int128(vec![8]),
+                OwnedColumn::<S>::Int128(vec![9]),
+            ),
+            (
+                OwnedColumn::<S>::Decimal75(Precision::new(10).unwrap(), 2, vec![S::ZERO]),
+                OwnedColumn::<S>::Decimal75(Precision::new(10).unwrap(), 2, vec![S::ONE]),
+            ),
+            (
+                OwnedColumn::<S>::Scalar(vec![S::ZERO]),
+                OwnedColumn::<S>::Scalar(vec![S::ONE]),
+            ),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(tamper_first_row_of_column(&input), expected);
+        }
+    }
+
+    #[test]
+    fn tampered_table_adds_a_row_to_empty_row_tables() {
+        type S = Curve25519Scalar;
+
+        let table = owned_table([bigint("count", [0_i64; 0])]);
+        let tampered = tampered_table::<S>(&table);
+
+        assert_eq!(tampered.num_rows(), 1);
+    }
+}
