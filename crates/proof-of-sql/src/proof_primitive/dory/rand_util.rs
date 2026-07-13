@@ -1,9 +1,14 @@
 #[cfg(test)]
-use super::{G1Affine, G2Affine, F};
+use super::{G1Affine, G2Affine, PublicParameters, F};
 #[cfg(test)]
 use ark_std::{
     rand::{rngs::StdRng, Rng, SeedableRng},
     UniformRand,
+};
+#[cfg(test)]
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
 };
 
 #[cfg(test)]
@@ -11,6 +16,41 @@ use ark_std::{
 #[must_use]
 pub fn test_rng() -> impl Rng {
     ark_std::test_rng()
+}
+
+#[cfg(test)]
+static SHARED_TEST_PUBLIC_PARAMETERS: OnceLock<Mutex<HashMap<usize, &'static PublicParameters>>> =
+    OnceLock::new();
+
+/// Returns a process-shared, lazily-initialized [`PublicParameters`] for the given
+/// `max_nu`, generated with [`test_rng`]. The output is bit-identical to
+/// `PublicParameters::test_rand(max_nu, &mut test_rng())` (because [`test_rng`] is a
+/// deterministic seeded RNG), but is constructed at most once per `max_nu` and then
+/// reused across every test in the process. `PublicParameters::test_rand` for the
+/// same handful of `max_nu` values is currently called dozens of times per run and
+/// dominates the test suite's wall time; this collapses those into a single
+/// construction per `max_nu`.
+///
+/// The returned reference has a `'static` lifetime, suitable for constructing a
+/// `ProverSetup<'static>` and a `VerifierSetup`. The underlying [`PublicParameters`]
+/// is intentionally leaked, but only once per `max_nu` per process lifetime.
+///
+/// # Panics
+/// Panics only if the internal cache mutex is poisoned (i.e., another thread
+/// panicked while holding it), which would only happen on a prior test panic.
+#[cfg(test)]
+#[must_use]
+pub fn shared_test_public_parameters(max_nu: usize) -> &'static PublicParameters {
+    let cache = SHARED_TEST_PUBLIC_PARAMETERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = cache
+        .lock()
+        .expect("shared_test_public_parameters cache poisoned");
+    *guard.entry(max_nu).or_insert_with(|| {
+        Box::leak(Box::new(PublicParameters::test_rand(
+            max_nu,
+            &mut test_rng(),
+        )))
+    })
 }
 
 /// Create a random number generator for testing with a specific seed.
