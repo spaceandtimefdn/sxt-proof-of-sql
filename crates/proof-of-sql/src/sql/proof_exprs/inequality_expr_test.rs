@@ -829,6 +829,22 @@ fn we_can_compute_the_correct_output_of_a_gte_inequality_expr_using_first_round_
 }
 
 #[test]
+fn we_can_compute_the_correct_output_of_a_column_gte_column_expr_using_first_round_evaluate() {
+    let alloc = Bump::new();
+    let data = table([
+        borrowed_bigint("a", [-3, 0, 7, 7], &alloc),
+        borrowed_bigint("b", [-4, 0, 8, 6], &alloc),
+    ]);
+    let mut accessor = TableTestAccessor::<InnerProductProof>::new_empty_with_setup(());
+    let t = TableRef::new("sxt", "t");
+    accessor.add_table(t.clone(), data.clone(), 0);
+    let gte_expr = gte(column(&t, "a", &accessor), column(&t, "b", &accessor));
+    let res = gte_expr.first_round_evaluate(&alloc, &data, &[]).unwrap();
+    let expected_res = Column::Boolean(&[true, true, false, true]);
+    assert_eq!(res, expected_res);
+}
+
+#[test]
 fn we_cannot_inequality_mismatching_types() {
     let alloc = Bump::new();
     let data = table([
