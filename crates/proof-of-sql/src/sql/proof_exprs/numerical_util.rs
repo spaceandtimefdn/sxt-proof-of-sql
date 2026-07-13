@@ -662,8 +662,8 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
 #[cfg(test)]
 mod tests {
     use super::{
-        cast_bool_column_to_signed_int_column, cast_column, cast_int_slice_to_int_column,
-        divide_columns, divide_integer_columns,
+        add_subtract_columns, cast_bool_column_to_signed_int_column, cast_column,
+        cast_int_slice_to_int_column, divide_columns, divide_integer_columns, multiply_columns,
     };
     use crate::{
         base::{
@@ -697,6 +697,66 @@ mod tests {
             q.iter().map(TestScalar::from).collect_vec()
         );
         assert_eq!(remainder, r);
+    }
+
+    #[test]
+    fn we_can_add_and_subtract_columns_directly() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::SmallInt(&[5, -2, 0]);
+        let rhs = Column::<TestScalar>::Int(&[3, 4, -1]);
+
+        let sum = add_subtract_columns(lhs, rhs, &alloc, false);
+        let difference = add_subtract_columns(lhs, rhs, &alloc, true);
+
+        assert_eq!(
+            sum,
+            [
+                TestScalar::from(8),
+                TestScalar::from(2),
+                TestScalar::from(-1)
+            ]
+        );
+        assert_eq!(
+            difference,
+            [
+                TestScalar::from(2),
+                TestScalar::from(-6),
+                TestScalar::from(1)
+            ]
+        );
+    }
+
+    #[test]
+    fn we_can_multiply_columns_directly() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::TinyInt(&[-2, 3, 0]);
+        let rhs_scalars = [
+            TestScalar::from(4),
+            TestScalar::from(-5),
+            TestScalar::from(9),
+        ];
+        let rhs = Column::Decimal75(Precision::new(2).unwrap(), 0, &rhs_scalars);
+
+        let product = multiply_columns(&lhs, &rhs, &alloc);
+
+        assert_eq!(
+            product,
+            [
+                TestScalar::from(-8),
+                TestScalar::from(-15),
+                TestScalar::ZERO
+            ]
+        );
+    }
+
+    #[should_panic(expected = "lhs and rhs should have the same length")]
+    #[test]
+    fn we_can_error_multiply_columns_if_columns_are_different_length() {
+        let alloc = Bump::new();
+        let lhs = Column::<TestScalar>::TinyInt(&[1, 2]);
+        let rhs = Column::<TestScalar>::SmallInt(&[3]);
+
+        multiply_columns(&lhs, &rhs, &alloc);
     }
 
     #[test]
