@@ -158,3 +158,38 @@ impl ProofExpr for InequalityExpr {
         self.rhs.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::InequalityExpr;
+    use crate::{
+        base::{
+            database::{ColumnRef, ColumnType, TableRef},
+            map::indexmap,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::mock_verification_builder::MockVerificationBuilder,
+            proof_exprs::{ColumnExpr, DynProofExpr, PlaceholderExpr, ProofExpr},
+        },
+    };
+    use sqlparser::ast::Ident;
+
+    #[test]
+    fn we_propagate_lhs_error_in_verifier_evaluate() {
+        let t: TableRef = "sxt.t".parse().unwrap();
+        let b = ColumnRef::new(t, Ident::from("b"), ColumnType::BigInt);
+        let lhs = DynProofExpr::Placeholder(
+            PlaceholderExpr::try_new(1, ColumnType::BigInt).unwrap(),
+        );
+        let rhs = DynProofExpr::Column(ColumnExpr::new(b.clone()));
+        let expr = InequalityExpr::try_new(Box::new(lhs), Box::new(rhs), true).unwrap();
+
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 2, vec![], vec![], vec![], vec![], vec![],
+        );
+        let accessor = indexmap! { b.column_id() => TestScalar::ONE };
+        let result = expr.verifier_evaluate(&mut builder, &accessor, TestScalar::ONE, &[]);
+        assert!(result.is_err());
+    }
+}

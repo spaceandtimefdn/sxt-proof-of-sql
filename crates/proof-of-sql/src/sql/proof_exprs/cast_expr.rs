@@ -99,3 +99,36 @@ impl ProofExpr for CastExpr {
         self.from_expr.get_column_references(columns);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CastExpr;
+    use crate::{
+        base::{
+            database::ColumnType,
+            map::indexmap,
+            scalar::test_scalar::TestScalar,
+        },
+        sql::{
+            proof::mock_verification_builder::MockVerificationBuilder,
+            proof_exprs::{DynProofExpr, PlaceholderExpr, ProofExpr},
+        },
+    };
+
+    #[test]
+    fn we_propagate_from_expr_error_in_verifier_evaluate() {
+        // Boolean → Int128 is a valid cast (confirmed by existing tests)
+        let from = DynProofExpr::Placeholder(
+            PlaceholderExpr::try_new(1, ColumnType::Boolean).unwrap(),
+        );
+        let expr = CastExpr::try_new(Box::new(from), ColumnType::Int128).unwrap();
+
+        let mut builder = MockVerificationBuilder::<TestScalar>::new(
+            vec![], 2, vec![], vec![], vec![], vec![], vec![],
+        );
+        let accessor = indexmap! {};
+        // No params → PlaceholderExpr verifier_evaluate fails, propagated via tail call
+        let result = expr.verifier_evaluate(&mut builder, &accessor, TestScalar::ONE, &[]);
+        assert!(result.is_err());
+    }
+}
