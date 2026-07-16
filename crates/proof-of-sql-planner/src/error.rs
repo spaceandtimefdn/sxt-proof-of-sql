@@ -249,3 +249,66 @@ pub enum PlannerError {
 
 /// Proof of SQL Planner result
 pub type PlannerResult<T> = Result<T, PlannerError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proof_of_sql::base::database::ColumnType;
+
+    #[test]
+    fn planner_sub_errors_include_actionable_context() {
+        assert_eq!(
+            AggregatePlanError::MissingGroupExpressionAlias {
+                expression: "table.id".to_string(),
+            }
+            .to_string(),
+            "group expression table.id has no output alias"
+        );
+        assert_eq!(
+            AggregatePlanError::AggregateExec {
+                source: AggregateExecError::UnsupportedGroupByExpressionType {
+                    data_type: ColumnType::VarChar,
+                },
+            }
+            .to_string(),
+            "grouping and deduplication do not support expressions of type VARCHAR"
+        );
+        assert_eq!(
+            JoinPlanError::UnsupportedPredicate {
+                left: "left.a".to_string(),
+                right: "right.b".to_string(),
+            }
+            .to_string(),
+            "join predicate must pair supported columns with the same unqualified name, found left.a and right.b"
+        );
+    }
+
+    #[test]
+    fn logical_plan_node_kinds_have_human_readable_labels() {
+        let expected_labels = [
+            (LogicalPlanNodeKind::Window, "window"),
+            (LogicalPlanNodeKind::Sort, "sort"),
+            (LogicalPlanNodeKind::CrossJoin, "cross join"),
+            (LogicalPlanNodeKind::Repartition, "repartition"),
+            (LogicalPlanNodeKind::TableScan, "table scan"),
+            (LogicalPlanNodeKind::Subquery, "subquery"),
+            (LogicalPlanNodeKind::Statement, "statement"),
+            (LogicalPlanNodeKind::Values, "values"),
+            (LogicalPlanNodeKind::Explain, "explain"),
+            (LogicalPlanNodeKind::Analyze, "analyze"),
+            (LogicalPlanNodeKind::Extension, "extension"),
+            (LogicalPlanNodeKind::Distinct, "distinct"),
+            (LogicalPlanNodeKind::Prepare, "prepare"),
+            (LogicalPlanNodeKind::Dml, "data manipulation"),
+            (LogicalPlanNodeKind::Ddl, "data definition"),
+            (LogicalPlanNodeKind::Copy, "copy"),
+            (LogicalPlanNodeKind::DescribeTable, "describe table"),
+            (LogicalPlanNodeKind::Unnest, "unnest"),
+            (LogicalPlanNodeKind::RecursiveQuery, "recursive query"),
+        ];
+
+        for (node, expected_label) in expected_labels {
+            assert_eq!(node.to_string(), expected_label);
+        }
+    }
+}
