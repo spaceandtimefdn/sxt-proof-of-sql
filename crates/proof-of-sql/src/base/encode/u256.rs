@@ -16,6 +16,26 @@ impl U256 {
     pub const fn from_words(low: u128, high: u128) -> Self {
         U256 { low, high }
     }
+
+    /// Creates a `U256` from little-endian 64-bit limbs.
+    #[inline]
+    pub const fn from_limbs(limbs: [u64; 4]) -> Self {
+        let low = limbs[0] as u128 | ((limbs[1] as u128) << 64);
+        let high = limbs[2] as u128 | ((limbs[3] as u128) << 64);
+        U256 { low, high }
+    }
+
+    /// Converts this `U256` into little-endian 64-bit limbs.
+    #[expect(clippy::cast_possible_truncation)]
+    #[inline]
+    pub const fn to_limbs(self) -> [u64; 4] {
+        [
+            self.low as u64,
+            (self.low >> 64) as u64,
+            self.high as u64,
+            (self.high >> 64) as u64,
+        ]
+    }
 }
 
 /// This trait converts a dalek scalar into a U256 integer
