@@ -279,7 +279,7 @@ impl ArrayRefExt for ArrayRef {
                     let scals = if let Some(scals) = precomputed_scals {
                         &scals[range.start..range.end]
                     } else {
-                        alloc.alloc_slice_fill_with(vals.len(), |i| -> S { vals[i].into() })
+                        alloc.alloc_slice_fill_with(vals.len(), |i| -> S { S::from_str_via_hash(vals[i]) })
                     };
 
                     Ok(Column::VarChar((vals, scals)))

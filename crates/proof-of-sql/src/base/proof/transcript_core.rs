@@ -57,7 +57,7 @@ impl<T: TranscriptCore> Transcript for T {
         &mut self,
         messages: impl IntoIterator<Item = &'a S>,
     ) {
-        self.extend_as_be::<[u64; 4]>(messages.into_iter().map(RefInto::ref_into));
+        self.extend_as_be::<[u64; 4]>(messages.into_iter().map(|s| s.to_limbs()));
     }
     fn scalar_challenge_as_be<S: Scalar>(&mut self) -> S {
         ScalarExt::from_wrapping(

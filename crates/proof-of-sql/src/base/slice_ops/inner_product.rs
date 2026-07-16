@@ -34,6 +34,13 @@ where
 }
 
 /// Cannot use blanket impls for `Vec<u8>` because bytes might have different embeddings as scalars
+pub fn inner_product_with_strings<S: Scalar>(a: &[String], b: &[S]) -> S {
+    if_rayon!(a.par_iter().with_min_len(super::MIN_RAYON_LEN), a.iter())
+        .zip(b)
+        .map(|(lhs_str, &rhs)| S::from_str_via_hash(lhs_str) * rhs)
+        .sum()
+}
+
 pub fn inner_product_with_bytes<S: Scalar>(a: &[Vec<u8>], b: &[S]) -> S {
     if_rayon!(a.par_iter().with_min_len(super::MIN_RAYON_LEN), a.iter())
         .zip(b)

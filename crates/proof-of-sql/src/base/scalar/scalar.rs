@@ -13,7 +13,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -40,8 +39,6 @@ pub trait Scalar:
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
     + core::convert::TryInto <i128>
-    + core::convert::Into<[u64; 4]>
-    + core::convert::From<[u64; 4]>
     + core::convert::From<u8>
     + core::cmp::Ord
     + core::ops::Neg<Output = Self>
@@ -51,10 +48,7 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + RefInto<[u64; 4]>
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -85,4 +79,13 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Converts a limb array [u64; 4] into a Scalar.
+    fn from_limbs(val: [u64; 4]) -> Self;
+
+    /// Converts a Scalar into a limb array [u64; 4].
+    fn to_limbs(&self) -> [u64; 4];
+
+    /// Converts a string to a Scalar using a hash function.
+    fn from_str_via_hash(val: &str) -> Self;
 }
