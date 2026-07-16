@@ -29,8 +29,27 @@ use bumpalo::Bump;
 use core::iter;
 use num_traits::One;
 use serde::{Deserialize, Serialize};
+use snafu::Snafu;
 use sqlparser::ast::Ident;
 use tracing::{span, Level};
+
+/// Errors returned when an aggregate proof plan cannot be constructed.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Snafu)]
+pub enum AggregateExecError {
+    /// Grouping and deduplication support at most one expression.
+    #[snafu(display("grouping and deduplication support at most one expression, found {count}"))]
+    UnsupportedGroupByExpressionCount {
+        /// Number of grouping expressions found.
+        count: usize,
+    },
+    /// The grouping expression has a datatype for which uniqueness cannot be proven.
+    #[snafu(display("grouping and deduplication do not support expressions of type {data_type}"))]
+    UnsupportedGroupByExpressionType {
+        /// Unsupported grouping datatype.
+        data_type: ColumnType,
+    },
+}
 
 /// Provable expressions for queries of the form
 /// ```ignore
@@ -60,7 +79,7 @@ impl AggregateExec {
         count_alias: Ident,
         input: Box<DynProofPlan>,
         where_clause: DynProofExpr,
-    ) -> Option<Self> {
+    ) -> Result<Self, AggregateExecError> {
         let group_by = Self {
             group_by_exprs,
             sum_expr,
@@ -68,7 +87,8 @@ impl AggregateExec {
             input,
             where_clause,
         };
-        group_by.try_get_is_uniqueness_provable().map(|_| group_by)
+        group_by.try_get_is_uniqueness_provable()?;
+        Ok(group_by)
     }
 
     /// Get a reference to the input plan
@@ -98,20 +118,23 @@ impl AggregateExec {
 
     /// Checks if the group by expression can prove uniqueness
     /// This is true if there is only one group by column and its type is not `VarChar` and not `VarBinary`
-    pub fn try_get_is_uniqueness_provable(&self) -> Option<bool> {
+    pub fn try_get_is_uniqueness_provable(&self) -> Result<bool, AggregateExecError> {
         match (
             self.group_by_exprs.len(),
             self.group_by_exprs
                 .first()
                 .map(|aliased_expr| aliased_expr.expr.data_type()),
         ) {
-            (0, _) => Some(false),
+            (0, _) => Ok(false),
             (1, Some(data_type))
                 if !matches!(data_type, ColumnType::VarChar | ColumnType::VarBinary) =>
             {
-                Some(true)
+                Ok(true)
             }
-            _ => None,
+            (1, Some(data_type)) => {
+                Err(AggregateExecError::UnsupportedGroupByExpressionType { data_type })
+            }
+            (count, _) => Err(AggregateExecError::UnsupportedGroupByExpressionCount { count }),
         }
     }
 }
@@ -182,7 +205,7 @@ impl ProofPlan for AggregateExec {
             .0;
 
         match self.try_get_is_uniqueness_provable() {
-            Some(true) => {
+            Ok(true) => {
                 verify_monotonic::<S, true, true>(
                     builder,
                     alpha,
@@ -191,8 +214,8 @@ impl ProofPlan for AggregateExec {
                     output_chi_eval.0,
                 )?;
             }
-            Some(false) => (),
-            None => {
+            Ok(false) => (),
+            Err(_) => {
                 Err(ProofError::UnsupportedQueryPlan {
                 error: "AggregateExec with nonzero grouping columns and without provable uniqueness check not supported.",
             })?;

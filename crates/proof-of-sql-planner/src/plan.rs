@@ -290,7 +290,7 @@ fn aggregate_to_proof_plan(
         input_plan,
         DynProofExpr::new_literal(LiteralValue::Boolean(true)),
     )
-    .ok_or_else(|| PlannerError::UnsupportedLogicalPlan {
+    .map_err(|_| PlannerError::UnsupportedLogicalPlan {
         plan: Box::new(input.clone()),
     })?;
     Ok(DynProofPlan::new_projection(
