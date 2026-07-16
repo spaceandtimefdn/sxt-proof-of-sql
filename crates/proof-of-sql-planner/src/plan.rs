@@ -1112,6 +1112,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn we_can_aggregate_with_multiple_sum_expressions() {
         // Setup group expression
         let group_expr = vec![df_column("table", "a")];
