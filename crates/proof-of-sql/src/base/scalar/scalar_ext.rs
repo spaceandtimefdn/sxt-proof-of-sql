@@ -51,6 +51,12 @@ pub trait ScalarExt: Scalar {
         let masked_val = hashed_val & Self::CHALLENGE_MASK;
         Self::from_wrapping(masked_val)
     }
+
+    /// Converts a string to a Scalar using a hash function.
+    #[must_use]
+    fn from_str_via_hash(val: &str) -> Self {
+        Self::from_byte_slice_via_hash(val.as_bytes())
+    }
 }
 
 impl<S: Scalar> ScalarExt for S {}

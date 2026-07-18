@@ -85,7 +85,4 @@ pub trait Scalar:
 
     /// Converts a Scalar into a limb array [u64; 4].
     fn to_limbs(&self) -> [u64; 4];
-
-    /// Converts a string to a Scalar using a hash function.
-    fn from_str_via_hash(val: &str) -> Self;
 }

@@ -20,7 +20,7 @@
 use super::{Column, Table, TableOptions};
 use crate::base::{
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-    scalar::Scalar,
+    scalar::{Scalar, ScalarExt},
 };
 use alloc::{string::String, vec::Vec};
 use bumpalo::Bump;

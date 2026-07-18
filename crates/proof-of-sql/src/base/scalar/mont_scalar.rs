@@ -395,10 +395,6 @@ where
     fn to_limbs(&self) -> [u64; 4] {
         self.0.into_bigint().0
     }
-
-    fn from_str_via_hash(val: &str) -> Self {
-        Self::from_byte_slice_via_hash(val.as_bytes())
-    }
 }
 
 impl<T> TryFrom<MontScalar<T>> for bool

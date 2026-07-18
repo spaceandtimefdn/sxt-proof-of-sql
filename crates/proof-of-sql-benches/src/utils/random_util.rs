@@ -1,7 +1,7 @@
 use bumpalo::Bump;
 use proof_of_sql::base::{
     database::{Column, ColumnType},
-    scalar::Scalar,
+    scalar::{Scalar, ScalarExt},
 };
 use rand::Rng;
 use sqlparser::ast::Ident;
