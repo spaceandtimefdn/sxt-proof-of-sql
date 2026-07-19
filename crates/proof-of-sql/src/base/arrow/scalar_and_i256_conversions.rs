@@ -1,4 +1,4 @@
-use crate::base::{math, scalar::Scalar};
+use crate::base::{math, scalar::{Scalar, ScalarExt}};
 use arrow::datatypes::i256;
 
 const MIN_SUPPORTED_I256: i256 = i256::from_parts(
@@ -14,7 +14,7 @@ const MAX_SUPPORTED_I256: i256 = i256::from_parts(
 pub fn convert_scalar_to_i256<S: Scalar>(val: &S) -> i256 {
     let is_negative = val > &S::MAX_SIGNED;
     let abs_scalar = if is_negative { -*val } else { *val };
-    let limbs: [u64; 4] = abs_scalar.into();
+    let limbs: [u64; 4] = abs_scalar.to_limbs_opt().expect("limb conversion required");
 
     let low = u128::from(limbs[0]) | (u128::from(limbs[1]) << 64);
     let high = i128::from(limbs[2]) | (i128::from(limbs[3]) << 64);
@@ -47,7 +47,7 @@ pub fn convert_i256_to_scalar<S: Scalar>(value: &i256) -> Option<S> {
         ];
 
         // Convert limbs to Scalar and adjust for sign
-        let scalar: S = limbs.into();
+        let scalar: S = S::from_limbs_opt(limbs).expect("limb conversion required");
         Some(if value.is_negative() { -scalar } else { scalar })
     }
 }

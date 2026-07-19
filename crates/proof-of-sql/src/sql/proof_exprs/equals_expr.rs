@@ -4,7 +4,7 @@ use crate::{
         database::{try_equals_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
         slice_ops,
     },
     sql::{

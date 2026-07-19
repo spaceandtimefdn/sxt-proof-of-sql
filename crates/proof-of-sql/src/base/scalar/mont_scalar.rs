@@ -160,8 +160,6 @@ impl_from_for_mont_scalar_for_type_supported_by_from!(i16);
 impl_from_for_mont_scalar_for_type_supported_by_from!(i32);
 impl_from_for_mont_scalar_for_type_supported_by_from!(i64);
 impl_from_for_mont_scalar_for_type_supported_by_from!(i128);
-impl_from_for_mont_scalar_for_string!(&str);
-impl_from_for_mont_scalar_for_string!(String);
 
 impl<F: MontConfig<4>, T> From<&T> for MontScalar<F>
 where
@@ -230,18 +228,14 @@ where
         assert!(digits.len() <= 4); // This should not happen if the above check is correct
         let mut limbs = [0u64; 4];
         limbs[..digits.len()].copy_from_slice(&digits);
-        let result = Self::from(limbs);
+        let result = Self::from_limbs(limbs);
         Ok(match sign {
             num_bigint::Sign::Minus => -result,
             num_bigint::Sign::Plus | num_bigint::Sign::NoSign => result,
         })
     }
 }
-impl<T: MontConfig<4>> From<[u64; 4]> for MontScalar<T> {
-    fn from(value: [u64; 4]) -> Self {
-        Self(Fp::new(ark_ff::BigInt(value)))
-    }
-}
+
 
 impl<T: MontConfig<4>> ark_std::UniformRand for MontScalar<T> {
     fn rand<R: ark_std::rand::Rng + ?Sized>(rng: &mut R) -> Self {
@@ -275,7 +269,7 @@ impl<T: MontConfig<4>> num_traits::Inv for MontScalar<T> {
 }
 impl<T: MontConfig<4>> Serialize for MontScalar<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut limbs: [u64; 4] = self.into();
+        let mut limbs: [u64; 4] = self.to_limbs();
         limbs.reverse();
         limbs.serialize(serializer)
     }
@@ -284,7 +278,7 @@ impl<'de, T: MontConfig<4>> Deserialize<'de> for MontScalar<T> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let mut limbs: [u64; 4] = Deserialize::deserialize(deserializer)?;
         limbs.reverse();
-        Ok(limbs.into())
+        Ok(Self::from_limbs(limbs))
     }
 }
 
@@ -295,17 +289,7 @@ impl<T: MontConfig<4>> core::ops::Neg for &MontScalar<T> {
     }
 }
 
-impl<T: MontConfig<4>> From<MontScalar<T>> for [u64; 4] {
-    fn from(value: MontScalar<T>) -> Self {
-        (&value).into()
-    }
-}
 
-impl<T: MontConfig<4>> From<&MontScalar<T>> for [u64; 4] {
-    fn from(value: &MontScalar<T>) -> Self {
-        value.0.into_bigint().0
-    }
-}
 
 impl<T: MontConfig<4>> Display for MontScalar<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -403,6 +387,40 @@ where
         255 - T::MODULUS.0[3].leading_zeros() as u8
     };
     const MAX_SIGNED_U256: U256 = U256::from_digits(T::MODULUS.divide_by_2_round_down().0);
+
+    fn from_limbs_opt(val: [u64; 4]) -> Option<Self> {
+        Some(Self(Fp::from_le_bytes_mod_order(bytemuck::cast_slice(&val))))
+    }
+
+    fn to_limbs_opt(&self) -> Option<[u64; 4]> {
+        Some(self.0.into_bigint().0)
+    }
+
+    fn from_str_via_hash_opt(val: &str) -> Option<Self> {
+        Some(Self::from_str_via_hash(val))
+    }
+
+    fn from_byte_slice_via_hash_opt(val: &[u8]) -> Option<Self> {
+        Some(Self::from_byte_slice_via_hash(val))
+    }
+
+    fn signed_cmp_opt(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.signed_cmp(other))
+    }
+
+    fn pow10_opt(exponent: u8) -> Option<Self> {
+        Some(Self::pow10(exponent))
+    }
+}
+
+impl<T: MontConfig<4>> ScalarExt for MontScalar<T> {
+    fn from_limbs(val: [u64; 4]) -> Self {
+        Self(Fp::from_le_bytes_mod_order(bytemuck::cast_slice(&val)))
+    }
+
+    fn to_limbs(&self) -> [u64; 4] {
+        self.0.into_bigint().0
+    }
 }
 
 impl<T> TryFrom<MontScalar<T>> for bool
@@ -413,9 +431,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -447,7 +465,7 @@ where
             });
         }
 
-        let abs: [u64; 4] = value.into();
+        let abs: [u64; 4] = value.to_limbs();
 
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -471,9 +489,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -495,9 +513,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -519,9 +537,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -543,9 +561,9 @@ where
     type Error = ScalarConversionError;
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[1] != 0 || abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -569,9 +587,9 @@ where
     #[expect(clippy::cast_possible_wrap)]
     fn try_from(value: MontScalar<T>) -> Result<Self, Self::Error> {
         let (sign, abs): (i128, [u64; 4]) = if value > <MontScalar<T>>::MAX_SIGNED {
-            (-1, (-value).into())
+            (-1, (-value).to_limbs())
         } else {
-            (1, value.into())
+            (1, value.to_limbs())
         };
         if abs[2] != 0 || abs[3] != 0 {
             return Err(ScalarConversionError::Overflow {
@@ -603,8 +621,52 @@ where
         } else {
             num_bigint::Sign::Plus
         };
-        let value_abs: [u64; 4] = (if is_negative { -value } else { value }).into();
+        let value_abs: [u64; 4] = (if is_negative { -value } else { value }).to_limbs();
         let bits: &[u8] = bytemuck::cast_slice(&value_abs);
         BigInt::from_bytes_le(sign, bits)
+    }
+}
+
+#[cfg(test)]
+mod test_conversions {
+    use super::*;
+    use crate::base::ref_into::RefInto;
+
+    impl<T: MontConfig<4>> From<[u64; 4]> for MontScalar<T> {
+        fn from(val: [u64; 4]) -> Self {
+            Self::from_limbs(val)
+        }
+    }
+
+    impl<'a, T: MontConfig<4>> From<&'a str> for MontScalar<T> {
+        fn from(val: &'a str) -> Self {
+            Self::from_str_via_hash(val)
+        }
+    }
+
+    impl<T: MontConfig<4>> From<String> for MontScalar<T> {
+        fn from(val: String) -> Self {
+            Self::from_str_via_hash(&val)
+        }
+    }
+
+    impl<T: MontConfig<4>> From<MontScalar<T>> for [u64; 4] {
+        fn from(val: MontScalar<T>) -> Self {
+            val.to_limbs()
+        }
+    }
+
+    impl<'a, T: MontConfig<4>> From<&'a MontScalar<T>> for [u64; 4] {
+        fn from(val: &'a MontScalar<T>) -> Self {
+            val.to_limbs()
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_soundness() {
+        let original = MontScalar::<crate::base::scalar::test_scalar::TestMontConfig>::from(5u64);
+        let limbs = original.to_limbs();
+        let reconstructed = MontScalar::from_limbs(limbs);
+        assert_eq!(original, reconstructed, "Round-trip failed!");
     }
 }

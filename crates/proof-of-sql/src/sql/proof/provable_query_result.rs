@@ -1,4 +1,4 @@
-use super::{decode_and_convert, decode_multiple_elements, ProvableResultColumn, QueryError};
+use super::{decode_and_convert, decode_multiple_elements, ProvableResultColumn, ProvableResultElement, QueryError};
 use crate::base::{
     database::{Column, ColumnField, ColumnType, OwnedColumn, OwnedTable, Table},
     polynomial::compute_evaluation_vector,
@@ -88,7 +88,7 @@ impl ProvableQueryResult {
     /// # Panics
     /// This function will panic if the length of `evaluation_point` does not match `self.num_columns`.
     /// It will also panic if the `data` array is not properly formatted for the expected column types.
-    pub fn evaluate<S: Scalar>(
+    pub fn evaluate<S: ScalarExt>(
         &self,
         evaluation_point: &[S],
         output_length: usize,
@@ -117,7 +117,12 @@ impl ProvableQueryResult {
                         decode_and_convert::<S, S>(&self.data[offset..])
                     }
 
-                    ColumnType::VarChar => decode_and_convert::<&str, S>(&self.data[offset..]),
+                    ColumnType::VarChar => {
+                        let (val, used) =
+                            decode_and_convert::<&str, &str>(&self.data[offset..])?;
+                        let x = S::from_str_via_hash(val);
+                        Ok((x, used))
+                    }
                     ColumnType::VarBinary => {
                         let (raw_bytes, used) =
                             decode_and_convert::<&[u8], &[u8]>(&self.data[offset..])?;

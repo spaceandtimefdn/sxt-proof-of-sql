@@ -127,7 +127,10 @@ impl<'a, S: Scalar> Column<'a, S> {
                 Column::Int128(alloc.alloc_slice_fill_copy(length, *value))
             }
             LiteralValue::Scalar(value) => {
-                Column::Scalar(alloc.alloc_slice_fill_copy(length, (*value).into()))
+                Column::Scalar(alloc.alloc_slice_fill_copy(
+                    length,
+                    S::from_limbs_opt(*value).expect("limb conversion required"),
+                ))
             }
             LiteralValue::Decimal75(precision, scale, value) => Column::Decimal75(
                 *precision,
@@ -139,7 +142,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             LiteralValue::VarChar(string) => Column::VarChar((
                 alloc.alloc_slice_fill_with(length, |_| alloc.alloc_str(string) as &str),
-                alloc.alloc_slice_fill_copy(length, S::from(string)),
+                alloc.alloc_slice_fill_copy(length, S::from_str_via_hash_opt(string).expect("hashing conversion required")),
             )),
             LiteralValue::VarBinary(bytes) => {
                 // Convert the bytes to a slice of bytes references
@@ -148,7 +151,7 @@ impl<'a, S: Scalar> Column<'a, S> {
 
                 // Convert the bytes to scalars using from_byte_slice_via_hash
                 let scalars =
-                    alloc.alloc_slice_fill_copy(length, S::from_byte_slice_via_hash(bytes));
+                    alloc.alloc_slice_fill_copy(length, S::from_byte_slice_via_hash_opt(bytes).expect("hashing conversion required"));
 
                 Column::VarBinary((bytes_slice, scalars))
             }
@@ -177,7 +180,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             }
             OwnedColumn::Scalar(col) => Column::Scalar(col.as_slice()),
             OwnedColumn::VarChar(col) => {
-                let scalars = col.iter().map(S::from).collect::<Vec<_>>();
+                let scalars = col.iter().map(|s| S::from_str_via_hash_opt(s).expect("hashing conversion required")).collect::<Vec<_>>();
                 let strs = col
                     .iter()
                     .map(|s| s.as_str() as &'a str)
@@ -190,7 +193,7 @@ impl<'a, S: Scalar> Column<'a, S> {
             OwnedColumn::VarBinary(col) => {
                 let scalars = col
                     .iter()
-                    .map(|b| S::from_byte_slice_via_hash(b))
+                    .map(|b| S::from_byte_slice_via_hash_opt(b).expect("hashing conversion required"))
                     .collect::<Vec<_>>();
                 let bytes = col.iter().map(|s| s as &'a [u8]).collect::<Vec<_>>();
                 Column::VarBinary((

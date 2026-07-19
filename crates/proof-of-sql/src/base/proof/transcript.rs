@@ -1,4 +1,4 @@
-use crate::base::{scalar::Scalar, try_standard_binary_serialization};
+use crate::base::{scalar::{Scalar, ScalarExt}, try_standard_binary_serialization};
 use alloc::vec::Vec;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -27,12 +27,12 @@ pub trait Transcript {
         messages: impl IntoIterator<Item = &'a M>,
     );
     /// Appends the provided scalars by appending the reversed raw bytes of the canonical value of the scalar (i.e. bigendian form)
-    fn extend_scalars_as_be<'a, S: Scalar + 'a>(
+    fn extend_scalars_as_be<'a, S: ScalarExt + 'a>(
         &mut self,
         messages: impl IntoIterator<Item = &'a S>,
     );
     /// Request a scalar challenge. Assumes that the reversed raw bytes are the canonical value of the scalar (i.e. bigendian form)
-    fn scalar_challenge_as_be<S: Scalar>(&mut self) -> S;
+    fn scalar_challenge_as_be<S: ScalarExt>(&mut self) -> S;
     /// Request a challenge. Returns the raw, unreversed, bytes. (i.e. littleendian form)
     fn challenge_as_le(&mut self) -> [u8; 32];
 

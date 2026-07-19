@@ -2,7 +2,7 @@ use crate::{
     base::{
         polynomial::interpolate_evaluations_to_reverse_coefficients,
         proof::{ProofError, Transcript},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     proof_primitive::sumcheck::{prove_round, ProverState},
     utils::log,
@@ -25,7 +25,7 @@ pub struct Subclaim<S: Scalar> {
     pub max_multiplicands: usize,
 }
 
-impl<S: Scalar> SumcheckProof<S> {
+impl<S: ScalarExt> SumcheckProof<S> {
     #[tracing::instrument(name = "SumcheckProof::create", level = "debug", skip_all)]
     pub fn create(
         transcript: &mut impl Transcript,

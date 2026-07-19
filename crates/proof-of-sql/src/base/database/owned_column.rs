@@ -9,8 +9,8 @@ use crate::base::{
         permutation::{Permutation, PermutationError},
     },
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
-    scalar::Scalar,
-    slice_ops::{inner_product_ref_cast, inner_product_with_bytes},
+    scalar::{Scalar, ScalarExt},
+    slice_ops::{inner_product_ref_cast, inner_product_with_bytes, inner_product_with_strings},
 };
 use alloc::{
     string::{String, ToString},
@@ -55,7 +55,10 @@ pub enum OwnedColumn<S: Scalar> {
 
 impl<S: Scalar> OwnedColumn<S> {
     /// Compute the inner product of the column with a vector of scalars.
-    pub(crate) fn inner_product(&self, vec: &[S]) -> S {
+    pub(crate) fn inner_product(&self, vec: &[S]) -> S
+    where
+        S: ScalarExt,
+    {
         match self {
             OwnedColumn::Boolean(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::Uint8(col) => inner_product_ref_cast(col, vec),
@@ -65,7 +68,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => {
                 inner_product_ref_cast(col, vec)
             }
-            OwnedColumn::VarChar(col) => inner_product_ref_cast(col, vec),
+            OwnedColumn::VarChar(col) => inner_product_with_strings(col, vec),
             OwnedColumn::VarBinary(col) => inner_product_with_bytes(col, vec),
             OwnedColumn::Int128(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => {

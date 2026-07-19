@@ -4,7 +4,7 @@ use crate::{
         database::{can_and_or_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     sql::{
         proof::{FinalRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder},

@@ -13,7 +13,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -40,8 +39,6 @@ pub trait Scalar:
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
     + core::convert::TryInto <i128>
-    + core::convert::Into<[u64; 4]>
-    + core::convert::From<[u64; 4]>
     + core::convert::From<u8>
     + core::cmp::Ord
     + core::ops::Neg<Output = Self>
@@ -51,10 +48,7 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + RefInto<[u64; 4]>
-    + for<'a> core::convert::From<&'a String>
     + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -85,4 +79,45 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Converts a limb array [u64; 4] into a Scalar, if supported.
+    fn from_limbs_opt(val: [u64; 4]) -> Option<Self> {
+        let _ = val;
+        None
+    }
+
+    /// Converts a Scalar into a limb array [u64; 4], if supported.
+    fn to_limbs_opt(&self) -> Option<[u64; 4]> {
+        None
+    }
+
+    /// Converts a U256 into a Scalar, if supported.
+    fn from_wrapping_opt(val: U256) -> Option<Self> {
+        let value_as_limbs: [u64; 4] = val.into();
+        Self::from_limbs_opt(value_as_limbs)
+    }
+
+    /// Converts a string into a Scalar via hash, if supported.
+    fn from_str_via_hash_opt(val: &str) -> Option<Self> {
+        let _ = val;
+        None
+    }
+
+    /// Converts a byte slice into a Scalar via hash, if supported.
+    fn from_byte_slice_via_hash_opt(val: &[u8]) -> Option<Self> {
+        let _ = val;
+        None
+    }
+
+    /// Compares two Scalars as signed numbers, if supported.
+    fn signed_cmp_opt(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        let _ = other;
+        None
+    }
+
+    /// Computes 10^exponent for the Scalar, if supported.
+    fn pow10_opt(exponent: u8) -> Option<Self> {
+        let _ = exponent;
+        None
+    }
 }

@@ -102,16 +102,16 @@ pub fn verifier_evaluate_sign<S: Scalar>(
             lead_bit = Some(eval);
         } else {
             let mult = U256::ONE.shl(bit_index);
-            rhs += S::from_wrapping(mult) * eval;
+            rhs += S::from_wrapping_opt(mult).expect("wrapping scalar conversion failed") * eval;
         }
     }
 
     let sign_eval = dist
         .try_constant_leading_bit_eval(chi_eval)
         .map_or_else(|| lead_bit.ok_or(BitDistributionError::NoLeadBit), Ok)?;
-    rhs += sign_eval * S::from_wrapping(dist.leading_bit_mask())
-        + (chi_eval - sign_eval) * S::from_wrapping(dist.leading_bit_inverse_mask())
-        - chi_eval * S::from_wrapping(U256::ONE.shl(255));
+    rhs += sign_eval * S::from_wrapping_opt(dist.leading_bit_mask()).expect("wrapping scalar conversion failed")
+        + (chi_eval - sign_eval) * S::from_wrapping_opt(dist.leading_bit_inverse_mask()).expect("wrapping scalar conversion failed")
+        - chi_eval * S::from_wrapping_opt(U256::ONE.shl(255)).expect("wrapping scalar conversion failed");
     let num_bits_allowed = num_bits_allowed.unwrap_or(S::MAX_BITS);
     if num_bits_allowed > S::MAX_BITS {
         return Err(ProofError::from(BitDistributionError::Verification));

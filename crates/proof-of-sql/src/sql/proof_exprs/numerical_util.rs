@@ -642,7 +642,8 @@ pub fn cast_column_with_scaling<'a, S: Scalar>(
             panic!("Unable to get scaling factor between types {from_type} and {to_type}")
         });
     let cast_scalars = alloc.alloc_slice_fill_with(from_column.len(), |i| {
-        S::from_wrapping(scaling_factor) * from_column.scalar_at(i).unwrap()
+        S::from_wrapping_opt(scaling_factor).expect("limb conversion required")
+            * from_column.scalar_at(i).unwrap()
     });
     match to_type {
         ColumnType::Decimal75(_, _) => Column::Decimal75(
