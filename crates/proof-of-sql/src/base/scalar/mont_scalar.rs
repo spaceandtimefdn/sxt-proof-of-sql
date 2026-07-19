@@ -388,6 +388,32 @@ where
     };
     const MAX_SIGNED_U256: U256 = U256::from_digits(T::MODULUS.divide_by_2_round_down().0);
 
+    fn from_limbs_opt(val: [u64; 4]) -> Option<Self> {
+        Some(Self(Fp::from_le_bytes_mod_order(bytemuck::cast_slice(&val))))
+    }
+
+    fn to_limbs_opt(&self) -> Option<[u64; 4]> {
+        Some(self.0.into_bigint().0)
+    }
+
+    fn from_str_via_hash_opt(val: &str) -> Option<Self> {
+        Some(Self::from_str_via_hash(val))
+    }
+
+    fn from_byte_slice_via_hash_opt(val: &[u8]) -> Option<Self> {
+        Some(Self::from_byte_slice_via_hash(val))
+    }
+
+    fn signed_cmp_opt(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.signed_cmp(other))
+    }
+
+    fn pow10_opt(exponent: u8) -> Option<Self> {
+        Some(Self::pow10(exponent))
+    }
+}
+
+impl<T: MontConfig<4>> ScalarExt for MontScalar<T> {
     fn from_limbs(val: [u64; 4]) -> Self {
         Self(Fp::from_le_bytes_mod_order(bytemuck::cast_slice(&val)))
     }

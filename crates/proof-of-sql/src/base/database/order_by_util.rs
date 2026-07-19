@@ -22,7 +22,7 @@ pub(crate) fn compare_indexes_by_columns<S: Scalar>(
             Column::Int(col) => col[i].cmp(&col[j]),
             Column::BigInt(col) | Column::TimestampTZ(_, _, col) => col[i].cmp(&col[j]),
             Column::Int128(col) => col[i].cmp(&col[j]),
-            Column::Decimal75(_, _, col) => col[i].signed_cmp(&col[j]),
+            Column::Decimal75(_, _, col) => col[i].signed_cmp_opt(&col[j]).expect("signed comparison required"),
             Column::Scalar(col) => col[i].cmp(&col[j]),
             Column::VarChar((col, _)) => col[i].cmp(col[j]),
             Column::VarBinary((col, _)) => col[i].cmp(col[j]),
@@ -80,7 +80,7 @@ pub(crate) fn compare_single_row_of_tables<S: Scalar>(
                 left_col[left_row_index].cmp(&right_col[right_row_index])
             }
             (Column::Decimal75(_, _, left_col), Column::Decimal75(_, _, right_col)) => {
-                left_col[left_row_index].signed_cmp(&right_col[right_row_index])
+                left_col[left_row_index].signed_cmp_opt(&right_col[right_row_index]).expect("signed comparison required")
             }
             (Column::Scalar(left_col), Column::Scalar(right_col)) => {
                 left_col[left_row_index].cmp(&right_col[right_row_index])

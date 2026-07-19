@@ -7,7 +7,7 @@ use crate::{
         database::{Column, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     sql::{
         proof::{FinalRoundBuilder, VerificationBuilder},
@@ -103,7 +103,7 @@ impl ProofExpr for ScalingCastExpr {
     ) -> Result<S, ProofError> {
         self.from_expr
             .verifier_evaluate(builder, accessor, chi_eval, params)
-            .map(|unscaled_eval| S::from_limbs(self.scaling_factor) * unscaled_eval)
+            .map(|unscaled_eval| S::from_limbs_opt(self.scaling_factor).expect("scaling factor limb conversion failed") * unscaled_eval)
     }
 
     fn get_column_references(&self, columns: &mut IndexSet<ColumnRef>) {

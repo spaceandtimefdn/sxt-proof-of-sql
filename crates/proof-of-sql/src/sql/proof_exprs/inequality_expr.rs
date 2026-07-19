@@ -4,7 +4,7 @@ use crate::{
         database::{try_inequality_types, Column, ColumnRef, ColumnType, LiteralValue, Table},
         map::{IndexMap, IndexSet},
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     sql::{
         proof::{FinalRoundBuilder, VerificationBuilder},

@@ -51,7 +51,7 @@ where
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool { Into::<S>::into(*l) * upscale_factor == *r })
@@ -72,7 +72,7 @@ where
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool { Into::<S>::into(*l) == *r * upscale_factor })
@@ -121,17 +121,17 @@ where
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    Into::<S>::into(*l).signed_cmp(&S::ZERO) == Ordering::Less
-                        || (l.is_zero() && r.signed_cmp(&S::ZERO) != Ordering::Less)
+                    Into::<S>::into(*l).signed_cmp_opt(&S::ZERO).expect("signed comparison required") == Ordering::Less
+                        || (l.is_zero() && r.signed_cmp_opt(&S::ZERO).expect("signed comparison required") != Ordering::Less)
                 })
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    (Into::<S>::into(*l) * upscale_factor).signed_cmp(r) != Ordering::Greater
+                    (Into::<S>::into(*l) * upscale_factor).signed_cmp_opt(r).expect("signed comparison required") != Ordering::Greater
                 })
                 .collect::<Vec<_>>()
         }
@@ -149,24 +149,24 @@ where
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    (Into::<S>::into(*l).signed_cmp(&S::ZERO) != Ordering::Greater && *r == S::ZERO)
-                        || r.signed_cmp(&S::ZERO) == Ordering::Greater
+                    (Into::<S>::into(*l).signed_cmp_opt(&S::ZERO).expect("signed comparison required") != Ordering::Greater && *r == S::ZERO)
+                        || r.signed_cmp_opt(&S::ZERO).expect("signed comparison required") == Ordering::Greater
                 })
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    Into::<S>::into(*l).signed_cmp(&(*r * upscale_factor)) != Ordering::Greater
+                    Into::<S>::into(*l).signed_cmp_opt(&(*r * upscale_factor)).expect("signed comparison required") != Ordering::Greater
                 })
                 .collect::<Vec<_>>()
         }
     } else {
         lhs.iter()
             .zip(rhs.iter())
-            .map(|(l, r)| -> bool { Into::<S>::into(*l).signed_cmp(r) != Ordering::Greater })
+            .map(|(l, r)| -> bool { Into::<S>::into(*l).signed_cmp_opt(r).expect("signed comparison required") != Ordering::Greater })
             .collect::<Vec<_>>()
     }
 }
@@ -206,17 +206,17 @@ where
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    Into::<S>::into(*l).signed_cmp(&S::ZERO) == Ordering::Greater
-                        || (l.is_zero() && r.signed_cmp(&S::ZERO) != Ordering::Greater)
+                    Into::<S>::into(*l).signed_cmp_opt(&S::ZERO).expect("signed comparison required") == Ordering::Greater
+                        || (l.is_zero() && r.signed_cmp_opt(&S::ZERO).expect("signed comparison required") != Ordering::Greater)
                 })
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    (Into::<S>::into(*l) * upscale_factor).signed_cmp(r) != Ordering::Less
+                    (Into::<S>::into(*l) * upscale_factor).signed_cmp_opt(r).expect("signed comparison required") != Ordering::Less
                 })
                 .collect::<Vec<_>>()
         }
@@ -234,24 +234,24 @@ where
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    (Into::<S>::into(*l).signed_cmp(&S::ZERO) != Ordering::Less && *r == S::ZERO)
-                        || r.signed_cmp(&S::ZERO) == Ordering::Less
+                    (Into::<S>::into(*l).signed_cmp_opt(&S::ZERO).expect("signed comparison required") != Ordering::Less && *r == S::ZERO)
+                        || r.signed_cmp_opt(&S::ZERO).expect("signed comparison required") == Ordering::Less
                 })
                 .collect::<Vec<_>>()
         } else {
             let upscale_factor =
-                S::pow10(u8::try_from(upscale).expect("Upscale factor is nonnegative"));
+                S::pow10_opt(u8::try_from(upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
             lhs.iter()
                 .zip(rhs.iter())
                 .map(|(l, r)| -> bool {
-                    Into::<S>::into(*l).signed_cmp(&(*r * upscale_factor)) != Ordering::Less
+                    Into::<S>::into(*l).signed_cmp_opt(&(*r * upscale_factor)).expect("signed comparison required") != Ordering::Less
                 })
                 .collect::<Vec<_>>()
         }
     } else {
         lhs.iter()
             .zip(rhs.iter())
-            .map(|(l, r)| -> bool { Into::<S>::into(*l).signed_cmp(r) != Ordering::Less })
+            .map(|(l, r)| -> bool { Into::<S>::into(*l).signed_cmp_opt(r).expect("signed comparison required") != Ordering::Less })
             .collect::<Vec<_>>()
     }
 }
@@ -290,14 +290,14 @@ where
     // One of left_scale and right_scale is 0 so we can avoid scaling when unnecessary
     let scalars: Vec<S> = if left_upscale > 0 {
         let upscale_factor =
-            S::pow10(u8::try_from(left_upscale).expect("Upscale factor is nonnegative"));
+            S::pow10_opt(u8::try_from(left_upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
         lhs.iter()
             .zip(rhs)
             .map(|(l, r)| S::from(*l) * upscale_factor + S::from(*r))
             .collect()
     } else if right_upscale > 0 {
         let upscale_factor =
-            S::pow10(u8::try_from(right_upscale).expect("Upscale factor is nonnegative"));
+            S::pow10_opt(u8::try_from(right_upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
         lhs.iter()
             .zip(rhs)
             .map(|(l, r)| S::from(*l) + upscale_factor * S::from(*r))
@@ -349,14 +349,14 @@ where
     // One of left_scale and right_scale is 0 so we can avoid scaling when unnecessary
     let scalars: Vec<S> = if left_upscale > 0 {
         let upscale_factor =
-            S::pow10(u8::try_from(left_upscale).expect("Upscale factor is nonnegative"));
+            S::pow10_opt(u8::try_from(left_upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
         lhs.iter()
             .zip(rhs)
             .map(|(l, r)| S::from(*l) * upscale_factor - S::from(*r))
             .collect()
     } else if right_upscale > 0 {
         let upscale_factor =
-            S::pow10(u8::try_from(right_upscale).expect("Upscale factor is nonnegative"));
+            S::pow10_opt(u8::try_from(right_upscale).expect("Upscale factor is nonnegative")).expect("pow10 required");
         lhs.iter()
             .zip(rhs)
             .map(|(l, r)| S::from(*l) - upscale_factor * S::from(*r))

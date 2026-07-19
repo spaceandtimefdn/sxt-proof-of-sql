@@ -1,7 +1,7 @@
 use super::{ColumnField, OwnedColumn, Table};
 use crate::base::{
     database::ColumnCoercionError, map::IndexMap, polynomial::compute_evaluation_vector,
-    scalar::Scalar,
+    scalar::{Scalar, ScalarExt},
 };
 use alloc::{vec, vec::Vec};
 use itertools::{EitherOrBoth, Itertools};
@@ -136,7 +136,10 @@ impl<S: Scalar> OwnedTable<S> {
         self.table.get_index(index).map(|(_, v)| v)
     }
 
-    pub(crate) fn mle_evaluations(&self, evaluation_point: &[S]) -> Vec<S> {
+    pub(crate) fn mle_evaluations(&self, evaluation_point: &[S]) -> Vec<S>
+    where
+        S: ScalarExt,
+    {
         let mut evaluation_vector = vec![S::ZERO; self.num_rows()];
         compute_evaluation_vector(&mut evaluation_vector, evaluation_point);
         self.table

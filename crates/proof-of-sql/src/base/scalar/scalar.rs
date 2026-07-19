@@ -80,9 +80,44 @@ pub trait Scalar:
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
 
-    /// Converts a limb array [u64; 4] into a Scalar.
-    fn from_limbs(val: [u64; 4]) -> Self;
+    /// Converts a limb array [u64; 4] into a Scalar, if supported.
+    fn from_limbs_opt(val: [u64; 4]) -> Option<Self> {
+        let _ = val;
+        None
+    }
 
-    /// Converts a Scalar into a limb array [u64; 4].
-    fn to_limbs(&self) -> [u64; 4];
+    /// Converts a Scalar into a limb array [u64; 4], if supported.
+    fn to_limbs_opt(&self) -> Option<[u64; 4]> {
+        None
+    }
+
+    /// Converts a U256 into a Scalar, if supported.
+    fn from_wrapping_opt(val: U256) -> Option<Self> {
+        let value_as_limbs: [u64; 4] = val.into();
+        Self::from_limbs_opt(value_as_limbs)
+    }
+
+    /// Converts a string into a Scalar via hash, if supported.
+    fn from_str_via_hash_opt(val: &str) -> Option<Self> {
+        let _ = val;
+        None
+    }
+
+    /// Converts a byte slice into a Scalar via hash, if supported.
+    fn from_byte_slice_via_hash_opt(val: &[u8]) -> Option<Self> {
+        let _ = val;
+        None
+    }
+
+    /// Compares two Scalars as signed numbers, if supported.
+    fn signed_cmp_opt(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        let _ = other;
+        None
+    }
+
+    /// Computes 10^exponent for the Scalar, if supported.
+    fn pow10_opt(exponent: u8) -> Option<Self> {
+        let _ = exponent;
+        None
+    }
 }

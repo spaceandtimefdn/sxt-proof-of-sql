@@ -81,11 +81,11 @@ impl LiteralValue {
             Self::SmallInt(i) => i.into(),
             Self::Int(i) => i.into(),
             Self::BigInt(i) => i.into(),
-            Self::VarChar(str) => S::from_str_via_hash(str),
-            Self::VarBinary(bytes) => S::from_byte_slice_via_hash(bytes),
+            Self::VarChar(str) => S::from_str_via_hash_opt(str).expect("hashing conversion required"),
+            Self::VarBinary(bytes) => S::from_byte_slice_via_hash_opt(bytes).expect("hashing conversion required"),
             Self::Decimal75(_, _, i) => i.into_scalar(),
             Self::Int128(i) => i.into(),
-            Self::Scalar(limbs) => S::from_limbs(*limbs),
+            Self::Scalar(limbs) => S::from_limbs_opt(*limbs).expect("limb conversion required"),
             Self::TimeStampTZ(_, _, time) => time.into(),
         }
     }

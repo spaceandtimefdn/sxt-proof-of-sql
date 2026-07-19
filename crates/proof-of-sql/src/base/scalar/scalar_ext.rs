@@ -57,12 +57,16 @@ pub trait ScalarExt: Scalar {
     fn from_str_via_hash(val: &str) -> Self {
         Self::from_byte_slice_via_hash(val.as_bytes())
     }
+
+    /// Converts a limb array [u64; 4] into a Scalar.
+    fn from_limbs(val: [u64; 4]) -> Self;
+
+    /// Converts a Scalar into a limb array [u64; 4].
+    fn to_limbs(&self) -> [u64; 4];
 }
 
-impl<S: Scalar> ScalarExt for S {}
-
 #[cfg(test)]
-pub(crate) fn test_scalar_constants<S: Scalar>() {
+pub(crate) fn test_scalar_constants<S: ScalarExt>() {
     assert_eq!(S::from(0), S::ZERO);
     assert_eq!(S::from(1), S::ONE);
     assert_eq!(S::from(2), S::TWO);
@@ -498,7 +502,7 @@ mod tests {
 
     /// Blanket implementation check: any `S: Scalar` gets the same hashing behavior
     /// through `ScalarExt` (exercised via a generic helper, monomorphized on TestScalar).
-    fn generic_from_str_via_hash_equivalence<S: Scalar>() {
+    fn generic_from_str_via_hash_equivalence<S: ScalarExt>() {
         let samples = ["", "a", "abc", "blanket-impl", "kiểm-thử", "🙂"];
         for v in samples {
             let via_str = S::from_str_via_hash(v);

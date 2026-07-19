@@ -88,7 +88,7 @@ impl ProvableQueryResult {
     /// # Panics
     /// This function will panic if the length of `evaluation_point` does not match `self.num_columns`.
     /// It will also panic if the `data` array is not properly formatted for the expected column types.
-    pub fn evaluate<S: Scalar>(
+    pub fn evaluate<S: ScalarExt>(
         &self,
         evaluation_point: &[S],
         output_length: usize,
@@ -118,8 +118,10 @@ impl ProvableQueryResult {
                     }
 
                     ColumnType::VarChar => {
-                        let (val, num_read) = <&str>::decode(&self.data[offset..])?;
-                        Ok((S::from_str_via_hash(val), num_read))
+                        let (val, used) =
+                            decode_and_convert::<&str, &str>(&self.data[offset..])?;
+                        let x = S::from_str_via_hash(val);
+                        Ok((x, used))
                     }
                     ColumnType::VarBinary => {
                         let (raw_bytes, used) =

@@ -49,9 +49,9 @@ impl I256 {
     /// NOTE: this is not a particularly efficient method. Please either refactor or avoid when performance matters.
     pub fn into_scalar<S: Scalar>(self) -> S {
         if self.0[3] & 0x8000_0000_0000_0000 == 0 {
-            S::from_limbs(self.0)
+            S::from_limbs_opt(self.0).expect("limb conversion required")
         } else {
-            S::from_limbs(self.neg().0).neg()
+            S::from_limbs_opt(self.neg().0).expect("limb conversion required").neg()
         }
     }
 

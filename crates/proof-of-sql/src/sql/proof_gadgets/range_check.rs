@@ -21,7 +21,7 @@
 //! * Batch Inversion: Inversions of large vectors are computationally expensive
 //! * Parallelization: Single-threaded execution of these operations is a performance bottleneck
 use crate::{
-    base::{proof::ProofSizeMismatch, scalar::Scalar, slice_ops},
+    base::{proof::ProofSizeMismatch, scalar::{Scalar, ScalarExt}, slice_ops},
     sql::proof::{
         FinalRoundBuilder, FirstRoundBuilder, SumcheckSubpolynomialType, VerificationBuilder,
     },
@@ -191,7 +191,10 @@ where
             .take(31)
             .collect();
     for (i, scalar) in column_data.iter().enumerate() {
-        let scalar_array: [u64; 4] = (*scalar).into().to_limbs();
+        let scalar_array: [u64; 4] = (*scalar)
+            .into()
+            .to_limbs_opt()
+            .expect("limb conversion required for range check");
         // Convert the [u64; 4] into a slice of bytes
         let scalar_bytes = &cast_slice::<u64, u8>(&scalar_array)[..31];
 

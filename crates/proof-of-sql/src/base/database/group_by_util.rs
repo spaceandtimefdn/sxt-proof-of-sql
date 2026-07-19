@@ -327,7 +327,7 @@ where
         indexes[start..index]
             .iter()
             .map(|i| S::from(&slice[*i]))
-            .max_by(super::super::scalar::ScalarExt::signed_cmp)
+            .max_by(|a, b| a.signed_cmp_opt(b).expect("signed comparison required"))
     }))
 }
 
@@ -368,6 +368,6 @@ where
         indexes[start..index]
             .iter()
             .map(|i| S::from(&slice[*i]))
-            .min_by(super::super::scalar::ScalarExt::signed_cmp)
+            .min_by(|a, b| a.signed_cmp_opt(b).expect("signed comparison required"))
     }))
 }

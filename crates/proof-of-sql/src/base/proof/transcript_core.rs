@@ -53,13 +53,13 @@ impl<T: TranscriptCore> Transcript for T {
             .into_iter()
             .for_each(|message| self.raw_append(message.as_bytes()));
     }
-    fn extend_scalars_as_be<'a, S: Scalar + 'a>(
+    fn extend_scalars_as_be<'a, S: ScalarExt + 'a>(
         &mut self,
         messages: impl IntoIterator<Item = &'a S>,
     ) {
         self.extend_as_be::<[u64; 4]>(messages.into_iter().map(|s| s.to_limbs()));
     }
-    fn scalar_challenge_as_be<S: Scalar>(&mut self) -> S {
+    fn scalar_challenge_as_be<S: ScalarExt>(&mut self) -> S {
         ScalarExt::from_wrapping(
             U256::from(receive_challenge_as_be::<[u64; 4]>(self)) & S::CHALLENGE_MASK,
         )

@@ -4,7 +4,7 @@ use crate::{
         map::{IndexMap, IndexSet},
         math::decimal::Precision,
         proof::{PlaceholderResult, ProofError},
-        scalar::Scalar,
+        scalar::{Scalar, ScalarExt},
     },
     sql::proof::{FinalRoundBuilder, VerificationBuilder},
 };

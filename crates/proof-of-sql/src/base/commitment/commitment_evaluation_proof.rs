@@ -1,11 +1,11 @@
 use super::Commitment;
-use crate::base::{proof::Transcript, scalar::Scalar};
+use crate::base::{proof::Transcript, scalar::{Scalar, ScalarExt}};
 use serde::{Deserialize, Serialize};
 
 /// A trait for using commitment schemes generically. Specifically, this trait is for the evaluation proof of a commitment scheme.
 pub trait CommitmentEvaluationProof {
     /// The associated scalar that the commitment is for.
-    type Scalar: Scalar + Serialize + for<'a> Deserialize<'a>;
+    type Scalar: ScalarExt + Serialize + for<'a> Deserialize<'a>;
     /// The associated commitment type.
     type Commitment: for<'a> Commitment<Scalar = Self::Scalar, PublicSetup<'a> = Self::ProverPublicSetup<'a>>
         + Serialize
