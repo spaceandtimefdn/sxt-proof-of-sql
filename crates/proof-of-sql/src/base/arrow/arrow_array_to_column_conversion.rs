@@ -7,9 +7,10 @@ use crate::base::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, LargeBinaryArray, StringArray, TimestampMicrosecondArray,
-        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt8Array,
+        Array, ArrayRef, BooleanArray, Decimal128Array, Decimal256Array, FixedSizeBinaryArray,
+        Int16Array, Int32Array, Int64Array, Int8Array, LargeBinaryArray, StringArray,
+        TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray, UInt8Array,
     },
     datatypes::{i256, DataType, TimeUnit as ArrowTimeUnit},
 };
@@ -305,6 +306,33 @@ impl ArrayRefExt for ArrayRef {
                     };
 
                     Ok(Column::VarBinary((vals, scals)))
+                } else {
+                    Err(ArrowArrayToColumnConversionError::UnsupportedType {
+                        datatype: self.data_type().clone(),
+                    })
+                }
+            }
+            DataType::FixedSizeBinary(size) => {
+                if !(0..=32).contains(size) {
+                    return Err(ArrowArrayToColumnConversionError::UnsupportedType {
+                        datatype: self.data_type().clone(),
+                    });
+                }
+                if let Some(array) = self.as_any().downcast_ref::<FixedSizeBinaryArray>() {
+                    let vals = alloc
+                        .alloc_slice_fill_with(range.end - range.start, |i| -> &'a [u8] {
+                            array.value(range.start + i)
+                        });
+
+                    let scals = if let Some(scals) = precomputed_scals {
+                        &scals[range.start..range.end]
+                    } else {
+                        alloc.alloc_slice_fill_with(vals.len(), |i| {
+                            S::from_fixed_size_binary(vals[i])
+                        })
+                    };
+
+                    Ok(Column::FixedSizeBinary(*size, (vals, scals)))
                 } else {
                     Err(ArrowArrayToColumnConversionError::UnsupportedType {
                         datatype: self.data_type().clone(),
@@ -1036,6 +1064,30 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_valid_fixed_size_binary_array_refs_into_valid_columns() {
+        let alloc = Bump::new();
+        let data = [b"cd".as_slice(), b"ef".as_slice()];
+        let scals: Vec<_> = data
+            .iter()
+            .copied()
+            .map(DoryScalar::from_fixed_size_binary)
+            .collect();
+        let array: ArrayRef = Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                data.iter().map(|bytes| Some(*bytes)),
+                2,
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(0..2), None)
+                .unwrap(),
+            Column::FixedSizeBinary(2, (&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
     fn we_can_convert_valid_boolean_array_refs_into_valid_columns() {
         let alloc = Bump::new();
         let data = vec![true, false];
@@ -1173,6 +1225,32 @@ mod tests {
     }
 
     #[test]
+    fn we_can_convert_valid_fixed_size_binary_array_refs_into_valid_columns_using_ranges_smaller_than_arrays(
+    ) {
+        let alloc = Bump::new();
+        let data = [b"ab".as_slice(), b"cd".as_slice(), b"ef".as_slice()];
+        let scals: Vec<_> = data
+            .iter()
+            .copied()
+            .map(DoryScalar::from_fixed_size_binary)
+            .collect();
+
+        let array: ArrayRef = Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                data.iter().map(|bytes| Some(*bytes)),
+                2,
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            array
+                .to_column::<DoryScalar>(&alloc, &(1..3), None)
+                .unwrap(),
+            Column::FixedSizeBinary(2, (&data[1..3], &scals[1..3]))
+        );
+    }
+
+    #[test]
     fn we_can_convert_valid_string_array_refs_into_valid_columns_using_precomputed_scalars() {
         let alloc = Bump::new();
         let data = vec!["ab", "-f34"];
@@ -1201,6 +1279,31 @@ mod tests {
                 .to_column::<TestScalar>(&alloc, &(0..2), Some(&scals))
                 .unwrap(),
             Column::VarBinary((&data[..], &scals[..]))
+        );
+    }
+
+    #[test]
+    fn we_can_convert_valid_fixed_size_binary_array_refs_into_valid_columns_using_precomputed_scalars(
+    ) {
+        let alloc = Bump::new();
+        let data = [b"ab".as_slice(), b"cd".as_slice()];
+        let scals: Vec<_> = data
+            .iter()
+            .copied()
+            .map(TestScalar::from_fixed_size_binary)
+            .collect();
+        let array: ArrayRef = Arc::new(
+            FixedSizeBinaryArray::try_from_sparse_iter_with_size(
+                data.iter().map(|bytes| Some(*bytes)),
+                2,
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            array
+                .to_column::<TestScalar>(&alloc, &(0..2), Some(&scals))
+                .unwrap(),
+            Column::FixedSizeBinary(2, (&data[..], &scals[..]))
         );
     }
 

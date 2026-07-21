@@ -51,6 +51,23 @@ pub trait ScalarExt: Scalar {
         let masked_val = hashed_val & Self::CHALLENGE_MASK;
         Self::from_wrapping(masked_val)
     }
+
+    /// Converts fixed-size binary bytes to a Scalar.
+    ///
+    /// Values shorter than 32 bytes are embedded directly as little-endian integers.
+    /// Exactly 32-byte values are hashed to stay within the supported scalar range.
+    #[must_use]
+    fn from_fixed_size_binary(bytes: &[u8]) -> Self {
+        match bytes.len() {
+            0 => Self::zero(),
+            1..=31 => Self::from_wrapping(
+                U256::from_le_slice(bytes)
+                    .expect("at most 31 bytes => guaranteed to parse as U256"),
+            ),
+            32 => Self::from_byte_slice_via_hash(bytes),
+            _ => panic!("fixed-size binary values larger than 32 bytes are not supported"),
+        }
+    }
 }
 
 impl<S: Scalar> ScalarExt for S {}
@@ -107,6 +124,24 @@ mod tests {
         assert_eq!(
             scalar_from_bytes, scalar_from_ref,
             "The masked keccak v256 of 'abc' must match"
+        );
+    }
+
+    #[test]
+    fn we_can_embed_short_fixed_size_binary_directly() {
+        let bytes = [0x34, 0x12];
+        assert_eq!(
+            TestScalar::from_fixed_size_binary(&bytes),
+            TestScalar::from_wrapping(U256::from(0x1234_u16))
+        );
+    }
+
+    #[test]
+    fn we_hash_32_byte_fixed_size_binary() {
+        let bytes = [7_u8; 32];
+        assert_eq!(
+            TestScalar::from_fixed_size_binary(&bytes),
+            TestScalar::from_byte_slice_via_hash(&bytes)
         );
     }
 
