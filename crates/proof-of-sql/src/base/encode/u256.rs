@@ -1,4 +1,4 @@
-use crate::base::scalar::MontScalar;
+use crate::base::scalar::{MontScalar, Scalar};
 use ark_ff::MontConfig;
 
 /// U256 represents an unsigned 256-bits integer number
@@ -18,13 +18,38 @@ impl U256 {
     }
 }
 
-/// This trait converts a dalek scalar into a U256 integer
-impl<T: MontConfig<4>> From<&MontScalar<T>> for U256 {
-    fn from(val: &MontScalar<T>) -> Self {
-        let buf: [u64; 4] = val.into();
+/// Convert [u64; 4] to U256
+impl From<[u64; 4]> for U256 {
+    fn from(buf: [u64; 4]) -> Self {
         let low: u128 = u128::from(buf[0]) | (u128::from(buf[1]) << 64);
         let high: u128 = u128::from(buf[2]) | (u128::from(buf[3]) << 64);
         U256::from_words(low, high)
+    }
+}
+
+/// Convert &U256 to [u64; 4]
+impl From<&U256> for [u64; 4] {
+    fn from(val: &U256) -> Self {
+        [
+            val.low as u64,
+            (val.low >> 64) as u64,
+            val.high as u64,
+            (val.high >> 64) as u64,
+        ]
+    }
+}
+
+/// Convert U256 to [u64; 4]
+impl From<U256> for [u64; 4] {
+    fn from(val: U256) -> Self {
+        <[u64; 4]>::from(&val)
+    }
+}
+
+/// This trait converts any scalar into a U256 integer
+impl<S: Scalar> From<&S> for U256 {
+    fn from(val: &S) -> Self {
+        U256::from(val.to_limbs())
     }
 }
 

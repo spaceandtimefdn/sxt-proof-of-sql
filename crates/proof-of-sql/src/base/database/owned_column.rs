@@ -10,7 +10,7 @@ use crate::base::{
     },
     posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
     scalar::Scalar,
-    slice_ops::{inner_product_ref_cast, inner_product_with_bytes},
+    slice_ops::{inner_product_ref_cast, inner_product_with_bytes, inner_product_with_strings},
 };
 use alloc::{
     string::{String, ToString},
@@ -65,7 +65,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => {
                 inner_product_ref_cast(col, vec)
             }
-            OwnedColumn::VarChar(col) => inner_product_ref_cast(col, vec),
+            OwnedColumn::VarChar(col) => inner_product_with_strings(col, vec),
             OwnedColumn::VarBinary(col) => inner_product_with_bytes(col, vec),
             OwnedColumn::Int128(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => {
@@ -514,7 +514,10 @@ mod test {
             "ቦታ እና ጊዜ",
             "სივრცე და დრო",
         ];
-        let scalars = strs.iter().map(TestScalar::from).collect::<Vec<_>>();
+        let scalars = strs
+            .iter()
+            .map(|s| TestScalar::from_str_via_hash(s))
+            .collect::<Vec<_>>();
         let col: Column<'_, TestScalar> = Column::VarChar((&strs, &scalars));
         let owned_col: OwnedColumn<TestScalar> = (&col).into();
         assert_eq!(
@@ -581,7 +584,7 @@ mod test {
     fn we_cannot_convert_scalars_to_owned_columns_if_varchar() {
         let scalars = ["a", "b", "c", "d", "e"]
             .iter()
-            .map(TestScalar::from)
+            .map(|s| TestScalar::from_str_via_hash(s))
             .collect::<Vec<_>>();
         let column_type = ColumnType::VarChar;
         let res = OwnedColumn::try_from_scalars(&scalars, column_type);
@@ -659,7 +662,7 @@ mod test {
     fn we_cannot_convert_option_scalars_to_owned_columns_if_varchar() {
         let option_scalars = ["a", "b", "c", "d", "e"]
             .iter()
-            .map(|s| Some(TestScalar::from(*s)))
+            .map(|s| Some(TestScalar::from_str_via_hash(s)))
             .collect::<Vec<_>>();
         let column_type = ColumnType::VarChar;
         let res = OwnedColumn::try_from_option_scalars(&option_scalars, column_type);

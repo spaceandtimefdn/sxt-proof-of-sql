@@ -1,6 +1,11 @@
 use super::{pairings, DoryScalar, DynamicDoryCommitment, G1Projective, ProverSetup, GT};
 use crate::{
-    base::{commitment::CommittableColumn, if_rayon, slice_ops::slice_cast},
+    base::{
+        commitment::CommittableColumn,
+        if_rayon,
+        scalar::Scalar,
+        slice_ops::{slice_cast, slice_cast_with},
+    },
     proof_primitive::dynamic_matrix_utils::matrix_structure::{
         full_width_of_row, row_and_column_from_index, row_start_index,
     },
@@ -74,7 +79,10 @@ fn compute_dory_commitment(
     setup: &ProverSetup,
 ) -> DynamicDoryCommitment {
     match committable_column {
-        CommittableColumn::Scalar(column) => compute_dory_commitment_impl(column, offset, setup),
+        CommittableColumn::Scalar(column) => {
+            let casted = slice_cast_with(column, |val| DoryScalar::from_limbs(*val));
+            compute_dory_commitment_impl(&casted, offset, setup)
+        }
         CommittableColumn::Uint8(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::TinyInt(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::SmallInt(column) => compute_dory_commitment_impl(column, offset, setup),
@@ -84,7 +92,8 @@ fn compute_dory_commitment(
         CommittableColumn::VarChar(column)
         | CommittableColumn::VarBinary(column)
         | CommittableColumn::Decimal75(_, _, column) => {
-            compute_dory_commitment_impl(column, offset, setup)
+            let casted = slice_cast_with(column, |val| DoryScalar::from_limbs(*val));
+            compute_dory_commitment_impl(&casted, offset, setup)
         }
         CommittableColumn::Boolean(column) => compute_dory_commitment_impl(column, offset, setup),
         CommittableColumn::TimestampTZ(_, _, column) => {
