@@ -2,7 +2,10 @@ use super::scalar_varint::{
     read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
     write_scalar_varint, write_scalar_varints,
 };
-use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
+use crate::base::{
+    encode::{u256::u256_to_scalar, U256},
+    scalar::test_scalar::TestScalar,
+};
 use alloc::vec;
 
 #[test]
@@ -32,11 +35,10 @@ fn big_scalars_that_are_smaller_than_their_additive_inverses_are_encoded_as_posi
 ) {
     // x = (p - 1) / 10 (p is the ristretto group order)
     // y = -x = (p + 1) / 10
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x9baf_e5c9_76b2_5c7b_d59b_704f_6fb2_2eca,
         0x0199_9999_9999_9999_9999_9999_9999_9999,
-    ))
-        .into();
+    ));
     assert!(scalar_varint_size(&val) == 36);
 }
 
@@ -45,11 +47,10 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
 ) {
     // x = (p + 1) / 10 (p is the ristretto group order)
     // y = -x = (p - 1) / 10
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x9baf_e5c9_76b2_5c7b_d59b_704f_6fb2_2ecb,
         0x0199_9999_9999_9999_9999_9999_9999_9999,
-    ))
-        .into();
+    ));
     assert!(scalar_varint_size(&val) == 36);
 }
 
@@ -58,21 +59,19 @@ fn the_maximum_positive_and_negative_encoded_scalars_consume_the_maximum_amount_
     // maximum negative encoded scalar
     // x = (p + 1) / 2 (p is the ristretto group order)
     // y = -x = (p - 1) / 2
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f7,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
     assert!(scalar_varint_size(&val) == 37);
 
     // maximum positive encoded scalar
     // x = (p - 1) / 2 (p is the ristretto group order)
     // y = -x = (p + 1) / 2
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f6,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
 
     assert!(scalar_varint_size(&val) == 37);
 }
@@ -83,11 +82,10 @@ fn scalar_slices_consumes_the_correct_amount_of_bytes() {
     let val1 = -TestScalar::from(1_u64);
 
     // x = (p + 1) / 2
-    let val2: TestScalar = (&U256::from_words(
+    let val2: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f7,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
 
     assert!(scalar_varints_size(&[TestScalar::from(1000_u64)]) == 2);
 
@@ -151,11 +149,10 @@ fn big_scalars_that_are_smaller_than_their_additive_inverses_are_correctly_encod
 
     // (p - 1) / 2 (p is the ristretto group order)
     // y = -x = (p + 1) / 2 (which is bigger than x)
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f6,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
     assert!(write_scalar_varint(&mut buf[..], &val) == 37);
     assert!(read_scalar_varint(&buf[..]).unwrap() == (val, 37));
 
@@ -170,11 +167,10 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_correctly_e
 
     // x = (p + 1) / 2 (p is the group order)
     // y = -x = (p - 1) / 2 (which is smaller than x)
-    let val: TestScalar = (&U256::from_words(
+    let val: TestScalar = u256_to_scalar(&U256::from_words(
         0x0a6f_7cef_517b_ce6b_2c09_318d_2e7a_e9f7,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
-    ))
-        .into();
+    ));
 
     assert!(write_scalar_varint(&mut buf[..], &val) == 37);
     assert!(read_scalar_varint(&buf[..]).unwrap() == (val, 37));
@@ -195,7 +191,7 @@ fn valid_varint_encoded_input_that_map_to_test_scalars_smaller_than_the_p_field_
     // buf represents the number 2^252 - 1
     // removing the varint encoding, we would have y = ((2^252 - 1) // 2 + 1) % p
     // since we want x, we would have x = -y
-    let expected_x = -TestScalar::from(&U256::from_words(
+    let expected_x = -u256_to_scalar::<TestScalar>(&U256::from_words(
         0x0000_0000_0000_0000_0000_0000_0000_0000,
         0x0800_0000_0000_0000_0000_0000_0000_0000,
     ));
@@ -216,11 +212,10 @@ fn valid_varint_encoded_input_that_map_to_test_scalars_bigger_than_the_p_field_o
     // at this point, buf represents the number 2^256 - 2,
     // which has 256 bit-length, where 255 bits are set to 1
     // also, `expected_val` is simply x = ((2^256 - 2) >> 1) % p
-    let expected_val: TestScalar = (&U256::from_words(
+    let expected_val: TestScalar = u256_to_scalar(&U256::from_words(
         0x6de7_2ae9_8b3a_b623_977f_4a47_7547_3484,
         0x0fff_ffff_ffff_ffff_ffff_ffff_ffff_ffff,
-    ))
-        .into();
+    ));
     assert!(read_scalar_varint(&buf[..]).unwrap() == (expected_val, 37));
 
     // even though we are able to read varint numbers of up to 259 bits-length,
