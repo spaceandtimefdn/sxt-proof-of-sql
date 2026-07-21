@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
+use crate::base::scalar::ScalarConversionError;
 use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
@@ -13,7 +13,6 @@ pub trait Scalar:
     + core::fmt::Display
     + PartialEq
     + Default
-    + for<'a> From<&'a str>
     + Sync
     + Send
     + num_traits::One
@@ -40,8 +39,6 @@ pub trait Scalar:
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
     + core::convert::TryInto <i128>
-    + core::convert::Into<[u64; 4]>
-    + core::convert::From<[u64; 4]>
     + core::convert::From<u8>
     + core::cmp::Ord
     + core::ops::Neg<Output = Self>
@@ -51,10 +48,6 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + RefInto<[u64; 4]>
-    + for<'a> core::convert::From<&'a String>
-    + VarInt
-    + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
     + core::convert::From<i32>
@@ -85,4 +78,35 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Converts a `[u64; 4]` array (in non-Montgomery form) to a `Scalar`.
+    ///
+    /// This is a base conversion used for many other conversions. A `Scalar` is a field element
+    /// (number mod some prime) with slightly less than 256 bits. Usually, `Scalar`s are internally
+    /// stored in Montgomery form, so this conversion is non-free.
+    fn from_limbs(val: [u64; 4]) -> Self;
+
+    /// Converts a `Scalar` to a `[u64; 4]` array (in non-Montgomery form).
+    ///
+    /// This is a base conversion used for many other conversions. A `Scalar` is a field element
+    /// (number mod some prime) with slightly less than 256 bits. Usually, `Scalar`s are internally
+    /// stored in Montgomery form, so this conversion is non-free.
+    fn to_limbs(&self) -> [u64; 4];
+
+    /// Converts a string to a `Scalar` using a hash function.
+    ///
+    /// This conversion hashes the string in order to convert it to 256 bits which are ultimately
+    /// converted into the `Scalar` itself. This is different from a parsing method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation uses [`ScalarExt::from_byte_slice_via_hash`] to convert the string
+    /// bytes to a scalar.
+    fn from_str_via_hash(val: &str) -> Self
+    where
+        Self: Sized,
+    {
+        use crate::base::scalar::ScalarExt;
+        Self::from_byte_slice_via_hash(val.as_bytes())
+    }
 }
