@@ -78,7 +78,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op_left_upcast(lhs, rhs, Self::op))
             }
             (OwnedColumn::Uint8(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -107,7 +107,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op_left_upcast(lhs, rhs, Self::op))
             }
             (OwnedColumn::TinyInt(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -131,7 +131,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op_left_upcast(lhs, rhs, Self::op))
             }
             (OwnedColumn::SmallInt(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -155,7 +155,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op_left_upcast(lhs, rhs, Self::op))
             }
             (OwnedColumn::Int(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -179,7 +179,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op_left_upcast(lhs, rhs, Self::op))
             }
             (OwnedColumn::BigInt(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -203,7 +203,7 @@ pub trait ComparisonOp {
                 Ok(slice_binary_op(lhs, rhs, Self::op))
             }
             (OwnedColumn::Int128(lhs_values), OwnedColumn::Decimal75(_, _, rhs_values)) => {
-                Ok(Self::decimal_op_left_upcast(
+                Ok(Self::decimal_op_left_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -212,7 +212,7 @@ pub trait ComparisonOp {
             }
 
             (OwnedColumn::Decimal75(_, _, lhs_values), OwnedColumn::TinyInt(rhs_values)) => {
-                Ok(Self::decimal_op_right_upcast(
+                Ok(Self::decimal_op_right_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -220,7 +220,7 @@ pub trait ComparisonOp {
                 ))
             }
             (OwnedColumn::Decimal75(_, _, lhs_values), OwnedColumn::SmallInt(rhs_values)) => {
-                Ok(Self::decimal_op_right_upcast(
+                Ok(Self::decimal_op_right_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -228,7 +228,7 @@ pub trait ComparisonOp {
                 ))
             }
             (OwnedColumn::Decimal75(_, _, lhs_values), OwnedColumn::Int(rhs_values)) => {
-                Ok(Self::decimal_op_right_upcast(
+                Ok(Self::decimal_op_right_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -236,7 +236,7 @@ pub trait ComparisonOp {
                 ))
             }
             (OwnedColumn::Decimal75(_, _, lhs_values), OwnedColumn::BigInt(rhs_values)) => {
-                Ok(Self::decimal_op_right_upcast(
+                Ok(Self::decimal_op_right_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -244,7 +244,7 @@ pub trait ComparisonOp {
                 ))
             }
             (OwnedColumn::Decimal75(_, _, lhs_values), OwnedColumn::Int128(rhs_values)) => {
-                Ok(Self::decimal_op_right_upcast(
+                Ok(Self::decimal_op_right_upcast::<S, _>(
                     lhs_values,
                     rhs_values,
                     lhs.column_type(),
@@ -254,7 +254,7 @@ pub trait ComparisonOp {
             (
                 OwnedColumn::Decimal75(_, _, lhs_values),
                 OwnedColumn::Decimal75(_, _, rhs_values),
-            ) => Ok(Self::decimal_op_left_upcast(
+            ) => Ok(Self::decimal_op_left_upcast::<S, _>(
                 lhs_values,
                 rhs_values,
                 lhs.column_type(),
