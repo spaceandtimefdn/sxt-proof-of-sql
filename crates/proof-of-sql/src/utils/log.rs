@@ -30,3 +30,27 @@ pub fn log_memory_usage(name: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_log_memory_usage_does_not_panic() {
+        // Test that log_memory_usage can be called without panicking
+        // This function is primarily for side effects (logging), so we just verify it runs
+        log_memory_usage("test");
+    }
+
+    #[test]
+    fn test_log_memory_usage_with_empty_string() {
+        // Test with empty string name
+        log_memory_usage("");
+    }
+
+    #[test]
+    fn test_log_memory_usage_with_long_name() {
+        // Test with a longer name string
+        log_memory_usage("memory_usage_during_complex_operation_with_long_identifier");
+    }
+}

@@ -414,3 +414,240 @@ impl ComparisonOp for LessThanOp {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::Curve25519Scalar;
+
+    #[test]
+    fn test_equal_op_basic_comparison() {
+        assert!(EqualOp::op(&5, &5));
+        assert!(!EqualOp::op(&5, &10));
+        assert!(EqualOp::op(&true, &true));
+        assert!(!EqualOp::op(&true, &false));
+    }
+
+    #[test]
+    fn test_equal_op_string_comparison() {
+        let lhs = vec!["hello".to_string(), "world".to_string()];
+        let rhs = vec!["hello".to_string(), "test".to_string()];
+        let result = EqualOp::string_op(&lhs, &rhs).unwrap();
+        assert_eq!(result, vec![true, false]);
+    }
+
+    #[test]
+    fn test_greater_than_op_basic_comparison() {
+        assert!(GreaterThanOp::op(&10, &5));
+        assert!(!GreaterThanOp::op(&5, &10));
+        assert!(!GreaterThanOp::op(&5, &5));
+    }
+
+    #[test]
+    fn test_greater_than_op_string_comparison_returns_error() {
+        let lhs = vec!["hello".to_string()];
+        let rhs = vec!["world".to_string()];
+        let result = GreaterThanOp::string_op(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type,
+                right_type,
+            }) => {
+                assert_eq!(operator, ">");
+                assert_eq!(left_type, ColumnType::VarChar);
+                assert_eq!(right_type, ColumnType::VarChar);
+            }
+            _ => panic!("Expected BinaryOperationInvalidColumnType error"),
+        }
+    }
+
+    #[test]
+    fn test_less_than_op_basic_comparison() {
+        assert!(LessThanOp::op(&5, &10));
+        assert!(!LessThanOp::op(&10, &5));
+        assert!(!LessThanOp::op(&5, &5));
+    }
+
+    #[test]
+    fn test_less_than_op_string_comparison_returns_error() {
+        let lhs = vec!["hello".to_string()];
+        let rhs = vec!["world".to_string()];
+        let result = LessThanOp::string_op(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+                operator,
+                left_type,
+                right_type,
+            }) => {
+                assert_eq!(operator, "<");
+                assert_eq!(left_type, ColumnType::VarChar);
+                assert_eq!(right_type, ColumnType::VarChar);
+            }
+            _ => panic!("Expected BinaryOperationInvalidColumnType error"),
+        }
+    }
+
+    #[test]
+    fn test_equal_op_owned_column_same_type() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Int128(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Int128(vec![1, 5, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false, true]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_equal_op_owned_column_type_upcast() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::TinyInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::SmallInt(vec![1, 5, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false, true]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_equal_op_owned_column_boolean() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Boolean(vec![true, false, true]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Boolean(vec![true, true, false]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false, false]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_equal_op_owned_column_varchar() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::VarChar(vec![
+            "hello".to_string(),
+            "world".to_string(),
+        ]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::VarChar(vec![
+            "hello".to_string(),
+            "test".to_string(),
+        ]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_owned_column_comparison_different_lengths() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Int128(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Int128(vec![1, 2]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::DifferentColumnLength { len_a, len_b }) => {
+                assert_eq!(len_a, 3);
+                assert_eq!(len_b, 2);
+            }
+            _ => panic!("Expected DifferentColumnLength error"),
+        }
+    }
+
+    #[test]
+    fn test_owned_column_comparison_uint8_tinyint_error() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Uint8(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::TinyInt(vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::SignedCastingError {
+                left_type,
+                right_type,
+            }) => {
+                assert_eq!(left_type, ColumnType::Uint8);
+                assert_eq!(right_type, ColumnType::TinyInt);
+            }
+            _ => panic!("Expected SignedCastingError"),
+        }
+    }
+
+    #[test]
+    fn test_owned_column_comparison_tinyint_uint8_error() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::TinyInt(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Uint8(vec![1, 2, 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::SignedCastingError {
+                left_type,
+                right_type,
+            }) => {
+                assert_eq!(left_type, ColumnType::TinyInt);
+                assert_eq!(right_type, ColumnType::Uint8);
+            }
+            _ => panic!("Expected SignedCastingError"),
+        }
+    }
+
+    #[test]
+    fn test_greater_than_owned_column() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::BigInt(vec![10, 5, 8]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::BigInt(vec![5, 10, 8]);
+        let result = GreaterThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false, false]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_less_than_owned_column() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Int(vec![5, 10, 8]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Int(vec![10, 5, 8]);
+        let result = LessThanOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false, false]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_comparison_with_mixed_integer_types() {
+        // Test SmallInt vs Int
+        let lhs = OwnedColumn::<Curve25519Scalar>::SmallInt(vec![5, 10]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::Int(vec![5, 8]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs).unwrap();
+        match result {
+            OwnedColumn::Boolean(b) => {
+                assert_eq!(b, vec![true, false]);
+            }
+            _ => panic!("Expected Boolean column"),
+        }
+    }
+
+    #[test]
+    fn test_comparison_invalid_column_types() {
+        let lhs = OwnedColumn::<Curve25519Scalar>::Int(vec![1, 2, 3]);
+        let rhs = OwnedColumn::<Curve25519Scalar>::VarChar(vec!["test".to_string(); 3]);
+        let result = EqualOp::owned_column_element_wise_comparison(&lhs, &rhs);
+        assert!(result.is_err());
+        match result {
+            Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. }) => {}
+            _ => panic!("Expected BinaryOperationInvalidColumnType error"),
+        }
+    }
+}
