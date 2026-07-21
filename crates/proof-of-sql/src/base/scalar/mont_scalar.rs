@@ -403,7 +403,16 @@ where
         255 - T::MODULUS.0[3].leading_zeros() as u8
     };
     const MAX_SIGNED_U256: U256 = U256::from_digits(T::MODULUS.divide_by_2_round_down().0);
+
+    fn from_limbs(limbs: [u64; 4]) -> Self {
+        Self(Fp::new(ark_ff::BigInt(limbs)))
+    }
+
+    fn to_limbs(&self) -> [u64; 4] {
+        self.0.into_bigint().0
+    }
 }
+
 
 impl<T> TryFrom<MontScalar<T>> for bool
 where
