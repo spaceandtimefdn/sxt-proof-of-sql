@@ -179,7 +179,7 @@ impl SchemaAccessor for SchemaAccessorImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::map::indexmap;
+    use crate::base::{map::indexmap, scalar::test_scalar::TestScalar};
 
     fn sample_schema_accessor() -> SchemaAccessorImpl {
         let table1 = TableRef::new("schema", "table1");
@@ -189,6 +189,69 @@ mod tests {
                 ("col2".into(), ColumnType::VarChar)],
             table2 => vec![("col1".into(), ColumnType::BigInt)],
         })
+    }
+
+    struct SampleDataAccessor {
+        table_ref: TableRef,
+        bigints: Vec<i64>,
+        bools: Vec<bool>,
+    }
+
+    impl SampleDataAccessor {
+        fn new() -> Self {
+            Self {
+                table_ref: TableRef::new("schema", "table1"),
+                bigints: vec![1, 2, 3],
+                bools: vec![true, false, true],
+            }
+        }
+    }
+
+    impl MetadataAccessor for SampleDataAccessor {
+        fn get_length(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            self.bigints.len()
+        }
+
+        fn get_offset(&self, table_ref: &TableRef) -> usize {
+            assert_eq!(table_ref, &self.table_ref);
+            0
+        }
+    }
+
+    impl DataAccessor<TestScalar> for SampleDataAccessor {
+        fn get_column(&self, table_ref: &TableRef, column_id: &Ident) -> Column<'_, TestScalar> {
+            assert_eq!(table_ref, &self.table_ref);
+            match column_id.value.as_str() {
+                "bigint" => Column::BigInt(&self.bigints),
+                "flag" => Column::Boolean(&self.bools),
+                _ => panic!("unexpected column id"),
+            }
+        }
+    }
+
+    #[test]
+    fn we_can_get_an_empty_table_from_a_data_accessor() {
+        let accessor = SampleDataAccessor::new();
+        let column_ids = IndexSet::default();
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert!(table.is_empty());
+        assert_eq!(table.num_rows(), 3);
+    }
+
+    #[test]
+    fn we_can_get_a_projected_table_from_a_data_accessor() {
+        let accessor = SampleDataAccessor::new();
+        let column_ids = IndexSet::from_iter([Ident::new("bigint"), Ident::new("flag")]);
+
+        let table = accessor.get_table(&accessor.table_ref, &column_ids);
+
+        assert_eq!(table.num_columns(), 2);
+        assert_eq!(table.num_rows(), 3);
+        assert_eq!(table["bigint"], Column::BigInt(&accessor.bigints));
+        assert_eq!(table["flag"], Column::Boolean(&accessor.bools));
     }
 
     #[test]
