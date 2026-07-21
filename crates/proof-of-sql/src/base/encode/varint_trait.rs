@@ -10,16 +10,12 @@
 // There were significant code changes to simplify the code
 // ---------------------------------------------------------------------------------------------------------------
 use super::{
-    scalar_varint::{
-        read_scalar_varint, read_u256_varint, scalar_varint_size, u256_varint_size,
-        write_scalar_varint, write_u256_varint,
-    },
+    scalar_varint::{read_u256_varint, u256_varint_size, write_u256_varint},
     U256,
 };
-use crate::base::scalar::MontScalar;
+use crate::base::scalar::Scalar;
 #[cfg(test)]
 use alloc::{vec, vec::Vec};
-use ark_ff::MontConfig;
 
 /// Most-significant byte, == 0x80
 pub const MSB: u8 = 0b1000_0000;
@@ -282,14 +278,70 @@ impl VarInt for i128 {
     }
 }
 
-impl<T: MontConfig<4>> VarInt for MontScalar<T> {
+#[inline]
+fn scalar_to_u256<S: Scalar>(val: &S) -> U256 {
+    let limbs: [u64; 4] = (*val).into();
+    let low = u128::from(limbs[0]) | (u128::from(limbs[1]) << 64);
+    let high = u128::from(limbs[2]) | (u128::from(limbs[3]) << 64);
+    U256::from_words(low, high)
+}
+
+#[expect(clippy::cast_possible_truncation)]
+#[inline]
+fn scalar_from_u256<S: Scalar>(val: &U256) -> S {
+    S::from([
+        val.low as u64,
+        (val.low >> 64) as u64,
+        val.high as u64,
+        (val.high >> 64) as u64,
+    ])
+}
+
+#[inline]
+fn scalar_zigzag<S: Scalar>(val: &S) -> U256 {
+    let mut x = scalar_to_u256(val);
+    let mut y = scalar_to_u256(&(-*val));
+
+    if x.high > y.high || (x.high == y.high && x.low > y.low) {
+        y.high = (y.high << 1) | (y.low >> 127);
+        y.low <<= 1;
+
+        let (low_val, carry_low) = y.low.overflowing_sub(1_u128);
+        y.low = low_val;
+        y.high -= u128::from(carry_low);
+        y
+    } else {
+        x.high = (x.high << 1) | (x.low >> 127);
+        x.low <<= 1;
+        x
+    }
+}
+
+#[inline]
+fn scalar_from_zigzag<S: Scalar>(val: &U256) -> S {
+    let mut raw = U256 {
+        low: (val.low >> 1) | ((val.high & 1) << 127),
+        high: val.high >> 1,
+    };
+
+    if val.low & 1 == 1 {
+        let (low_val, carry_low) = raw.low.overflowing_add(1_u128);
+        raw.low = low_val;
+        raw.high += u128::from(carry_low);
+        -scalar_from_u256::<S>(&raw)
+    } else {
+        scalar_from_u256(&raw)
+    }
+}
+
+impl<S: Scalar> VarInt for S {
     fn required_space(self) -> usize {
-        scalar_varint_size(&self)
+        u256_varint_size(scalar_zigzag(&self))
     }
     fn decode_var(src: &[u8]) -> Option<(Self, usize)> {
-        read_scalar_varint(src)
+        read_u256_varint(src).map(|(val, s)| (scalar_from_zigzag(&val), s))
     }
     fn encode_var(self, dst: &mut [u8]) -> usize {
-        write_scalar_varint(dst, &self)
+        write_u256_varint(dst, scalar_zigzag(&self))
     }
 }
