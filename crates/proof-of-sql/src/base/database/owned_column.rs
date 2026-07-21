@@ -51,6 +51,9 @@ pub enum OwnedColumn<S: Scalar> {
     Scalar(Vec<S>),
     /// Variable length binary columns
     VarBinary(Vec<Vec<u8>>),
+    /// Fixed length binary columns
+    #[cfg_attr(test, proptest(skip))]
+    FixedSizeBinary(i32, Vec<Vec<u8>>),
 }
 
 impl<S: Scalar> OwnedColumn<S> {
@@ -67,6 +70,7 @@ impl<S: Scalar> OwnedColumn<S> {
             }
             OwnedColumn::VarChar(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::VarBinary(col) => inner_product_with_bytes(col, vec),
+            OwnedColumn::FixedSizeBinary(_, col) => inner_product_with_bytes(col, vec),
             OwnedColumn::Int128(col) => inner_product_ref_cast(col, vec),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => {
                 inner_product_ref_cast(col, vec)
@@ -86,6 +90,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => col.len(),
             OwnedColumn::VarChar(col) => col.len(),
             OwnedColumn::VarBinary(col) => col.len(),
+            OwnedColumn::FixedSizeBinary(_, col) => col.len(),
             OwnedColumn::Int128(col) => col.len(),
             OwnedColumn::Decimal75(_, _, col) | OwnedColumn::Scalar(col) => col.len(),
         }
@@ -102,6 +107,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) => OwnedColumn::BigInt(permutation.try_apply(col)?),
             OwnedColumn::VarChar(col) => OwnedColumn::VarChar(permutation.try_apply(col)?),
             OwnedColumn::VarBinary(col) => OwnedColumn::VarBinary(permutation.try_apply(col)?),
+            OwnedColumn::FixedSizeBinary(size, col) => {
+                OwnedColumn::FixedSizeBinary(*size, permutation.try_apply(col)?)
+            }
             OwnedColumn::Int128(col) => OwnedColumn::Int128(permutation.try_apply(col)?),
             OwnedColumn::Decimal75(precision, scale, col) => {
                 OwnedColumn::Decimal75(*precision, *scale, permutation.try_apply(col)?)
@@ -125,6 +133,9 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) => OwnedColumn::BigInt(col[start..end].to_vec()),
             OwnedColumn::VarChar(col) => OwnedColumn::VarChar(col[start..end].to_vec()),
             OwnedColumn::VarBinary(col) => OwnedColumn::VarBinary(col[start..end].to_vec()),
+            OwnedColumn::FixedSizeBinary(size, col) => {
+                OwnedColumn::FixedSizeBinary(*size, col[start..end].to_vec())
+            }
             OwnedColumn::Int128(col) => OwnedColumn::Int128(col[start..end].to_vec()),
             OwnedColumn::Decimal75(precision, scale, col) => {
                 OwnedColumn::Decimal75(*precision, *scale, col[start..end].to_vec())
@@ -148,6 +159,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(col) | OwnedColumn::TimestampTZ(_, _, col) => col.is_empty(),
             OwnedColumn::VarChar(col) => col.is_empty(),
             OwnedColumn::VarBinary(col) => col.is_empty(),
+            OwnedColumn::FixedSizeBinary(_, col) => col.is_empty(),
             OwnedColumn::Int128(col) => col.is_empty(),
             OwnedColumn::Scalar(col) | OwnedColumn::Decimal75(_, _, col) => col.is_empty(),
         }
@@ -164,6 +176,7 @@ impl<S: Scalar> OwnedColumn<S> {
             OwnedColumn::BigInt(_) => ColumnType::BigInt,
             OwnedColumn::VarChar(_) => ColumnType::VarChar,
             OwnedColumn::VarBinary(_) => ColumnType::VarBinary,
+            OwnedColumn::FixedSizeBinary(size, _) => ColumnType::FixedSizeBinary(*size),
             OwnedColumn::Int128(_) => ColumnType::Int128,
             OwnedColumn::Scalar(_) => ColumnType::Scalar,
             OwnedColumn::Decimal75(precision, scale, _) => {
@@ -254,10 +267,12 @@ impl<S: Scalar> OwnedColumn<S> {
                 Ok(OwnedColumn::TimestampTZ(tu, tz, raw_values))
             }
             // Can not convert scalars to VarChar
-            ColumnType::VarChar | ColumnType::VarBinary => Err(OwnedColumnError::TypeCastError {
-                from_type: ColumnType::Scalar,
-                to_type: ColumnType::VarChar,
-            }),
+            ColumnType::VarChar | ColumnType::VarBinary | ColumnType::FixedSizeBinary(_) => {
+                Err(OwnedColumnError::TypeCastError {
+                    from_type: ColumnType::Scalar,
+                    to_type: column_type,
+                })
+            }
         }
     }
 
@@ -373,6 +388,10 @@ impl<'a, S: Scalar> From<&Column<'a, S>> for OwnedColumn<S> {
             Column::VarBinary((col, _)) => {
                 OwnedColumn::VarBinary(col.iter().map(|slice| slice.to_vec()).collect())
             }
+            Column::FixedSizeBinary(size, (col, _)) => OwnedColumn::FixedSizeBinary(
+                *size,
+                col.iter().map(|slice| slice.to_vec()).collect(),
+            ),
             Column::Int128(col) => OwnedColumn::Int128(col.to_vec()),
             Column::Decimal75(precision, scale, col) => {
                 OwnedColumn::Decimal75(*precision, *scale, col.to_vec())

@@ -119,6 +119,30 @@ pub trait RepetitionOp {
                     }) as &[_],
                 ))
             }
+            ColumnType::FixedSizeBinary(size) => {
+                let (_, raw_result, raw_scalars) = column
+                    .as_fixed_size_binary()
+                    .expect("Column types should match");
+
+                let mut result_iter = Self::op(raw_result, n);
+                let mut scalar_iter = Self::op(raw_scalars, n);
+
+                Column::FixedSizeBinary(
+                    size,
+                    (
+                        alloc.alloc_slice_fill_with(len, |_| {
+                            result_iter
+                                .next()
+                                .expect("Iterator should have enough elements")
+                        }) as &[_],
+                        alloc.alloc_slice_fill_with(len, |_| {
+                            scalar_iter
+                                .next()
+                                .expect("Iterator should have enough elements")
+                        }) as &[_],
+                    ),
+                )
+            }
             ColumnType::TimestampTZ(tu, tz) => {
                 let mut iter = Self::op(
                     column.as_timestamptz().expect("Column types should match"),

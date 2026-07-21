@@ -124,6 +124,13 @@ impl ProvableQueryResult {
                         let x = S::from_byte_slice_via_hash(raw_bytes);
                         Ok((x, used))
                     }
+                    ColumnType::FixedSizeBinary(_) => {
+                        let (raw_bytes, used) =
+                            decode_and_convert::<&[u8], &[u8]>(&self.data[offset..])?;
+                        let x = S::from_fixed_size_byte_slice(raw_bytes)
+                            .ok_or(QueryError::MiscellaneousEvaluationError)?;
+                        Ok((x, used))
+                    }
                     ColumnType::TimestampTZ(_, _) => {
                         decode_and_convert::<i64, S>(&self.data[offset..])
                     }
@@ -212,6 +219,15 @@ impl ProvableQueryResult {
                         let col_vec = decoded_slices.into_iter().map(<[u8]>::to_vec).collect();
 
                         Ok((field.name(), OwnedColumn::VarBinary(col_vec)))
+                    }
+                    ColumnType::FixedSizeBinary(size) => {
+                        let (decoded_slices, num_read) =
+                            decode_multiple_elements::<&[u8]>(&self.data[offset..], n)?;
+                        offset += num_read;
+
+                        let col_vec = decoded_slices.into_iter().map(<[u8]>::to_vec).collect();
+
+                        Ok((field.name(), OwnedColumn::FixedSizeBinary(size, col_vec)))
                     }
                     ColumnType::Scalar => {
                         let (col, num_read) = decode_multiple_elements(&self.data[offset..], n)?;

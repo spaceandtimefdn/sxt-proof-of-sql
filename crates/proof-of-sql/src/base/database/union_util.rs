@@ -183,6 +183,36 @@ pub fn column_union<'a, S: Scalar>(
                 }) as &[_],
             ))
         }
+        ColumnType::FixedSizeBinary(size) => {
+            let (nested_results, nested_scalars): (Vec<_>, Vec<_>) = columns
+                .iter()
+                .map(|col| {
+                    let (_, raw_values, scalars) = col
+                        .as_fixed_size_binary()
+                        .expect("Column types should match");
+                    (raw_values, scalars)
+                })
+                .unzip();
+
+            let mut result_iter = nested_results.into_iter().flatten().copied();
+            let mut scalar_iter = nested_scalars.into_iter().flatten().copied();
+
+            Column::FixedSizeBinary(
+                size,
+                (
+                    alloc.alloc_slice_fill_with(len, |_| {
+                        result_iter
+                            .next()
+                            .expect("Iterator should have enough elements")
+                    }) as &[_],
+                    alloc.alloc_slice_fill_with(len, |_| {
+                        scalar_iter
+                            .next()
+                            .expect("Iterator should have enough elements")
+                    }) as &[_],
+                ),
+            )
+        }
         ColumnType::TimestampTZ(tu, tz) => {
             let mut iter = columns
                 .iter()
