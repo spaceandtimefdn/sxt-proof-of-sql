@@ -106,3 +106,101 @@ where
         tmp = new_tmp;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::{test_scalar::TestScalar, Scalar};
+    use alloc::vec;
+
+    fn s(x: i64) -> TestScalar {
+        TestScalar::from(x)
+    }
+
+    #[test]
+    fn batch_inversion_on_empty_slice_is_a_noop() {
+        let mut v: Vec<TestScalar> = vec![];
+        batch_inversion(&mut v);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn batch_inversion_of_a_single_nonzero_element_yields_its_inverse() {
+        let mut v = vec![s(7)];
+        batch_inversion(&mut v);
+        assert_eq!(v[0] * s(7), TestScalar::ONE);
+    }
+
+    #[test]
+    fn batch_inversion_leaves_a_single_zero_unchanged() {
+        let mut v = vec![TestScalar::ZERO];
+        batch_inversion(&mut v);
+        assert_eq!(v[0], TestScalar::ZERO);
+    }
+
+    #[test]
+    fn batch_inversion_inverts_each_nonzero_element() {
+        let original: Vec<TestScalar> = (1..=8).map(s).collect();
+        let mut v = original.clone();
+        batch_inversion(&mut v);
+        for (orig, inv) in original.iter().zip(v.iter()) {
+            assert_eq!(*orig * *inv, TestScalar::ONE);
+        }
+    }
+
+    #[test]
+    fn batch_inversion_handles_zeros_mixed_with_nonzeros() {
+        let original = vec![s(2), TestScalar::ZERO, s(3), TestScalar::ZERO, s(5)];
+        let mut v = original.clone();
+        batch_inversion(&mut v);
+        // Zeros stay zero, non-zeros are inverted.
+        assert_eq!(v[1], TestScalar::ZERO);
+        assert_eq!(v[3], TestScalar::ZERO);
+        assert_eq!(v[0] * original[0], TestScalar::ONE);
+        assert_eq!(v[2] * original[2], TestScalar::ONE);
+        assert_eq!(v[4] * original[4], TestScalar::ONE);
+    }
+
+    #[test]
+    fn batch_inversion_is_idempotent_round_trip() {
+        // Applying inversion twice should recover the original (modulo the field).
+        let original: Vec<TestScalar> = vec![s(2), s(3), s(5), s(7), s(11)];
+        let mut v = original.clone();
+        batch_inversion(&mut v);
+        batch_inversion(&mut v);
+        assert_eq!(v, original);
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_with_one_matches_plain_inversion() {
+        let original: Vec<TestScalar> = (1..=5).map(s).collect();
+        let mut a = original.clone();
+        let mut b = original;
+        batch_inversion(&mut a);
+        batch_inversion_and_mul(&mut b, TestScalar::ONE);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_scales_each_inverse_by_coeff() {
+        let original: Vec<TestScalar> = (1..=5).map(s).collect();
+        let coeff = s(13);
+        let mut scaled = original.clone();
+        batch_inversion_and_mul(&mut scaled, coeff);
+        for (orig, scaled_inv) in original.iter().zip(scaled.iter()) {
+            // scaled_inv should equal coeff / orig, so orig * scaled_inv == coeff.
+            assert_eq!(*orig * *scaled_inv, coeff);
+        }
+    }
+
+    #[test]
+    fn batch_inversion_and_mul_skips_zeros_even_when_scaled() {
+        let original = vec![s(2), TestScalar::ZERO, s(4)];
+        let mut v = original.clone();
+        let coeff = s(7);
+        batch_inversion_and_mul(&mut v, coeff);
+        assert_eq!(v[1], TestScalar::ZERO);
+        assert_eq!(original[0] * v[0], coeff);
+        assert_eq!(original[2] * v[2], coeff);
+    }
+}
