@@ -101,6 +101,33 @@ mod test {
     use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
     use alloc::vec;
 
+    fn assert_adds_to(
+        lhs: OwnedColumn<TestScalar>,
+        rhs: OwnedColumn<TestScalar>,
+        expected: OwnedColumn<TestScalar>,
+    ) {
+        assert_eq!(lhs.element_wise_add(&rhs).unwrap(), expected);
+    }
+
+    fn assert_eqs_to(
+        lhs: OwnedColumn<TestScalar>,
+        rhs: OwnedColumn<TestScalar>,
+        expected: Vec<bool>,
+    ) {
+        assert_eq!(
+            lhs.element_wise_eq(&rhs).unwrap(),
+            OwnedColumn::<TestScalar>::Boolean(expected)
+        );
+    }
+
+    fn decimal_column(values: &[i64], precision: u8, scale: i8) -> OwnedColumn<TestScalar> {
+        OwnedColumn::<TestScalar>::Decimal75(
+            Precision::new(precision).unwrap(),
+            scale,
+            values.iter().copied().map(TestScalar::from).collect(),
+        )
+    }
+
     #[test]
     fn we_cannot_do_binary_operation_on_columns_with_different_lengths() {
         let lhs = OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]);
@@ -313,6 +340,196 @@ mod test {
             result,
             Ok(OwnedColumn::<TestScalar>::Boolean(vec![true, false, true]))
         );
+    }
+
+    #[test]
+    fn we_can_add_integer_columns_across_remaining_upcast_pairs() {
+        let uint8 = || OwnedColumn::<TestScalar>::Uint8(vec![3_u8, 4]);
+        let tinyint = || OwnedColumn::<TestScalar>::TinyInt(vec![-1_i8, 2]);
+        let smallint = || OwnedColumn::<TestScalar>::SmallInt(vec![-1_i16, 2]);
+        let int = || OwnedColumn::<TestScalar>::Int(vec![-1_i32, 2]);
+        let bigint = || OwnedColumn::<TestScalar>::BigInt(vec![-1_i64, 2]);
+        let int128 = || OwnedColumn::<TestScalar>::Int128(vec![-1_i128, 2]);
+
+        assert_adds_to(
+            uint8(),
+            smallint(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![2_i16, 6]),
+        );
+        assert_adds_to(
+            uint8(),
+            int(),
+            OwnedColumn::<TestScalar>::Int(vec![2_i32, 6]),
+        );
+        assert_adds_to(
+            uint8(),
+            bigint(),
+            OwnedColumn::<TestScalar>::BigInt(vec![2_i64, 6]),
+        );
+        assert_adds_to(
+            uint8(),
+            int128(),
+            OwnedColumn::<TestScalar>::Int128(vec![2_i128, 6]),
+        );
+        assert_adds_to(
+            tinyint(),
+            smallint(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![-2_i16, 4]),
+        );
+        assert_adds_to(
+            tinyint(),
+            int128(),
+            OwnedColumn::<TestScalar>::Int128(vec![-2_i128, 4]),
+        );
+        assert_adds_to(
+            smallint(),
+            tinyint(),
+            OwnedColumn::<TestScalar>::SmallInt(vec![-2_i16, 4]),
+        );
+        assert_adds_to(
+            smallint(),
+            int(),
+            OwnedColumn::<TestScalar>::Int(vec![-2_i32, 4]),
+        );
+        assert_adds_to(
+            smallint(),
+            bigint(),
+            OwnedColumn::<TestScalar>::BigInt(vec![-2_i64, 4]),
+        );
+        assert_adds_to(
+            smallint(),
+            int128(),
+            OwnedColumn::<TestScalar>::Int128(vec![-2_i128, 4]),
+        );
+        assert_adds_to(
+            int(),
+            tinyint(),
+            OwnedColumn::<TestScalar>::Int(vec![-2_i32, 4]),
+        );
+        assert_adds_to(
+            int(),
+            smallint(),
+            OwnedColumn::<TestScalar>::Int(vec![-2_i32, 4]),
+        );
+        assert_adds_to(
+            bigint(),
+            tinyint(),
+            OwnedColumn::<TestScalar>::BigInt(vec![-2_i64, 4]),
+        );
+        assert_adds_to(
+            bigint(),
+            smallint(),
+            OwnedColumn::<TestScalar>::BigInt(vec![-2_i64, 4]),
+        );
+        assert_adds_to(
+            bigint(),
+            int(),
+            OwnedColumn::<TestScalar>::BigInt(vec![-2_i64, 4]),
+        );
+        assert_adds_to(
+            int128(),
+            tinyint(),
+            OwnedColumn::<TestScalar>::Int128(vec![-2_i128, 4]),
+        );
+        assert_adds_to(
+            int128(),
+            smallint(),
+            OwnedColumn::<TestScalar>::Int128(vec![-2_i128, 4]),
+        );
+        assert_adds_to(
+            int128(),
+            bigint(),
+            OwnedColumn::<TestScalar>::Int128(vec![-2_i128, 4]),
+        );
+    }
+
+    #[test]
+    fn we_reject_uint8_tinyint_arithmetic_and_comparison() {
+        let uint8 = OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2]);
+        let tinyint = OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, -2]);
+
+        assert!(matches!(
+            uint8.element_wise_add(&tinyint),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint.element_wise_add(&uint8),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            uint8.element_wise_eq(&tinyint),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+        assert!(matches!(
+            tinyint.element_wise_eq(&uint8),
+            Err(ColumnOperationError::SignedCastingError { .. })
+        ));
+    }
+
+    #[test]
+    fn we_can_compare_integer_columns_across_remaining_upcast_pairs() {
+        let uint8 = || OwnedColumn::<TestScalar>::Uint8(vec![1_u8, 2, 3]);
+        let tinyint = || OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, -2, 4]);
+        let smallint = || OwnedColumn::<TestScalar>::SmallInt(vec![1_i16, -2, 4]);
+        let int = || OwnedColumn::<TestScalar>::Int(vec![1_i32, -2, 4]);
+        let bigint = || OwnedColumn::<TestScalar>::BigInt(vec![1_i64, -2, 4]);
+        let int128 = || OwnedColumn::<TestScalar>::Int128(vec![1_i128, -2, 4]);
+
+        assert_eqs_to(uint8(), smallint(), vec![true, false, false]);
+        assert_eqs_to(uint8(), int(), vec![true, false, false]);
+        assert_eqs_to(uint8(), bigint(), vec![true, false, false]);
+        assert_eqs_to(uint8(), int128(), vec![true, false, false]);
+        assert_eqs_to(tinyint(), int128(), vec![true, true, true]);
+        assert_eqs_to(smallint(), tinyint(), vec![true, true, true]);
+        assert_eqs_to(smallint(), bigint(), vec![true, true, true]);
+        assert_eqs_to(smallint(), int128(), vec![true, true, true]);
+        assert_eqs_to(int(), tinyint(), vec![true, true, true]);
+        assert_eqs_to(int(), bigint(), vec![true, true, true]);
+        assert_eqs_to(int(), int128(), vec![true, true, true]);
+        assert_eqs_to(bigint(), tinyint(), vec![true, true, true]);
+        assert_eqs_to(bigint(), smallint(), vec![true, true, true]);
+        assert_eqs_to(bigint(), int(), vec![true, true, true]);
+        assert_eqs_to(int128(), tinyint(), vec![true, true, true]);
+        assert_eqs_to(int128(), smallint(), vec![true, true, true]);
+        assert_eqs_to(int128(), int(), vec![true, true, true]);
+        assert_eqs_to(int128(), bigint(), vec![true, true, true]);
+    }
+
+    #[test]
+    fn we_can_operate_on_decimal_columns_with_integer_columns_in_both_orders() {
+        let decimal = || decimal_column(&[10, -20, 35], 5, 1);
+        let tinyint = || OwnedColumn::<TestScalar>::TinyInt(vec![1_i8, 2, -3]);
+        let smallint = || OwnedColumn::<TestScalar>::SmallInt(vec![1_i16, 2, -3]);
+        let int = || OwnedColumn::<TestScalar>::Int(vec![1_i32, 2, -3]);
+        let bigint = || OwnedColumn::<TestScalar>::BigInt(vec![1_i64, 2, -3]);
+        let int128 = || OwnedColumn::<TestScalar>::Int128(vec![1_i128, 2, -3]);
+        let expected_values = vec![
+            TestScalar::from(20),
+            TestScalar::from(0),
+            TestScalar::from(5),
+        ];
+
+        for rhs in [tinyint(), smallint(), int(), bigint(), int128()] {
+            match decimal().element_wise_add(&rhs).unwrap() {
+                OwnedColumn::Decimal75(_, scale, values) => {
+                    assert_eq!(scale, 1);
+                    assert_eq!(values, expected_values);
+                }
+                other => panic!("expected decimal result, got {other:?}"),
+            }
+        }
+
+        let decimal_rhs = || decimal_column(&[10, -20, 35], 5, 1);
+        assert_eqs_to(tinyint(), decimal_rhs(), vec![true, false, false]);
+        assert_eqs_to(smallint(), decimal_rhs(), vec![true, false, false]);
+        assert_eqs_to(int(), decimal_rhs(), vec![true, false, false]);
+        assert_eqs_to(bigint(), decimal_rhs(), vec![true, false, false]);
+        assert_eqs_to(int128(), decimal_rhs(), vec![true, false, false]);
+        assert_eqs_to(decimal_rhs(), tinyint(), vec![true, false, false]);
+        assert_eqs_to(decimal_rhs(), smallint(), vec![true, false, false]);
+        assert_eqs_to(decimal_rhs(), int(), vec![true, false, false]);
+        assert_eqs_to(decimal_rhs(), bigint(), vec![true, false, false]);
+        assert_eqs_to(decimal_rhs(), int128(), vec![true, false, false]);
     }
 
     #[test]
