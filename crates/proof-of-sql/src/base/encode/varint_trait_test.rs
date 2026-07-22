@@ -1,4 +1,4 @@
-use super::VarInt;
+use super::{VarInt, U256};
 use crate::base::scalar::{test_scalar::TestScalar, Scalar};
 use alloc::{vec, vec::Vec};
 use core::{
@@ -444,3 +444,38 @@ fn we_can_encode_and_decode_u64_and_u128_the_same() {
 // ----------------------
 // End VarInt trait tests
 // ----------------------
+
+// ---------------------------
+// Blanket impl + U256 helpers
+// ---------------------------
+
+/// Compile-time check that `Scalar` types get `VarInt` via the blanket impl.
+#[test]
+fn scalar_types_get_varint_via_blanket_impl() {
+    fn requires_varint<T: VarInt>() {}
+    requires_varint::<TestScalar>();
+}
+
+#[test]
+fn u256_limb_roundtrips_preserve_values() {
+    let limbs = [
+        0x0011_2233_4455_6677_u64,
+        0x8899_aabb_ccdd_eeff,
+        0x1020_3040_5060_7080,
+        0x90a0_b0c0_d0e0_f001,
+    ];
+    assert_eq!(U256::from_limbs(limbs).to_limbs(), limbs);
+
+    // roundtrip from words -> limbs -> words
+    let value = U256::from_words(
+        0x8899_aabb_ccdd_eeff_0011_2233_4455_6677,
+        0x90a0_b0c0_d0e0_f001_1020_3040_5060_7080,
+    );
+    assert_eq!(
+        U256::from_limbs(value.to_limbs()).to_limbs(),
+        value.to_limbs()
+    );
+
+    // zero roundtrips
+    assert_eq!(U256::from_limbs([0; 4]).to_limbs(), [0; 4]);
+}
