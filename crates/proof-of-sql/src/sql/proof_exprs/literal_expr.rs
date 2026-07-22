@@ -92,3 +92,84 @@ impl ProofExpr for LiteralExpr {
 
     fn get_column_references(&self, _columns: &mut IndexSet<ColumnRef>) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{database::LiteralValue, map::indexset};
+    use alloc::{string::ToString, vec};
+
+    #[test]
+    fn we_can_create_literal_expr_and_read_back_the_value() {
+        let v = LiteralValue::Boolean(true);
+        let expr = LiteralExpr::new(v.clone());
+        assert_eq!(expr.value(), &v);
+    }
+
+    #[test]
+    fn data_type_matches_literal_value_column_type_for_each_simple_variant() {
+        let cases = [
+            LiteralValue::Boolean(true),
+            LiteralValue::Uint8(1),
+            LiteralValue::TinyInt(2),
+            LiteralValue::SmallInt(3),
+            LiteralValue::Int(4),
+            LiteralValue::BigInt(5),
+            LiteralValue::Int128(6),
+            LiteralValue::VarChar("hello".to_string()),
+            LiteralValue::VarBinary(vec![1u8, 2, 3]),
+        ];
+        for v in cases {
+            let expected = v.column_type();
+            let expr = LiteralExpr::new(v);
+            assert_eq!(expr.data_type(), expected);
+        }
+    }
+
+    #[test]
+    fn literal_expr_records_no_column_references() {
+        let expr = LiteralExpr::new(LiteralValue::BigInt(42));
+        let mut refs: IndexSet<ColumnRef> = indexset! {};
+        expr.get_column_references(&mut refs);
+        assert!(refs.is_empty());
+    }
+
+    #[test]
+    fn literal_expr_does_not_mutate_pre_existing_column_references() {
+        // Pre-populated set must remain untouched: literals contribute zero refs.
+        let expr = LiteralExpr::new(LiteralValue::Int(7));
+        let mut refs: IndexSet<ColumnRef> = indexset! {};
+        let before_len = refs.len();
+        expr.get_column_references(&mut refs);
+        assert_eq!(refs.len(), before_len);
+    }
+
+    #[test]
+    fn equal_literal_values_produce_equal_literal_exprs() {
+        let a = LiteralExpr::new(LiteralValue::Boolean(true));
+        let b = LiteralExpr::new(LiteralValue::Boolean(true));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn different_inner_values_produce_different_literal_exprs() {
+        let a = LiteralExpr::new(LiteralValue::Boolean(true));
+        let b = LiteralExpr::new(LiteralValue::Boolean(false));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn different_variant_values_produce_different_literal_exprs() {
+        let a = LiteralExpr::new(LiteralValue::Int(0));
+        let b = LiteralExpr::new(LiteralValue::BigInt(0));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn literal_expr_can_be_cloned() {
+        let original = LiteralExpr::new(LiteralValue::VarChar("clone-me".to_string()));
+        let copy = original.clone();
+        assert_eq!(original, copy);
+        assert_eq!(copy.value(), original.value());
+    }
+}
