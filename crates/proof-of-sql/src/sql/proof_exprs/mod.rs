@@ -12,7 +12,7 @@ mod add_expr;
 pub(crate) use add_expr::AddExpr;
 mod subtract_expr;
 pub(crate) use subtract_expr::SubtractExpr;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod add_subtract_expr_test;
 
 mod multiply_expr;
