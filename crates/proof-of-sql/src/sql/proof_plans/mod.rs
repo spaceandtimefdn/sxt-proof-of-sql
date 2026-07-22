@@ -9,7 +9,7 @@ mod table_exec_test;
 
 mod projection_exec;
 pub(crate) use projection_exec::ProjectionExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod projection_exec_test;
 
 #[cfg(test)]
