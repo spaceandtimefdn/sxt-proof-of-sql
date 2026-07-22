@@ -338,7 +338,10 @@ impl<'a, S: Scalar> Column<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{base::scalar::test_scalar::TestScalar, proof_primitive::dory::DoryScalar};
+    use crate::{
+        base::{math::i256::I256, scalar::test_scalar::TestScalar},
+        proof_primitive::dory::DoryScalar,
+    };
     use alloc::{string::String, vec};
 
     #[test]
@@ -432,6 +435,106 @@ mod tests {
         let column: Column<'_, TestScalar> = Column::Decimal75(precision, scale, &[]);
         assert_eq!(column.len(), 0);
         assert!(column.is_empty());
+    }
+
+    #[test]
+    fn we_can_create_constant_columns_from_literals() {
+        let alloc = Bump::new();
+        let decimal_value = I256::from(1234);
+        let scalar_limbs = [1, 2, 3, 4];
+        let text = String::from("proof");
+        let bytes = vec![3, 1, 4];
+        let timestamp = 1_716_000_123_i64;
+
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::Boolean(true), 2, &alloc),
+            Column::Boolean(&[true, true])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::Uint8(7), 2, &alloc),
+            Column::Uint8(&[7, 7])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::TinyInt(-8), 2, &alloc),
+            Column::TinyInt(&[-8, -8])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::SmallInt(-16), 2, &alloc),
+            Column::SmallInt(&[-16, -16])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::Int(-32), 2, &alloc),
+            Column::Int(&[-32, -32])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::BigInt(-64), 2, &alloc),
+            Column::BigInt(&[-64, -64])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(&LiteralValue::Int128(-128), 2, &alloc),
+            Column::Int128(&[-128, -128])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(
+                &LiteralValue::Scalar(scalar_limbs),
+                2,
+                &alloc
+            ),
+            Column::Scalar(&[scalar_limbs.into(), scalar_limbs.into()])
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(
+                &LiteralValue::Decimal75(Precision::new(9).unwrap(), 2, decimal_value),
+                2,
+                &alloc
+            ),
+            Column::Decimal75(
+                Precision::new(9).unwrap(),
+                2,
+                &[decimal_value.into_scalar(), decimal_value.into_scalar()]
+            )
+        );
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(
+                &LiteralValue::TimeStampTZ(
+                    PoSQLTimeUnit::Millisecond,
+                    PoSQLTimeZone::utc(),
+                    timestamp,
+                ),
+                2,
+                &alloc
+            ),
+            Column::TimestampTZ(
+                PoSQLTimeUnit::Millisecond,
+                PoSQLTimeZone::utc(),
+                &[timestamp, timestamp]
+            )
+        );
+
+        let expected_texts = ["proof", "proof"];
+        let expected_text_scalars = [TestScalar::from(&text), TestScalar::from(&text)];
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(
+                &LiteralValue::VarChar(text.clone()),
+                2,
+                &alloc
+            ),
+            Column::VarChar((&expected_texts, &expected_text_scalars))
+        );
+
+        let expected_bytes: [&[u8]; 2] = [bytes.as_slice(), bytes.as_slice()];
+        let expected_byte_scalars = [
+            TestScalar::from_byte_slice_via_hash(&bytes),
+            TestScalar::from_byte_slice_via_hash(&bytes),
+        ];
+        assert_eq!(
+            Column::<TestScalar>::from_literal_with_length(
+                &LiteralValue::VarBinary(bytes.clone()),
+                2,
+                &alloc
+            ),
+            Column::VarBinary((&expected_bytes, &expected_byte_scalars))
+        );
     }
 
     #[test]
