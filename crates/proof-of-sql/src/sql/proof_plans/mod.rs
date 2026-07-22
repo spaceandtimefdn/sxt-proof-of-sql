@@ -32,6 +32,8 @@ mod fold_util_test;
 mod group_by_exec;
 pub(crate) use group_by_exec::GroupByExec;
 
+#[cfg(test)]
+mod group_by_exec_metadata_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod group_by_exec_test;
 
@@ -45,6 +47,8 @@ mod aggregate_exec;
 pub(crate) use aggregate_exec::AggregateExec;
 pub use aggregate_exec::AggregateExecError;
 
+#[cfg(test)]
+mod aggregate_exec_metadata_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod aggregate_exec_test;
 
