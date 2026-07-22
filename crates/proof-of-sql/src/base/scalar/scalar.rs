@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
+use crate::base::scalar::ScalarConversionError;
 use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
@@ -40,8 +40,6 @@ pub trait Scalar:
     + core::convert::TryInto <i32>
     + core::convert::TryInto <i64>
     + core::convert::TryInto <i128>
-    + core::convert::Into<[u64; 4]>
-    + core::convert::From<[u64; 4]>
     + core::convert::From<u8>
     + core::cmp::Ord
     + core::ops::Neg<Output = Self>
@@ -51,9 +49,7 @@ pub trait Scalar:
     + ark_std::UniformRand //This enables us to get `Scalar`s as challenges from the transcript
     + num_traits::Inv<Output = Option<Self>> // Note: `inv` should return `None` exactly when the element is zero.
     + core::ops::SubAssign
-    + RefInto<[u64; 4]>
     + for<'a> core::convert::From<&'a String>
-    + VarInt
     + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
@@ -85,4 +81,10 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Creates a scalar from its canonical non-Montgomery limbs.
+    fn from_limbs(limbs: [u64; 4]) -> Self;
+
+    /// Returns the scalar's canonical non-Montgomery limbs.
+    fn to_limbs(&self) -> [u64; 4];
 }
