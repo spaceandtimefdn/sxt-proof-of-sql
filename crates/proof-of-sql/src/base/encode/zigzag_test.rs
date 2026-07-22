@@ -99,3 +99,59 @@ fn big_additive_inverses_that_are_smaller_than_the_input_scalars_are_encoded_as_
             == U256::from_words(0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff_u128, 0x1_u128)
     );
 }
+
+#[test]
+fn positive_zigzag_values_are_decoded_as_positive_scalars() {
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(0, 0)),
+        TestScalar::from(0_u64)
+    );
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(2, 0)),
+        TestScalar::from(1_u64)
+    );
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(4, 0)),
+        TestScalar::from(2_u64)
+    );
+
+    let encoded = U256::from_words(0, 1);
+    let expected: TestScalar =
+        (&U256::from_words(0x8000_0000_0000_0000_0000_0000_0000_0000, 0)).into();
+    assert_eq!(<U256 as ZigZag<TestScalar>>::zigzag(&encoded), expected);
+}
+
+#[test]
+fn negative_zigzag_values_are_decoded_as_negative_scalars() {
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(1, 0)),
+        -TestScalar::from(1_u64)
+    );
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(3, 0)),
+        -TestScalar::from(2_u64)
+    );
+    assert_eq!(
+        <U256 as ZigZag<TestScalar>>::zigzag(&U256::from_words(1_999, 0)),
+        -TestScalar::from(1_000_u64)
+    );
+}
+
+#[test]
+fn zigzag_round_trips_signed_scalars() {
+    let scalars = [
+        TestScalar::from(0_u64),
+        TestScalar::from(1_u64),
+        TestScalar::from(999_u64),
+        TestScalar::from(u128::MAX),
+        -TestScalar::from(1_u64),
+        -TestScalar::from(2_u64),
+        -TestScalar::from(999_u64),
+    ];
+
+    for scalar in scalars {
+        let encoded = scalar.zigzag();
+        let decoded = <U256 as ZigZag<TestScalar>>::zigzag(&encoded);
+        assert_eq!(decoded, scalar);
+    }
+}
