@@ -60,6 +60,8 @@ mod union_exec_test;
 
 mod sort_merge_join_exec;
 pub use sort_merge_join_exec::SortMergeJoinExec;
+#[cfg(test)]
+mod sort_merge_join_exec_no_blitzar_test;
 #[cfg(all(test, feature = "blitzar"))]
 mod sort_merge_join_exec_test;
 
