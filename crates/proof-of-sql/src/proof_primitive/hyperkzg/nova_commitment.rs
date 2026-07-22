@@ -50,6 +50,18 @@ mod tests {
         )
     }
 
+    fn compute_limb_commitment_with_hyperkzg_repo(
+        setup: &CommitmentKey<HyperKZGEngine>,
+        offset: usize,
+        scalars: &[[u64; 4]],
+    ) -> NovaCommitment {
+        let converted_scalars: Vec<_> = scalars
+            .iter()
+            .map(|limbs| BNScalar::from_limbs(*limbs))
+            .collect();
+        compute_commitment_with_hyperkzg_repo(setup, offset, &converted_scalars)
+    }
+
     #[test]
     fn we_can_compute_commitment_with_hyperkzg_repo_for_testing() {
         let ck: CommitmentKey<HyperKZGEngine> = CommitmentEngine::setup(b"test", 6);
@@ -95,7 +107,7 @@ mod tests {
                 | CommittableColumn::Scalar(vals)
                 | CommittableColumn::VarChar(vals)
                 | CommittableColumn::VarBinary(vals) => {
-                    expected.push(compute_commitment_with_hyperkzg_repo(ck, offset, vals));
+                    expected.push(compute_limb_commitment_with_hyperkzg_repo(ck, offset, vals));
                 }
             }
         }
