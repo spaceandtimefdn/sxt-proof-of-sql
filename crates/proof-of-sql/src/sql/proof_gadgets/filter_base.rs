@@ -150,3 +150,94 @@ pub(crate) fn final_round_filter_constraints<'a, S: Scalar + 'a>(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{final_round_evaluate_filter, verify_evaluate_filter};
+    use crate::{
+        base::{
+            database::Column,
+            polynomial::MultilinearExtension,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::proof::{
+            mock_verification_builder::run_verify_for_each_row, FinalRoundBuilder,
+            FirstRoundBuilder,
+        },
+        sql::proof_plans::fold_vals,
+    };
+    use alloc::collections::VecDeque;
+    use bumpalo::Bump;
+
+    #[test]
+    fn we_can_prove_and_verify_filter_base_constraints() {
+        let alloc = Bump::new();
+        let input_values = [2_i64, 4, 6, 8];
+        let output_values = [2_i64, 4];
+        let selection = [true, true, false, false];
+        let input_column = Column::<TestScalar>::BigInt(&input_values);
+        let output_column = Column::<TestScalar>::BigInt(&output_values);
+        let alpha = TestScalar::TWO;
+        let beta = TestScalar::TEN;
+
+        let first_round_builder = FirstRoundBuilder::new(input_values.len());
+        let mut final_round_builder = FinalRoundBuilder::new(input_values.len(), VecDeque::new());
+        final_round_evaluate_filter(
+            &mut final_round_builder,
+            &alloc,
+            alpha,
+            beta,
+            &[input_column],
+            &selection,
+            &[output_column],
+            input_values.len(),
+            output_values.len(),
+        );
+
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 2);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 4);
+
+        let verification_builder = run_verify_for_each_row(
+            input_values.len(),
+            &first_round_builder,
+            &final_round_builder,
+            Vec::new(),
+            3,
+            |verification_builder, chi_n_eval, evaluation_point| {
+                let chi_m_eval = if evaluation_point
+                    .iter()
+                    .take(output_values.len())
+                    .any(|value| *value == TestScalar::ONE)
+                {
+                    TestScalar::ONE
+                } else {
+                    TestScalar::ZERO
+                };
+                let c_fold_eval =
+                    alpha * fold_vals(beta, &[input_column.inner_product(evaluation_point)]);
+                let d_fold_eval =
+                    alpha * fold_vals(beta, &[output_column.inner_product(evaluation_point)]);
+                let selection_eval = (&selection).inner_product(evaluation_point);
+
+                verify_evaluate_filter(
+                    verification_builder,
+                    c_fold_eval,
+                    d_fold_eval,
+                    chi_n_eval,
+                    chi_m_eval,
+                    selection_eval,
+                )
+                .unwrap();
+            },
+        );
+
+        assert!(verification_builder
+            .get_identity_results()
+            .iter()
+            .all(|row| row.iter().all(|value| *value)));
+        assert!(verification_builder
+            .get_zero_sum_results()
+            .iter()
+            .all(|value| *value));
+    }
+}
