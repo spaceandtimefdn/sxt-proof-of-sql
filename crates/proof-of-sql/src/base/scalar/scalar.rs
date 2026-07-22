@@ -1,6 +1,6 @@
 #![expect(clippy::module_inception)]
 
-use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
+use crate::base::{ref_into::RefInto, scalar::ScalarConversionError};
 use alloc::string::String;
 use bnum::types::U256;
 use core::ops::Sub;
@@ -53,7 +53,6 @@ pub trait Scalar:
     + core::ops::SubAssign
     + RefInto<[u64; 4]>
     + for<'a> core::convert::From<&'a String>
-    + VarInt
     + core::convert::From<String>
     + core::convert::From<i128>
     + core::convert::From<i64>
@@ -85,4 +84,20 @@ pub trait Scalar:
     const MAX_BITS: u8;
     /// A U256 representation of the largest signed value in the field.
     const MAX_SIGNED_U256: U256;
+
+    /// Convert little-endian 64-bit limbs into this scalar.
+    ///
+    /// This makes the non-free limb conversion explicit for generic code
+    /// without requiring callers to rely on opaque `From<[u64; 4]>` syntax.
+    fn from_limbs(val: [u64; 4]) -> Self {
+        Self::from(val)
+    }
+
+    /// Convert this scalar into little-endian 64-bit limbs.
+    ///
+    /// This makes the non-free limb conversion explicit for generic code
+    /// without requiring callers to rely on opaque `Into<[u64; 4]>` syntax.
+    fn to_limbs(&self) -> [u64; 4] {
+        (*self).into()
+    }
 }
