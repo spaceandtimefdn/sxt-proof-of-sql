@@ -1,5 +1,42 @@
 use super::*;
 use crate::base::scalar::test_scalar::TestScalar;
+
+#[test]
+fn test_slice_cast_with_empty_slice() {
+    let input: Vec<u32> = vec![];
+    let output: Vec<u64> = slice_cast_with(&input, |&x| u64::from(x));
+
+    assert_eq!(output, Vec::<u64>::new());
+}
+
+#[test]
+fn test_slice_cast_empty_slice() {
+    let input: Vec<u32> = vec![];
+    let output: Vec<TestScalar> = slice_cast(&input);
+
+    assert_eq!(output, Vec::<TestScalar>::new());
+}
+
+#[test]
+fn test_slice_cast_mut_with_empty_slice() {
+    let input: Vec<u32> = vec![];
+    let mut output: Vec<u64> = vec![];
+
+    slice_cast_mut_with(&input, &mut output, |&x| u64::from(x));
+
+    assert_eq!(output, Vec::<u64>::new());
+}
+
+#[test]
+fn test_slice_cast_mut_empty_slice() {
+    let input: Vec<u32> = vec![];
+    let mut output: Vec<TestScalar> = vec![];
+
+    slice_cast_mut(&input, &mut output);
+
+    assert_eq!(output, Vec::<TestScalar>::new());
+}
+
 #[test]
 fn test_slice_map_to_vec() {
     let a: Vec<u32> = vec![1, 2, 3, 4];
