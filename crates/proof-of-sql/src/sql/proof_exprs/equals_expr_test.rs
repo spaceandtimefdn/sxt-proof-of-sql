@@ -1,16 +1,15 @@
 use crate::{
     base::{
-        commitment::InnerProductProof,
+        commitment::naive_evaluation_proof::NaiveEvaluationProof,
         database::{
             owned_table_utility::*, table_utility::*, Column, ColumnType, OwnedTable,
             OwnedTableTestAccessor, Table, TableRef, TableTestAccessor,
         },
         math::decimal::Precision,
-        scalar::Scalar,
+        scalar::{test_scalar::TestScalar, Scalar},
     },
-    proof_primitive::inner_product::curve_25519_scalar::Curve25519Scalar,
     sql::{
-        proof::{exercise_verification, VerifiableQueryResult},
+        proof::VerifiableQueryResult,
         proof_exprs::{test_utility::*, DynProofExpr, EqualsExpr, ProofExpr},
         proof_plans::test_utility::*,
         AnalyzeError,
@@ -26,7 +25,7 @@ use rand_core::SeedableRng;
 
 #[test]
 fn we_can_prove_an_equality_query_with_no_rows() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [0; 0]),
         bigint("b", [0; 0]),
         varchar("d", [""; 0]),
@@ -34,7 +33,7 @@ fn we_can_prove_an_equality_query_with_no_rows() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -49,7 +48,7 @@ fn we_can_prove_an_equality_query_with_no_rows() {
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -60,7 +59,7 @@ fn we_can_prove_an_equality_query_with_no_rows() {
 
 #[test]
 fn we_can_prove_another_equality_query_with_no_rows() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [0; 0]),
         bigint("b", [0; 0]),
         varchar("d", [""; 0]),
@@ -68,7 +67,7 @@ fn we_can_prove_another_equality_query_with_no_rows() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d"], &accessor),
         table_exec(
@@ -83,7 +82,7 @@ fn we_can_prove_another_equality_query_with_no_rows() {
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -94,7 +93,7 @@ fn we_can_prove_another_equality_query_with_no_rows() {
 
 #[test]
 fn we_can_prove_a_nested_equality_query_with_no_rows() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         boolean("bool", [true; 0]),
         bigint("a", [1; 0]),
         bigint("b", [1; 0]),
@@ -103,7 +102,7 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["b", "c", "e"], &accessor),
         table_exec(
@@ -122,7 +121,7 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
         ),
     );
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -137,7 +136,7 @@ fn we_can_prove_a_nested_equality_query_with_no_rows() {
 
 #[test]
 fn we_can_prove_an_equality_query_with_a_single_selected_row() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123]),
         bigint("b", [0]),
         varchar("d", ["abc"]),
@@ -145,7 +144,7 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
         table_exec(
@@ -159,8 +158,8 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -171,7 +170,7 @@ fn we_can_prove_an_equality_query_with_a_single_selected_row() {
 
 #[test]
 fn we_can_prove_another_equality_query_with_a_single_selected_row() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123]),
         bigint("b", [123]),
         varchar("d", ["abc"]),
@@ -179,7 +178,7 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["d", "a"], &accessor),
         table_exec(
@@ -193,8 +192,8 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
         ),
         equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -205,15 +204,15 @@ fn we_can_prove_another_equality_query_with_a_single_selected_row() {
 
 #[test]
 fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123]),
         bigint("b", [55]),
         varchar("d", ["abc"]),
-        decimal75("e", 75, 0, [Curve25519Scalar::MAX_SIGNED]),
+        decimal75("e", 75, 0, [TestScalar::MAX_SIGNED]),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "d", "e"], &accessor),
         table_exec(
@@ -227,8 +226,8 @@ fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -243,7 +242,7 @@ fn we_can_prove_an_equality_query_with_a_single_non_selected_row() {
 
 #[test]
 fn we_can_prove_an_equality_query_with_multiple_rows() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [1, 2, 3, 4]),
         bigint("b", [0, 5, 0, 5]),
         varchar("c", ["t", "ghi", "jj", "f"]),
@@ -252,16 +251,16 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
             75,
             0,
             [
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::ONE,
-                Curve25519Scalar::TWO,
-                Curve25519Scalar::MAX_SIGNED,
+                TestScalar::ZERO,
+                TestScalar::ONE,
+                TestScalar::TWO,
+                TestScalar::MAX_SIGNED,
             ],
         ),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
         table_exec(
@@ -275,8 +274,8 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(0_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -291,7 +290,7 @@ fn we_can_prove_an_equality_query_with_multiple_rows() {
 
 #[test]
 fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         boolean("bool", [true, false, true, false]),
         bigint("a", [1, 2, 3, 4]),
         bigint("b", [1, 5, 0, 4]),
@@ -301,16 +300,16 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
             75,
             0,
             [
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::ONE,
-                Curve25519Scalar::TWO,
-                Curve25519Scalar::MAX_SIGNED,
+                TestScalar::ZERO,
+                TestScalar::ONE,
+                TestScalar::TWO,
+                TestScalar::MAX_SIGNED,
             ],
         ),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
         table_exec(
@@ -328,8 +327,8 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
             equal(column(&t, "a", &accessor), column(&t, "b", &accessor)),
         ),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -344,7 +343,7 @@ fn we_can_prove_a_nested_equality_query_with_multiple_rows() {
 
 #[test]
 fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [1, 2, 3, 4, 5]),
         bigint("b", [123, 5, 123, 5, 0]),
         varchar("c", ["t", "ghi", "jj", "f", "abc"]),
@@ -353,17 +352,17 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
             42,
             10,
             [
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::ONE,
-                Curve25519Scalar::TWO,
-                Curve25519Scalar::from(3),
-                Curve25519Scalar::MAX_SIGNED,
+                TestScalar::ZERO,
+                TestScalar::ONE,
+                TestScalar::TWO,
+                TestScalar::from(3),
+                TestScalar::MAX_SIGNED,
             ],
         ),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "c", "e"], &accessor),
         table_exec(
@@ -377,8 +376,8 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
         ),
         equal(column(&t, "b", &accessor), const_bigint(123_i64)),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -393,7 +392,7 @@ fn we_can_prove_an_equality_query_with_a_nonzero_comparison() {
 
 #[test]
 fn we_can_prove_an_equality_query_with_a_string_comparison() {
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [1, 2, 3, 4, 5, 5]),
         bigint("b", [123, 5, 123, 123, 5, 0]),
         varchar("c", ["t", "ghi", "jj", "f", "abc", "ghi"]),
@@ -402,18 +401,18 @@ fn we_can_prove_an_equality_query_with_a_string_comparison() {
             42, // precision
             10, // scale
             [
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::ONE,
-                Curve25519Scalar::TWO,
-                Curve25519Scalar::from(3),
-                Curve25519Scalar::MAX_SIGNED,
-                Curve25519Scalar::from(-1),
+                TestScalar::ZERO,
+                TestScalar::ONE,
+                TestScalar::TWO,
+                TestScalar::from(3),
+                TestScalar::MAX_SIGNED,
+                TestScalar::from(-1),
             ],
         ),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
     let ast = filter(
         cols_expr_plan(&t, &["a", "b", "e"], &accessor),
         table_exec(
@@ -427,8 +426,8 @@ fn we_can_prove_an_equality_query_with_a_string_comparison() {
         ),
         equal(column(&t, "c", &accessor), const_varchar("ghi")),
     );
-    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-    exercise_verification(&verifiable_res, &ast, &accessor, &t);
+    let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+        VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -465,7 +464,7 @@ fn test_random_tables_with_given_offset(offset: usize) {
 
         // Create and verify proof
         let t = TableRef::new("sxt", "t");
-        let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(
+        let accessor = OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(
             t.clone(),
             data.clone(),
             offset,
@@ -487,8 +486,8 @@ fn test_random_tables_with_given_offset(offset: usize) {
                 const_varchar(filter_val.as_str()),
             ),
         );
-        let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
-        exercise_verification(&verifiable_res, &ast, &accessor, &t);
+        let verifiable_res: VerifiableQueryResult<NaiveEvaluationProof> =
+            VerifiableQueryResult::new(&ast, &accessor, &(), &[]).unwrap();
         let res = verifiable_res
             .verify(&ast, &accessor, &(), &[])
             .unwrap()
@@ -528,7 +527,7 @@ fn we_can_query_random_tables_using_a_non_zero_offset() {
 #[test]
 fn we_can_compute_the_correct_output_of_an_equals_expr_using_first_round_evaluate() {
     let alloc = Bump::new();
-    let data: Table<Curve25519Scalar> = table([
+    let data: Table<TestScalar> = table([
         borrowed_bigint("a", [1, 2, 3, 4], &alloc),
         borrowed_bigint("b", [0, 5, 0, 5], &alloc),
         borrowed_varchar("c", ["t", "ghi", "jj", "f"], &alloc),
@@ -537,20 +536,20 @@ fn we_can_compute_the_correct_output_of_an_equals_expr_using_first_round_evaluat
             42,
             10,
             [
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::MAX_SIGNED,
-                Curve25519Scalar::ZERO,
-                Curve25519Scalar::from(-1),
+                TestScalar::ZERO,
+                TestScalar::MAX_SIGNED,
+                TestScalar::ZERO,
+                TestScalar::from(-1),
             ],
             &alloc,
         ),
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let equals_expr: DynProofExpr = equal(
         column(&t, "e", &accessor),
-        const_scalar::<Curve25519Scalar, _>(Curve25519Scalar::ZERO),
+        const_scalar::<TestScalar, _>(TestScalar::ZERO),
     );
     let res = equals_expr
         .first_round_evaluate(&alloc, &data, &[])
@@ -562,7 +561,7 @@ fn we_can_compute_the_correct_output_of_an_equals_expr_using_first_round_evaluat
 #[test]
 fn we_can_query_with_varbinary_equality() {
     // Create a table with bigint and varbinary columns
-    let data: OwnedTable<Curve25519Scalar> = owned_table([
+    let data: OwnedTable<TestScalar> = owned_table([
         bigint("a", [123, 4567]),
         varbinary("b", [[1, 2, 3].as_slice(), &[4, 5, 6, 7]]),
     ]);
@@ -570,7 +569,7 @@ fn we_can_query_with_varbinary_equality() {
     // Create table reference and accessor
     let t = TableRef::new("sxt", "table");
     let accessor =
-        OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data, 0, ());
+        OwnedTableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data, 0, ());
 
     // Build query plan: SELECT a, b FROM table WHERE b = [4,5,6,7]
     let ast = filter(
@@ -587,7 +586,7 @@ fn we_can_query_with_varbinary_equality() {
 
     // Execute and verify query
     let verifiable_res =
-        VerifiableQueryResult::<InnerProductProof>::new(&ast, &accessor, &(), &[]).unwrap();
+        VerifiableQueryResult::<NaiveEvaluationProof>::new(&ast, &accessor, &(), &[]).unwrap();
     let res = verifiable_res
         .verify(&ast, &accessor, &(), &[])
         .unwrap()
@@ -608,7 +607,7 @@ fn we_cannot_equals_mismatching_types() {
     ]);
     let t = TableRef::new("sxt", "t");
     let accessor =
-        TableTestAccessor::<InnerProductProof>::new_from_table(t.clone(), data.clone(), 0, ());
+        TableTestAccessor::<NaiveEvaluationProof>::new_from_table(t.clone(), data.clone(), 0, ());
     let lhs = Box::new(column(&t, "a", &accessor));
     let rhs = Box::new(column(&t, "b", &accessor));
     let equals_err = EqualsExpr::try_new(lhs.clone(), rhs.clone()).unwrap_err();
