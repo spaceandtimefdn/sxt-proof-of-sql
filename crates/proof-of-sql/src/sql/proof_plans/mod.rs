@@ -38,7 +38,7 @@ mod group_by_exec_test;
 mod filter_exec;
 pub(crate) use filter_exec::FilterExec;
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod filter_exec_test;
 
 mod aggregate_exec;
