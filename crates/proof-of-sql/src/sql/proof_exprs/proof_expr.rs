@@ -78,3 +78,46 @@ pub(crate) trait DecimalProofExpr: ProofExpr {
         self.data_type().scale().expect("Scale should be valid")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DecimalProofExpr;
+    use crate::{
+        base::{
+            database::LiteralValue,
+            math::{decimal::Precision, i256::I256},
+        },
+        sql::proof_exprs::{AddExpr, DynProofExpr, MultiplyExpr, SubtractExpr},
+    };
+
+    fn decimal_literal(precision: u8, scale: i8, value: impl Into<I256>) -> DynProofExpr {
+        DynProofExpr::new_literal(LiteralValue::Decimal75(
+            Precision::new(precision).unwrap(),
+            scale,
+            value.into(),
+        ))
+    }
+
+    fn assert_decimal_metadata(expr: &impl DecimalProofExpr) {
+        let data_type = expr.data_type();
+        assert_eq!(
+            expr.precision(),
+            Precision::new(data_type.precision_value().unwrap()).unwrap()
+        );
+        assert_eq!(expr.scale(), data_type.scale().unwrap());
+    }
+
+    #[test]
+    fn decimal_proof_expr_metadata_matches_add_subtract_and_multiply_result_types() {
+        let lhs = decimal_literal(12, 3, 1234);
+        let rhs = decimal_literal(12, 3, 567);
+
+        assert_decimal_metadata(
+            &AddExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+        );
+        assert_decimal_metadata(
+            &SubtractExpr::try_new(Box::new(lhs.clone()), Box::new(rhs.clone())).unwrap(),
+        );
+        assert_decimal_metadata(&MultiplyExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap());
+    }
+}
