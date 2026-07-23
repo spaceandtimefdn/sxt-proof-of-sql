@@ -213,3 +213,200 @@ pub fn verifier_evaluate_equals_zero<S: Scalar>(
 
     Ok(selection_eval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        final_round_evaluate_equals_zero, first_round_evaluate_equals_zero,
+        verifier_evaluate_equals_zero, EqualsExpr,
+    };
+    use crate::{
+        base::{
+            database::{Column, ColumnType, LiteralValue, Table, TableOptions},
+            map::IndexMap,
+            scalar::{test_scalar::TestScalar, Scalar},
+        },
+        sql::{
+            proof::{mock_verification_builder::MockVerificationBuilder, FinalRoundBuilder},
+            proof_exprs::{DynProofExpr, ProofExpr},
+            AnalyzeError,
+        },
+    };
+    use alloc::{collections::VecDeque, string::ToString, vec, vec::Vec};
+    use bumpalo::Bump;
+
+    fn unit_vectors(len: usize) -> Vec<Vec<TestScalar>> {
+        (0..len)
+            .map(|i| {
+                (0..len)
+                    .map(|j| {
+                        if i == j {
+                            TestScalar::ONE
+                        } else {
+                            TestScalar::ZERO
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn we_can_construct_equals_expr_and_read_operands() {
+        let lhs = DynProofExpr::new_literal(LiteralValue::BigInt(7));
+        let rhs = DynProofExpr::new_literal(LiteralValue::Int(7));
+
+        let expr = EqualsExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap();
+
+        assert_eq!(expr.data_type(), ColumnType::Boolean);
+        assert_eq!(expr.lhs().data_type(), ColumnType::BigInt);
+        assert_eq!(expr.rhs().data_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn we_cannot_construct_equals_expr_for_incompatible_types() {
+        let lhs = DynProofExpr::new_literal(LiteralValue::VarChar("abc".to_string()));
+        let rhs = DynProofExpr::new_literal(LiteralValue::BigInt(7));
+
+        let err = EqualsExpr::try_new(Box::new(lhs), Box::new(rhs)).unwrap_err();
+
+        assert!(matches!(
+            err,
+            AnalyzeError::DataTypeMismatch {
+                left_type: _,
+                right_type: _
+            }
+        ));
+    }
+
+    #[test]
+    fn first_round_equals_zero_marks_only_zero_entries() {
+        let alloc = Bump::new();
+        let lhs = alloc.alloc_slice_copy(&[
+            TestScalar::ZERO,
+            TestScalar::from(3_u64),
+            -TestScalar::TWO,
+            TestScalar::ZERO,
+        ]);
+
+        let selection = first_round_evaluate_equals_zero(lhs.len(), &alloc, lhs);
+
+        assert_eq!(selection, &[true, false, false, true]);
+    }
+
+    #[test]
+    fn full_equals_expr_evaluation_rejects_unequal_literals() {
+        let alloc = Bump::new();
+        let table = Table::<TestScalar>::try_new_with_options(
+            IndexMap::default(),
+            TableOptions::new(Some(4)),
+        )
+        .unwrap();
+        let expr = EqualsExpr::try_new(
+            Box::new(DynProofExpr::new_literal(LiteralValue::BigInt(7))),
+            Box::new(DynProofExpr::new_literal(LiteralValue::Int(3))),
+        )
+        .unwrap();
+
+        let first_round_result = expr.first_round_evaluate(&alloc, &table, &[]).unwrap();
+        assert_eq!(
+            first_round_result,
+            Column::Boolean(&[false, false, false, false])
+        );
+
+        let mut final_round_builder =
+            FinalRoundBuilder::<TestScalar>::new(table.num_rows(), VecDeque::new());
+        let final_round_result = expr
+            .final_round_evaluate(&mut final_round_builder, &alloc, &table, &[])
+            .unwrap();
+        assert_eq!(
+            final_round_result,
+            Column::Boolean(&[false, false, false, false])
+        );
+
+        let final_round_mles: Vec<_> = unit_vectors(table.num_rows())
+            .iter()
+            .map(|evaluation_point| final_round_builder.evaluate_pcs_proof_mles(evaluation_point))
+            .collect();
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            final_round_mles,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        for _ in 0..table.num_rows() {
+            let actual = expr
+                .verifier_evaluate(
+                    &mut verification_builder,
+                    &IndexMap::default(),
+                    TestScalar::ONE,
+                    &[],
+                )
+                .unwrap();
+            assert_eq!(actual, TestScalar::ZERO);
+            verification_builder.increment_row_index();
+        }
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![vec![true, true]; table.num_rows()]
+        );
+    }
+
+    #[test]
+    fn final_and_verifier_equals_zero_constraints_match() {
+        let alloc = Bump::new();
+        let lhs = alloc.alloc_slice_copy(&[
+            TestScalar::ZERO,
+            TestScalar::from(3_u64),
+            -TestScalar::TWO,
+            TestScalar::ZERO,
+        ]);
+        let mut final_round_builder =
+            FinalRoundBuilder::<TestScalar>::new(lhs.len(), VecDeque::new());
+
+        let selection =
+            final_round_evaluate_equals_zero(lhs.len(), &mut final_round_builder, &alloc, lhs);
+
+        assert_eq!(selection, &[true, false, false, true]);
+        assert_eq!(final_round_builder.pcs_proof_mles().len(), 2);
+        assert_eq!(final_round_builder.num_sumcheck_subpolynomials(), 2);
+
+        let final_round_mles: Vec<_> = unit_vectors(lhs.len())
+            .iter()
+            .map(|evaluation_point| final_round_builder.evaluate_pcs_proof_mles(evaluation_point))
+            .collect();
+        let mut verification_builder = MockVerificationBuilder::new(
+            Vec::new(),
+            3,
+            Vec::new(),
+            final_round_mles,
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let expected_selection = [
+            TestScalar::ONE,
+            TestScalar::ZERO,
+            TestScalar::ZERO,
+            TestScalar::ONE,
+        ];
+
+        for (lhs_eval, expected) in lhs.iter().copied().zip(expected_selection) {
+            let actual =
+                verifier_evaluate_equals_zero(&mut verification_builder, lhs_eval, TestScalar::ONE)
+                    .unwrap();
+            assert_eq!(actual, expected);
+            verification_builder.increment_row_index();
+        }
+
+        assert_eq!(
+            verification_builder.get_identity_results(),
+            vec![vec![true, true]; lhs.len()]
+        );
+    }
+}
