@@ -87,6 +87,41 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[test]
+    fn we_can_convert_column_fields_to_arrow_fields() {
+        let column_field = ColumnField::new(
+            "amount".into(),
+            ColumnType::Decimal75(Precision::new(75).unwrap(), -3),
+        );
+
+        assert_eq!(
+            Field::from(&column_field),
+            Field::new("amount", DataType::Decimal256(75, -3), false)
+        );
+    }
+
+    #[test]
+    fn we_reject_unsupported_arrow_data_types() {
+        assert_eq!(
+            ColumnType::try_from(DataType::Float32),
+            Err("Unsupported arrow data type Float32".to_string())
+        );
+        assert_eq!(
+            ColumnType::try_from(DataType::Decimal128(37, 0)),
+            Err("Unsupported arrow data type Decimal128(37, 0)".to_string())
+        );
+        assert_eq!(
+            ColumnType::try_from(DataType::Decimal256(76, 0)),
+            Err("Unsupported arrow data type Decimal256(76, 0)".to_string())
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "not implemented: Cannot convert Scalar type to arrow type")]
+    fn we_panic_when_converting_scalar_column_type_to_arrow_type() {
+        let _ = DataType::from(&ColumnType::Scalar);
+    }
+
     proptest! {
         #[test]
         fn we_can_roundtrip_arbitrary_column_type(column_type: ColumnType) {
