@@ -90,3 +90,133 @@ pub enum PlaceholderError {
 
 /// Result type for placeholder errors
 pub type PlaceholderResult<T> = Result<T, PlaceholderError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proof_errors_display_expected_messages() {
+        assert_eq!(
+            ProofError::VerificationError {
+                error: "bad transcript"
+            }
+            .to_string(),
+            "Verification error: bad transcript"
+        );
+        assert_eq!(
+            ProofError::UnsupportedQueryPlan {
+                error: "cross join"
+            }
+            .to_string(),
+            "Unsupported query plan: cross join"
+        );
+        assert_eq!(
+            ProofError::InvalidTypeCoercion.to_string(),
+            "Result does not match query: type mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldNamesMismatch.to_string(),
+            "Result does not match query: field names mismatch"
+        );
+        assert_eq!(
+            ProofError::FieldCountMismatch.to_string(),
+            "Result does not match query: field count mismatch"
+        );
+    }
+
+    #[test]
+    fn proof_size_mismatch_errors_display_expected_messages() {
+        let cases = [
+            (
+                ProofSizeMismatch::SumcheckProofTooSmall,
+                "Sumcheck proof is too small",
+            ),
+            (
+                ProofSizeMismatch::TooFewMLEEvaluations,
+                "Proof has too few MLE evaluations",
+            ),
+            (
+                ProofSizeMismatch::PostResultCountMismatch,
+                "Post result challenge count mismatch",
+            ),
+            (
+                ProofSizeMismatch::ConstraintCountMismatch,
+                "Constraint count mismatch",
+            ),
+            (
+                ProofSizeMismatch::TooFewBitDistributions,
+                "Proof has too few bit distributions",
+            ),
+            (
+                ProofSizeMismatch::TooFewChiLengths,
+                "Proof has too few one lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewRhoLengths,
+                "Proof has too few rho lengths",
+            ),
+            (
+                ProofSizeMismatch::TooFewSumcheckVariables,
+                "Proof has too few sumcheck variables",
+            ),
+            (
+                ProofSizeMismatch::ChiLengthNotFound,
+                "Proof doesn't have requested one length",
+            ),
+            (
+                ProofSizeMismatch::RhoLengthNotFound,
+                "Proof doesn't have requested rho length",
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn placeholder_errors_display_expected_messages() {
+        assert_eq!(
+            PlaceholderError::InvalidPlaceholderIndex {
+                index: 4,
+                num_params: 3
+            }
+            .to_string(),
+            "Invalid placeholder index: 4, number of params: 3"
+        );
+
+        let error = PlaceholderError::InvalidPlaceholderType {
+            index: 2,
+            expected: ColumnType::Int,
+            actual: ColumnType::BigInt,
+        }
+        .to_string();
+        assert!(error.starts_with("Invalid placeholder type: 2, expected:"));
+        assert!(error.contains(&ColumnType::Int.to_string()));
+        assert!(error.contains(&ColumnType::BigInt.to_string()));
+
+        assert_eq!(
+            PlaceholderError::ZeroPlaceholderId.to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+
+    #[test]
+    fn transparent_proof_errors_display_source_messages() {
+        assert_eq!(
+            ProofError::ProofSizeMismatch {
+                source: ProofSizeMismatch::TooFewMLEEvaluations,
+            }
+            .to_string(),
+            "Proof has too few MLE evaluations"
+        );
+        assert_eq!(
+            ProofError::PlaceholderError {
+                source: PlaceholderError::ZeroPlaceholderId,
+            }
+            .to_string(),
+            "Placeholder id must be greater than 0"
+        );
+    }
+}
