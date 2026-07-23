@@ -69,3 +69,63 @@ impl<'a, T: ProvableResultElement<'a>, const N: usize> ProvableResultColumn for 
         (&self[..]).write(out, length)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slice_result_column_reports_and_writes_encoded_length() {
+        let values = [1_u64, 128, 16_384];
+        let column = &values[..];
+        let expected_len = values
+            .iter()
+            .map(ProvableResultElement::required_bytes)
+            .sum();
+
+        assert_eq!(column.num_bytes(values.len() as u64), expected_len);
+
+        let mut out = vec![0_u8; expected_len];
+        let written = column.write(&mut out, values.len() as u64);
+
+        assert_eq!(written, expected_len);
+
+        let mut offset = 0;
+        for expected in values {
+            let (decoded, bytes_read) =
+                <u64 as ProvableResultElement>::decode(&out[offset..]).unwrap();
+            assert_eq!(decoded, expected);
+            offset += bytes_read;
+        }
+        assert_eq!(offset, written);
+    }
+
+    #[test]
+    fn array_result_column_delegates_to_slice_encoding() {
+        let values = [3_u64, 5, 8, 13];
+        let expected_len = (&values[..]).num_bytes(values.len() as u64);
+
+        assert_eq!(values.num_bytes(values.len() as u64), expected_len);
+
+        let mut from_array = vec![0_u8; expected_len];
+        let mut from_slice = vec![0_u8; expected_len];
+
+        assert_eq!(
+            values.write(&mut from_array, values.len() as u64),
+            expected_len
+        );
+        assert_eq!(
+            (&values[..]).write(&mut from_slice, values.len() as u64),
+            expected_len
+        );
+        assert_eq!(from_array, from_slice);
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_result_column_rejects_mismatched_length() {
+        let values = [1_u64, 2, 3];
+
+        let _ = (&values[..]).num_bytes((values.len() + 1) as u64);
+    }
+}
