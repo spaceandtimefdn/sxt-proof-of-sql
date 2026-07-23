@@ -60,7 +60,7 @@ mod union_exec_test;
 
 mod sort_merge_join_exec;
 pub use sort_merge_join_exec::SortMergeJoinExec;
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod sort_merge_join_exec_test;
 
 mod dyn_proof_plan;
