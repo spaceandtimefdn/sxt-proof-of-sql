@@ -85,6 +85,11 @@ mod tests {
     }
 
     #[test]
+    fn we_can_get_zero_from_an_empty_string() {
+        assert_eq!(TestScalar::from_str_via_hash(""), TestScalar::ZERO);
+    }
+
+    #[test]
     fn we_can_get_scalar_from_hashed_bytes() {
         // Raw bytes of test string "abc" with 31st byte zeroed out:
         let expected: [u8; 32] = [
@@ -107,6 +112,14 @@ mod tests {
         assert_eq!(
             scalar_from_bytes, scalar_from_ref,
             "The masked keccak v256 of 'abc' must match"
+        );
+    }
+
+    #[test]
+    fn we_can_get_scalar_from_a_hashed_string() {
+        assert_eq!(
+            TestScalar::from_str_via_hash("abc"),
+            TestScalar::from_byte_slice_via_hash(b"abc")
         );
     }
 

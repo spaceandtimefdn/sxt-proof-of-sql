@@ -101,7 +101,7 @@ mod tests {
         base::{
             commitment::{Commitment, NumColumnsMismatch, VecCommitmentExt},
             database::{Column, OwnedColumn},
-            scalar::test_scalar_constants,
+            scalar::{test_scalar_constants, Scalar},
         },
         proof_primitive::dory::{rand_util::test_rng, ProverSetup, PublicParameters},
     };
@@ -149,11 +149,12 @@ mod tests {
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * DoryScalar::from(column_a[2]).0,
         );
         expected_commitments[1] = DoryCommitment(
-            Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_b[0].clone()).0
+            Pairing::pairing(Gamma_1[0], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_b[0]).0
                 + Pairing::pairing(Gamma_1[1], Gamma_2[0])
-                    * DoryScalar::from(column_b[1].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[1]).0
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0])
-                    * DoryScalar::from(column_b[2].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_b[2]).0,
         );
 
         assert_eq!(commitments, expected_commitments);
@@ -195,15 +196,16 @@ mod tests {
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1]) * DoryScalar::from(column_a[4]).0,
         );
         expected_commitments[1] = DoryCommitment(
-            Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_b[0].clone()).0
+            Pairing::pairing(Gamma_1[0], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_b[0]).0
                 + Pairing::pairing(Gamma_1[1], Gamma_2[0])
-                    * DoryScalar::from(column_b[1].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[1]).0
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0])
-                    * DoryScalar::from(column_b[2].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[2]).0
                 + Pairing::pairing(Gamma_1[3], Gamma_2[0])
-                    * DoryScalar::from(column_b[3].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[3]).0
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1])
-                    * DoryScalar::from(column_b[4].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_b[4]).0,
         );
 
         assert_eq!(commitments, expected_commitments);
@@ -283,18 +285,20 @@ mod tests {
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0]) * DoryScalar::from(column_a[2]).0,
         );
         expected_commitments[1] = DoryCommitment(
-            Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_b[0].clone()).0
+            Pairing::pairing(Gamma_1[0], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_b[0]).0
                 + Pairing::pairing(Gamma_1[1], Gamma_2[0])
-                    * DoryScalar::from(column_b[1].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[1]).0
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0])
-                    * DoryScalar::from(column_b[2].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_b[2]).0,
         );
         expected_commitments[2] = DoryCommitment(
-            Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_c[0].clone()).0
+            Pairing::pairing(Gamma_1[0], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_c[0]).0
                 + Pairing::pairing(Gamma_1[1], Gamma_2[0])
-                    * DoryScalar::from(column_c[1].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_c[1]).0
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0])
-                    * DoryScalar::from(column_c[2].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_c[2]).0,
         );
         expected_commitments[3] = DoryCommitment(
             Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_d[0]).0
@@ -342,15 +346,16 @@ mod tests {
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1]) * DoryScalar::from(column_a[4]).0,
         );
         expected_commitments[1] = DoryCommitment(
-            Pairing::pairing(Gamma_1[0], Gamma_2[0]) * DoryScalar::from(column_b[0].clone()).0
+            Pairing::pairing(Gamma_1[0], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_b[0]).0
                 + Pairing::pairing(Gamma_1[1], Gamma_2[0])
-                    * DoryScalar::from(column_b[1].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[1]).0
                 + Pairing::pairing(Gamma_1[2], Gamma_2[0])
-                    * DoryScalar::from(column_b[2].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[2]).0
                 + Pairing::pairing(Gamma_1[3], Gamma_2[0])
-                    * DoryScalar::from(column_b[3].clone()).0
+                    * DoryScalar::from_str_via_hash(&column_b[3]).0
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1])
-                    * DoryScalar::from(column_b[4].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_b[4]).0,
         );
 
         assert_eq!(commitments, expected_commitments);
@@ -436,9 +441,10 @@ mod tests {
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1]) * DoryScalar::from(column_a[4]).0,
         );
         expected_commitments[1] = DoryCommitment(
-            Pairing::pairing(Gamma_1[3], Gamma_2[0]) * DoryScalar::from(column_b[3].clone()).0
+            Pairing::pairing(Gamma_1[3], Gamma_2[0])
+                * DoryScalar::from_str_via_hash(&column_b[3]).0
                 + Pairing::pairing(Gamma_1[0], Gamma_2[1])
-                    * DoryScalar::from(column_b[4].clone()).0,
+                    * DoryScalar::from_str_via_hash(&column_b[4]).0,
         );
 
         assert_eq!(commitments, expected_commitments);
