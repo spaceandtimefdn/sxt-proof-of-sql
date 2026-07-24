@@ -78,6 +78,9 @@ impl EVMDynProofExpr {
             DynProofExpr::Placeholder(placeholder_expr) => Ok(Self::Placeholder(
                 EVMPlaceholderExpr::from_proof_expr(placeholder_expr),
             )),
+            // The Solidity verifier does not support CASE yet; reject at
+            // serialization time rather than producing an unverifiable plan.
+            DynProofExpr::Case(_) => Err(EVMProofPlanError::NotSupported),
         }
     }
 
