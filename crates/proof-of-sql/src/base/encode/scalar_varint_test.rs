@@ -1,6 +1,7 @@
 use super::scalar_varint::{
-    read_scalar_varint, read_scalar_varints, scalar_varint_size, scalar_varints_size,
-    write_scalar_varint, write_scalar_varints,
+    read_scalar_varint, read_scalar_varints, read_u256_varint, scalar_varint_size,
+    scalar_varints_size, u256_varint_size, write_scalar_varint, write_scalar_varints,
+    write_u256_varint,
 };
 use crate::base::{encode::U256, scalar::test_scalar::TestScalar};
 use alloc::vec;
@@ -257,6 +258,32 @@ fn valid_varint_encoded_input_that_has_length_bigger_than_259_bits_will_make_the
     //  each byte can hold only 7 bits in the varint encoding)
     buf[37] = 0b0111_1111_u8;
     assert!((read_scalar_varint(&buf[..38]) as Option<(TestScalar, _)>).is_none());
+}
+
+#[test]
+fn u256_varints_round_trip_boundary_values() {
+    let boundary_values = [
+        U256::from_words(0, 0),
+        U256::from_words(0, 1),
+        U256::from_words(u128::MAX, u128::MAX),
+    ];
+
+    for value in boundary_values {
+        let mut buf = [0_u8; 37];
+        let written = write_u256_varint(&mut buf, value);
+
+        assert_eq!(written, u256_varint_size(value));
+        let (decoded, read) = read_u256_varint(&buf[..written]).unwrap();
+        assert!(decoded == value);
+        assert_eq!(read, written);
+    }
+}
+
+#[test]
+fn unterminated_u256_varint_returns_none() {
+    let buf = [0b1000_0000_u8; 37];
+
+    assert!(read_u256_varint(&buf).is_none());
 }
 
 fn write_read_and_compare_encoding(expected_scals: &[TestScalar]) {
