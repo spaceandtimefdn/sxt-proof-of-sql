@@ -363,3 +363,86 @@ pub fn borrowed_timestamptz<S: Scalar>(
         Column::TimestampTZ(time_unit, timezone, alloc_data),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::{math::decimal::Precision, scalar::test_scalar::TestScalar};
+
+    #[test]
+    fn table_with_row_count_allows_zero_columns_with_rows() {
+        let table = table_with_row_count::<TestScalar>([], 7);
+
+        assert_eq!(table.num_columns(), 0);
+        assert_eq!(table.num_rows(), 7);
+        assert!(table.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "ColumnLengthMismatchWithSpecifiedRowCount")]
+    fn table_with_row_count_rejects_mismatched_column_lengths() {
+        let alloc = Bump::new();
+
+        let _ = table_with_row_count::<TestScalar>([borrowed_int("a", [1, 2, 3], &alloc)], 2);
+    }
+
+    #[test]
+    fn borrowed_decimal75_preserves_precision_scale_and_values() {
+        let alloc = Bump::new();
+
+        let (name, column) = borrowed_decimal75::<TestScalar>("amount", 12, 2, [10, 20], &alloc);
+
+        assert_eq!(name.value, "amount");
+        match column {
+            Column::Decimal75(precision, scale, values) => {
+                assert_eq!(precision, Precision::new(12).unwrap());
+                assert_eq!(scale, 2);
+                assert_eq!(values, &[TestScalar::from(10), TestScalar::from(20)]);
+            }
+            _ => panic!("expected decimal75 column"),
+        }
+    }
+
+    #[test]
+    fn borrowed_timestamptz_preserves_unit_timezone_and_values() {
+        let alloc = Bump::new();
+        let timezone = PoSQLTimeZone::utc();
+
+        let (name, column) = borrowed_timestamptz::<TestScalar>(
+            "created_at",
+            PoSQLTimeUnit::Millisecond,
+            timezone,
+            [1_625_072_400, 1_625_076_000],
+            &alloc,
+        );
+
+        assert_eq!(name.value, "created_at");
+        match column {
+            Column::TimestampTZ(unit, tz, values) => {
+                assert_eq!(unit, PoSQLTimeUnit::Millisecond);
+                assert_eq!(tz, timezone);
+                assert_eq!(values, &[1_625_072_400, 1_625_076_000]);
+            }
+            _ => panic!("expected timestamptz column"),
+        }
+    }
+
+    #[test]
+    fn borrowed_varchar_allocates_strings_and_scalar_hashes() {
+        let alloc = Bump::new();
+
+        let (name, column) = borrowed_varchar::<TestScalar>("label", ["alpha", "beta"], &alloc);
+
+        assert_eq!(name.value, "label");
+        match column {
+            Column::VarChar((strings, scalars)) => {
+                assert_eq!(strings, &["alpha", "beta"]);
+                assert_eq!(
+                    scalars,
+                    &[TestScalar::from("alpha"), TestScalar::from("beta")]
+                );
+            }
+            _ => panic!("expected varchar column"),
+        }
+    }
+}
