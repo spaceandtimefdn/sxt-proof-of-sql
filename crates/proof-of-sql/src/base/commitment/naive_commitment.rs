@@ -226,6 +226,10 @@ fn we_can_compute_commitments_from_committable_varbinary_column_with_offset() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::base::{
+        math::decimal::Precision,
+        posql_time::{PoSQLTimeUnit, PoSQLTimeZone},
+    };
 
     #[test]
     fn we_get_different_transcript_bytes_from_different_naive_commitments() {
@@ -234,6 +238,109 @@ mod tests {
         assert_ne!(
             commitment1.to_transcript_bytes(),
             commitment2.to_transcript_bytes()
+        );
+    }
+
+    #[test]
+    fn we_can_compute_commitments_from_remaining_committable_column_variants() {
+        let bools = [false, true, true];
+        let uint8s = [0_u8, 7, 255];
+        let tiny_ints = [-8_i8, 0, 7];
+        let small_ints = [-300_i16, 0, 512];
+        let ints = [-1024_i32, 0, 4096];
+        let int128s = [-1_i128, 0, 1_i128 << 96];
+        let decimal_limbs = vec![[1_u64, 2, 3, 4], [5, 6, 7, 8]];
+        let scalar_limbs = vec![[9_u64, 10, 11, 12], [13, 14, 15, 16]];
+        let timestamps = [1_700_000_000_i64, 1_700_000_001];
+        let precision = Precision::new(12).unwrap();
+
+        let columns = [
+            CommittableColumn::Boolean(&bools),
+            CommittableColumn::Uint8(&uint8s),
+            CommittableColumn::TinyInt(&tiny_ints),
+            CommittableColumn::SmallInt(&small_ints),
+            CommittableColumn::Int(&ints),
+            CommittableColumn::Int128(&int128s),
+            CommittableColumn::Decimal75(precision, 2, decimal_limbs.clone()),
+            CommittableColumn::Scalar(scalar_limbs.clone()),
+            CommittableColumn::TimestampTZ(
+                PoSQLTimeUnit::Second,
+                PoSQLTimeZone::utc(),
+                &timestamps,
+            ),
+        ];
+        let commitments = NaiveCommitment::compute_commitments(&columns, 0, &());
+
+        assert_eq!(
+            commitments[0].0,
+            bools
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[1].0,
+            uint8s
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[2].0,
+            tiny_ints
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[3].0,
+            small_ints
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[4].0,
+            ints.iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[5].0,
+            int128s
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[6].0,
+            decimal_limbs
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[7].0,
+            scalar_limbs
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            commitments[8].0,
+            timestamps
+                .iter()
+                .copied()
+                .map(TestScalar::from)
+                .collect::<Vec<_>>()
         );
     }
 }
