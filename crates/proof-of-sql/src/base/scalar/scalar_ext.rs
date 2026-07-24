@@ -133,10 +133,25 @@ mod tests {
         let two = TestScalar::TWO;
         let max = TestScalar::MAX_SIGNED;
         let min = max + one;
+        assert_eq!(zero.signed_cmp(&zero), Ordering::Equal);
         assert_eq!(max.signed_cmp(&one), Ordering::Greater);
         assert_eq!(one.signed_cmp(&zero), Ordering::Greater);
         assert_eq!(min.signed_cmp(&zero), Ordering::Less);
         assert_eq!((two * max).signed_cmp(&zero), Ordering::Less);
         assert_eq!(two * max + one, zero);
+    }
+
+    #[test]
+    fn wrapping_u256_conversion_preserves_limbs() {
+        let value = U256::from([
+            0x0123_4567_89ab_cdef,
+            0xfedc_ba98_7654_3210,
+            0x0f0f_f0f0_aaaa_5555,
+            0x0000_0000_0000_0000,
+        ]);
+
+        let scalar = TestScalar::from_wrapping(value);
+
+        assert_eq!(scalar.into_u256_wrapping(), value);
     }
 }
