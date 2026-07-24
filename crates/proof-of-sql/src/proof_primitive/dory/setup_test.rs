@@ -1,6 +1,25 @@
-use super::{test_rng, ProverSetup, PublicParameters, VerifierSetup};
+use super::{shared_dory_test_setup, test_rng, ProverSetup, PublicParameters, VerifierSetup};
 use ark_ec::pairing::Pairing;
 use std::{fs, path::Path};
+
+#[test]
+fn shared_dory_test_setup_reuses_generated_setup() {
+    let first = shared_dory_test_setup(5);
+    let second = shared_dory_test_setup(5);
+
+    assert!(std::ptr::eq(
+        first.public_parameters,
+        second.public_parameters
+    ));
+    assert!(std::ptr::eq(
+        std::ptr::from_ref(&first.prover_setup),
+        std::ptr::from_ref(&second.prover_setup)
+    ));
+    assert!(std::ptr::eq(
+        std::ptr::from_ref(&first.verifier_setup),
+        std::ptr::from_ref(&second.verifier_setup)
+    ));
+}
 
 #[test]
 fn we_can_create_and_manually_check_a_small_prover_setup() {
