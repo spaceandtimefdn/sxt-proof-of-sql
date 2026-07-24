@@ -82,20 +82,16 @@ fn write_commitment_key_to_binary(binary_path: &str, setup: &CommitmentKey<E>) {
     }
 }
 
-fn create_binary_file(args: &[String]) {
-    let (ptau_path, binary_path, n) = match parse_args(args) {
-        Ok(result) => result,
-        Err(err) => {
-            eprintln!("Error: {err}");
-            std::process::exit(1);
-        }
-    };
+fn create_binary_file(args: &[String]) -> Result<(), String> {
+    let (ptau_path, binary_path, n) = parse_args(args)?;
 
     // Read the setup using Microsoft's Nova crate
     let setup = load_setup_from_file(ptau_path, n);
 
     // Create the binary file
     write_commitment_key_to_binary(binary_path, &setup);
+
+    Ok(())
 }
 
 /// # Panics
@@ -103,7 +99,10 @@ fn create_binary_file(args: &[String]) {
 /// This function panics if the binary file cannot be written.
 fn main() {
     let args: Vec<String> = env::args().collect();
-    create_binary_file(args.as_slice());
+    if let Err(err) = create_binary_file(args.as_slice()) {
+        eprintln!("Error: {err}");
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]
@@ -139,7 +138,8 @@ mod tests {
             ptau_path.to_string(),
             binary_path.to_string(),
             n.to_string(),
-        ]);
+        ])
+        .unwrap();
 
         // Verify the binary file
         let file = OpenOptions::new().read(true).open(binary_path).unwrap();
@@ -159,6 +159,18 @@ mod tests {
         // Clean up
         fs::remove_file(ptau_path).unwrap();
         fs::remove_file(binary_path).unwrap();
+    }
+
+    #[test]
+    fn we_can_get_create_binary_file_parse_errors() {
+        let args = vec!["program".to_string()];
+        let result = create_binary_file(&args);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Usage: program <ptau_path> <binary_path> <n>"
+        );
     }
 
     /// # Panics
