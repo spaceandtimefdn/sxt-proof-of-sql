@@ -318,3 +318,39 @@ impl From<&PublicParameters> for VerifierSetup {
         )
     }
 }
+
+#[cfg(all(test, feature = "blitzar"))]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn we_can_create_prover_setup_from_public_parameters_and_blitzar_handle() {
+        let public_parameters = PublicParameters::test_rand(2, &mut ark_std::test_rng());
+        let blitzar_elements = public_parameters
+            .Gamma_1
+            .iter()
+            .copied()
+            .map(Into::into)
+            .collect::<Vec<_>>();
+        let blitzar_handle = blitzar::compute::MsmHandle::new(&blitzar_elements);
+
+        let prover_setup = ProverSetup::from_public_parameters_and_blitzar_handle(
+            &public_parameters,
+            blitzar_handle,
+        );
+
+        assert_eq!(prover_setup.Gamma_1.len(), public_parameters.max_nu + 1);
+        assert_eq!(prover_setup.Gamma_2.len(), public_parameters.max_nu + 1);
+        assert_eq!(prover_setup.Gamma_1[0], &public_parameters.Gamma_1[..1]);
+        assert_eq!(prover_setup.Gamma_1[2], &public_parameters.Gamma_1[..4]);
+        assert_eq!(prover_setup.Gamma_2[0], &public_parameters.Gamma_2[..1]);
+        assert_eq!(prover_setup.Gamma_2[2], &public_parameters.Gamma_2[..4]);
+        assert_eq!(prover_setup.H_1, public_parameters.H_1);
+        assert_eq!(prover_setup.H_2, public_parameters.H_2);
+        assert_eq!(prover_setup.Gamma_2_fin, public_parameters.Gamma_2_fin);
+        assert_eq!(prover_setup.max_nu, public_parameters.max_nu);
+
+        let _blitzar_handle = prover_setup.blitzar_handle();
+    }
+}
