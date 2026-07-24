@@ -62,3 +62,76 @@ impl<S: Scalar> ProverState<S> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::base::scalar::test_scalar::TestScalar;
+    use alloc::{rc::Rc, vec};
+
+    #[test]
+    fn new_preserves_state_fields_and_starts_at_round_zero() {
+        let list_of_products = vec![
+            (TestScalar::from(7u64), vec![0]),
+            (-TestScalar::from(3u64), vec![0, 1]),
+        ];
+        let flattened_ml_extensions = vec![
+            vec![TestScalar::from(1u64), TestScalar::from(2u64)],
+            vec![TestScalar::from(3u64), TestScalar::from(4u64)],
+        ];
+
+        let state = ProverState::new(
+            list_of_products.clone(),
+            flattened_ml_extensions.clone(),
+            3,
+            2,
+        );
+
+        assert_eq!(state.list_of_products, list_of_products);
+        assert_eq!(state.flattened_ml_extensions, flattened_ml_extensions);
+        assert_eq!(state.num_vars, 3);
+        assert_eq!(state.max_multiplicands, 2);
+        assert_eq!(state.round, 0);
+    }
+
+    #[test]
+    fn create_copies_composite_polynomial_structure() {
+        let shared_extension = Rc::new(vec![
+            TestScalar::from(1u64),
+            TestScalar::from(2u64),
+            TestScalar::from(3u64),
+            TestScalar::from(4u64),
+        ]);
+        let second_extension = Rc::new(vec![
+            TestScalar::from(5u64),
+            TestScalar::from(6u64),
+            TestScalar::from(7u64),
+            TestScalar::from(8u64),
+        ]);
+        let mut polynomial = CompositePolynomial::new(2);
+        polynomial.add_product([shared_extension.clone()], TestScalar::from(11u64));
+        polynomial.add_product(
+            [shared_extension.clone(), second_extension.clone()],
+            TestScalar::from(13u64),
+        );
+
+        let state = ProverState::create(&polynomial);
+
+        assert_eq!(state.list_of_products, polynomial.products);
+        assert_eq!(
+            state.flattened_ml_extensions,
+            vec![(*shared_extension).clone(), (*second_extension).clone()]
+        );
+        assert_eq!(state.num_vars, polynomial.num_variables);
+        assert_eq!(state.max_multiplicands, 2);
+        assert_eq!(state.round, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Attempt to prove a constant.")]
+    fn create_rejects_constant_polynomial() {
+        let polynomial = CompositePolynomial::<TestScalar>::new(0);
+
+        let _ = ProverState::create(&polynomial);
+    }
+}
