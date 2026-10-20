@@ -181,6 +181,10 @@ impl ProverEvaluate for ProjectionExec {
                 },
             )
             .collect::<PlaceholderResult<IndexMap<_, _>>>()?;
+        tracing::info!(
+            "ProjectionExec::final_round_evaluate columns: {:?}",
+            cols
+        );
 
         let res =
             Table::<'a, S>::try_new_with_options(cols, TableOptions::new(Some(input.num_rows())))
