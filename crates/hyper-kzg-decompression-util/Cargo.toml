@@ -1,0 +1,19 @@
+[package]
+name = "hyper-kzg-decompression-util"
+edition.workspace = true
+exclude.workspace = true
+repository.workspace = true
+version.workspace = true
+license-file.workspace = true
+
+[dependencies]
+ark-bn254 = { workspace = true }
+ark-serialize = { workspace = true, features = ["std"] }
+rayon = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ark-std = { workspace = true }
+
+[lints]
+workspace = true
