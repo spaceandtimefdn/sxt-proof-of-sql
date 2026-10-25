@@ -99,18 +99,137 @@ impl<C: Commitment> TableCommitment<C> {
     }
 }
 
-#[cfg(all(test, feature = "blitzar"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::base::{
-        commitment::naive_commitment::NaiveCommitment, scalar::test_scalar::TestScalar,
+        arrow::arrow_array_to_column_conversion::ArrowArrayToColumnConversionError,
+        commitment::{naive_commitment::NaiveCommitment, ColumnCommitmentsMismatch},
+        scalar::test_scalar::TestScalar,
     };
     use arrow::{
-        array::{Int64Array, StringArray},
+        array::{ArrayRef, Float64Array, Int64Array, StringArray},
         datatypes::{DataType, Field, Schema},
         record_batch::RecordBatch,
     };
     use std::sync::Arc;
+
+    fn batch_with_column(name: &str, array: ArrayRef) -> RecordBatch {
+        RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                name,
+                array.data_type().clone(),
+                true,
+            )])),
+            vec![array],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn we_reject_record_batches_with_nulls_or_unsupported_types() {
+        let invalid_columns: [(ArrayRef, ArrowArrayToColumnConversionError); 2] = [
+            (
+                Arc::new(Int64Array::from(vec![Some(1), None])),
+                ArrowArrayToColumnConversionError::ArrayContainsNulls,
+            ),
+            (
+                Arc::new(Float64Array::from(vec![1.0, 2.0])),
+                ArrowArrayToColumnConversionError::UnsupportedType {
+                    datatype: DataType::Float64,
+                },
+            ),
+        ];
+        for (array, expected) in invalid_columns {
+            // Put a valid column first so conversion must propagate a later failure.
+            let batch = RecordBatch::try_new(
+                Arc::new(Schema::new(vec![
+                    Field::new("a", DataType::Int64, false),
+                    Field::new("b", array.data_type().clone(), true),
+                ])),
+                vec![Arc::new(Int64Array::from(vec![1, 2])), array],
+            )
+            .unwrap();
+            let alloc = Bump::new();
+            for result in [
+                batch_to_columns::<TestScalar>(&batch, &alloc).map(|_| ()),
+                TableCommitment::<NaiveCommitment>::try_from_record_batch(&batch, &()).map(|_| ()),
+                TableCommitment::<NaiveCommitment>::try_from_record_batch_with_offset(
+                    &batch,
+                    7,
+                    &(),
+                )
+                .map(|_| ()),
+            ] {
+                let Err(RecordBatchToColumnsError::ArrowArrayToColumnConversionError { source }) =
+                    result
+                else {
+                    panic!("expected the array conversion error");
+                };
+                assert_eq!(source, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn failed_record_batch_conversion_does_not_change_the_commitment() {
+        let batch = batch_with_column("a", Arc::new(Int64Array::from(vec![1, 2])));
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch_with_offset(&batch, 7, &())
+                .unwrap();
+        let before = commitment.clone();
+        let invalid = batch_with_column("a", Arc::new(Int64Array::from(vec![Some(3), None])));
+        assert!(matches!(
+            commitment.try_append_record_batch(&invalid, &()),
+            Err(
+                AppendRecordBatchTableCommitmentError::ArrowBatchToColumnError {
+                    source: RecordBatchToColumnsError::ArrowArrayToColumnConversionError {
+                        source: ArrowArrayToColumnConversionError::ArrayContainsNulls,
+                    },
+                }
+            )
+        ));
+        assert_eq!(commitment, before);
+
+        // A rejected append must not advance the offset of the next valid append.
+        let valid = batch_with_column("a", Arc::new(Int64Array::from(vec![3, 4])));
+        commitment.try_append_record_batch(&valid, &()).unwrap();
+        let columns = [(&"a".into(), &Column::<TestScalar>::BigInt(&[1, 2, 3, 4]))];
+        let expected =
+            TableCommitment::<NaiveCommitment>::try_from_columns_with_offset(columns, 7, &())
+                .unwrap();
+        assert_eq!(commitment, expected);
+    }
+
+    #[test]
+    fn mismatched_record_batch_schema_does_not_change_the_commitment() {
+        let batch = batch_with_column("a", Arc::new(Int64Array::from(vec![1, 2])));
+        let mut commitment =
+            TableCommitment::<NaiveCommitment>::try_from_record_batch(&batch, &()).unwrap();
+        let before = commitment.clone();
+
+        let renamed = batch_with_column("b", Arc::new(Int64Array::from(vec![3, 4])));
+        assert!(matches!(
+            commitment.try_append_record_batch(&renamed, &()),
+            Err(
+                AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+                    source: ColumnCommitmentsMismatch::Ident { .. },
+                }
+            )
+        ));
+        assert_eq!(commitment, before);
+
+        let retyped = batch_with_column("a", Arc::new(StringArray::from(vec!["3", "4"])));
+        assert!(matches!(
+            commitment.try_append_record_batch(&retyped, &()),
+            Err(
+                AppendRecordBatchTableCommitmentError::ColumnCommitmentsMismatch {
+                    source: ColumnCommitmentsMismatch::ColumnCommitmentMetadata { .. },
+                }
+            )
+        ));
+        assert_eq!(commitment, before);
+    }
 
     #[test]
     fn we_can_create_and_append_table_commitments_with_record_batches() {
