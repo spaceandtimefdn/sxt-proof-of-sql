@@ -16,6 +16,7 @@ pub type HyperKZGPublicSetupOwned = Vec<G1Affine>;
 pub type HyperKZGPublicSetup<'a> = &'a [G1Affine];
 
 const COMPRESSED_SIZE: usize = 32;
+const UNCOMPRESSED_SIZE: usize = 64;
 
 /// Deserialize a [`HyperKZGPublicSetupOwned`] from any `Read` implementor.
 ///
@@ -54,6 +55,20 @@ pub fn deserialize_flat_compressed_hyperkzg_public_setup_from_slice(
     bytes
         .chunks(COMPRESSED_SIZE)
         .map(|chunk| G1Affine::deserialize_with_mode(chunk, Compress::Yes, validate))
+        .collect()
+}
+
+/// Deserialize a [`HyperKZGPublicSetupOwned`] from a byte slice of uncompressed points.
+///
+/// This expects the format produced by decompressing the proof-of-sql public ppot binaries. That is,
+/// ark-serialized, uncompressed points flatly concatenated in the file (no length prefix).
+pub fn deserialize_flat_uncompressed_hyperkzg_public_setup_from_slice(
+    bytes: &[u8],
+    validate: Validate,
+) -> Result<HyperKZGPublicSetupOwned, SerializationError> {
+    bytes
+        .chunks(UNCOMPRESSED_SIZE)
+        .map(|chunk| G1Affine::deserialize_with_mode(chunk, Compress::No, validate))
         .collect()
 }
 
@@ -139,6 +154,7 @@ pub fn load_small_setup_for_testing(
 #[cfg(all(test, feature = "std"))]
 mod std_tests {
     use super::*;
+    use ark_serialize::CanonicalSerialize;
 
     #[test]
     fn we_can_deserialize_empty_setup_from_slice() {
@@ -167,6 +183,36 @@ mod std_tests {
                 .unwrap()
                 .len(),
             4,
+        );
+    }
+
+    #[test]
+    fn we_can_deserialize_empty_uncompressed_setup_from_slice() {
+        assert_eq!(
+            deserialize_flat_uncompressed_hyperkzg_public_setup_from_slice(&[], Validate::Yes)
+                .unwrap(),
+            Vec::<G1Affine>::new(),
+        );
+    }
+
+    #[test]
+    fn we_can_deserialize_uncompressed_ppot_02_setup_from_slice() {
+        let compressed = include_bytes!("test_ppot_0080_02.bin");
+        let expected =
+            deserialize_flat_compressed_hyperkzg_public_setup_from_slice(compressed, Validate::Yes)
+                .unwrap();
+        let mut uncompressed = Vec::new();
+        for point in &expected {
+            point.serialize_uncompressed(&mut uncompressed).unwrap();
+        }
+        assert_eq!(uncompressed.len(), expected.len() * UNCOMPRESSED_SIZE);
+        assert_eq!(
+            deserialize_flat_uncompressed_hyperkzg_public_setup_from_slice(
+                &uncompressed,
+                Validate::Yes
+            )
+            .unwrap(),
+            expected,
         );
     }
 

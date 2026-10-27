@@ -15,7 +15,8 @@ pub use public_setup::deserialize_flat_compressed_hyperkzg_public_setup_from_rea
 #[cfg(feature = "hyperkzg_proof")]
 pub use public_setup::load_small_setup_for_testing;
 pub use public_setup::{
-    deserialize_flat_compressed_hyperkzg_public_setup_from_slice, HyperKZGPublicSetup,
+    deserialize_flat_compressed_hyperkzg_public_setup_from_slice,
+    deserialize_flat_uncompressed_hyperkzg_public_setup_from_slice, HyperKZGPublicSetup,
     HyperKZGPublicSetupOwned,
 };
 
