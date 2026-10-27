@@ -94,10 +94,11 @@ impl<S: Scalar> DataAccessor<S> for DataAccessorImpl<'_, S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::base::{
-        database::{
-            Column, DataAccessor, DataAccessorImpl, MetadataAccessor, TableDataAccessor, TableRef,
-        },
+    use crate::base::database::{
+        Column, DataAccessor, DataAccessorImpl, MetadataAccessor, TableDataAccessor, TableRef,
+    };
+    use crate::base::map::IndexSet;
+        
         scalar::test_scalar::TestScalar,
     };
     use alloc::sync::Arc;
@@ -153,6 +154,38 @@ mod tests {
             [(table_ref.clone(), table_data_accessor)]
                 .into_iter()
                 .collect(),
+
+    #[test]
+    fn we_can_get_table_from_data_accessor() {
+        let bump = Bump::new();
+        let col_id1 = Ident::from("col1");
+        let col_id2 = Ident::from("col2");
+        let column1 = Column::<TestScalar>::Int(&[1, 2]);
+        let column2 = Column::<TestScalar>::Int(&[3, 4]);
+        let table_data_accessor =
+            TableDataAccessor::new(0, [("col1".into(), column1), ("col2".into(), column2)].into_iter().collect());
+        let table_ref = TableRef::from_names(Some("test"), "table");
+        let data_accessor = DataAccessorImpl::new(
+            [(table_ref.clone(), table_data_accessor)]
+                .into_iter()
+                .collect(),
+        );
+
+        // 1) Test with empty column ids
+        let table_empty = data_accessor.get_table(&table_ref, &IndexSet::default());
+        assert_eq!(table_empty.num_rows(), 2);
+        assert_eq!(table_empty.num_columns(), 0);
+
+        // 2) Test with specific column ids
+        let mut column_ids = IndexSet::default();
+        column_ids.insert(col_id1.clone());
+        column_ids.insert(col_id2.clone());
+        let table_full = data_accessor.get_table(&table_ref, &column_ids);
+        assert_eq!(table_full.num_rows(), 2);
+        assert_eq!(table_full.num_columns(), 2);
+        assert_eq!(table_full.inner_table().get(&col_id1).unwrap(), &Column::Int(&[1, 2]));
+        assert_eq!(table_full.inner_table().get(&col_id2).unwrap(), &Column::Int(&[3, 4]));
+    }
         );
 
         assert_eq!(data_accessor_impl.get_length(&table_ref), 2);
